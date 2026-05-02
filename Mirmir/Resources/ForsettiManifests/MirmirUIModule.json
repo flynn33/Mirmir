@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.mirmir.app.ui",
+  "displayName": "Mirmir UI",
+  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleType": "ui",
+  "supportedPlatforms": ["macOS"],
+  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
+  "capabilitiesRequested": ["view_injection", "toolbar_items"],
+  "entryPoint": "MirmirUIModule"
+}

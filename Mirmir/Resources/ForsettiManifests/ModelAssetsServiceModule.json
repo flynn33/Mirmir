@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.mirmir.app.model-assets",
+  "displayName": "Model Assets",
+  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleType": "service",
+  "supportedPlatforms": ["macOS"],
+  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
+  "capabilitiesRequested": ["storage", "telemetry"],
+  "entryPoint": "ModelAssetsServiceModule"
+}

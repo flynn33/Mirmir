@@ -1,0 +1,723 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04FBC1BA78166E5A4BFAFED6 /* DefaultModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */; };
+		0A5FC8B28C21C49BE57059B1 /* ForsettiPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 6A42A76B3F9113774295A4BD /* ForsettiPlatform */; };
+		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
+		11C6CBDE9A57638B48FE8C14 /* VideoSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */; };
+		147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */; };
+		23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E347AE2D83CC5AF980CF38 /* NoopServices.swift */; };
+		2D752A9307BEF58A7D006450 /* DefaultUpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */; };
+		2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */; };
+		3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */; };
+		3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */; };
+		387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D3BF1665450FC60B415F7B /* MirmirApp.swift */; };
+		3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */; };
+		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
+		50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA6BAD72661C314938F3CBD2 /* ForsettiCore */; };
+		51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */; };
+		554F3FCEA4D932BC00FDE77B /* MirmirForsettiBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */; };
+		565D51FAF6BE1CD0ACD4CAFF /* UpscalerEngineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */; };
+		61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F211265C8C19173941BE3ACA /* ContentView.swift */; };
+		6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */; };
+		79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */; };
+		7D1FC619F99A8D67C5ED379C /* ModelAssetsServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */; };
+		811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9833C96F05E187004E393DAD /* MirmirRootView.swift */; };
+		8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */; };
+		84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */; };
+		87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132D09C41665FFDB89F81CE /* PreviewView.swift */; };
+		91664CA9389290FD84AC1EA4 /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6A39150105994137136886D1 /* ForsettiCore */; };
+		9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */; };
+		9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */; };
+		99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */; };
+		A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */; };
+		A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF56556BD38E52A6939975 /* MediaTypes.swift */; };
+		B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */; };
+		BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */; };
+		BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */ = {isa = PBXBuildFile; fileRef = D369E9FFB41D568A97978643 /* MirmirUIModule.json */; };
+		CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */; };
+		D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */; };
+		DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */; };
+		E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */; };
+		E8D3F54740F2D2FAC0CFDC4D /* DefaultMetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */; };
+		EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */; };
+		F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */; };
+		F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24461DB7E24A4434349B337 /* MetalRenderingService.swift */; };
+		FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */; };
+		FD440AB675F3EF7298C713C7 /* UpscaleJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7C909B925C5E765D352A19 /* UpscaleJob.swift */; };
+		FDC4F33E2DA4475E3CA01F9A /* MirmirModuleRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		23D3763225D488F443EEB71A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4718DCAF0509158E807570DD /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = AAB58EF4B52C8A77279FE17C;
+			remoteInfo = Mirmir;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02E347AE2D83CC5AF980CF38 /* NoopServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopServices.swift; sourceTree = "<group>"; };
+		0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaPipeline.swift; sourceTree = "<group>"; };
+		1132D09C41665FFDB89F81CE /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirForsettiBootstrap.swift; sourceTree = "<group>"; };
+		1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModelAssetsService.swift; sourceTree = "<group>"; };
+		20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultUpscalerEngineService.swift; sourceTree = "<group>"; };
+		2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewModel.swift; sourceTree = "<group>"; };
+		31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTModelStager.swift; sourceTree = "<group>"; };
+		37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineService.swift; sourceTree = "<group>"; };
+		405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeploymentMode.swift; sourceTree = "<group>"; };
+		40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleRegistry.swift; sourceTree = "<group>"; };
+		44C397D85806DEA084B8D3D0 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModelAssetsServiceModule.json; sourceTree = "<group>"; };
+		50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBufferBridge.swift; sourceTree = "<group>"; };
+		55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = UpscalerEngineServiceModule.json; sourceTree = "<group>"; };
+		60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MediaPipelineServiceModule.json; sourceTree = "<group>"; };
+		61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MetalRenderingServiceModule.json; sourceTree = "<group>"; };
+		61D3BF1665450FC60B415F7B /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
+		691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineServiceModule.swift; sourceTree = "<group>"; };
+		70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineService.swift; sourceTree = "<group>"; };
+		743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
+		77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestRegistryAlignmentTests.swift; sourceTree = "<group>"; };
+		7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProductionRootView.swift; sourceTree = "<group>"; };
+		87DF56556BD38E52A6939975 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
+		901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
+		90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingServiceModule.swift; sourceTree = "<group>"; };
+		9833C96F05E187004E393DAD /* MirmirRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRootView.swift; sourceTree = "<group>"; };
+		9A78C659F1316316CF55A11E /* Forsetti-Framework-main */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "Forsetti-Framework-main"; path = "../Forsetti-Framework-main"; sourceTree = SOURCE_ROOT; };
+		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
+		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPanelView.swift; sourceTree = "<group>"; };
+		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
+		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
+		D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPass.swift; sourceTree = "<group>"; };
+		D369E9FFB41D568A97978643 /* MirmirUIModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MirmirUIModule.json; sourceTree = "<group>"; };
+		D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleStrategy.swift; sourceTree = "<group>"; };
+		D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategySelectorTests.swift; sourceTree = "<group>"; };
+		D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTSuperResolutionDriver.swift; sourceTree = "<group>"; };
+		D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIConstants.swift; sourceTree = "<group>"; };
+		E75DA9BCC8A62F7A944297A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleControlsView.swift; sourceTree = "<group>"; };
+		EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSelectionView.swift; sourceTree = "<group>"; };
+		EF7C909B925C5E765D352A19 /* UpscaleJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleJob.swift; sourceTree = "<group>"; };
+		F211265C8C19173941BE3ACA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsService.swift; sourceTree = "<group>"; };
+		FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIModule.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A274853FF287129F8F6B4705 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				91664CA9389290FD84AC1EA4 /* ForsettiCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B4E0E0AE15D58EBBB62310F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */,
+				0A5FC8B28C21C49BE57059B1 /* ForsettiPlatform in Frameworks */,
+				4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		014C65A0E7683259859CCAD9 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				44C397D85806DEA084B8D3D0 /* Mirmir.app */,
+				A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		098C5BEC784652B77DE38D56 /* UpscalerEngine */ = {
+			isa = PBXGroup;
+			children = (
+				20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */,
+				D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */,
+				EF7C909B925C5E765D352A19 /* UpscaleJob.swift */,
+				37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */,
+				691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */,
+				D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */,
+				D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */,
+			);
+			path = UpscalerEngine;
+			sourceTree = "<group>";
+		};
+		17392895A6B286AA06640027 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				F211265C8C19173941BE3ACA /* ContentView.swift */,
+				61D3BF1665450FC60B415F7B /* MirmirApp.swift */,
+				405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */,
+				177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */,
+				40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */,
+				7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		300DD123FB8D9AD9C26BB2FD /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				9833C96F05E187004E393DAD /* MirmirRootView.swift */,
+				1132D09C41665FFDB89F81CE /* PreviewView.swift */,
+				C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */,
+				EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */,
+				EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		41DDB5DA39D8CE7069159BAB /* ModelAssets */ = {
+			isa = PBXGroup;
+			children = (
+				1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */,
+				F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */,
+				C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */,
+				31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */,
+			);
+			path = ModelAssets;
+			sourceTree = "<group>";
+		};
+		50E3FE83D97A4E37C0627F13 /* Mirmir */ = {
+			isa = PBXGroup;
+			children = (
+				E75DA9BCC8A62F7A944297A8 /* Info.plist */,
+				901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */,
+				17392895A6B286AA06640027 /* App */,
+				932AABCCFB7945CFB26C311B /* Modules */,
+				FBF76D81FC8B5D2A4A396DAD /* Resources */,
+			);
+			path = Mirmir;
+			sourceTree = "<group>";
+		};
+		6CF1564C6FE2DBF92C1B9006 /* MetalRendering */ = {
+			isa = PBXGroup;
+			children = (
+				743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */,
+				A24461DB7E24A4434349B337 /* MetalRenderingService.swift */,
+				90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */,
+			);
+			path = MetalRendering;
+			sourceTree = "<group>";
+		};
+		6D29F3C519ACD20777122E82 /* MediaPipeline */ = {
+			isa = PBXGroup;
+			children = (
+				0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */,
+				70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */,
+				CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */,
+				87DF56556BD38E52A6939975 /* MediaTypes.swift */,
+				50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */,
+			);
+			path = MediaPipeline;
+			sourceTree = "<group>";
+		};
+		932AABCCFB7945CFB26C311B /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				6D29F3C519ACD20777122E82 /* MediaPipeline */,
+				6CF1564C6FE2DBF92C1B9006 /* MetalRendering */,
+				41DDB5DA39D8CE7069159BAB /* ModelAssets */,
+				FA21B8BDB013F1DBD46F6EB9 /* UI */,
+				098C5BEC784652B77DE38D56 /* UpscalerEngine */,
+			);
+			path = Modules;
+			sourceTree = "<group>";
+		};
+		A6D231BC59A5A91BBE159B44 = {
+			isa = PBXGroup;
+			children = (
+				50E3FE83D97A4E37C0627F13 /* Mirmir */,
+				FD80DC4B97DD178A7E605C3A /* MirmirTests */,
+				D2B9AE22D6DFC4096155CD03 /* Packages */,
+				014C65A0E7683259859CCAD9 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D2B9AE22D6DFC4096155CD03 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				9A78C659F1316316CF55A11E /* Forsetti-Framework-main */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		EE3AF2C3C0FE79332D53960F /* ForsettiManifests */ = {
+			isa = PBXGroup;
+			children = (
+				60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */,
+				61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */,
+				D369E9FFB41D568A97978643 /* MirmirUIModule.json */,
+				4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */,
+				55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */,
+			);
+			path = ForsettiManifests;
+			sourceTree = "<group>";
+		};
+		FA21B8BDB013F1DBD46F6EB9 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */,
+				FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */,
+				2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */,
+				300DD123FB8D9AD9C26BB2FD /* Views */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		FBF76D81FC8B5D2A4A396DAD /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EE3AF2C3C0FE79332D53960F /* ForsettiManifests */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		FD80DC4B97DD178A7E605C3A /* MirmirTests */ = {
+			isa = PBXGroup;
+			children = (
+				77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */,
+				02E347AE2D83CC5AF980CF38 /* NoopServices.swift */,
+				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
+			);
+			path = MirmirTests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5CC390BEAF19CC2CBBF634C3 /* MirmirTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EC3C324C5B8F116B2A39EB2B /* Build configuration list for PBXNativeTarget "MirmirTests" */;
+			buildPhases = (
+				362EC39D7ACE95EF56BA29D0 /* Sources */,
+				A274853FF287129F8F6B4705 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				BBF565C7D4062E2456E346BB /* PBXTargetDependency */,
+			);
+			name = MirmirTests;
+			packageProductDependencies = (
+				6A39150105994137136886D1 /* ForsettiCore */,
+			);
+			productName = MirmirTests;
+			productReference = A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		AAB58EF4B52C8A77279FE17C /* Mirmir */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BB6156B5490A89CEDBD39CE6 /* Build configuration list for PBXNativeTarget "Mirmir" */;
+			buildPhases = (
+				990527538CF3A079568C4936 /* Sources */,
+				E44241DB2D2A48F1740693FF /* Resources */,
+				B4E0E0AE15D58EBBB62310F0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mirmir;
+			packageProductDependencies = (
+				AA6BAD72661C314938F3CBD2 /* ForsettiCore */,
+				6A42A76B3F9113774295A4BD /* ForsettiPlatform */,
+				A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */,
+			);
+			productName = Mirmir;
+			productReference = 44C397D85806DEA084B8D3D0 /* Mirmir.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		4718DCAF0509158E807570DD /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					AAB58EF4B52C8A77279FE17C = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = AC9AEBFDC20A9511C467FC90 /* Build configuration list for PBXProject "Mirmir" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A6D231BC59A5A91BBE159B44;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				46B9F26D0E21C5B444C55DFF /* XCLocalSwiftPackageReference "../Forsetti-Framework-main" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 014C65A0E7683259859CCAD9 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AAB58EF4B52C8A77279FE17C /* Mirmir */,
+				5CC390BEAF19CC2CBBF634C3 /* MirmirTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E44241DB2D2A48F1740693FF /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */,
+				A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */,
+				BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */,
+				7D1FC619F99A8D67C5ED379C /* ModelAssetsServiceModule.json in Resources */,
+				565D51FAF6BE1CD0ACD4CAFF /* UpscalerEngineServiceModule.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		362EC39D7ACE95EF56BA29D0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */,
+				23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */,
+				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		990527538CF3A079568C4936 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */,
+				61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */,
+				E8D3F54740F2D2FAC0CFDC4D /* DefaultMetalRenderingService.swift in Sources */,
+				04FBC1BA78166E5A4BFAFED6 /* DefaultModelAssetsService.swift in Sources */,
+				2D752A9307BEF58A7D006450 /* DefaultUpscalerEngineService.swift in Sources */,
+				BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */,
+				FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */,
+				DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */,
+				A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */,
+				F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */,
+				D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */,
+				387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */,
+				3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */,
+				554F3FCEA4D932BC00FDE77B /* MirmirForsettiBootstrap.swift in Sources */,
+				FDC4F33E2DA4475E3CA01F9A /* MirmirModuleRegistry.swift in Sources */,
+				51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */,
+				811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */,
+				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
+				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
+				147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */,
+				F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */,
+				E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */,
+				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
+				87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */,
+				3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */,
+				3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */,
+				FD440AB675F3EF7298C713C7 /* UpscaleJob.swift in Sources */,
+				99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */,
+				2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */,
+				84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */,
+				CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */,
+				EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */,
+				11C6CBDE9A57638B48FE8C14 /* VideoSelectionView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		BBF565C7D4062E2456E346BB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AAB58EF4B52C8A77279FE17C /* Mirmir */;
+			targetProxy = 23D3763225D488F443EEB71A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		54E31FA4475AFA58070B6FE3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir";
+			};
+			name = Release;
+		};
+		7B3C8F82724FE1BBC9D99813 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Debug;
+		};
+		90A6242299931428B6CB9087 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 5.10;
+			};
+			name = Release;
+		};
+		C6268DE8E8221D07D787AC8E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Mirmir/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		F6DD59AFABB06E4BCA5416F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
+				SDKROOT = macosx;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir";
+			};
+			name = Debug;
+		};
+		FB0D0F9AB1BDADB8FA9641A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Mirmir/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AC9AEBFDC20A9511C467FC90 /* Build configuration list for PBXProject "Mirmir" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7B3C8F82724FE1BBC9D99813 /* Debug */,
+				90A6242299931428B6CB9087 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BB6156B5490A89CEDBD39CE6 /* Build configuration list for PBXNativeTarget "Mirmir" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C6268DE8E8221D07D787AC8E /* Debug */,
+				FB0D0F9AB1BDADB8FA9641A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		EC3C324C5B8F116B2A39EB2B /* Build configuration list for PBXNativeTarget "MirmirTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F6DD59AFABB06E4BCA5416F4 /* Debug */,
+				54E31FA4475AFA58070B6FE3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		46B9F26D0E21C5B444C55DFF /* XCLocalSwiftPackageReference "../Forsetti-Framework-main" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../Forsetti-Framework-main";
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6A39150105994137136886D1 /* ForsettiCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForsettiCore;
+		};
+		6A42A76B3F9113774295A4BD /* ForsettiPlatform */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForsettiPlatform;
+		};
+		A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForsettiHostTemplate;
+		};
+		AA6BAD72661C314938F3CBD2 /* ForsettiCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = ForsettiCore;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 4718DCAF0509158E807570DD /* Project object */;
+}
