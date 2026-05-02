@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.forsetti.module.example-service",
+  "displayName": "Example Service",
+  "moduleVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0,
+    "prerelease": null
+  },
+  "moduleType": "service",
+  "supportedPlatforms": ["iOS", "macOS"],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0,
+    "prerelease": null
+  },
+  "maxForsettiVersion": null,
+  "capabilitiesRequested": ["storage", "telemetry"],
+  "iapProductID": null,
+  "entryPoint": "ExampleServiceModule"
+}

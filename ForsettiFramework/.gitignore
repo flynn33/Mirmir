@@ -1,0 +1,15 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+.coverage/
+coverage/
+*.profraw
+*.profdata
+.vscode/
+.idea/

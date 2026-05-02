@@ -92,7 +92,7 @@
 		901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
 		90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingServiceModule.swift; sourceTree = "<group>"; };
 		9833C96F05E187004E393DAD /* MirmirRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRootView.swift; sourceTree = "<group>"; };
-		9A78C659F1316316CF55A11E /* Forsetti-Framework-main */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "Forsetti-Framework-main"; path = "../Forsetti-Framework-main"; sourceTree = SOURCE_ROOT; };
+		9CE10FE86257CCDEDD559813 /* ForsettiFramework */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ForsettiFramework; path = ForsettiFramework; sourceTree = SOURCE_ROOT; };
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPanelView.swift; sourceTree = "<group>"; };
@@ -253,7 +253,7 @@
 		D2B9AE22D6DFC4096155CD03 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				9A78C659F1316316CF55A11E /* Forsetti-Framework-main */,
+				9CE10FE86257CCDEDD559813 /* ForsettiFramework */,
 			);
 			name = Packages;
 			sourceTree = "<group>";
@@ -368,7 +368,7 @@
 			mainGroup = A6D231BC59A5A91BBE159B44;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				46B9F26D0E21C5B444C55DFF /* XCLocalSwiftPackageReference "../Forsetti-Framework-main" */,
+				40560A70A77D503B4E02AE14 /* XCLocalSwiftPackageReference "ForsettiFramework" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 014C65A0E7683259859CCAD9 /* Products */;
@@ -694,9 +694,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		46B9F26D0E21C5B444C55DFF /* XCLocalSwiftPackageReference "../Forsetti-Framework-main" */ = {
+		40560A70A77D503B4E02AE14 /* XCLocalSwiftPackageReference "ForsettiFramework" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../Forsetti-Framework-main";
+			relativePath = ForsettiFramework;
 		};
 /* End XCLocalSwiftPackageReference section */
 

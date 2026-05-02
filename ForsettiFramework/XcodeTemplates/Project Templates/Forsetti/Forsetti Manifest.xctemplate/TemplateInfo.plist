@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Kind</key>
+    <string>Xcode.Xcode3.ProjectTemplateUnitKind</string>
+    <key>Identifier</key>
+    <string>com.forsetti.template.multiplatform.manifest</string>
+    <key>Ancestors</key>
+    <array>
+        <string>com.apple.dt.unit.multiPlatform.app.SwiftUI</string>
+    </array>
+    <key>Concrete</key>
+    <true/>
+    <key>Description</key>
+    <string>Generates a standalone Forsetti manifest starter file with explicit schema and capability fields.</string>
+    <key>NameOfInitialFileForEditor</key>
+    <string>Resources/ForsettiManifests/___PACKAGENAME:identifier___ModuleManifest.json</string>
+    <key>SortOrder</key>
+    <integer>4</integer>
+    <key>Image</key>
+    <dict>
+        <key>BundleIdentifier</key>
+        <string>com.apple.dt.IDEKit</string>
+        <key>BundleImageName</key>
+        <string>property-list</string>
+    </dict>
+    <key>Platforms</key>
+    <array/>
+    <key>Options</key>
+    <array>
+        <dict>
+            <key>Identifier</key>
+            <string>languageChoice</string>
+            <key>Override</key>
+            <string>Swift</string>
+        </dict>
+        <dict>
+            <key>Identifier</key>
+            <string>userInterface</string>
+            <key>Override</key>
+            <string>SwiftUI</string>
+        </dict>
+        <dict>
+            <key>Identifier</key>
+            <string>appLifecycle</string>
+            <key>Override</key>
+            <string>SwiftUI</string>
+        </dict>
+        <dict>
+            <key>Identifier</key>
+            <string>storageType</string>
+            <key>Override</key>
+            <string>None</string>
+        </dict>
+    </array>
+    <key>Nodes</key>
+    <array>
+        <string>Resources/ForsettiManifests/___PACKAGENAME:identifier___ModuleManifest.json</string>
+    </array>
+    <key>Definitions</key>
+    <dict>
+        <key>Resources/ForsettiManifests/___PACKAGENAME:identifier___ModuleManifest.json</key>
+        <dict>
+            <key>Path</key>
+            <string>ModuleManifest.json</string>
+            <key>SortOrder</key>
+            <integer>10</integer>
+        </dict>
+    </dict>
+</dict>
+</plist>

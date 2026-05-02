@@ -1,0 +1,283 @@
+{
+  "artifact_type": "agentic_coding_policy",
+  "artifact_version": "1.1.0",
+  "name": "Forsetti Agentic Development Policy",
+  "owner": "James Daley",
+  "license_reference": "LICENSE.md",
+  "description": "Comprehensive machine-readable instructions for coding agents working with Forsetti or apps that consume Forsetti.",
+  "usage": {
+    "intended_for": [
+      "Developers using agentic coding tools",
+      "AI coding agents operating in a Forsetti repository",
+      "AI coding agents operating in consumer applications built on Forsetti"
+    ],
+    "how_to_apply": [
+      "Provide this file to your coding agent at task start.",
+      "Require agent acknowledgement of all mandatory rules before code changes.",
+      "Treat all MUST and MUST_NOT rules as hard constraints."
+    ]
+  },
+  "operating_modes": [
+    {
+      "mode": "framework_repo_mode",
+      "when_to_use": "Agent is working inside the Forsetti framework repository.",
+      "goal": "Preserve Forsetti architecture integrity and internal guardrails."
+    },
+    {
+      "mode": "consumer_repo_mode",
+      "when_to_use": "Agent is working in an app that consumes Forsetti.",
+      "goal": "Use Forsetti as a sealed dependency and enforce architecture in the consumer app."
+    }
+  ],
+  "mandatory_rules": [
+    {
+      "id": "R001",
+      "priority": "critical",
+      "rule": "Agent MUST use native Apple technologies only for runtime/framework behavior (Swift, SwiftUI where needed, Apple frameworks).",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Forsetti is intentionally native-first for platform reliability and long-term maintainability."
+    },
+    {
+      "id": "R002",
+      "priority": "critical",
+      "rule": "Agent MUST treat Forsetti as a sealed framework in consumer projects.",
+      "applies_to_modes": ["consumer_repo_mode"],
+      "rationale": "Consumer integrations must remain stable and upgradeable without internal framework patching."
+    },
+    {
+      "id": "R003",
+      "priority": "critical",
+      "rule": "Agent MUST_NOT modify, copy, fork, or patch Forsetti internals in consumer repositories to implement app-specific behavior.",
+      "applies_to_modes": ["consumer_repo_mode"],
+      "rationale": "Internal edits create unsupported divergence and break upgrade paths."
+    },
+    {
+      "id": "R004",
+      "priority": "critical",
+      "rule": "Agent MUST implement extension needs using public Forsetti APIs (modules, services, runtime composition) and request upstream enhancement for API gaps.",
+      "applies_to_modes": ["consumer_repo_mode"],
+      "rationale": "Public contracts are the supported extension mechanism."
+    },
+    {
+      "id": "R005",
+      "priority": "critical",
+      "rule": "Agent MUST enforce strict object-oriented modular design: protocol boundaries, constructor dependency injection, encapsulation, and final classes unless extension is intentional and documented.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "These constraints prevent hidden coupling and unsafe inheritance drift."
+    },
+    {
+      "id": "R006",
+      "priority": "critical",
+      "rule": "Agent MUST keep dependency direction one-way and avoid circular dependencies across modules/targets.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "One-way dependency flow is the foundation of Forsetti modularity."
+    },
+    {
+      "id": "R007",
+      "priority": "critical",
+      "rule": "Agent MUST run required verification commands before marking work complete.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Architecture and lint/test gates must be continuously enforced."
+    },
+    {
+      "id": "R009",
+      "priority": "critical",
+      "rule": "In framework_repo_mode, Agent MUST run the iOS simulator package build command to match CI build expectations.",
+      "applies_to_modes": ["framework_repo_mode"],
+      "rationale": "Framework readiness requires parity with the CI ios-build gate, not only lint/tests."
+    },
+    {
+      "id": "R010",
+      "priority": "critical",
+      "rule": "Agent MUST distinguish package-target guardrails from consumer-module implementation rules. Internal import bans in ForsettiCore/ForsettiPlatform/example targets are not blanket bans on Apple-native frameworks in app-owned modules.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Target-level architecture rules are frequently misread as global framework prohibitions and must be interpreted correctly."
+    },
+    {
+      "id": "R011",
+      "priority": "critical",
+      "rule": "For the multi-module single-application pattern, the application UI MUST live in a dedicated UI module. That UI module MAY use SwiftUI and other appropriate Apple-native UI technologies.",
+      "applies_to_modes": ["consumer_repo_mode"],
+      "rationale": "UI ownership is a boundary rule, not a SwiftUI prohibition."
+    },
+    {
+      "id": "R012",
+      "priority": "critical",
+      "rule": "Agent MUST treat Apple-native frameworks, including Metal, as valid when used in the correct owning module/layer and when consistent with Forsetti modular boundaries.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Forsetti is Apple-native by design and allows native framework usage in the proper architectural layer."
+    },
+    {
+      "id": "R013",
+      "priority": "critical",
+      "rule": "Agent MUST_NOT interpret 'host UI' as meaning only framework internals may use SwiftUI. Agent MUST interpret 'host UI' as the application UI used by the Forsetti-based app, which in multi-module single applications belongs in exactly one dedicated UI module.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Host UI shorthand is a frequent source of misinterpretation and must be interpreted explicitly."
+    },
+    {
+      "id": "R008",
+      "priority": "critical",
+      "rule": "Agent MUST respect proprietary licensing boundaries and MUST_NOT imply open-source usage rights.",
+      "applies_to_modes": ["framework_repo_mode", "consumer_repo_mode"],
+      "rationale": "Forsetti is proprietary software under explicit licensing terms."
+    }
+  ],
+  "framework_repo_architecture_constraints": {
+    "layer_purpose": {
+      "ForsettiCore": "Platform-agnostic core contracts, runtime logic, compatibility, activation, policies.",
+      "ForsettiPlatform": "Native platform adapters and entitlement/service implementations.",
+      "ForsettiModulesExample": "Reference/example modules and manifests.",
+      "ForsettiHostTemplate": "Generic host composition and SwiftUI host UI reference surface; this does not prohibit SwiftUI in app-owned UI modules."
+    },
+    "must_not_import_rules": [
+      {
+        "target": "ForsettiCore",
+        "must_not_import": [
+          "ForsettiPlatform",
+          "ForsettiModulesExample",
+          "ForsettiHostTemplate",
+          "SwiftUI",
+          "UIKit",
+          "AppKit",
+          "StoreKit"
+        ],
+        "why": "Core must remain platform/UI/commerce independent."
+      },
+      {
+        "target": "ForsettiPlatform",
+        "must_not_import": [
+          "ForsettiModulesExample",
+          "ForsettiHostTemplate",
+          "SwiftUI",
+          "UIKit",
+          "AppKit"
+        ],
+        "why": "Platform layer should provide adapters, not host/UI composition."
+      },
+      {
+        "target": "ForsettiModulesExample",
+        "must_not_import": [
+          "ForsettiPlatform",
+          "ForsettiHostTemplate",
+          "SwiftUI",
+          "UIKit",
+          "AppKit",
+          "StoreKit"
+        ],
+        "why": "Example modules must remain contract-focused and decoupled."
+      },
+      {
+        "target": "ForsettiHostTemplate",
+        "must_not_import": [
+          "ForsettiModulesExample"
+        ],
+        "why": "Host template must remain generic, not hardwired to sample modules."
+      }
+    ]
+  },
+  "framework_behavior_invariants": {
+    "runtime_and_activation": [
+      "Runtime boot MUST refresh entitlements before restoring persisted activation state.",
+      "Runtime shutdown MUST deactivate loaded modules without clearing persisted activation state.",
+      "UI/app module activation MUST verify ForsettiUIModule or ForsettiAppModule type compatibility before lifecycle start."
+    ],
+    "manifest_loading": [
+      "Strict manifests directory loading MUST fail fast on invalid manifest JSON/validation errors.",
+      "Fallback recursive manifest discovery MUST ignore unrelated JSON payloads that are not manifest-shaped.",
+      "Manifest discovery MUST fail on duplicate moduleID values."
+    ],
+    "routing_and_host_contract": [
+      "Overlay routing MUST resolve against active overlay schema only.",
+      "Pointer and route targets MUST validate against host base destinations and overlay slot catalog.",
+      "Host routing actions SHOULD expose explicit route resolution outcomes for diagnostics."
+    ],
+    "verified_by_tests": [
+      "Tests/ForsettiCoreTests/RuntimeLifecycleTests.swift",
+      "Tests/ForsettiCoreTests/ManifestLoaderTests.swift",
+      "Tests/ForsettiCoreTests/CompatibilityCheckerTests.swift",
+      "Tests/ForsettiCoreTests/UISurfaceManagerTests.swift",
+      "Tests/ForsettiHostTemplateTests/ForsettiHostControllerTests.swift"
+    ]
+  },
+  "consumer_repo_guidance": {
+    "allowed_patterns": [
+      "Implement app-owned modules using ForsettiAppModule (single-module apps), ForsettiUIModule (multi-module UI), or ForsettiModule (service/feature).",
+      "In multi-module single applications, keep application UI in exactly one dedicated UI module and keep service logic in separate service modules.",
+      "Treat Metal as permitted in the correct app-owned module/layer when the module responsibility justifies it.",
+      "Use Forsetti service container and protocol-based service contracts.",
+      "Compose runtime and host through public bootstrap/runtime APIs.",
+      "Create app-level architecture tests and lint rules mirroring Forsetti principles."
+    ],
+    "forbidden_patterns": [
+      "Editing Forsetti package internals inside vendor or copied source folders.",
+      "Adding reverse dependencies from app targets into Forsetti internals.",
+      "Bypassing entitlement/capability checks with ad-hoc host-side overrides."
+    ]
+  },
+  "agent_behavior_requirements": {
+    "planning": [
+      "Agent MUST state proposed file changes before editing.",
+      "Agent MUST identify which operating mode applies.",
+      "Agent MUST call out any requested action that conflicts with mandatory rules."
+    ],
+    "implementation": [
+      "Agent MUST implement minimal cohesive changes.",
+      "Agent MUST preserve public API stability unless change request explicitly requires API change.",
+      "Agent MUST add or update tests when behavior changes.",
+      "Agent MUST avoid hidden globals and implicit singleton coupling."
+    ],
+    "validation": [
+      "Agent MUST run lint and tests for changed scope at minimum.",
+      "Agent MUST report command results and unresolved failures clearly.",
+      "Agent MUST NOT claim completion if required checks failed."
+    ],
+    "delivery": [
+      "Agent MUST summarize what changed, why it changed, and what guardrails passed.",
+      "Agent MUST include any residual risks and follow-up actions."
+    ]
+  },
+  "required_verification_commands": {
+    "framework_repo_mode": [
+      "./Scripts/verify-forsetti-guardrails.sh",
+      "xcodebuild -scheme ForsettiFramework-Package -destination 'generic/platform=iOS Simulator' build"
+    ],
+    "consumer_repo_mode": [
+      "swift test --parallel --enable-code-coverage",
+      "swiftlint lint --strict --config .swiftlint.yml"
+    ]
+  },
+  "definition_of_done": [
+    "All mandatory rules are satisfied.",
+    "No forbidden architecture/import pattern was introduced.",
+    "Required verification commands passed for the active mode.",
+    "Documentation/comments updated where behavior or policy changed.",
+    "Output summary includes validations and any known limitations."
+  ],
+  "violation_handling": {
+    "on_rule_conflict": [
+      "Stop and explain the conflicting request.",
+      "Provide a compliant alternative implementation plan.",
+      "Proceed only with compliant path unless policy owner updates rules."
+    ],
+    "on_failed_guardrails": [
+      "Do not mark task complete.",
+      "Fix failures or report exact blockers with command outputs."
+    ]
+  },
+  "suggested_agent_prompt_template": {
+    "template": "You are coding in {MODE}. Follow agentic-coding-policy.json as hard constraints. Confirm R001-R013 compliance (when applicable), then implement only via allowed patterns. Before finishing, run required_verification_commands for {MODE}, report results, and include residual risks.",
+    "mode_values": ["framework_repo_mode", "consumer_repo_mode"]
+  },
+  "document_references": [
+    "README.md",
+    "developer-guide.md",
+    "forsetti-instructions.json",
+    "guide.md",
+    "https://github.com/flynn33/Forsetti-Framework/wiki",
+    "LICENSE.md",
+    "Scripts/verify-forsetti-guardrails.sh",
+    ".github/workflows/guardrails.yml",
+    ".swiftlint.yml",
+    "Tests/ForsettiArchitectureTests/ArchitectureEnforcementTests.swift"
+  ]
+}

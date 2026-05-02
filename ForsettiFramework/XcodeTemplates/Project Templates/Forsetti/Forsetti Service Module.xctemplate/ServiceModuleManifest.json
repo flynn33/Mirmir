@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.yourcompany.___PACKAGENAME:identifier___.service-module",
+  "displayName": "___PACKAGENAME___ Service Module",
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "moduleType": "service",
+  "supportedPlatforms": [
+    "iOS",
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  },
+  "capabilitiesRequested": [
+    "storage",
+    "telemetry"
+  ],
+  "entryPoint": "___PACKAGENAME:identifier___ServiceModule"
+}

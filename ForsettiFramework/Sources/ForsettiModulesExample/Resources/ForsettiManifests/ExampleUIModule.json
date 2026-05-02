@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.forsetti.module.example-ui",
+  "displayName": "Example UI",
+  "moduleVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0,
+    "prerelease": null
+  },
+  "moduleType": "ui",
+  "supportedPlatforms": ["iOS", "macOS"],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0,
+    "prerelease": null
+  },
+  "maxForsettiVersion": null,
+  "capabilitiesRequested": ["routing_overlay", "toolbar_items", "view_injection"],
+  "iapProductID": "com.forsetti.iap.example-ui",
+  "entryPoint": "ExampleUIModule"
+}

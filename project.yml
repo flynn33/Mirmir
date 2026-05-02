@@ -16,7 +16,7 @@ settings:
 
 packages:
   ForsettiFramework:
-    path: ../Forsetti-Framework-main
+    path: ForsettiFramework
 
 targets:
   Mirmir:

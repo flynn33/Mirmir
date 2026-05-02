@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "1.0",
+  "moduleID": "com.yourcompany.___PACKAGENAME:identifier___.ui-module",
+  "displayName": "___PACKAGENAME___ UI Module",
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
+  "moduleType": "ui",
+  "supportedPlatforms": [
+    "iOS",
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 0
+  },
+  "capabilitiesRequested": [
+    "toolbar_items",
+    "view_injection"
+  ],
+  "entryPoint": "___PACKAGENAME:identifier___UIModule"
+}
