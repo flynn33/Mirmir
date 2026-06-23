@@ -1,11 +1,31 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "manifestTemplateVersion": "1.1",
   "moduleID": "com.mirmir.app.metal",
   "displayName": "Metal Rendering",
-  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
   "moduleType": "service",
-  "supportedPlatforms": ["macOS"],
-  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
+  "supportedPlatforms": [
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 4
+  },
   "capabilitiesRequested": [],
-  "entryPoint": "MetalRenderingServiceModule"
+  "entryPoint": "MetalRenderingServiceModule",
+  "runtimeRequirements": {
+    "io": [],
+    "ui": null,
+    "dataIsolation": {
+      "mode": "private_to_module",
+      "ownedStoreIDs": [],
+      "requiredDefaultRoles": []
+    }
+  }
 }

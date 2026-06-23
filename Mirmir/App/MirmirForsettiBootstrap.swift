@@ -67,7 +67,11 @@ final class MirmirForsettiBootstrap: ObservableObject {
         // Module registry: factories capture the concrete services so each
         // module instance receives its dependency by constructor injection.
         let registry = ModuleRegistry()
-        MirmirModuleRegistry.registerAll(into: registry, services: services)
+        do {
+            try MirmirModuleRegistry.registerAll(into: registry, services: services)
+        } catch {
+            preconditionFailure("Failed to register Mirmir modules: \(error.localizedDescription)")
+        }
 
         let viewModel = MirmirViewModel(
             mediaPipeline: mediaPipelineService,

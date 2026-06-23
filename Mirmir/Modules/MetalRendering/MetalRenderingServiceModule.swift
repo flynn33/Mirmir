@@ -18,7 +18,8 @@ final class MetalRenderingServiceModule: ForsettiModule {
     )
 
     let manifest = ModuleManifest(
-        schemaVersion: ModuleManifest.supportedSchemaVersion,
+        schemaVersion: ModuleManifest.currentSchemaVersion,
+        manifestTemplateVersion: .current,
         moduleID: MirmirMetalConstants.moduleID,
         displayName: MirmirMetalConstants.displayName,
         moduleVersion: MirmirMetalConstants.moduleVersion,
@@ -28,7 +29,8 @@ final class MetalRenderingServiceModule: ForsettiModule {
         maxForsettiVersion: nil,
         capabilitiesRequested: [],
         iapProductID: nil,
-        entryPoint: MirmirMetalConstants.entryPoint
+        entryPoint: MirmirMetalConstants.entryPoint,
+        runtimeRequirements: ModuleRuntimeRequirements()
     )
 
     private let service: MetalRenderingService
@@ -38,14 +40,14 @@ final class MetalRenderingServiceModule: ForsettiModule {
         self.service = service
     }
 
-    func start(context: ForsettiContext) throws {
+    func start(context: any ForsettiModuleContext) throws {
         guard !didStart else { return }
-        didStart = true
         try service.start()
-        context.moduleLogger(moduleID: descriptor.moduleID).info("Metal rendering ready")
+        didStart = true
+        context.logger.info("Metal rendering ready")
     }
 
-    func stop(context: ForsettiContext) {
+    func stop(context _: any ForsettiModuleContext) {
         guard didStart else { return }
         didStart = false
         service.stop()

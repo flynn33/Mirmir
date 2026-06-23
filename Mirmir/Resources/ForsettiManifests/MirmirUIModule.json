@@ -1,11 +1,41 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "manifestTemplateVersion": "1.1",
   "moduleID": "com.mirmir.app.ui",
   "displayName": "Mirmir UI",
-  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
   "moduleType": "ui",
-  "supportedPlatforms": ["macOS"],
-  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
-  "capabilitiesRequested": ["view_injection", "toolbar_items"],
-  "entryPoint": "MirmirUIModule"
+  "supportedPlatforms": [
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 4
+  },
+  "capabilitiesRequested": [
+    "view_injection"
+  ],
+  "entryPoint": "MirmirUIModule",
+  "defaultModuleRole": "ui",
+  "runtimeRequirements": {
+    "io": [],
+    "ui": {
+      "viewIDs": [
+        "com.mirmir.app.ui.workspace-root"
+      ],
+      "slotIDs": [
+        "module.workspace"
+      ]
+    },
+    "dataIsolation": {
+      "mode": "private_to_module",
+      "ownedStoreIDs": [],
+      "requiredDefaultRoles": []
+    }
+  }
 }

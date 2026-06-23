@@ -20,17 +20,11 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         guard let videoTrack = videoTracks.first else {
             throw MediaPipelineError.noVideoTrack(url)
         }
-        async let naturalSize = videoTrack.load(.naturalSize)
-        async let frameRate = videoTrack.load(.nominalFrameRate)
-        async let formatDescriptions = videoTrack.load(.formatDescriptions)
-        async let duration = asset.load(.duration)
-        async let audioTracks = asset.loadTracks(withMediaType: .audio)
-
-        let size = try await naturalSize
-        let fps = Double(try await frameRate)
-        let durationCM = try await duration
-        let formats = try await formatDescriptions
-        let hasAudio = !(try await audioTracks).isEmpty
+        let size = try await videoTrack.load(.naturalSize)
+        let fps = Double(try await videoTrack.load(.nominalFrameRate))
+        let formats = try await videoTrack.load(.formatDescriptions)
+        let durationCM = try await asset.load(.duration)
+        let hasAudio = try await !asset.loadTracks(withMediaType: .audio).isEmpty
 
         let resolution = VideoResolution(
             width: Int(abs(size.width).rounded()),
@@ -57,7 +51,7 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
-        try AVFoundationMediaSession(metal: metal, source: source, output: output)
+        try await AVFoundationMediaSession.make(metal: metal, source: source, output: output)
     }
 
     private static func fourCCString(_ value: FourCharCode) -> String {
@@ -90,17 +84,41 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     private var frameIndex = 0
     private var isCancelled = false
 
-    init(metal: MetalRenderingService, source: SourceProfile, output: OutputProfile) throws {
-        self.sourceProfile = source
-        self.outputProfile = output
-
+    static func make(
+        metal: MetalRenderingService,
+        source: SourceProfile,
+        output: OutputProfile
+    ) async throws -> AVFoundationMediaSession {
         let asset = AVURLAsset(url: source.url)
-        self.asset = asset
-
-        let videoTracks = asset.tracks(withMediaType: .video)
+        let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
             throw MediaPipelineError.noVideoTrack(source.url)
         }
+        let audioTrack = output.preserveAudio
+            ? try await asset.loadTracks(withMediaType: .audio).first
+            : nil
+
+        return try AVFoundationMediaSession(
+            metal: metal,
+            source: source,
+            output: output,
+            asset: asset,
+            videoTrack: videoTrack,
+            audioTrack: audioTrack
+        )
+    }
+
+    private init(
+        metal: MetalRenderingService,
+        source: SourceProfile,
+        output: OutputProfile,
+        asset: AVURLAsset,
+        videoTrack: AVAssetTrack,
+        audioTrack: AVAssetTrack?
+    ) throws {
+        self.sourceProfile = source
+        self.outputProfile = output
+        self.asset = asset
 
         do {
             self.reader = try AVAssetReader(asset: asset)
@@ -119,14 +137,17 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             reader.add(videoOutput)
         }
 
-        if output.preserveAudio, let audioTrack = asset.tracks(withMediaType: .audio).first {
+        if output.preserveAudio, let audioTrack {
             let audioReaderSettings: [String: Any] = [:]
-            let output = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: audioReaderSettings.isEmpty ? nil : audioReaderSettings)
-            output.alwaysCopiesSampleData = false
-            if reader.canAdd(output) {
-                reader.add(output)
+            let audioTrackOutput = AVAssetReaderTrackOutput(
+                track: audioTrack,
+                outputSettings: audioReaderSettings.isEmpty ? nil : audioReaderSettings
+            )
+            audioTrackOutput.alwaysCopiesSampleData = false
+            if reader.canAdd(audioTrackOutput) {
+                reader.add(audioTrackOutput)
             }
-            self.audioOutput = output
+            self.audioOutput = audioTrackOutput
         } else {
             self.audioOutput = nil
         }
@@ -168,7 +189,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             writer.add(videoInput)
         }
 
-        if output.preserveAudio, let _ = audioOutput {
+        if output.preserveAudio, audioOutput != nil {
             let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
             audioInput.expectsMediaDataInRealTime = false
             if writer.canAdd(audioInput) {

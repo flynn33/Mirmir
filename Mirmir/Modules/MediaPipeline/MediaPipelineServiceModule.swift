@@ -11,7 +11,8 @@ final class MediaPipelineServiceModule: ForsettiModule {
     )
 
     let manifest = ModuleManifest(
-        schemaVersion: ModuleManifest.supportedSchemaVersion,
+        schemaVersion: ModuleManifest.currentSchemaVersion,
+        manifestTemplateVersion: .current,
         moduleID: MirmirMediaPipelineConstants.moduleID,
         displayName: MirmirMediaPipelineConstants.displayName,
         moduleVersion: MirmirMediaPipelineConstants.moduleVersion,
@@ -21,7 +22,21 @@ final class MediaPipelineServiceModule: ForsettiModule {
         maxForsettiVersion: nil,
         capabilitiesRequested: [.fileExport],
         iapProductID: nil,
-        entryPoint: MirmirMediaPipelineConstants.entryPoint
+        entryPoint: MirmirMediaPipelineConstants.entryPoint,
+        runtimeRequirements: ModuleRuntimeRequirements(
+            io: [
+                ModuleIORequirement(
+                    requirementID: "\(MirmirMediaPipelineConstants.moduleID).file-export.output",
+                    kind: .fileExport,
+                    access: .write,
+                    required: true
+                )
+            ],
+            dataIsolation: ModuleDataIsolation(
+                mode: .privateToModule,
+                ownedStoreIDs: [MirmirMediaPipelineConstants.moduleID]
+            )
+        )
     )
 
     private let service: MediaPipelineService
@@ -31,14 +46,14 @@ final class MediaPipelineServiceModule: ForsettiModule {
         self.service = service
     }
 
-    func start(context: ForsettiContext) throws {
+    func start(context: any ForsettiModuleContext) throws {
         guard !didStart else { return }
         didStart = true
         service.start()
-        context.moduleLogger(moduleID: descriptor.moduleID).info("Media pipeline started")
+        context.logger.info("Media pipeline started")
     }
 
-    func stop(context: ForsettiContext) {
+    func stop(context _: any ForsettiModuleContext) {
         guard didStart else { return }
         didStart = false
         service.stop()
