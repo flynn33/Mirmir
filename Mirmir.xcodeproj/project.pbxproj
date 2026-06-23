@@ -20,6 +20,7 @@
 		387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D3BF1665450FC60B415F7B /* MirmirApp.swift */; };
 		3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */; };
 		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
+		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
 		50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA6BAD72661C314938F3CBD2 /* ForsettiCore */; };
 		51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */; };
 		554F3FCEA4D932BC00FDE77B /* MirmirForsettiBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */; };
@@ -79,6 +80,7 @@
 		44C397D85806DEA084B8D3D0 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModelAssetsServiceModule.json; sourceTree = "<group>"; };
 		50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBufferBridge.swift; sourceTree = "<group>"; };
+		5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureGuardrailTests.swift; sourceTree = "<group>"; };
 		55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = UpscalerEngineServiceModule.json; sourceTree = "<group>"; };
 		60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MediaPipelineServiceModule.json; sourceTree = "<group>"; };
 		61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MetalRenderingServiceModule.json; sourceTree = "<group>"; };
@@ -92,7 +94,6 @@
 		901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
 		90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingServiceModule.swift; sourceTree = "<group>"; };
 		9833C96F05E187004E393DAD /* MirmirRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRootView.swift; sourceTree = "<group>"; };
-		9CE10FE86257CCDEDD559813 /* ForsettiFramework */ = {isa = PBXFileReference; lastKnownFileType = folder; name = ForsettiFramework; path = ForsettiFramework; sourceTree = SOURCE_ROOT; };
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPanelView.swift; sourceTree = "<group>"; };
@@ -245,17 +246,8 @@
 			children = (
 				50E3FE83D97A4E37C0627F13 /* Mirmir */,
 				FD80DC4B97DD178A7E605C3A /* MirmirTests */,
-				D2B9AE22D6DFC4096155CD03 /* Packages */,
 				014C65A0E7683259859CCAD9 /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		D2B9AE22D6DFC4096155CD03 /* Packages */ = {
-			isa = PBXGroup;
-			children = (
-				9CE10FE86257CCDEDD559813 /* ForsettiFramework */,
-			);
-			name = Packages;
 			sourceTree = "<group>";
 		};
 		EE3AF2C3C0FE79332D53960F /* ForsettiManifests */ = {
@@ -292,6 +284,7 @@
 		FD80DC4B97DD178A7E605C3A /* MirmirTests */ = {
 			isa = PBXGroup;
 			children = (
+				5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */,
 				77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */,
 				02E347AE2D83CC5AF980CF38 /* NoopServices.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
@@ -368,7 +361,7 @@
 			mainGroup = A6D231BC59A5A91BBE159B44;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				40560A70A77D503B4E02AE14 /* XCLocalSwiftPackageReference "ForsettiFramework" */,
+				04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 014C65A0E7683259859CCAD9 /* Products */;
@@ -401,6 +394,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */,
 				6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */,
 				23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
@@ -693,28 +687,36 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCLocalSwiftPackageReference section */
-		40560A70A77D503B4E02AE14 /* XCLocalSwiftPackageReference "ForsettiFramework" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ForsettiFramework;
+/* Begin XCRemoteSwiftPackageReference section */
+		04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git";
+			requirement = {
+				kind = revision;
+				revision = 43eef7a739f3b78253c64aa4b070521ab5b1f43c;
+			};
 		};
-/* End XCLocalSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		6A39150105994137136886D1 /* ForsettiCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
 			productName = ForsettiCore;
 		};
 		6A42A76B3F9113774295A4BD /* ForsettiPlatform */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
 			productName = ForsettiPlatform;
 		};
 		A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
 			productName = ForsettiHostTemplate;
 		};
 		AA6BAD72661C314938F3CBD2 /* ForsettiCore */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
 			productName = ForsettiCore;
 		};
 /* End XCSwiftPackageProductDependency section */

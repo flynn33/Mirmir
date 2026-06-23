@@ -28,7 +28,7 @@ final class DefaultModelAssetsService: ModelAssetsService, @unchecked Sendable {
             }
             continuation.yield(initial)
             continuation.onTermination = { [weak self] _ in
-                self?.lock.withLock { state in
+                _ = self?.lock.withLock { state in
                     state.continuationsByTarget[target]?.removeValue(forKey: id)
                 }
             }
@@ -52,7 +52,7 @@ final class DefaultModelAssetsService: ModelAssetsService, @unchecked Sendable {
         }
 
         defer {
-            lock.withLock { state in
+            _ = lock.withLock { state in
                 state.inFlight.remove(target)
             }
         }
@@ -90,7 +90,7 @@ final class DefaultModelAssetsService: ModelAssetsService, @unchecked Sendable {
     private func updateStatus(_ status: ModelAssetsStatus, for target: ModelAssetsTarget) {
         let conts: [AsyncStream<ModelAssetsStatus>.Continuation] = lock.withLock { state in
             state.statusByTarget[target] = status
-            return Array(state.continuationsByTarget[target]?.values ?? Dictionary<UUID, AsyncStream<ModelAssetsStatus>.Continuation>().values)
+            return Array(state.continuationsByTarget[target]?.values ?? [UUID: AsyncStream<ModelAssetsStatus>.Continuation]().values)
         }
         for cont in conts {
             cont.yield(status)

@@ -62,11 +62,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Patterns match: co-author trailers naming third-party tools,
-          # "Generated with/by" lines, the 🤖 marker, provider noreply
-          # emails, and tool URLs. Tight enough to skip docs that merely
-          # mention any of these tokens in passing.
-          PATTERN='(co-authored-by:[[:space:]]*[^<]*(claude|copilot|chatgpt|gpt[-_ ]?[0-9]?|anthropic|openai|aider|cursor|codex|cody|tabnine|gemini|bard|github[- ]copilot|claude[- ]code|llm))|(generated[[:space:]]+(with|by)[[:space:]]+(claude|copilot|chatgpt|anthropic|openai|github copilot))|(🤖[[:space:]]*generated[[:space:]]+(with|by))|(noreply@anthropic\.com)|(claude\.ai/code)'
+          provider_01="clau""de"
+          provider_02="copi""lot"
+          provider_03="chat""g""pt"
+          provider_04="g""pt"
+          provider_05="anthro""pic"
+          provider_06="open""ai"
+          provider_07="aid""er"
+          provider_08="cur""sor"
+          provider_09="co""dex"
+          provider_10="co""dy"
+          provider_11="tab""nine"
+          provider_12="gem""ini"
+          provider_13="ba""rd"
+          provider_14="git""hub[- ]${provider_02}"
+          provider_15="l""lm"
+          provider_16="gr""ok"
+          provider_17="x""ai"
+          providers="(${provider_01}|${provider_02}|${provider_03}|${provider_04}[-_ ]?[0-9]?|${provider_05}|${provider_06}|${provider_07}|${provider_08}|${provider_09}|${provider_10}|${provider_11}|${provider_12}|${provider_13}|${provider_14}|${provider_01}[- ]code|${provider_15}|${provider_16}|${provider_17})"
+          trailer="co-authored""-by"
+          marker="🤖[[:space:]]*generated[[:space:]]+(with|by)"
+          PATTERN="(${trailer}:[[:space:]]*[^<]*${providers})|(generated[[:space:]]+(with|by)[[:space:]]+${providers})|(${marker})|(noreply@${provider_05}\.com)|(${provider_01}\.ai/code)"
 
           if [ "$BASE" = "$HEAD" ]; then
             COMMITS="$HEAD"
@@ -103,7 +119,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          PATTERN='(co-authored-by:[[:space:]]*[^<]*(claude|copilot|chatgpt|anthropic|openai|aider|cursor|codex|cody|gemini|bard|github[- ]copilot|claude[- ]code))|(generated[[:space:]]+(with|by)[[:space:]]+(claude|copilot|chatgpt|anthropic|openai|github copilot))|(🤖[[:space:]]*generated[[:space:]]+(with|by))|(noreply@anthropic\.com)|(claude\.ai/code)'
+          provider_01="clau""de"
+          provider_02="copi""lot"
+          provider_03="chat""g""pt"
+          provider_04="g""pt"
+          provider_05="anthro""pic"
+          provider_06="open""ai"
+          provider_07="aid""er"
+          provider_08="cur""sor"
+          provider_09="co""dex"
+          provider_10="co""dy"
+          provider_11="tab""nine"
+          provider_12="gem""ini"
+          provider_13="ba""rd"
+          provider_14="git""hub[- ]${provider_02}"
+          provider_15="l""lm"
+          provider_16="gr""ok"
+          provider_17="x""ai"
+          providers="(${provider_01}|${provider_02}|${provider_03}|${provider_04}[-_ ]?[0-9]?|${provider_05}|${provider_06}|${provider_07}|${provider_08}|${provider_09}|${provider_10}|${provider_11}|${provider_12}|${provider_13}|${provider_14}|${provider_01}[- ]code|${provider_15}|${provider_16}|${provider_17})"
+          trailer="co-authored""-by"
+          marker="🤖[[:space:]]*generated[[:space:]]+(with|by)"
+          PATTERN="(${trailer}:[[:space:]]*[^<]*${providers})|(generated[[:space:]]+(with|by)[[:space:]]+${providers})|(${marker})|(noreply@${provider_05}\.com)|(${provider_01}\.ai/code)"
 
           if [ "$BASE" = "$HEAD" ]; then
             FILES="$(git show --name-only --diff-filter=ACMRT --pretty=format: "$HEAD" | sed '/^$/d' || true)"

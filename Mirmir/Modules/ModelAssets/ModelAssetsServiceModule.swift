@@ -11,7 +11,8 @@ final class ModelAssetsServiceModule: ForsettiModule {
     )
 
     let manifest = ModuleManifest(
-        schemaVersion: ModuleManifest.supportedSchemaVersion,
+        schemaVersion: ModuleManifest.currentSchemaVersion,
+        manifestTemplateVersion: .current,
         moduleID: MirmirModelAssetsConstants.moduleID,
         displayName: MirmirModelAssetsConstants.displayName,
         moduleVersion: MirmirModelAssetsConstants.moduleVersion,
@@ -21,7 +22,27 @@ final class ModelAssetsServiceModule: ForsettiModule {
         maxForsettiVersion: nil,
         capabilitiesRequested: [.storage, .telemetry],
         iapProductID: nil,
-        entryPoint: MirmirModelAssetsConstants.entryPoint
+        entryPoint: MirmirModelAssetsConstants.entryPoint,
+        runtimeRequirements: ModuleRuntimeRequirements(
+            io: [
+                ModuleIORequirement(
+                    requirementID: "\(MirmirModelAssetsConstants.moduleID).storage.status",
+                    kind: .storage,
+                    access: .readWrite,
+                    required: false
+                ),
+                ModuleIORequirement(
+                    requirementID: "\(MirmirModelAssetsConstants.moduleID).telemetry.lifecycle",
+                    kind: .telemetry,
+                    access: .emit,
+                    required: false
+                )
+            ],
+            dataIsolation: ModuleDataIsolation(
+                mode: .privateToModule,
+                ownedStoreIDs: [MirmirModelAssetsConstants.moduleID]
+            )
+        )
     )
 
     private let service: ModelAssetsService
@@ -31,14 +52,14 @@ final class ModelAssetsServiceModule: ForsettiModule {
         self.service = service
     }
 
-    func start(context: ForsettiContext) throws {
+    func start(context: any ForsettiModuleContext) throws {
         guard !didStart else { return }
         didStart = true
         service.start()
-        context.moduleLogger(moduleID: descriptor.moduleID).info("Model assets service started")
+        context.logger.info("Model assets service started")
     }
 
-    func stop(context: ForsettiContext) {
+    func stop(context _: any ForsettiModuleContext) {
         guard didStart else { return }
         didStart = false
         service.stop()

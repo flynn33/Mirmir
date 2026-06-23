@@ -1,11 +1,42 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "manifestTemplateVersion": "1.1",
   "moduleID": "com.mirmir.app.upscaler-engine",
   "displayName": "Upscaler Engine",
-  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
   "moduleType": "service",
-  "supportedPlatforms": ["macOS"],
-  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
-  "capabilitiesRequested": ["telemetry"],
-  "entryPoint": "UpscalerEngineServiceModule"
+  "supportedPlatforms": [
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 4
+  },
+  "capabilitiesRequested": [
+    "telemetry"
+  ],
+  "entryPoint": "UpscalerEngineServiceModule",
+  "runtimeRequirements": {
+    "io": [
+      {
+        "requirementID": "com.mirmir.app.upscaler-engine.telemetry.lifecycle",
+        "kind": "telemetry",
+        "access": "emit",
+        "required": false
+      }
+    ],
+    "ui": null,
+    "dataIsolation": {
+      "mode": "private_to_module",
+      "ownedStoreIDs": [
+        "com.mirmir.app.upscaler-engine"
+      ],
+      "requiredDefaultRoles": []
+    }
+  }
 }

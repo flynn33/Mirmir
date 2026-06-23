@@ -11,7 +11,8 @@ final class UpscalerEngineServiceModule: ForsettiModule {
     )
 
     let manifest = ModuleManifest(
-        schemaVersion: ModuleManifest.supportedSchemaVersion,
+        schemaVersion: ModuleManifest.currentSchemaVersion,
+        manifestTemplateVersion: .current,
         moduleID: MirmirUpscalerEngineConstants.moduleID,
         displayName: MirmirUpscalerEngineConstants.displayName,
         moduleVersion: MirmirUpscalerEngineConstants.moduleVersion,
@@ -21,7 +22,21 @@ final class UpscalerEngineServiceModule: ForsettiModule {
         maxForsettiVersion: nil,
         capabilitiesRequested: [.telemetry],
         iapProductID: nil,
-        entryPoint: MirmirUpscalerEngineConstants.entryPoint
+        entryPoint: MirmirUpscalerEngineConstants.entryPoint,
+        runtimeRequirements: ModuleRuntimeRequirements(
+            io: [
+                ModuleIORequirement(
+                    requirementID: "\(MirmirUpscalerEngineConstants.moduleID).telemetry.lifecycle",
+                    kind: .telemetry,
+                    access: .emit,
+                    required: false
+                )
+            ],
+            dataIsolation: ModuleDataIsolation(
+                mode: .privateToModule,
+                ownedStoreIDs: [MirmirUpscalerEngineConstants.moduleID]
+            )
+        )
     )
 
     private let service: UpscalerEngineService
@@ -31,14 +46,14 @@ final class UpscalerEngineServiceModule: ForsettiModule {
         self.service = service
     }
 
-    func start(context: ForsettiContext) throws {
+    func start(context: any ForsettiModuleContext) throws {
         guard !didStart else { return }
         didStart = true
         service.start()
-        context.moduleLogger(moduleID: descriptor.moduleID).info("Upscaler engine started")
+        context.logger.info("Upscaler engine started")
     }
 
-    func stop(context: ForsettiContext) {
+    func stop(context _: any ForsettiModuleContext) {
         guard didStart else { return }
         didStart = false
         service.stop()

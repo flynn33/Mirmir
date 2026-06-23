@@ -39,11 +39,10 @@ enum MirmirUpscalerEngineConstants {
 }
 
 enum MirmirForsettiConstants {
-    static let minForsettiVersion = SemVer(major: 0, minor: 1, patch: 0)
+    static let minForsettiVersion = SemVer(major: 0, minor: 1, patch: 4)
     static let manifestSubdirectory = "ForsettiManifests"
     static let allowedCapabilities: Set<Capability> = [
         .viewInjection,
-        .toolbarItems,
         .storage,
         .telemetry,
         .fileExport

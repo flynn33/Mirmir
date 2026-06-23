@@ -1,11 +1,49 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
+  "manifestTemplateVersion": "1.1",
   "moduleID": "com.mirmir.app.model-assets",
   "displayName": "Model Assets",
-  "moduleVersion": { "major": 1, "minor": 0, "patch": 0 },
+  "moduleVersion": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  },
   "moduleType": "service",
-  "supportedPlatforms": ["macOS"],
-  "minForsettiVersion": { "major": 0, "minor": 1, "patch": 0 },
-  "capabilitiesRequested": ["storage", "telemetry"],
-  "entryPoint": "ModelAssetsServiceModule"
+  "supportedPlatforms": [
+    "macOS"
+  ],
+  "minForsettiVersion": {
+    "major": 0,
+    "minor": 1,
+    "patch": 4
+  },
+  "capabilitiesRequested": [
+    "storage",
+    "telemetry"
+  ],
+  "entryPoint": "ModelAssetsServiceModule",
+  "runtimeRequirements": {
+    "io": [
+      {
+        "requirementID": "com.mirmir.app.model-assets.storage.status",
+        "kind": "storage",
+        "access": "read_write",
+        "required": false
+      },
+      {
+        "requirementID": "com.mirmir.app.model-assets.telemetry.lifecycle",
+        "kind": "telemetry",
+        "access": "emit",
+        "required": false
+      }
+    ],
+    "ui": null,
+    "dataIsolation": {
+      "mode": "private_to_module",
+      "ownedStoreIDs": [
+        "com.mirmir.app.model-assets"
+      ],
+      "requiredDefaultRoles": []
+    }
+  }
 }

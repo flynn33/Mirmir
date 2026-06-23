@@ -18,7 +18,8 @@ final class MirmirUIModule: ForsettiUIModule {
     )
 
     let manifest = ModuleManifest(
-        schemaVersion: ModuleManifest.supportedSchemaVersion,
+        schemaVersion: ModuleManifest.currentSchemaVersion,
+        manifestTemplateVersion: .current,
         moduleID: MirmirUIConstants.moduleID,
         displayName: MirmirUIConstants.displayName,
         moduleVersion: MirmirUIConstants.moduleVersion,
@@ -26,9 +27,16 @@ final class MirmirUIModule: ForsettiUIModule {
         supportedPlatforms: [.macOS],
         minForsettiVersion: MirmirForsettiConstants.minForsettiVersion,
         maxForsettiVersion: nil,
-        capabilitiesRequested: [.viewInjection, .toolbarItems],
+        capabilitiesRequested: [.viewInjection],
         iapProductID: nil,
-        entryPoint: MirmirUIConstants.entryPoint
+        entryPoint: MirmirUIConstants.entryPoint,
+        defaultModuleRole: .ui,
+        runtimeRequirements: ModuleRuntimeRequirements(
+            ui: ModuleUIRequirements(
+                viewIDs: [MirmirUIConstants.primaryViewID],
+                slotIDs: [MirmirUIConstants.primarySlot]
+            )
+        )
     )
 
     let uiContributions: UIContributions = UIContributions(
@@ -49,13 +57,13 @@ final class MirmirUIModule: ForsettiUIModule {
 
     init() {}
 
-    func start(context: ForsettiContext) throws {
+    func start(context: any ForsettiModuleContext) throws {
         guard !didStart else { return }
         didStart = true
-        context.moduleLogger(moduleID: descriptor.moduleID).info("Mirmir UI module activated")
+        context.logger.info("Mirmir UI module activated")
     }
 
-    func stop(context: ForsettiContext) {
+    func stop(context _: any ForsettiModuleContext) {
         guard didStart else { return }
         didStart = false
     }

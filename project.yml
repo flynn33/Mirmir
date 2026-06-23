@@ -16,7 +16,8 @@ settings:
 
 packages:
   ForsettiFramework:
-    path: ForsettiFramework
+    url: https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git
+    revision: 43eef7a739f3b78253c64aa4b070521ab5b1f43c
 
 targets:
   Mirmir:
