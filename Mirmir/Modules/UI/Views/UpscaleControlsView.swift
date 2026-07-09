@@ -42,7 +42,7 @@ struct UpscaleControlsView: View {
                         .lineLimit(2)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("Defaults to source folder with the Mirmir target suffix.")
+                    Text("Choose a destination before starting the upscale.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

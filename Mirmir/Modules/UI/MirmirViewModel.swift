@@ -97,12 +97,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     @Published var sourceProfile: SourceProfile?
-    @Published var targetResolution: VideoResolution = .p1080 {
-        didSet {
-            guard oldValue != targetResolution else { return }
-            updateDefaultOutputURLIfNeeded()
-        }
-    }
+    @Published var targetResolution: VideoResolution = .p1080
     @Published var codec: OutputCodec = .hevc
     @Published var qualityMode: MirmirQualityMode = .balanced
     @Published var temporalConsistencyEnabled = true
@@ -112,7 +107,8 @@ final class MirmirViewModel: ObservableObject {
     @Published var ashBackendStatus: ASHBackendStatus = .validating
     @Published var progress: UpscaleProgress?
     @Published var state: JobState = .idle
-    @Published var outputURL: URL?
+    @Published private(set) var outputURL: URL?
+    @Published private(set) var outputSelectionError: String?
 
     private let mediaPipeline: MediaPipelineService
     private let upscalerEngine: UpscalerEngineService
@@ -121,7 +117,6 @@ final class MirmirViewModel: ObservableObject {
     private var modelStatusTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
     private var jobHandle: UpscalerJobHandle?
-    private var usesDefaultOutputLocation = true
 
     static let supportedVideoExtensions = ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"]
 
@@ -185,8 +180,14 @@ final class MirmirViewModel: ObservableObject {
         guard availableTargets.contains(targetResolution) else {
             return "Choose a supported target resolution for this source."
         }
-        guard outputURL != nil else {
+        if let outputSelectionError {
+            return outputSelectionError
+        }
+        guard let outputURL else {
             return "Choose an output location."
+        }
+        guard !FileURLIdentity.refersToSameFile(sourceProfile.url, outputURL) else {
+            return Self.sourceOutputConflictMessage
         }
         guard ashBackendStatus == .available else {
             return "Mirmir's processing engine is not ready."
@@ -226,16 +227,15 @@ final class MirmirViewModel: ObservableObject {
     func loadSource(url: URL) {
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
-            outputURL = nil
+            clearOutputSelection()
             progress = nil
             state = .failed(Self.unsupportedFileMessage)
             return
         }
 
         sourceProfile = nil
-        outputURL = nil
+        clearOutputSelection()
         progress = nil
-        usesDefaultOutputLocation = true
         state = .probing
         Task {
             do {
@@ -246,7 +246,6 @@ final class MirmirViewModel: ObservableObject {
                     return
                 }
                 self.targetResolution = firstTarget
-                self.outputURL = self.defaultOutputURL(for: profile, target: firstTarget)
                 self.state = .ready
             } catch {
                 self.state = .failed(self.userFacingProbeError(error))
@@ -263,9 +262,31 @@ final class MirmirViewModel: ObservableObject {
         panel.nameFieldStringValue = defaultURL.lastPathComponent
         panel.directoryURL = source.url.deletingLastPathComponent()
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
-        usesDefaultOutputLocation = false
-        outputURL = url
+        guard acceptOutputURLSelectedByUser(url) else { return nil }
         return url
+    }
+
+    @discardableResult
+    func acceptOutputURLSelectedByUser(_ url: URL) -> Bool {
+        guard let sourceProfile else {
+            clearOutputSelection()
+            outputSelectionError = "Choose a source video first."
+            return false
+        }
+        guard url.isFileURL else {
+            clearOutputSelection()
+            outputSelectionError = "Choose a local file-system destination."
+            return false
+        }
+        guard !FileURLIdentity.refersToSameFile(sourceProfile.url, url) else {
+            clearOutputSelection()
+            outputSelectionError = Self.sourceOutputConflictMessage
+            return false
+        }
+
+        outputURL = url
+        outputSelectionError = nil
+        return true
     }
 
     func startUpscale() {
@@ -340,9 +361,8 @@ final class MirmirViewModel: ObservableObject {
         progressTask?.cancel()
         progressTask = nil
         sourceProfile = nil
-        outputURL = nil
+        clearOutputSelection()
         progress = nil
-        usesDefaultOutputLocation = true
         state = .idle
     }
 
@@ -398,9 +418,17 @@ final class MirmirViewModel: ObservableObject {
         return Array(Set(extensionTypes + [.movie, .video, .quickTimeMovie, .mpeg4Movie]))
     }
 
-    private func updateDefaultOutputURLIfNeeded() {
-        guard usesDefaultOutputLocation, let sourceProfile else { return }
-        outputURL = defaultOutputURL(for: sourceProfile, target: targetResolution)
+    static var sourceOutputConflictMessage: String {
+        "The output file must be different from the source video."
+    }
+
+    static func urlsReferToSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
+        FileURLIdentity.refersToSameFile(lhs, rhs)
+    }
+
+    private func clearOutputSelection() {
+        outputURL = nil
+        outputSelectionError = nil
     }
 
     private func userFacingProbeError(_ error: Error) -> String {

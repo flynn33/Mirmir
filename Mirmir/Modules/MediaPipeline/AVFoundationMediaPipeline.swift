@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import AudioToolbox
 import CoreMedia
 import CoreVideo
 
@@ -23,6 +24,7 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         let size = try await videoTrack.load(.naturalSize)
         let fps = Double(try await videoTrack.load(.nominalFrameRate))
         let formats = try await videoTrack.load(.formatDescriptions)
+        try Self.validateSupportedColorProfile(track: videoTrack, formats: formats)
         let durationCM = try await asset.load(.duration)
         let hasAudio = try await !asset.loadTracks(withMediaType: .audio).isEmpty
 
@@ -63,9 +65,109 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         ]
         return String(bytes: bytes, encoding: .ascii) ?? "????"
     }
+
+    fileprivate static func validateSupportedColorProfile(
+        track: AVAssetTrack,
+        formats: [CMFormatDescription]
+    ) throws {
+        var unsupportedValues: [String] = []
+        if track.hasMediaCharacteristic(.containsHDRVideo) {
+            unsupportedValues.append("HDR")
+        }
+
+        let expectedValues: [(CFString, CFString, String)] = [
+            (
+                kCMFormatDescriptionExtension_ColorPrimaries,
+                kCMFormatDescriptionColorPrimaries_ITU_R_709_2,
+                "primaries"
+            ),
+            (
+                kCMFormatDescriptionExtension_TransferFunction,
+                kCMFormatDescriptionTransferFunction_ITU_R_709_2,
+                "transfer"
+            ),
+            (
+                kCMFormatDescriptionExtension_YCbCrMatrix,
+                kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2,
+                "matrix"
+            )
+        ]
+
+        for format in formats {
+            let extensions = CMFormatDescriptionGetExtensions(format) as NSDictionary
+            for (key, expected, label) in expectedValues {
+                guard let observed = extensions[key] as? String else { continue }
+                let expectedString = expected as String
+                if observed != expectedString {
+                    unsupportedValues.append("\(label)=\(observed)")
+                }
+            }
+        }
+
+        guard unsupportedValues.isEmpty else {
+            throw MediaPipelineError.unsupportedColorProfile(
+                Array(Set(unsupportedValues)).sorted().joined(separator: ", ")
+            )
+        }
+    }
+}
+
+final class AtomicMediaOutput: @unchecked Sendable {
+    let destinationURL: URL
+    let temporaryURL: URL
+
+    init(destinationURL: URL, fileManager: FileManager = .default) throws {
+        self.destinationURL = destinationURL
+        let directory = destinationURL.deletingLastPathComponent()
+        var isDirectory: ObjCBool = false
+        guard destinationURL.isFileURL,
+              fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
+              isDirectory.boolValue else {
+            throw NSError(
+                domain: NSCocoaErrorDomain,
+                code: NSFileNoSuchFileError,
+                userInfo: [NSFilePathErrorKey: directory.path]
+            )
+        }
+
+        let baseName = destinationURL.deletingPathExtension().lastPathComponent
+        let pathExtension = destinationURL.pathExtension
+        let extensionSuffix = pathExtension.isEmpty ? "" : ".\(pathExtension)"
+        self.temporaryURL = directory.appendingPathComponent(
+            ".\(baseName).mirmir-\(UUID().uuidString).partial\(extensionSuffix)",
+            isDirectory: false
+        )
+    }
+
+    func commit(fileManager: FileManager = .default) throws {
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            _ = try fileManager.replaceItemAt(
+                destinationURL,
+                withItemAt: temporaryURL,
+                backupItemName: nil,
+                options: []
+            )
+        } else {
+            try fileManager.moveItem(at: temporaryURL, to: destinationURL)
+        }
+    }
+
+    func discard(fileManager: FileManager = .default) {
+        try? fileManager.removeItem(at: temporaryURL)
+    }
+
+    deinit {
+        discard()
+    }
 }
 
 final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
+    private enum LifecycleState {
+        case active
+        case cancelled
+        case committed
+    }
+
 
     let sourceProfile: SourceProfile
     let outputProfile: OutputProfile
@@ -80,9 +182,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     private let videoInput: AVAssetWriterInput
     private let videoAdaptor: AVAssetWriterInputPixelBufferAdaptor
     private let audioInput: AVAssetWriterInput?
+    private let outputTransaction: AtomicMediaOutput
+    private let lifecycleLock = NSLock()
 
     private var frameIndex = 0
-    private var isCancelled = false
+    private var lifecycleState = LifecycleState.active
 
     static func make(
         metal: MetalRenderingService,
@@ -94,9 +198,31 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         guard let videoTrack = videoTracks.first else {
             throw MediaPipelineError.noVideoTrack(source.url)
         }
-        let audioTrack = output.preserveAudio
-            ? try await asset.loadTracks(withMediaType: .audio).first
-            : nil
+        let videoTransform = try await videoTrack.load(.preferredTransform)
+        let videoFormats = try await videoTrack.load(.formatDescriptions)
+        try AVFoundationMediaPipeline.validateSupportedColorProfile(
+            track: videoTrack,
+            formats: videoFormats
+        )
+        let audioTracks = output.preserveAudio
+            ? try await asset.loadTracks(withMediaType: .audio)
+            : []
+        guard audioTracks.count <= 1 else {
+            throw MediaPipelineError.unsupportedAudioTrackCount(audioTracks.count)
+        }
+        let audioTrack = audioTracks.first
+        let audioFormatDescription: CMFormatDescription?
+        if let audioTrack {
+            audioFormatDescription = try await audioTrack.load(.formatDescriptions).first
+            if let audioFormatDescription {
+                let subtype = CMFormatDescriptionGetMediaSubType(audioFormatDescription)
+                guard subtype == kAudioFormatMPEG4AAC else {
+                    throw MediaPipelineError.unsupportedAudioFormat(String(format: "0x%08x", subtype))
+                }
+            }
+        } else {
+            audioFormatDescription = nil
+        }
 
         return try AVFoundationMediaSession(
             metal: metal,
@@ -104,7 +230,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             output: output,
             asset: asset,
             videoTrack: videoTrack,
-            audioTrack: audioTrack
+            videoTransform: videoTransform,
+            audioTrack: audioTrack,
+            audioFormatDescription: audioFormatDescription
         )
     }
 
@@ -114,8 +242,13 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         output: OutputProfile,
         asset: AVURLAsset,
         videoTrack: AVAssetTrack,
-        audioTrack: AVAssetTrack?
+        videoTransform: CGAffineTransform,
+        audioTrack: AVAssetTrack?,
+        audioFormatDescription: CMFormatDescription?
     ) throws {
+        guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
+            throw MediaPipelineError.inputOutputCollision(source.url)
+        }
         self.sourceProfile = source
         self.outputProfile = output
         self.asset = asset
@@ -133,9 +266,10 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         ]
         self.videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: videoSettings)
         videoOutput.alwaysCopiesSampleData = false
-        if reader.canAdd(videoOutput) {
-            reader.add(videoOutput)
+        guard reader.canAdd(videoOutput) else {
+            throw MediaPipelineError.cannotAddReaderOutput("video")
         }
+        reader.add(videoOutput)
 
         if output.preserveAudio, let audioTrack {
             let audioReaderSettings: [String: Any] = [:]
@@ -144,22 +278,27 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                 outputSettings: audioReaderSettings.isEmpty ? nil : audioReaderSettings
             )
             audioTrackOutput.alwaysCopiesSampleData = false
-            if reader.canAdd(audioTrackOutput) {
-                reader.add(audioTrackOutput)
+            guard reader.canAdd(audioTrackOutput) else {
+                throw MediaPipelineError.cannotAddReaderOutput("audio")
             }
+            reader.add(audioTrackOutput)
             self.audioOutput = audioTrackOutput
         } else {
             self.audioOutput = nil
         }
 
-        if FileManager.default.fileExists(atPath: output.url.path) {
-            try? FileManager.default.removeItem(at: output.url)
+        do {
+            self.outputTransaction = try AtomicMediaOutput(destinationURL: output.url)
+        } catch {
+            throw MediaPipelineError.outputPreparationFailed(output.url, error)
         }
         do {
-            self.writer = try AVAssetWriter(url: output.url, fileType: .mp4)
+            self.writer = try AVAssetWriter(url: outputTransaction.temporaryURL, fileType: .mp4)
         } catch {
+            outputTransaction.discard()
             throw MediaPipelineError.writerCreationFailed(output.url, error)
         }
+        writer.metadata = Self.makeASHMetadataItems()
 
         let bitRate = AVFoundationMediaSession.estimateBitRate(for: output.resolution, codec: output.codec)
         let videoCompression: [String: Any] = [
@@ -169,10 +308,16 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             AVVideoCodecKey: output.codec.avCodecKey,
             AVVideoWidthKey: NSNumber(value: output.resolution.width),
             AVVideoHeightKey: NSNumber(value: output.resolution.height),
-            AVVideoCompressionPropertiesKey: videoCompression
+            AVVideoCompressionPropertiesKey: videoCompression,
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+            ]
         ]
         self.videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
         videoInput.expectsMediaDataInRealTime = false
+        videoInput.transform = videoTransform
 
         let adaptorAttrs: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
@@ -185,19 +330,23 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             assetWriterInput: videoInput,
             sourcePixelBufferAttributes: adaptorAttrs
         )
-        if writer.canAdd(videoInput) {
-            writer.add(videoInput)
+        guard writer.canAdd(videoInput) else {
+            throw MediaPipelineError.cannotAddWriterInput("video")
         }
+        writer.add(videoInput)
 
         if output.preserveAudio, audioOutput != nil {
-            let audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: nil)
+            let audioInput = AVAssetWriterInput(
+                mediaType: .audio,
+                outputSettings: nil,
+                sourceFormatHint: audioFormatDescription
+            )
             audioInput.expectsMediaDataInRealTime = false
-            if writer.canAdd(audioInput) {
-                writer.add(audioInput)
-                self.audioInput = audioInput
-            } else {
-                self.audioInput = nil
+            guard writer.canAdd(audioInput) else {
+                throw MediaPipelineError.cannotAddWriterInput("audio")
             }
+            writer.add(audioInput)
+            self.audioInput = audioInput
         } else {
             self.audioInput = nil
         }
@@ -209,9 +358,12 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         )
 
         guard reader.startReading() else {
+            discardWorkingOutput()
             throw MediaPipelineError.readerStartFailed
         }
         guard writer.startWriting() else {
+            reader.cancelReading()
+            discardWorkingOutput()
             throw MediaPipelineError.writerStartFailed
         }
         writer.startSession(atSourceTime: .zero)
@@ -221,10 +373,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         // Loop (not recurse) over marker / metadata sample buffers without
         // image buffers — recursion would risk stack overflow on long
         // sequences.
-        while !isCancelled {
+        while !sessionIsCancelled() {
+            try Task.checkCancellation()
             guard let sample = videoOutput.copyNextSampleBuffer() else {
                 if let error = reader.error {
-                    throw MediaPipelineError.writerFailed(error)
+                    throw MediaPipelineError.readerFailed(error)
                 }
                 return nil
             }
@@ -242,15 +395,18 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws {
         while !videoInput.isReadyForMoreMediaData {
             try await Task.sleep(nanoseconds: 1_000_000)
-            if isCancelled { return }
+            if sessionIsCancelled() { throw CancellationError() }
         }
+        try Task.checkCancellation()
+        if sessionIsCancelled() { throw CancellationError() }
         if !videoAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
             throw MediaPipelineError.writerFailed(writer.error)
         }
     }
 
     func finish() async throws {
-        if isCancelled { return }
+        try Task.checkCancellation()
+        if sessionIsCancelled() { throw CancellationError() }
         // Drain audio (passthrough) before finalizing. .cancelled is treated
         // separately from .failed (see post-finish check below).
         if let audioOutput, let audioInput {
@@ -258,8 +414,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                 while let sample = audioOutput.copyNextSampleBuffer() {
                     while !audioInput.isReadyForMoreMediaData {
                         try await Task.sleep(nanoseconds: 1_000_000)
-                        if isCancelled { return }
+                        if sessionIsCancelled() { throw CancellationError() }
                     }
+                    try Task.checkCancellation()
                     if !audioInput.append(sample) {
                         throw MediaPipelineError.audioBridgeFailed(writer.error ?? NSError(domain: "Audio", code: -1))
                     }
@@ -275,12 +432,16 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         await writer.finishWriting()
         switch writer.status {
         case .completed:
-            return
+            do {
+                try commitOutput()
+                return
+            } catch {
+                discardWorkingOutput()
+                throw MediaPipelineError.outputPreparationFailed(outputProfile.url, error)
+            }
         case .cancelled:
-            // The writer was explicitly cancelled (typically by `cancel()`
-            // racing with `finish()`). Not an error — leave the partial file
-            // for the caller to clean up.
-            return
+            discardWorkingOutput()
+            throw CancellationError()
         case .failed, .unknown, .writing:
             throw MediaPipelineError.writerFailed(writer.error)
         @unknown default:
@@ -289,9 +450,55 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     }
 
     func cancel() {
-        isCancelled = true
-        if reader.status == .reading { reader.cancelReading() }
-        if writer.status == .writing { writer.cancelWriting() }
+        var shouldCancelResources = false
+        var shouldDiscardOutput = false
+
+        lifecycleLock.lock()
+        switch lifecycleState {
+        case .active:
+            lifecycleState = .cancelled
+            shouldCancelResources = true
+            shouldDiscardOutput = true
+        case .cancelled:
+            shouldDiscardOutput = true
+        case .committed:
+            break
+        }
+        lifecycleLock.unlock()
+
+        if shouldCancelResources {
+            if reader.status == .reading { reader.cancelReading() }
+            if writer.status == .writing { writer.cancelWriting() }
+        }
+        if shouldDiscardOutput {
+            discardWorkingOutput()
+        }
+    }
+
+    deinit {
+        discardWorkingOutput()
+    }
+
+    private func commitOutput() throws {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+
+        guard case .active = lifecycleState else {
+            throw CancellationError()
+        }
+        try outputTransaction.commit()
+        lifecycleState = .committed
+    }
+
+    private func discardWorkingOutput() {
+        outputTransaction.discard()
+    }
+
+    private func sessionIsCancelled() -> Bool {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        guard case .cancelled = lifecycleState else { return false }
+        return true
     }
 
     private static func estimateBitRate(for resolution: VideoResolution, codec: OutputCodec) -> Int {
@@ -302,5 +509,18 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         case .h264: bppFactor = 0.15
         }
         return max(2_000_000, Int(Double(pixels) * 30 * bppFactor))
+    }
+
+    private static func makeASHMetadataItems() -> [AVMetadataItem] {
+        ASHRuntimeConfiguration.current.outputMetadata
+            .sorted { $0.key < $1.key }
+            .map { key, value -> AVMetadataItem in
+                let item = AVMutableMetadataItem()
+                item.keySpace = .quickTimeMetadata
+                item.key = key as NSString
+                item.value = value as NSString
+                item.dataType = kCMMetadataBaseDataType_UTF8 as String
+                return item
+            }
     }
 }

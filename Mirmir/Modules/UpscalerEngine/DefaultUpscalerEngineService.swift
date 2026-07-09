@@ -17,6 +17,9 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
     func stop() {}
 
     func submit(_ job: UpscaleJob) throws -> UpscalerJobHandle {
+        guard !FileURLIdentity.refersToSameFile(job.inputURL, job.outputURL) else {
+            throw UpscalerEngineError.inputOutputCollision
+        }
         let handle = DefaultUpscalerJobHandle(
             job: job,
             media: media,
@@ -44,7 +47,9 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         self.media = media
         self.metal = metal
         var continuation: AsyncStream<UpscaleProgress>.Continuation!
-        self.progressStream = AsyncStream { continuation = $0 }
+        self.progressStream = AsyncStream(bufferingPolicy: .bufferingNewest(1)) {
+            continuation = $0
+        }
         self.progressContinuation = continuation
     }
 
@@ -81,6 +86,17 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         metal: MetalRenderingService,
         progressContinuation: AsyncStream<UpscaleProgress>.Continuation
     ) async throws -> URL {
+        let isAccessingInput = job.inputURL.startAccessingSecurityScopedResource()
+        let isAccessingOutput = job.outputURL.startAccessingSecurityScopedResource()
+        defer {
+            if isAccessingOutput {
+                job.outputURL.stopAccessingSecurityScopedResource()
+            }
+            if isAccessingInput {
+                job.inputURL.stopAccessingSecurityScopedResource()
+            }
+        }
+
         let source = try await media.probe(url: job.inputURL)
         let strategy = try StrategySelector.choose(source: source.resolution, target: job.targetResolution)
 
@@ -92,69 +108,84 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         )
         let session = try await media.beginSession(source: source, output: output)
 
-        let backend = ASHDeterministicUpscaleBackend(scale: 2)
-        backend.reset()
+        do {
+            return try await withTaskCancellationHandler {
+                let backend = ASHDeterministicUpscaleBackend(scale: 2)
+                backend.reset()
 
-        let lanczos: LanczosPolishPass?
-        let srPool: CVPixelBufferPool
-        switch strategy {
-        case .direct2x:
-            lanczos = nil
-            srPool = session.outputPixelBufferPool
-        case .twoXThenLanczosDownsample(let intermediate):
-            lanczos = LanczosPolishPass(metal: metal)
-            srPool = try PixelBufferBridge.makePool(
-                width: intermediate.width,
-                height: intermediate.height,
-                capacity: 6
-            )
-        }
+                let lanczos: LanczosPolishPass?
+                let srPool: CVPixelBufferPool
+                switch strategy {
+                case .direct2x:
+                    lanczos = nil
+                    srPool = session.outputPixelBufferPool
+                case .twoXThenLanczosDownsample(let intermediate):
+                    lanczos = LanczosPolishPass(metal: metal)
+                    srPool = try PixelBufferBridge.makePool(
+                        width: intermediate.width,
+                        height: intermediate.height,
+                        capacity: 6
+                    )
+                }
 
-        let totalFrames = max(source.estimatedFrameCount, 1)
-        var processed = 0
-        let startedAt = Date()
+                let estimatedTotalFrames = max(source.estimatedFrameCount, 0)
+                var processed = 0
+                let startedAt = Date()
 
-        while let record = try await session.nextSourceFrame() {
-            try Task.checkCancellation()
+                while let record = try await session.nextSourceFrame() {
+                    try Task.checkCancellation()
 
-            let srBuffer = try PixelBufferBridge.dequeue(from: srPool)
-            try await backend.process(source: record.pixelBuffer, into: srBuffer)
+                    let srBuffer = try PixelBufferBridge.dequeue(from: srPool)
+                    try await backend.process(source: record.pixelBuffer, into: srBuffer)
+                    try Task.checkCancellation()
 
-            let outputBuffer: CVPixelBuffer
-            if let lanczos {
-                let polished = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
-                try await lanczos.encode(from: srBuffer, to: polished)
-                outputBuffer = polished
-            } else {
-                outputBuffer = srBuffer
+                    let outputBuffer: CVPixelBuffer
+                    if let lanczos {
+                        let polished = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
+                        try await lanczos.encode(from: srBuffer, to: polished)
+                        try Task.checkCancellation()
+                        outputBuffer = polished
+                    } else {
+                        outputBuffer = srBuffer
+                    }
+                    try await session.appendOutput(pixelBuffer: outputBuffer, at: record.presentationTime)
+
+                    processed += 1
+                    let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
+                    let throughput = Double(processed) / elapsed
+                    let reportedTotal = max(estimatedTotalFrames, processed)
+                    let remaining = max(reportedTotal - processed, 0)
+                    let eta = estimatedTotalFrames > 0 && throughput > 0
+                        ? Double(remaining) / throughput
+                        : nil
+                    progressContinuation.yield(UpscaleProgress(
+                        framesProcessed: processed,
+                        totalFrames: reportedTotal,
+                        throughputFPS: throughput,
+                        etaSeconds: eta
+                    ))
+                }
+
+                try Task.checkCancellation()
+
+                try await session.finish()
+                let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
+                progressContinuation.yield(UpscaleProgress(
+                    framesProcessed: processed,
+                    totalFrames: max(estimatedTotalFrames, processed),
+                    throughputFPS: Double(processed) / elapsed,
+                    etaSeconds: 0
+                ))
+                return job.outputURL
+            } onCancel: {
+                session.cancel()
             }
-            try await session.appendOutput(pixelBuffer: outputBuffer, at: record.presentationTime)
-
-            processed += 1
-            let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
-            let throughput = Double(processed) / elapsed
-            let remaining = max(totalFrames - processed, 0)
-            let eta = throughput > 0 ? Double(remaining) / throughput : nil
-            progressContinuation.yield(UpscaleProgress(
-                framesProcessed: processed,
-                totalFrames: totalFrames,
-                throughputFPS: throughput,
-                etaSeconds: eta
-            ))
-        }
-
-        if Task.isCancelled {
+        } catch {
             session.cancel()
-            throw UpscalerEngineError.cancelled
+            if error is CancellationError || Task.isCancelled {
+                throw UpscalerEngineError.cancelled
+            }
+            throw error
         }
-
-        try await session.finish()
-        progressContinuation.yield(UpscaleProgress(
-            framesProcessed: processed,
-            totalFrames: max(totalFrames, processed),
-            throughputFPS: 0,
-            etaSeconds: 0
-        ))
-        return job.outputURL
     }
 }

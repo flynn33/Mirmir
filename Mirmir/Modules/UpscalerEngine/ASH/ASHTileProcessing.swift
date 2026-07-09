@@ -58,6 +58,15 @@ struct ASHTileDecision: Equatable, Sendable {
     let sourceState: ASHState
     let selectedMessage: ASHMessage
     let selectedScore: Double
+    let historyResetReason: ASHHistoryResetReason?
+}
+
+enum ASHHistoryResetReason: String, Equatable, Sendable {
+    case noPriorFrame
+    case missingPriorTile
+    case missingPriorState
+    case invalidPriorState
+    case sceneCut
 }
 
 struct ASHTileProcessingSummary: Equatable, Sendable {
@@ -66,6 +75,9 @@ struct ASHTileProcessingSummary: Equatable, Sendable {
     let maxCandidatesPerTile: Int
     let estimatedPeakTemporaryBytes: Int
     let chromaFeatureEnabled: Bool
+    let historyResetCount: Int
+    let sceneCutResetCount: Int
+    let configuration: ASHRuntimeConfiguration
 }
 
 struct ASHTileTemporalState: Equatable, Sendable {
@@ -85,15 +97,18 @@ struct ASHTileProcessor: Sendable {
     let tileSize: Int
     let scale: Int
     let topK: Int
+    let configuration: ASHRuntimeConfiguration
 
     init(
         tileSize: Int = 32,
         scale: Int = ASHReconstruction.defaultScale,
-        topK: Int = ASHReconstruction.defaultTopK
+        topK: Int = ASHReconstruction.defaultTopK,
+        configuration: ASHRuntimeConfiguration = .current
     ) {
         self.tileSize = tileSize
         self.scale = scale
         self.topK = topK
+        self.configuration = configuration
     }
 
     func process(
@@ -105,6 +120,15 @@ struct ASHTileProcessor: Sendable {
         guard tileSize > 0 else { throw ASHCoreError.invalidImageShape }
         guard scale > 0 else { throw ASHCoreError.invalidScale(scale) }
         guard topK > 0 else { throw ASHCoreError.invalidTopK(topK) }
+        guard configuration.sceneCutMeanAbsoluteLumaThreshold.isFinite,
+              configuration.sceneCutMeanAbsoluteLumaThreshold >= 0.0,
+              configuration.sceneCutMeanAbsoluteLumaThreshold <= 1.0 else {
+            throw ASHCoreError.invalidFeatureVector
+        }
+        guard configuration.provenance.scoringSpecificationVersion
+                == configuration.scoringPolicy.specificationVersion else {
+            throw ASHReconstructionError.inconsistentRuntimeConfiguration
+        }
 
         let tiles = makeTiles(width: luma.width, height: luma.height)
         let outputWidth = luma.width * scale
@@ -117,12 +141,25 @@ struct ASHTileProcessor: Sendable {
         var histogram: [ASHMessage: Int] = [:]
         var maxCandidates = 0
         var estimatedPeakTemporaryBytes = 0
+        var historyResetCount = 0
+        var sceneCutResetCount = 0
 
         for tile in tiles {
+            try Task.checkCancellation()
             let currentTile = try luma.cropped(to: tile.sourceRect)
-            let previousTile = previous?.sourceTiles[tile.id]?.matchingShape(currentTile)
-            let previousState = previousTile == nil ? nil : previous?.sourceStates[tile.id]
-            let previousReconstruction = previousTile == nil ? nil : previous?.reconstructions[tile.id]
+            let candidatePreviousTile = previous?.sourceTiles[tile.id]?.matchingShape(currentTile)
+            let candidatePreviousState = previous?.sourceStates[tile.id]
+            let historyResetReason = determineHistoryResetReason(
+                current: currentTile,
+                previous: candidatePreviousTile,
+                previousState: candidatePreviousState,
+                hasPreviousFrame: previous != nil
+            )
+            let previousTile = historyResetReason == nil ? candidatePreviousTile : nil
+            let previousState = historyResetReason == nil ? candidatePreviousState : nil
+            let previousReconstruction = historyResetReason == nil
+                ? previous?.reconstructions[tile.id]?.matchingReconstructionShape(of: currentTile, scale: scale)
+                : nil
             let mapping = try ASHReferencePipeline.mapPatch(
                 current: currentTile,
                 previous: previousTile,
@@ -130,7 +167,9 @@ struct ASHTileProcessor: Sendable {
                 previousReconstruction: previousReconstruction,
                 chromaEnergy: chroma?.energy(inLumaRect: tile.sourceRect),
                 scale: scale,
-                topK: topK
+                topK: topK,
+                candidateRetention: .selectedOnly,
+                scoringPolicy: configuration.scoringPolicy
             )
             guard let selected = mapping.selected.first else {
                 throw UpscalerEngineError.strategyFailed("ASH tile reconstruction produced no selected candidate")
@@ -143,16 +182,27 @@ struct ASHTileProcessor: Sendable {
                 features: mapping.features,
                 sourceState: mapping.sourceState,
                 selectedMessage: selected.message,
-                selectedScore: selected.totalScore
+                selectedScore: selected.totalScore,
+                historyResetReason: historyResetReason
             ))
             sourceTiles[tile.id] = currentTile
             sourceStates[tile.id] = mapping.sourceState
             reconstructions[tile.id] = selected.reconstruction
             histogram[selected.message, default: 0] += 1
-            maxCandidates = max(maxCandidates, mapping.candidates.count)
+            maxCandidates = max(maxCandidates, mapping.evaluatedCandidateCount)
+            if historyResetReason != nil {
+                historyResetCount += 1
+            }
+            if historyResetReason == .sceneCut {
+                sceneCutResetCount += 1
+            }
+            // One baseline plus three detail planes form the reusable operator
+            // basis. During bounded top-k selection, at most topK retained
+            // candidates and one candidate under evaluation coexist.
+            let retainedImageCount = 4 + min(topK, mapping.evaluatedCandidateCount) + 1
             estimatedPeakTemporaryBytes = max(
                 estimatedPeakTemporaryBytes,
-                mapping.candidates.count * selected.reconstruction.values.count * MemoryLayout<Double>.stride
+                retainedImageCount * selected.reconstruction.values.count * MemoryLayout<Double>.stride
             )
         }
 
@@ -170,7 +220,10 @@ struct ASHTileProcessor: Sendable {
                 selectedMessageHistogram: histogram,
                 maxCandidatesPerTile: maxCandidates,
                 estimatedPeakTemporaryBytes: estimatedPeakTemporaryBytes,
-                chromaFeatureEnabled: chroma != nil
+                chromaFeatureEnabled: chroma != nil,
+                historyResetCount: historyResetCount,
+                sceneCutResetCount: sceneCutResetCount,
+                configuration: configuration
             ),
             temporalState: ASHTileTemporalState(
                 sourceTiles: sourceTiles,
@@ -178,6 +231,29 @@ struct ASHTileProcessor: Sendable {
                 reconstructions: reconstructions
             )
         )
+    }
+
+    private func determineHistoryResetReason(
+        current: ASHImage,
+        previous: ASHImage?,
+        previousState: ASHState?,
+        hasPreviousFrame: Bool
+    ) -> ASHHistoryResetReason? {
+        guard let previous else {
+            return hasPreviousFrame ? .missingPriorTile : .noPriorFrame
+        }
+        guard let previousState else {
+            return .missingPriorState
+        }
+        guard previousState.hasValidIntegrity else {
+            return .invalidPriorState
+        }
+
+        let totalDifference = zip(current.values, previous.values).reduce(0.0) { partial, pair in
+            partial + abs(pair.0 - pair.1)
+        }
+        let meanDifference = totalDifference / Double(current.values.count)
+        return meanDifference >= configuration.sceneCutMeanAbsoluteLumaThreshold ? .sceneCut : nil
     }
 
     private func makeTiles(width: Int, height: Int) -> [ASHTileDescriptor] {
@@ -252,6 +328,15 @@ private extension ASHImage {
 
     func matchingShape(_ other: ASHImage) -> ASHImage? {
         guard width == other.width, height == other.height, channels == other.channels else {
+            return nil
+        }
+        return self
+    }
+
+    func matchingReconstructionShape(of source: ASHImage, scale: Int) -> ASHImage? {
+        guard width == source.width * scale,
+              height == source.height * scale,
+              channels == source.channels else {
             return nil
         }
         return self

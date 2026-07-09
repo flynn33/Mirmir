@@ -261,12 +261,14 @@ struct MirmirSettingsScreen: View {
                     }
 
                     MirmirFieldRow("Default Profile", theme: theme) {
-                        Picker("Default Profile", selection: $viewModel.qualityMode) {
+                        Picker("Default Profile", selection: Binding.constant(MirmirQualityMode.balanced)) {
                             ForEach(MirmirQualityMode.allCases) { mode in
                                 Text(mode.title).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .disabled(true)
+                        .help("Additional processing profiles are not implemented yet.")
                     }
 
                     MirmirFieldRow("Default Output Format", theme: theme) {

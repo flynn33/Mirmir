@@ -1,6 +1,9 @@
 {
   "schemaVersion": "1.0",
   "sourcePackage": "ASH-Model-main",
+  "sourceRepository": "https://github.com/flynn33/ASH-Model",
+  "sourceRevision": "8782886a8cca9fa63f7d44b529add6eac80a50f8",
+  "coordinateConvention": "coordinate_1_is_most_significant",
   "assets": [
     {
       "path": "ash_mapping_v1.json",

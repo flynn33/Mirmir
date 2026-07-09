@@ -24,15 +24,14 @@ final class MirmirUIWorkflowTests: XCTestCase {
         viewModel.ashBackendStatus = .available
         viewModel.sourceProfile = sourceProfile
         viewModel.targetResolution = .p2160
-        viewModel.outputURL = viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
         viewModel.state = .ready
 
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertTrue(viewModel.acceptOutputURLSelectedByUser(
+            viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
+        ))
         XCTAssertTrue(viewModel.canStart)
 
-        viewModel.outputURL = nil
-        XCTAssertFalse(viewModel.canStart)
-
-        viewModel.outputURL = viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
         viewModel.targetResolution = .p1080
         XCTAssertFalse(viewModel.canStart)
 
@@ -52,6 +51,66 @@ final class MirmirUIWorkflowTests: XCTestCase {
         let outputURL = viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
 
         XCTAssertEqual(outputURL.lastPathComponent, "clip_mirmir_2160p.mp4")
+    }
+
+    func test_sourceAndOutputMustBeDifferentFiles() {
+        let source = URL(fileURLWithPath: "/tmp/source.mov")
+
+        XCTAssertTrue(MirmirViewModel.urlsReferToSameFile(source, source))
+        XCTAssertFalse(
+            MirmirViewModel.urlsReferToSameFile(
+                source,
+                URL(fileURLWithPath: "/tmp/source_mirmir_2160p.mp4")
+            )
+        )
+    }
+
+    func test_fileIdentityDetectsSymlinkAndHardLinkAliases() throws {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: directory) }
+
+        let source = directory.appendingPathComponent("source.mov")
+        let symlink = directory.appendingPathComponent("source-symlink.mov")
+        let hardLink = directory.appendingPathComponent("source-hardlink.mov")
+        try Data("source".utf8).write(to: source)
+        try fileManager.createSymbolicLink(at: symlink, withDestinationURL: source)
+        try fileManager.linkItem(at: source, to: hardLink)
+
+        XCTAssertTrue(MirmirViewModel.urlsReferToSameFile(source, symlink))
+        XCTAssertTrue(MirmirViewModel.urlsReferToSameFile(source, hardLink))
+    }
+
+    func test_sourceCannotBeAcceptedAsOutput() {
+        let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
+        let viewModel = makeViewModel()
+        viewModel.ashBackendStatus = .available
+        viewModel.sourceProfile = makeSourceProfile(url: sourceURL)
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+
+        XCTAssertFalse(viewModel.acceptOutputURLSelectedByUser(sourceURL))
+        XCTAssertNil(viewModel.outputURL)
+        XCTAssertEqual(
+            viewModel.canStartFailureReason,
+            MirmirViewModel.sourceOutputConflictMessage
+        )
+    }
+
+    func test_loadingSourceRequiresExplicitOutputSelection() async {
+        let viewModel = makeViewModel()
+
+        viewModel.loadSource(url: URL(fileURLWithPath: "/tmp/source.mov"))
+        for _ in 0..<100 where viewModel.state == .probing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertNil(viewModel.outputURL)
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertEqual(viewModel.canStartFailureReason, "Choose an output location.")
     }
 
     func test_supportedVideoExtensionsCoverCommonAVFoundationReadableFormats() {
