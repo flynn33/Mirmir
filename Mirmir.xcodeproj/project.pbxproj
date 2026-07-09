@@ -44,6 +44,7 @@
 		8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */; };
 		84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */; };
 		87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132D09C41665FFDB89F81CE /* PreviewView.swift */; };
+		8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E391EBE193D62E60BF842DC1 /* Assets.xcassets */; };
 		89AFC0D70695293B9451C3C3 /* ASHFeatureBranchReconstructionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */; };
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
 		9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */; };
@@ -157,6 +158,7 @@
 		D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTSuperResolutionDriver.swift; sourceTree = "<group>"; };
 		D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIConstants.swift; sourceTree = "<group>"; };
 		DCAB5DB5687A70683BCEFADD /* branch-topology.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "branch-topology.json"; sourceTree = "<group>"; };
+		E391EBE193D62E60BF842DC1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		E75DA9BCC8A62F7A944297A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleControlsView.swift; sourceTree = "<group>"; };
 		EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoSelectionView.swift; sourceTree = "<group>"; };
@@ -252,6 +254,7 @@
 		50E3FE83D97A4E37C0627F13 /* Mirmir */ = {
 			isa = PBXGroup;
 			children = (
+				E391EBE193D62E60BF842DC1 /* Assets.xcassets */,
 				E75DA9BCC8A62F7A944297A8 /* Info.plist */,
 				901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */,
 				17392895A6B286AA06640027 /* App */,
@@ -476,6 +479,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */,
 				8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */,
 				A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */,
 				BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */,
