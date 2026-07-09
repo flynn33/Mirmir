@@ -6,8 +6,8 @@ import UniformTypeIdentifiers
 
 enum MirmirQualityMode: String, CaseIterable, Identifiable {
     case balanced
-    case detail
-    case fasterPreview
+    case quality
+    case fastPreview
 
     var id: String { rawValue }
 
@@ -15,21 +15,40 @@ enum MirmirQualityMode: String, CaseIterable, Identifiable {
         switch self {
         case .balanced:
             return "Balanced"
-        case .detail:
-            return "More Detail"
-        case .fasterPreview:
-            return "Faster Preview"
+        case .quality:
+            return "Quality"
+        case .fastPreview:
+            return "Fast"
         }
     }
 
     var summary: String {
         switch self {
         case .balanced:
-            return "Default quality for the current alpha build."
-        case .detail:
+            return "Default deterministic reconstruction profile for this alpha build."
+        case .quality:
             return "Prepared for higher-detail processing when that mode is available."
-        case .fasterPreview:
+        case .fastPreview:
             return "Prepared for quicker preview passes when preview output is available."
+        }
+    }
+}
+
+enum MirmirAdjustmentLevel: String, CaseIterable, Identifiable {
+    case low
+    case medium
+    case high
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .low:
+            return "Low"
+        case .medium:
+            return "Medium"
+        case .high:
+            return "High"
         }
     }
 }
@@ -86,6 +105,9 @@ final class MirmirViewModel: ObservableObject {
     }
     @Published var codec: OutputCodec = .hevc
     @Published var qualityMode: MirmirQualityMode = .balanced
+    @Published var temporalConsistencyEnabled = true
+    @Published var edgeFidelityLevel: MirmirAdjustmentLevel = .medium
+    @Published var detailRecoveryLevel: MirmirAdjustmentLevel = .medium
     @Published var modelStatus: ModelAssetsStatus = .unknown
     @Published var ashBackendStatus: ASHBackendStatus = .validating
     @Published var progress: UpscaleProgress?

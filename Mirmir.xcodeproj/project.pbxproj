@@ -23,6 +23,7 @@
 		3914A87ED28BF744D9FFE217 /* ash-asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 9652114C08D1C3A28932E156 /* ash-asset-manifest.json */; };
 		3B0750EBC6A017F581BFD9F5 /* ASHTileProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC6A02B2893142326862987 /* ASHTileProcessing.swift */; };
 		3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */; };
+		3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */; };
 		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
 		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
 		4DE4402E7413344ADD2AE7B7 /* ASHAssetConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */; };
@@ -47,8 +48,10 @@
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
 		9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */; };
 		9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */; };
+		95E4EF31D5FC320E157F1B94 /* MirmirWorkspaceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */; };
 		99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */; };
 		A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */; };
+		A1495737841BB92E5B14840A /* MirmirStatusStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */; };
 		A5312DF3C589850628B42108 /* ash-state-reference.csv in Resources */ = {isa = PBXBuildFile; fileRef = F491320002D06F19FC9A8B3D /* ash-state-reference.csv */; };
 		A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF56556BD38E52A6939975 /* MediaTypes.swift */; };
 		B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */; };
@@ -62,11 +65,13 @@
 		CA895557DECD620A23495BDB /* ASHInternalAlphaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */; };
 		CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */; };
 		D32AB7401A5D9CDB64458DC4 /* codewords.csv in Resources */ = {isa = PBXBuildFile; fileRef = 1CC00CCC5D596A5E02408508 /* codewords.csv */; };
+		D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */; };
 		D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */; };
 		D8A538BE9EC1806FE61DC81A /* ASHDeterministicUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */; };
 		DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */; };
 		E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */; };
 		E8D3F54740F2D2FAC0CFDC4D /* DefaultMetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */; };
+		EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */; };
 		EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */; };
 		F135BBD7DD93711131CF8273 /* ASHBitwiseCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7D02E95AFB7F28B3687541 /* ASHBitwiseCoreTests.swift */; };
 		F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */; };
@@ -94,6 +99,8 @@
 		0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaPipeline.swift; sourceTree = "<group>"; };
 		1132D09C41665FFDB89F81CE /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirForsettiBootstrap.swift; sourceTree = "<group>"; };
+		178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirStatusStripView.swift; sourceTree = "<group>"; };
+		1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceScreens.swift; sourceTree = "<group>"; };
 		1CC00CCC5D596A5E02408508 /* codewords.csv */ = {isa = PBXFileReference; path = codewords.csv; sourceTree = "<group>"; };
 		1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModelAssetsService.swift; sourceTree = "<group>"; };
 		20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultUpscalerEngineService.swift; sourceTree = "<group>"; };
@@ -102,6 +109,7 @@
 		31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTModelStager.swift; sourceTree = "<group>"; };
 		33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHFeatureBranchReconstructionTests.swift; sourceTree = "<group>"; };
 		37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineService.swift; sourceTree = "<group>"; };
+		3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUpscaleWorkspaceView.swift; sourceTree = "<group>"; };
 		405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeploymentMode.swift; sourceTree = "<group>"; };
 		40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleRegistry.swift; sourceTree = "<group>"; };
 		44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHInternalAlphaTests.swift; sourceTree = "<group>"; };
@@ -121,6 +129,7 @@
 		61D3BF1665450FC60B415F7B /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
 		691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineServiceModule.swift; sourceTree = "<group>"; };
 		70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineService.swift; sourceTree = "<group>"; };
+		71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTheme.swift; sourceTree = "<group>"; };
 		743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
 		77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestRegistryAlignmentTests.swift; sourceTree = "<group>"; };
 		7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProductionRootView.swift; sourceTree = "<group>"; };
@@ -139,6 +148,7 @@
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
 		C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_mapping_v1.json; sourceTree = "<group>"; };
 		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
+		D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceComponents.swift; sourceTree = "<group>"; };
 		D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPass.swift; sourceTree = "<group>"; };
 		D369E9FFB41D568A97978643 /* MirmirUIModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MirmirUIModule.json; sourceTree = "<group>"; };
 		D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleStrategy.swift; sourceTree = "<group>"; };
@@ -215,7 +225,11 @@
 			children = (
 				9833C96F05E187004E393DAD /* MirmirRootView.swift */,
 				471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */,
+				178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */,
+				3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */,
 				F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */,
+				D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */,
+				1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */,
 				1132D09C41665FFDB89F81CE /* PreviewView.swift */,
 				C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */,
 				EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */,
@@ -245,6 +259,14 @@
 				FBF76D81FC8B5D2A4A396DAD /* Resources */,
 			);
 			path = Mirmir;
+			sourceTree = "<group>";
+		};
+		5E754813020FDDB7D47EC2E4 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */,
+			);
+			path = Theme;
 			sourceTree = "<group>";
 		};
 		6CF1564C6FE2DBF92C1B9006 /* MetalRendering */ = {
@@ -337,6 +359,7 @@
 				D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */,
 				FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */,
 				2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */,
+				5E754813020FDDB7D47EC2E4 /* Theme */,
 				300DD123FB8D9AD9C26BB2FD /* Views */,
 			);
 			path = UI;
@@ -518,10 +541,15 @@
 				51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */,
 				811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */,
 				4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */,
+				A1495737841BB92E5B14840A /* MirmirStatusStripView.swift in Sources */,
+				D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */,
 				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
 				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
+				EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */,
 				147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */,
 				04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */,
+				95E4EF31D5FC320E157F1B94 /* MirmirWorkspaceComponents.swift in Sources */,
+				3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */,
 				F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */,
 				E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */,
 				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,

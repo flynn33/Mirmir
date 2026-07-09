@@ -1,445 +1,291 @@
-import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct MirmirWorkflowRootView: View {
     @ObservedObject var viewModel: MirmirViewModel
-    @State private var showsSettings = false
-    @State private var showsAbout = false
+
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var destination: MirmirWorkspaceDestination = .upscale
+    @State private var appearanceMode: MirmirAppearanceMode = .system
 
     var body: some View {
-        VStack(spacing: 0) {
-            MirmirHeaderView(
-                engineStatus: viewModel.engineReadinessText,
-                showSettings: { showsSettings = true },
-                showAbout: { showsAbout = true }
+        GeometryReader { proxy in
+            content(width: proxy.size.width)
+        }
+        .frame(minWidth: 960, minHeight: 680)
+    }
+
+    private func content(width: CGFloat) -> some View {
+        let theme = appearanceMode.tokens(for: colorScheme)
+        let isCompact = width < 1120
+
+        return HStack(spacing: 0) {
+            MirmirSidebar(
+                selection: $destination,
+                theme: theme,
+                isCompact: isCompact
             )
 
-            Divider()
+            VStack(spacing: 0) {
+                MirmirWorkspaceHeader(
+                    destination: destination,
+                    viewModel: viewModel,
+                    theme: theme,
+                    showSettings: { destination = .settings },
+                    showAbout: { destination = .about }
+                )
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
-                    SourceVideoStepView(viewModel: viewModel)
-                    Divider()
-                    QualityEffectsStepView(viewModel: viewModel)
-                    Divider()
-                    TargetOutputStepView(viewModel: viewModel)
-                    Divider()
-                    JobProgressView(viewModel: viewModel)
-                    CompletionActionsView(viewModel: viewModel)
-                }
-                .padding(24)
-                .frame(maxWidth: 980, alignment: .leading)
-                .frame(maxWidth: .infinity)
+                Rectangle()
+                    .fill(theme.borderSubtle)
+                    .frame(height: 1)
+
+                workspaceContent(theme: theme, isCompact: isCompact)
             }
-
-            Divider()
-
-            UpscaleActionBar(viewModel: viewModel)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
         }
-        .sheet(isPresented: $showsSettings) {
-            MirmirSettingsView(viewModel: viewModel)
-                .frame(width: 560, height: 440)
-        }
-        .sheet(isPresented: $showsAbout) {
-            MirmirAboutView(viewModel: viewModel, showsTechnicalDetails: true)
-                .frame(width: 520, height: 360)
+        .background(theme.background)
+        .foregroundStyle(theme.textPrimary)
+        .tint(theme.accentPrimary)
+    }
+
+    @ViewBuilder
+    private func workspaceContent(theme: MirmirThemeTokens, isCompact: Bool) -> some View {
+        switch destination {
+        case .dashboard:
+            MirmirDashboardScreen(viewModel: viewModel, theme: theme)
+        case .library:
+            MirmirLibraryScreen(viewModel: viewModel, theme: theme)
+        case .upscale:
+            MirmirUpscaleWorkspaceView(
+                viewModel: viewModel,
+                theme: theme,
+                isCompact: isCompact
+            )
+        case .queue:
+            MirmirQueueScreen(viewModel: viewModel, theme: theme)
+        case .presets:
+            MirmirPresetsScreen(viewModel: viewModel, theme: theme)
+        case .settings:
+            MirmirSettingsScreen(
+                viewModel: viewModel,
+                theme: theme,
+                appearanceMode: $appearanceMode
+            )
+        case .about:
+            MirmirAboutWorkspaceScreen(viewModel: viewModel, theme: theme)
+        case .diagnostics:
+            MirmirDiagnosticsScreen(viewModel: viewModel, theme: theme)
         }
     }
 }
 
-struct MirmirHeaderView: View {
-    let engineStatus: String
+enum MirmirWorkspaceDestination: String, CaseIterable, Identifiable {
+    case dashboard
+    case library
+    case upscale
+    case queue
+    case presets
+    case settings
+    case about
+    case diagnostics
+
+    var id: String { rawValue }
+
+    static let primary: [MirmirWorkspaceDestination] = [
+        .dashboard,
+        .library,
+        .upscale,
+        .queue,
+        .presets,
+        .settings
+    ]
+
+    static let utilities: [MirmirWorkspaceDestination] = [
+        .about,
+        .diagnostics
+    ]
+
+    var title: String {
+        switch self {
+        case .dashboard:
+            return "Dashboard"
+        case .library:
+            return "Library"
+        case .upscale:
+            return "Upscale"
+        case .queue:
+            return "Queue"
+        case .presets:
+            return "Presets"
+        case .settings:
+            return "Settings"
+        case .about:
+            return "About Mirmir"
+        case .diagnostics:
+            return "Diagnostics"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .dashboard:
+            return "gauge.with.dots.needle.33percent"
+        case .library:
+            return "folder"
+        case .upscale:
+            return "arrow.up.left.and.arrow.down.right"
+        case .queue:
+            return "list.bullet.rectangle"
+        case .presets:
+            return "slider.horizontal.3"
+        case .settings:
+            return "gearshape"
+        case .about:
+            return "info.circle"
+        case .diagnostics:
+            return "waveform.path.ecg.rectangle"
+        }
+    }
+}
+
+private struct MirmirSidebar: View {
+    @Binding var selection: MirmirWorkspaceDestination
+    let theme: MirmirThemeTokens
+    let isCompact: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space4) {
+            VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                Text("Mirmir")
+                    .font(theme.typography.subtitle)
+                    .foregroundStyle(theme.textPrimary)
+                    .opacity(isCompact ? 0 : 1)
+                Text("Deterministic Video Upscaler")
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
+                    .opacity(isCompact ? 0 : 1)
+            }
+            .frame(height: 44, alignment: .leading)
+
+            VStack(spacing: theme.spacing.space1) {
+                ForEach(MirmirWorkspaceDestination.primary) { item in
+                    sidebarButton(for: item)
+                }
+            }
+
+            Spacer(minLength: theme.spacing.space6)
+
+            VStack(spacing: theme.spacing.space1) {
+                ForEach(MirmirWorkspaceDestination.utilities) { item in
+                    sidebarButton(for: item)
+                }
+            }
+        }
+        .padding(.horizontal, isCompact ? theme.spacing.space2 : theme.spacing.space3)
+        .padding(.vertical, theme.spacing.space5)
+        .frame(width: isCompact ? 68 : 204)
+        .background(theme.backgroundAlt)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(theme.borderSubtle)
+                .frame(width: 1)
+        }
+    }
+
+    private func sidebarButton(for item: MirmirWorkspaceDestination) -> some View {
+        let isSelected = item == selection
+
+        return Button {
+            selection = item
+        } label: {
+            HStack(spacing: theme.spacing.space2) {
+                Image(systemName: item.symbolName)
+                    .font(.system(size: 16, weight: .medium))
+                    .frame(width: 22)
+
+                if !isCompact {
+                    Text(item.title)
+                        .font(theme.typography.bodyEmphasis)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                }
+            }
+            .frame(height: 38)
+            .frame(maxWidth: .infinity, alignment: isCompact ? .center : .leading)
+            .padding(.horizontal, isCompact ? theme.spacing.space1 : theme.spacing.space2)
+            .foregroundStyle(isSelected ? theme.accentPrimary : theme.textSecondary)
+            .background(
+                RoundedRectangle(cornerRadius: theme.radius.medium)
+                    .fill(isSelected ? theme.accentMuted : theme.backgroundAlt)
+            )
+        }
+        .buttonStyle(.plain)
+        .help(item.title)
+        .accessibilityLabel(item.title)
+    }
+}
+
+private struct MirmirWorkspaceHeader: View {
+    let destination: MirmirWorkspaceDestination
+    @ObservedObject var viewModel: MirmirViewModel
+    let theme: MirmirThemeTokens
     let showSettings: () -> Void
     let showAbout: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Mirmir")
-                    .font(.title2.weight(.semibold))
-                Text("Video upscaling workflow")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+        HStack(spacing: theme.spacing.space4) {
+            VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                Text(destination.title)
+                    .font(theme.typography.title)
+                    .foregroundStyle(theme.textPrimary)
+
+                Text(subtitle)
+                    .font(theme.typography.body)
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
             }
 
             Spacer()
 
-            Label(engineStatus, systemImage: "checkmark.circle")
-                .font(.callout)
-                .foregroundStyle(.secondary)
+            Label(viewModel.engineReadinessText, systemImage: engineStatusIcon)
+                .font(theme.typography.bodyEmphasis)
+                .foregroundStyle(engineStatusColor)
+                .accessibilityLabel("Processing status: \(viewModel.engineReadinessText)")
 
             Button(action: showSettings) {
                 Image(systemName: "gearshape")
+                    .frame(width: 28, height: 28)
             }
+            .buttonStyle(MirmirIconButtonStyle(theme: theme))
             .help("Settings")
+            .accessibilityLabel("Settings")
 
             Button(action: showAbout) {
                 Image(systemName: "info.circle")
+                    .frame(width: 28, height: 28)
             }
+            .buttonStyle(MirmirIconButtonStyle(theme: theme))
             .help("About Mirmir")
+            .accessibilityLabel("About Mirmir")
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 14)
+        .padding(.horizontal, theme.spacing.space6)
+        .padding(.vertical, theme.spacing.space4)
+        .background(theme.surface)
     }
-}
 
-struct SourceVideoStepView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            stepHeader(number: "1", title: "Select video")
-
-            HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Button {
-                        viewModel.chooseSourceFile()
-                    } label: {
-                        Label("Choose Video", systemImage: "film.stack")
-                            .frame(minWidth: 160)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-
-                    WorkflowDropZone(viewModel: viewModel)
-                        .frame(maxWidth: .infinity, minHeight: 96)
-                }
-                .frame(minWidth: 280, maxWidth: 340)
-
-                SourceSummaryView(viewModel: viewModel)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+    private var subtitle: String {
+        guard destination == .upscale else {
+            return "Deterministic upscaling workspace"
         }
-    }
-}
-
-struct SourceSummaryView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let profile = viewModel.sourceProfile {
-                summaryRow("File", profile.url.lastPathComponent)
-                summaryRow("Resolution", String(describing: profile.resolution))
-                summaryRow("Frame rate", String(format: "%.2f fps", profile.frameRate))
-                summaryRow("Duration", String(format: "%.1f s", profile.durationSeconds))
-                if let codec = profile.codecHint {
-                    summaryRow("Codec", codec)
-                }
-                summaryRow("Audio", profile.hasAudio ? "Yes" : "No")
-            } else {
-                Text("Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG video.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if case .failed(let reason) = viewModel.state {
-                    Label(reason, systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout)
-                        .foregroundStyle(.red)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
+        guard let profile = viewModel.sourceProfile else {
+            return "Choose video, configure output, and start upscale"
         }
+        return profile.url.lastPathComponent + " to " + MirmirViewModel.fileLabel(for: viewModel.targetResolution)
     }
 
-    private func summaryRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .frame(width: 92, alignment: .leading)
-            Text(value)
-                .fontDesign(.monospaced)
-                .lineLimit(2)
-        }
-        .font(.callout)
-    }
-}
-
-struct QualityEffectsStepView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            stepHeader(number: "2", title: "Choose quality and effects")
-
-            Picker("Quality", selection: $viewModel.qualityMode) {
-                ForEach(MirmirQualityMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 520)
-
-            Text(viewModel.qualityMode.summary)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 10) {
-                ForEach(viewModel.effectOptions) { effect in
-                    Toggle(isOn: .constant(effect.isEnabled)) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(effect.title)
-                            Text(effect.disabledReason)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .disabled(true)
-                }
-            }
-        }
-    }
-}
-
-struct TargetOutputStepView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            stepHeader(number: "3", title: "Choose target and output")
-
-            HStack(alignment: .top, spacing: 28) {
-                VStack(alignment: .leading, spacing: 10) {
-                    if viewModel.availableTargets.isEmpty {
-                        Text("Select a 720p or 1080p source first.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Picker("Target Resolution", selection: $viewModel.targetResolution) {
-                            ForEach(viewModel.availableTargets, id: \.self) { resolution in
-                                Text(MirmirViewModel.fileLabel(for: resolution)).tag(resolution)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(maxWidth: 260)
-                    }
-
-                    Picker("Codec", selection: $viewModel.codec) {
-                        ForEach(OutputCodec.allCases) { codec in
-                            Text(codec.rawValue.uppercased()).tag(codec)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 260)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Output")
-                            .font(.headline)
-                        Spacer()
-                        Button {
-                            _ = viewModel.chooseOutputFile()
-                        } label: {
-                            Label("Change Output", systemImage: "folder")
-                        }
-                    }
-
-                    if let outputURL = viewModel.outputURL {
-                        Text(outputURL.path)
-                            .font(.callout)
-                            .fontDesign(.monospaced)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(3)
-                            .textSelection(.enabled)
-                    } else {
-                        Text("Mirmir will save next to the source after a supported target is available.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-}
-
-struct UpscaleActionBar: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        HStack(spacing: 14) {
-            statusLabel
-
-            Spacer()
-
-            Button {
-                viewModel.cancelUpscale()
-            } label: {
-                Image(systemName: "stop.fill")
-            }
-            .disabled(!isRunning)
-            .help("Cancel upscale")
-
-            Button {
-                viewModel.startUpscale()
-            } label: {
-                Label("Upscale Video", systemImage: "play.fill")
-                    .frame(minWidth: 160)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .disabled(!viewModel.canStart)
-        }
+    private var engineStatusIcon: String {
+        viewModel.ashBackendStatus == .available ? "checkmark.circle" : "exclamationmark.triangle"
     }
 
-    private var isRunning: Bool {
-        if case .running = viewModel.state {
-            return true
-        }
-        return false
-    }
-
-    @ViewBuilder
-    private var statusLabel: some View {
-        if let reason = viewModel.canStartFailureReason {
-            Text(reason)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-        } else {
-            Text("Ready to upscale.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-}
-
-struct JobProgressView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            stepHeader(number: "4", title: "Upscale and review")
-
-            switch viewModel.state {
-            case .idle:
-                Text("Choose a source video to begin.")
-                    .foregroundStyle(.secondary)
-            case .probing:
-                ProgressView("Reading source video...")
-                    .progressViewStyle(.linear)
-            case .ready:
-                readyText
-            case .running:
-                runningProgress
-            case .finished(let url):
-                Label("Upscale complete: \(url.lastPathComponent)", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
-            case .failed(let reason):
-                Label(reason, systemImage: "exclamationmark.octagon.fill")
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var readyText: some View {
-        if let profile = viewModel.sourceProfile {
-            let sourceResolution = String(describing: profile.resolution)
-            Text(sourceResolution + " to " + MirmirViewModel.fileLabel(for: viewModel.targetResolution))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        } else {
-            Text("Ready.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private var runningProgress: some View {
-        if let progress = viewModel.progress {
-            VStack(alignment: .leading, spacing: 6) {
-                ProgressView(value: progress.fraction)
-                    .progressViewStyle(.linear)
-                HStack {
-                    Text("\(progress.framesProcessed) / \(progress.totalFrames) frames")
-                    Spacer()
-                    Text(String(format: "%.1f fps", progress.throughputFPS))
-                    if let eta = progress.etaSeconds, eta.isFinite {
-                        Text("ETA \(format(eta: eta))")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .font(.callout.monospacedDigit())
-            }
-        } else {
-            ProgressView("Starting upscale...")
-        }
-    }
-
-    private func format(eta: Double) -> String {
-        guard eta > 0 else { return "0s" }
-        let totalSeconds = Int(eta.rounded())
-        let minutes = totalSeconds / 60
-        let seconds = totalSeconds % 60
-        return minutes > 0 ? "\(minutes)m \(seconds)s" : "\(seconds)s"
-    }
-}
-
-struct CompletionActionsView: View {
-    @ObservedObject var viewModel: MirmirViewModel
-
-    var body: some View {
-        if case .finished = viewModel.state {
-            HStack(spacing: 12) {
-                Button {
-                    viewModel.revealOutputInFinder()
-                } label: {
-                    Label("Reveal in Finder", systemImage: "finder")
-                }
-
-                Button {
-                    viewModel.upscaleAnotherVideo()
-                } label: {
-                    Label("Upscale Another", systemImage: "arrow.counterclockwise")
-                }
-            }
-        }
-    }
-}
-
-private struct WorkflowDropZone: View {
-    @ObservedObject var viewModel: MirmirViewModel
-    @State private var isTargeted = false
-
-    var body: some View {
-        RoundedRectangle(cornerRadius: 8)
-            .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [6]))
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isTargeted ? Color.accentColor.opacity(0.15) : Color.clear)
-            )
-            .overlay(
-                Label(isTargeted ? "Release to Load" : "Drag Video Here", systemImage: "arrow.down.doc")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            )
-            .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
-                guard let provider = providers.first else { return false }
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    if let url {
-                        Task { @MainActor in viewModel.loadSource(url: url) }
-                    }
-                }
-                return true
-            }
-    }
-}
-
-@ViewBuilder
-private func stepHeader(number: String, title: String) -> some View {
-    HStack(spacing: 10) {
-        Text(number)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(.white)
-            .frame(width: 22, height: 22)
-            .background(Circle().fill(Color.accentColor))
-        Text(title)
-            .font(.title3.weight(.semibold))
+    private var engineStatusColor: Color {
+        viewModel.ashBackendStatus == .available ? theme.success : theme.warning
     }
 }

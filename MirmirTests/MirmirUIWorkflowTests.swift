@@ -74,8 +74,8 @@ final class MirmirUIWorkflowTests: XCTestCase {
     }
 
     func test_mainWorkflowSourceDoesNotExposeArchitectureTerms() throws {
-        let mainWorkflowSource = try workflowViewSource()
-        let forbiddenTerms = ["Forsetti", "ASH", "Host Template", "Pattern B", "Model Assets", "backend"]
+        let mainWorkflowSource = try mainWorkspaceSource()
+        let forbiddenTerms = ["Forsetti", "Host Template", "Pattern B", "Model Assets", "backend"]
 
         for term in forbiddenTerms {
             XCTAssertFalse(containsWholeTerm(term, in: mainWorkflowSource), "\(term) leaked into main workflow UI")
@@ -88,6 +88,70 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertTrue(source.contains("Technical Details"))
         XCTAssertTrue(source.contains("Forsetti"))
         XCTAssertTrue(source.contains("ASH"))
+    }
+
+    func test_mainWorkflowContainsDetailedWorkspaceShell() throws {
+        let source = try detailedWorkspaceSource()
+        let requiredTerms = [
+            "Dashboard",
+            "Library",
+            "Upscale",
+            "Queue",
+            "Presets",
+            "Settings",
+            "Before",
+            "After",
+            "Choose Source",
+            "Start Upscale",
+            "Source",
+            "Output",
+            "Deterministic State",
+            "Confidence",
+            "Frames"
+        ]
+
+        for term in requiredTerms {
+            XCTAssertTrue(source.contains(term), "\(term) is missing from the detailed workspace shell")
+        }
+    }
+
+    func test_mainWorkflowContainsRequiredInspectorControls() throws {
+        let source = try detailedWorkspaceSource()
+        let requiredControls = [
+            "ASH v1.0 (Deterministic)",
+            "Strategy",
+            "Profile",
+            "Temporal Consistency",
+            "Edge Fidelity",
+            "Detail Recovery",
+            "Output Format",
+            "Destination"
+        ]
+
+        for control in requiredControls {
+            XCTAssertTrue(source.contains(control), "\(control) is missing from the upscale inspector")
+        }
+    }
+
+    func test_themeTokensAreCentralizedForDetailedSpec() throws {
+        let source = try themeTokenSource()
+        let requiredTokens = [
+            "Midnight Nordic",
+            "Arctic Indigo",
+            "background",
+            "surfaceElevated",
+            "surfaceInset",
+            "borderSubtle",
+            "accentPrimary",
+            "viewerOverlay",
+            "focusRing",
+            "space4",
+            "radiusLarge"
+        ]
+
+        for token in requiredTokens {
+            XCTAssertTrue(source.contains(token), "\(token) is missing from the Mirmir theme token system")
+        }
     }
 
     private func makeViewModel() -> MirmirViewModel {
@@ -115,9 +179,41 @@ final class MirmirUIWorkflowTests: XCTestCase {
         return try String(contentsOf: url, encoding: .utf8)
     }
 
+    private func mainWorkspaceSource() throws -> String {
+        try sourceText(for: [
+            "Mirmir/Modules/UI/Views/MirmirWorkflowViews.swift",
+            "Mirmir/Modules/UI/Views/MirmirUpscaleWorkspaceView.swift",
+            "Mirmir/Modules/UI/Views/MirmirStatusStripView.swift",
+            "Mirmir/Modules/UI/Views/MirmirWorkspaceComponents.swift"
+        ])
+    }
+
+    private func detailedWorkspaceSource() throws -> String {
+        try sourceText(for: [
+            "Mirmir/Modules/UI/Views/MirmirWorkflowViews.swift",
+            "Mirmir/Modules/UI/Views/MirmirUpscaleWorkspaceView.swift",
+            "Mirmir/Modules/UI/Views/MirmirStatusStripView.swift",
+            "Mirmir/Modules/UI/Views/MirmirWorkspaceComponents.swift",
+            "Mirmir/Modules/UI/Views/MirmirWorkspaceScreens.swift"
+        ])
+    }
+
     private func settingsViewSource() throws -> String {
         let url = repoRootURL().appendingPathComponent("Mirmir/Modules/UI/Views/MirmirSettingsViews.swift")
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func themeTokenSource() throws -> String {
+        let url = repoRootURL().appendingPathComponent("Mirmir/Modules/UI/Theme/MirmirTheme.swift")
+        return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func sourceText(for paths: [String]) throws -> String {
+        try paths.map { path in
+            let url = repoRootURL().appendingPathComponent(path)
+            return try String(contentsOf: url, encoding: .utf8)
+        }
+        .joined(separator: "\n")
     }
 
     private func containsWholeTerm(_ term: String, in source: String) -> Bool {
