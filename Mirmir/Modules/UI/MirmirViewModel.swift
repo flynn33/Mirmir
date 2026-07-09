@@ -4,6 +4,86 @@ import Combine
 import AppKit
 import UniformTypeIdentifiers
 
+enum MirmirQualityMode: String, CaseIterable, Identifiable {
+    case balanced
+    case quality
+    case fastPreview
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .balanced:
+            return "Balanced"
+        case .quality:
+            return "Quality"
+        case .fastPreview:
+            return "Fast"
+        }
+    }
+
+    var summary: String {
+        switch self {
+        case .balanced:
+            return "Default deterministic reconstruction profile for this alpha build."
+        case .quality:
+            return "Prepared for higher-detail processing when that mode is available."
+        case .fastPreview:
+            return "Prepared for quicker preview passes when preview output is available."
+        }
+    }
+}
+
+enum MirmirAdjustmentLevel: String, CaseIterable, Identifiable {
+    case low
+    case medium
+    case high
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .low:
+            return "Low"
+        case .medium:
+            return "Medium"
+        case .high:
+            return "High"
+        }
+    }
+}
+
+struct MirmirEffectOption: Identifiable, Equatable {
+    let id: String
+    let title: String
+    let disabledReason: String
+
+    var isEnabled: Bool { false }
+
+    static let allOptions: [MirmirEffectOption] = [
+        MirmirEffectOption(
+            id: "edge-preservation",
+            title: "Edge Preservation",
+            disabledReason: "Not available in the current alpha build."
+        ),
+        MirmirEffectOption(
+            id: "compression-cleanup",
+            title: "Compression Cleanup",
+            disabledReason: "Not available in the current alpha build."
+        ),
+        MirmirEffectOption(
+            id: "texture-grain-protection",
+            title: "Texture / Grain Protection",
+            disabledReason: "Not available in the current alpha build."
+        ),
+        MirmirEffectOption(
+            id: "temporal-stability",
+            title: "Temporal Stability",
+            disabledReason: "Not available in the current alpha build."
+        )
+    ]
+}
+
 @MainActor
 final class MirmirViewModel: ObservableObject {
 
@@ -17,9 +97,19 @@ final class MirmirViewModel: ObservableObject {
     }
 
     @Published var sourceProfile: SourceProfile?
-    @Published var targetResolution: VideoResolution = .p1080
+    @Published var targetResolution: VideoResolution = .p1080 {
+        didSet {
+            guard oldValue != targetResolution else { return }
+            updateDefaultOutputURLIfNeeded()
+        }
+    }
     @Published var codec: OutputCodec = .hevc
+    @Published var qualityMode: MirmirQualityMode = .balanced
+    @Published var temporalConsistencyEnabled = true
+    @Published var edgeFidelityLevel: MirmirAdjustmentLevel = .medium
+    @Published var detailRecoveryLevel: MirmirAdjustmentLevel = .medium
     @Published var modelStatus: ModelAssetsStatus = .unknown
+    @Published var ashBackendStatus: ASHBackendStatus = .validating
     @Published var progress: UpscaleProgress?
     @Published var state: JobState = .idle
     @Published var outputURL: URL?
@@ -31,6 +121,9 @@ final class MirmirViewModel: ObservableObject {
     private var modelStatusTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
     private var jobHandle: UpscalerJobHandle?
+    private var usesDefaultOutputLocation = true
+
+    static let supportedVideoExtensions = ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"]
 
     init(
         mediaPipeline: MediaPipelineService,
@@ -40,6 +133,7 @@ final class MirmirViewModel: ObservableObject {
         self.mediaPipeline = mediaPipeline
         self.upscalerEngine = upscalerEngine
         self.modelAssets = modelAssets
+        self.ashBackendStatus = ASHBackendStartupValidator.validate()
         startObservingModelStatus()
     }
 
@@ -48,8 +142,66 @@ final class MirmirViewModel: ObservableObject {
         progressTask?.cancel()
     }
 
+    var effectOptions: [MirmirEffectOption] {
+        MirmirEffectOption.allOptions
+    }
+
     var availableTargets: [VideoResolution] {
         guard let resolution = sourceProfile?.resolution else { return [] }
+        return Self.targets(for: resolution)
+    }
+
+    var engineReadinessText: String {
+        switch ashBackendStatus {
+        case .validating:
+            return "Checking Engine"
+        case .available:
+            return "Engine Ready"
+        case .unavailable:
+            return "Engine Unavailable"
+        }
+    }
+
+    var canStartFailureReason: String? {
+        switch state {
+        case .probing:
+            return "Mirmir is reading the source video."
+        case .running:
+            return "An upscale is already running."
+        case .finished:
+            return "Upscale another video to start a new job."
+        case .failed(let reason):
+            return reason
+        case .idle, .ready:
+            break
+        }
+
+        guard let sourceProfile else {
+            return "Choose a source video."
+        }
+        guard !availableTargets.isEmpty else {
+            return unsupportedResolutionMessage(sourceProfile.resolution)
+        }
+        guard availableTargets.contains(targetResolution) else {
+            return "Choose a supported target resolution for this source."
+        }
+        guard outputURL != nil else {
+            return "Choose an output location."
+        }
+        guard ashBackendStatus == .available else {
+            return "Mirmir's processing engine is not ready."
+        }
+        guard state == .ready else {
+            return "Choose a source video and output location before starting."
+        }
+        return nil
+    }
+
+    var canStart: Bool {
+        canStartFailureReason == nil
+    }
+
+    static func targets(for resolution: VideoResolution) -> [VideoResolution] {
         switch resolution {
         case .p720: return [.p1080]
         case .p1080: return [.p2160]
@@ -57,38 +209,47 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
-    var canStart: Bool {
-        guard sourceProfile != nil, !availableTargets.isEmpty else { return false }
-        switch state {
-        case .running, .probing: return false
-        default: break
-        }
-        if case .ready = modelStatus { return true }
-        return false
+    static func supportsVideoFile(_ url: URL) -> Bool {
+        supportedVideoExtensions.contains(url.pathExtension.lowercased())
     }
 
     func chooseSourceFile() {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.movie, .video, .quickTimeMovie, .mpeg4Movie]
+        panel.allowedContentTypes = Self.supportedContentTypes()
         panel.title = "Select a video to upscale"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         loadSource(url: url)
     }
 
     func loadSource(url: URL) {
+        guard Self.supportsVideoFile(url) else {
+            sourceProfile = nil
+            outputURL = nil
+            progress = nil
+            state = .failed(Self.unsupportedFileMessage)
+            return
+        }
+
+        sourceProfile = nil
+        outputURL = nil
+        progress = nil
+        usesDefaultOutputLocation = true
         state = .probing
         Task {
             do {
                 let profile = try await mediaPipeline.probe(url: url)
                 self.sourceProfile = profile
-                if let first = availableTargets.first {
-                    self.targetResolution = first
+                guard let firstTarget = Self.targets(for: profile.resolution).first else {
+                    self.state = .failed(self.unsupportedResolutionMessage(profile.resolution))
+                    return
                 }
+                self.targetResolution = firstTarget
+                self.outputURL = self.defaultOutputURL(for: profile, target: firstTarget)
                 self.state = .ready
             } catch {
-                self.state = .failed(String(describing: error))
+                self.state = .failed(self.userFacingProbeError(error))
             }
         }
     }
@@ -98,18 +259,17 @@ final class MirmirViewModel: ObservableObject {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.mpeg4Movie]
         panel.title = "Save upscaled video as"
-        let baseName = source.url.deletingPathExtension().lastPathComponent
-        panel.nameFieldStringValue = "\(baseName)_upscaled.mp4"
+        let defaultURL = defaultOutputURL(for: source, target: targetResolution)
+        panel.nameFieldStringValue = defaultURL.lastPathComponent
         panel.directoryURL = source.url.deletingLastPathComponent()
         guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        usesDefaultOutputLocation = false
         outputURL = url
         return url
     }
 
     func startUpscale() {
-        guard canStart, let source = sourceProfile else { return }
-        let destination = outputURL ?? defaultOutputURL(for: source)
-        outputURL = destination
+        guard canStart, let source = sourceProfile, let destination = outputURL else { return }
 
         let job = UpscaleJob(
             inputURL: source.url,
@@ -169,6 +329,23 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
+    func revealOutputInFinder() {
+        guard let outputURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([outputURL])
+    }
+
+    func upscaleAnotherVideo() {
+        jobHandle?.cancel()
+        jobHandle = nil
+        progressTask?.cancel()
+        progressTask = nil
+        sourceProfile = nil
+        outputURL = nil
+        progress = nil
+        usesDefaultOutputLocation = true
+        state = .idle
+    }
+
     func ensureModelsReady() {
         Task {
             do {
@@ -191,9 +368,46 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
-    private func defaultOutputURL(for source: SourceProfile) -> URL {
+    func defaultOutputURL(for source: SourceProfile, target: VideoResolution) -> URL {
         let dir = source.url.deletingLastPathComponent()
         let base = source.url.deletingPathExtension().lastPathComponent
-        return dir.appendingPathComponent("\(base)_upscaled.mp4")
+        return dir.appendingPathComponent("\(base)_mirmir_\(Self.fileLabel(for: target)).mp4")
+    }
+
+    static var unsupportedFileMessage: String {
+        "Unsupported video format. Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG file."
+    }
+
+    static func fileLabel(for resolution: VideoResolution) -> String {
+        switch resolution {
+        case .p720:
+            return "720p"
+        case .p1080:
+            return "1080p"
+        case .p1440:
+            return "1440p"
+        case .p2160:
+            return "2160p"
+        default:
+            return "\(resolution.width)x\(resolution.height)"
+        }
+    }
+
+    private static func supportedContentTypes() -> [UTType] {
+        let extensionTypes = supportedVideoExtensions.compactMap { UTType(filenameExtension: $0) }
+        return Array(Set(extensionTypes + [.movie, .video, .quickTimeMovie, .mpeg4Movie]))
+    }
+
+    private func updateDefaultOutputURLIfNeeded() {
+        guard usesDefaultOutputLocation, let sourceProfile else { return }
+        outputURL = defaultOutputURL(for: sourceProfile, target: targetResolution)
+    }
+
+    private func userFacingProbeError(_ error: Error) -> String {
+        "Mirmir could not read this video. \(String(describing: error))"
+    }
+
+    private func unsupportedResolutionMessage(_ resolution: VideoResolution) -> String {
+        "Mirmir supports 720p to 1080p and 1080p to 4K upscaling. This source is \(resolution)."
     }
 }

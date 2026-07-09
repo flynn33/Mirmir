@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0.0",
+  "bit_order": "coordinate_1_is_most_significant",
+  "state_space": "F_2^9",
+  "coordinates": [
+    {
+      "index": 1,
+      "name": "mean_luminance",
+      "threshold": 0.5,
+      "hysteresis": 0.02
+    },
+    {
+      "index": 2,
+      "name": "rms_contrast",
+      "threshold": 0.2,
+      "hysteresis": 0.02
+    },
+    {
+      "index": 3,
+      "name": "edge_energy",
+      "threshold": 0.12,
+      "hysteresis": 0.015
+    },
+    {
+      "index": 4,
+      "name": "texture_energy",
+      "threshold": 0.08,
+      "hysteresis": 0.015
+    },
+    {
+      "index": 5,
+      "name": "chroma_energy",
+      "threshold": 0.1,
+      "hysteresis": 0.015
+    },
+    {
+      "index": 6,
+      "name": "horizontal_gradient_energy",
+      "threshold": 0.1,
+      "hysteresis": 0.015
+    },
+    {
+      "index": 7,
+      "name": "vertical_gradient_energy",
+      "threshold": 0.1,
+      "hysteresis": 0.015
+    },
+    {
+      "index": 8,
+      "name": "temporal_change",
+      "threshold": 0.08,
+      "hysteresis": 0.02
+    },
+    {
+      "index": 9,
+      "name": "parity_integrity",
+      "rule": "x9 = x1 xor x2 xor x3 xor x4 xor x5 xor x6 xor x7 xor x8"
+    }
+  ],
+  "code": {
+    "parameters": [
+      9,
+      4,
+      4
+    ],
+    "doubly_even": true,
+    "self_dual_in_f2_9": false,
+    "coordinate_8_invariant_under_code": true,
+    "coordinate_9_active": true,
+    "decoder_radius": 1,
+    "generator_matrix": [
+      "111100000",
+      "110011000",
+      "101010100",
+      "100110001"
+    ],
+    "transform_masks": [
+      "111100000",
+      "110011000",
+      "101010100",
+      "100110001",
+      "111111101",
+      "000011101"
+    ],
+    "invariant_coordinate": 8,
+    "parity_coordinate": 9
+  },
+  "branching": {
+    "actions": [
+      "0",
+      "+",
+      "-"
+    ],
+    "weights": {
+      "0": 0.5,
+      "+": 0.25,
+      "-": 0.25
+    },
+    "default_depth": 4,
+    "geometry_rule": "F -> FF[+F]F[-F]",
+    "turn_degrees": 25.0,
+    "length_decay": 0.72
+  },
+  "reconstruction": {
+    "default_scale": 2,
+    "default_top_k": 4,
+    "operator_strength": 0.125,
+    "silent_recovery_beyond_one_bit": false,
+    "scoring_weights": {
+      "data": 4.0,
+      "edge": 1.0,
+      "temporal": 0.5
+    }
+  },
+  "project_version": "1.1.0"
+}

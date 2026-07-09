@@ -7,12 +7,10 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
 
     private let media: MediaPipelineService
     private let metal: MetalRenderingService
-    private let modelAssets: ModelAssetsService
 
-    init(media: MediaPipelineService, metal: MetalRenderingService, modelAssets: ModelAssetsService) {
+    init(media: MediaPipelineService, metal: MetalRenderingService, modelAssets _: ModelAssetsService) {
         self.media = media
         self.metal = metal
-        self.modelAssets = modelAssets
     }
 
     func start() {}
@@ -22,8 +20,7 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
         let handle = DefaultUpscalerJobHandle(
             job: job,
             media: media,
-            metal: metal,
-            modelAssets: modelAssets
+            metal: metal
         )
         handle.start()
         return handle
@@ -39,29 +36,26 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     private let job: UpscaleJob
     private let media: MediaPipelineService
     private let metal: MetalRenderingService
-    private let modelAssets: ModelAssetsService
 
     private var task: Task<URL, Error>?
 
-    init(job: UpscaleJob, media: MediaPipelineService, metal: MetalRenderingService, modelAssets: ModelAssetsService) {
+    init(job: UpscaleJob, media: MediaPipelineService, metal: MetalRenderingService) {
         self.job = job
         self.media = media
         self.metal = metal
-        self.modelAssets = modelAssets
         var continuation: AsyncStream<UpscaleProgress>.Continuation!
         self.progressStream = AsyncStream { continuation = $0 }
         self.progressContinuation = continuation
     }
 
     func start() {
-        task = Task.detached(priority: .userInitiated) { [progressContinuation, job, media, metal, modelAssets] in
+        task = Task.detached(priority: .userInitiated) { [progressContinuation, job, media, metal] in
             defer { progressContinuation.finish() }
             do {
                 return try await Self.runJob(
                     job: job,
                     media: media,
                     metal: metal,
-                    modelAssets: modelAssets,
                     progressContinuation: progressContinuation
                 )
             } catch is CancellationError {
@@ -85,11 +79,8 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         job: UpscaleJob,
         media: MediaPipelineService,
         metal: MetalRenderingService,
-        modelAssets: ModelAssetsService,
         progressContinuation: AsyncStream<UpscaleProgress>.Continuation
     ) async throws -> URL {
-        try await modelAssets.ensureReady(for: .video)
-
         let source = try await media.probe(url: job.inputURL)
         let strategy = try StrategySelector.choose(source: source.resolution, target: job.targetResolution)
 
@@ -101,8 +92,8 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         )
         let session = try await media.beginSession(source: source, output: output)
 
-        let driver = VTSuperResolutionDriver(metal: metal, scaleFactor: 2)
-        driver.reset()
+        let backend = ASHDeterministicUpscaleBackend(scale: 2)
+        backend.reset()
 
         let lanczos: LanczosPolishPass?
         let srPool: CVPixelBufferPool
@@ -127,7 +118,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
             try Task.checkCancellation()
 
             let srBuffer = try PixelBufferBridge.dequeue(from: srPool)
-            try await driver.process(source: record.pixelBuffer, into: srBuffer)
+            try await backend.process(source: record.pixelBuffer, into: srBuffer)
 
             let outputBuffer: CVPixelBuffer
             if let lanczos {

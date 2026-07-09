@@ -19,6 +19,16 @@ final class ArchitectureGuardrailTests: XCTestCase {
         XCTAssertFalse(generatedProject.contains("ForsettiModulesExample"))
     }
 
+    func test_unitTestTargetDoesNotLinkForsettiCoreSeparatelyFromHostedApp() throws {
+        let projectSpec = try String(contentsOf: repoRootURL().appendingPathComponent("project.yml"), encoding: .utf8)
+        let testTargetSection = try targetSection(named: "MirmirTests", in: projectSpec)
+
+        XCTAssertFalse(
+            testTargetSection.contains("product: ForsettiCore"),
+            "MirmirTests must use the hosted app's Forsetti runtime instead of linking a separate Core framework."
+        )
+    }
+
     func test_patternBHasExactlyOneUIModuleAndServicesDoNotContributeUI() throws {
         let manifests = try loadManifestFiles()
         let uiManifests = manifests.filter { $0.moduleType == .ui || $0.defaultModuleRole == .ui }
@@ -218,6 +228,36 @@ final class ArchitectureGuardrailTests: XCTestCase {
             "L" + "LM",
             "ag" + "entic"
         ]
+    }
+
+    private func targetSection(named name: String, in projectSpec: String) throws -> String {
+        let marker = "  \(name):"
+        var sectionLines: [String] = []
+        var isCollecting = false
+
+        for line in projectSpec.components(separatedBy: .newlines) {
+            if line == marker {
+                isCollecting = true
+                sectionLines.append(line)
+                continue
+            }
+
+            if isCollecting,
+               line.hasPrefix("  "),
+               !line.hasPrefix("    "),
+               line.hasSuffix(":") {
+                break
+            }
+
+            if isCollecting {
+                sectionLines.append(line)
+            }
+        }
+
+        guard !sectionLines.isEmpty else {
+            throw XCTSkip("Target \(name) not found in project.yml")
+        }
+        return sectionLines.joined(separator: "\n")
     }
 
     private func repoRootURL() -> URL {
