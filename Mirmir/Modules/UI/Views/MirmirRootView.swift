@@ -6,7 +6,7 @@ struct MirmirRootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HeaderBar(modelStatus: viewModel.modelStatus, onStage: viewModel.ensureModelsReady)
+            HeaderBar()
 
             Divider()
 
@@ -39,9 +39,6 @@ struct MirmirRootView: View {
 }
 
 private struct HeaderBar: View {
-    let modelStatus: ModelAssetsStatus
-    let onStage: () -> Void
-
     var body: some View {
         HStack {
             Text("Mirmir")
@@ -49,48 +46,18 @@ private struct HeaderBar: View {
             Spacer()
             HStack(spacing: 6) {
                 statusDot
-                Text(statusText)
+                Text("ASH Backend: Ready")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                if needsStaging {
-                    Button("Stage Models", action: onStage)
-                        .controlSize(.small)
-                }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
     }
 
-    private var needsStaging: Bool {
-        switch modelStatus {
-        case .downloadRequired, .unknown, .failed: return true
-        default: return false
-        }
-    }
-
     private var statusDot: some View {
         Circle()
-            .fill(statusColor)
+            .fill(.green)
             .frame(width: 8, height: 8)
-    }
-
-    private var statusColor: Color {
-        switch modelStatus {
-        case .ready: return .green
-        case .downloading: return .yellow
-        case .failed: return .red
-        case .downloadRequired, .unknown: return .secondary
-        }
-    }
-
-    private var statusText: String {
-        switch modelStatus {
-        case .ready: return "Models: Ready"
-        case .downloading(let progress): return "Models: Downloading \(Int(progress * 100))%"
-        case .downloadRequired: return "Models: Required"
-        case .unknown: return "Models: Unknown"
-        case .failed(let reason): return "Models: Failed (\(reason))"
-        }
     }
 }

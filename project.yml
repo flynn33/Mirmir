@@ -31,6 +31,8 @@ targets:
     resources:
       - path: Mirmir/Resources/ForsettiManifests
         type: folder
+      - path: Mirmir/Resources/ASH
+        type: folder
     dependencies:
       - package: ForsettiFramework
         product: ForsettiCore

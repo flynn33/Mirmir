@@ -63,8 +63,7 @@ final class MirmirViewModel: ObservableObject {
         case .running, .probing: return false
         default: break
         }
-        if case .ready = modelStatus { return true }
-        return false
+        return true
     }
 
     func chooseSourceFile() {
