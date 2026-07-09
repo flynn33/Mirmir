@@ -81,11 +81,14 @@ Instruction package: Mirmir ASH Big Push - Internal Testable Alpha, package date
 - iOS target testing is not applicable unless an iOS target is added later.
 - `xcodebuild -list -project Mirmir.xcodeproj` shows only `Mirmir` and `MirmirTests`; no iOS target is present.
 - Windows conformance remains a follow-up only if a Windows target or separate Windows repository is added for this product.
-- Final local commit hash is recorded in the closeout report after commit creation.
+- This closeout records the final ASH implementation commit. A later report-only commit must report its own hash outside the committed file because a commit cannot contain its own final hash.
 
 ## Final Local Commit
 
-Commit hash:
-Commit message:
-Worktree clean: recorded after commit creation
-PR opened: no
+Commit hash: `82e7acab1ff12b116ead7ed5832282134a9d8c69`
+Commit message: `Advance ASH internal alpha pipeline`
+Worktree clean after commit: yes. `git status --short` returned no tracked changes; `git status --short --ignored` showed only ignored local patch exports, `.DS_Store`, and Xcode workspace/user data.
+PR opened after commit: no. `gh pr list --head main --state open --json number,title,url` returned `[]`.
+Exported patch for final implementation commit: `mirmir-ash-internal-alpha.patch`
+Patch command: `git format-patch -1 82e7acab1ff12b116ead7ed5832282134a9d8c69 --stdout > mirmir-ash-internal-alpha.patch`
+Patch size: 82,649 bytes.
