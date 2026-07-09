@@ -20,6 +20,7 @@ final class MirmirViewModel: ObservableObject {
     @Published var targetResolution: VideoResolution = .p1080
     @Published var codec: OutputCodec = .hevc
     @Published var modelStatus: ModelAssetsStatus = .unknown
+    @Published var ashBackendStatus: ASHBackendStatus = .validating
     @Published var progress: UpscaleProgress?
     @Published var state: JobState = .idle
     @Published var outputURL: URL?
@@ -40,6 +41,7 @@ final class MirmirViewModel: ObservableObject {
         self.mediaPipeline = mediaPipeline
         self.upscalerEngine = upscalerEngine
         self.modelAssets = modelAssets
+        self.ashBackendStatus = ASHBackendStartupValidator.validate()
         startObservingModelStatus()
     }
 
@@ -59,6 +61,7 @@ final class MirmirViewModel: ObservableObject {
 
     var canStart: Bool {
         guard sourceProfile != nil, !availableTargets.isEmpty else { return false }
+        guard ashBackendStatus == .available else { return false }
         switch state {
         case .running, .probing: return false
         default: break

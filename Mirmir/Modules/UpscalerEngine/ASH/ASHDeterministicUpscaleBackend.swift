@@ -4,40 +4,34 @@ import CoreVideo
 @available(macOS 15.4, *)
 final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
     private let scale: Int
-    private var previousSource: ASHImage?
-    private var previousState: ASHState?
-    private var previousReconstruction: ASHImage?
+    private let tileSize: Int
+    private var previousTiles: ASHTileTemporalState?
+    private(set) var lastDebugSummary: ASHTileProcessingSummary?
 
-    init(scale: Int = ASHReconstruction.defaultScale) {
+    init(scale: Int = ASHReconstruction.defaultScale, tileSize: Int = 32) {
         self.scale = scale
+        self.tileSize = tileSize
     }
 
     func reset() {
-        previousSource = nil
-        previousState = nil
-        previousReconstruction = nil
+        previousTiles = nil
+        lastDebugSummary = nil
     }
 
     func process(source: CVPixelBuffer, into destination: CVPixelBuffer) async throws {
         try Task.checkCancellation()
 
         let current = try Self.extractLumaImage(from: source)
-        let result = try ASHReferencePipeline.mapPatch(
-            current: current,
-            previous: previousSource,
-            previousState: previousState,
-            previousReconstruction: previousReconstruction,
+        let chroma = try Self.extractChromaPlane(from: source)
+        let result = try ASHTileProcessor(
+            tileSize: tileSize,
             scale: scale,
             topK: 1
-        )
-        guard let selected = result.selected.first else {
-            throw UpscalerEngineError.strategyFailed("ASH reconstruction produced no selected candidate")
-        }
+        ).process(luma: current, chroma: chroma, previous: previousTiles)
 
-        try Self.write(reconstruction: selected.reconstruction, sourceChroma: source, to: destination)
-        previousSource = current
-        previousState = result.sourceState
-        previousReconstruction = selected.reconstruction
+        try Self.write(reconstruction: result.reconstruction, sourceChroma: source, to: destination)
+        previousTiles = result.temporalState
+        lastDebugSummary = result.summary
     }
 
     private static func extractLumaImage(from pixelBuffer: CVPixelBuffer) throws -> ASHImage {
@@ -66,6 +60,29 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
             }
         }
         return try ASHImage(width: width, height: height, channels: 1, values: values)
+    }
+
+    private static func extractChromaPlane(from pixelBuffer: CVPixelBuffer) throws -> ASHChromaPlane? {
+        CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+
+        guard CVPixelBufferGetPlaneCount(pixelBuffer) > 1,
+              let baseAddress = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1) else {
+            return nil
+        }
+        let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 1)
+        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 1)
+        let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1)
+        let pointer = baseAddress.assumingMemoryBound(to: UInt8.self)
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(height * bytesPerRow)
+        for row in 0..<height {
+            let rowBase = pointer.advanced(by: row * bytesPerRow)
+            for offset in 0..<bytesPerRow {
+                bytes.append(rowBase[offset])
+            }
+        }
+        return ASHChromaPlane(width: width, height: height, bytesPerRow: bytesPerRow, bytes: bytes)
     }
 
     private static func write(reconstruction: ASHImage, sourceChroma source: CVPixelBuffer, to destination: CVPixelBuffer) throws {

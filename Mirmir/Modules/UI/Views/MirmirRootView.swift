@@ -6,7 +6,7 @@ struct MirmirRootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HeaderBar()
+            HeaderBar(status: viewModel.ashBackendStatus)
 
             Divider()
 
@@ -39,6 +39,8 @@ struct MirmirRootView: View {
 }
 
 private struct HeaderBar: View {
+    let status: ASHBackendStatus
+
     var body: some View {
         HStack {
             Text("Mirmir")
@@ -46,7 +48,7 @@ private struct HeaderBar: View {
             Spacer()
             HStack(spacing: 6) {
                 statusDot
-                Text("ASH Backend: Ready")
+                Text(status.displayText)
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -57,7 +59,18 @@ private struct HeaderBar: View {
 
     private var statusDot: some View {
         Circle()
-            .fill(.green)
+            .fill(statusColor)
             .frame(width: 8, height: 8)
+    }
+
+    private var statusColor: Color {
+        switch status {
+        case .validating:
+            return .secondary
+        case .available:
+            return .green
+        case .unavailable:
+            return .red
+        }
     }
 }

@@ -28,6 +28,32 @@ struct ASHImage: Equatable, Sendable {
         try self.init(width: first.count, height: rows.count, channels: 1, values: rows.flatMap { $0 })
     }
 
+    init(grayscaleRows rows: [[Double]], repeatRowsToHeight height: Int) throws {
+        guard height > 0, let first = rows.first, !first.isEmpty else {
+            throw ASHCoreError.invalidImageShape
+        }
+        var repeatedRows: [[Double]] = []
+        repeatedRows.reserveCapacity(height)
+        for row in 0..<height {
+            repeatedRows.append(rows[row % rows.count])
+        }
+        try self.init(grayscaleRows: repeatedRows)
+    }
+
+    init(width: Int, height: Int, generator: (Int, Int) -> Double) throws {
+        guard width > 0, height > 0 else {
+            throw ASHCoreError.invalidImageShape
+        }
+        var values: [Double] = []
+        values.reserveCapacity(width * height)
+        for row in 0..<height {
+            for column in 0..<width {
+                values.append(generator(row, column))
+            }
+        }
+        try self.init(width: width, height: height, channels: 1, values: values)
+    }
+
     init(rgbRows rows: [[[Double]]]) throws {
         guard let firstRow = rows.first,
               let firstPixel = firstRow.first,
@@ -81,7 +107,11 @@ enum ASHFeatureExtractor {
         "temporal_change"
     ]
 
-    static func extract(current: ASHImage, previous: ASHImage? = nil) throws -> ASHFeatureVector {
+    static func extract(
+        current: ASHImage,
+        previous: ASHImage? = nil,
+        chromaEnergy: Double? = nil
+    ) throws -> ASHFeatureVector {
         let lumaValues = luminance(current)
         let gradients = forwardGradients(lumaValues, width: current.width, height: current.height)
 
@@ -91,7 +121,7 @@ enum ASHFeatureExtractor {
         let textureEnergy = mean(
             zip(lumaValues, boxBlur3(lumaValues, width: current.width, height: current.height)).map { abs($0 - $1) }
         )
-        let chromaEnergy = chroma(current)
+        let chromaEnergy = chromaEnergy ?? chroma(current)
         let horizontalGradient = mean(gradients.dx.map(abs))
         let verticalGradient = mean(gradients.dy.map(abs))
 

@@ -36,3 +36,6 @@ Pods/
 # Editor caches
 .vscode/
 .idea/
+
+# Local patch exports
+mirmir-ash-*.patch

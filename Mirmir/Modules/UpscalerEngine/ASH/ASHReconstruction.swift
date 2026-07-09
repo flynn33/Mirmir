@@ -84,6 +84,15 @@ enum ASHReconstruction {
         strength: Double = defaultOperatorStrength
     ) throws -> ASHImage {
         guard scale > 0 else { throw ASHCoreError.invalidScale(scale) }
+        if source.channels == 1 {
+            return try ASHLumaSpatialOperator.applyCPU(
+                source: source,
+                message: message,
+                scale: scale,
+                strength: strength
+            )
+        }
+
         let baseline = try nearestUpsample(source, scale: scale)
         let horizontalBlur = blurAxis(baseline, axis: 1)
         let verticalBlur = blurAxis(baseline, axis: 0)
@@ -155,7 +164,8 @@ enum ASHReconstruction {
         source: ASHImage,
         leaves: [ASHBranchNode],
         scale: Int = defaultScale,
-        previousCandidate: ASHImage? = nil
+        previousCandidate: ASHImage? = nil,
+        features: ASHFeatureVector? = nil
     ) throws -> [ASHReconstructionCandidate] {
         guard !leaves.isEmpty else { throw ASHCoreError.missingBranchLeaves }
 
@@ -170,7 +180,9 @@ enum ASHReconstruction {
                 previousCandidate: previousCandidate
             )
             let priorWeight = priors[message] ?? 0.0
-            let totalScore = log(max(priorWeight, 1e-300)) + log(max(sourceScore, 1e-300))
+            let totalScore = log(max(priorWeight, 1e-300))
+                + log(max(sourceScore, 1e-300))
+                + featurePreferenceScore(features: features, message: message)
             candidates.append(ASHReconstructionCandidate(
                 message: message,
                 priorWeight: priorWeight,
@@ -195,6 +207,23 @@ enum ASHReconstruction {
             }
             return lhs.message.rawValue < rhs.message.rawValue
         }.prefix(topK))
+    }
+
+    private static func featurePreferenceScore(features: ASHFeatureVector?, message: ASHMessage) -> Double {
+        guard let features else { return 0.0 }
+        let values = features.values
+        let signals = [
+            values[5],
+            values[6],
+            max(values[2], values[3], values[4]),
+            max(values[0], values[1], values[4], values[7])
+        ]
+        var score = 0.0
+        for index in 0..<ASHMessage.bitCount {
+            let signal = signals[index]
+            score += message.bits[index] == 1 ? signal : max(0.0, 0.15 - signal)
+        }
+        return score * 4.5
     }
 
     private static func blurAxis(_ image: ASHImage, axis: Int) -> [Double] {
@@ -265,18 +294,24 @@ enum ASHReferencePipeline {
         previous: ASHImage? = nil,
         previousState: ASHState? = nil,
         previousReconstruction: ASHImage? = nil,
+        chromaEnergy: Double? = nil,
         branchDepth: Int = ASHBranchTree.defaultDepth,
         scale: Int = ASHReconstruction.defaultScale,
         topK: Int = ASHReconstruction.defaultTopK
     ) throws -> ASHMappingResult {
-        let features = try ASHFeatureExtractor.extract(current: current, previous: previous)
+        let features = try ASHFeatureExtractor.extract(
+            current: current,
+            previous: previous,
+            chromaEnergy: chromaEnergy
+        )
         let sourceState = try ASHFeatureBinarizer.binarize(features, previousState: previousState)
         let tree = try ASHBranchTree.generate(sourceState: sourceState, depth: branchDepth)
         let candidates = try ASHReconstruction.generateCandidates(
             source: current,
             leaves: ASHBranchTree.leafNodes(tree),
             scale: scale,
-            previousCandidate: previousReconstruction
+            previousCandidate: previousReconstruction,
+            features: features
         )
         let selected = try ASHReconstruction.prune(candidates, topK: topK)
         return ASHMappingResult(

@@ -37,6 +37,7 @@ final class ASHBackendIntegrationTests: XCTestCase {
             upscalerEngine: NoopUpscalerEngineService(),
             modelAssets: FailingModelAssetsService()
         )
+        viewModel.ashBackendStatus = .available
         viewModel.sourceProfile = SourceProfile(
             url: URL(fileURLWithPath: "/tmp/source.mov"),
             resolution: .p1080,
