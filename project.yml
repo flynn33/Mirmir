@@ -70,8 +70,6 @@ targets:
       - path: MirmirTests
     dependencies:
       - target: Mirmir
-      - package: ForsettiFramework
-        product: ForsettiCore
     settings:
       base:
         BUNDLE_LOADER: "$(TEST_HOST)"

@@ -38,7 +38,7 @@ final class ASHBackendIntegrationTests: XCTestCase {
             modelAssets: FailingModelAssetsService()
         )
         viewModel.ashBackendStatus = .available
-        viewModel.sourceProfile = SourceProfile(
+        let sourceProfile = SourceProfile(
             url: URL(fileURLWithPath: "/tmp/source.mov"),
             resolution: .p1080,
             frameRate: 30,
@@ -47,7 +47,9 @@ final class ASHBackendIntegrationTests: XCTestCase {
             codecHint: nil,
             hasAudio: false
         )
+        viewModel.sourceProfile = sourceProfile
         viewModel.targetResolution = .p2160
+        viewModel.outputURL = viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
         viewModel.state = .ready
 
         XCTAssertTrue(viewModel.canStart)

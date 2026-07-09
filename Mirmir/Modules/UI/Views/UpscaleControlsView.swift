@@ -42,7 +42,7 @@ struct UpscaleControlsView: View {
                         .lineLimit(2)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("Defaults to source folder with `_upscaled` suffix.")
+                    Text("Defaults to source folder with the Mirmir target suffix.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -52,7 +52,7 @@ struct UpscaleControlsView: View {
 
             HStack {
                 Button(action: viewModel.startUpscale) {
-                    Label("Start Upscale", systemImage: "play.fill")
+                    Label("Upscale Video", systemImage: "play.fill")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)

@@ -38,4 +38,4 @@ Pods/
 .idea/
 
 # Local patch exports
-mirmir-ash-*.patch
+mirmir-*.patch

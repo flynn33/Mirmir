@@ -7,12 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */; };
 		04FBC1BA78166E5A4BFAFED6 /* DefaultModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */; };
 		0A5FC8B28C21C49BE57059B1 /* ForsettiPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 6A42A76B3F9113774295A4BD /* ForsettiPlatform */; };
 		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
 		11C6CBDE9A57638B48FE8C14 /* VideoSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */; };
 		147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */; };
 		23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E347AE2D83CC5AF980CF38 /* NoopServices.swift */; };
+		29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */; };
 		2D752A9307BEF58A7D006450 /* DefaultUpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */; };
 		2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */; };
 		3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */; };
@@ -24,6 +26,7 @@
 		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
 		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
 		4DE4402E7413344ADD2AE7B7 /* ASHAssetConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */; };
+		4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */; };
 		4F944A473B2D35378C6D0D56 /* ASHBackendIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E364AB277348398F356F8B9 /* ASHBackendIntegrationTests.swift */; };
 		50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA6BAD72661C314938F3CBD2 /* ForsettiCore */; };
 		51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */; };
@@ -42,7 +45,6 @@
 		87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132D09C41665FFDB89F81CE /* PreviewView.swift */; };
 		89AFC0D70695293B9451C3C3 /* ASHFeatureBranchReconstructionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */; };
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
-		91664CA9389290FD84AC1EA4 /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = 6A39150105994137136886D1 /* ForsettiCore */; };
 		9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */; };
 		9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */; };
 		99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */; };
@@ -104,6 +106,7 @@
 		40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleRegistry.swift; sourceTree = "<group>"; };
 		44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHInternalAlphaTests.swift; sourceTree = "<group>"; };
 		44C397D85806DEA084B8D3D0 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirSettingsViews.swift; sourceTree = "<group>"; };
 		4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReconstruction.swift; sourceTree = "<group>"; };
 		4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModelAssetsServiceModule.json; sourceTree = "<group>"; };
 		4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAssetConformanceTests.swift; sourceTree = "<group>"; };
@@ -130,6 +133,7 @@
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCode.swift; sourceTree = "<group>"; };
 		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIWorkflowTests.swift; sourceTree = "<group>"; };
 		BF916B54CEB678B518E99197 /* ASHState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHState.swift; sourceTree = "<group>"; };
 		C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPanelView.swift; sourceTree = "<group>"; };
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
@@ -150,19 +154,12 @@
 		F211265C8C19173941BE3ACA /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		F491320002D06F19FC9A8B3D /* ash-state-reference.csv */ = {isa = PBXFileReference; path = "ash-state-reference.csv"; sourceTree = "<group>"; };
 		F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsService.swift; sourceTree = "<group>"; };
+		F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkflowViews.swift; sourceTree = "<group>"; };
 		FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIModule.swift; sourceTree = "<group>"; };
 		FE03E89C4215AC3E1C1D01C2 /* ASHAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAssets.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		A274853FF287129F8F6B4705 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				91664CA9389290FD84AC1EA4 /* ForsettiCore in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		B4E0E0AE15D58EBBB62310F0 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -217,6 +214,8 @@
 			isa = PBXGroup;
 			children = (
 				9833C96F05E187004E393DAD /* MirmirRootView.swift */,
+				471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */,
+				F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */,
 				1132D09C41665FFDB89F81CE /* PreviewView.swift */,
 				C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */,
 				EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */,
@@ -362,6 +361,7 @@
 				33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */,
 				44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */,
 				77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */,
+				BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */,
 				02E347AE2D83CC5AF980CF38 /* NoopServices.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
 			);
@@ -376,7 +376,6 @@
 			buildConfigurationList = EC3C324C5B8F116B2A39EB2B /* Build configuration list for PBXNativeTarget "MirmirTests" */;
 			buildPhases = (
 				362EC39D7ACE95EF56BA29D0 /* Sources */,
-				A274853FF287129F8F6B4705 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -385,7 +384,6 @@
 			);
 			name = MirmirTests;
 			packageProductDependencies = (
-				6A39150105994137136886D1 /* ForsettiCore */,
 			);
 			productName = MirmirTests;
 			productReference = A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */;
@@ -483,6 +481,7 @@
 				CA895557DECD620A23495BDB /* ASHInternalAlphaTests.swift in Sources */,
 				4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */,
 				6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */,
+				29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */,
 				23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
 			);
@@ -518,9 +517,11 @@
 				FDC4F33E2DA4475E3CA01F9A /* MirmirModuleRegistry.swift in Sources */,
 				51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */,
 				811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */,
+				4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */,
 				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
 				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
 				147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */,
+				04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */,
 				F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */,
 				E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */,
 				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
@@ -795,11 +796,6 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		6A39150105994137136886D1 /* ForsettiCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
-			productName = ForsettiCore;
-		};
 		6A42A76B3F9113774295A4BD /* ForsettiPlatform */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
