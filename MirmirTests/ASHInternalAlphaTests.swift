@@ -4,6 +4,15 @@ import Metal
 import XCTest
 
 final class ASHInternalAlphaTests: XCTestCase {
+    func test_startupValidatorLoadsASHAssetsFromBuiltApplicationBundle() {
+        let applicationBundle = Bundle(for: AVFoundationMediaPipeline.self)
+
+        XCTAssertEqual(
+            ASHBackendStartupValidator.validate(bundle: applicationBundle),
+            .available
+        )
+    }
+
     func test_runtimeConformanceReportValidatesAllBundledASHAssets() throws {
         let catalog = try ASHAssetCatalog.load(from: ashAssetRootURL())
         let report = try catalog.validateRuntime()

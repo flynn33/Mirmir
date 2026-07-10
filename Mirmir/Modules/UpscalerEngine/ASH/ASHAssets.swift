@@ -34,12 +34,35 @@ struct ASHAssetCatalog: Sendable {
     }
 
     static func loadBundled(bundle: Bundle = .main) throws -> ASHAssetCatalog {
-        if let folderURL = bundle.url(forResource: "ASH", withExtension: nil) {
-            return try load(from: folderURL)
-        }
-        if let resourceURL = bundle.resourceURL?.appendingPathComponent("ASH"),
-           FileManager.default.fileExists(atPath: resourceURL.path) {
-            return try load(from: resourceURL)
+        let resources = bundle.resourceURL
+        let root = try resolveResourceRoot(candidates: [
+            bundle.url(forResource: "ASH", withExtension: nil),
+            resources?.appendingPathComponent("ASH", isDirectory: true),
+            resources
+        ])
+        return try load(from: root)
+    }
+
+    /// Xcode may either preserve the ASH resource directory or flatten its
+    /// files into the application resource root. Accept both layouts, but
+    /// require the complete runtime asset set before selecting a root.
+    static func resolveResourceRoot(candidates: [URL?]) throws -> URL {
+        let requiredFiles = [
+            "ash_mapping_v1.json",
+            "codewords.csv",
+            "ash-state-reference.csv",
+            "branch-topology.json",
+            "computational-certificate.json"
+        ]
+        for candidate in candidates.compactMap({ $0 }) {
+            let containsAllAssets = requiredFiles.allSatisfy { fileName in
+                FileManager.default.fileExists(
+                    atPath: candidate.appendingPathComponent(fileName).path
+                )
+            }
+            if containsAllAssets {
+                return candidate
+            }
         }
         throw ASHAssetValidationError.missingResourceFolder
     }

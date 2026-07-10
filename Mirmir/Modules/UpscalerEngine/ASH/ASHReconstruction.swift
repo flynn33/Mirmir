@@ -1,9 +1,30 @@
 import Foundation
 
+enum ASHReconstructionError: Error, CustomStringConvertible, Equatable, Sendable {
+    case invalidAffineAnchor
+    case inconsistentRuntimeConfiguration
+    case missingAdaptiveFeatures
+    case uncorrectableBranchState(String)
+
+    var description: String {
+        switch self {
+        case .invalidAffineAnchor:
+            return "ASH affine decoding requires a parity-valid source-state anchor."
+        case .inconsistentRuntimeConfiguration:
+            return "ASH runtime provenance does not match the configured scoring policy."
+        case .missingAdaptiveFeatures:
+            return "Mirmir adaptive scoring requires the normalized ASH feature vector."
+        case .uncorrectableBranchState(let path):
+            return "ASH branch state at path '\(path)' is outside the strict one-bit affine decoding radius."
+        }
+    }
+}
+
 struct ASHReconstructionCandidate: Equatable, Sendable {
     let message: ASHMessage
     let priorWeight: Double
     let sourceScore: Double
+    let policyScore: Double
     let totalScore: Double
     let reconstruction: ASHImage
 }
@@ -14,6 +35,32 @@ struct ASHMappingResult: Equatable, Sendable {
     let branchNodes: [ASHBranchNode]
     let candidates: [ASHReconstructionCandidate]
     let selected: [ASHReconstructionCandidate]
+    let evaluatedCandidateCount: Int
+    let provenance: ASHRuntimeProvenance
+}
+
+enum ASHCandidateRetention: Equatable, Sendable {
+    case all
+    case selectedOnly
+}
+
+enum ASHScoringPolicy: Equatable, Sendable {
+    static let adaptiveFeaturePriorWeight = 4.5
+    static let adaptiveInactiveFloor = 0.15
+
+    /// Bit-for-bit scoring semantics from ASH-Model's reconstruction reference.
+    case referenceV1
+    /// Mirmir's explicitly versioned feature prior; not canonical ASH scoring.
+    case mirmirAdaptiveV1
+
+    var specificationVersion: String {
+        switch self {
+        case .referenceV1:
+            return "ash-reference-score-v1"
+        case .mirmirAdaptiveV1:
+            return "mirmir-adaptive-score-v1"
+        }
+    }
 }
 
 enum ASHReconstruction {
@@ -84,41 +131,8 @@ enum ASHReconstruction {
         strength: Double = defaultOperatorStrength
     ) throws -> ASHImage {
         guard scale > 0 else { throw ASHCoreError.invalidScale(scale) }
-        if source.channels == 1 {
-            return try ASHLumaSpatialOperator.applyCPU(
-                source: source,
-                message: message,
-                scale: scale,
-                strength: strength
-            )
-        }
-
-        let baseline = try nearestUpsample(source, scale: scale)
-        let horizontalBlur = blurAxis(baseline, axis: 1)
-        let verticalBlur = blurAxis(baseline, axis: 0)
-        let isotropicBlur = blurAxis(try baseline.replacing(values: verticalBlur), axis: 1)
-
-        var result = baseline.values
-        for index in result.indices {
-            let horizontalDetail = baseline.values[index] - horizontalBlur[index]
-            let verticalDetail = baseline.values[index] - verticalBlur[index]
-            let isotropicDetail = baseline.values[index] - isotropicBlur[index]
-            if message.bits[0] == 1 {
-                result[index] += strength * horizontalDetail
-            }
-            if message.bits[1] == 1 {
-                result[index] += strength * verticalDetail
-            }
-            if message.bits[2] == 1 {
-                result[index] += strength * isotropicDetail
-            }
-            if message.bits[3] == 1 {
-                result[index] -= strength * isotropicDetail
-            }
-            result[index] = min(1.0, max(0.0, result[index]))
-        }
-
-        return try baseline.replacing(values: result)
+        let basis = try makeOperatorBasis(source: source, scale: scale)
+        return try applyOperator(basis: basis, message: message, strength: strength)
     }
 
     static func sourceConsistencyScore(
@@ -163,163 +177,142 @@ enum ASHReconstruction {
     static func generateCandidates(
         source: ASHImage,
         leaves: [ASHBranchNode],
+        sourceState: ASHState,
         scale: Int = defaultScale,
         previousCandidate: ASHImage? = nil,
-        features: ASHFeatureVector? = nil
+        features: ASHFeatureVector? = nil,
+        scoringPolicy: ASHScoringPolicy = .referenceV1
     ) throws -> [ASHReconstructionCandidate] {
         guard !leaves.isEmpty else { throw ASHCoreError.missingBranchLeaves }
-
-        let priors = ASHBranchTree.aggregateLeafWeights(leaves)
+        guard scoringPolicy == .referenceV1 || features != nil else {
+            throw ASHReconstructionError.missingAdaptiveFeatures
+        }
+        let priors = try decodedLeafWeights(leaves: leaves, sourceState: sourceState)
+        let basis = try makeOperatorBasis(source: source, scale: scale)
         var candidates: [ASHReconstructionCandidate] = []
         for message in priors.keys.sorted() {
-            let reconstruction = try applyOperator(source: source, message: message, scale: scale)
-            let sourceScore = try sourceConsistencyScore(
+            try Task.checkCancellation()
+            candidates.append(try makeCandidate(
                 source: source,
-                candidate: reconstruction,
-                scale: scale,
-                previousCandidate: previousCandidate
-            )
-            let priorWeight = priors[message] ?? 0.0
-            let totalScore = log(max(priorWeight, 1e-300))
-                + log(max(sourceScore, 1e-300))
-                + featurePreferenceScore(features: features, message: message)
-            candidates.append(ASHReconstructionCandidate(
+                basis: basis,
                 message: message,
-                priorWeight: priorWeight,
-                sourceScore: sourceScore,
-                totalScore: totalScore,
-                reconstruction: reconstruction
+                priorWeight: priors[message] ?? 0.0,
+                scale: scale,
+                previousCandidate: previousCandidate,
+                features: features,
+                scoringPolicy: scoringPolicy
             ))
         }
-        return candidates.sorted { lhs, rhs in
-            if lhs.totalScore != rhs.totalScore {
-                return lhs.totalScore > rhs.totalScore
-            }
-            return lhs.message.rawValue < rhs.message.rawValue
+        return candidates.sorted { isPreferred($0, $1) }
+    }
+
+    /// Scores the complete decoded message set while retaining only top-k
+    /// reconstructions. The result is identical to `generateCandidates` plus
+    /// `prune`, but peak candidate-image retention is bounded by top-k.
+    static func generateTopCandidates(
+        source: ASHImage,
+        leaves: [ASHBranchNode],
+        sourceState: ASHState,
+        scale: Int = defaultScale,
+        previousCandidate: ASHImage? = nil,
+        topK: Int = defaultTopK,
+        features: ASHFeatureVector? = nil,
+        scoringPolicy: ASHScoringPolicy = .referenceV1
+    ) throws -> (selected: [ASHReconstructionCandidate], evaluatedCount: Int) {
+        guard !leaves.isEmpty else { throw ASHCoreError.missingBranchLeaves }
+        guard topK > 0 else { throw ASHCoreError.invalidTopK(topK) }
+        guard scoringPolicy == .referenceV1 || features != nil else {
+            throw ASHReconstructionError.missingAdaptiveFeatures
         }
+
+        let priors = try decodedLeafWeights(leaves: leaves, sourceState: sourceState)
+        let basis = try makeOperatorBasis(source: source, scale: scale)
+        var selected: [ASHReconstructionCandidate] = []
+        selected.reserveCapacity(min(topK, priors.count))
+
+        for message in priors.keys.sorted() {
+            try Task.checkCancellation()
+            selected.append(try makeCandidate(
+                source: source,
+                basis: basis,
+                message: message,
+                priorWeight: priors[message] ?? 0.0,
+                scale: scale,
+                previousCandidate: previousCandidate,
+                features: features,
+                scoringPolicy: scoringPolicy
+            ))
+            selected.sort { isPreferred($0, $1) }
+            if selected.count > topK {
+                selected.removeLast()
+            }
+        }
+        return (selected, priors.count)
     }
 
     static func prune(_ candidates: [ASHReconstructionCandidate], topK: Int = defaultTopK) throws -> [ASHReconstructionCandidate] {
         guard topK > 0 else { throw ASHCoreError.invalidTopK(topK) }
-        return Array(candidates.sorted { lhs, rhs in
-            if lhs.totalScore != rhs.totalScore {
-                return lhs.totalScore > rhs.totalScore
-            }
-            return lhs.message.rawValue < rhs.message.rawValue
-        }.prefix(topK))
+        return Array(candidates.sorted { isPreferred($0, $1) }.prefix(topK))
     }
 
-    private static func featurePreferenceScore(features: ASHFeatureVector?, message: ASHMessage) -> Double {
-        guard let features else { return 0.0 }
-        let values = features.values
-        let signals = [
-            values[5],
-            values[6],
-            max(values[2], values[3], values[4]),
-            max(values[0], values[1], values[4], values[7])
-        ]
-        var score = 0.0
-        for index in 0..<ASHMessage.bitCount {
-            let signal = signals[index]
-            score += message.bits[index] == 1 ? signal : max(0.0, 0.15 - signal)
+    private static func decodedLeafWeights(
+        leaves: [ASHBranchNode],
+        sourceState: ASHState
+    ) throws -> [ASHMessage: Double] {
+        guard sourceState.hasValidIntegrity else {
+            throw ASHReconstructionError.invalidAffineAnchor
         }
-        return score * 4.5
-    }
-
-    private static func blurAxis(_ image: ASHImage, axis: Int) -> [Double] {
-        var output = Array(repeating: 0.0, count: image.values.count)
-
-        for row in 0..<image.height {
-            for column in 0..<image.width {
-                for channel in 0..<image.channels {
-                    let previousRow = axis == 0 ? max(row - 1, 0) : row
-                    let nextRow = axis == 0 ? min(row + 1, image.height - 1) : row
-                    let previousColumn = axis == 1 ? max(column - 1, 0) : column
-                    let nextColumn = axis == 1 ? min(column + 1, image.width - 1) : column
-                    let center = image.value(row: row, column: column, channel: channel)
-                    let before = image.value(row: previousRow, column: previousColumn, channel: channel)
-                    let after = image.value(row: nextRow, column: nextColumn, channel: channel)
-                    output[index(row: row, column: column, channel: channel, width: image.width, channels: image.channels)] =
-                        (before + (2.0 * center) + after) / 4.0
-                }
+        var priors: [ASHMessage: Double] = [:]
+        for leaf in ASHBranchTree.leafNodes(leaves) {
+            let decoded = ASHBranchTree.recover(received: leaf.state, sourceState: sourceState)
+            guard decoded.status != .uncorrectable,
+                  let messageBits = decoded.messageBits else {
+                throw ASHReconstructionError.uncorrectableBranchState(leaf.path)
             }
+            let decodedMessage = try ASHMessage(bits: messageBits)
+            priors[decodedMessage, default: 0.0] += leaf.weight
         }
-
-        return output
+        guard !priors.isEmpty else { throw ASHCoreError.missingBranchLeaves }
+        return priors
     }
 
-    private static func gradientEnergy(_ image: ASHImage) -> (dx: [Double], dy: [Double]) {
-        var dx = Array(repeating: 0.0, count: image.values.count)
-        var dy = Array(repeating: 0.0, count: image.values.count)
-
-        if image.width > 1 {
-            for row in 0..<image.height {
-                for column in 0..<(image.width - 1) {
-                    for channel in 0..<image.channels {
-                        let current = index(row: row, column: column, channel: channel, width: image.width, channels: image.channels)
-                        let next = index(row: row, column: column + 1, channel: channel, width: image.width, channels: image.channels)
-                        dx[current] = image.values[next] - image.values[current]
-                    }
-                }
-            }
-        }
-
-        if image.height > 1 {
-            for row in 0..<(image.height - 1) {
-                for column in 0..<image.width {
-                    for channel in 0..<image.channels {
-                        let current = index(row: row, column: column, channel: channel, width: image.width, channels: image.channels)
-                        let next = index(row: row + 1, column: column, channel: channel, width: image.width, channels: image.channels)
-                        dy[current] = image.values[next] - image.values[current]
-                    }
-                }
-            }
-        }
-
-        return (dx, dy)
-    }
-
-    private static func mean(_ values: [Double]) -> Double {
-        values.reduce(0.0, +) / Double(values.count)
-    }
-
-    private static func index(row: Int, column: Int, channel: Int, width: Int, channels: Int) -> Int {
-        ((row * width) + column) * channels + channel
-    }
-}
-
-enum ASHReferencePipeline {
-    static func mapPatch(
-        current: ASHImage,
-        previous: ASHImage? = nil,
-        previousState: ASHState? = nil,
-        previousReconstruction: ASHImage? = nil,
-        chromaEnergy: Double? = nil,
-        branchDepth: Int = ASHBranchTree.defaultDepth,
-        scale: Int = ASHReconstruction.defaultScale,
-        topK: Int = ASHReconstruction.defaultTopK
-    ) throws -> ASHMappingResult {
-        let features = try ASHFeatureExtractor.extract(
-            current: current,
-            previous: previous,
-            chromaEnergy: chromaEnergy
+    private static func makeCandidate(
+        source: ASHImage,
+        basis: OperatorBasis,
+        message: ASHMessage,
+        priorWeight: Double,
+        scale: Int,
+        previousCandidate: ASHImage?,
+        features: ASHFeatureVector?,
+        scoringPolicy: ASHScoringPolicy
+    ) throws -> ASHReconstructionCandidate {
+        let reconstruction = try applyOperator(
+            basis: basis,
+            message: message,
+            strength: defaultOperatorStrength
         )
-        let sourceState = try ASHFeatureBinarizer.binarize(features, previousState: previousState)
-        let tree = try ASHBranchTree.generate(sourceState: sourceState, depth: branchDepth)
-        let candidates = try ASHReconstruction.generateCandidates(
-            source: current,
-            leaves: ASHBranchTree.leafNodes(tree),
+        let sourceScore = try sourceConsistencyScore(
+            source: source,
+            candidate: reconstruction,
             scale: scale,
-            previousCandidate: previousReconstruction,
-            features: features
+            previousCandidate: previousCandidate
         )
-        let selected = try ASHReconstruction.prune(candidates, topK: topK)
-        return ASHMappingResult(
+        let policyScore = policyAdjustment(
             features: features,
-            sourceState: sourceState,
-            branchNodes: tree,
-            candidates: candidates,
-            selected: selected
+            message: message,
+            policy: scoringPolicy
+        )
+        let totalScore = log(max(priorWeight, 1e-300))
+            + log(max(sourceScore, 1e-300))
+            + policyScore
+        return ASHReconstructionCandidate(
+            message: message,
+            priorWeight: priorWeight,
+            sourceScore: sourceScore,
+            policyScore: policyScore,
+            totalScore: totalScore,
+            reconstruction: reconstruction
         )
     }
+
 }

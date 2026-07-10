@@ -22,11 +22,13 @@ struct MirmirSettingsView: View {
             Text("General")
                 .font(.title3.weight(.semibold))
 
-            Picker("Default Quality", selection: $viewModel.qualityMode) {
+            Picker("Default Quality", selection: Binding.constant(MirmirQualityMode.balanced)) {
                 ForEach(MirmirQualityMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
+            .disabled(true)
+            .help("Additional processing profiles are not implemented yet.")
             .pickerStyle(.segmented)
 
             Picker("Default Codec", selection: $viewModel.codec) {

@@ -283,7 +283,8 @@ private struct MirmirPlaybackControls: View {
                 playbackButton("forward.frame.fill", label: "Step forward")
 
                 Slider(value: $scrubPosition, in: 0...1)
-                    .disabled(viewModel.sourceProfile == nil)
+                    .disabled(true)
+                    .help("Live frame playback is not available in this build.")
                     .accessibilityLabel("Timeline scrubber")
 
                 Text(timecodeText)
@@ -312,8 +313,8 @@ private struct MirmirPlaybackControls: View {
                 .frame(width: 28, height: 28)
         }
         .buttonStyle(MirmirIconButtonStyle(theme: theme))
-        .disabled(viewModel.sourceProfile == nil)
-        .help(viewModel.sourceProfile == nil ? "Choose a source video before using preview controls." : label)
+        .disabled(true)
+        .help("\(label) is not available until live preview is implemented.")
         .accessibilityLabel(label)
     }
 
@@ -359,25 +360,30 @@ private struct MirmirUpscaleInspector: View {
                             Text(strategyText).tag(strategyText)
                         }
                         .pickerStyle(.menu)
+                        .disabled(true)
+                        .help("Strategy selection is fixed for the supported resolution pair.")
                     }
 
                     MirmirFieldRow("Profile", theme: theme) {
-                        Picker("Profile", selection: $viewModel.qualityMode) {
+                        Picker("Profile", selection: Binding.constant(MirmirQualityMode.balanced)) {
                             ForEach(MirmirQualityMode.allCases) { mode in
                                 Text(mode.title).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .disabled(true)
+                        .help("Additional processing profiles are not implemented yet.")
                     }
                 }
 
                 inspectorSection("Quality Controls") {
-                    Toggle("Temporal Consistency", isOn: $viewModel.temporalConsistencyEnabled)
+                    Toggle("Temporal Consistency", isOn: Binding.constant(true))
                         .font(theme.typography.body)
-                        .help("Keep temporal consistency enabled for video reconstruction.")
+                        .disabled(true)
+                        .help("Temporal consistency is fixed in the current engine.")
 
-                    segmentedLevel("Edge Fidelity", selection: $viewModel.edgeFidelityLevel)
-                    segmentedLevel("Detail Recovery", selection: $viewModel.detailRecoveryLevel)
+                    segmentedLevel("Edge Fidelity", selection: .constant(.medium))
+                    segmentedLevel("Detail Recovery", selection: .constant(.medium))
                 }
 
                 inspectorSection("Output") {
@@ -475,6 +481,8 @@ private struct MirmirUpscaleInspector: View {
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(true)
+            .help("This adjustment is not implemented yet.")
         }
     }
 }

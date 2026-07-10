@@ -29,6 +29,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
             topK: 1
         ).process(luma: current, chroma: chroma, previous: previousTiles)
 
+        try Task.checkCancellation()
         try Self.write(reconstruction: result.reconstruction, sourceChroma: source, to: destination)
         previousTiles = result.temporalState
         lastDebugSummary = result.summary
@@ -54,6 +55,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         var values: [Double] = []
         values.reserveCapacity(width * height)
         for row in 0..<height {
+            try Task.checkCancellation()
             let rowBase = bytes.advanced(by: row * stride)
             for column in 0..<width {
                 values.append(Double(rowBase[column]) / 255.0)
@@ -77,6 +79,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         var bytes: [UInt8] = []
         bytes.reserveCapacity(height * bytesPerRow)
         for row in 0..<height {
+            try Task.checkCancellation()
             let rowBase = pointer.advanced(by: row * bytesPerRow)
             for offset in 0..<bytesPerRow {
                 bytes.append(rowBase[offset])
@@ -94,7 +97,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         }
 
         try writeLuma(reconstruction, to: destination)
-        writeChroma(from: source, to: destination)
+        try writeChroma(from: source, to: destination)
     }
 
     private static func writeLuma(_ image: ASHImage, to destination: CVPixelBuffer) throws {
@@ -112,6 +115,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
 
         let bytes = baseAddress.assumingMemoryBound(to: UInt8.self)
         for row in 0..<height {
+            try Task.checkCancellation()
             let imageRow = min(row, image.height - 1)
             let rowBase = bytes.advanced(by: row * stride)
             for column in 0..<width {
@@ -122,7 +126,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         }
     }
 
-    private static func writeChroma(from source: CVPixelBuffer, to destination: CVPixelBuffer) {
+    private static func writeChroma(from source: CVPixelBuffer, to destination: CVPixelBuffer) throws {
         let sourcePlanes = CVPixelBufferGetPlaneCount(source)
         let destinationPlanes = CVPixelBufferGetPlaneCount(destination)
         guard sourcePlanes > 1, destinationPlanes > 1,
@@ -143,6 +147,7 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         let bytesPerPixel = 2
 
         for row in 0..<destinationHeight {
+            try Task.checkCancellation()
             let sourceRow = min(sourceHeight - 1, row * sourceHeight / max(destinationHeight, 1))
             let sourceRowBase = sourceBytes.advanced(by: sourceRow * sourceStride)
             let destinationRowBase = destinationBytes.advanced(by: row * destinationStride)

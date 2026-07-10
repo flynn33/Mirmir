@@ -1,6 +1,7 @@
 import CryptoKit
 import Foundation
 import XCTest
+@testable import Mirmir
 
 final class ASHAssetConformanceTests: XCTestCase {
 
@@ -35,6 +36,15 @@ final class ASHAssetConformanceTests: XCTestCase {
             "computational-certificate.json"
         ])
         XCTAssertTrue(manifest.assets.allSatisfy { !$0.sha256.isEmpty && !$0.sourcePath.isEmpty })
+    }
+
+    func test_runtimeAssetResolverAcceptsFlattenedResourceLayout() throws {
+        let flattenedRoot = repoRootURL().appendingPathComponent("Mirmir/Resources/ASH")
+
+        let resolved = try ASHAssetCatalog.resolveResourceRoot(candidates: [nil, flattenedRoot])
+
+        XCTAssertEqual(resolved.standardizedFileURL, flattenedRoot.standardizedFileURL)
+        XCTAssertTrue(try ASHAssetCatalog.load(from: resolved).validateRuntime().isValid)
     }
 
     private func sha256Hex(_ data: Data) -> String {

@@ -37,6 +37,37 @@ public struct UpscaleProgress: Sendable, Equatable {
 
     public var fraction: Double {
         guard totalFrames > 0 else { return 0 }
-        return Double(framesProcessed) / Double(totalFrames)
+        return min(1, max(0, Double(framesProcessed) / Double(totalFrames)))
+    }
+}
+
+enum FileURLIdentity {
+    static func refersToSameFile(
+        _ lhs: URL,
+        _ rhs: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        let normalizedLHS = lhs.resolvingSymlinksInPath().standardizedFileURL
+        let normalizedRHS = rhs.resolvingSymlinksInPath().standardizedFileURL
+
+        guard normalizedLHS.isFileURL, normalizedRHS.isFileURL else {
+            return normalizedLHS == normalizedRHS
+        }
+        if normalizedLHS.path == normalizedRHS.path {
+            return true
+        }
+
+        guard
+            let lhsAttributes = try? fileManager.attributesOfItem(atPath: normalizedLHS.path),
+            let rhsAttributes = try? fileManager.attributesOfItem(atPath: normalizedRHS.path),
+            let lhsDevice = lhsAttributes[.systemNumber] as? NSNumber,
+            let rhsDevice = rhsAttributes[.systemNumber] as? NSNumber,
+            let lhsFile = lhsAttributes[.systemFileNumber] as? NSNumber,
+            let rhsFile = rhsAttributes[.systemFileNumber] as? NSNumber
+        else {
+            return false
+        }
+
+        return lhsDevice == rhsDevice && lhsFile == rhsFile
     }
 }
