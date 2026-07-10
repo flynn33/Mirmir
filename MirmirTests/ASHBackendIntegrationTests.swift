@@ -1,4 +1,5 @@
 import Foundation
+import CoreMedia
 import os.lock
 import XCTest
 @testable import Mirmir

@@ -7,6 +7,23 @@ import CoreVideo
 final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable {
 
     private let metal: MetalRenderingService
+    private static let expectedColorMetadata = [
+        ExpectedColorMetadata(
+            key: kCMFormatDescriptionExtension_ColorPrimaries as String,
+            expected: kCMFormatDescriptionColorPrimaries_ITU_R_709_2 as String,
+            label: "primaries"
+        ),
+        ExpectedColorMetadata(
+            key: kCMFormatDescriptionExtension_TransferFunction as String,
+            expected: kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String,
+            label: "transfer"
+        ),
+        ExpectedColorMetadata(
+            key: kCMFormatDescriptionExtension_YCbCrMatrix as String,
+            expected: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String,
+            label: "matrix"
+        )
+    ]
 
     init(metal: MetalRenderingService) {
         self.metal = metal
@@ -24,7 +41,7 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         let size = try await videoTrack.load(.naturalSize)
         let fps = Double(try await videoTrack.load(.nominalFrameRate))
         let formats = try await videoTrack.load(.formatDescriptions)
-        try Self.validateSupportedColorProfile(track: videoTrack, formats: formats)
+        try await Self.validateSupportedColorProfile(track: videoTrack, formats: formats)
         let durationCM = try await asset.load(.duration)
         let hasAudio = try await !asset.loadTracks(withMediaType: .audio).isEmpty
 
@@ -69,37 +86,22 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
     fileprivate static func validateSupportedColorProfile(
         track: AVAssetTrack,
         formats: [CMFormatDescription]
-    ) throws {
+    ) async throws {
         var unsupportedValues: [String] = []
-        if track.hasMediaCharacteristic(.containsHDRVideo) {
+        let mediaCharacteristics = try await track.load(.mediaCharacteristics)
+        if mediaCharacteristics.contains(.containsHDRVideo) {
             unsupportedValues.append("HDR")
         }
 
-        let expectedValues: [(CFString, CFString, String)] = [
-            (
-                kCMFormatDescriptionExtension_ColorPrimaries,
-                kCMFormatDescriptionColorPrimaries_ITU_R_709_2,
-                "primaries"
-            ),
-            (
-                kCMFormatDescriptionExtension_TransferFunction,
-                kCMFormatDescriptionTransferFunction_ITU_R_709_2,
-                "transfer"
-            ),
-            (
-                kCMFormatDescriptionExtension_YCbCrMatrix,
-                kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2,
-                "matrix"
-            )
-        ]
-
         for format in formats {
-            let extensions = CMFormatDescriptionGetExtensions(format) as NSDictionary
-            for (key, expected, label) in expectedValues {
-                guard let observed = extensions[key] as? String else { continue }
-                let expectedString = expected as String
-                if observed != expectedString {
-                    unsupportedValues.append("\(label)=\(observed)")
+            guard let formatExtensions = CMFormatDescriptionGetExtensions(format) else {
+                continue
+            }
+            let extensions = formatExtensions as NSDictionary
+            for metadata in expectedColorMetadata {
+                guard let observed = extensions[metadata.key] as? String else { continue }
+                if observed != metadata.expected {
+                    unsupportedValues.append("\(metadata.label)=\(observed)")
                 }
             }
         }
@@ -112,53 +114,10 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
     }
 }
 
-final class AtomicMediaOutput: @unchecked Sendable {
-    let destinationURL: URL
-    let temporaryURL: URL
-
-    init(destinationURL: URL, fileManager: FileManager = .default) throws {
-        self.destinationURL = destinationURL
-        let directory = destinationURL.deletingLastPathComponent()
-        var isDirectory: ObjCBool = false
-        guard destinationURL.isFileURL,
-              fileManager.fileExists(atPath: directory.path, isDirectory: &isDirectory),
-              isDirectory.boolValue else {
-            throw NSError(
-                domain: NSCocoaErrorDomain,
-                code: NSFileNoSuchFileError,
-                userInfo: [NSFilePathErrorKey: directory.path]
-            )
-        }
-
-        let baseName = destinationURL.deletingPathExtension().lastPathComponent
-        let pathExtension = destinationURL.pathExtension
-        let extensionSuffix = pathExtension.isEmpty ? "" : ".\(pathExtension)"
-        self.temporaryURL = directory.appendingPathComponent(
-            ".\(baseName).mirmir-\(UUID().uuidString).partial\(extensionSuffix)",
-            isDirectory: false
-        )
-    }
-
-    func commit(fileManager: FileManager = .default) throws {
-        if fileManager.fileExists(atPath: destinationURL.path) {
-            _ = try fileManager.replaceItemAt(
-                destinationURL,
-                withItemAt: temporaryURL,
-                backupItemName: nil,
-                options: []
-            )
-        } else {
-            try fileManager.moveItem(at: temporaryURL, to: destinationURL)
-        }
-    }
-
-    func discard(fileManager: FileManager = .default) {
-        try? fileManager.removeItem(at: temporaryURL)
-    }
-
-    deinit {
-        discard()
-    }
+private struct ExpectedColorMetadata: Sendable {
+    let key: String
+    let expected: String
+    let label: String
 }
 
 final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
@@ -167,7 +126,6 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         case cancelled
         case committed
     }
-
 
     let sourceProfile: SourceProfile
     let outputProfile: OutputProfile
@@ -200,7 +158,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         }
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
-        try AVFoundationMediaPipeline.validateSupportedColorProfile(
+        try await AVFoundationMediaPipeline.validateSupportedColorProfile(
             track: videoTrack,
             formats: videoFormats
         )
@@ -249,124 +207,44 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
             throw MediaPipelineError.inputOutputCollision(source.url)
         }
-        self.sourceProfile = source
-        self.outputProfile = output
-        self.asset = asset
 
-        do {
-            self.reader = try AVAssetReader(asset: asset)
-        } catch {
-            throw MediaPipelineError.readerCreationFailed(source.url, error)
-        }
-
-        let videoSettings: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-            kCVPixelBufferMetalCompatibilityKey as String: true
-        ]
-        self.videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: videoSettings)
-        videoOutput.alwaysCopiesSampleData = false
-        guard reader.canAdd(videoOutput) else {
-            throw MediaPipelineError.cannotAddReaderOutput("video")
-        }
-        reader.add(videoOutput)
-
-        if output.preserveAudio, let audioTrack {
-            let audioReaderSettings: [String: Any] = [:]
-            let audioTrackOutput = AVAssetReaderTrackOutput(
-                track: audioTrack,
-                outputSettings: audioReaderSettings.isEmpty ? nil : audioReaderSettings
-            )
-            audioTrackOutput.alwaysCopiesSampleData = false
-            guard reader.canAdd(audioTrackOutput) else {
-                throw MediaPipelineError.cannotAddReaderOutput("audio")
-            }
-            reader.add(audioTrackOutput)
-            self.audioOutput = audioTrackOutput
-        } else {
-            self.audioOutput = nil
-        }
-
-        do {
-            self.outputTransaction = try AtomicMediaOutput(destinationURL: output.url)
-        } catch {
-            throw MediaPipelineError.outputPreparationFailed(output.url, error)
-        }
-        do {
-            self.writer = try AVAssetWriter(url: outputTransaction.temporaryURL, fileType: .mp4)
-        } catch {
-            outputTransaction.discard()
-            throw MediaPipelineError.writerCreationFailed(output.url, error)
-        }
-        writer.metadata = Self.makeASHMetadataItems()
-
-        let bitRate = AVFoundationMediaSession.estimateBitRate(for: output.resolution, codec: output.codec)
-        let videoCompression: [String: Any] = [
-            AVVideoAverageBitRateKey: NSNumber(value: bitRate)
-        ]
-        let videoOutputSettings: [String: Any] = [
-            AVVideoCodecKey: output.codec.avCodecKey,
-            AVVideoWidthKey: NSNumber(value: output.resolution.width),
-            AVVideoHeightKey: NSNumber(value: output.resolution.height),
-            AVVideoCompressionPropertiesKey: videoCompression,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
-            ]
-        ]
-        self.videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
-        videoInput.expectsMediaDataInRealTime = false
-        videoInput.transform = videoTransform
-
-        let adaptorAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
-            kCVPixelBufferWidthKey as String: NSNumber(value: output.resolution.width),
-            kCVPixelBufferHeightKey as String: NSNumber(value: output.resolution.height),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-            kCVPixelBufferMetalCompatibilityKey as String: true
-        ]
-        self.videoAdaptor = AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: videoInput,
-            sourcePixelBufferAttributes: adaptorAttrs
+        let reader = try Self.makeReader(asset: asset, sourceURL: source.url)
+        let readerOutputs = try Self.configureReaderOutputs(
+            reader: reader,
+            videoTrack: videoTrack,
+            audioTrack: audioTrack,
+            preserveAudio: output.preserveAudio
         )
-        guard writer.canAdd(videoInput) else {
-            throw MediaPipelineError.cannotAddWriterInput("video")
-        }
-        writer.add(videoInput)
-
-        if output.preserveAudio, audioOutput != nil {
-            let audioInput = AVAssetWriterInput(
-                mediaType: .audio,
-                outputSettings: nil,
-                sourceFormatHint: audioFormatDescription
-            )
-            audioInput.expectsMediaDataInRealTime = false
-            guard writer.canAdd(audioInput) else {
-                throw MediaPipelineError.cannotAddWriterInput("audio")
-            }
-            writer.add(audioInput)
-            self.audioInput = audioInput
-        } else {
-            self.audioInput = nil
-        }
-
-        self.outputPixelBufferPool = try PixelBufferBridge.makePool(
+        let outputTransaction = try Self.makeOutputTransaction(outputURL: output.url)
+        let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
+        writer.metadata = Self.makeASHMetadataItems()
+        let writerInputs = try Self.configureWriterInputs(
+            writer: writer,
+            output: output,
+            videoTransform: videoTransform,
+            audioOutput: readerOutputs.audio,
+            audioFormatDescription: audioFormatDescription
+        )
+        let outputPixelBufferPool = try PixelBufferBridge.makePool(
             width: output.resolution.width,
             height: output.resolution.height,
             capacity: 8
         )
-
-        guard reader.startReading() else {
-            discardWorkingOutput()
-            throw MediaPipelineError.readerStartFailed
-        }
-        guard writer.startWriting() else {
-            reader.cancelReading()
-            discardWorkingOutput()
-            throw MediaPipelineError.writerStartFailed
-        }
+        try Self.start(reader: reader, writer: writer, outputTransaction: outputTransaction)
         writer.startSession(atSourceTime: .zero)
+
+        self.sourceProfile = source
+        self.outputProfile = output
+        self.outputPixelBufferPool = outputPixelBufferPool
+        self.asset = asset
+        self.reader = reader
+        self.videoOutput = readerOutputs.video
+        self.audioOutput = readerOutputs.audio
+        self.writer = writer
+        self.videoInput = writerInputs.video
+        self.videoAdaptor = writerInputs.adaptor
+        self.audioInput = writerInputs.audio
+        self.outputTransaction = outputTransaction
     }
 
     func nextSourceFrame() async throws -> FrameRecord? {
@@ -501,26 +379,4 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         return true
     }
 
-    private static func estimateBitRate(for resolution: VideoResolution, codec: OutputCodec) -> Int {
-        let pixels = resolution.width * resolution.height
-        let bppFactor: Double
-        switch codec {
-        case .hevc: bppFactor = 0.10
-        case .h264: bppFactor = 0.15
-        }
-        return max(2_000_000, Int(Double(pixels) * 30 * bppFactor))
-    }
-
-    private static func makeASHMetadataItems() -> [AVMetadataItem] {
-        ASHRuntimeConfiguration.current.outputMetadata
-            .sorted { $0.key < $1.key }
-            .map { key, value -> AVMetadataItem in
-                let item = AVMutableMetadataItem()
-                item.keySpace = .quickTimeMetadata
-                item.key = key as NSString
-                item.value = value as NSString
-                item.dataType = kCMMetadataBaseDataType_UTF8 as String
-                return item
-            }
-    }
 }
