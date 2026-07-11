@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/metric-conformance-v1.schema.json",
+  "type": "object",
+  "required": ["schema_version", "metric_policy_sha256", "cases", "status"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "metric_policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "cases": {
+      "type": "array",
+      "minItems": 16,
+      "maxItems": 16,
+      "allOf": [
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "identical-psnr"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "constant-offset-psnr"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "identical-ssim"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "identical-ms-ssim"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "independent-nonidentical-ssim"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "independent-nonidentical-ms-ssim"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "vertical-step"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "horizontal-step"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "diagonal-step"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "known-one-pixel-translation"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "single-impulse-ringing"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "thin-line-identity"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "cb-cr-edge-displacement"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "near-nyquist-alias-mask"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "legal-range-endpoints"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "required": ["case_id"],
+            "properties": {"case_id": {"const": "cb-only-and-cr-only"}}
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ],
+      "items": {
+        "type": "object",
+        "required": ["case_id", "metric", "expected", "actual", "pass"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "metric": {"type": "string", "minLength": 1},
+          "expected": {},
+          "actual": {},
+          "pass": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "status": {"enum": ["pass", "fail"]}
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {"status": {"const": "pass"}}
+      },
+      "then": {
+        "properties": {
+          "cases": {
+            "items": {
+              "required": ["pass"],
+              "properties": {"pass": {"const": true}}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": ["status"],
+        "properties": {"status": {"const": "fail"}}
+      },
+      "then": {
+        "properties": {
+          "cases": {
+            "contains": {
+              "required": ["pass"],
+              "properties": {"pass": {"const": false}}
+            },
+            "minContains": 1
+          }
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

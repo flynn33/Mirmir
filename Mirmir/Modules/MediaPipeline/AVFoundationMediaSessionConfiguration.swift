@@ -153,21 +153,10 @@ extension AVFoundationMediaSession {
         output: OutputProfile,
         videoTransform: CGAffineTransform
     ) -> AVAssetWriterInput {
-        let bitRate = estimateBitRate(for: output.resolution, codec: output.codec)
-        let videoCompression: [String: Any] = [
-            AVVideoAverageBitRateKey: NSNumber(value: bitRate)
-        ]
-        let videoOutputSettings: [String: Any] = [
-            AVVideoCodecKey: output.codec.avCodecKey,
-            AVVideoWidthKey: NSNumber(value: output.resolution.width),
-            AVVideoHeightKey: NSNumber(value: output.resolution.height),
-            AVVideoCompressionPropertiesKey: videoCompression,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
-            ]
-        ]
+        let videoOutputSettings = ProductVideoOutputSettings.make(
+            resolution: output.resolution,
+            codec: output.codec
+        )
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
         videoInput.expectsMediaDataInRealTime = false
         videoInput.transform = videoTransform
@@ -211,15 +200,6 @@ extension AVFoundationMediaSession {
         return audioInput
     }
 
-    private static func estimateBitRate(for resolution: VideoResolution, codec: OutputCodec) -> Int {
-        let pixels = resolution.width * resolution.height
-        let bppFactor: Double
-        switch codec {
-        case .hevc: bppFactor = 0.10
-        case .h264: bppFactor = 0.15
-        }
-        return max(2_000_000, Int(Double(pixels) * 30 * bppFactor))
-    }
 }
 
 struct ReaderOutputs {

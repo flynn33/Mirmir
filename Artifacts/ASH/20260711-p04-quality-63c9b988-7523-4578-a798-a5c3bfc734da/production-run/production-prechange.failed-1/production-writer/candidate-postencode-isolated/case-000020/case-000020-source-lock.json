@@ -1,0 +1,40 @@
+{
+  "artifact_kind": "common_writer_source_lock",
+  "frame_count": 1,
+  "frames": [
+    {
+      "active_row_sha256": {
+        "Cb": "09bdbf0bb89d3ff8025db896bcfe715f1ff4b47200d7f02f050e92623a754855",
+        "Cr": "2acfe51979c2084be2cdbe0f0ee9617541ae5c5987f6d7f254b914baed791908",
+        "Y": "6bf7279be0b80147fd69615d56fcca91a5e0210b519fb4a90bc51427667883b9"
+      },
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::actual-h264-software-direct-3over2-v1",
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "39345ac7ea4c63d20c234b6520e19529293d651d335b0892b7f940b0db3295e4",
+      "index": 0,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 0
+      }
+    }
+  ],
+  "payload_path": "case-000020-source.nv12",
+  "payload_sha256": "39345ac7ea4c63d20c234b6520e19529293d651d335b0892b7f940b0db3295e4",
+  "payload_size_bytes": 93312,
+  "pixel_layout": {
+    "chroma_location_bottom_field": "Left",
+    "chroma_location_top_field": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "height": 192,
+    "pixel_format": "420v",
+    "range": "video",
+    "transfer_function": "ITU_R_709_2",
+    "width": 324,
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "schema_version": "1.0.0",
+  "source_id": "production-prechange-candidate-postencode-isolated-case-000020"
+}

@@ -1,0 +1,470 @@
+{
+  "corpus_manifest_sha256": "7271022b4c78f7cb04b9be01773cd0d0a0e190580fa808456e5d90caf0d8ec6a",
+  "manifest_sha256": "c54ec9c5fb0ca5c05480bc72d52a01e932e3a5febf94191f31cb6f3e96ee2e12",
+  "sample_policy": {
+    "crop_alignment": "exact centered crop with even x/y origin for 4:2:0",
+    "crop_dimensions": {
+      "height": 192,
+      "width": 324
+    },
+    "decoded_frame_binding": "retain upstream padded-buffer SHA-256 and independently hash active Y||CbCr bytes",
+    "display_geometry": "full-frame clean aperture, square pixels, and identity orientation only",
+    "pixel_normalization": "420v clamp Y to 16..235 and Cb/Cr to 16..240 before normalization; record every target-crop nominal-range excursion",
+    "selection": "representative_samples[0] with index 0 per source asset",
+    "source_media_binding": "decode media path resolves to the regular non-symlink corpus asset bytes",
+    "split": "development"
+  },
+  "samples": [
+    {
+      "active_planes_sha256": "0083217b6abc083c08174caf437243b566541b28ad23f229facf3e8cf5648f3c",
+      "asset_id": "dev-blender-4-0-reel",
+      "cbcr_active_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-4-0-reel/representative/r00-2.666667.cbcr.bin",
+      "cbcr_active_sha256": "bdc33865b533d738fd016db3d047545a544d6b690e51a15b191c30db6f108bbd",
+      "cbcr_active_size_bytes": 1036800,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 131,
+          "minimum": 103
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 153,
+          "minimum": 128
+        },
+        "y": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 187,
+          "minimum": 27
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 798,
+        "y": 444
+      },
+      "decode_manifest_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-4-0-reel/decode-manifest.json",
+      "decode_manifest_sha256": "5efcdf936e78859db19c94f63c232225d4e6f28108d1863716b5f8e9a00413fc",
+      "decoded_frame_sha256": "5adb47d1b44fa40814da3d229a6bbb7523dd8c95b8c6b2bef1c451f2faf8a0f8",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        1920,
+        1920
+      ],
+      "plane_heights": [
+        1080,
+        540
+      ],
+      "presentation_time": {
+        "timescale": 12288,
+        "value": 32768
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "7741997d2cf224e8825e30d9326e1ae94b5c2638972aa2865403286e0fd997d7",
+      "source_asset_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02",
+      "source_dimensions": {
+        "height": 1080,
+        "width": 1920
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/replacement-evidence-manifest.json",
+      "source_evidence_manifest_sha256": "0777666dd222115a94337b0762e5a5ea8f36140a3582ea18f922b2c71aa580c9",
+      "source_media_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/attempts/attempt-001/media/dev-blender-4-0-reel.mp4",
+      "source_media_sha256": "b0d5012227188a1bb61fb854a65641391235a253aafe1e7bda36c73462c18899",
+      "source_media_size_bytes": 19555969,
+      "target_frame_sha256": "1c47a8f95258be2514ba1ae58741fa8e5acf9f4f3e1f0e5e25bf312630f33e75",
+      "target_route": "direct-3over2",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-4-0-reel/representative/r00-2.666667.y.bin",
+      "y_active_sha256": "28e94eac186a4d1241d54dd71f608b0d246a91cd22b4187aacd2dc7f6884ffb4",
+      "y_active_size_bytes": 2073600,
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    {
+      "active_planes_sha256": "07b0e962871e5eff0c8d1d194115ee63d104ad295343fad1f596a7fe8c3a0f61",
+      "asset_id": "dev-blender-bcon23-day1-recap",
+      "cbcr_active_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-bcon23-day1-recap/representative/r00-1.291667.cbcr.bin",
+      "cbcr_active_sha256": "f21b267c133342954de596c15685efe95681661ae24afe4dea48aa26a2739601",
+      "cbcr_active_size_bytes": 4147200,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 133,
+          "minimum": 101
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 152,
+          "minimum": 123
+        },
+        "y": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 193,
+          "minimum": 68
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 1758,
+        "y": 984
+      },
+      "decode_manifest_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-bcon23-day1-recap/decode-manifest.json",
+      "decode_manifest_sha256": "931bcf0ab5564ef73c31b941d9effcab8762a3169a4cf39637f451eb0d31332e",
+      "decoded_frame_sha256": "80a74c5bd298befc19e5ae2afba663e85b585568f168f77eee43b5f9a5a6c1ce",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        3840,
+        3840
+      ],
+      "plane_heights": [
+        2160,
+        1080
+      ],
+      "presentation_time": {
+        "timescale": 12288,
+        "value": 15872
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "7c7a58883c83fc265ba2d2b1ca79c655307716a83479cb48af7e76673e0203e5",
+      "source_asset_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f",
+      "source_dimensions": {
+        "height": 2160,
+        "width": 3840
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/replacement-evidence-manifest.json",
+      "source_evidence_manifest_sha256": "0777666dd222115a94337b0762e5a5ea8f36140a3582ea18f922b2c71aa580c9",
+      "source_media_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/attempts/attempt-001/media/dev-blender-bcon23-day1-recap.mp4",
+      "source_media_sha256": "3b3c48cee18fa81e9b3ddd3582e206d48a093f27d5761ea9951b13e45395bba0",
+      "source_media_size_bytes": 40013398,
+      "target_frame_sha256": "0e18b8bbfab4891fdad17bcaa07970575bfc521865ce2d41ba7949a896eece7b",
+      "target_route": "direct-2x",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/revisions/revision-002-devval-replacements/review/decode/dev-blender-bcon23-day1-recap/representative/r00-1.291667.y.bin",
+      "y_active_sha256": "49655baaf036de03addac67eedf462bacc64846069855d1b84fa28688f95cc4e",
+      "y_active_size_bytes": 8294400,
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    {
+      "active_planes_sha256": "9e7e040cf0989687da9513c4cee0bd9c88532e544096be8780ec3260f819cfe2",
+      "asset_id": "dev-blender-siggraph-2023",
+      "cbcr_active_path": "quality-corpus-v1/revisions/revision-003-glass-half-replacement/review/decode/dev-blender-siggraph-2023/representative/r00-3.208333.cbcr.bin",
+      "cbcr_active_sha256": "dedba7be25d16851876fef11e0df2312081ced0e4e5448859a10e81ec252a94c",
+      "cbcr_active_size_bytes": 1036800,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 136,
+          "minimum": 115
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 138,
+          "minimum": 119
+        },
+        "y": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 189,
+          "minimum": 132
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 798,
+        "y": 444
+      },
+      "decode_manifest_path": "quality-corpus-v1/revisions/revision-003-glass-half-replacement/review/decode/dev-blender-siggraph-2023/decode-manifest.json",
+      "decode_manifest_sha256": "8efa7420816236d7c10ea24042cc14573b01ac405e1de293ffa16db959b6b40f",
+      "decoded_frame_sha256": "0e174521e0ec018a4f0ada602098801b8e69a53d9ace7191011bb6ac9cd34dbf",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        1920,
+        1920
+      ],
+      "plane_heights": [
+        1080,
+        540
+      ],
+      "presentation_time": {
+        "timescale": 12288,
+        "value": 39424
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "f542fa54889fc017b786cfc81f9945fc4660e7fc99827218833f38c21f320c79",
+      "source_asset_id": "c5555d14-6153-44fa-878e-7f17a4dbd199",
+      "source_dimensions": {
+        "height": 1080,
+        "width": 1920
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/revisions/revision-003-glass-half-replacement/replacement-evidence-manifest.json",
+      "source_evidence_manifest_sha256": "717562dc778134d5f7080d3063782bec71181afb948380d17bc3b9aa809273c8",
+      "source_media_path": "quality-corpus-v1/revisions/revision-003-glass-half-replacement/attempts/attempt-001/media/dev-blender-siggraph-2023.mp4",
+      "source_media_sha256": "880258b1af58bd45a600fc084ee5ecf02aabb32737981830b7f6448f2727f20e",
+      "source_media_size_bytes": 17056154,
+      "target_frame_sha256": "5a74603c132505e7dbb1a05b8583943a8fb2e6cc865f0b5ad4c98bb49c18b3be",
+      "target_route": "direct-3over2",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/revisions/revision-003-glass-half-replacement/review/decode/dev-blender-siggraph-2023/representative/r00-3.208333.y.bin",
+      "y_active_sha256": "b3a1df8118928a136e21e01bf5f1bfd847378a8ee4d1328d899feb523c82e488",
+      "y_active_size_bytes": 2073600,
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    {
+      "active_planes_sha256": "c6a1588020b6a0cd4dcfb8838338ec3b66f6036507f0280c4d9e282d9e648d01",
+      "asset_id": "dev-nasa-b-stand-aerial-4k",
+      "cbcr_active_path": "quality-corpus-v1/review/decode/dev-nasa-b-stand-aerial-4k/representative/r00-1.051050.cbcr.bin",
+      "cbcr_active_sha256": "a97c582bd55b84eb51b3f61b3c59bb955ca47d76201ebc5e746db708ce4f2014",
+      "cbcr_active_size_bytes": 4147200,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 133,
+          "minimum": 101
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 200,
+          "minimum": 115
+        },
+        "y": {
+          "above_nominal_count": 36,
+          "below_nominal_count": 110,
+          "maximum": 245,
+          "minimum": 0
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 1758,
+        "y": 984
+      },
+      "decode_manifest_path": "quality-corpus-v1/review/decode/dev-nasa-b-stand-aerial-4k/decode-manifest.json",
+      "decode_manifest_sha256": "7e9d36407ec433d8a31a89e8a46878942931c81d960a8af50eb490f2dcfeaefe",
+      "decoded_frame_sha256": "fadd1c6193f47791e660376379648712f1190e4188739f471c4a08528159956b",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        3840,
+        3840
+      ],
+      "plane_heights": [
+        2160,
+        1080
+      ],
+      "presentation_time": {
+        "timescale": 60000,
+        "value": 63063
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "af2fe67b7a6c2e05f9d9bbc2ea5edda3ff9bd8a82ada872b5c800ebc33198f24",
+      "source_asset_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K",
+      "source_dimensions": {
+        "height": 2160,
+        "width": 3840
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/review/evidence-manifest.json",
+      "source_evidence_manifest_sha256": "095e04f60513dabea5e3e1e9a87f57544420bb8b23b45271b779bf44a5303868",
+      "source_media_path": "quality-corpus-v1/media/dev-nasa-b-stand-aerial-4k.mp4",
+      "source_media_sha256": "0f4b4e76e75c6cfe4dea18496939003adf3b54d0bc838aa1c0e0d62111e32bca",
+      "source_media_size_bytes": 22276675,
+      "target_frame_sha256": "d809cd85859ce05e80fa841326bf961f86222b6bce91fab6c7ed2d20790ca57b",
+      "target_route": "direct-2x",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/review/decode/dev-nasa-b-stand-aerial-4k/representative/r00-1.051050.y.bin",
+      "y_active_sha256": "1804aa2ce8aa49e34e38b4ac99e6205bb9f7172752c7dd53832dd20b2e262565",
+      "y_active_size_bytes": 8294400,
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    {
+      "active_planes_sha256": "ca01501d13eef4639f4454c2962e93eb298655d8c787da332282cf14b143bea3",
+      "asset_id": "dev-nasa-mixed-reality-quantum-2160",
+      "cbcr_active_path": "quality-corpus-v1/review/decode/dev-nasa-mixed-reality-quantum-2160/representative/r00-6.373033.cbcr.bin",
+      "cbcr_active_sha256": "e1ef57a6f46c67062fae5353ca3e40e7eac453cf6e94967195aa92f18d95a489",
+      "cbcr_active_size_bytes": 4147200,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 136,
+          "minimum": 126
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 129,
+          "minimum": 123
+        },
+        "y": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 232,
+          "minimum": 43
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 1758,
+        "y": 984
+      },
+      "decode_manifest_path": "quality-corpus-v1/review/decode/dev-nasa-mixed-reality-quantum-2160/decode-manifest.json",
+      "decode_manifest_sha256": "b10aa9fb3a3687065bb448fe81e2f13b1bad9da1dfff7b7e9342701bd7afe430",
+      "decoded_frame_sha256": "4cc4dd7ece0edd19a85d1d49d9cf7aafe01bc56e054bf595cdce0c6c8c7eacf2",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        3840,
+        3840
+      ],
+      "plane_heights": [
+        2160,
+        1080
+      ],
+      "presentation_time": {
+        "timescale": 30000,
+        "value": 191191
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "f617b0cf4bcaad0ca231aaa98592a0a81a7a1dd2c602333a19ca57db6bcf9425",
+      "source_asset_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160",
+      "source_dimensions": {
+        "height": 2160,
+        "width": 3840
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/review/evidence-manifest.json",
+      "source_evidence_manifest_sha256": "095e04f60513dabea5e3e1e9a87f57544420bb8b23b45271b779bf44a5303868",
+      "source_media_path": "quality-corpus-v1/media/dev-nasa-mixed-reality-quantum-2160.mp4",
+      "source_media_sha256": "aa3561216cd3df8d84ebf4a96d19988844b8eea27c5102c084b7a823c156f9be",
+      "source_media_size_bytes": 996197983,
+      "target_frame_sha256": "c9ff8679ce6f3287c3078a29a70973f12e115e0b7d059a83274bea31c0c5db24",
+      "target_route": "direct-2x",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/review/decode/dev-nasa-mixed-reality-quantum-2160/representative/r00-6.373033.y.bin",
+      "y_active_sha256": "3dbea694aeafd2282e1b36fe3446db081017fb6fe7c4c0dece8524a81fcc942e",
+      "y_active_size_bytes": 8294400,
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    {
+      "active_planes_sha256": "bc36193de930d9a328e783422548cecbb6dd0045189200192e7428e32be24fb6",
+      "asset_id": "dev-nasa-oco3-plants-4k",
+      "cbcr_active_path": "quality-corpus-v1/review/decode/dev-nasa-oco3-plants-4k/representative/r00-1.334667.cbcr.bin",
+      "cbcr_active_sha256": "c74f2444297397c137d2117a09f9cd8debc9aa2a3120a1caa50bb0165b0ff4ba",
+      "cbcr_active_size_bytes": 4147200,
+      "chroma_location": "left",
+      "code_value_observation": {
+        "cb": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 128,
+          "minimum": 119
+        },
+        "cr": {
+          "above_nominal_count": 0,
+          "below_nominal_count": 0,
+          "maximum": 132,
+          "minimum": 124
+        },
+        "y": {
+          "above_nominal_count": 591,
+          "below_nominal_count": 0,
+          "maximum": 247,
+          "minimum": 35
+        }
+      },
+      "color_primaries": "ITU_R_709_2",
+      "crop": {
+        "height": 192,
+        "width": 324,
+        "x": 1758,
+        "y": 984
+      },
+      "decode_manifest_path": "quality-corpus-v1/review/decode/dev-nasa-oco3-plants-4k/decode-manifest.json",
+      "decode_manifest_sha256": "22859a6024313938017ed8afd4788acdc4fded494e94bab51c17b0d192813322",
+      "decoded_frame_sha256": "61a9e1fa3965c858a747d8730475ba94e1997ea109bd94477be3efff5278c67a",
+      "display_geometry": {
+        "clean_aperture": "full_frame",
+        "orientation": "identity",
+        "pixel_aspect_ratio": "1:1"
+      },
+      "pixel_format": "420v",
+      "plane_bytes_per_row": [
+        3840,
+        3840
+      ],
+      "plane_heights": [
+        2160,
+        1080
+      ],
+      "presentation_time": {
+        "timescale": 30000,
+        "value": 40040
+      },
+      "range": "video",
+      "selected_decode_record_sha256": "7bcdea4ca27daa0890be2a672b0e2ec1f7398c26486db1c8d302e00bb7f14ac0",
+      "source_asset_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K",
+      "source_dimensions": {
+        "height": 2160,
+        "width": 3840
+      },
+      "source_evidence_manifest_path": "quality-corpus-v1/review/evidence-manifest.json",
+      "source_evidence_manifest_sha256": "095e04f60513dabea5e3e1e9a87f57544420bb8b23b45271b779bf44a5303868",
+      "source_media_path": "quality-corpus-v1/media/dev-nasa-oco3-plants-4k.mp4",
+      "source_media_sha256": "6eee4dabd50f89a7898ec890ccb23349f12eabc9a291ee1c4bce04f5e75a5a4c",
+      "source_media_size_bytes": 197963431,
+      "target_frame_sha256": "4e5fa524e3464bfb7d61bcfcdb2ddbfc6db473820bdd1bf889605b6dfe5f8152",
+      "target_route": "direct-2x",
+      "transfer_function": "ITU_R_709_2",
+      "y_active_path": "quality-corpus-v1/review/decode/dev-nasa-oco3-plants-4k/representative/r00-1.334667.y.bin",
+      "y_active_sha256": "106dd864e1d2b768a3aac04c4994f153a5fc00b1c4ed1abed616c3031c2681eb",
+      "y_active_size_bytes": 8294400,
+      "ycbcr_matrix": "ITU_R_709_2"
+    }
+  ],
+  "schema_version": "1.1.0"
+}

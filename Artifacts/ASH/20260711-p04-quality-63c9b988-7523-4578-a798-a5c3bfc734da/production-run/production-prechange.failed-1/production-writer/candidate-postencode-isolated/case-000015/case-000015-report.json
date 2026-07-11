@@ -1,0 +1,168 @@
+{
+  "artifact_kind" : "production_writer_actual_codec",
+  "container_scope" : {
+    "frame_count" : 1,
+    "metric_role" : "isolated_metric_case",
+    "neighbor_frames_present" : false,
+    "single_frame_container" : true
+  },
+  "decoder" : {
+    "codec" : "hvc1",
+    "frame_count" : 1,
+    "frames" : [
+      {
+        "active_row_sha256" : {
+          "Cb" : "32e88e374646a21a57ae0fb97b2dacad5273977fe7815a58b198ca0fa7c41939",
+          "Cr" : "17bc460807b5688e37946dcd9049d340b9e3324c952f5cf5e2f5674c27676130",
+          "Y" : "efa2f5c3703bf8a158d8dfe652078af8f309b37b0396b1d2019910005cbdd989"
+        },
+        "attachments" : {
+          "chroma_location_bottom_field" : "Left",
+          "chroma_location_top_field" : "Left",
+          "color_primaries" : "ITU_R_709_2",
+          "range" : "video",
+          "transfer_function" : "ITU_R_709_2",
+          "ycbcr_matrix" : "ITU_R_709_2"
+        },
+        "case_id" : "ac71efff-5e26-440b-8c38-dd1f5b598e02::hq-binomial7-resample-2over3-v1",
+        "duration" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "height" : 192,
+        "index" : 0,
+        "payload_path" : "frame-000000.nv12",
+        "payload_sha256" : "639ac9bc836e52d778735bcf4df675b25afa13b486c903793deca9685cd580d4",
+        "payload_size_bytes" : 93312,
+        "pixel_format" : "420v",
+        "presentation_time" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 0
+        },
+        "width" : 324
+      }
+    ],
+    "framework" : "AVFoundation",
+    "payload_layout" : "active_row_nv12_without_padding",
+    "pixel_format" : "420v",
+    "session_type" : "AVAssetReaderTrackOutput"
+  },
+  "encoded" : {
+    "codec" : "hvc1",
+    "container" : "mp4",
+    "duration" : {
+      "epoch" : 0,
+      "flags" : 1,
+      "timescale" : 600,
+      "value" : 20
+    },
+    "format_attachments" : {
+      "chroma_location_bottom_field" : "Left",
+      "chroma_location_top_field" : "Left",
+      "color_primaries" : "ITU_R_709_2",
+      "range" : "video",
+      "transfer_function" : "ITU_R_709_2",
+      "ycbcr_matrix" : "ITU_R_709_2"
+    },
+    "frame_count" : 1,
+    "height" : 192,
+    "path" : "case-000015.mp4",
+    "sha256" : "855d2f4cdcf3c533e20db1184101e8f709e5284f8db99de2bbffb9ec4c653bf8",
+    "size_bytes" : 5590,
+    "width" : 324
+  },
+  "encoder" : {
+    "color_primaries" : "ITU_R_709_2",
+    "expected_frame_rate" : 30,
+    "expects_media_data_in_real_time" : false,
+    "framework" : "AVFoundation",
+    "observed_estimated_data_rate" : 566640,
+    "pixel_format" : "420v",
+    "product_settings_source" : {
+      "path" : "MediaTypes.swift",
+      "sha256" : "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+      "size_bytes" : 8475
+    },
+    "reopened_codec" : "hvc1",
+    "requested_average_bit_rate" : 2000000,
+    "requested_codec" : "hevc",
+    "session_type" : "AVAssetWriterInput",
+    "transfer_function" : "ITU_R_709_2",
+    "ycbcr_matrix" : "ITU_R_709_2"
+  },
+  "environment" : {
+    "architecture" : "arm64",
+    "hardware_model" : "Mac16,7",
+    "macos" : "ProductName:\t\tmacOS\nProductVersion:\t\t26.5.1\nBuildVersion:\t\t25F80",
+    "processor" : "Apple M4 Pro",
+    "swift" : "swift-driver version: 1.127.14.1 Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)\nTarget: arm64-apple-macosx26.0",
+    "xcode" : "Xcode 26.2\nBuild version 17C52"
+  },
+  "limitations" : {
+    "decoded_pixel_repeatability_scope" : "no cross-run decoded-pixel identity is claimed for the production writer",
+    "decoder_acceleration_visibility" : "AVAssetReaderTrackOutput does not expose decoder selection or acceleration state",
+    "mp4_byte_identity_across_runs_claimed" : false
+  },
+  "schema_version" : "1.0.0",
+  "source" : {
+    "frame_count" : 1,
+    "frames" : [
+      {
+        "active_row_sha256" : {
+          "Cb" : "dcc957fcf33e81b5bba9ed1cacebebcb22322f0fedf4f2391abf621d6c5e78fe",
+          "Cr" : "969c38dc1b0408effe893623e5ec9e7ace66fdbafd532daed70042d0e1c1f6ff",
+          "Y" : "368ed094b9d5781899f89e838af398e72690434843526ae1d25d02a5b0eceecf"
+        },
+        "case_id" : "ac71efff-5e26-440b-8c38-dd1f5b598e02::hq-binomial7-resample-2over3-v1",
+        "duration" : {
+          "timescale" : 600,
+          "value" : 20
+        },
+        "frame_nv12_sha256" : "7d5b441a8c6ad5596700340042957823d58d8c0ae093aa39b8b864562f57e2f0",
+        "index" : 0,
+        "presentation_time" : {
+          "timescale" : 600,
+          "value" : 0
+        }
+      }
+    ],
+    "payload_path" : "case-000015-source.nv12",
+    "payload_sha256" : "7d5b441a8c6ad5596700340042957823d58d8c0ae093aa39b8b864562f57e2f0",
+    "payload_size_bytes" : 93312,
+    "pixel_layout" : {
+      "chroma_location_bottom_field" : "Left",
+      "chroma_location_top_field" : "Left",
+      "color_primaries" : "ITU_R_709_2",
+      "height" : 192,
+      "pixel_format" : "420v",
+      "range" : "video",
+      "transfer_function" : "ITU_R_709_2",
+      "width" : 324,
+      "ycbcr_matrix" : "ITU_R_709_2"
+    },
+    "source_id" : "production-prechange-candidate-postencode-isolated-case-000015",
+    "source_lock_path" : "case-000015-source-lock.json",
+    "source_lock_sha256" : "58714380b6bb6952799cdddaf3a96104038b491656c76a08d9b30c50a49bc11f",
+    "source_lock_size_bytes" : 1327
+  },
+  "status" : "pass",
+  "verification" : {
+    "attachments_recorded" : true,
+    "decoded_payloads_byte_bound" : true,
+    "dimensions_preserved" : true,
+    "encoded_container_reopened" : true,
+    "exact_case_order_preserved" : true,
+    "exact_timing_preserved" : true,
+    "frame_count_preserved" : true,
+    "pixel_format_preserved" : true,
+    "product_settings_source_bound" : true,
+    "production_hevc_container_used" : true,
+    "row_padding_excluded" : true,
+    "source_bytes_match_lock" : true,
+    "source_lock_valid" : true
+  }
+}

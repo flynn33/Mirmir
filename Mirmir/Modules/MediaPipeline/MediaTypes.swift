@@ -69,6 +69,51 @@ public enum OutputCodec: String, Sendable, CaseIterable, Identifiable {
     }
 }
 
+enum ProductVideoOutputSettings {
+    static let expectedFrameRate = 30
+    static let minimumBitRate = 2_000_000
+
+    static func estimatedBitRate(
+        width: Int,
+        height: Int,
+        codec: OutputCodec
+    ) -> Int {
+        let bitsPerPixel: Double
+        switch codec {
+        case .hevc: bitsPerPixel = 0.10
+        case .h264: bitsPerPixel = 0.15
+        }
+        return max(
+            minimumBitRate,
+            Int(Double(width * height * expectedFrameRate) * bitsPerPixel)
+        )
+    }
+
+    static func make(
+        resolution: VideoResolution,
+        codec: OutputCodec
+    ) -> [String: Any] {
+        let bitRate = estimatedBitRate(
+            width: resolution.width,
+            height: resolution.height,
+            codec: codec
+        )
+        return [
+            AVVideoCodecKey: codec.avCodecKey,
+            AVVideoWidthKey: NSNumber(value: resolution.width),
+            AVVideoHeightKey: NSNumber(value: resolution.height),
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: NSNumber(value: bitRate)
+            ],
+            AVVideoColorPropertiesKey: [
+                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+            ]
+        ]
+    }
+}
+
 public struct OutputProfile: Sendable {
     public let url: URL
     public let resolution: VideoResolution

@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/actual-codec-source-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "fixture_id",
+    "source",
+    "pixel_layout",
+    "timing",
+    "frame_count",
+    "frames",
+    "payload_size_bytes",
+    "payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "fixture_id": {"const": "actual-h264-software-nv12-v1"},
+    "source": {
+      "type": "object",
+      "required": [
+        "generator",
+        "frame_indices",
+        "native_dimensions",
+        "degradation_profile_id",
+        "degradation_policy_sha256"
+      ],
+      "properties": {
+        "generator": {"const": "synthetic_planar_frame"},
+        "frame_indices": {"const": [0, 1, 2]},
+        "native_dimensions": {"$ref": "#/$defs/nativeDimensions"},
+        "degradation_profile_id": {"const": "hq-binomial7-decimate-2x-v1"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "pixel_layout": {
+      "type": "object",
+      "required": [
+        "pixel_format",
+        "range",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location_top_field",
+        "chroma_location_bottom_field",
+        "width",
+        "height",
+        "plane_order",
+        "row_padding",
+        "active_row_hash_contract",
+        "luma_code_range",
+        "chroma_code_range",
+        "rounding"
+      ],
+      "properties": {
+        "pixel_format": {"const": "420v"},
+        "range": {"const": "video"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location_top_field": {"const": "Left"},
+        "chroma_location_bottom_field": {"const": "Left"},
+        "width": {"const": 160},
+        "height": {"const": 90},
+        "plane_order": {"const": ["Y", "interleaved_CbCr"]},
+        "row_padding": {"const": "absent"},
+        "active_row_hash_contract": {
+          "const": "SHA-256 over raster-order active bytes with no row padding"
+        },
+        "luma_code_range": {"const": [16, 235]},
+        "chroma_code_range": {"const": [16, 240]},
+        "rounding": {
+          "const": "binary64 multiply/add then round to nearest, ties to even"
+        }
+      },
+      "additionalProperties": false
+    },
+    "timing": {
+      "type": "object",
+      "required": [
+        "frame_rate_numerator",
+        "frame_rate_denominator",
+        "timescale",
+        "frame_duration_value"
+      ],
+      "properties": {
+        "frame_rate_numerator": {"const": 30},
+        "frame_rate_denominator": {"const": 1},
+        "timescale": {"const": 600},
+        "frame_duration_value": {"const": 20}
+      },
+      "additionalProperties": false
+    },
+    "frame_count": {"const": 3},
+    "frames": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/sourceFrame"}
+    },
+    "payload_size_bytes": {"const": 64800},
+    "payload_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nativeDimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"const": 320},
+        "height": {"const": 180}
+      },
+      "additionalProperties": false
+    },
+    "lockedTime": {
+      "type": "object",
+      "required": ["value", "timescale"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 0},
+        "timescale": {"const": 600}
+      },
+      "additionalProperties": false
+    },
+    "planeHashes": {
+      "type": "object",
+      "required": ["Y", "Cb", "Cr"],
+      "properties": {
+        "Y": {"$ref": "#/$defs/sha256"},
+        "Cb": {"$ref": "#/$defs/sha256"},
+        "Cr": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "sourceFrame": {
+      "type": "object",
+      "required": [
+        "index",
+        "presentation_time",
+        "duration",
+        "active_row_sha256",
+        "frame_nv12_sha256"
+      ],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0, "maximum": 2},
+        "presentation_time": {"$ref": "#/$defs/lockedTime"},
+        "duration": {
+          "allOf": [
+            {"$ref": "#/$defs/lockedTime"},
+            {"properties": {"value": {"const": 20}}}
+          ]
+        },
+        "active_row_sha256": {"$ref": "#/$defs/planeHashes"},
+        "frame_nv12_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

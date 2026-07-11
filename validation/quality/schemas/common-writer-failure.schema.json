@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/common-writer-failure-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "error_type",
+    "message",
+    "source_path",
+    "source_lock_path",
+    "requested_encoded_path",
+    "requested_report_path",
+    "requested_decoded_directory"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "common_writer_failure"},
+    "status": {"const": "fail"},
+    "error_type": {"type": "string", "minLength": 1},
+    "message": {"type": "string", "minLength": 1},
+    "source_path": {"type": "string", "minLength": 1},
+    "source_lock_path": {"type": "string", "minLength": 1},
+    "requested_encoded_path": {"type": "string", "minLength": 1},
+    "requested_report_path": {"type": "string", "minLength": 1},
+    "requested_decoded_directory": {"type": "string", "minLength": 1}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,236 @@
+{
+  "cases": [
+    {
+      "actual": {
+        "exact_match": true,
+        "mse": 0.0,
+        "value": null
+      },
+      "case_id": "identical-psnr",
+      "expected": {
+        "exact_match": true,
+        "value": null
+      },
+      "metric": "Y PSNR",
+      "pass": true
+    },
+    {
+      "actual": 20.0,
+      "case_id": "constant-offset-psnr",
+      "expected": 20.0,
+      "metric": "Y PSNR",
+      "pass": true
+    },
+    {
+      "actual": 0.9999999999998151,
+      "case_id": "identical-ssim",
+      "expected": 1.0,
+      "metric": "SSIM",
+      "pass": true
+    },
+    {
+      "actual": 0.9999999999998149,
+      "case_id": "identical-ms-ssim",
+      "expected": 1.0,
+      "metric": "MS-SSIM",
+      "pass": true
+    },
+    {
+      "actual": 0.31967415156487233,
+      "case_id": "independent-nonidentical-ssim",
+      "expected": 0.3196741515648729,
+      "metric": "SSIM",
+      "pass": true
+    },
+    {
+      "actual": {
+        "scale_contrast_structure_means": [
+          0.32137570083669875,
+          0.5090983825087763,
+          0.6685576207282823,
+          0.963303363487305,
+          0.9926945122622399
+        ],
+        "scale_ssim_means": [
+          0.31967415156487233,
+          0.508663447392154,
+          0.6682219111465336,
+          0.9629838903064597,
+          0.9925730381538949
+        ],
+        "value": 0.6877531279202913
+      },
+      "case_id": "independent-nonidentical-ms-ssim",
+      "expected": {
+        "ms_ssim": 0.6877531279202908,
+        "scale_contrast_structure_means": [
+          0.3213757008366993,
+          0.5090983825087755,
+          0.668557620728281,
+          0.9633033634873074,
+          0.9926945122622384
+        ],
+        "scale_ssim_means": [
+          0.3196741515648729,
+          0.5086634473921533,
+          0.6682219111465324,
+          0.9629838903064621,
+          0.9925730381538932
+        ],
+        "ssim": 0.3196741515648729
+      },
+      "metric": "MS-SSIM",
+      "pass": true
+    },
+    {
+      "actual": 0.0,
+      "case_id": "vertical-step",
+      "expected": 0.0,
+      "metric": "edge-location",
+      "pass": true
+    },
+    {
+      "actual": 0.0,
+      "case_id": "horizontal-step",
+      "expected": 0.0,
+      "metric": "edge-location",
+      "pass": true
+    },
+    {
+      "actual": 0.0,
+      "case_id": "diagonal-step",
+      "expected": 0.0,
+      "metric": "edge-location",
+      "pass": true
+    },
+    {
+      "actual": 1.0,
+      "case_id": "known-one-pixel-translation",
+      "expected": 1.0,
+      "metric": "edge-location",
+      "pass": true
+    },
+    {
+      "actual": {
+        "overshoot": 0.10000000000000009,
+        "undershoot": 0.05
+      },
+      "case_id": "single-impulse-ringing",
+      "expected": {
+        "overshoot": 0.1,
+        "undershoot": 0.05
+      },
+      "metric": "ringing",
+      "pass": true
+    },
+    {
+      "actual": {
+        "false_side_lobe_energy": 0.0,
+        "retention_ratio": 1.0
+      },
+      "case_id": "thin-line-identity",
+      "expected": {
+        "false_side_lobe_energy": 0.0,
+        "retention_ratio": 1.0
+      },
+      "metric": "thin-line-retention",
+      "pass": true
+    },
+    {
+      "actual": {
+        "Cb": 0.0,
+        "Cr": 1.0
+      },
+      "case_id": "cb-cr-edge-displacement",
+      "expected": {
+        "Cb": 0.0,
+        "Cr": 1.0
+      },
+      "metric": "chroma-edge-displacement",
+      "pass": true
+    },
+    {
+      "actual": 1.0,
+      "case_id": "near-nyquist-alias-mask",
+      "expected": 1.0,
+      "metric": "alias-energy",
+      "pass": true
+    },
+    {
+      "actual": {
+        "C": [
+          -0.5,
+          0.5
+        ],
+        "Y": [
+          0.0,
+          1.0
+        ]
+      },
+      "case_id": "legal-range-endpoints",
+      "expected": {
+        "C": [
+          -0.5,
+          0.5
+        ],
+        "Y": [
+          0.0,
+          1.0
+        ]
+      },
+      "metric": "normalization",
+      "pass": true
+    },
+    {
+      "actual": {
+        "Cb-only": {
+          "Cb": {
+            "exact_match": false,
+            "mse": 0.25,
+            "value": 6.020599913279624
+          },
+          "Cr": {
+            "exact_match": true,
+            "mse": 0.0,
+            "value": null
+          },
+          "Y": {
+            "exact_match": true,
+            "mse": 0.0,
+            "value": null
+          }
+        },
+        "Cr-only": {
+          "Cb": {
+            "exact_match": true,
+            "mse": 0.0,
+            "value": null
+          },
+          "Cr": {
+            "exact_match": false,
+            "mse": 0.25,
+            "value": 6.020599913279624
+          },
+          "Y": {
+            "exact_match": true,
+            "mse": 0.0,
+            "value": null
+          }
+        },
+        "edge_values": {
+          "high": 0.5,
+          "low": -0.5,
+          "neutral": 0.0
+        },
+        "fixture_id": "centered-cb-cr-step-v1"
+      },
+      "case_id": "cb-only-and-cr-only",
+      "expected": "only the changed chroma channel is non-exact",
+      "metric": "channel-PSNR",
+      "pass": true
+    }
+  ],
+  "metric_policy_sha256": "e3e8237ee2389a031bc491a38f8b06540a036a49f7640f27cc4f0e07777ff221",
+  "schema_version": "1.0.0",
+  "status": "pass"
+}

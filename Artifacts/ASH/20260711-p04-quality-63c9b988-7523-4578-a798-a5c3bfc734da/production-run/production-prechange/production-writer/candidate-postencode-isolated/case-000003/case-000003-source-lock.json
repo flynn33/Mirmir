@@ -1,0 +1,40 @@
+{
+  "artifact_kind": "common_writer_source_lock",
+  "frame_count": 1,
+  "frames": [
+    {
+      "active_row_sha256": {
+        "Cb": "56161e7861a81f7a559c194f33fa1d4aa74bf438b01d12d6505bc0abf8aa71c8",
+        "Cr": "fa60a634c200b2dc803f0d9634a311db0299fea4ca14c0de8554e2e46c1252ab",
+        "Y": "2924132c8d05c514ddc53d86033ec5ce7a689c147c4c97555e3ef1f5b3e7e2f1"
+      },
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::hq-binomial7-decimate-2x-v1",
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "b964c1bc921e5b7c504d5c6b19306b76eb6ed254188ca617717752cb25a78026",
+      "index": 0,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 0
+      }
+    }
+  ],
+  "payload_path": "case-000003-source.nv12",
+  "payload_sha256": "b964c1bc921e5b7c504d5c6b19306b76eb6ed254188ca617717752cb25a78026",
+  "payload_size_bytes": 93312,
+  "pixel_layout": {
+    "chroma_location_bottom_field": "Left",
+    "chroma_location_top_field": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "height": 192,
+    "pixel_format": "420v",
+    "range": "video",
+    "transfer_function": "ITU_R_709_2",
+    "width": 324,
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "schema_version": "1.0.0",
+  "source_id": "production-prechange-candidate-postencode-isolated-case-000003"
+}

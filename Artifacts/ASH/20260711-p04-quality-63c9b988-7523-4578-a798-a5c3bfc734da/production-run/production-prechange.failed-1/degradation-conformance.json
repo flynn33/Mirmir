@@ -1,0 +1,71 @@
+{
+  "cases": [
+    {
+      "actual": "54f0e0231ceb40697161d92c55168b74a5f057b7f0974d233ea2a97eed7ee0e6",
+      "expected": "54f0e0231ceb40697161d92c55168b74a5f057b7f0974d233ea2a97eed7ee0e6",
+      "pass": true,
+      "profile_id": "hq-binomial7-decimate-2x-v1",
+      "repeat_actual": "54f0e0231ceb40697161d92c55168b74a5f057b7f0974d233ea2a97eed7ee0e6"
+    },
+    {
+      "actual": "14aa691610ae3cc82fe23c93fd034eac2369bae339f68286dbb18b05cea68e4c",
+      "expected": "14aa691610ae3cc82fe23c93fd034eac2369bae339f68286dbb18b05cea68e4c",
+      "pass": true,
+      "profile_id": "camera-blur9-decimate-2x-v1",
+      "repeat_actual": "14aa691610ae3cc82fe23c93fd034eac2369bae339f68286dbb18b05cea68e4c"
+    },
+    {
+      "actual": "78b867aebbce486aab525bffad86e33c7fa5b64f7ae4611904af294a432cf0f1",
+      "expected": "78b867aebbce486aab525bffad86e33c7fa5b64f7ae4611904af294a432cf0f1",
+      "pass": true,
+      "profile_id": "codec-quantized-proxy-v1",
+      "repeat_actual": "78b867aebbce486aab525bffad86e33c7fa5b64f7ae4611904af294a432cf0f1"
+    },
+    {
+      "actual": "c727490aa931e0028623bd583a317f9c042e6ec2fb3e327e0467ed99eb6fa80a",
+      "expected": "c727490aa931e0028623bd583a317f9c042e6ec2fb3e327e0467ed99eb6fa80a",
+      "pass": true,
+      "profile_id": "hq-binomial7-resample-2over3-v1",
+      "repeat_actual": "c727490aa931e0028623bd583a317f9c042e6ec2fb3e327e0467ed99eb6fa80a"
+    },
+    {
+      "actual": "350a2969e3b0ff353964f2e1ae59debd73189e6f3b7e22233da7ffd58417dce7",
+      "expected": "350a2969e3b0ff353964f2e1ae59debd73189e6f3b7e22233da7ffd58417dce7",
+      "pass": true,
+      "profile_id": "camera-blur9-resample-2over3-v1",
+      "repeat_actual": "350a2969e3b0ff353964f2e1ae59debd73189e6f3b7e22233da7ffd58417dce7"
+    },
+    {
+      "actual": "e175c367fb946b24f445f70bdef72e9b7b7a46d11ea4f6d61ff3cfa754ed472b",
+      "expected": "e175c367fb946b24f445f70bdef72e9b7b7a46d11ea4f6d61ff3cfa754ed472b",
+      "pass": true,
+      "profile_id": "codec-quantized-proxy-2over3-v1",
+      "repeat_actual": "e175c367fb946b24f445f70bdef72e9b7b7a46d11ea4f6d61ff3cfa754ed472b"
+    },
+    {
+      "actual": [
+        "d53c28c328ef443af53e2fe0614d9b7de800a5607d069c108797abd66d39204a",
+        "4444fcd78b1ae800bf2db3ddf137e27151b245273ebe49bc209e5d54ff6bd3ab",
+        "dea1cb8370adabc9ff19745b37ce9e4c7bcf4a9a343636abf686afe560a6e8e0",
+        "468437c23ad4dd95214a369e3059a8ad695407e19489072511ca1318ed361092"
+      ],
+      "expected": [
+        "d53c28c328ef443af53e2fe0614d9b7de800a5607d069c108797abd66d39204a",
+        "4444fcd78b1ae800bf2db3ddf137e27151b245273ebe49bc209e5d54ff6bd3ab",
+        "dea1cb8370adabc9ff19745b37ce9e4c7bcf4a9a343636abf686afe560a6e8e0",
+        "468437c23ad4dd95214a369e3059a8ad695407e19489072511ca1318ed361092"
+      ],
+      "pass": true,
+      "profile_id": "synthetic-motion-v1",
+      "repeat_actual": [
+        "d53c28c328ef443af53e2fe0614d9b7de800a5607d069c108797abd66d39204a",
+        "4444fcd78b1ae800bf2db3ddf137e27151b245273ebe49bc209e5d54ff6bd3ab",
+        "dea1cb8370adabc9ff19745b37ce9e4c7bcf4a9a343636abf686afe560a6e8e0",
+        "468437c23ad4dd95214a369e3059a8ad695407e19489072511ca1318ed361092"
+      ]
+    }
+  ],
+  "degradation_policy_sha256": "e3fea1c3d71c2eb64f4cb1600d9f1540bfb0c5166ea09700c1e059dcff942548",
+  "schema_version": "1.0.0",
+  "status": "pass"
+}

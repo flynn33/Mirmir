@@ -1,0 +1,1744 @@
+{
+  "checkpoint_sha256": "793fd607471fed1e6fbc59c8ecc5c003d922d17f370658b02dcdff9d98502d6b",
+  "completed": {
+    "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::actual-h264-software-direct-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "e0ae9750b200113fafc8fadac5dd256351dece689d7830f4d4b6e87fb1a0f3b0",
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::actual-h264-software-direct-2x-v1",
+      "categories": [
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion"
+      ],
+      "degradation_profile": "actual-h264-software-direct-2x-v1",
+      "input_sha256": "3386f5d49344fc6b8322595f2bf45b43c8411f897a648ec870dbe5e9d6950de7",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9219267833155983,
+          "Y_SSIM": 0.7146460335690362,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.1371860762051724e-05,
+              "value": 43.83294945613607
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.0002655685423523191,
+              "value": 35.75823370162159
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00785651925651526,
+              "value": 21.047698206912134
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9401555303281689,
+          "Y_SSIM": 0.7248053972197606,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.255468282509761e-05,
+              "value": 43.71052642084743
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00029046803605219096,
+              "value": 35.36901651672687
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.007811362096822839,
+              "value": 21.072732299440222
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "8bb47fe91f2116f802f6e444723fc9acab591c59b2a848b68416325e5f601813",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "d809cd85859ce05e80fa841326bf961f86222b6bce91fab6c7ed2d20790ca57b"
+    },
+    "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::camera-blur9-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "56f58b6371365a3863e56e8ee302db13a8f7cc3610be432e20fa05e3f9bdab68",
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::camera-blur9-decimate-2x-v1",
+      "categories": [
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion"
+      ],
+      "degradation_profile": "camera-blur9-decimate-2x-v1",
+      "input_sha256": "c691f9db98687875e5857e24a7d1a07192f06332a500e6fd7ce985050d8fc173",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9151525146002814,
+          "Y_SSIM": 0.6991564804024587,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.0597983165102465e-05,
+              "value": 49.74776774697978
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00021621423453640717,
+              "value": 36.651157175190946
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00847709377509487,
+              "value": 20.717530125745558
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9353004978838074,
+          "Y_SSIM": 0.7139793358222629,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.0906824028801339e-05,
+              "value": 49.6230169373501
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.0002226460697849742,
+              "value": 36.52384966761203
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.008275586372668361,
+              "value": 20.822012242118216
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "8e499a719f616e41fef44e5ea0203d91bc405b5387e3b46703837069dc0f4424",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "d809cd85859ce05e80fa841326bf961f86222b6bce91fab6c7ed2d20790ca57b"
+    },
+    "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::codec-quantized-proxy-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "528a86852743cb1cc5124dde66755e47d50fd859688f749d60eee2f41d3f1682",
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::codec-quantized-proxy-v1",
+      "categories": [
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion"
+      ],
+      "degradation_profile": "codec-quantized-proxy-v1",
+      "input_sha256": "bb17b9f84591924247f409063dab4138bd2645704bcb50a403229030ccfebfcc",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9275011405872852,
+          "Y_SSIM": 0.7292112008410191,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.6769674449640974e-05,
+              "value": 47.754753682881805
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00020189862753068052,
+              "value": 36.948666332994414
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.007583240496522252,
+              "value": 21.201451704862983
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9465279603314628,
+          "Y_SSIM": 0.7423139959525342,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.912122210477556e-05,
+              "value": 47.18484353880065
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00021890922348395382,
+              "value": 36.59735939556801
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00749496267189571,
+              "value": 21.2523052578169
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "329a01a19d27c383a8f38852650bd82ad1e66fd468351517cfbe31f4cebc28b4",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "d809cd85859ce05e80fa841326bf961f86222b6bce91fab6c7ed2d20790ca57b"
+    },
+    "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::hq-binomial7-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "b964c1bc921e5b7c504d5c6b19306b76eb6ed254188ca617717752cb25a78026",
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::hq-binomial7-decimate-2x-v1",
+      "categories": [
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion"
+      ],
+      "degradation_profile": "hq-binomial7-decimate-2x-v1",
+      "input_sha256": "081ca32c9a1fd07b2ade3fe4b8ea3734d1bc201cdd543041ac3fb7bad8153ac9",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9280635879224032,
+          "Y_SSIM": 0.731073978241221,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 9.24728494792979e-06,
+              "value": 50.33985759716639
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00019084058681342908,
+              "value": 37.1932925670417
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.007571195816529771,
+              "value": 21.208355213578752
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9476436422733139,
+          "Y_SSIM": 0.746274963481341,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 9.75860239446859e-06,
+              "value": 50.10612376578464
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 0.00020061969316565362,
+              "value": 36.976264381481506
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.007470257268894659,
+              "value": 21.266644412184238
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "45cc1d41f4a3cc66ece7daa66794468a130dcffacf29b31845f0bbd8d600ab27",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "d809cd85859ce05e80fa841326bf961f86222b6bce91fab6c7ed2d20790ca57b"
+    },
+    "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::actual-h264-software-direct-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "991701eebdbf510959615b9676330f1fa239cfef677dfd9f34b884daa7ad72c2",
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::actual-h264-software-direct-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "actual-h264-software-direct-2x-v1",
+      "input_sha256": "ed23bb0c3d239485c4110b5c37c281d60cdcca7f1e15f2a8df2e430f130541a8",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9418557481590615,
+          "Y_SSIM": 0.8753916431658877,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.995884527615054e-05,
+              "value": 45.234749299532275
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.6032813467786748e-05,
+              "value": 47.94990260158631
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0022984863231854274,
+              "value": 26.385580761132672
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9462671925353314,
+          "Y_SSIM": 0.8578916411529681,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 3.014722538803326e-05,
+              "value": 45.20752652151231
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.6040502451945226e-05,
+              "value": 47.9478203201884
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002480801874087854,
+              "value": 26.05407918688778
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "b7c0ab3fe061bf399163581a904171efe76235248327020ca292618d8e265a49",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "4e5fa524e3464bfb7d61bcfcdb2ddbfc6db473820bdd1bf889605b6dfe5f8152"
+    },
+    "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::camera-blur9-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "0cdcba40d5dae6a0019fa95ba4d7ff52d5f1610cf93e107ff02b633324a3853d",
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::camera-blur9-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "camera-blur9-decimate-2x-v1",
+      "input_sha256": "e47cb0ac727ec6fc790d76b5bd00526e7c82b75fd2021f9d9738cc7121de9ff1",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.968459265699126,
+          "Y_SSIM": 0.9221762048608083,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.385283965052069e-06,
+              "value": 53.580022790454436
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.901310022465766e-06,
+              "value": 55.374058617342925
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002189327053539643,
+              "value": 26.59689356322495
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9759259155505704,
+          "Y_SSIM": 0.9122696425587444,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.453203325118625e-06,
+              "value": 53.51327475324393
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.912843498703483e-06,
+              "value": 55.35682848525556
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002267042321251587,
+              "value": 26.445403723682016
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "e7601f365ba0518f6c9d4c898cb7526327fa6d33e5d0d20107b2958b48b8ef34",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "4e5fa524e3464bfb7d61bcfcdb2ddbfc6db473820bdd1bf889605b6dfe5f8152"
+    },
+    "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::codec-quantized-proxy-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "66f07807f6ed9eb6ca16bc913d3b3f03042763ba1783f7310a6a7b7a5d3ec9ce",
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::codec-quantized-proxy-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "codec-quantized-proxy-v1",
+      "input_sha256": "aeb7676f97a56cae4ff38b1628f5d345257c3b71a15fda2744db967e946697c9",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9719658195571426,
+          "Y_SSIM": 0.92859473143176,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 8.929473602712686e-06,
+              "value": 50.491741422509186
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 6.691979212595506e-06,
+              "value": 51.74445416763601
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0019320399390219576,
+              "value": 27.139839001164017
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9772992295532181,
+          "Y_SSIM": 0.9131829527865577,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 9.671460574005835e-06,
+              "value": 50.14507934259127
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 6.829099430088368e-06,
+              "value": 51.656365640096155
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002082222042678194,
+              "value": 26.8147296033553
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "50ac4ca295f36da8b7a6f65a49ebe74c69e32a2864908df7f04ac04e8a8fbaac",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "4e5fa524e3464bfb7d61bcfcdb2ddbfc6db473820bdd1bf889605b6dfe5f8152"
+    },
+    "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::hq-binomial7-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "49a03e6f855113c19a96562645e62a6bfef7f840030d9ef4a732adf6c806f747",
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::hq-binomial7-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "hq-binomial7-decimate-2x-v1",
+      "input_sha256": "67c8efd7bec1f561931e5178ca9dc6c2bbfc2a3de22bb075a376a0935b8cd928",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9735312551272641,
+          "Y_SSIM": 0.9324409604084536,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.12385850366381e-06,
+              "value": 53.846962444875146
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.632195576919029e-06,
+              "value": 55.79681844989267
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0019221182277258367,
+              "value": 27.1621990279141
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9797969633974534,
+          "Y_SSIM": 0.9200779111532182,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.212281821486308e-06,
+              "value": 53.75482580168901
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.6334770742787754e-06,
+              "value": 55.79470458038439
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0020663249152281906,
+              "value": 26.84801387658648
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "617e31f8d0480efcad09de352f00dec1269c958214adcc1b866c556bd4f068ea",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "4e5fa524e3464bfb7d61bcfcdb2ddbfc6db473820bdd1bf889605b6dfe5f8152"
+    },
+    "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::actual-h264-software-direct-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "b59f7ac0d827327a1e33a65e2b29e73c4c7f4eb9e6dd8f2346503a7c5fcbdcab",
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::actual-h264-software-direct-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "actual-h264-software-direct-2x-v1",
+      "input_sha256": "be04418b561c10c83be7c7f616a9b6a76a0245176a3f04833baee228ddb1df18",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9757865595761077,
+          "Y_SSIM": 0.924058384792143,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.1248507721954615e-05,
+              "value": 46.72671564949085
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.5069127453257498e-05,
+              "value": 48.21911893883523
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0027007526927528475,
+              "value": 25.685151822287317
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9779749475184193,
+          "Y_SSIM": 0.9135417244616365,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.1394598420965703e-05,
+              "value": 46.696958608601335
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.5154987776360507e-05,
+              "value": 48.194444095874395
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0029685028186052747,
+              "value": 25.274625343733828
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "bb9ed086596e11c7df76c74a92deefd4d6d9323245c9d32c9183851908333b6a",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "c9ff8679ce6f3287c3078a29a70973f12e115e0b7d059a83274bea31c0c5db24"
+    },
+    "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::camera-blur9-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "0b0e1e0405950b2ee5c1f75ef6db059aa5f64ebe4473b02113dc3c67bf01cc39",
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::camera-blur9-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "camera-blur9-decimate-2x-v1",
+      "input_sha256": "6b3d2cb921709852f932afbfa81af523b4a941ec19b7775153c07ff6633c6e8b",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9804686656756902,
+          "Y_SSIM": 0.9292989915389693,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 3.094816123787488e-06,
+              "value": 55.09365149162993
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.6736355518287517e-06,
+              "value": 57.76339107311471
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0026713096575252376,
+              "value": 25.73275765756389
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9845937181707037,
+          "Y_SSIM": 0.9257644628871174,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 3.089690134348503e-06,
+              "value": 55.1008507387307
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.6890135201457087e-06,
+              "value": 57.72366873992535
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0028119333744933187,
+              "value": 25.50994973635391
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "4d28fcf7e33061b88800a6a1665d6aa7fed135cbdafbef5bf8b013c0c351e8cf",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "c9ff8679ce6f3287c3078a29a70973f12e115e0b7d059a83274bea31c0c5db24"
+    },
+    "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::codec-quantized-proxy-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "2d7593bbd0a403970975d04f5a18ee4cd727de7b080fac17b828cde4ef2d3a55",
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::codec-quantized-proxy-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "codec-quantized-proxy-v1",
+      "input_sha256": "936e7f8259a06bf2ea461c7a45011c8612b261a0045567cf1e6f21f5d5302727",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9820357544049483,
+          "Y_SSIM": 0.9352178456333224,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.164851738341963e-06,
+              "value": 51.447927919918506
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 4.6761838657144795e-06,
+              "value": 53.30108420885878
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002364886911823847,
+              "value": 26.261896222602715
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9852300752513136,
+          "Y_SSIM": 0.9290154278087733,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.528796988509931e-06,
+              "value": 51.2327441330675
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 4.759481194097993e-06,
+              "value": 53.224403848467645
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002565296966679803,
+              "value": 25.908623523747693
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "3a50e6451cbb7843bd090910ae1318990925e2f58128d125638ccce3e81c0c15",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "c9ff8679ce6f3287c3078a29a70973f12e115e0b7d059a83274bea31c0c5db24"
+    },
+    "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::hq-binomial7-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "d0e9aebb9cf1c9c7995b0a0799c2cfce291d7a428028450c55b9b61342dedf8c",
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::hq-binomial7-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "hq-binomial7-decimate-2x-v1",
+      "input_sha256": "6e6a4186892d6aa768dfde524dd4c1b883c623ca96e7f7b50d9bdcbe11a300d5",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.983449502101269,
+          "Y_SSIM": 0.9383347505754654,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.9000285251060407e-06,
+              "value": 55.37597730295794
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.5788047472075205e-06,
+              "value": 58.016715764221196
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0023607133712164794,
+              "value": 26.269567400944002
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9872652030379243,
+          "Y_SSIM": 0.9343318969565177,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.9154064934229975e-06,
+              "value": 55.35300883257392
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.5967457102439697e-06,
+              "value": 57.96764241927376
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.002553219439997673,
+              "value": 25.929118575480537
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "b7727ed80f580100d0fc4932b7938bd2a778522bb2b70d2a61df6ff30295acb0",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "c9ff8679ce6f3287c3078a29a70973f12e115e0b7d059a83274bea31c0c5db24"
+    },
+    "ac71efff-5e26-440b-8c38-dd1f5b598e02::actual-h264-software-direct-3over2-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "763edf1c4f274de35d76832ca92600e5a5756245fed4327dfe76c2563b517670",
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::actual-h264-software-direct-3over2-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "actual-h264-software-direct-3over2-v1",
+      "input_sha256": "18a4d70b948ad522f4cbc4acfba3cd0fc08996c689bb4ace3b94718b02c23d95",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9837271550651541,
+          "Y_SSIM": 0.9391107365507074,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.8287772719041313e-05,
+              "value": 45.48401246035755
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.898282038992297e-05,
+              "value": 47.21639261414414
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00019734726863124304,
+              "value": 37.04768880044184
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9818501384493886,
+          "Y_SSIM": 0.9288715496677143,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 3.117370477319013e-05,
+              "value": 45.0621158184435
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.111523199654093e-05,
+              "value": 46.75404142547667
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00024650066384098265,
+              "value": 36.08181906804246
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "56bfe9b7a6f2499bb14bf3f5fabf533d99e5e7fe262ef28373bca9a5156401c3",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "1c47a8f95258be2514ba1ae58741fa8e5acf9f4f3e1f0e5e25bf312630f33e75"
+    },
+    "ac71efff-5e26-440b-8c38-dd1f5b598e02::camera-blur9-resample-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "1d1a9e676e779507bffe3a504234f3d6c96214774a7bf5be0466e520dc80c1ac",
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::camera-blur9-resample-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "camera-blur9-resample-2over3-v1",
+      "input_sha256": "2375964fec2a644c894c1685f554ddc6ebca3a0f173689e37e1212af871f4923",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9895807712384588,
+          "Y_SSIM": 0.9531021333472782,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 5.906421331071007e-06,
+              "value": 52.286755761260046
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 4.273793694754139e-06,
+              "value": 53.69186445997957
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00016436047779475833,
+              "value": 37.84202604917313
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9883369548083103,
+          "Y_SSIM": 0.9456661797933185,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.58774586705824e-06,
+              "value": 51.19887223168525
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 5.052944089479935e-06,
+              "value": 52.964555071773006
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0002006074701641586,
+              "value": 36.976528988795685
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "4aa593e1017a1fa35bb785d8c56b638003cc030885781e3b1a448c9b2d0c6d13",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "1c47a8f95258be2514ba1ae58741fa8e5acf9f4f3e1f0e5e25bf312630f33e75"
+    },
+    "ac71efff-5e26-440b-8c38-dd1f5b598e02::codec-quantized-proxy-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "b88fb0192db2a3e35278cd4b6aa8ea2e65d3dac9862c9f334ef136e10785c112",
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::codec-quantized-proxy-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "codec-quantized-proxy-2over3-v1",
+      "input_sha256": "5f98193ab36dd664907ad34b0795f942f4acb08681591f4d90ffdead04b6e9af",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9902947318506954,
+          "Y_SSIM": 0.9550779008597889,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.0811993224180102e-05,
+              "value": 49.66094235143319
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 8.416874658814142e-06,
+              "value": 50.748491401391405
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00014368918455521517,
+              "value": 38.42575919859924
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9888064787177868,
+          "Y_SSIM": 0.9456710835527098,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.2896989428487443e-05,
+              "value": 48.89511656149331
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 9.481798964763374e-06,
+              "value": 50.231092569288414
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00018598566571536218,
+              "value": 37.305205264305364
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "fd8239a2ce6a4e5212a2e700d36b7d3edbb8c454732b2e5e95820835b7a916b1",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "1c47a8f95258be2514ba1ae58741fa8e5acf9f4f3e1f0e5e25bf312630f33e75"
+    },
+    "ac71efff-5e26-440b-8c38-dd1f5b598e02::hq-binomial7-resample-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "7d5b441a8c6ad5596700340042957823d58d8c0ae093aa39b8b864562f57e2f0",
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::hq-binomial7-resample-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "hq-binomial7-resample-2over3-v1",
+      "input_sha256": "b3e2abf3ecc777e54574b000b454f5846ccfe11c543ba79d99b6ec9e4b0de8fa",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9915724971689907,
+          "Y_SSIM": 0.959298883282959,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 5.145211899381663e-06,
+              "value": 52.88596734635825
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 3.6996828775877663e-06,
+              "value": 54.31835500369804
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00013505687341300884,
+              "value": 38.694833084822264
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9902091639054983,
+          "Y_SSIM": 0.9513520265082874,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 6.953404673983788e-06,
+              "value": 51.57802494824948
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 4.533937658782656e-06,
+              "value": 53.435244556768204
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.0001755370667036309,
+              "value": 37.55631163157682
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "59ee338e9e7fdfdc3adaebe1ec8ac48984736150a5797e26a2c0f95b5d106b5e",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "1c47a8f95258be2514ba1ae58741fa8e5acf9f4f3e1f0e5e25bf312630f33e75"
+    },
+    "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::actual-h264-software-direct-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "feeda1e2851ba94fb9233c9672da976b7a96b77f12f000ea93ce4771fa5f046a",
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::actual-h264-software-direct-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "actual-h264-software-direct-2x-v1",
+      "input_sha256": "89dbce7a0a6dd22a16da20f836de55cf9c9c7140a6f9fa8da287d1d240d920c4",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.985024904353523,
+          "Y_SSIM": 0.9760182771691972,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 2.9232236273174396e-05,
+              "value": 45.34137959738351
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 3.330996087188724e-05,
+              "value": 44.774258774599325
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00011104728396005569,
+              "value": 39.54492059137888
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9839535834732291,
+          "Y_SSIM": 0.9615773264721121,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 3.119036423886685e-05,
+              "value": 45.0597955355301
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 3.662135004947186e-05,
+              "value": 44.36265649432781
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 0.00013992656273877535,
+              "value": 38.54099834072568
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "17ebc16268af78b3651cce474b06fb28f31a89887ed53e480721fa26506c543c",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "0e18b8bbfab4891fdad17bcaa07970575bfc521865ce2d41ba7949a896eece7b"
+    },
+    "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::camera-blur9-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "6ab0381e3445211ffff1d5a0f99db2f791d682341765e26f204fa5b5b3dde24f",
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::camera-blur9-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "camera-blur9-decimate-2x-v1",
+      "input_sha256": "395ec6783132905387b47ff6199e1e2dc6fa1dd0430c0f326f9b64cf8f580154",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9951645466521883,
+          "Y_SSIM": 0.989401790992402,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.413462226132738e-06,
+              "value": 51.29978920962756
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 9.248566445289542e-06,
+              "value": 50.33925578952751
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 4.823167687772379e-05,
+              "value": 43.16667638636226
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9954699649998355,
+          "Y_SSIM": 0.9786454688380564,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 8.582187818221421e-06,
+              "value": 50.66401985314346
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.0645398567413078e-05,
+              "value": 49.72838073785287
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 6.931690544091766e-05,
+              "value": 41.5916083401254
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "a48d80d5476939d898432f250f961bf1eda5c30f6712fc4051ae390fd7f9cc77",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "0e18b8bbfab4891fdad17bcaa07970575bfc521865ce2d41ba7949a896eece7b"
+    },
+    "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::codec-quantized-proxy-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "85363c8fd5ad31579bd15ad93f05b2e06c1cde628374278118f719a344c6bae1",
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::codec-quantized-proxy-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "codec-quantized-proxy-v1",
+      "input_sha256": "b88e0bfc29ccb3edb7f7a24bb838defffcc1c5da65ad7d565be1f985e7288083",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9945830269946807,
+          "Y_SSIM": 0.9878123981023395,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.0223785936056545e-05,
+              "value": 49.90388252276703
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.2389516474027868e-05,
+              "value": 49.06945642514913
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 4.915440072064726e-05,
+              "value": 43.084375943499104
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.994122273096317,
+          "Y_SSIM": 0.975099743793323,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.199353378986628e-05,
+              "value": 49.21052836974283
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 1.4828205949625207e-05,
+              "value": 48.28911390664821
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 7.413330268857851e-05,
+              "value": 41.29986651335506
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "5bc3bcf0548ec497cc7ee262cc96d609cfb9ed47ff2093fc8c6ed0764a396ca4",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "0e18b8bbfab4891fdad17bcaa07970575bfc521865ce2d41ba7949a896eece7b"
+    },
+    "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::hq-binomial7-decimate-2x-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "6b5cbbcf7daea0e0363c93d9a903fd02af30637f413c122661b3da9843ed5964",
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::hq-binomial7-decimate-2x-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "hq-binomial7-decimate-2x-v1",
+      "input_sha256": "118571f62e7589749e63d49bcae5083ab905b3c8256fbab51b54624fa96af9a4",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9957871616819329,
+          "Y_SSIM": 0.9903770620932839,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 6.6202153604497385e-06,
+              "value": 51.79127882413226
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 8.352799790826829e-06,
+              "value": 50.78167928121399
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 4.3390141857371596e-05,
+              "value": 43.626089300096915
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9959260465234372,
+          "Y_SSIM": 0.9792769907828236,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.90555721227534e-06,
+              "value": 51.02067514006546
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 9.999523898100905e-06,
+              "value": 50.0002067733499
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 6.599804910505561e-05,
+              "value": 41.804689019646695
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "aa814b656aa5a93a72dce9bad1dcc3f943064f9d7ba4ea8f17a02ca7060a6403",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f",
+      "status": "pass",
+      "target_route": "direct-2x",
+      "target_sha256": "0e18b8bbfab4891fdad17bcaa07970575bfc521865ce2d41ba7949a896eece7b"
+    },
+    "c5555d14-6153-44fa-878e-7f17a4dbd199::actual-h264-software-direct-3over2-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "39345ac7ea4c63d20c234b6520e19529293d651d335b0892b7f940b0db3295e4",
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::actual-h264-software-direct-3over2-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "actual-h264-software-direct-3over2-v1",
+      "input_sha256": "8ac4a6abc4d496885e078d45b5e1ccbc964851d57802c64ceb4f656e3dadc92f",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9957427063348439,
+          "Y_SSIM": 0.9936640850109162,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 7.952972614585936e-06,
+              "value": 50.994705130023796
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 8.288724922839479e-06,
+              "value": 50.815122730161626
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 1.2510901883328902e-05,
+              "value": 49.02711381846552
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9955635522176642,
+          "Y_SSIM": 0.9931883844352445,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 8.186205134059778e-06,
+              "value": 50.869173767840806
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 8.941007078950381e-06,
+              "value": 50.486135612713824
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 1.3534511987320293e-05,
+              "value": 48.68557398928186
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "6036caaa56360a563c2982c7faff124bd1c73e346152051b9cee425f1381b03a",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "c5555d14-6153-44fa-878e-7f17a4dbd199",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "5a74603c132505e7dbb1a05b8583943a8fb2e6cc865f0b5ad4c98bb49c18b3be"
+    },
+    "c5555d14-6153-44fa-878e-7f17a4dbd199::camera-blur9-resample-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "ec45b3a3cd0a565e197b2a325825c6f3bd86daa3a58366c832c98d816e06205a",
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::camera-blur9-resample-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "camera-blur9-resample-2over3-v1",
+      "input_sha256": "c7b0a1f411ceb58932764599257a9ae6608610b86b218cf33a79e79839504aa7",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9993381738585946,
+          "Y_SSIM": 0.9970231469260733,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.7120804726211443e-06,
+              "value": 57.66475826110999
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.2592798452328377e-06,
+              "value": 56.460299719512044
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 3.193167472405351e-06,
+              "value": 54.95778303372806
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9992219171385174,
+          "Y_SSIM": 0.9964728887329686,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.8338227217970528e-06,
+              "value": 57.36642650490748
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.4233115072803735e-06,
+              "value": 56.15590755405486
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 3.993554154897637e-06,
+              "value": 53.98640421907923
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "5c715c60e07fd90440e7be1803f21ff9f3496a9fcf733b9309afdba095f837b3",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "c5555d14-6153-44fa-878e-7f17a4dbd199",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "5a74603c132505e7dbb1a05b8583943a8fb2e6cc865f0b5ad4c98bb49c18b3be"
+    },
+    "c5555d14-6153-44fa-878e-7f17a4dbd199::codec-quantized-proxy-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "10d0e66e4757b77eb414fd3042295851f19e90d6db337b34746f158cf3cdb8e2",
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::codec-quantized-proxy-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "codec-quantized-proxy-2over3-v1",
+      "input_sha256": "4768d7b735929ea2d680474c2416e0505340bd8bafe1baa9c96e44a82a2de33a",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9978978804553474,
+          "Y_SSIM": 0.9947216735348856,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.3045496313880455e-06,
+              "value": 53.660722804088614
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 5.43226730796483e-06,
+              "value": 52.65018867682306
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 6.8327817878089064e-06,
+              "value": 51.65402448714416
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9976837185060574,
+          "Y_SSIM": 0.994001653262151,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 4.487803753831775e-06,
+              "value": 53.479661425030976
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 5.898732346912507e-06,
+              "value": 52.29241309356553
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 7.793044704618113e-06,
+              "value": 51.082928324335654
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "1e522037588fd232d41ae489bab7f8d2e7747cbda0d1b864c829b36d2b6ce778",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "c5555d14-6153-44fa-878e-7f17a4dbd199",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "5a74603c132505e7dbb1a05b8583943a8fb2e6cc865f0b5ad4c98bb49c18b3be"
+    },
+    "c5555d14-6153-44fa-878e-7f17a4dbd199::hq-binomial7-resample-2over3-v1": {
+      "baseline_id": "nearest-neighbor-v1",
+      "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+      "candidate_id": "bilinear-development-control-v1",
+      "candidate_sha256": "18ee688969794d7673d812ceabd19dbf55927777898d82eec440d4a2ac948b50",
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::hq-binomial7-resample-2over3-v1",
+      "categories": [
+        "flat gradients",
+        "horizontal/vertical/diagonal edges",
+        "corners/junctions",
+        "thin lines/text",
+        "near-Nyquist patterns",
+        "foliage/hair/fabric",
+        "skin",
+        "saturated chroma edges",
+        "noise/compression",
+        "camera/object motion",
+        "occlusion",
+        "scene cuts"
+      ],
+      "degradation_profile": "hq-binomial7-resample-2over3-v1",
+      "input_sha256": "830070bad4ddc94b8c5c4b9cad20d56e284f23f87f1a61571d393d8efa8cb5c5",
+      "interpretation": "dry-run control measurement; no algorithm-quality claim",
+      "metrics": {
+        "candidate": {
+          "Y_MS_SSIM": 0.9994027069778629,
+          "Y_SSIM": 0.9971863671930903,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.6313461389571235e-06,
+              "value": 57.874538805968704
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.1388190934166795e-06,
+              "value": 56.698259475712796
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 2.9769826272598217e-06,
+              "value": 55.26223699752741
+            }
+          }
+        },
+        "nearest_baseline": {
+          "Y_MS_SSIM": 0.9992833115079229,
+          "Y_SSIM": 0.9966155907742572,
+          "channel_psnr": {
+            "Cb": {
+              "exact_match": false,
+              "mse": 1.7492438960537926e-06,
+              "value": 57.571496328737496
+            },
+            "Cr": {
+              "exact_match": false,
+              "mse": 2.3271992052993956e-06,
+              "value": 56.3316644006546
+            },
+            "Y": {
+              "exact_match": false,
+              "mse": 3.7981498685102833e-06,
+              "value": 54.20427902741998
+            }
+          }
+        }
+      },
+      "nearest_baseline_sha256": "e608410d000c4394f75fc95446a82e2280afd59a764c0f11c706255ef2862265",
+      "pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+      "source_asset_id": "c5555d14-6153-44fa-878e-7f17a4dbd199",
+      "status": "pass",
+      "target_route": "direct-3over2",
+      "target_sha256": "5a74603c132505e7dbb1a05b8583943a8fb2e6cc865f0b5ad4c98bb49c18b3be"
+    }
+  },
+  "configuration_sha256": "e115f385adcba33e6f147ada7f6ed419d33c4324332aa733b04c8617bee3461d",
+  "run_id": "production-prechange",
+  "schema_version": "1.0.0"
+}

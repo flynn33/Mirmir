@@ -1,0 +1,47 @@
+Environment used by every command:
+  REPO_ROOT=<local Mirmir checkout>
+  PACKAGE_ROOT=<instruction package root>
+  EVIDENCE_ROOT=<frozen quality corpus and evidence root>
+  RUN_ROOT=Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da
+
+1. Validate the instruction package:
+  python3 "$PACKAGE_ROOT/tools/validate_instruction_package.py"
+
+2. Validate the recursive quality-harness implementation manifest:
+  PYTHONPATH=validation/quality/src python3 -c '<load and validate quality-harness manifest>'
+
+3. Run the complete quality suite:
+  PYTHONPATH=validation/quality/src python3 -m unittest discover -s validation/quality/tests -v
+
+4. Run the independent metric oracle:
+  python3 validation/quality/reference/metric_oracle.py
+
+5. Run a fresh actual-codec fixture:
+  python3 validation/quality/tools/run_actual_codec_fixture.py --output-directory "$RUN_ROOT/raw/actual-codec"
+
+6. Inject and preserve a production dry-run interruption:
+  PYTHONPATH=validation/quality/src python3 validation/quality/tools/run_production_development_dry_run.py --output-root "$RUN_ROOT/production-run" --run-id production-prechange --corpus-lock validation/quality/locks/corpus-lock.json --asset-root "$EVIDENCE_ROOT" --evidence-root "$EVIDENCE_ROOT" --development-sample-lock validation/quality/locks/development-sample-lock.json --sample-root "$EVIDENCE_ROOT" --fail-after-cases 1
+
+7. Recompute and resume the production dry run:
+  PYTHONPATH=validation/quality/src python3 validation/quality/tools/run_production_development_dry_run.py --output-root "$RUN_ROOT/production-run" --run-id production-prechange --corpus-lock validation/quality/locks/corpus-lock.json --asset-root "$EVIDENCE_ROOT" --evidence-root "$EVIDENCE_ROOT" --development-sample-lock validation/quality/locks/development-sample-lock.json --sample-root "$EVIDENCE_ROOT" --resume-from "$RUN_ROOT/production-run/production-prechange.failed-1"
+
+8. Run focused Xcode tests:
+  xcodebuild test -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/mirmir-p04-evidence-focused-derived -resultBundlePath "$RUN_ROOT/xcode/focused-tests.xcresult" -only-testing:MirmirTests/StrategySelectorTests CODE_SIGNING_ALLOWED=NO
+
+9. Run the complete Xcode test suite with coverage:
+  xcodebuild test -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/mirmir-p04-evidence-full-derived -resultBundlePath "$RUN_ROOT/xcode/full-tests.xcresult" -enableCodeCoverage YES CODE_SIGNING_ALLOWED=NO
+
+10. Build Release:
+  xcodebuild build -project Mirmir.xcodeproj -scheme Mirmir -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/mirmir-p04-evidence-release-derived -resultBundlePath "$RUN_ROOT/xcode/release-build.xcresult" CODE_SIGNING_ALLOWED=NO
+
+11. Run strict SwiftLint:
+  swiftlint lint --strict
+
+12. Scan changed scope and generated evidence for prohibited attribution:
+  python3 "$PACKAGE_ROOT/tools/scan_project_attribution.py" "$REPO_ROOT" --policy "$PACKAGE_ROOT/config/attribution_policy.json" --base 20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a --include "$RUN_ROOT"
+
+13. Validate JSON, Python syntax, whitespace, manifests, hashes, and remote boundary:
+  python3 -m compileall -q validation/quality/src validation/quality/tools validation/quality/reference validation/quality/tests
+  git diff --check
+  git status --short
+  git remote -v

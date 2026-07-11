@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "started_utc": "2026-07-11T12:04:47Z",
-  "ended_utc": "2026-07-11T15:44:16Z",
+  "ended_utc": "2026-07-11T19:35:49Z",
   "overall_status": "fail",
-  "mandatory_failure_count": 9,
+  "mandatory_failure_count": 8,
   "gates": [
     {
       "id": "G00",
@@ -88,7 +88,30 @@
       ],
       "defects": []
     },
-    {"id":"G04","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {
+      "id": "G04",
+      "status": "pass",
+      "criteria": [
+        "Native-HR corpus manifest and source rights/provenance recorded",
+        "Assets split before tuning and hashes locked",
+        "Degradation profiles are deterministic and independently tested",
+        "Metric implementations pass analytic/synthetic fixtures",
+        "Bootstrap operates at source-asset level",
+        "Development/validation/holdout access policy enforced",
+        "Pre-change benchmark dry run produces complete schema-valid evidence"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/GATE_REPORT.md",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/inputs/lock-hashes.json",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/test-results.json",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/analysis/production-run-verification.json",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/analysis/final-correctness-review.json",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/analysis/failure-pattern-correlation.md",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/production-run/production-prechange/artifact-manifest.json",
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/artifact-manifest.json"
+      ],
+      "defects": []
+    },
     {"id":"G05","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G06","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G07","status":"not_run","criteria":[],"evidence":[],"defects":[]},
@@ -115,12 +138,17 @@
       "sha": "cc608c7ecbbf9fac3b48e80d4251a6d0703cd64c",
       "subject": "Add ASH telemetry and core conformance",
       "gate_ids": ["G01", "G03"]
+    },
+    {
+      "sha": "e7841937b776e7d3bf0dc39f9dc2bea8d3e6a855",
+      "subject": "Repair ASH routes and output transactions",
+      "gate_ids": ["G02"]
     }
   ],
   "attribution_scan": {
     "status": "pass",
     "base": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
-    "changed_file_count": 1724,
+    "changed_file_count": 2416,
     "findings": []
   },
   "residual_nonblocking_objectives": []

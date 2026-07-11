@@ -1,0 +1,1674 @@
+{
+  "actual_codec_fixture_conformance": {
+    "decoded_plane_signatures": [
+      {
+        "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+        "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+        "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+      },
+      {
+        "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+        "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+        "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+      },
+      {
+        "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+        "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+        "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+      }
+    ],
+    "evidence": {
+      "sha256": "5b105f83f8c6d6f01fde1e2adbc4feb73ec94d363531e4fb5bb97f827198ab47",
+      "size_bytes": 26791
+    },
+    "fixture": {
+      "sha256": "120d7378c184bce42baf1fac8bdf0d56d2ff21c316a8a3a2a6067ed78dafd35f",
+      "size_bytes": 10389
+    },
+    "source_lock": {
+      "sha256": "0911bf5c3e1e27be21b9f3d7c0fa0d7c555a7ed1af39c206b1446f17e439db13",
+      "size_bytes": 3102
+    },
+    "source_payload": {
+      "sha256": "05d1aa8b114e361b14f8ae9242412d3279fc63c6849aec4b4d69c47c26e4e5fe",
+      "size_bytes": 64800
+    }
+  },
+  "all_split_evidence_rehashed": true,
+  "common_writer_id": "apple-h264-software-common-writer-v1",
+  "common_writer_runs": [
+    {
+      "dimensions": {
+        "height": 96,
+        "width": 162
+      },
+      "encoded": {
+        "path": "common-writer/lr-direct-2x/lr-direct-2x.mp4",
+        "sha256": "a632374176fb5c66daf654a2f2863cc8f296c2460a93d2d88a1a80d47a53efb3",
+        "size_bytes": 7958
+      },
+      "encoder_settings_sha256": "fc552203fcc9c307f355a02762bffacd907d498d3b618044aed13bf69fe56b65",
+      "frame_count": 4,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "profile_id": "actual-h264-software-direct-2x-v1",
+      "purpose": "low_resolution_degradation",
+      "report": {
+        "path": "common-writer/lr-direct-2x/lr-direct-2x-report.json",
+        "sha256": "9573d0f42edacbaaa6cad34871c9a84cd3df2b1ef0334ee40b143a202640691e",
+        "size_bytes": 12091
+      },
+      "source_lock": {
+        "path": "common-writer/lr-direct-2x/lr-direct-2x-source-lock.json",
+        "sha256": "13b4b6375f537a67452f2c4b28a486ff25e5a366e4841e06966c86f65f3f1f5e",
+        "size_bytes": 3360
+      },
+      "source_payload": {
+        "path": "common-writer/lr-direct-2x/lr-direct-2x-source.nv12",
+        "sha256": "45ffb1a2b6d146763097bb0651bd0bbc17d09b7e32d96d67366d389d027c88e7",
+        "size_bytes": 93312
+      },
+      "source_profile_id": "hq-binomial7-decimate-2x-v1",
+      "target_route": "direct-2x",
+      "writer_id": "apple-h264-software-common-writer-v1"
+    },
+    {
+      "dimensions": {
+        "height": 128,
+        "width": 216
+      },
+      "encoded": {
+        "path": "common-writer/lr-direct-3over2/lr-direct-3over2.mp4",
+        "sha256": "dcb7c54b88e4e33f9bc2bcc58b04a7d30a7712aaa043660bf06cea5a6e097b2e",
+        "size_bytes": 3363
+      },
+      "encoder_settings_sha256": "fc552203fcc9c307f355a02762bffacd907d498d3b618044aed13bf69fe56b65",
+      "frame_count": 2,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "profile_id": "actual-h264-software-direct-3over2-v1",
+      "purpose": "low_resolution_degradation",
+      "report": {
+        "path": "common-writer/lr-direct-3over2/lr-direct-3over2-report.json",
+        "sha256": "4f0bd2b6240d324b2760dccb8b13a1f6af7778c23323c4c690b5395a003fdb25",
+        "size_bytes": 8027
+      },
+      "source_lock": {
+        "path": "common-writer/lr-direct-3over2/lr-direct-3over2-source-lock.json",
+        "sha256": "3313d2d6bdc197da146a97be8b3f34dd537d4f073bb6660bad9aa5740d5ed8d3",
+        "size_bytes": 1975
+      },
+      "source_payload": {
+        "path": "common-writer/lr-direct-3over2/lr-direct-3over2-source.nv12",
+        "sha256": "74eb4c89e264403ca2dd870469a7f61c80b3c54791bf7fa967bffccad43b3cd2",
+        "size_bytes": 82944
+      },
+      "source_profile_id": "hq-binomial7-resample-2over3-v1",
+      "target_route": "direct-3over2",
+      "writer_id": "apple-h264-software-common-writer-v1"
+    },
+    {
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::actual-h264-software-direct-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000000/case-000000-decoded/frame-000000.nv12",
+        "sha256": "29c75887ee40a3dc7cae7e1c90cc535ab379a8724b224cac93164775016ad5b0",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000000/case-000000.mp4",
+        "sha256": "486996c5d3a2d36976062d6207b25be9f99338142009575fd42c6c53ef2e347d",
+        "size_bytes": 10520
+      },
+      "encoder_settings_sha256": "69b790ee9fe66f2aad267d4289f49a27ba4ab22b92b3e540d4b56022e4bcea5e",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 1158240.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000000/case-000000-report.json",
+        "sha256": "7e37ecf7ae6c52d5e1d609d4f5ccf0b747812d623b156379d247ca00dfa5f70a",
+        "size_bytes": 5985
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000000/case-000000-source-lock.json",
+        "sha256": "390b9532f666c1ab57ebe6c9da2b9365d6b323e34fe38156155ec29581583bd7",
+        "size_bytes": 1364
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000000/case-000000-source.nv12",
+        "sha256": "e0ae9750b200113fafc8fadac5dd256351dece689d7830f4d4b6e87fb1a0f3b0",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::camera-blur9-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000001/case-000001-decoded/frame-000000.nv12",
+        "sha256": "3f8b6e2a83593ff6cc99a8df370d37a5f68736fc95c4f65719cfa99fe4777e04",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000001/case-000001.mp4",
+        "sha256": "2637817610b6affa8429f3da99fe47213ddda473f839428467a4d56b35f0a047",
+        "size_bytes": 9620
+      },
+      "encoder_settings_sha256": "ed7df14c415e175812cb1e7352f3edf0d3f072da89ec6e10539c77b5f6a9a270",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 1050240.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000001/case-000001-report.json",
+        "sha256": "bba02e5dfac1826316eba9532ed5e0065f5e016d29026c97726bab2642f144fe",
+        "size_bytes": 5972
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000001/case-000001-source-lock.json",
+        "sha256": "b45cdf23a9988960f3cdc500524541bf8f839d47f78a669f068d96a79e8526a2",
+        "size_bytes": 1358
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000001/case-000001-source.nv12",
+        "sha256": "56f58b6371365a3863e56e8ee302db13a8f7cc3610be432e20fa05e3f9bdab68",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::codec-quantized-proxy-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000002/case-000002-decoded/frame-000000.nv12",
+        "sha256": "5ae67e251589035d65e3d938c5ad50baa355c68bea0aae60becd0ae94fc7acd5",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000002/case-000002.mp4",
+        "sha256": "06011e795b9aa6cfb549fbadf802602836e163c192a4f3eeb000c6c15d6eece2",
+        "size_bytes": 10602
+      },
+      "encoder_settings_sha256": "2e2fec87e44c409f0ac284ebff6f90d9e22704404efbec8aa760ae8a23a722c1",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 1168080.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000002/case-000002-report.json",
+        "sha256": "bb2bc27d2e7cf2b809aaecb716d700755ac2204b165d0ef68a87a595441fc3df",
+        "size_bytes": 5967
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000002/case-000002-source-lock.json",
+        "sha256": "7d2dcc819775676b43bc4308fac5d22ab4bc0ce4bb4b57c2c989d77ae49d372b",
+        "size_bytes": 1355
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000002/case-000002-source.nv12",
+        "sha256": "528a86852743cb1cc5124dde66755e47d50fd859688f749d60eee2f41d3f1682",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::hq-binomial7-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000003/case-000003-decoded/frame-000000.nv12",
+        "sha256": "6ed558441e71187915b55b41b4b32d99fb023514faf22f5fad74b6e6332d8301",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000003/case-000003.mp4",
+        "sha256": "258adeb079fe0e85f6e5277438ea01b9e3e64e6f45eea14100ec23e8078d727f",
+        "size_bytes": 10469
+      },
+      "encoder_settings_sha256": "15c977930932e0e736c6e186e83dd3118500743662f3594620d4468e6b8313b0",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 1152120.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000003/case-000003-report.json",
+        "sha256": "d54b093510150eb8094f7e7c8ee5cc7b4ed072cfb69bea1b5bc1ac01f20e27ba",
+        "size_bytes": 5973
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000003/case-000003-source-lock.json",
+        "sha256": "136d67b070e096fb70b75a16107643750143e396f987702a0714f005526b601d",
+        "size_bytes": 1358
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000003/case-000003-source.nv12",
+        "sha256": "b964c1bc921e5b7c504d5c6b19306b76eb6ed254188ca617717752cb25a78026",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::actual-h264-software-direct-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000004/case-000004-decoded/frame-000000.nv12",
+        "sha256": "242b1b08caeffef1e617ae3f1984290fcfc78cd8f48a41d9c7b7000f67740f7b",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000004/case-000004.mp4",
+        "sha256": "4891fb8133aa83f5bafd84f7aabf872b5ce114e72082f51974d04783d5acdd98",
+        "size_bytes": 6919
+      },
+      "encoder_settings_sha256": "0551a274b59a8a32073c17d54bb2ccca3d20bfe07dda871b009286847c07ef46",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 726120.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000004/case-000004-report.json",
+        "sha256": "9e007e258c747ffc2251c41938ed32a19e6bf669a8cd83c31773cc85487d4ebf",
+        "size_bytes": 5961
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000004/case-000004-source-lock.json",
+        "sha256": "de2141916f1db7524153e7eba6f3e68eff74b9d15d69336f6a3e606d7fad64a7",
+        "size_bytes": 1353
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000004/case-000004-source.nv12",
+        "sha256": "991701eebdbf510959615b9676330f1fa239cfef677dfd9f34b884daa7ad72c2",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::camera-blur9-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000005/case-000005-decoded/frame-000000.nv12",
+        "sha256": "054b13575ed3c185d94782903e3159193c24393493837a0a62b521e4001158c6",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000005/case-000005.mp4",
+        "sha256": "63341a96e455c04f5b2c094fb632ecebd06f9e40adcc5a0b349e8c5699a7395b",
+        "size_bytes": 6433
+      },
+      "encoder_settings_sha256": "0e50a58f7becd68a822643fe45aa525cee7dd09f52182fb88b1c84af45bc589c",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 667800.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000005/case-000005-report.json",
+        "sha256": "a73d38dd12098ee3f038dcad4c4a4a2e18e519bc09c6dc22eca45485456055e5",
+        "size_bytes": 5949
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000005/case-000005-source-lock.json",
+        "sha256": "07b003aa621d9bf0a5167f9a9014cfbd0458374e3dbcb1dfefa22adfb033f9e1",
+        "size_bytes": 1347
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000005/case-000005-source.nv12",
+        "sha256": "0cdcba40d5dae6a0019fa95ba4d7ff52d5f1610cf93e107ff02b633324a3853d",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::codec-quantized-proxy-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000006/case-000006-decoded/frame-000000.nv12",
+        "sha256": "360b4f6059ea1f423f21b44b40e28768d48bc182e2c4b835b9df528d7ff4767c",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000006/case-000006.mp4",
+        "sha256": "7ae59b28b420d3f77c75752e5264839fd771623c0e17b7adf02b009dcaf57632",
+        "size_bytes": 6713
+      },
+      "encoder_settings_sha256": "c640d70766136ae04af94530ed4e104ab675b7d65e3de318b6b27d76abbe654f",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 701400.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000006/case-000006-report.json",
+        "sha256": "cc03013d5b6d745034ecec56746df6b0ea9d0a6a0f865b1222aaa661e24e113d",
+        "size_bytes": 5943
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000006/case-000006-source-lock.json",
+        "sha256": "adaed938b1c22074ee3eb8362bae0b2f39e2667b932f57417eb0607db5e532d3",
+        "size_bytes": 1344
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000006/case-000006-source.nv12",
+        "sha256": "66f07807f6ed9eb6ca16bc913d3b3f03042763ba1783f7310a6a7b7a5d3ec9ce",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::hq-binomial7-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000007/case-000007-decoded/frame-000000.nv12",
+        "sha256": "f2c960043ced6438b3116c69adc89dcbf9cb06fce2d9dc4530b1104e63d3c71a",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000007/case-000007.mp4",
+        "sha256": "37b7502b4e21a425497ee6fe4abe28011a87ac5e170512d367c7873a481c3d0a",
+        "size_bytes": 6729
+      },
+      "encoder_settings_sha256": "aa29dc9c3a919b87db0808b133e51e7b73b6194cccdb7fa7cb108e61c2abc219",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 703320.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000007/case-000007-report.json",
+        "sha256": "38ff5e053c3f44f7acfbd4827360ae91028e90eed1d47fb8d29ccf32df6b41ae",
+        "size_bytes": 5949
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000007/case-000007-source-lock.json",
+        "sha256": "006ac23d18c222cc9f5541645d68f172a399668a623167adc0f8a305ca591ea0",
+        "size_bytes": 1347
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000007/case-000007-source.nv12",
+        "sha256": "49a03e6f855113c19a96562645e62a6bfef7f840030d9ef4a732adf6c806f747",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::actual-h264-software-direct-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000008/case-000008-decoded/frame-000000.nv12",
+        "sha256": "b47fddab3a1125b9ba4d5c1701f9593df664f064bdf6996645cf5386eb2ed319",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000008/case-000008.mp4",
+        "sha256": "dc8d3a983ceb72bcb9bb1c123af4247c4d03d3de7224608375f9e55b839c2911",
+        "size_bytes": 5371
+      },
+      "encoder_settings_sha256": "e82c58a0945a1153d0b1d516c22ffe88185a7d5485628c8cf7e8503aa5ddc1d4",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 540360.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000008/case-000008-report.json",
+        "sha256": "5e6013f5bffb8e4e3172a21786a7f1dd028e2e0536a3b4a5bcefe0d8c5928491",
+        "size_bytes": 5967
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000008/case-000008-source-lock.json",
+        "sha256": "2b3c127c09eda5905af0c91fa5e3db2dc6be63cbcf20c600a08c3183117d91f0",
+        "size_bytes": 1356
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000008/case-000008-source.nv12",
+        "sha256": "b59f7ac0d827327a1e33a65e2b29e73c4c7f4eb9e6dd8f2346503a7c5fcbdcab",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::camera-blur9-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000009/case-000009-decoded/frame-000000.nv12",
+        "sha256": "91514ff8cbbaa2370a30877e6e5715de59c9878a521d6b4445d59e97520e029a",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000009/case-000009.mp4",
+        "sha256": "54c0e6600087c49a8ff45fff1a4f0f4df39221f6cfeb0769abd3a37a98c3bac4",
+        "size_bytes": 4946
+      },
+      "encoder_settings_sha256": "a82434c8ebb4ea9b20e2d7c1dab522d4ed0523ed23052c1ae1f25763524d53a1",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 489360.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000009/case-000009-report.json",
+        "sha256": "889221702b8d0f0cb96902a3f07857d6c99827f36d17bb6600a3751827d045f2",
+        "size_bytes": 5955
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000009/case-000009-source-lock.json",
+        "sha256": "a3a90758f86954b1730288fdc385be893d620904d66af63300030d37f282cfe9",
+        "size_bytes": 1350
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000009/case-000009-source.nv12",
+        "sha256": "0b0e1e0405950b2ee5c1f75ef6db059aa5f64ebe4473b02113dc3c67bf01cc39",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::codec-quantized-proxy-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000010/case-000010-decoded/frame-000000.nv12",
+        "sha256": "3d81914979cb62b2e3a2b70a034a38f6f8a2e2fd244d6acf4bdcd24165810dcd",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000010/case-000010.mp4",
+        "sha256": "a10e348e875449feca6328e9511fe1b80dda512c6f404bfacb267d2db378c805",
+        "size_bytes": 5395
+      },
+      "encoder_settings_sha256": "5e28b4f9c7fef605838b653fdaee05baedaab892ad19de5dbeb2994a7a3a3328",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 543240.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000010/case-000010-report.json",
+        "sha256": "3fe2f3df143573a5f7b6e41e1ab410bd8dbd1bc50abf3a3b2ea18435ea857eee",
+        "size_bytes": 5949
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000010/case-000010-source-lock.json",
+        "sha256": "35834637f2c41bc049140c8cf70b85d874a3d62b55f2c21b1a3df89f18c30e19",
+        "size_bytes": 1347
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000010/case-000010-source.nv12",
+        "sha256": "2d7593bbd0a403970975d04f5a18ee4cd727de7b080fac17b828cde4ef2d3a55",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::hq-binomial7-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000011/case-000011-decoded/frame-000000.nv12",
+        "sha256": "ea17f913423d9d6ae359d671da24d457669a9c719a4923cbc15243cc46ecb445",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000011/case-000011.mp4",
+        "sha256": "521340aab8c7eb48c584701af1c7d3de9835c98d9349c3234d4028e16100c092",
+        "size_bytes": 5046
+      },
+      "encoder_settings_sha256": "5102c3a51c68dfbb077331fcd9fc7cc788e7d44110a4b3bc2eb17f84063fc754",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 501360.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000011/case-000011-report.json",
+        "sha256": "8c51d49428fd6293f9cc476781d8f01771b944917b7e14bd776284c71f8e2a0b",
+        "size_bytes": 5955
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000011/case-000011-source-lock.json",
+        "sha256": "06860091f288fcf55111f4e65436e45d5fc2ecc9761d10f17ce04998cb9362ee",
+        "size_bytes": 1350
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000011/case-000011-source.nv12",
+        "sha256": "d0e9aebb9cf1c9c7995b0a0799c2cfce291d7a428028450c55b9b61342dedf8c",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::actual-h264-software-direct-3over2-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000012/case-000012-decoded/frame-000000.nv12",
+        "sha256": "7012bf423dc52d1ed5a42bc8124a4bc1b4f4d82ecbaca2d3c39d2df5f1568a58",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000012/case-000012.mp4",
+        "sha256": "83089d918034c826a7c073e1cf0d9f5414564619dbd703c1f5aa06a1aace563e",
+        "size_bytes": 6258
+      },
+      "encoder_settings_sha256": "73bd71af1a31ede6cd0d1675620ea475321dd2d024542d696b18782b3ffd0e19",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 646800.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000012/case-000012-report.json",
+        "sha256": "b9d2d24776356e20fafe33560913b7bcbc9092f7d7b01ef02469b873c309e9a0",
+        "size_bytes": 5921
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000012/case-000012-source-lock.json",
+        "sha256": "76eee4e9c5ab093ca4b27cc1560665990c68d10feee3d073600770359759ef16",
+        "size_bytes": 1333
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000012/case-000012-source.nv12",
+        "sha256": "763edf1c4f274de35d76832ca92600e5a5756245fed4327dfe76c2563b517670",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::camera-blur9-resample-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000013/case-000013-decoded/frame-000000.nv12",
+        "sha256": "17d857763dec13b4828e5f04af56a29f0e5fe1b802ab35d1ce9aeaffe976cc1a",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000013/case-000013.mp4",
+        "sha256": "bfec6b8e00ce112914cd20d453330449ef986f396501ad76d2febe734bdc4904",
+        "size_bytes": 5351
+      },
+      "encoder_settings_sha256": "f7c813b1f75c7a1df159d58c5ad9ee23ee7f8d196fd1934d24dcd249a0f7db1f",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 537960.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000013/case-000013-report.json",
+        "sha256": "1319a7247d175864f993419338151df13cf615bf7b8e7058ab64797bda798e91",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000013/case-000013-source-lock.json",
+        "sha256": "63e90ece17259e8a3178f608d1f55677774a6df41712aa939dac19830f63028b",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000013/case-000013-source.nv12",
+        "sha256": "1d1a9e676e779507bffe3a504234f3d6c96214774a7bf5be0466e520dc80c1ac",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::codec-quantized-proxy-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000014/case-000014-decoded/frame-000000.nv12",
+        "sha256": "07635aa7fe3b3bddb5e43d9d02000e3036ee62dbbceddcd2c5c4b45ef0df442d",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000014/case-000014.mp4",
+        "sha256": "5cad140835ff12225b3ea09f49935732fb9748b218702ca8bc0bf34eae255e2a",
+        "size_bytes": 6070
+      },
+      "encoder_settings_sha256": "86513cb40a7e03f28340b9968c6f50d9109cb07f8e91166753fd51db5e19b20c",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 624240.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000014/case-000014-report.json",
+        "sha256": "04e229d7a85f52f7a3bfac4174b2c122a99e1d6e7cb694e132a7545483002984",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000014/case-000014-source-lock.json",
+        "sha256": "2c7c14059954b1a24e266ebcc08d6b44f567018ce0713e7e45801a30ba7d749e",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000014/case-000014-source.nv12",
+        "sha256": "b88fb0192db2a3e35278cd4b6aa8ea2e65d3dac9862c9f334ef136e10785c112",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "ac71efff-5e26-440b-8c38-dd1f5b598e02::hq-binomial7-resample-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000015/case-000015-decoded/frame-000000.nv12",
+        "sha256": "639ac9bc836e52d778735bcf4df675b25afa13b486c903793deca9685cd580d4",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000015/case-000015.mp4",
+        "sha256": "855d2f4cdcf3c533e20db1184101e8f709e5284f8db99de2bbffb9ec4c653bf8",
+        "size_bytes": 5590
+      },
+      "encoder_settings_sha256": "4ff9e54d5c55768a17b9b355ad61a1ad10a5babbebcc7d71d97b28396bdaa9ea",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 566640.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000015/case-000015-report.json",
+        "sha256": "099b70d112443c1830997f92ab9abb53b42413563aab5a2c4f4d5f9d422ea8f2",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000015/case-000015-source-lock.json",
+        "sha256": "58714380b6bb6952799cdddaf3a96104038b491656c76a08d9b30c50a49bc11f",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000015/case-000015-source.nv12",
+        "sha256": "7d5b441a8c6ad5596700340042957823d58d8c0ae093aa39b8b864562f57e2f0",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::actual-h264-software-direct-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000016/case-000016-decoded/frame-000000.nv12",
+        "sha256": "9d39c547986beb3ceac877dff7c9c9f345e306dbb849d69c14531cff0ec8a43e",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000016/case-000016.mp4",
+        "sha256": "4d37cf84465c38a9df04f6564e98947dc829653d348232b55ca708283c30edf4",
+        "size_bytes": 4062
+      },
+      "encoder_settings_sha256": "147128a543649b78ed7c4e209ed917be3534290e1aa5f32ea2dee4964d14ff00",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 383280.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000016/case-000016-report.json",
+        "sha256": "f514844bddf71cf26fbee65375885ea5de88bb8525d86ba97a5e6157fa7addeb",
+        "size_bytes": 5913
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000016/case-000016-source-lock.json",
+        "sha256": "8f77fb492bf88df0e300b998921d958dd623385404b8848533fa1eee093e2e5d",
+        "size_bytes": 1329
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000016/case-000016-source.nv12",
+        "sha256": "feeda1e2851ba94fb9233c9672da976b7a96b77f12f000ea93ce4771fa5f046a",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::camera-blur9-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000017/case-000017-decoded/frame-000000.nv12",
+        "sha256": "f9029aad846453d6db29e4595d00562f4bb59dced74646df6492eb8e2d137f19",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000017/case-000017.mp4",
+        "sha256": "24674785f331e50bf167e6d4e4dc069f9c8a26e31f9c8db6b961989a14bb85c2",
+        "size_bytes": 3637
+      },
+      "encoder_settings_sha256": "59b5c0653b4053614a893989133d7c64cd5e32d2cef4ad21db6b86c9229635d3",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 332280.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000017/case-000017-report.json",
+        "sha256": "16de7594500893ee77f392dd94cb163b12a19d08ad33dcc5dcec6c135b7eebcf",
+        "size_bytes": 5901
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000017/case-000017-source-lock.json",
+        "sha256": "792925f3333c9f8a021dc7a78bbc9d801ec68eac8b5753fd13349366b1ceb2e3",
+        "size_bytes": 1323
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000017/case-000017-source.nv12",
+        "sha256": "6ab0381e3445211ffff1d5a0f99db2f791d682341765e26f204fa5b5b3dde24f",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::codec-quantized-proxy-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000018/case-000018-decoded/frame-000000.nv12",
+        "sha256": "aeca7d8ac9fdfcbcce879832f7b526de98a89810d0feb6686373d72b86ae7c97",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000018/case-000018.mp4",
+        "sha256": "4800ba0ac3f809106ed1470febf21a42ca43a7182eef56e55b08f680bba19e25",
+        "size_bytes": 3844
+      },
+      "encoder_settings_sha256": "abb269bb8cf80766235fd60ff8dca6f1d944c32a247f562a58cb96aece35fc6c",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 357120.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000018/case-000018-report.json",
+        "sha256": "cf1c5181f2141f4c5d3ea9b69afcced7a842aa7c014494ef3aabd528c751b64b",
+        "size_bytes": 5895
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000018/case-000018-source-lock.json",
+        "sha256": "65d68dff9719a8f49e6b9e7b1d3640f8bec778d07a4fae727c0780bf83cdb3b6",
+        "size_bytes": 1320
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000018/case-000018-source.nv12",
+        "sha256": "85363c8fd5ad31579bd15ad93f05b2e06c1cde628374278118f719a344c6bae1",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::hq-binomial7-decimate-2x-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000019/case-000019-decoded/frame-000000.nv12",
+        "sha256": "e2a687227ecf0ab1a1ac87f8b9778a3e23416b88ba39928ea0ed03141309ec24",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000019/case-000019.mp4",
+        "sha256": "f82dd43283e1b8486b31730c944b67ea96dc17ca31208ae6d3698affdfe1b683",
+        "size_bytes": 3689
+      },
+      "encoder_settings_sha256": "e578587970e6d47d6135a0f0bcbc2c0e73c54e48bdf6dd3c7b82ce29057439b1",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 338520.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000019/case-000019-report.json",
+        "sha256": "ada70e300aecc3b1b67385a1dc4429205ca4c6880e84c418150d0a52ca8d4e33",
+        "size_bytes": 5901
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000019/case-000019-source-lock.json",
+        "sha256": "5084aeaf9f0ae633434578f734a1d0294f3972cd949f1c6a3a4125cf557657b6",
+        "size_bytes": 1323
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000019/case-000019-source.nv12",
+        "sha256": "6b5cbbcf7daea0e0363c93d9a903fd02af30637f413c122661b3da9843ed5964",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::actual-h264-software-direct-3over2-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000020/case-000020-decoded/frame-000000.nv12",
+        "sha256": "ba2b56c1921056043235a635a7b6f0383d7d41379926d237cb9fcf11d348b1ac",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000020/case-000020.mp4",
+        "sha256": "279d64c2103769a0005a4b2ff61fef2c050a846b2699aabb66f812ef063059ca",
+        "size_bytes": 2531
+      },
+      "encoder_settings_sha256": "de0acd37f68fb2ccaf18441a05d0e78c3195f9d7ab797300fe0e586abe3a471e",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 199560.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000020/case-000020-report.json",
+        "sha256": "9fdd301775d1e97e82545c1e3d28105f9820cf0c9d57a5b918751810fe48a706",
+        "size_bytes": 5921
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000020/case-000020-source-lock.json",
+        "sha256": "52a8b584eb8ca1c2939770f182970af084eb968840865a7ff09c35e252ea0ad8",
+        "size_bytes": 1333
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000020/case-000020-source.nv12",
+        "sha256": "39345ac7ea4c63d20c234b6520e19529293d651d335b0892b7f940b0db3295e4",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::camera-blur9-resample-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000021/case-000021-decoded/frame-000000.nv12",
+        "sha256": "d59048f1e7eb8e941cc6a72b4299368967a5239a14ed83b9e3d21fb61c4846ec",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000021/case-000021.mp4",
+        "sha256": "f7f2dc5197449e7a6127d03e745490d2820afa4c7bf5dca423263410de59316b",
+        "size_bytes": 2723
+      },
+      "encoder_settings_sha256": "d3c6a8d1aef9b0542916fb5e4959ac680527df8ab077030e3f8b7841d4db1644",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 222600.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000021/case-000021-report.json",
+        "sha256": "0a8c6eb0d4ee2cc46cb715862394a00140fe000b7e962b24fd92cce283fae053",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000021/case-000021-source-lock.json",
+        "sha256": "f3356cd5e48b598b987a64bd5121a27c86a93d3e61729c2540a2ab961432fc15",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000021/case-000021-source.nv12",
+        "sha256": "ec45b3a3cd0a565e197b2a325825c6f3bd86daa3a58366c832c98d816e06205a",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::codec-quantized-proxy-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000022/case-000022-decoded/frame-000000.nv12",
+        "sha256": "59139652bcff812952b9dbdffa3b4154c40d291a301992cbcd10717dbce41a6c",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000022/case-000022.mp4",
+        "sha256": "8f6f62a380eface7d0cd2ac23c6199ff58ef8c0ed48aa2360756d0bef1df1bdc",
+        "size_bytes": 2969
+      },
+      "encoder_settings_sha256": "8ff86c29d051ab8e160044a02497d816ee17e81bfcfd82e6c59c81fc73fabad4",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 252120.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000022/case-000022-report.json",
+        "sha256": "a11ddd4c4897e4ca3fb5a91b1fc51712088b25bcd3074d7b76d3bbbd2893b973",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000022/case-000022-source-lock.json",
+        "sha256": "e82da842410128d212e189a2c897bf33e8898b8f14b28579a8254808abd589f2",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000022/case-000022-source.nv12",
+        "sha256": "10d0e66e4757b77eb414fd3042295851f19e90d6db337b34746f158cf3cdb8e2",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    },
+    {
+      "case_id": "c5555d14-6153-44fa-878e-7f17a4dbd199::hq-binomial7-resample-2over3-v1",
+      "container_scope": {
+        "frame_count": 1,
+        "metric_role": "isolated_metric_case",
+        "neighbor_frames_present": false,
+        "single_frame_container": true
+      },
+      "decoded_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000023/case-000023-decoded/frame-000000.nv12",
+        "sha256": "8361181958f94a1e3182c5bf79e92245dd4e0311d61ae4a6b16b07a612b604a2",
+        "size_bytes": 93312
+      },
+      "dimensions": {
+        "height": 192,
+        "width": 324
+      },
+      "encoded": {
+        "path": "production-writer/candidate-postencode-isolated/case-000023/case-000023.mp4",
+        "sha256": "6e6d4d9de48a2f3c554eaf47697a11326544a11ecb5d81fedc904bbee80fe2c8",
+        "size_bytes": 2746
+      },
+      "encoder_settings_sha256": "ace4cc871f1e0a9478d5d764641388181abd56a7547323e77856d18e07037200",
+      "frame_count": 1,
+      "metric_eligible": true,
+      "mp4_byte_identity_across_runs_claimed": false,
+      "observed_estimated_data_rate": 225360.0,
+      "product_settings_source": {
+        "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+        "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+        "size_bytes": 8475
+      },
+      "profile_id": "candidate-postencode-isolated",
+      "purpose": "candidate_postencode_isolated",
+      "reopened_codec": "hvc1",
+      "report": {
+        "path": "production-writer/candidate-postencode-isolated/case-000023/case-000023-report.json",
+        "sha256": "1694a8bf2c5f2be9ac5f71f6bef835bbe1eb39013a9b6e0b8c2bc8e9947466be",
+        "size_bytes": 5909
+      },
+      "requested_average_bit_rate": 2000000,
+      "requested_codec": "hevc",
+      "source_lock": {
+        "path": "production-writer/candidate-postencode-isolated/case-000023/case-000023-source-lock.json",
+        "sha256": "0f409899c9a3ceeb61cb00c9006975f54448c1052cc44ebe03a354bd7e2fb44a",
+        "size_bytes": 1327
+      },
+      "source_payload": {
+        "path": "production-writer/candidate-postencode-isolated/case-000023/case-000023-source.nv12",
+        "sha256": "18ee688969794d7673d812ceabd19dbf55927777898d82eec440d4a2ac948b50",
+        "size_bytes": 93312
+      },
+      "source_profile_id": null,
+      "target_route": null,
+      "validated_attachments": {
+        "chroma_location_top_field": "Left",
+        "color_primaries": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2",
+        "ycbcr_matrix": "ITU_R_709_2"
+      },
+      "writer_id": "mirmir-product-hevc-avassetwriter-v1"
+    }
+  ],
+  "configuration_inputs": {
+    "path": "configuration-inputs.json",
+    "sha256": "4828a00cd2ccbb9aad2b3ffc27ef2641981a2a56226f1ee8563243e4d35f8d66",
+    "size_bytes": 3005
+  },
+  "corpus_lock": {
+    "sha256": "244def78bcecc419f4a28d1660c75e83500399727955256e5e3218ce9a7cd234",
+    "size_bytes": 37038
+  },
+  "corpus_lock_evidence": {
+    "path": "corpus-lock.json",
+    "sha256": "244def78bcecc419f4a28d1660c75e83500399727955256e5e3218ce9a7cd234",
+    "size_bytes": 37038
+  },
+  "development_and_validation_media_rehashed": true,
+  "development_sample_lock": {
+    "sha256": "9d3f1df7452c29e34ae1b622dc2ba72aa92a25af21a36f5e4cbed2ef9a18ffa7",
+    "size_bytes": 19582
+  },
+  "holdout_accessed": false,
+  "holdout_media_rehashed": false,
+  "metric_policy_evidence": {
+    "path": "metric-inputs/metric-policy.json",
+    "sha256": "7dfe31ed4e7df0452673ed63edb4a9a78f59afef3d567e18e6f4af88f6d9cfdf",
+    "size_bytes": 3375
+  },
+  "metric_policy_source": {
+    "path": "policies/metric-policy.json",
+    "sha256": "7dfe31ed4e7df0452673ed63edb4a9a78f59afef3d567e18e6f4af88f6d9cfdf",
+    "size_bytes": 3375
+  },
+  "metric_vectors_evidence": {
+    "path": "metric-inputs/metric-vectors-v1.json",
+    "sha256": "0b0e4cf961acf907be56c28b1cadd645c0944b058e1e3c84f9f28ce9aba41262",
+    "size_bytes": 836
+  },
+  "metric_vectors_source": {
+    "path": "reference/metric-vectors-v1.json",
+    "sha256": "0b0e4cf961acf907be56c28b1cadd645c0944b058e1e3c84f9f28ce9aba41262",
+    "size_bytes": 836
+  },
+  "product_settings_evidence": {
+    "path": "product-settings-source/MediaTypes.swift",
+    "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+    "size_bytes": 8475
+  },
+  "product_settings_source": {
+    "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+    "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+    "size_bytes": 8475
+  },
+  "production_output_writer_id": "mirmir-product-hevc-avassetwriter-v1",
+  "schema_version": "1.0.0"
+}

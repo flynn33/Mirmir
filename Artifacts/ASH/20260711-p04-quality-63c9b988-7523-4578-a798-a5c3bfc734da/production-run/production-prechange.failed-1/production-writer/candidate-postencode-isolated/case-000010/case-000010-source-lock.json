@@ -1,0 +1,40 @@
+{
+  "artifact_kind": "common_writer_source_lock",
+  "frame_count": 1,
+  "frames": [
+    {
+      "active_row_sha256": {
+        "Cb": "0a0c1b76a97a21ea1deb476574c436e50edaa8ae2c97d86af7e9ebc6d10dc236",
+        "Cr": "d5bbcbfc636db401c6d10e9a17782fa25663e403951b691333b967d9ca9001d3",
+        "Y": "4e36bcf5b946e035db301fd385557ccd3fb8304445a98c643c7b4d0b5afac83a"
+      },
+      "case_id": "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::codec-quantized-proxy-v1",
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "2d7593bbd0a403970975d04f5a18ee4cd727de7b080fac17b828cde4ef2d3a55",
+      "index": 0,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 0
+      }
+    }
+  ],
+  "payload_path": "case-000010-source.nv12",
+  "payload_sha256": "2d7593bbd0a403970975d04f5a18ee4cd727de7b080fac17b828cde4ef2d3a55",
+  "payload_size_bytes": 93312,
+  "pixel_layout": {
+    "chroma_location_bottom_field": "Left",
+    "chroma_location_top_field": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "height": 192,
+    "pixel_format": "420v",
+    "range": "video",
+    "transfer_function": "ITU_R_709_2",
+    "width": 324,
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "schema_version": "1.0.0",
+  "source_id": "production-prechange-candidate-postencode-isolated-case-000010"
+}

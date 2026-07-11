@@ -1,0 +1,56 @@
+{
+  "configuration": {
+    "actual_codec_fixture_evidence_sha256": "5b105f83f8c6d6f01fde1e2adbc4feb73ec94d363531e4fb5bb97f827198ab47",
+    "baseline": "nearest-neighbor-v1",
+    "candidate_configuration_sha256": "d828fe2dbf5328324848a9060fdf10e8721753767f33cc405dd04906b2baa8ad",
+    "candidate_id": "bilinear-development-control-v1",
+    "candidate_input_pixel_representation": "bt709-video-range-420v-8bit-nv12-v1",
+    "common_writer_id": "apple-h264-software-common-writer-v1",
+    "common_writer_profiles": [
+      {
+        "determinism_contract": "locked low-pass source, explicit BT.709 video-range Left top-and-bottom source attachments, exact Apple H.264 software encoder settings, all-I timing, AVAssetReader 420v Left-sited decode, active-row hashes, and repeat-decoded-pixel evidence",
+        "id": "actual-h264-software-direct-2x-v1",
+        "kind": "actual_codec",
+        "source_profile_id": "hq-binomial7-decimate-2x-v1",
+        "target_route": "direct-2x",
+        "version": "1.0.0",
+        "writer_id": "apple-h264-software-common-writer-v1"
+      },
+      {
+        "determinism_contract": "locked rational low-pass source, explicit BT.709 video-range Left top-and-bottom source attachments, exact Apple H.264 software encoder settings, all-I timing, AVAssetReader 420v Left-sited decode, active-row hashes, and repeat-decoded-pixel evidence",
+        "id": "actual-h264-software-direct-3over2-v1",
+        "kind": "actual_codec",
+        "source_profile_id": "hq-binomial7-resample-2over3-v1",
+        "target_route": "direct-3over2",
+        "version": "1.0.0",
+        "writer_id": "apple-h264-software-common-writer-v1"
+      }
+    ],
+    "corpus_lock_source": {
+      "sha256": "244def78bcecc419f4a28d1660c75e83500399727955256e5e3218ce9a7cd234",
+      "size_bytes": 37038
+    },
+    "corpus_manifest_sha256": "7271022b4c78f7cb04b9be01773cd0d0a0e190580fa808456e5d90caf0d8ec6a",
+    "degradation_policy_sha256": "e3fea1c3d71c2eb64f4cb1600d9f1540bfb0c5166ea09700c1e059dcff942548",
+    "metric_policy_sha256": "e3e8237ee2389a031bc491a38f8b06540a036a49f7640f27cc4f0e07777ff221",
+    "metric_policy_source": {
+      "path": "policies/metric-policy.json",
+      "sha256": "7dfe31ed4e7df0452673ed63edb4a9a78f59afef3d567e18e6f4af88f6d9cfdf",
+      "size_bytes": 3375
+    },
+    "metric_vectors_source": {
+      "path": "reference/metric-vectors-v1.json",
+      "sha256": "0b0e4cf961acf907be56c28b1cadd645c0944b058e1e3c84f9f28ce9aba41262",
+      "size_bytes": 836
+    },
+    "product_settings_source": {
+      "path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+      "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+      "size_bytes": 8475
+    },
+    "production_output_writer_id": "mirmir-product-hevc-avassetwriter-v1",
+    "sample_manifest_sha256": "c54ec9c5fb0ca5c05480bc72d52a01e932e3a5febf94191f31cb6f3e96ee2e12"
+  },
+  "configuration_sha256": "e115f385adcba33e6f147ada7f6ed419d33c4324332aa733b04c8617bee3461d",
+  "schema_version": "1.0.0"
+}
