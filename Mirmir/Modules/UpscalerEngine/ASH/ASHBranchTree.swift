@@ -16,13 +16,18 @@ enum ASHBranchTree {
     static let actionWeights = ["0": 0.5, "+": 0.25, "-": 0.25]
     static let defaultDepth = 4
 
-    static func generate(sourceState: ASHState, depth: Int = defaultDepth) throws -> [ASHBranchNode] {
+    static func generate(
+        sourceState: ASHState,
+        depth: Int = defaultDepth,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
+    ) throws -> [ASHBranchNode] {
         guard depth >= 0 else {
             throw ASHCoreError.invalidBranchDepth(depth)
         }
         guard sourceState.hasValidIntegrity else {
             throw ASHCoreError.invalidPreviousState
         }
+        telemetry.increment(.runtimeTreeGenerations)
 
         let rootMessage = try ASHMessage(rawValue: 0)
         let rootCodeword = ASHCode.encode(rootMessage)

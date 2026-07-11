@@ -1,0 +1,93 @@
+{
+  "contract_schema_version": 1,
+  "core": {
+    "state_bits": 9,
+    "payload_bits": 8,
+    "message_bits": 4,
+    "coordinate_1_packed_bit": 8,
+    "coordinate_9_packed_bit": 0,
+    "message_bit_1_order": "most_significant",
+    "integrity_coordinate": 9,
+    "integrity_operation": "xor",
+    "integrity_source_coordinates": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "generator_rows": [
+      "111100000",
+      "110011000",
+      "101010100",
+      "100110001"
+    ]
+  },
+  "binary": {
+    "magic": "ASHCORE1",
+    "schema_version": 1,
+    "endianness": "little",
+    "endianness_code": 1,
+    "bit_order_code": 1,
+    "decoder_radius": 1,
+    "implicit_padding": false,
+    "header_size": 64,
+    "record_sizes": {
+      "raw_state": 4,
+      "codeword": 4,
+      "affine": 16
+    },
+    "section_offsets": {
+      "raw_state": 64,
+      "codeword": 2112,
+      "affine": 2176
+    },
+    "file_size": 3016832,
+    "status_codes": {
+      "exact": 0,
+      "corrected": 1,
+      "rejected": 2
+    },
+    "affine_section_order": [
+      "exact",
+      "one_bit",
+      "two_bit"
+    ],
+    "raw_state_field_order": [
+      "raw_u16",
+      "payload_parity_u8",
+      "integrity_valid_u8"
+    ],
+    "codeword_field_order": [
+      "message_u8",
+      "hamming_weight_u8",
+      "codeword_u16"
+    ],
+    "affine_field_order": [
+      "anchor_u16",
+      "message_u8",
+      "fault_count_u8",
+      "first_fault_coordinate_u8",
+      "second_fault_coordinate_u8",
+      "relative_codeword_u16",
+      "transmitted_affine_u16",
+      "received_affine_u16",
+      "status_u8",
+      "corrected_coordinate_u8",
+      "nearest_distance_u8",
+      "nearest_count_u8"
+    ]
+  },
+  "exhaustive": {
+    "raw_state_count": 512,
+    "valid_anchor_count": 256,
+    "codeword_count": 16,
+    "exact_affine_count": 4096,
+    "one_bit_affine_count": 36864,
+    "two_bit_fault_pair_count": 36,
+    "two_bit_affine_count": 147456
+  }
+}

@@ -1,0 +1,95 @@
+<?xml version="1.0"?>
+
+<trace-toc>
+    <run number="1">
+        <info>
+            <target>
+                <device uuid="396E8AE2-4B0B-51E2-AE11-498395ED5AA1" model="MacBook Pro" name="MBP16-M4P" os-version="26.5.1 (25F80)" platform="macOS"/>
+                <process type="attached" return-exit-status="0" name="Mirmir" pid="51165" termination-reason="exit(0)"/>
+                <environment>
+                    <item key="OS_ACTIVITY_DT_MODE" value="YES"/>
+                    <item key="main_stack" value="0x16b06c000,0x7fc000,0x16706c000,0x4000000"/>
+                    <item key="__XPC_DYLD_FRAMEWORK_PATH" value="/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug"/>
+                    <item key="__CFBundleIdentifier" value="com.mirmir.app"/>
+                    <item key="__XCODE_BUILT_PRODUCTS_DIR_PATHS" value="/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug"/>
+                    <item key="XCTestSessionIdentifier" value="6922108F-06A1-4BA4-8CD5-C43B1080A3D9"/>
+                    <item key="XCODE_TEST_PLAN_NAME" value="Mirmir"/>
+                    <item key="XCTestConfigurationFilePath" value=""/>
+                    <item key="executable_file" value="0x1a01000011,0x1d3dd5b"/>
+                    <item key="RUN_DESTINATION_DEVICE_UDID" value="00006040-0016283C11F8801C"/>
+                    <item key="APP_DISTRIBUTOR_ID_OVERRIDE" value="com.apple.AppStore"/>
+                    <item key="XCTestBundlePath" value="Contents/PlugIns/MirmirTests.xctest"/>
+                    <item key="OSLogRateLimit" value="64"/>
+                    <item key="PERFC_SUPPRESS_SYSTEM_REPORTS" value="1"/>
+                    <item key="stack_guard" value="0x3447b1da70e300a8"/>
+                    <item key="HOME" value="/Users/jimdaley"/>
+                    <item key="CA_ASSERT_MAIN_THREAD_TRANSACTIONS" value="0"/>
+                    <item key="NSUnbufferedIO" value="YES"/>
+                    <item key="RUN_DESTINATION_DEVICE_NAME" value="My Mac"/>
+                    <item key="SSH_AUTH_SOCK" value="/var/run/com.apple.launchd.ZxJVy4awTG/Listeners"/>
+                    <item key="security_config" value="0x0"/>
+                    <item key="COMMAND_MODE" value="unix2003"/>
+                    <item key="__XPC_LLVM_PROFILE_FILE" value="/dev/null"/>
+                    <item key="malloc_entropy" value="0x476d46e2901d8f48,0xbb3ced96b95c3ebb"/>
+                    <item key="XPC_SERVICE_NAME" value="application.com.mirmir.app.30660590.30661979.08BC1E32-417F-465E-9B3A-CBADF396A474"/>
+                    <item key="pfz" value="0xfffe08000"/>
+                    <item key="TMPDIR" value="/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/"/>
+                    <item key="PATH" value="/usr/bin:/bin:/usr/sbin:/sbin"/>
+                    <item key="USER" value="jimdaley"/>
+                    <item key="XCODE_SCHEME_NAME" value="Mirmir"/>
+                    <item key="RUN_DESTINATION_DEVICE_PLATFORM_IDENTIFIER" value="com.apple.platform.macosx"/>
+                    <item key="CA_DEBUG_TRANSACTIONS" value="0"/>
+                    <item key="ptr_munge" value="0xb1835ddccc5e4e9e"/>
+                    <item key="TERM" value="dumb"/>
+                    <item key="XCInjectBundleInto" value="unused"/>
+                    <item key="PERFC_ENABLE_PROFILE_MODE" value="1"/>
+                    <item key="SHELL" value="/bin/zsh"/>
+                    <item key="DYLD_LIBRARY_PATH" value="/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib"/>
+                    <item key="dyld_file" value="0x1a01000011,0xfffffff000a955d"/>
+                    <item key="DYLD_INSERT_LIBRARIES" value="/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib"/>
+                    <item key="XPC_FLAGS" value="1"/>
+                    <item key="executable_cdhash" value="a274d458f9f10b2993aa1c8af4aa3f159f7d09b9"/>
+                    <item key="XCTestBundleInjectPath" value="/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib"/>
+                    <item key="PERFC_RESET_INSERT_LIBRARIES" value="1"/>
+                    <item key="DYLD_FRAMEWORK_PATH" value="/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/PackageFrameworks:/Applications/Xcode.app/Contents/SharedFrameworks:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/PackageFrameworks:/Applications/Xcode.app/Contents/SharedFrameworks:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks"/>
+                    <item key="th_port" value="0x103"/>
+                    <item key="SQLITE_ENABLE_THREAD_ASSERTIONS" value="1"/>
+                    <item key="PERFC_ENABLE_EXTENDED_DIAGNOSTIC_FORMAT" value="1"/>
+                    <item key="LLVM_PROFILE_FILE" value="/dev/null"/>
+                    <item key="MallocNanoZone" value="1"/>
+                    <item key="__XPC_DYLD_LIBRARY_PATH" value="/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug"/>
+                    <item key="LOGNAME" value="jimdaley"/>
+                    <item key="executable_boothash" value="2ef4e020114200ba08b6c254d4804f3fb1177582"/>
+                </environment>
+            </target>
+            <summary>
+                <start-date>2026-07-11T09:01:30.160-05:00</start-date>
+                <end-date>2026-07-11T09:01:47.120-05:00</end-date>
+                <duration>16.960714</duration>
+                <end-reason>Target app exited</end-reason>
+                <instruments-version>26.0 (17C52)</instruments-version>
+                <template-name>Logging</template-name>
+                <recording-mode>Deferred</recording-mode>
+                <time-limit>1 minute, 30 seconds</time-limit>
+            </summary>
+        </info>
+        <processes>
+            <process name="Mirmir" pid="51165" path="/private/tmp/mirmir-p01p03-optimized-final-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir"/>
+            <process name="kernel.release.t6041" pid="0" path="/System/Library/Kernels/kernel.release.t6041"/>
+        </processes>
+        <data>
+            <table schema="os-log" target-pid="SINGLE"/>
+            <table target-pid="SINGLE" schema="os-signpost-interval" layout-scope="name"/>
+            <table schema="os-signpost-arg" target-pid="SINGLE"/>
+            <table schema="tick" frequency="10"/>
+            <table codes="&quot;0x07,0x00&quot; &quot;0x1f,0x05&quot;" schema="kdebug" target="SINGLE"/>
+            <table codes="&quot;0x1f,0x05&quot;" schema="kdebug-strings" target="SINGLE"/>
+            <table schema="thread-info"/>
+            <table schema="os-signpost" target-pid="SINGLE"/>
+            <table schema="dyld-library-load" target-pid="SINGLE"/>
+            <table schema="process-info"/>
+            <table schema="os-log-arg" target-pid="SINGLE"/>
+        </data>
+        <tracks/>
+    </run>
+</trace-toc>

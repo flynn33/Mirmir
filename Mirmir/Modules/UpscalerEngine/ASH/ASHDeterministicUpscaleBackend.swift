@@ -5,12 +5,18 @@ import CoreVideo
 final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
     private let scale: Int
     private let tileSize: Int
+    private let telemetry: any ASHTelemetryRecording
     private var previousTiles: ASHTileTemporalState?
     private(set) var lastDebugSummary: ASHTileProcessingSummary?
 
-    init(scale: Int = ASHReconstruction.defaultScale, tileSize: Int = 32) {
+    init(
+        scale: Int = ASHReconstruction.defaultScale,
+        tileSize: Int = 32,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
+    ) {
         self.scale = scale
         self.tileSize = tileSize
+        self.telemetry = telemetry
     }
 
     func reset() {
@@ -21,16 +27,28 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
     func process(source: CVPixelBuffer, into destination: CVPixelBuffer) async throws {
         try Task.checkCancellation()
 
-        let current = try Self.extractLumaImage(from: source)
-        let chroma = try Self.extractChromaPlane(from: source)
+        let (current, chroma) = try telemetry.measure(.canonicalize) {
+            (
+                try Self.extractLumaImage(from: source),
+                try Self.extractChromaPlane(from: source)
+            )
+        }
+        telemetry.increment(.fullFrameCPULoops, by: 2)
+        telemetry.increment(.fullFrameCopies, by: 2)
         let result = try ASHTileProcessor(
             tileSize: tileSize,
             scale: scale,
-            topK: 1
+            topK: 1,
+            telemetry: telemetry
         ).process(luma: current, chroma: chroma, previous: previousTiles)
 
         try Task.checkCancellation()
-        try Self.write(reconstruction: result.reconstruction, sourceChroma: source, to: destination)
+        try Self.write(
+            reconstruction: result.reconstruction,
+            sourceChroma: source,
+            to: destination,
+            telemetry: telemetry
+        )
         previousTiles = result.temporalState
         lastDebugSummary = result.summary
     }
@@ -88,7 +106,12 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         return ASHChromaPlane(width: width, height: height, bytesPerRow: bytesPerRow, bytes: bytes)
     }
 
-    private static func write(reconstruction: ASHImage, sourceChroma source: CVPixelBuffer, to destination: CVPixelBuffer) throws {
+    private static func write(
+        reconstruction: ASHImage,
+        sourceChroma source: CVPixelBuffer,
+        to destination: CVPixelBuffer,
+        telemetry: any ASHTelemetryRecording
+    ) throws {
         CVPixelBufferLockBaseAddress(source, .readOnly)
         CVPixelBufferLockBaseAddress(destination, [])
         defer {
@@ -97,7 +120,13 @@ final class ASHDeterministicUpscaleBackend: @unchecked Sendable {
         }
 
         try writeLuma(reconstruction, to: destination)
-        try writeChroma(from: source, to: destination)
+        telemetry.increment(.fullFrameCPULoops)
+        telemetry.increment(.fullFrameCopies)
+        try telemetry.measure(.reconstructChroma) {
+            try writeChroma(from: source, to: destination)
+        }
+        telemetry.increment(.fullFrameCPULoops)
+        telemetry.increment(.fullFrameCopies)
     }
 
     private static func writeLuma(_ image: ASHImage, to destination: CVPixelBuffer) throws {

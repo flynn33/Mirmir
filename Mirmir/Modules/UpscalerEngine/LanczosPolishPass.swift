@@ -10,10 +10,15 @@ final class LanczosPolishPass: @unchecked Sendable {
 
     private let metal: MetalRenderingService
     private let lanczos: MPSImageLanczosScale
+    private let telemetry: any ASHTelemetryRecording
 
-    init(metal: MetalRenderingService) {
+    init(
+        metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
+    ) {
         self.metal = metal
         self.lanczos = MPSImageLanczosScale(device: metal.device)
+        self.telemetry = telemetry
     }
 
     func encode(
@@ -43,6 +48,8 @@ final class LanczosPolishPass: @unchecked Sendable {
         source: CVPixelBuffer,
         destination: CVPixelBuffer
     ) async throws {
+        let stage = telemetry.beginStage(planeIndex == 0 ? .reconstructLuma : .reconstructChroma)
+        defer { telemetry.endStage(stage) }
         let (sourceCV, sourceTexture) = try PixelBufferBridge.makeTexture(
             from: source,
             cache: metal.textureCache,
@@ -63,6 +70,10 @@ final class LanczosPolishPass: @unchecked Sendable {
             ])
         }
         commandBuffer.label = "Mirmir.LanczosPolish.plane\(planeIndex)"
+        telemetry.recordCommandBuffer(ASHCommandBufferObservation(
+            label: commandBuffer.label ?? "Mirmir.LanczosPolish",
+            status: "created"
+        ))
 
         var transform = MPSScaleTransform(
             scaleX: Double(destinationTexture.width) / Double(sourceTexture.width),
@@ -81,6 +92,10 @@ final class LanczosPolishPass: @unchecked Sendable {
         }
 
         commandBuffer.commit()
+        telemetry.recordCommandBuffer(ASHCommandBufferObservation(
+            label: commandBuffer.label ?? "Mirmir.LanczosPolish",
+            status: "committed"
+        ))
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             commandBuffer.addCompletedHandler { _ in
                 continuation.resume()

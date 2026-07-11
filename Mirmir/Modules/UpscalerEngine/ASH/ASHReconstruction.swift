@@ -181,29 +181,39 @@ enum ASHReconstruction {
         scale: Int = defaultScale,
         previousCandidate: ASHImage? = nil,
         features: ASHFeatureVector? = nil,
-        scoringPolicy: ASHScoringPolicy = .referenceV1
+        scoringPolicy: ASHScoringPolicy = .referenceV1,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
     ) throws -> [ASHReconstructionCandidate] {
         guard !leaves.isEmpty else { throw ASHCoreError.missingBranchLeaves }
         guard scoringPolicy == .referenceV1 || features != nil else {
             throw ASHReconstructionError.missingAdaptiveFeatures
         }
-        let priors = try decodedLeafWeights(leaves: leaves, sourceState: sourceState)
-        let basis = try makeOperatorBasis(source: source, scale: scale)
-        var candidates: [ASHReconstructionCandidate] = []
-        for message in priors.keys.sorted() {
-            try Task.checkCancellation()
-            candidates.append(try makeCandidate(
-                source: source,
-                basis: basis,
-                message: message,
-                priorWeight: priors[message] ?? 0.0,
-                scale: scale,
-                previousCandidate: previousCandidate,
-                features: features,
-                scoringPolicy: scoringPolicy
-            ))
+        let priors = try telemetry.measure(.dispatchDecode) {
+            try decodedLeafWeights(
+                leaves: leaves,
+                sourceState: sourceState,
+                telemetry: telemetry
+            )
         }
-        return candidates.sorted { isPreferred($0, $1) }
+        telemetry.recordCandidateCount(priors.count)
+        return try telemetry.measure(.reconstructLuma) {
+            let basis = try makeOperatorBasis(source: source, scale: scale)
+            var candidates: [ASHReconstructionCandidate] = []
+            for message in priors.keys.sorted() {
+                try Task.checkCancellation()
+                candidates.append(try makeCandidate(
+                    source: source,
+                    basis: basis,
+                    message: message,
+                    priorWeight: priors[message] ?? 0.0,
+                    scale: scale,
+                    previousCandidate: previousCandidate,
+                    features: features,
+                    scoringPolicy: scoringPolicy
+                ))
+            }
+            return candidates.sorted { isPreferred($0, $1) }
+        }
     }
 
     /// Scores the complete decoded message set while retaining only top-k
@@ -217,7 +227,8 @@ enum ASHReconstruction {
         previousCandidate: ASHImage? = nil,
         topK: Int = defaultTopK,
         features: ASHFeatureVector? = nil,
-        scoringPolicy: ASHScoringPolicy = .referenceV1
+        scoringPolicy: ASHScoringPolicy = .referenceV1,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
     ) throws -> (selected: [ASHReconstructionCandidate], evaluatedCount: Int) {
         guard !leaves.isEmpty else { throw ASHCoreError.missingBranchLeaves }
         guard topK > 0 else { throw ASHCoreError.invalidTopK(topK) }
@@ -225,29 +236,38 @@ enum ASHReconstruction {
             throw ASHReconstructionError.missingAdaptiveFeatures
         }
 
-        let priors = try decodedLeafWeights(leaves: leaves, sourceState: sourceState)
-        let basis = try makeOperatorBasis(source: source, scale: scale)
-        var selected: [ASHReconstructionCandidate] = []
-        selected.reserveCapacity(min(topK, priors.count))
-
-        for message in priors.keys.sorted() {
-            try Task.checkCancellation()
-            selected.append(try makeCandidate(
-                source: source,
-                basis: basis,
-                message: message,
-                priorWeight: priors[message] ?? 0.0,
-                scale: scale,
-                previousCandidate: previousCandidate,
-                features: features,
-                scoringPolicy: scoringPolicy
-            ))
-            selected.sort { isPreferred($0, $1) }
-            if selected.count > topK {
-                selected.removeLast()
-            }
+        let priors = try telemetry.measure(.dispatchDecode) {
+            try decodedLeafWeights(
+                leaves: leaves,
+                sourceState: sourceState,
+                telemetry: telemetry
+            )
         }
-        return (selected, priors.count)
+        telemetry.recordCandidateCount(priors.count)
+        return try telemetry.measure(.reconstructLuma) {
+            let basis = try makeOperatorBasis(source: source, scale: scale)
+            var selected: [ASHReconstructionCandidate] = []
+            selected.reserveCapacity(min(topK, priors.count))
+
+            for message in priors.keys.sorted() {
+                try Task.checkCancellation()
+                selected.append(try makeCandidate(
+                    source: source,
+                    basis: basis,
+                    message: message,
+                    priorWeight: priors[message] ?? 0.0,
+                    scale: scale,
+                    previousCandidate: previousCandidate,
+                    features: features,
+                    scoringPolicy: scoringPolicy
+                ))
+                selected.sort { isPreferred($0, $1) }
+                if selected.count > topK {
+                    selected.removeLast()
+                }
+            }
+            return (selected, priors.count)
+        }
     }
 
     static func prune(_ candidates: [ASHReconstructionCandidate], topK: Int = defaultTopK) throws -> [ASHReconstructionCandidate] {
@@ -257,7 +277,8 @@ enum ASHReconstruction {
 
     private static func decodedLeafWeights(
         leaves: [ASHBranchNode],
-        sourceState: ASHState
+        sourceState: ASHState,
+        telemetry: any ASHTelemetryRecording
     ) throws -> [ASHMessage: Double] {
         guard sourceState.hasValidIntegrity else {
             throw ASHReconstructionError.invalidAffineAnchor
@@ -265,6 +286,7 @@ enum ASHReconstruction {
         var priors: [ASHMessage: Double] = [:]
         for leaf in ASHBranchTree.leafNodes(leaves) {
             let decoded = ASHBranchTree.recover(received: leaf.state, sourceState: sourceState)
+            telemetry.recordDecode(decoded.status)
             guard decoded.status != .uncorrectable,
                   let messageBits = decoded.messageBits else {
                 throw ASHReconstructionError.uncorrectableBranchState(leaf.path)

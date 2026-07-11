@@ -1,0 +1,6 @@
+{
+  "emitsSignposts": true,
+  "inputPath": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/img9200_exact_1080p_1f_signpost_input.mp4",
+  "outputPath": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/img9200_exact_1080p_1f_signpost_output.mp4",
+  "telemetryPath": "/Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/mirmir-production-signpost-telemetry.json"
+}

@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "started_utc": "2026-07-11T12:04:47Z",
-  "ended_utc": "2026-07-11T12:12:56Z",
+  "ended_utc": "2026-07-11T14:22:19Z",
   "overall_status": "fail",
-  "mandatory_failure_count": 12,
+  "mandatory_failure_count": 10,
   "gates": [
     {
       "id": "G00",
@@ -25,9 +25,49 @@
       ],
       "defects": []
     },
-    {"id":"G01","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {
+      "id": "G01",
+      "status": "pass",
+      "criteria": [
+        "Actual production call graph documented",
+        "Per-stage signposts and JSON timing present",
+        "State/message/operator/decoder telemetry present",
+        "CPU/GPU copies, waits, allocations, and synchronization points measured for the executed direct route",
+        "Each reference defect classified from Swift source/tests",
+        "No unverified performance attribution remains"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/analysis/g01-gate-assessment.json",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/analysis/call-graph.md",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/analysis/telemetry-coverage.md",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/analysis/signpost-validation.json",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/runtime/telemetry-signpost-final.json",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/runtime/production-signposts.trace"
+      ],
+      "defects": []
+    },
     {"id":"G02","status":"not_run","criteria":[],"evidence":[],"defects":[]},
-    {"id":"G03","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {
+      "id": "G03",
+      "status": "pass",
+      "criteria": [
+        "All 512 states checked",
+        "256 valid parity states checked",
+        "16 codewords checked",
+        "all one-bit affine corruptions corrected",
+        "all required two-bit corruptions rejected",
+        "Production Swift and independent reference-oracle vectors and hashes match exactly",
+        "canonical core unchanged from P00"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/g03-gate-assessment.json",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/P03_G03_CANONICAL_CORE_EVIDENCE.md",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/canonical-vectors.json",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/swift-conformance.xcresult",
+        "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/ash-core-v1.bin"
+      ],
+      "defects": []
+    },
     {"id":"G04","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G05","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G06","status":"not_run","criteria":[],"evidence":[],"defects":[]},
@@ -45,10 +85,17 @@
     "release": false,
     "remote_config_change": false
   },
-  "local_commits": [],
+  "local_commits": [
+    {
+      "sha": "c319b2cdb2ea3906c665cd7a6a5aaec817edf914",
+      "subject": "Lock ASH project baseline",
+      "gate_ids": ["G00"]
+    }
+  ],
   "attribution_scan": {
     "status": "pass",
     "base": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+    "changed_file_count": 1046,
     "findings": []
   },
   "residual_nonblocking_objectives": []

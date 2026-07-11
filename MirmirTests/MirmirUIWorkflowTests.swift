@@ -113,6 +113,54 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.canStartFailureReason, "Choose an output location.")
     }
 
+    func test_loadingSourceIsIgnoredWhileAJobIsRunning() async {
+        let media = CountingMediaPipelineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: media,
+            upscalerEngine: NoopUpscalerEngineService(),
+            modelAssets: NoopModelAssetsService()
+        )
+        viewModel.state = .running
+
+        viewModel.loadSource(url: URL(fileURLWithPath: "/tmp/replacement.mov"))
+        await Task.yield()
+
+        XCTAssertEqual(media.probeCount, 0)
+        XCTAssertEqual(viewModel.state, .running)
+    }
+
+    func test_rawCancellationKeepsWorkflowRunningUntilHandleTerminates() async throws {
+        let engine = DelayedCancellationEngineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService()
+        )
+        let source = makeSourceProfile()
+        viewModel.ashBackendStatus = .available
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        XCTAssertTrue(viewModel.acceptOutputURLSelectedByUser(
+            viewModel.defaultOutputURL(for: source, target: .p2160)
+        ))
+
+        viewModel.startUpscale()
+        let handle = try XCTUnwrap(engine.latestHandle)
+        XCTAssertEqual(viewModel.state, .running)
+
+        viewModel.cancelUpscale()
+        XCTAssertTrue(handle.cancelRequested)
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertFalse(viewModel.canStart)
+
+        handle.completeCancellation()
+        for _ in 0..<100 where viewModel.state == .running {
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.state, .ready)
+    }
+
     func test_supportedVideoExtensionsCoverCommonAVFoundationReadableFormats() {
         XCTAssertEqual(MirmirViewModel.supportedVideoExtensions, ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"])
 
@@ -290,5 +338,105 @@ final class MirmirUIWorkflowTests: XCTestCase {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+    }
+}
+
+private final class CountingMediaPipelineService: MediaPipelineService, @unchecked Sendable {
+    private let count = NSLock()
+    private var storedProbeCount = 0
+
+    var probeCount: Int {
+        count.withLock { storedProbeCount }
+    }
+
+    func probe(url: URL) async throws -> SourceProfile {
+        count.withLock { storedProbeCount += 1 }
+        return SourceProfile(
+            url: url,
+            resolution: .p1080,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: "test",
+            hasAudio: false
+        )
+    }
+
+    func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
+        let pool = try PixelBufferBridge.makePool(width: 16, height: 16)
+        return StubMediaSession(
+            sourceProfile: source,
+            outputProfile: output,
+            outputPixelBufferPool: pool
+        )
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+private final class DelayedCancellationEngineService: UpscalerEngineService, @unchecked Sendable {
+    private let handleLock = NSLock()
+    private var storedHandle: DelayedCancellationJobHandle?
+
+    var latestHandle: DelayedCancellationJobHandle? {
+        handleLock.withLock { storedHandle }
+    }
+
+    func submit(_: UpscaleJob) throws -> UpscalerJobHandle {
+        let handle = DelayedCancellationJobHandle()
+        handleLock.withLock { storedHandle = handle }
+        return handle
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+private final class DelayedCancellationJobHandle: UpscalerJobHandle, @unchecked Sendable {
+    private struct State {
+        var cancelRequested = false
+        var completed = false
+        var waiter: CheckedContinuation<URL, Error>?
+    }
+
+    let progressStream: AsyncStream<UpscaleProgress>
+    private let state = NSLock()
+    private var storedState = State()
+
+    init() {
+        self.progressStream = AsyncStream { $0.finish() }
+    }
+
+    var cancelRequested: Bool {
+        state.withLock { storedState.cancelRequested }
+    }
+
+    func cancel() {
+        state.withLock { storedState.cancelRequested = true }
+    }
+
+    func waitForCompletion() async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            let completeNow = state.withLock {
+                if storedState.completed {
+                    return true
+                }
+                storedState.waiter = continuation
+                return false
+            }
+            if completeNow {
+                continuation.resume(throwing: CancellationError())
+            }
+        }
+    }
+
+    func completeCancellation() {
+        let waiter = state.withLock { () -> CheckedContinuation<URL, Error>? in
+            storedState.completed = true
+            defer { storedState.waiter = nil }
+            return storedState.waiter
+        }
+        waiter?.resume(throwing: CancellationError())
     }
 }

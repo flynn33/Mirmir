@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "gate_id": "G03",
+  "status": "pass",
+  "criteria": [
+    {"criterion": "All 512 states checked", "status": "pass", "count": 512},
+    {"criterion": "256 valid parity states checked", "status": "pass", "count": 256},
+    {"criterion": "16 codewords checked", "status": "pass", "count": 16},
+    {"criterion": "all one-bit affine corruptions corrected", "status": "pass", "count": 36864},
+    {"criterion": "all required two-bit corruptions rejected", "status": "pass", "count": 147456},
+    {"criterion": "Production Swift and independent reference vectors and hashes match exactly", "status": "pass", "sha256": "19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776"},
+    {"criterion": "canonical core unchanged or operator-approved math change recorded", "status": "pass", "branch": "unchanged_from_p00"}
+  ],
+  "evidence": [
+    "conformance/P03_G03_CANONICAL_CORE_EVIDENCE.md",
+    "conformance/p03-g03-canonical-core-evidence.json",
+    "conformance/canonical-vectors.json",
+    "conformance/canonical-vector.sha256",
+    "conformance/swift-conformance.xcresult",
+    "conformance/ash-core-v1.bin",
+    "conformance/ash-core-v1.contract.json"
+  ],
+  "defects": []
+}

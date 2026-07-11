@@ -4,9 +4,17 @@ import AudioToolbox
 import CoreMedia
 import CoreVideo
 
-final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable {
+protocol ASHTelemetryMediaPipelineScoping: AnyObject, Sendable {
+    func scoped(to telemetry: any ASHTelemetryRecording) -> any MediaPipelineService
+}
+
+final class AVFoundationMediaPipeline:
+    MediaPipelineService,
+    ASHTelemetryMediaPipelineScoping,
+    @unchecked Sendable {
 
     private let metal: MetalRenderingService
+    private let telemetry: any ASHTelemetryRecording
     private static let expectedColorMetadata = [
         ExpectedColorMetadata(
             key: kCMFormatDescriptionExtension_ColorPrimaries as String,
@@ -25,14 +33,24 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         )
     ]
 
-    init(metal: MetalRenderingService) {
+    init(
+        metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
+    ) {
         self.metal = metal
+        self.telemetry = telemetry
     }
 
     func start() {}
     func stop() {}
 
+    func scoped(to telemetry: any ASHTelemetryRecording) -> any MediaPipelineService {
+        AVFoundationMediaPipeline(metal: metal, telemetry: telemetry)
+    }
+
     func probe(url: URL) async throws -> SourceProfile {
+        let stage = telemetry.beginStage(.mediaProbe)
+        defer { telemetry.endStage(stage) }
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
@@ -58,7 +76,7 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         let durationSeconds = CMTimeGetSeconds(durationCM).isFinite ? CMTimeGetSeconds(durationCM) : 0
         let estimatedFrameCount = Int((durationSeconds * fps).rounded())
 
-        return SourceProfile(
+        let profile = SourceProfile(
             url: url,
             resolution: resolution,
             frameRate: fps,
@@ -67,10 +85,26 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
             codecHint: codecHint,
             hasAudio: hasAudio
         )
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "media_probe",
+            details: [
+                "encoded_dimensions": "\(resolution.width)x\(resolution.height)",
+                "estimated_frame_count": String(profile.estimatedFrameCount),
+                "has_audio": String(profile.hasAudio)
+            ]
+        ))
+        return profile
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
-        try await AVFoundationMediaSession.make(metal: metal, source: source, output: output)
+        try await telemetry.measure(.readerSetup) {
+            try await AVFoundationMediaSession.make(
+                metal: metal,
+                telemetry: telemetry,
+                source: source,
+                output: output
+            )
+        }
     }
 
     private static func fourCCString(_ value: FourCharCode) -> String {
@@ -141,6 +175,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     private let videoAdaptor: AVAssetWriterInputPixelBufferAdaptor
     private let audioInput: AVAssetWriterInput?
     private let outputTransaction: AtomicMediaOutput
+    private let telemetry: any ASHTelemetryRecording
     private let lifecycleLock = NSLock()
 
     private var frameIndex = 0
@@ -148,6 +183,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     static func make(
         metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
         source: SourceProfile,
         output: OutputProfile
     ) async throws -> AVFoundationMediaSession {
@@ -184,6 +220,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
         return try AVFoundationMediaSession(
             metal: metal,
+            telemetry: telemetry,
             source: source,
             output: output,
             asset: asset,
@@ -196,6 +233,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     private init(
         metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
         source: SourceProfile,
         output: OutputProfile,
         asset: AVURLAsset,
@@ -216,6 +254,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             preserveAudio: output.preserveAudio
         )
         let outputTransaction = try Self.makeOutputTransaction(outputURL: output.url)
+        outputTransaction.attachTelemetry(telemetry)
         let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
         writer.metadata = Self.makeASHMetadataItems()
         let writerInputs = try Self.configureWriterInputs(
@@ -245,9 +284,20 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.videoAdaptor = writerInputs.adaptor
         self.audioInput = writerInputs.audio
         self.outputTransaction = outputTransaction
+        self.telemetry = telemetry
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "reader_writer_started",
+            details: [
+                "input_pixel_format": "420v",
+                "output_pixel_format": "420v",
+                "output_dimensions": "\(output.resolution.width)x\(output.resolution.height)"
+            ]
+        ))
     }
 
     func nextSourceFrame() async throws -> FrameRecord? {
+        let stage = telemetry.beginStage(.frameRead, frameIndex: frameIndex)
+        defer { telemetry.endStage(stage) }
         // Loop (not recurse) over marker / metadata sample buffers without
         // image buffers — recursion would risk stack overflow on long
         // sequences.
@@ -264,6 +314,16 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             }
             let pts = CMSampleBufferGetPresentationTimeStamp(sample)
             let record = FrameRecord(pixelBuffer: buffer, presentationTime: pts, frameIndex: frameIndex)
+            telemetry.recordMedia(ASHMediaObservation(
+                kind: "frame_read",
+                frameIndex: frameIndex,
+                presentationTimestampValue: pts.value,
+                presentationTimestampTimescale: pts.timescale,
+                details: [
+                    "pixel_format": String(CVPixelBufferGetPixelFormatType(buffer)),
+                    "plane_count": String(CVPixelBufferGetPlaneCount(buffer))
+                ]
+            ))
             frameIndex += 1
             return record
         }
@@ -271,15 +331,29 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     }
 
     func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws {
-        while !videoInput.isReadyForMoreMediaData {
-            try await Task.sleep(nanoseconds: 1_000_000)
-            if sessionIsCancelled() { throw CancellationError() }
+        let backpressure = telemetry.beginStage(.writerBackpressure)
+        do {
+            while !videoInput.isReadyForMoreMediaData {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                if sessionIsCancelled() { throw CancellationError() }
+            }
+        } catch {
+            telemetry.endStage(backpressure)
+            throw error
         }
+        telemetry.endStage(backpressure)
+        let append = telemetry.beginStage(.writerAppend)
+        defer { telemetry.endStage(append) }
         try Task.checkCancellation()
         if sessionIsCancelled() { throw CancellationError() }
         if !videoAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
             throw MediaPipelineError.writerFailed(writer.error)
         }
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "frame_appended",
+            presentationTimestampValue: presentationTime.value,
+            presentationTimestampTimescale: presentationTime.timescale
+        ))
     }
 
     func finish() async throws {
@@ -288,6 +362,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         // Drain audio (passthrough) before finalizing. .cancelled is treated
         // separately from .failed (see post-finish check below).
         if let audioOutput, let audioInput {
+            let audioStage = telemetry.beginStage(.audioProcess)
             do {
                 while let sample = audioOutput.copyNextSampleBuffer() {
                     while !audioInput.isReadyForMoreMediaData {
@@ -301,13 +376,22 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                 }
                 audioInput.markAsFinished()
             } catch let error as MediaPipelineError {
+                telemetry.endStage(audioStage)
                 throw error
             } catch {
+                telemetry.endStage(audioStage)
                 throw MediaPipelineError.audioBridgeFailed(error)
             }
+            telemetry.endStage(audioStage)
         }
         videoInput.markAsFinished()
+        let finishStage = telemetry.beginStage(.writerFinish)
         await writer.finishWriting()
+        telemetry.endStage(finishStage)
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "writer_finished",
+            details: ["status": String(writer.status.rawValue)]
+        ))
         switch writer.status {
         case .completed:
             do {

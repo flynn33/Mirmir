@@ -1,0 +1,59 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project /Users/jimdaley/GitHub/Mirmir/Mirmir.xcodeproj -scheme Mirmir -configuration Debug -derivedDataPath /tmp/mirmir-p01p03-optimized-final-deriveddata -destination platform=macOS -disableAutomaticPackageResolution -skipPackageUpdates -parallel-testing-enabled NO -enableCodeCoverage NO "-only-testing:MirmirTests/ASHTelemetryTests/test_productionTraceFixtureWhenExplicitlyConfigured" -resultBundlePath /tmp/mirmir-signpost-final.xcresult
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  ForsettiFramework: https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git @ 43eef7a
+
+2026-07-11 09:01:28.689 xcodebuild[50986:425913] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/tmp/mirmir-signpost-final.xcresult
+
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:x86_64, id:00006040-0016283C11F8801C, name:My Mac }
+2026-07-11 09:01:30.936568-0500 Mirmir[51165:426936] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.936744-0500 Mirmir[51165:426936] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.936958-0500 Mirmir[51165:426928] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.936971-0500 Mirmir[51165:426928] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.937319-0500 Mirmir[51165:426929] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.937331-0500 Mirmir[51165:426929] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.937591-0500 Mirmir[51165:426929] [Connection] Will NOT re-try to establish the connection
+2026-07-11 09:01:30.937614-0500 Mirmir[51165:426936] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.937625-0500 Mirmir[51165:426936] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 09:01:30.964040-0500 Mirmir[51165:426351] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/com.mirmir.app.savedState
+2026-07-11 09:01:31.051406-0500 Mirmir[51165:426351] [Forsetti] Discovered 5 module manifests
+2026-07-11 09:01:31.053558-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.media-pipeline] Media pipeline started
+2026-07-11 09:01:31.053845-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.media-pipeline] Activated module
+2026-07-11 09:01:31.055575-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.metal] Metal rendering ready
+2026-07-11 09:01:31.055775-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.metal] Activated module
+2026-07-11 09:01:31.056083-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.model-assets] Model assets service started
+2026-07-11 09:01:31.056200-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.model-assets] Activated module
+2026-07-11 09:01:31.056494-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.ui] Mirmir UI module activated
+2026-07-11 09:01:31.056609-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.ui] Activated module
+2026-07-11 09:01:31.056961-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.upscaler-engine] Upscaler engine started
+2026-07-11 09:01:31.057044-0500 Mirmir[51165:426351] [Forsetti] [module=com.mirmir.app.upscaler-engine] Activated module
+Test Suite 'Selected tests' started at 2026-07-11 09:01:31.133.
+Test Suite 'MirmirTests.xctest' started at 2026-07-11 09:01:31.134.
+Test Suite 'ASHTelemetryTests' started at 2026-07-11 09:01:31.134.
+Test Case '-[MirmirTests.ASHTelemetryTests test_productionTraceFixtureWhenExplicitlyConfigured]' started.
+2026-07-11 09:01:31.140770-0500 Mirmir[51165:426928] [] (Fig) signalled err=0 at <>:85
+Test Case '-[MirmirTests.ASHTelemetryTests test_productionTraceFixtureWhenExplicitlyConfigured]' passed (15.963 seconds).
+Test Suite 'ASHTelemetryTests' passed at 2026-07-11 09:01:47.098.
+	 Executed 1 test, with 0 failures (0 unexpected) in 15.963 (15.964) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-07-11 09:01:47.098.
+	 Executed 1 test, with 0 failures (0 unexpected) in 15.963 (15.964) seconds
+Test Suite 'Selected tests' passed at 2026-07-11 09:01:47.098.
+	 Executed 1 test, with 0 failures (0 unexpected) in 15.963 (15.964) seconds
+2026-07-11 09:01:47.396 xcodebuild[50986:425913] [MT] IDETestOperationsObserverDebug: 18.497 elapsed -- Testing started completed.
+2026-07-11 09:01:47.396 xcodebuild[50986:425913] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-07-11 09:01:47.396 xcodebuild[50986:425913] [MT] IDETestOperationsObserverDebug: 18.497 sec, +18.497 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/mirmir-signpost-final.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -4,6 +4,7 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
     case modelAssetsNotReady
     case unsupportedSourceResolution(VideoResolution)
     case inputOutputCollision
+    case jobAlreadyRunning
     case strategyFailed(String)
     case cancelled
 
@@ -15,6 +16,8 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
             return "Source resolution \(res) is not supported by Mirmir (supports 720p and 1080p)."
         case .inputOutputCollision:
             return "The output file must be different from the source video."
+        case .jobAlreadyRunning:
+            return "An upscale job is already running."
         case .strategyFailed(let detail):
             return "Upscale strategy failed: \(detail)"
         case .cancelled:

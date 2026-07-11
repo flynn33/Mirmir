@@ -3,6 +3,7 @@ import Foundation
 final class AtomicMediaOutput: @unchecked Sendable {
     let destinationURL: URL
     let temporaryURL: URL
+    private var telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
 
     init(destinationURL: URL, fileManager: FileManager = .default) throws {
         self.destinationURL = destinationURL
@@ -27,6 +28,14 @@ final class AtomicMediaOutput: @unchecked Sendable {
         )
     }
 
+    func attachTelemetry(_ telemetry: any ASHTelemetryRecording) {
+        self.telemetry = telemetry
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "temporary_output_created",
+            details: ["temporary_name": temporaryURL.lastPathComponent]
+        ))
+    }
+
     func commit(fileManager: FileManager = .default) throws {
         if fileManager.fileExists(atPath: destinationURL.path) {
             _ = try fileManager.replaceItemAt(
@@ -38,10 +47,24 @@ final class AtomicMediaOutput: @unchecked Sendable {
         } else {
             try fileManager.moveItem(at: temporaryURL, to: destinationURL)
         }
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "output_published",
+            details: ["destination_name": destinationURL.lastPathComponent]
+        ))
     }
 
     func discard(fileManager: FileManager = .default) {
-        try? fileManager.removeItem(at: temporaryURL)
+        guard fileManager.fileExists(atPath: temporaryURL.path) else { return }
+        do {
+            try fileManager.removeItem(at: temporaryURL)
+            telemetry.recordMedia(ASHMediaObservation(
+                kind: "temporary_output_discarded",
+                details: ["temporary_name": temporaryURL.lastPathComponent]
+            ))
+        } catch {
+            telemetry.increment(.partialCleanupFailures)
+            telemetry.recordError(error)
+        }
     }
 
     deinit {

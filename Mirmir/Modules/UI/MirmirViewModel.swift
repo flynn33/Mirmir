@@ -118,6 +118,11 @@ final class MirmirViewModel: ObservableObject {
     private var progressTask: Task<Void, Never>?
     private var jobHandle: UpscalerJobHandle?
 
+    private var jobIsRunning: Bool {
+        if case .running = state { return true }
+        return false
+    }
+
     static let supportedVideoExtensions = ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"]
 
     init(
@@ -215,6 +220,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func chooseSourceFile() {
+        guard !jobIsRunning else { return }
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -225,6 +231,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func loadSource(url: URL) {
+        guard !jobIsRunning else { return }
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
             clearOutputSelection()
@@ -316,21 +323,41 @@ final class MirmirViewModel: ObservableObject {
                     let url = try await handle.waitForCompletion()
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
+                        self.jobHandle = nil
+                        self.progressTask = nil
                         self.state = .finished(url)
                     }
                 } catch is CancellationError {
-                    // User cancelled — `cancelUpscale()` already moved the
-                    // state machine back to `.ready`. Don't overwrite it.
+                    await MainActor.run {
+                        self.jobHandle = nil
+                        self.progressTask = nil
+                        if self.jobIsRunning {
+                            self.state = .ready
+                        }
+                    }
                     return
                 } catch let engineError as UpscalerEngineError {
-                    if case .cancelled = engineError { return }
+                    if case .cancelled = engineError {
+                        await MainActor.run {
+                            self.jobHandle = nil
+                            self.progressTask = nil
+                            if self.jobIsRunning {
+                                self.state = .ready
+                            }
+                        }
+                        return
+                    }
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
+                        self.jobHandle = nil
+                        self.progressTask = nil
                         self.state = .failed(String(describing: engineError))
                     }
                 } catch {
                     await MainActor.run {
                         guard !Task.isCancelled else { return }
+                        self.jobHandle = nil
+                        self.progressTask = nil
                         self.state = .failed(String(describing: error))
                     }
                 }
@@ -342,12 +369,6 @@ final class MirmirViewModel: ObservableObject {
 
     func cancelUpscale() {
         jobHandle?.cancel()
-        jobHandle = nil
-        progressTask?.cancel()
-        progressTask = nil
-        if case .running = state {
-            state = .ready
-        }
     }
 
     func revealOutputInFinder() {

@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "format": "ASHCORE1",
+  "payload": "ash-core-v1.bin",
+  "payload_sha256": "19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776",
+  "payload_size_bytes": 3016832,
+  "shared_contract": "ash-core-v1.contract.json",
+  "shared_contract_repository_path": "validation/reference/ash-core-v1.contract.json",
+  "shared_contract_sha256": "97ff97a79257707824c91f6f99bc7495bd4b78b221e930f8614c8ce12d782936",
+  "byte_order": "little_endian",
+  "coordinate_order": "coordinate_1_is_packed_bit_8_coordinate_9_is_packed_bit_0",
+  "decoder_radius": 1,
+  "records": {
+    "raw_states": 512,
+    "valid_parity_states": 256,
+    "codewords": 16,
+    "exact_affine": 4096,
+    "one_bit_affine": 36864,
+    "two_bit_affine": 147456
+  },
+  "production_emitter": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift",
+  "independent_verifier": "validation/reference/ash_core_oracle.py",
+  "comparison": "byte_for_byte_and_sha256_equal",
+  "contract_mutation_rejection": "generator_row_and_decoder_radius_rejected_by_both_implementations",
+  "xcode_result": "swift-conformance.xcresult"
+}

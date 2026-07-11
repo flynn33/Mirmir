@@ -202,17 +202,20 @@ struct ASHTileProcessor: Sendable {
     let scale: Int
     let topK: Int
     let configuration: ASHRuntimeConfiguration
+    let telemetry: any ASHTelemetryRecording
 
     init(
         tileSize: Int = 32,
         scale: Int = ASHReconstruction.defaultScale,
         topK: Int = ASHReconstruction.defaultTopK,
-        configuration: ASHRuntimeConfiguration = .current
+        configuration: ASHRuntimeConfiguration = .current,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
     ) {
         self.tileSize = tileSize
         self.scale = scale
         self.topK = topK
         self.configuration = configuration
+        self.telemetry = telemetry
     }
 
     func process(
@@ -272,30 +275,41 @@ struct ASHTileProcessor: Sendable {
         let currentTile = try luma.cropped(to: tile.sourceRect)
         let candidatePreviousTile = previous?.sourceTiles[tile.id]?.matchingShape(currentTile)
         let candidatePreviousState = previous?.sourceStates[tile.id]
-        let historyResetReason = determineHistoryResetReason(
-            current: currentTile,
-            previous: candidatePreviousTile,
-            previousState: candidatePreviousState,
-            hasPreviousFrame: previous != nil
-        )
+        let historyResetReason = telemetry.measure(.motionEstimate) {
+            determineHistoryResetReason(
+                current: currentTile,
+                previous: candidatePreviousTile,
+                previousState: candidatePreviousState,
+                hasPreviousFrame: previous != nil
+            )
+        }
         let previousTile = historyResetReason == nil ? candidatePreviousTile : nil
         let previousState = historyResetReason == nil ? candidatePreviousState : nil
         let previousReconstruction = historyResetReason == nil
             ? previous?.reconstructions[tile.id]?.matchingReconstructionShape(of: currentTile, scale: scale)
             : nil
+        let chromaEnergy = telemetry.measure(.analyzeChroma) {
+            chroma?.energy(inLumaRect: tile.sourceRect)
+        }
         let mapping = try ASHReferencePipeline.mapPatch(
             current: currentTile,
             previous: previousTile,
             previousState: previousState,
             previousReconstruction: previousReconstruction,
-            chromaEnergy: chroma?.energy(inLumaRect: tile.sourceRect),
+            chromaEnergy: chromaEnergy,
             scale: scale,
             topK: topK,
             candidateRetention: .selectedOnly,
-            scoringPolicy: configuration.scoringPolicy
+            scoringPolicy: configuration.scoringPolicy,
+            telemetry: telemetry
         )
         guard let selected = mapping.selected.first else {
             throw UpscalerEngineError.strategyFailed("ASH tile reconstruction produced no selected candidate")
+        }
+        telemetry.measure(.telemetryReduce) {
+            telemetry.recordState(rawValue: mapping.sourceState.rawValue)
+            telemetry.recordMessage(selected.message.rawValue)
+            telemetry.recordOperator(selected.message.rawValue)
         }
         return ASHTileContext(
             currentTile: currentTile,

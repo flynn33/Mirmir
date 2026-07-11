@@ -7,9 +7,9 @@ Remote boundary: local implementation and local commits only. No fetch, push, pu
 ## Phase checklist
 
 - [x] P00 — Environment, scope, and baseline lock; pass G00.
-- [ ] P01 — Production call graph and telemetry; pass G01.
+- [x] P01 — Production call graph and telemetry; pass G01.
 - [ ] P02 — Metal completion, transactional cleanup, and route correctness; pass G02.
-- [ ] P03 — Canonical ASH packed-core conformance; pass G03.
+- [x] P03 — Canonical ASH packed-core conformance; pass G03.
 - [ ] P04 — Native-HR benchmark, degradations, metrics, and corpus lock; pass G04.
 - [ ] P05 — Spatial ASH v2 CPU mapping and direct reconstruction; pass G05.
 - [ ] P06 — Calibration, branch compiler, route LUTs, and configuration lock; pass G06.

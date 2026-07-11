@@ -43,7 +43,8 @@ final class MirmirForsettiBootstrap: ObservableObject {
             upscalerEngineService = DefaultUpscalerEngineService(
                 media: mediaPipelineService,
                 metal: metalService,
-                modelAssets: modelAssetsService
+                modelAssets: modelAssetsService,
+                telemetryFactory: { DefaultASHTelemetryRecorder() }
             )
         } else {
             preconditionFailure("Mirmir requires macOS 15.4 or later.")

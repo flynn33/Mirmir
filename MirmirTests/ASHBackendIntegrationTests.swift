@@ -146,6 +146,48 @@ final class ASHBackendIntegrationTests: XCTestCase {
         XCTAssertFalse(session.didFinish)
     }
 
+    @available(macOS 15.4, *)
+    func test_serviceRejectsOverlapUntilCancelledJobTerminates() async throws {
+        let session = try RecordingMediaSession(behavior: .suspend)
+        let telemetry = DefaultASHTelemetryRecorder(emitsSignposts: false)
+        let service = DefaultUpscalerEngineService(
+            media: RecordingMediaPipelineService(session: session),
+            metal: NoopMetalRenderingService(),
+            modelAssets: NoopModelAssetsService(),
+            telemetryFactory: { telemetry }
+        )
+        let first = try service.submit(makeRecordingJob())
+
+        for _ in 0..<10_000 where !session.didRequestFrame {
+            await Task.yield()
+        }
+        XCTAssertTrue(session.didRequestFrame)
+        let firstRunID = telemetry.snapshot().runID
+
+        XCTAssertThrowsError(try service.submit(makeRecordingJob())) { error in
+            guard let engineError = error as? UpscalerEngineError,
+                  case .jobAlreadyRunning = engineError else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+        XCTAssertEqual(telemetry.snapshot().runID, firstRunID)
+
+        first.cancel()
+        do {
+            _ = try await first.waitForCompletion()
+            XCTFail("Expected cancellation")
+        } catch let error as UpscalerEngineError {
+            guard case .cancelled = error else {
+                return XCTFail("Unexpected engine error: \(error)")
+            }
+        }
+        XCTAssertEqual(telemetry.snapshot().result.status, .cancelled)
+
+        let next = try service.submit(makeRecordingJob())
+        next.cancel()
+        _ = try? await next.waitForCompletion()
+    }
+
     @MainActor
     func test_viewModelCanStartASHUpscaleWithoutModelReadiness() {
         let viewModel = MirmirViewModel(
