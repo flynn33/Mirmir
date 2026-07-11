@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "baseline_commit": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+  "production_media_evidence_date": "2026-07-10",
+  "failures": [
+    {
+      "id": "P00-720P-HANDLER-ORDER",
+      "route": "1280x720->1920x1080",
+      "exception": "Completed handler provided after commit call",
+      "source_location": "LanczosPolishPass.encodePlane",
+      "effect": "process_abort_and_partial_file",
+      "partial_artifact": {
+        "path": "<test-media-root>/evaluation/outputs/.img9200_exact_720p_1f_mirmir_1080p_hevc.mirmir-15FFDF2D-1315-479F-A41F-25EAADE25A1E.partial.mp4",
+        "size_bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "preserved": true
+      }
+    },
+    {
+      "id": "P00-AUDIO-ELIGIBILITY",
+      "route": "production_media_validation",
+      "exception": "Enabled AAC plus disabled APAC counted as two audio tracks",
+      "effect": "valid_fixture_rejected"
+    }
+  ],
+  "architecture_observations": {
+    "luma": "CPU nearest expansion plus selected blur/detail",
+    "chroma": "nearest",
+    "separate_metal_ash_caller": false
+  }
+}

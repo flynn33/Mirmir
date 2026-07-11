@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "started_utc": "2026-07-11T12:04:47Z",
+  "ended_utc": "2026-07-11T12:12:56Z",
+  "overall_status": "fail",
+  "mandatory_failure_count": 12,
+  "gates": [
+    {
+      "id": "G00",
+      "status": "pass",
+      "criteria": [
+        "Consumer project mode recorded",
+        "Forsetti treated as sealed dependency",
+        "tool versions and hardware recorded",
+        "baseline test reproduced or exact evidence-based variance explained",
+        "baseline local commit and changed-scope boundary recorded",
+        "no remote modification"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/environment.json",
+        "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/baseline-reproduction.json",
+        "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/test-results.json",
+        "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/baseline-source.sha256",
+        "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/input-media.sha256"
+      ],
+      "defects": []
+    },
+    {"id":"G01","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G02","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G03","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G04","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G05","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G06","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G07","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G08","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G09","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G10","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G11","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {"id":"G12","status":"not_run","criteria":[],"evidence":[],"defects":[]}
+  ],
+  "remote_operations": {
+    "push": false,
+    "pull_request": false,
+    "tag": false,
+    "release": false,
+    "remote_config_change": false
+  },
+  "local_commits": [],
+  "attribution_scan": {
+    "status": "pass",
+    "base": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+    "findings": []
+  },
+  "residual_nonblocking_objectives": []
+}

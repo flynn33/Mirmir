@@ -1,0 +1,72 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "8b63a2ed-faa1-4a25-963d-9f3b4db101ed",
+  "baseline_commit": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+  "results": [
+    {
+      "name": "instruction_package_validation",
+      "status": "pass",
+      "total_files": 77,
+      "payload_files": 75,
+      "checksum_entries": 76
+    },
+    {
+      "name": "reference_audit_reproduction",
+      "status": "pass",
+      "comparison": "byte_equal"
+    },
+    {
+      "name": "debug_build",
+      "status": "pass",
+      "warnings": 0,
+      "errors": 0
+    },
+    {
+      "name": "focused_ash_tests",
+      "status": "pass",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0,
+      "line_coverage": 0.48727564961157244
+    },
+    {
+      "name": "full_debug_tests",
+      "status": "pass",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0,
+      "line_coverage": 0.6139764527155336
+    },
+    {
+      "name": "release_build",
+      "status": "pass",
+      "warnings": 0,
+      "errors": 0
+    },
+    {
+      "name": "app_launch_and_window",
+      "status": "pass",
+      "window": {
+        "title": "Mirmir",
+        "onscreen": true,
+        "width": 1200,
+        "height": 800
+      }
+    },
+    {
+      "name": "tracked_source_integrity",
+      "status": "pass",
+      "files": 104
+    },
+    {
+      "name": "input_media_integrity",
+      "status": "pass",
+      "files": 15
+    },
+    {
+      "name": "production_media_baseline_reproduction",
+      "status": "not_run",
+      "reason": "No deterministic noninteractive production media harness exists at the baseline commit; exact supplied evidence is preserved and variance is recorded."
+    }
+  ]
+}
