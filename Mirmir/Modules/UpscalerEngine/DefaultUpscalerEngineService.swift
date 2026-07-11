@@ -199,30 +199,15 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
                 while let record = try await session.nextSourceFrame() {
                     try Task.checkCancellation()
-                    let frameToken = telemetry.beginStage(.frameTotal, frameIndex: record.frameIndex)
-
-                    do {
-                        let srBuffer = try PixelBufferBridge.dequeue(from: srPool)
-                        try await backend.process(source: record.pixelBuffer, into: srBuffer)
-                        try Task.checkCancellation()
-                        let outputBuffer: CVPixelBuffer
-                        if let lanczos {
-                            let polished = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
-                            try await lanczos.encode(from: srBuffer, to: polished)
-                            try Task.checkCancellation()
-                            outputBuffer = polished
-                        } else {
-                            outputBuffer = srBuffer
-                        }
-                        try await session.appendOutput(
-                            pixelBuffer: outputBuffer,
-                            at: record.presentationTime
-                        )
-                        telemetry.endStage(frameToken)
-                    } catch {
-                        telemetry.endStage(frameToken)
-                        throw error
-                    }
+                    try await processFrame(
+                        record,
+                        backend: backend,
+                        lanczos: lanczos,
+                        superResolutionPool: srPool,
+                        outputPool: session.outputPixelBufferPool,
+                        session: session,
+                        telemetry: telemetry
+                    )
 
                     processed += 1
                     let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
@@ -243,6 +228,10 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
                 try Task.checkCancellation()
 
                 try await session.finish()
+                try Task.checkCancellation()
+                if let cleanupError = session.terminalCleanupError {
+                    throw cleanupError
+                }
                 let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
                 progressContinuation.yield(UpscaleProgress(
                     framesProcessed: processed,
@@ -256,9 +245,52 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
             }
         } catch {
             session.cancel()
+            if let cleanupError = session.terminalCleanupError {
+                throw cleanupError
+            }
             if error is CancellationError || Task.isCancelled {
                 throw UpscalerEngineError.cancelled
             }
+            throw error
+        }
+    }
+
+    private static func processFrame(
+        _ record: FrameRecord,
+        backend: ASHDeterministicUpscaleBackend,
+        lanczos: LanczosPolishPass?,
+        superResolutionPool: CVPixelBufferPool,
+        outputPool: CVPixelBufferPool,
+        session: MediaSession,
+        telemetry: any ASHTelemetryRecording
+    ) async throws {
+        let frameToken = telemetry.beginStage(.frameTotal, frameIndex: record.frameIndex)
+        do {
+            let superResolutionBuffer = try PixelBufferBridge.dequeue(from: superResolutionPool)
+            try await backend.process(source: record.pixelBuffer, into: superResolutionBuffer)
+            try Task.checkCancellation()
+
+            let outputBuffer: CVPixelBuffer
+            if let lanczos {
+                let polished = try PixelBufferBridge.dequeue(from: outputPool)
+                try await lanczos.encode(
+                    from: superResolutionBuffer,
+                    to: polished,
+                    frameIndex: record.frameIndex,
+                    presentationTime: record.presentationTime
+                )
+                try Task.checkCancellation()
+                outputBuffer = polished
+            } else {
+                outputBuffer = superResolutionBuffer
+            }
+            try await session.appendOutput(
+                pixelBuffer: outputBuffer,
+                timing: record.timing
+            )
+            telemetry.endStage(frameToken)
+        } catch {
+            telemetry.endStage(frameToken)
             throw error
         }
     }

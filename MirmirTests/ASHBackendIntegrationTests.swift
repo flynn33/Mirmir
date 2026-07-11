@@ -6,47 +6,6 @@ import XCTest
 
 final class ASHBackendIntegrationTests: XCTestCase {
 
-    func test_atomicMediaOutputCommitsWithoutDestroyingExistingFileEarly() throws {
-        let fileManager = FileManager.default
-        let directory = fileManager.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: directory) }
-
-        let destination = directory.appendingPathComponent("output.mp4")
-        try Data("original".utf8).write(to: destination)
-        let transaction = try AtomicMediaOutput(destinationURL: destination)
-        XCTAssertEqual(
-            transaction.temporaryURL.deletingLastPathComponent(),
-            destination.deletingLastPathComponent()
-        )
-        try Data("completed".utf8).write(to: transaction.temporaryURL)
-
-        XCTAssertEqual(try Data(contentsOf: destination), Data("original".utf8))
-        try transaction.commit()
-
-        XCTAssertEqual(try Data(contentsOf: destination), Data("completed".utf8))
-        XCTAssertFalse(fileManager.fileExists(atPath: transaction.temporaryURL.path))
-    }
-
-    func test_atomicMediaOutputDiscardPreservesExistingDestination() throws {
-        let fileManager = FileManager.default
-        let directory = fileManager.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? fileManager.removeItem(at: directory) }
-
-        let destination = directory.appendingPathComponent("output.mp4")
-        try Data("original".utf8).write(to: destination)
-        let transaction = try AtomicMediaOutput(destinationURL: destination)
-        try Data("partial".utf8).write(to: transaction.temporaryURL)
-
-        transaction.discard()
-
-        XCTAssertEqual(try Data(contentsOf: destination), Data("original".utf8))
-        XCTAssertFalse(fileManager.fileExists(atPath: transaction.temporaryURL.path))
-    }
-
     @available(macOS 15.4, *)
     func test_defaultUpscalerRejectsInputOutputCollision() throws {
         let service = DefaultUpscalerEngineService(
@@ -142,6 +101,36 @@ final class ASHBackendIntegrationTests: XCTestCase {
             }
         }
 
+        XCTAssertTrue(session.didCancel)
+        XCTAssertFalse(session.didFinish)
+    }
+
+    @available(macOS 15.4, *)
+    func test_jobCancellationPropagatesTerminalCleanupFailure() async throws {
+        let session = try RecordingMediaSession(behavior: .suspendWithCleanupFailure)
+        let service = DefaultUpscalerEngineService(
+            media: RecordingMediaPipelineService(session: session),
+            metal: NoopMetalRenderingService(),
+            modelAssets: NoopModelAssetsService()
+        )
+        let handle = try service.submit(makeRecordingJob())
+
+        for _ in 0..<10_000 where !session.didRequestFrame {
+            await Task.yield()
+        }
+        XCTAssertTrue(session.didRequestFrame)
+        handle.cancel()
+
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("Expected terminal cleanup failure.")
+        } catch let error as MediaPipelineError {
+            guard case .partialCleanupFailed(let url, let reason) = error else {
+                return XCTFail("Unexpected media error: \(error)")
+            }
+            XCTAssertEqual(url.lastPathComponent, "injected.partial.mp4")
+            XCTAssertEqual(reason, "injected cleanup failure")
+        }
         XCTAssertTrue(session.didCancel)
         XCTAssertFalse(session.didFinish)
     }
@@ -246,9 +235,10 @@ private final class RecordingMediaPipelineService: MediaPipelineService, @unchec
 }
 
 private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
-    enum Behavior: Sendable {
+    enum Behavior: Sendable, Equatable {
         case fail
         case suspend
+        case suspendWithCleanupFailure
     }
 
     struct InjectedFailure: Error {}
@@ -276,6 +266,13 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
         preserveAudio: false
     )
     let outputPixelBufferPool: CVPixelBufferPool
+    var terminalCleanupError: MediaPipelineError? {
+        guard behavior == .suspendWithCleanupFailure, didCancel else { return nil }
+        return .partialCleanupFailed(
+            URL(fileURLWithPath: "/tmp/injected.partial.mp4"),
+            "injected cleanup failure"
+        )
+    }
 
     private let behavior: Behavior
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -302,7 +299,7 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
         case .fail:
             state.withLock { $0.didRequestFrame = true }
             throw InjectedFailure()
-        case .suspend:
+        case .suspend, .suspendWithCleanupFailure:
             return try await withCheckedThrowingContinuation { continuation in
                 let wasAlreadyCancelled = state.withLock { state in
                     state.didRequestFrame = true
@@ -319,7 +316,7 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
         }
     }
 
-    func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws {}
+    func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws {}
 
     func finish() async throws {
         state.withLock { $0.didFinish = true }

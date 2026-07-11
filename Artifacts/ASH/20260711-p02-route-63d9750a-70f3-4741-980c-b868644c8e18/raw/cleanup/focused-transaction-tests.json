@@ -1,0 +1,275 @@
+{
+  "devices": [
+    {
+      "architecture": "arm64",
+      "deviceId": "00006040-0016283C11F8801C",
+      "deviceName": "My Mac",
+      "modelName": "MacBook Pro",
+      "osBuildNumber": "25F80",
+      "osVersion": "26.5.1",
+      "platform": "macOS"
+    }
+  ],
+  "testNodes": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "duration": "0.0013s",
+                  "durationInSeconds": 0.0012860298156738281,
+                  "name": "test_defaultUpscalerRejectsInputOutputCollision()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_defaultUpscalerRejectsInputOutputCollision()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_defaultUpscalerRejectsInputOutputCollision",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.039s",
+                  "durationInSeconds": 0.038735032081604004,
+                  "name": "test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0027s",
+                  "durationInSeconds": 0.0026749372482299805,
+                  "name": "test_jobCancellationPropagatesTerminalCleanupFailure()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_jobCancellationPropagatesTerminalCleanupFailure()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_jobCancellationPropagatesTerminalCleanupFailure",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0019s",
+                  "durationInSeconds": 0.0019490718841552734,
+                  "name": "test_jobCancellationUnblocksAndTearsDownTheMediaSession()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_jobCancellationUnblocksAndTearsDownTheMediaSession()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_jobCancellationUnblocksAndTearsDownTheMediaSession",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0012s",
+                  "durationInSeconds": 0.0012140274047851562,
+                  "name": "test_pipelineFailureCancelsTheActiveMediaSession()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_pipelineFailureCancelsTheActiveMediaSession()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_pipelineFailureCancelsTheActiveMediaSession",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0021s",
+                  "durationInSeconds": 0.002135038375854492,
+                  "name": "test_serviceRejectsOverlapUntilCancelledJobTerminates()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_serviceRejectsOverlapUntilCancelledJobTerminates()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_serviceRejectsOverlapUntilCancelledJobTerminates",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0098s",
+                  "durationInSeconds": 0.009771943092346191,
+                  "name": "test_viewModelCanStartASHUpscaleWithoutModelReadiness()",
+                  "nodeIdentifier": "ASHBackendIntegrationTests/test_viewModelCanStartASHUpscaleWithoutModelReadiness()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests/test_viewModelCanStartASHUpscaleWithoutModelReadiness",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                }
+              ],
+              "name": "ASHBackendIntegrationTests",
+              "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/ASHBackendIntegrationTests",
+              "nodeType": "Test Suite",
+              "result": "Passed"
+            },
+            {
+              "children": [
+                {
+                  "duration": "0.0014s",
+                  "durationInSeconds": 0.0014209747314453125,
+                  "name": "testAtomicNoClobberProtectsDestinationCreatedAtPublicationBoundary()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testAtomicNoClobberProtectsDestinationCreatedAtPublicationBoundary()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testAtomicNoClobberProtectsDestinationCreatedAtPublicationBoundary",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00089s",
+                  "durationInSeconds": 0.0008889436721801758,
+                  "name": "testAtomicRenameFailureDoesNotPublishAndCleansTemporary()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testAtomicRenameFailureDoesNotPublishAndCleansTemporary()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testAtomicRenameFailureDoesNotPublishAndCleansTemporary",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00069s",
+                  "durationInSeconds": 0.0006870031356811523,
+                  "name": "testCancellationPreventsPublicationAndRemovesRecognizedTemporary()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testCancellationPreventsPublicationAndRemovesRecognizedTemporary()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testCancellationPreventsPublicationAndRemovesRecognizedTemporary",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00079s",
+                  "durationInSeconds": 0.0007939338684082031,
+                  "name": "testCleanupFailureIsTypedBoundedRetainedAndIdempotent()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testCleanupFailureIsTypedBoundedRetainedAndIdempotent()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testCleanupFailureIsTypedBoundedRetainedAndIdempotent",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00065s",
+                  "durationInSeconds": 0.0006519556045532227,
+                  "name": "testCleanupRetriesUnderBoundAndRetainsSuccessfulPostcondition()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testCleanupRetriesUnderBoundAndRetainsSuccessfulPostcondition()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testCleanupRetriesUnderBoundAndRetainsSuccessfulPostcondition",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0009s",
+                  "durationInSeconds": 0.000903010368347168,
+                  "name": "testDestinationCreatedDuringWritingWinsRaceAndRemainsUntouched()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testDestinationCreatedDuringWritingWinsRaceAndRemainsUntouched()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testDestinationCreatedDuringWritingWinsRaceAndRemainsUntouched",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00075s",
+                  "durationInSeconds": 0.0007489919662475586,
+                  "name": "testExistingDestinationIsRejectedWithoutChangingItsBytes()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testExistingDestinationIsRejectedWithoutChangingItsBytes()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testExistingDestinationIsRejectedWithoutChangingItsBytes",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00085s",
+                  "durationInSeconds": 0.0008549690246582031,
+                  "name": "testStateMachinePublishesOnlyAfterVerificationAndTerminalCallsAreIdempotent()",
+                  "nodeIdentifier": "AtomicMediaOutputTests/testStateMachinePublishesOnlyAfterVerificationAndTerminalCallsAreIdempotent()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests/testStateMachinePublishesOnlyAfterVerificationAndTerminalCallsAreIdempotent",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                }
+              ],
+              "name": "AtomicMediaOutputTests",
+              "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/AtomicMediaOutputTests",
+              "nodeType": "Test Suite",
+              "result": "Passed"
+            },
+            {
+              "children": [
+                {
+                  "duration": "0.00037s",
+                  "durationInSeconds": 0.00037407875061035156,
+                  "name": "testLedgerRecordsExactCountOrderAndDurationEndpoint()",
+                  "nodeIdentifier": "FrameTimingLedgerTests/testLedgerRecordsExactCountOrderAndDurationEndpoint()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/FrameTimingLedgerTests/testLedgerRecordsExactCountOrderAndDurationEndpoint",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00037s",
+                  "durationInSeconds": 0.0003650188446044922,
+                  "name": "testLedgerRejectsIndexGapWithoutMutatingCount()",
+                  "nodeIdentifier": "FrameTimingLedgerTests/testLedgerRejectsIndexGapWithoutMutatingCount()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/FrameTimingLedgerTests/testLedgerRejectsIndexGapWithoutMutatingCount",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00034s",
+                  "durationInSeconds": 0.0003370046615600586,
+                  "name": "testLedgerRejectsNonMonotonicPTSAndInvalidDuration()",
+                  "nodeIdentifier": "FrameTimingLedgerTests/testLedgerRejectsNonMonotonicPTSAndInvalidDuration()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/FrameTimingLedgerTests/testLedgerRejectsNonMonotonicPTSAndInvalidDuration",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                }
+              ],
+              "name": "FrameTimingLedgerTests",
+              "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/FrameTimingLedgerTests",
+              "nodeType": "Test Suite",
+              "result": "Passed"
+            },
+            {
+              "children": [
+                {
+                  "duration": "0.17s",
+                  "durationInSeconds": 0.17212200164794922,
+                  "name": "testCancellationDuringVerificationCannotPublish()",
+                  "nodeIdentifier": "OutputMediaVerifierTests/testCancellationDuringVerificationCannotPublish()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests/testCancellationDuringVerificationCannotPublish",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.12s",
+                  "durationInSeconds": 0.11766397953033447,
+                  "name": "testOneFrameDirect1080pTo2160pMediaRoutePublishesVerifiedOutput()",
+                  "nodeIdentifier": "OutputMediaVerifierTests/testOneFrameDirect1080pTo2160pMediaRoutePublishesVerifiedOutput()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests/testOneFrameDirect1080pTo2160pMediaRoutePublishesVerifiedOutput",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.058s",
+                  "durationInSeconds": 0.05773806571960449,
+                  "name": "testVerificationFailureRemovesPartialAndDoesNotPublish()",
+                  "nodeIdentifier": "OutputMediaVerifierTests/testVerificationFailureRemovesPartialAndDoesNotPublish()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests/testVerificationFailureRemovesPartialAndDoesNotPublish",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.03s",
+                  "durationInSeconds": 0.030339956283569336,
+                  "name": "testVerifierRejectsExactPTSMismatch()",
+                  "nodeIdentifier": "OutputMediaVerifierTests/testVerifierRejectsExactPTSMismatch()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests/testVerifierRejectsExactPTSMismatch",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.029s",
+                  "durationInSeconds": 0.02881801128387451,
+                  "name": "testVerifierReopensDecodesAndChecksOneFrameNV12Output()",
+                  "nodeIdentifier": "OutputMediaVerifierTests/testVerifierReopensDecodesAndChecksOneFrameNV12Output()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests/testVerifierReopensDecodesAndChecksOneFrameNV12Output",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                }
+              ],
+              "name": "OutputMediaVerifierTests",
+              "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/OutputMediaVerifierTests",
+              "nodeType": "Test Suite",
+              "result": "Passed"
+            }
+          ],
+          "name": "MirmirTests",
+          "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests",
+          "nodeType": "Unit test bundle",
+          "result": "Passed"
+        }
+      ],
+      "name": "Mirmir",
+      "nodeType": "Test Plan",
+      "result": "Passed"
+    }
+  ],
+  "testPlanConfigurations": [
+    {
+      "configurationId": "1",
+      "configurationName": "Test Scheme Action"
+    }
+  ]
+}

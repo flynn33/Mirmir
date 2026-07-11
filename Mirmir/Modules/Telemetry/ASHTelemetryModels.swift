@@ -68,6 +68,9 @@ struct ASHASHTelemetrySnapshot: Codable, Equatable, Sendable {
 struct ASHCommandBufferObservation: Codable, Equatable, Sendable {
     let label: String
     let status: String
+    let frameIndex: Int?
+    let presentationTimestampValue: Int64?
+    let presentationTimestampTimescale: Int32?
     let errorDomain: String?
     let errorCode: Int?
     let gpuStartSeconds: Double?
@@ -76,6 +79,9 @@ struct ASHCommandBufferObservation: Codable, Equatable, Sendable {
     init(
         label: String,
         status: String,
+        frameIndex: Int? = nil,
+        presentationTimestampValue: Int64? = nil,
+        presentationTimestampTimescale: Int32? = nil,
         errorDomain: String? = nil,
         errorCode: Int? = nil,
         gpuStartSeconds: Double? = nil,
@@ -83,6 +89,9 @@ struct ASHCommandBufferObservation: Codable, Equatable, Sendable {
     ) {
         self.label = label
         self.status = status
+        self.frameIndex = frameIndex
+        self.presentationTimestampValue = presentationTimestampValue
+        self.presentationTimestampTimescale = presentationTimestampTimescale
         self.errorDomain = errorDomain
         self.errorCode = errorCode
         self.gpuStartSeconds = gpuStartSeconds
@@ -92,6 +101,9 @@ struct ASHCommandBufferObservation: Codable, Equatable, Sendable {
     enum CodingKeys: String, CodingKey {
         case label
         case status
+        case frameIndex = "frame_index"
+        case presentationTimestampValue = "pts_value"
+        case presentationTimestampTimescale = "pts_timescale"
         case errorDomain = "error_domain"
         case errorCode = "error_code"
         case gpuStartSeconds = "gpu_start_seconds"

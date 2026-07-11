@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G02",
+  "status": "pass",
+  "criteria": [
+    {
+      "criterion": "Completion handler registered before commit",
+      "status": "pass",
+      "evidence": ["raw/lanczos/final-parity-tests.json", "raw/routes/lanczos/telemetry.json"]
+    },
+    {
+      "criterion": "Command-buffer status and error checked",
+      "status": "pass",
+      "evidence": ["raw/lanczos/final-parity-tests.json", "analysis/route-validation.json"]
+    },
+    {
+      "criterion": "Lanczos GPU output matches the locked CPU reference within tolerance",
+      "status": "pass",
+      "evidence": ["lanczos-reference-results.json", "raw/lanczos/final-parity.xcresult"]
+    },
+    {
+      "criterion": "Both advertised routes complete and reopen",
+      "status": "pass",
+      "evidence": ["route-test-results.json", "raw/routes/direct/avmediainfo.txt", "raw/routes/lanczos/avmediainfo.txt"]
+    },
+    {
+      "criterion": "PTS, frame count, and duration pass",
+      "status": "pass",
+      "evidence": ["analysis/route-validation.json", "raw/tests/focused-p02-tests.json"]
+    },
+    {
+      "criterion": "Both NV12 planes pass",
+      "status": "pass",
+      "evidence": ["route-test-results.json", "lanczos-reference-results.json"]
+    },
+    {
+      "criterion": "Failure and cancellation leave no partial output",
+      "status": "pass",
+      "evidence": ["failure-cleanup-results.json", "raw/cleanup/focused-transaction.xcresult"]
+    }
+  ],
+  "mandatory_failure_count": 0,
+  "deferred_to_later_gates": [
+    "full ASH production kernels remain a G08 obligation",
+    "presentation-space geometry, color, chroma, audio, and provenance remain G09 obligations",
+    "temporal reconstruction remains a G10 obligation"
+  ]
+}

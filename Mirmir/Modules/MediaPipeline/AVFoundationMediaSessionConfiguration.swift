@@ -46,7 +46,13 @@ extension AVFoundationMediaSession {
         do {
             return try AVAssetWriter(url: outputTransaction.temporaryURL, fileType: .mp4)
         } catch {
-            outputTransaction.discard()
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
             throw MediaPipelineError.writerCreationFailed(outputURL, error)
         }
     }
@@ -79,13 +85,39 @@ extension AVFoundationMediaSession {
         outputTransaction: AtomicMediaOutput
     ) throws {
         guard reader.startReading() else {
-            outputTransaction.discard()
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
             throw MediaPipelineError.readerStartFailed
         }
         guard writer.startWriting() else {
             reader.cancelReading()
-            outputTransaction.discard()
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
             throw MediaPipelineError.writerStartFailed
+        }
+        do {
+            try outputTransaction.beginWriting()
+        } catch {
+            reader.cancelReading()
+            writer.cancelWriting()
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
+            throw error
         }
     }
 

@@ -1,0 +1,161 @@
+{
+  "devices": [
+    {
+      "architecture": "arm64",
+      "deviceId": "00006040-0016283C11F8801C",
+      "deviceName": "My Mac",
+      "modelName": "MacBook Pro",
+      "osBuildNumber": "25F80",
+      "osVersion": "26.5.1",
+      "platform": "macOS"
+    }
+  ],
+  "testNodes": [
+    {
+      "children": [
+        {
+          "children": [
+            {
+              "children": [
+                {
+                  "duration": "0.0028s",
+                  "durationInSeconds": 0.002781987190246582,
+                  "name": "test_completionBridgeIgnoresDuplicateTerminalCallback()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_completionBridgeIgnoresDuplicateTerminalCallback()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_completionBridgeIgnoresDuplicateTerminalCallback",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00057s",
+                  "durationInSeconds": 0.0005680322647094727,
+                  "name": "test_completionBridgePropagatesTypedFailureWithFrameAndPTS()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_completionBridgePropagatesTypedFailureWithFrameAndPTS()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_completionBridgePropagatesTypedFailureWithFrameAndPTS",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00047s",
+                  "durationInSeconds": 0.0004680156707763672,
+                  "name": "test_completionBridgeRegistersHandlerBeforeCommit()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_completionBridgeRegistersHandlerBeforeCommit()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_completionBridgeRegistersHandlerBeforeCommit",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0044s",
+                  "durationInSeconds": 0.004350066184997559,
+                  "name": "test_completionBridgeRetainsResourcesUntilTerminalCallback()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_completionBridgeRetainsResourcesUntilTerminalCallback()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_completionBridgeRetainsResourcesUntilTerminalCallback",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0097s",
+                  "durationInSeconds": 0.009729981422424316,
+                  "name": "test_cpuReferencePreservesLegalRangeConstantsExactly()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_cpuReferencePreservesLegalRangeConstantsExactly()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_cpuReferencePreservesLegalRangeConstantsExactly",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.005s",
+                  "durationInSeconds": 0.005010008811950684,
+                  "name": "test_deterministicFixtureInputsStayWithinDeclaredLegalRanges()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_deterministicFixtureInputsStayWithinDeclaredLegalRanges()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_deterministicFixtureInputsStayWithinDeclaredLegalRanges",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.011s",
+                  "durationInSeconds": 0.010717034339904785,
+                  "name": "test_gpuLanczosIsByteExactAcrossSameDeviceRepeats()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_gpuLanczosIsByteExactAcrossSameDeviceRepeats()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_gpuLanczosIsByteExactAcrossSameDeviceRepeats",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.05s",
+                  "durationInSeconds": 0.05012404918670654,
+                  "name": "test_gpuLanczosMatchesFrozenCPUReferenceForBothActivePlanes()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_gpuLanczosMatchesFrozenCPUReferenceForBothActivePlanes()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_gpuLanczosMatchesFrozenCPUReferenceForBothActivePlanes",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0072s",
+                  "durationInSeconds": 0.0071610212326049805,
+                  "name": "test_lanczosRecordsCreatedCommittedAndTerminalTelemetryWithFrameAndPTS()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_lanczosRecordsCreatedCommittedAndTerminalTelemetryWithFrameAndPTS()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_lanczosRecordsCreatedCommittedAndTerminalTelemetryWithFrameAndPTS",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0033s",
+                  "durationInSeconds": 0.003309011459350586,
+                  "name": "test_parityContractHashAndFixtureInventoryAreFrozen()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_parityContractHashAndFixtureInventoryAreFrozen()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_parityContractHashAndFixtureInventoryAreFrozen",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0007s",
+                  "durationInSeconds": 0.0006990432739257812,
+                  "name": "test_pixelBufferBridgeRejectsInvalidPoolAndNonNV12Buffer()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_pixelBufferBridgeRejectsInvalidPoolAndNonNV12Buffer()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_pixelBufferBridgeRejectsInvalidPoolAndNonNV12Buffer",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.00053s",
+                  "durationInSeconds": 0.0005289316177368164,
+                  "name": "test_pixelBufferPoolEnforcesDeclaredAllocationThreshold()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_pixelBufferPoolEnforcesDeclaredAllocationThreshold()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_pixelBufferPoolEnforcesDeclaredAllocationThreshold",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                },
+                {
+                  "duration": "0.0033s",
+                  "durationInSeconds": 0.00333404541015625,
+                  "name": "test_pixelBufferTexturesOwnBothNV12Planes()",
+                  "nodeIdentifier": "LanczosPolishPassTests/test_pixelBufferTexturesOwnBothNV12Planes()",
+                  "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests/test_pixelBufferTexturesOwnBothNV12Planes",
+                  "nodeType": "Test Case",
+                  "result": "Passed"
+                }
+              ],
+              "name": "LanczosPolishPassTests",
+              "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests/LanczosPolishPassTests",
+              "nodeType": "Test Suite",
+              "result": "Passed"
+            }
+          ],
+          "name": "MirmirTests",
+          "nodeIdentifierURL": "test://com.apple.xcode/Mirmir/MirmirTests",
+          "nodeType": "Unit test bundle",
+          "result": "Passed"
+        }
+      ],
+      "name": "Mirmir",
+      "nodeType": "Test Plan",
+      "result": "Passed"
+    }
+  ],
+  "testPlanConfigurations": [
+    {
+      "configurationId": "1",
+      "configurationName": "Test Scheme Action"
+    }
+  ]
+}

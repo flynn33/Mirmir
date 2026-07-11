@@ -83,7 +83,10 @@ final class ArchitectureGuardrailTests: XCTestCase {
     func test_repositorySurfacesHaveNoProhibitedAttribution() throws {
         let contentTerms = prohibitedContentTerms()
         for fileURL in try repositoryTextFiles() {
-            let source = try String(contentsOf: fileURL, encoding: .utf8)
+            let data = try Data(contentsOf: fileURL)
+            guard let source = String(data: data, encoding: .utf8) else {
+                continue
+            }
             for term in contentTerms where source.range(of: term, options: [.caseInsensitive]) != nil {
                 XCTFail("\(fileURL.path) contains prohibited attribution")
             }

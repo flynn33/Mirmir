@@ -20,6 +20,7 @@
 		29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */; };
 		2A4A0516F34E316D81926F93 /* ASHTelemetryCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD66B1F959DAFD165D1DAAB /* ASHTelemetryCatalog.swift */; };
 		2B48F0AB0F0D491AC68CFA72 /* ASHTelemetryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F2965CABCD89EC8A784FBE7 /* ASHTelemetryModels.swift */; };
+		2B624FE32714063166EE9A32 /* FrameTimingLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */; };
 		2D752A9307BEF58A7D006450 /* DefaultUpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */; };
 		2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */; };
 		2F34C45B0ECC1BACD099C243 /* AVFoundationMediaSessionConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */; };
@@ -31,6 +32,7 @@
 		3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */; };
 		3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */; };
 		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
+		42954C9C2C7A36381AB2C4D9 /* MetalCommandBufferCompletionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */; };
 		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
 		4DE4402E7413344ADD2AE7B7 /* ASHAssetConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */; };
 		4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */; };
@@ -41,12 +43,14 @@
 		565D51FAF6BE1CD0ACD4CAFF /* UpscalerEngineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */; };
 		56ADDA68EF63F3F008D0454E /* ASHReconstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */; };
 		59BF30AD9813582AC7721470 /* ASHCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */; };
+		5A7DD8826D41F26336D15BB4 /* LanczosCPUReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */; };
 		617259996997C6320A194B96 /* ASHAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE03E89C4215AC3E1C1D01C2 /* ASHAssets.swift */; };
 		61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F211265C8C19173941BE3ACA /* ContentView.swift */; };
 		6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */; };
 		79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */; };
 		7D0B5F8DEC9E058D10814A21 /* ASHCoreConformance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A625BAC19E969885282117 /* ASHCoreConformance.swift */; };
 		7D1FC619F99A8D67C5ED379C /* ModelAssetsServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */; };
+		7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */; };
 		811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9833C96F05E187004E393DAD /* MirmirRootView.swift */; };
 		8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */; };
 		84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */; };
@@ -56,8 +60,10 @@
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
 		9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */; };
 		9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */; };
+		95849339BF41DB66EC45BEA1 /* AtomicMediaOutputTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3525D83A53E49A6523CC2CE /* AtomicMediaOutputTests.swift */; };
 		95E4EF31D5FC320E157F1B94 /* MirmirWorkspaceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */; };
 		99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */; };
+		9A84932354AEF8CA43C92968 /* lanczos-parity-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 79F446DD7B79BC30C9B44A4F /* lanczos-parity-v1.json */; };
 		9B15D1E349D2519019E87098 /* ASHTelemetryRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA107385702BF53A069FF30E /* ASHTelemetryRecorder.swift */; };
 		A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */; };
 		A1495737841BB92E5B14840A /* MirmirStatusStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */; };
@@ -67,6 +73,7 @@
 		B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */; };
 		B36837451506196B3D814435 /* branch-topology.json in Resources */ = {isa = PBXBuildFile; fileRef = DCAB5DB5687A70683BCEFADD /* branch-topology.json */; };
 		B45B26B799E915B915407047 /* computational-certificate.json in Resources */ = {isa = PBXBuildFile; fileRef = 5F5E1414611EE7E10C74392B /* computational-certificate.json */; };
+		BAEE6B910E1C5FC760AF04D8 /* OutputMediaVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F04B20C3E6772FCD3E1E33 /* OutputMediaVerifier.swift */; };
 		BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */; };
 		BED239DCE7EFB07EE2C3E1E6 /* ASHRuntimeConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A932C98B8380D14BB5584E2 /* ASHRuntimeConfiguration.swift */; };
 		BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */ = {isa = PBXBuildFile; fileRef = D369E9FFB41D568A97978643 /* MirmirUIModule.json */; };
@@ -77,6 +84,7 @@
 		CA895557DECD620A23495BDB /* ASHInternalAlphaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */; };
 		CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */; };
 		D32AB7401A5D9CDB64458DC4 /* codewords.csv in Resources */ = {isa = PBXBuildFile; fileRef = 1CC00CCC5D596A5E02408508 /* codewords.csv */; };
+		D61815354A530E7F2BFE97D5 /* LanczosPolishPassTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */; };
 		D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */; };
 		D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */; };
 		D8A538BE9EC1806FE61DC81A /* ASHDeterministicUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */; };
@@ -86,6 +94,7 @@
 		EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */; };
 		EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */; };
 		F135BBD7DD93711131CF8273 /* ASHBitwiseCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7D02E95AFB7F28B3687541 /* ASHBitwiseCoreTests.swift */; };
+		F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */; };
 		F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */; };
 		F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A24461DB7E24A4434349B337 /* MetalRenderingService.swift */; };
 		FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */; };
@@ -117,9 +126,11 @@
 		1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultModelAssetsService.swift; sourceTree = "<group>"; };
 		20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultUpscalerEngineService.swift; sourceTree = "<group>"; };
 		26A625BAC19E969885282117 /* ASHCoreConformance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreConformance.swift; sourceTree = "<group>"; };
+		270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameTimingLedgerTests.swift; sourceTree = "<group>"; };
 		2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewModel.swift; sourceTree = "<group>"; };
 		31426777560BC1F74C23D422 /* ASHBranchTree.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHBranchTree.swift; sourceTree = "<group>"; };
 		31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTModelStager.swift; sourceTree = "<group>"; };
+		32F04B20C3E6772FCD3E1E33 /* OutputMediaVerifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaVerifier.swift; sourceTree = "<group>"; };
 		33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHFeatureBranchReconstructionTests.swift; sourceTree = "<group>"; };
 		37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineService.swift; sourceTree = "<group>"; };
 		3A932C98B8380D14BB5584E2 /* ASHRuntimeConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHRuntimeConfiguration.swift; sourceTree = "<group>"; };
@@ -143,13 +154,17 @@
 		61D3BF1665450FC60B415F7B /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
 		67B372D4E6B823A8DE3ACE95 /* ASHReconstructionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReconstructionHelpers.swift; sourceTree = "<group>"; };
 		691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineServiceModule.swift; sourceTree = "<group>"; };
+		6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalCommandBufferCompletionBridge.swift; sourceTree = "<group>"; };
 		70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineService.swift; sourceTree = "<group>"; };
 		71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTheme.swift; sourceTree = "<group>"; };
 		73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicMediaOutput.swift; sourceTree = "<group>"; };
 		743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
 		77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestRegistryAlignmentTests.swift; sourceTree = "<group>"; };
+		79F446DD7B79BC30C9B44A4F /* lanczos-parity-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "lanczos-parity-v1.json"; sourceTree = "<group>"; };
 		7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProductionRootView.swift; sourceTree = "<group>"; };
+		7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaVerifierTests.swift; sourceTree = "<group>"; };
 		7E364AB277348398F356F8B9 /* ASHBackendIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHBackendIntegrationTests.swift; sourceTree = "<group>"; };
+		7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaSessionFinalization.swift; sourceTree = "<group>"; };
 		814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaSessionConfiguration.swift; sourceTree = "<group>"; };
 		84D2DFAD47221FBF1FE4281E /* ASHCoreConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreConformanceTests.swift; sourceTree = "<group>"; };
 		87DF56556BD38E52A6939975 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
@@ -161,17 +176,20 @@
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCode.swift; sourceTree = "<group>"; };
 		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPassTests.swift; sourceTree = "<group>"; };
 		BA107385702BF53A069FF30E /* ASHTelemetryRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryRecorder.swift; sourceTree = "<group>"; };
 		BDA70A85DAE0C772B3B6E953 /* ASHReferencePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReferencePipeline.swift; sourceTree = "<group>"; };
 		BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIWorkflowTests.swift; sourceTree = "<group>"; };
 		BF916B54CEB678B518E99197 /* ASHState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHState.swift; sourceTree = "<group>"; };
 		BFD66B1F959DAFD165D1DAAB /* ASHTelemetryCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryCatalog.swift; sourceTree = "<group>"; };
 		C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressPanelView.swift; sourceTree = "<group>"; };
+		C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosCPUReference.swift; sourceTree = "<group>"; };
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
 		C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_mapping_v1.json; sourceTree = "<group>"; };
 		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
 		D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceComponents.swift; sourceTree = "<group>"; };
 		D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPass.swift; sourceTree = "<group>"; };
+		D3525D83A53E49A6523CC2CE /* AtomicMediaOutputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicMediaOutputTests.swift; sourceTree = "<group>"; };
 		D369E9FFB41D568A97978643 /* MirmirUIModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MirmirUIModule.json; sourceTree = "<group>"; };
 		D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleStrategy.swift; sourceTree = "<group>"; };
 		D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategySelectorTests.swift; sourceTree = "<group>"; };
@@ -254,6 +272,14 @@
 			path = Telemetry;
 			sourceTree = "<group>";
 		};
+		22C0B9D429B46777730F6AAA /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				79F446DD7B79BC30C9B44A4F /* lanczos-parity-v1.json */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		300DD123FB8D9AD9C26BB2FD /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -308,6 +334,7 @@
 			isa = PBXGroup;
 			children = (
 				743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */,
+				6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */,
 				A24461DB7E24A4434349B337 /* MetalRenderingService.swift */,
 				90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */,
 			);
@@ -320,9 +347,11 @@
 				73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */,
 				0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */,
 				814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */,
+				7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */,
 				70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */,
 				CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */,
 				87DF56556BD38E52A6939975 /* MediaTypes.swift */,
+				32F04B20C3E6772FCD3E1E33 /* OutputMediaVerifier.swift */,
 				50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */,
 			);
 			path = MediaPipeline;
@@ -427,10 +456,16 @@
 				33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */,
 				44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */,
 				F705073C74E0938AFE1C4748 /* ASHTelemetryTests.swift */,
+				D3525D83A53E49A6523CC2CE /* AtomicMediaOutputTests.swift */,
+				270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */,
+				C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */,
+				B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */,
 				77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */,
 				BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */,
 				02E347AE2D83CC5AF980CF38 /* NoopServices.swift */,
+				7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
+				22C0B9D429B46777730F6AAA /* Fixtures */,
 			);
 			path = MirmirTests;
 			sourceTree = "<group>";
@@ -443,6 +478,7 @@
 			buildConfigurationList = EC3C324C5B8F116B2A39EB2B /* Build configuration list for PBXNativeTarget "MirmirTests" */;
 			buildPhases = (
 				362EC39D7ACE95EF56BA29D0 /* Sources */,
+				926B6087523E50820517CD44 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -516,6 +552,14 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		926B6087523E50820517CD44 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9A84932354AEF8CA43C92968 /* lanczos-parity-v1.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E44241DB2D2A48F1740693FF /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -550,9 +594,14 @@
 				CA895557DECD620A23495BDB /* ASHInternalAlphaTests.swift in Sources */,
 				28755B7301799D0DA094E945 /* ASHTelemetryTests.swift in Sources */,
 				4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */,
+				95849339BF41DB66EC45BEA1 /* AtomicMediaOutputTests.swift in Sources */,
+				2B624FE32714063166EE9A32 /* FrameTimingLedgerTests.swift in Sources */,
+				5A7DD8826D41F26336D15BB4 /* LanczosCPUReference.swift in Sources */,
+				D61815354A530E7F2BFE97D5 /* LanczosPolishPassTests.swift in Sources */,
 				6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */,
 				29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */,
 				23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */,
+				F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -579,6 +628,7 @@
 				3B0750EBC6A017F581BFD9F5 /* ASHTileProcessing.swift in Sources */,
 				79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */,
 				2F34C45B0ECC1BACD099C243 /* AVFoundationMediaSessionConfiguration.swift in Sources */,
+				7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */,
 				A3EEEF258DD40AAAFF166858 /* AtomicMediaOutput.swift in Sources */,
 				61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */,
 				E8D3F54740F2D2FAC0CFDC4D /* DefaultMetalRenderingService.swift in Sources */,
@@ -588,6 +638,7 @@
 				FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */,
 				DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */,
 				A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */,
+				42954C9C2C7A36381AB2C4D9 /* MetalCommandBufferCompletionBridge.swift in Sources */,
 				F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */,
 				D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */,
 				387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */,
@@ -608,6 +659,7 @@
 				3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */,
 				F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */,
 				E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */,
+				BAEE6B910E1C5FC760AF04D8 /* OutputMediaVerifier.swift in Sources */,
 				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
 				87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */,
 				3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */,

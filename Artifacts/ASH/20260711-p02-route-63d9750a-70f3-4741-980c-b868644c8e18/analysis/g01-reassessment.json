@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "gate": "G01",
+  "status": "pass",
+  "reason": "P02 changed media timing, verification, transaction, and command-buffer observation surfaces",
+  "unchanged_signpost_implementation": {
+    "recorder_path": "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift",
+    "recorder_sha256": "41335fa8306a9e79f865657e8daf5ab8a582e86f878789a320776f2cdeb33c09",
+    "catalog_path": "Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift",
+    "catalog_sha256": "4817da1c4ab6d9f0fe84627f39363ac21a7e60d6a96789c318dd15d76cef6b5f",
+    "comparison_checkpoint": "cc608c7ecbbf9fac3b48e80d4251a6d0703cd64c"
+  },
+  "new_route_evidence": [
+    {
+      "route": "direct-1080p-to-2160p",
+      "balanced_intervals": true,
+      "stage_count": 20,
+      "dropped_events": 0,
+      "dropped_timing_samples": 0,
+      "errors": 0
+    },
+    {
+      "route": "ash-2x-lanczos-720p-to-1080p",
+      "balanced_intervals": true,
+      "stage_count": 20,
+      "dropped_events": 0,
+      "dropped_timing_samples": 0,
+      "errors": 0,
+      "command_buffer_lifecycle": ["created", "committed", "completed"]
+    }
+  ],
+  "retained_signpost_evidence": "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/analysis/signpost-validation.json",
+  "qualification": "The recorder and catalog bytes are unchanged. P02 adds frame/PTS fields to command-buffer observations and verifies them in the new route telemetry and focused tests."
+}

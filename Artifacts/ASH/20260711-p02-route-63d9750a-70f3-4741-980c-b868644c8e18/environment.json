@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "captured_utc": "2026-07-11T15:30:51Z",
+  "repository_head_before_checkpoint": "cc608c7ecbbf9fac3b48e80d4251a6d0703cd64c",
+  "xcode": "26.2",
+  "xcode_build": "17C52",
+  "macos": "26.5.1",
+  "macos_build": "25F80",
+  "architecture": "arm64",
+  "hardware": "MacBook Pro Mac16,7",
+  "chip": "Apple M4 Pro",
+  "memory": "48 GB",
+  "metal": "Metal 4"
+}

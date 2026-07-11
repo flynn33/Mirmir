@@ -1,3 +1,4 @@
 Mirmir/Resources/ASH/*.csv binary
 Artifacts/ASH/**/*.log binary
+Artifacts/ASH/**/avmediainfo.txt binary
 Artifacts/ASH/**/reference-audit-reproduced.md binary

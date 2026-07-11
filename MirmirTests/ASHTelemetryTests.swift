@@ -40,9 +40,14 @@ final class ASHTelemetryTests: XCTestCase {
         let inputURL = URL(fileURLWithPath: configuration.inputPath)
         let outputURL = URL(fileURLWithPath: configuration.outputPath)
         let telemetryURL = URL(fileURLWithPath: configuration.telemetryPath)
+        let targetResolution = VideoResolution(
+            width: configuration.targetWidth ?? VideoResolution.p2160.width,
+            height: configuration.targetHeight ?? VideoResolution.p2160.height
+        )
 
         XCTAssertTrue(FileManager.default.fileExists(atPath: inputURL.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: outputURL.path))
+        XCTAssertTrue(targetResolution == .p1080 || targetResolution == .p2160)
 
         let telemetry = DefaultASHTelemetryRecorder(
             emitsSignposts: configuration.emitsSignposts ?? true
@@ -58,7 +63,7 @@ final class ASHTelemetryTests: XCTestCase {
         let handle = try service.submit(UpscaleJob(
             inputURL: inputURL,
             outputURL: outputURL,
-            targetResolution: .p2160,
+            targetResolution: targetResolution,
             codec: .hevc,
             preserveAudio: false
         ))
@@ -355,6 +360,8 @@ private struct ProductionTraceConfiguration: Decodable {
     let outputPath: String
     let telemetryPath: String
     let emitsSignposts: Bool?
+    let targetWidth: Int?
+    let targetHeight: Int?
 }
 
 private final class ManualTelemetryClock: @unchecked Sendable {

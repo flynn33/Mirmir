@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "status": "pass",
+  "builds": [
+    {
+      "configuration": "Debug",
+      "action": "Build for Testing",
+      "status": "succeeded",
+      "errors": 0,
+      "warnings": 0,
+      "result_bundle": "raw/builds/clean-debug-build.xcresult",
+      "summary": "raw/builds/clean-debug-build-summary.json"
+    },
+    {
+      "configuration": "Release",
+      "action": "Build",
+      "status": "succeeded",
+      "errors": 0,
+      "warnings": 0,
+      "result_bundle": "raw/builds/clean-release-build.xcresult",
+      "summary": "raw/builds/clean-release-build-summary.json"
+    }
+  ]
+}
