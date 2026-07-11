@@ -1,0 +1,6 @@
+exit_code=0
+discovered_test_count=81
+passed_test_count=81
+skipped_test_count=0
+failed_or_error_test_count=0
+completion_summary_present=True

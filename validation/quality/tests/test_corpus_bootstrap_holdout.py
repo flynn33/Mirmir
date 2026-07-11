@@ -25,6 +25,7 @@ from mirmir_quality.holdout import (
     initialize_holdout_access_ledger,
 )
 from mirmir_quality.harness_manifest import (
+    QUALITY_HARNESS_REQUIRED_IMPLEMENTATION_FILES,
     create_quality_harness_implementation_manifest,
     validate_quality_harness_implementation_manifest,
 )
@@ -43,6 +44,45 @@ HARNESS_MEDIA_TYPES_PATH = Path(
 )
 HARNESS_WRITER_PATH = Path(
     "validation/quality/tools/production_writer/ProductionWriterMain.swift"
+)
+HARNESS_SPATIAL_PIPELINE_PATH = Path(
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift"
+)
+HARNESS_REQUIRED_IMPLEMENTATION_PATHS = (
+    Path("Mirmir.xcodeproj/project.pbxproj"),
+    Path("Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift"),
+    Path("Mirmir/Modules/MediaPipeline/MediaTypes.swift"),
+    Path("Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift"),
+    Path("Mirmir/Modules/Telemetry/ASHTelemetryModels.swift"),
+    Path("Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift"),
+    Path("Mirmir/Resources/ASH/ash-asset-manifest.json"),
+    Path("Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json"),
+    Path("Mirmir/Resources/ASH/operator_bank_v2.seed.json"),
+    Path("project.yml"),
+    Path("validation/spatial_v2/P05EvidenceMain.swift"),
+    Path("validation/spatial_v2/run_p05_evidence.py"),
+    Path("validation/spatial_v2/schemas/coordinate-comparison.schema.json"),
+    Path("validation/spatial_v2/schemas/cpu-reference-results.schema.json"),
+    Path("validation/spatial_v2/schemas/cpu-reference-vectors.schema.json"),
+    Path("validation/spatial_v2/schemas/development-mapping.schema.json"),
+    Path("validation/spatial_v2/schemas/operator-discrimination.schema.json"),
+    Path("validation/spatial_v2/schemas/operator-distinctness.schema.json"),
+    Path("validation/spatial_v2/schemas/p05-common.schema.json"),
+    Path("validation/spatial_v2/schemas/state-causality-results.schema.json"),
+    Path("validation/spatial_v2/schemas/state-fixtures.schema.json"),
 )
 
 
@@ -140,21 +180,30 @@ def corpus(assets):
 def _create_quality_harness_repository(root: Path):
     repository_root = root / "harness-repository"
     sources = {
-        HARNESS_MEDIA_TYPES_PATH: b"struct ProductVideoOutputSettings {}\n",
-        Path("validation/quality/src/mirmir_quality/holdout.py"): (
-            b"REQUIRED_HASHES = ()\n"
-        ),
-        Path("validation/quality/src/mirmir_quality/nested/check.py"): (
-            b"BOUND = True\n"
-        ),
-        Path("validation/quality/tools/build_fixture.py"): b"raise SystemExit(0)\n",
-        HARNESS_WRITER_PATH: b"struct ProductionWriter {}\n",
-        Path("validation/quality/schemas/configuration-lock.schema.json"): b"{}\n",
-        Path(
-            "validation/quality/schemas/quality-harness-implementation-manifest.schema.json"
-        ): b"{}\n",
-        Path("validation/quality/reference/metric_oracle.py"): b"VALUE = 1\n",
+        path: f"fixture for {path.as_posix()}\n".encode("utf-8")
+        for path in HARNESS_REQUIRED_IMPLEMENTATION_PATHS
     }
+    sources.update(
+        {
+            Path("validation/quality/src/mirmir_quality/holdout.py"): (
+                b"REQUIRED_HASHES = ()\n"
+            ),
+            Path("validation/quality/src/mirmir_quality/nested/check.py"): (
+                b"BOUND = True\n"
+            ),
+            Path("validation/quality/tools/build_fixture.py"): (
+                b"raise SystemExit(0)\n"
+            ),
+            HARNESS_WRITER_PATH: b"struct ProductionWriter {}\n",
+            Path("validation/quality/schemas/configuration-lock.schema.json"): (
+                b"{}\n"
+            ),
+            Path(
+                "validation/quality/schemas/quality-harness-implementation-manifest.schema.json"
+            ): b"{}\n",
+            Path("validation/quality/reference/metric_oracle.py"): b"VALUE = 1\n",
+        }
+    )
     for relative_path, payload in sources.items():
         path = repository_root / relative_path
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -223,6 +272,12 @@ def holdout_fixture(root: Path):
 
 
 class CorpusBootstrapHoldoutTests(unittest.TestCase):
+    def test_quality_harness_required_implementation_set_is_exact(self) -> None:
+        self.assertEqual(
+            QUALITY_HARNESS_REQUIRED_IMPLEMENTATION_FILES,
+            tuple(path.as_posix() for path in HARNESS_REQUIRED_IMPLEMENTATION_PATHS),
+        )
+
     def test_quality_harness_manifest_builder_is_deterministic(self) -> None:
         with _temporary_directory() as temporary:
             root = Path(temporary)
@@ -707,12 +762,15 @@ raise SystemExit(3)
             self.assertEqual(calls, [])
             self.assertFalse(guard.intent_path.exists())
 
-    def test_holdout_rehashes_nested_quality_harness_source_before_loader(self) -> None:
+    def test_holdout_rehashes_p05_spatial_source_before_loader(self) -> None:
         with _temporary_directory() as temporary:
             configuration, bindings, ledger_path, anchor_path = holdout_fixture(
                 Path(temporary)
             )
-            source_path = bindings[HARNESS_BINDING_FIELD].root / HARNESS_MEDIA_TYPES_PATH
+            source_path = (
+                bindings[HARNESS_BINDING_FIELD].root
+                / HARNESS_SPATIAL_PIPELINE_PATH
+            )
             payload = source_path.read_bytes()
             source_path.write_bytes(bytes([payload[0] ^ 1]) + payload[1:])
             guard = HoldoutAccessGuard(

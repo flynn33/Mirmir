@@ -16,8 +16,41 @@ QUALITY_HARNESS_MANIFEST_SCHEMA = (
     / "schemas"
     / "quality-harness-implementation-manifest.schema.json"
 )
-_REQUIRED_FILES = (
+QUALITY_HARNESS_REQUIRED_IMPLEMENTATION_FILES = (
+    "Mirmir.xcodeproj/project.pbxproj",
+    "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
     "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+    "Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift",
+    "Mirmir/Modules/Telemetry/ASHTelemetryModels.swift",
+    "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+    "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
+    "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift",
+    "Mirmir/Resources/ASH/ash-asset-manifest.json",
+    "Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json",
+    "Mirmir/Resources/ASH/operator_bank_v2.seed.json",
+    "project.yml",
+    "validation/spatial_v2/P05EvidenceMain.swift",
+    "validation/spatial_v2/run_p05_evidence.py",
+    "validation/spatial_v2/schemas/coordinate-comparison.schema.json",
+    "validation/spatial_v2/schemas/cpu-reference-results.schema.json",
+    "validation/spatial_v2/schemas/cpu-reference-vectors.schema.json",
+    "validation/spatial_v2/schemas/development-mapping.schema.json",
+    "validation/spatial_v2/schemas/operator-discrimination.schema.json",
+    "validation/spatial_v2/schemas/operator-distinctness.schema.json",
+    "validation/spatial_v2/schemas/p05-common.schema.json",
+    "validation/spatial_v2/schemas/state-causality-results.schema.json",
+    "validation/spatial_v2/schemas/state-fixtures.schema.json",
 )
 _DISCOVERY_TREES: Sequence[Tuple[str, frozenset[str]]] = (
     ("validation/quality/src/mirmir_quality", frozenset({".py"})),
@@ -143,7 +176,7 @@ def discover_quality_harness_implementation_paths(
     root = _absolute_path(repository_root)
     _require_directory(root, "repository root")
     discovered = []
-    for relative_path in _REQUIRED_FILES:
+    for relative_path in QUALITY_HARNESS_REQUIRED_IMPLEMENTATION_FILES:
         candidate = root.joinpath(*PurePosixPath(relative_path).parts)
         _require_nonsymbolic_parent_directories(candidate, root)
         _require_regular_file(candidate, f"required implementation source {relative_path}")

@@ -273,7 +273,7 @@ final class ASHTelemetryTests: XCTestCase {
         XCTAssertEqual(second.counters[ASHTelemetryCounter.fullFrameCopies.rawValue], 1)
     }
 
-    func test_controlledTileBackendRecordsActualStateDispatchAndReconstructionPath() throws {
+    func test_legacyControlledTileReferenceRecordsItsValidationPath() throws {
         let recorder = makeRecorder(clock: ManualTelemetryClock())
         recorder.beginRun(id: "controlled-backend")
         let image = try ASHImage(width: 4, height: 4) { row, column in

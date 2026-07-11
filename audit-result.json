@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "started_utc": "2026-07-11T12:04:47Z",
-  "ended_utc": "2026-07-11T19:35:49Z",
+  "ended_utc": "2026-07-11T21:15:07Z",
   "overall_status": "fail",
-  "mandatory_failure_count": 8,
+  "mandatory_failure_count": 7,
   "gates": [
     {
       "id": "G00",
@@ -63,7 +63,9 @@
         "Artifacts/ASH/20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18/route-test-results.json",
         "Artifacts/ASH/20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18/lanczos-reference-results.json",
         "Artifacts/ASH/20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18/failure-cleanup-results.json",
-        "Artifacts/ASH/20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18/artifact-manifest.json"
+        "Artifacts/ASH/20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18/artifact-manifest.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/xcode/g02-regression-summary.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/xcode/g02-regression.xcresult"
       ],
       "defects": []
     },
@@ -108,11 +110,38 @@
         "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/analysis/final-correctness-review.json",
         "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/analysis/failure-pattern-correlation.md",
         "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/production-run/production-prechange/artifact-manifest.json",
-        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/artifact-manifest.json"
+        "Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/artifact-manifest.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/analysis/quality-lock-audit.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/inputs/quality-harness-implementation-manifest.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/tests/python-unittest.log"
       ],
       "defects": []
     },
-    {"id":"G05","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {
+      "id": "G05",
+      "status": "pass",
+      "criteria": [
+        "Every state bit has controlled fixture coverage",
+        "Structure-tensor normal/tangent convention passes orientation fixtures",
+        "Direct 2x and 3/2 CPU reference passes synthetic tests",
+        "16 descriptor records are semantically and behaviorally distinct",
+        "nearest is not the production reconstruction substrate",
+        "dispatch is not constant across valid states",
+        "first-frame top operator is not universal by construction",
+        "state-disabled result differs on controlled fixtures"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/GATE_REPORT.md",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/evidence/run-a/development-mapping.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/evidence/run-a/operator-discrimination.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/evidence/run-a/coordinate-comparison.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/evidence/run-a/state-causality-results.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/evidence/run-a/cpu-reference-results.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/analysis/independent-audit.json",
+        "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/artifact-manifest.json"
+      ],
+      "defects": []
+    },
     {"id":"G06","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G07","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G08","status":"not_run","criteria":[],"evidence":[],"defects":[]},
@@ -143,12 +172,17 @@
       "sha": "e7841937b776e7d3bf0dc39f9dc2bea8d3e6a855",
       "subject": "Repair ASH routes and output transactions",
       "gate_ids": ["G02"]
+    },
+    {
+      "sha": "85ae0e10b805bff03bf6450f2fe94dff1f5c3d58",
+      "subject": "Lock ASH quality benchmark harness",
+      "gate_ids": ["G04"]
     }
   ],
   "attribution_scan": {
     "status": "pass",
     "base": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
-    "changed_file_count": 2416,
+    "changed_file_count": 3045,
     "findings": []
   },
   "residual_nonblocking_objectives": []

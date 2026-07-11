@@ -1,11 +1,121 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 53,
+  "file_count": 86,
   "files": [
+    {
+      "relative_path": "Mirmir.xcodeproj/project.pbxproj",
+      "sha256": "637a6764bbed653b117b6c63a92fa5d8065ff1d0c52a8fa9abb3145aacbb9f1a",
+      "size_bytes": 71395
+    },
+    {
+      "relative_path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
+      "sha256": "858607dad6af0f51b4739523cf826a2b745f4c6b109769bab98e3ea499cf6163",
+      "size_bytes": 8087
+    },
     {
       "relative_path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
       "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
       "size_bytes": 8475
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift",
+      "sha256": "4817da1c4ab6d9f0fe84627f39363ac21a7e60d6a96789c318dd15d76cef6b5f",
+      "size_bytes": 3427
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryModels.swift",
+      "sha256": "210fda0f7371098d4dd174f78ec05ac857eaab7ba56e32a1294e7730e943e5fe",
+      "size_bytes": 6674
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift",
+      "sha256": "41335fa8306a9e79f865657e8daf5ab8a582e86f878789a320776f2cdeb33c09",
+      "size_bytes": 24272
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift",
+      "sha256": "a02dc1d6dfe363106664fa231368b53f98372a85b7525e6ae7b915e79f91c6c3",
+      "size_bytes": 18672
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+      "sha256": "92d99b1fbecb7a74178c7fe5601daa9c3d43d10c4b9685661219b984aa0bce91",
+      "size_bytes": 4127
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+      "sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc",
+      "size_bytes": 3389
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
+      "sha256": "5a93ba96e00193cf03dce7ba942b78b003113779691d8e8598babb286bf59b4f",
+      "size_bytes": 12023
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
+      "sha256": "889e0aadf6b25cf17459e72293acc3a4b3a6c62906adac7bdac2fca04b66fbd4",
+      "size_bytes": 847
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
+      "sha256": "9729893251817cb97cb6b60cd5b4ae828fc4599b0e49dd79ab865733b7f8f935",
+      "size_bytes": 7763
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+      "sha256": "38766819fd7bd9824dd5d8bfea345f2396344de7885878328935003e33e15df4",
+      "size_bytes": 28314
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
+      "sha256": "464cfd7b743cf166efb4a394b799f6a1e1818c61aa8504349b786692a13fc6c1",
+      "size_bytes": 33858
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
+      "sha256": "737fb7a602e7bfa1508f734d0b6bc01a08308ec47c09cea7696d0d892c0eb49e",
+      "size_bytes": 1842
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+      "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+      "size_bytes": 6556
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+      "sha256": "822cbb3bb9bc2f6511991b70296e3861048cffc0324aaa836fb5d2d4be24902c",
+      "size_bytes": 34331
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
+      "sha256": "3308537268ae52ba1da11508901e299733d92f47ab9024566f756fdba4196aa9",
+      "size_bytes": 9690
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift",
+      "sha256": "64bfe172f701c0f7f18faecc71003c8b5f552d506dbaec0c35235fcc12ee0640",
+      "size_bytes": 2154
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/ash-asset-manifest.json",
+      "sha256": "64a725bd9118d97ae4f3d7f27cf21eb1676fd394a464d09429daa6d8eee0e6e5",
+      "size_bytes": 1600
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json",
+      "sha256": "2ebdffa39909012e3284888fd23ede66a68a8a2e270fdfc278b287d109a60e88",
+      "size_bytes": 7078
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/operator_bank_v2.seed.json",
+      "sha256": "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137",
+      "size_bytes": 4299
+    },
+    {
+      "relative_path": "project.yml",
+      "sha256": "9e6c47cb852d1b7202eeff06d0de36a0e78fb46f9eda2de6bfbc8df916d516f5",
+      "size_bytes": 2285
     },
     {
       "relative_path": "validation/quality/reference/metric_oracle.py",
@@ -154,8 +264,8 @@
     },
     {
       "relative_path": "validation/quality/src/mirmir_quality/harness_manifest.py",
-      "sha256": "6ec74253a7264044724ea4d1a94f81feed10c4ca8f2be91be4241af5040c692f",
-      "size_bytes": 11787
+      "sha256": "3e490b04e2ebcee7badd5aac40f33e2e31e8ffbef50cc1287dc4eac44e937619",
+      "size_bytes": 13926
     },
     {
       "relative_path": "validation/quality/src/mirmir_quality/holdout.py",
@@ -266,8 +376,63 @@
       "relative_path": "validation/quality/tools/run_production_development_dry_run.py",
       "sha256": "5aaeac366cd8016b8047418dc97ffd834f5fa9ab23be1eb6f5bb0782e7fa3873",
       "size_bytes": 1854
+    },
+    {
+      "relative_path": "validation/spatial_v2/P05EvidenceMain.swift",
+      "sha256": "8eb38c8bb04b5df0fee3185de5fd8f5902b0f428c9caa8dc92601ddcfe33271a",
+      "size_bytes": 86382
+    },
+    {
+      "relative_path": "validation/spatial_v2/run_p05_evidence.py",
+      "sha256": "94c60719760193c198198e4e46e453ae484e818256c9c7bd2188fcd02b3c4200",
+      "size_bytes": 8148
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/coordinate-comparison.schema.json",
+      "sha256": "4219d42196c64b8f1859e4024400e171bb33afab00ff7ebf8cdc935aa17e98ae",
+      "size_bytes": 1440
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/cpu-reference-results.schema.json",
+      "sha256": "3a61bd847ebee0385cc0d8cc534c6cb99188bd7c532bba8855e41c91b1c09e73",
+      "size_bytes": 1101
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/cpu-reference-vectors.schema.json",
+      "sha256": "9f07c91d7a368ea4b73349fac76b5aaf05d65b8f882ac19e031e1319aab53b31",
+      "size_bytes": 783
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/development-mapping.schema.json",
+      "sha256": "60db146a28b1c1926b30d089a7af630d2d59998a452917289d92c5dc51c111da",
+      "size_bytes": 858
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/operator-discrimination.schema.json",
+      "sha256": "58ad217d10962953269c797e9503d8a9c37ca10547ef7573f06ce1a1b7025250",
+      "size_bytes": 815
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/operator-distinctness.schema.json",
+      "sha256": "4915685df3462a3913563b9874bd004a76fffbef22219657bad67c5af5ed85c0",
+      "size_bytes": 860
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/p05-common.schema.json",
+      "sha256": "9bda6750dfd6dcb6cdb52996b8482843b380c4261456ede17c54fdf144f4104a",
+      "size_bytes": 2816
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/state-causality-results.schema.json",
+      "sha256": "9d57b0c9acf89bfddc8826c0fc5dd44f21b9a7352b2382c665da99972075a7cd",
+      "size_bytes": 8086
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/state-fixtures.schema.json",
+      "sha256": "a41b30b58c179b47c69d1344d75fb8924fe7e913185cf1ec3358fb88f1152760",
+      "size_bytes": 778
     }
   ],
-  "manifest_sha256": "9bfd52e4928e97e00e80f19cabde641e89a8fc674e69b808e41cc28b0d952b12",
+  "manifest_sha256": "6862702ddf2bbb2398599e10ba3903b384e0f53b91ea938d14de2d2d7d3b112c",
   "schema_version": "1.0.0"
 }

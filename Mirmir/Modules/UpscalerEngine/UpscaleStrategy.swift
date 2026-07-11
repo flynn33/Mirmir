@@ -4,23 +4,39 @@ public enum UpscaleStrategy: Sendable, Equatable, CustomStringConvertible {
     /// Direct integer 2× super-resolution. Used for 1080p → 4K.
     case direct2x
 
-    /// 2× super-resolution to an intermediate resolution, then a controlled
-    /// Lanczos downsample to the target. Used for 720p → 1080p (the
-    /// reconstruction pass is real ML SR; only the polish is a resize).
-    case twoXThenLanczosDownsample(intermediate: VideoResolution)
+    /// Direct rational 3/2 super-resolution. Used for 720p → 1080p.
+    case direct3Over2
 
     public var description: String {
         switch self {
         case .direct2x:
             return "direct2x"
-        case .twoXThenLanczosDownsample(let intermediate):
-            return "twoXThenLanczosDownsample(intermediate: \(intermediate))"
+        case .direct3Over2:
+            return "direct3Over2"
         }
     }
 
-    /// Resolution that the SR pass produces (always source × 2 in v1).
+    /// Resolution produced directly by the spatial reconstruction pass.
     public func srOutputResolution(forSource source: VideoResolution) -> VideoResolution {
-        source.scaled(by: 2)
+        switch self {
+        case .direct2x:
+            return source.scaled(by: 2)
+        case .direct3Over2:
+            precondition(source.width.isMultiple(of: 2) && source.height.isMultiple(of: 2))
+            return VideoResolution(
+                width: (source.width / 2) * 3,
+                height: (source.height / 2) * 3
+            )
+        }
+    }
+
+    var spatialRoute: ASHSpatialRouteV2 {
+        switch self {
+        case .direct2x:
+            return .direct2x
+        case .direct3Over2:
+            return .direct3Over2
+        }
     }
 }
 
@@ -43,7 +59,7 @@ public enum StrategySelector {
             return .direct2x
         }
         if source == .p720 && target == .p1080 {
-            return .twoXThenLanczosDownsample(intermediate: .p1440)
+            return .direct3Over2
         }
         throw UpscaleStrategyError.unsupportedResolutionPair(source: source, target: target)
     }

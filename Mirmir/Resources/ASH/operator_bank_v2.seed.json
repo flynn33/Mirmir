@@ -1,0 +1,87 @@
+{
+  "schema_version": "2.0.0",
+  "bank_id": "ash-spatial-operator-bank-v2",
+  "message_interpretation": "The recovered four-bit message is an opaque index 0-15 into a state/phase-conditioned descriptor table. The four bits are also decoded into the stable axes below for inspection and conformance.",
+  "axes": [
+    {
+      "bit": 0,
+      "name": "base_kernel",
+      "zero": "keys_cubic_a_minus_0_5",
+      "one": "lanczos3"
+    },
+    {
+      "bit": 1,
+      "name": "support",
+      "zero": "isotropic",
+      "one": "structure_tensor_anisotropic"
+    },
+    {
+      "bit": 2,
+      "name": "detail",
+      "zero": "conservative",
+      "one": "controlled_positive_detail"
+    },
+    {
+      "bit": 3,
+      "name": "limiter",
+      "zero": "strict_neighborhood_range",
+      "one": "calibrated_relaxed_range"
+    }
+  ],
+  "coordinate_mapping_candidates": [
+    {
+      "id": "half_pixel_center",
+      "formula": "src = (dst + 0.5) * src_extent / dst_extent - 0.5"
+    },
+    {
+      "id": "source_aligned_rational",
+      "formula": "src = dst * denominator / numerator for scale numerator/denominator"
+    }
+  ],
+  "coordinate_lock_rule": "Implement both in the CPU reference, validate ramps/impulses/identity properties, compare on the development and validation corpus, then lock exactly one per route before holdout. Do not infer a winner without measurements.",
+  "kernels": {
+    "keys_cubic_a_minus_0_5": {
+      "support": 2,
+      "formula": "For t=abs(x): if t<1, (a+2)t^3-(a+3)t^2+1; if 1<=t<2, a t^3-5a t^2+8a t-4a; else 0; a=-0.5."
+    },
+    "lanczos3": {
+      "support": 3,
+      "formula": "K(x)=1 at x=0; sinc(x)*sinc(x/3) for 0<abs(x)<3; 0 otherwise; normalize accumulated weights."
+    },
+    "anisotropic_support": {
+      "formula": "Rotate source offset into tangent/normal coordinates using continuous structure-tensor orientation. Scale tangent support by st=1+rho*coherence and normal support by sn=1/(1+rho*coherence). Evaluate the selected 1-D kernel on each rotated coordinate and normalize the 2-D product weights.",
+      "rho": null,
+      "rho_lock": "Calibrate and lock on development/validation data."
+    }
+  },
+  "detail": {
+    "formula": "detail = reconstructed_value - normalized_lowpass_value_at_same_target_coordinate; result += gain * detail",
+    "gain_q12_by_state_class": null,
+    "constraints": [
+      "Gain is zero for conservative descriptors.",
+      "Gain is disabled or reduced under alias/ringing risk according to locked policy.",
+      "Detail is applied before the output limiter.",
+      "No negative and positive copies of the same term may cancel under distinct message IDs."
+    ]
+  },
+  "limiters": {
+    "strict_neighborhood_range": "Clamp to min/max of the exact source support samples, then clamp to legal Y or C range.",
+    "calibrated_relaxed_range": "Clamp to [min-alpha*(max-min), max+alpha*(max-min)] with alpha hash-locked per content class and then to legal channel range.",
+    "alpha": null
+  },
+  "direct_reconstruction": {
+    "spatial_domain": "Evaluate each output pixel at its target coordinate from source samples; nearest-neighbor expansion is not a production substrate.",
+    "source_aligned_phase": "Preserve the source sample exactly under the locked coordinate policy unless a predeclared denoising mode is enabled; denoising is off by default.",
+    "boundaries": "Use mirrored or clamped sampling exactly as locked in geometry policy; no undefined reads.",
+    "numeric_contract": "State/message/dispatch are integer exact. Reconstruction uses either fixed-point or constrained Float32; cross-device output tolerance is declared and tested."
+  },
+  "distinctness_gate": {
+    "descriptor_unique": "All 16 descriptor records must differ in at least one semantically active field.",
+    "behavioral_unique": "Across the synthetic operator-discrimination suite, each descriptor must differ from every other descriptor on at least one qualifying nonconstant patch. Constant-patch equality is expected and not a failure.",
+    "no_cancellation": "No pair may be universally equivalent because equal and opposite terms cancel."
+  },
+  "fallback": {
+    "descriptor": "Keys cubic, isotropic, conservative, strict limiter",
+    "nearest_neighbor": "Test/control only; not a normal production candidate."
+  }
+}

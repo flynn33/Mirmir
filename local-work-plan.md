@@ -11,7 +11,7 @@ Remote boundary: local implementation and local commits only. No fetch, push, pu
 - [x] P02 — Metal completion, transactional cleanup, and route correctness; pass G02.
 - [x] P03 — Canonical ASH packed-core conformance; pass G03.
 - [x] P04 — Native-HR benchmark, degradations, metrics, and corpus lock; pass G04. Evidence: `Artifacts/ASH/20260711-p04-quality-63c9b988-7523-4578-a798-a5c3bfc734da/`.
-- [ ] P05 — Spatial ASH v2 CPU mapping and direct reconstruction; pass G05.
+- [x] P05 — Spatial ASH v2 CPU mapping and direct reconstruction; pass G05. Evidence: `Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/`.
 - [ ] P06 — Calibration, branch compiler, route LUTs, and configuration lock; pass G06.
 - [ ] P07 — Locked holdout and causal ablations; pass G07.
 - [ ] P08 — Metal production path, parity, performance, and memory; pass G08.

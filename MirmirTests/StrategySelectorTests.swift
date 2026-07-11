@@ -9,9 +9,10 @@ final class StrategySelectorTests: XCTestCase {
         XCTAssertEqual(strategy, .direct2x)
     }
 
-    func test_720pTo1080p_picksTwoXThenLanczos() throws {
+    func test_720pTo1080p_picksDirect3Over2() throws {
         let strategy = try StrategySelector.choose(source: .p720, target: .p1080)
-        XCTAssertEqual(strategy, .twoXThenLanczosDownsample(intermediate: .p1440))
+        XCTAssertEqual(strategy, .direct3Over2)
+        XCTAssertEqual(strategy.srOutputResolution(forSource: .p720), .p1080)
     }
 
     func test_unsupportedSourceTargetPair_throws() {

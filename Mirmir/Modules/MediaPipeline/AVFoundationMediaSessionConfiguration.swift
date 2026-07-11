@@ -122,7 +122,7 @@ extension AVFoundationMediaSession {
     }
 
     static func makeASHMetadataItems() -> [AVMetadataItem] {
-        ASHRuntimeConfiguration.current.outputMetadata
+        ASHSpatialRuntimeConfigurationV2.developmentP05.outputMetadata
             .sorted { $0.key < $1.key }
             .map { key, value -> AVMetadataItem in
                 let item = AVMutableMetadataItem()

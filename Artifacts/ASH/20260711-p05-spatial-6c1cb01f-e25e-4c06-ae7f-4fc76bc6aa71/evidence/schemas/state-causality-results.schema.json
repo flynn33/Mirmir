@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/schemas/state-causality-results.schema.json",
+  "allOf": [
+    {"$ref": "p05-common.schema.json#/$defs/artifact"},
+    {
+      "properties": {
+        "artifact_type": {"const": "state-causality-results"},
+        "data": {
+          "required": ["valid_state_count", "state_dispatch_records", "exhaustive_route_phase_dispatch_count", "exhaustive_primary_descriptor_count", "unique_primary_descriptor_count", "hard_semantic_constraint_results", "per_plane_dispatch_results", "neutral_state_phase_preserving_ablation", "first_frame_fixture_count", "first_frame_unique_primary_count", "first_frame_records", "state_disabled_control"],
+          "properties": {
+            "valid_state_count": {"const": 256},
+            "state_dispatch_records": {"type": "array", "minItems": 256, "maxItems": 256},
+            "exhaustive_route_phase_dispatch_count": {"const": 3328},
+            "exhaustive_primary_descriptor_count": {"const": 16},
+            "unique_primary_descriptor_count": {"const": 16},
+            "hard_semantic_constraint_results": {
+              "type": "object",
+              "required": ["checked_dispatch_count", "failure_count", "failures_by_constraint", "pass"],
+              "properties": {
+                "checked_dispatch_count": {"const": 3328},
+                "failure_count": {"const": 0},
+                "failures_by_constraint": {
+                  "type": "object",
+                  "required": [
+                    "invalid_source_integrity",
+                    "affine_decode_not_exact",
+                    "decoded_descriptor_out_of_range",
+                    "candidate_bound_exceeded",
+                    "primary_secondary_collision",
+                    "weight_sum_mismatch",
+                    "selector_state_mismatch",
+                    "primary_anisotropy_semantic_mismatch",
+                    "primary_detail_semantic_mismatch",
+                    "primary_limiter_semantic_mismatch",
+                    "secondary_non_kernel_axis_mismatch"
+                  ],
+                  "properties": {
+                    "invalid_source_integrity": {"const": 0},
+                    "affine_decode_not_exact": {"const": 0},
+                    "decoded_descriptor_out_of_range": {"const": 0},
+                    "candidate_bound_exceeded": {"const": 0},
+                    "primary_secondary_collision": {"const": 0},
+                    "weight_sum_mismatch": {"const": 0},
+                    "selector_state_mismatch": {"const": 0},
+                    "primary_anisotropy_semantic_mismatch": {"const": 0},
+                    "primary_detail_semantic_mismatch": {"const": 0},
+                    "primary_limiter_semantic_mismatch": {"const": 0},
+                    "secondary_non_kernel_axis_mismatch": {"const": 0}
+                  },
+                  "additionalProperties": false
+                },
+                "pass": {"const": true}
+              }
+            },
+            "per_plane_dispatch_results": {
+              "type": "object",
+              "required": ["luma_cache_record_count", "chroma_cache_record_count", "progressive_chroma_siting_count", "luma_enabled_dispatch_count", "chroma_enabled_dispatch_count", "total_enabled_dispatch_count", "decoded_dispatch_evaluation_count", "neutral_phase_comparison_count", "failure_count", "failures_by_constraint", "pass"],
+              "properties": {
+                "luma_cache_record_count": {"const": 4},
+                "chroma_cache_record_count": {"const": 24},
+                "progressive_chroma_siting_count": {"const": 6},
+                "luma_enabled_dispatch_count": {"const": 6656},
+                "chroma_enabled_dispatch_count": {"const": 39936},
+                "total_enabled_dispatch_count": {"const": 46592},
+                "decoded_dispatch_evaluation_count": {"const": 93184},
+                "neutral_phase_comparison_count": {"const": 46592},
+                "failure_count": {"const": 0},
+                "failures_by_constraint": {
+                  "type": "object",
+                  "required": [
+                    "source_anchor_mismatch",
+                    "selector_state_mismatch",
+                    "primary_affine_decode_not_exact",
+                    "secondary_affine_decode_not_exact",
+                    "secondary_presence_mismatch",
+                    "candidate_bound_exceeded",
+                    "primary_secondary_collision",
+                    "weight_sum_mismatch",
+                    "anisotropy_semantic_mismatch",
+                    "detail_semantic_mismatch",
+                    "limiter_semantic_mismatch",
+                    "secondary_non_kernel_axis_mismatch",
+                    "neutral_phase_dispatch_mismatch"
+                  ],
+                  "properties": {
+                    "source_anchor_mismatch": {"const": 0},
+                    "selector_state_mismatch": {"const": 0},
+                    "primary_affine_decode_not_exact": {"const": 0},
+                    "secondary_affine_decode_not_exact": {"const": 0},
+                    "secondary_presence_mismatch": {"const": 0},
+                    "candidate_bound_exceeded": {"const": 0},
+                    "primary_secondary_collision": {"const": 0},
+                    "weight_sum_mismatch": {"const": 0},
+                    "anisotropy_semantic_mismatch": {"const": 0},
+                    "detail_semantic_mismatch": {"const": 0},
+                    "limiter_semantic_mismatch": {"const": 0},
+                    "secondary_non_kernel_axis_mismatch": {"const": 0},
+                    "neutral_phase_dispatch_mismatch": {"const": 0}
+                  },
+                  "additionalProperties": false
+                },
+                "pass": {"const": true}
+              }
+            },
+            "neutral_state_phase_preserving_ablation": {
+              "type": "object",
+              "required": ["neutral_state_raw", "source_anchor_preserved", "selector_state_neutral", "exact_plane_phase_reused", "comparison_count", "mismatch_count", "pass"],
+              "properties": {
+                "neutral_state_raw": {"const": 0},
+                "source_anchor_preserved": {"const": true},
+                "selector_state_neutral": {"const": true},
+                "exact_plane_phase_reused": {"const": true},
+                "comparison_count": {"const": 46592},
+                "mismatch_count": {"const": 0},
+                "pass": {"const": true}
+              }
+            },
+            "first_frame_fixture_count": {"type": "integer", "minimum": 4},
+            "first_frame_unique_primary_count": {"type": "integer", "minimum": 2, "maximum": 16},
+            "first_frame_records": {"type": "array", "minItems": 4},
+            "state_disabled_control": {
+              "type": "object",
+              "required": ["state_enabled", "state_disabled", "enabled_run_state_input_enabled", "disabled_run_state_input_enabled", "same_source_pixels", "same_phase_context", "input_sha256", "maximum_absolute_delta", "progressive_chroma_siting_count", "per_plane_ablation_count", "per_plane_ablations", "pass"],
+              "properties": {
+                "state_enabled": {"const": true},
+                "state_disabled": {"const": true},
+                "enabled_run_state_input_enabled": {"const": true},
+                "disabled_run_state_input_enabled": {"const": false},
+                "same_source_pixels": {"const": true},
+                "same_phase_context": {"const": true},
+                "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "maximum_absolute_delta": {"type": "number", "exclusiveMinimum": 0},
+                "progressive_chroma_siting_count": {"const": 6},
+                "per_plane_ablation_count": {"const": 24},
+                "per_plane_ablations": {"type": "array", "minItems": 24, "maxItems": 24, "uniqueItems": true},
+                "pass": {"const": true}
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -175,23 +175,11 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
         do {
             return try await withTaskCancellationHandler {
-                let backend = ASHDeterministicUpscaleBackend(scale: 2, telemetry: telemetry)
+                let backend = ASHDeterministicUpscaleBackend(
+                    route: strategy.spatialRoute,
+                    telemetry: telemetry
+                )
                 backend.reset()
-
-                let lanczos: LanczosPolishPass?
-                let srPool: CVPixelBufferPool
-                switch strategy {
-                case .direct2x:
-                    lanczos = nil
-                    srPool = session.outputPixelBufferPool
-                case .twoXThenLanczosDownsample(let intermediate):
-                    lanczos = LanczosPolishPass(metal: metal, telemetry: telemetry)
-                    srPool = try PixelBufferBridge.makePool(
-                        width: intermediate.width,
-                        height: intermediate.height,
-                        capacity: 6
-                    )
-                }
 
                 let estimatedTotalFrames = max(source.estimatedFrameCount, 0)
                 var processed = 0
@@ -202,8 +190,6 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
                     try await processFrame(
                         record,
                         backend: backend,
-                        lanczos: lanczos,
-                        superResolutionPool: srPool,
                         outputPool: session.outputPixelBufferPool,
                         session: session,
                         telemetry: telemetry
@@ -258,32 +244,15 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     private static func processFrame(
         _ record: FrameRecord,
         backend: ASHDeterministicUpscaleBackend,
-        lanczos: LanczosPolishPass?,
-        superResolutionPool: CVPixelBufferPool,
         outputPool: CVPixelBufferPool,
         session: MediaSession,
         telemetry: any ASHTelemetryRecording
     ) async throws {
         let frameToken = telemetry.beginStage(.frameTotal, frameIndex: record.frameIndex)
         do {
-            let superResolutionBuffer = try PixelBufferBridge.dequeue(from: superResolutionPool)
-            try await backend.process(source: record.pixelBuffer, into: superResolutionBuffer)
+            let outputBuffer = try PixelBufferBridge.dequeue(from: outputPool)
+            try await backend.process(source: record.pixelBuffer, into: outputBuffer)
             try Task.checkCancellation()
-
-            let outputBuffer: CVPixelBuffer
-            if let lanczos {
-                let polished = try PixelBufferBridge.dequeue(from: outputPool)
-                try await lanczos.encode(
-                    from: superResolutionBuffer,
-                    to: polished,
-                    frameIndex: record.frameIndex,
-                    presentationTime: record.presentationTime
-                )
-                try Task.checkCancellation()
-                outputBuffer = polished
-            } else {
-                outputBuffer = superResolutionBuffer
-            }
             try await session.appendOutput(
                 pixelBuffer: outputBuffer,
                 timing: record.timing

@@ -14,7 +14,8 @@ The harness provides:
 - an exact 6/3/3 corpus lock with source-family isolation, category minima, rights evidence, media-byte binding, canonical display geometry, and safe relative paths;
 - a six-source development sample lock bound to the corpus media, frozen decode evidence, the first representative record, exact centered crop, active Y/CbCr bytes, and code-value excursion counts;
 - explicit nominal video-range clamping for target-crop normalization while retaining the upstream padded-buffer decoder hash separately from the active-plane hash;
-- recursive binding of the complete quality-harness implementation file set;
+- recursive binding of the complete quality harness, P05 spatial implementation,
+  runtime configuration, and deterministic spatial-evidence implementation set;
 - fail-closed holdout authorization with 13 required hashes, a separately rooted user-immutable access receipt, and pre/post loader revalidation;
 - interrupted-run preservation, checkpoint reproduction, recursive semantic verification, a self-hashed artifact manifest, and immutable atomic publication.
 
@@ -81,7 +82,7 @@ Before publication, the harness reopens and cross-validates every source lock, p
 
 ## Holdout boundary
 
-The holdout loader remains closed unless the configuration lock is schema-valid and every required hash matches its current bound artifact. The quality-harness hash uses a recursive manifest covering the product settings type, all harness Python sources, all Python and Swift tools, all schemas, and the reference implementation scripts. Nested source changes are checked both before and after loader execution.
+The holdout loader remains closed unless the configuration lock is schema-valid and every required hash matches its current bound artifact. The quality-harness hash uses a recursive manifest covering the product settings type, the P05 spatial implementation and configuration, the deterministic spatial-evidence generator and schemas, all harness Python sources, all Python and Swift tools, all quality schemas, and the reference implementation scripts. Nested source changes are checked both before and after loader execution.
 
 The access receipt is protected by the macOS user-immutable flag and stored outside the ledger root. Its stated boundary is cooperating processes. Deliberate owner or administrator flag clearing, direct media access, code bypass, and filesystem rollback are outside this mechanism's scope. The automated suite never opens holdout media or evaluation results.
 
