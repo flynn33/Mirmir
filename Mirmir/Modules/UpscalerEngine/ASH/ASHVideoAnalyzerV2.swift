@@ -87,6 +87,24 @@ struct ASHVideoAnalyzerV2CodePlane: Equatable, Sendable {
         range.normalizeLuma(code(x: x, y: y, boundary: boundary))
     }
 
+    func luma(x: Double, y: Double, boundary: ASHVideoAnalyzerV2BoundaryRule) -> Double {
+        let lowerX = Int(floor(x))
+        let lowerY = Int(floor(y))
+        let horizontalFraction = x - Double(lowerX)
+        let verticalFraction = y - Double(lowerY)
+        let top = linear(
+            luma(x: lowerX, y: lowerY, boundary: boundary),
+            luma(x: lowerX + 1, y: lowerY, boundary: boundary),
+            fraction: horizontalFraction
+        )
+        let bottom = linear(
+            luma(x: lowerX, y: lowerY + 1, boundary: boundary),
+            luma(x: lowerX + 1, y: lowerY + 1, boundary: boundary),
+            fraction: horizontalFraction
+        )
+        return linear(top, bottom, fraction: verticalFraction)
+    }
+
     func chroma(x: Int, y: Int, boundary: ASHVideoAnalyzerV2BoundaryRule) -> Double {
         range.normalizeChroma(code(x: x, y: y, boundary: boundary))
     }
@@ -123,6 +141,11 @@ struct ASHVideoAnalyzerV2CodePlane: Equatable, Sendable {
 struct ASHVideoAnalyzerV2Location: Equatable, Sendable {
     let x: Int
     let y: Int
+}
+
+struct ASHVideoAnalyzerV2ContinuousLocation: Equatable, Sendable {
+    let x: Double
+    let y: Double
 }
 
 struct ASHVideoAnalyzerV2ChromaInput: Equatable, Sendable {
@@ -420,8 +443,30 @@ enum ASHVideoAnalyzerV2 {
         }
         return lumaMeasurements(
             plane: input.luma,
-            location: input.location,
+            x: Double(input.location.x),
+            y: Double(input.location.y),
             boundary: input.boundary,
+            configuration: configuration
+        )
+    }
+
+    static func analyzeLuma(
+        plane: ASHVideoAnalyzerV2CodePlane,
+        location: ASHVideoAnalyzerV2ContinuousLocation,
+        boundary: ASHVideoAnalyzerV2BoundaryRule,
+        configuration: ASHVideoAnalyzerV2DevelopmentConfiguration
+    ) throws -> ASHVideoAnalyzerV2Measurements {
+        guard location.x.isFinite,
+              location.y.isFinite,
+              (0.0...Double(plane.width - 1)).contains(location.x),
+              (0.0...Double(plane.height - 1)).contains(location.y) else {
+            throw ASHVideoAnalyzerV2Error.invalidAnalysisLocation
+        }
+        return lumaMeasurements(
+            plane: plane,
+            x: location.x,
+            y: location.y,
+            boundary: boundary,
             configuration: configuration
         )
     }
@@ -590,16 +635,17 @@ enum ASHVideoAnalyzerV2 {
 
     private static func lumaMeasurements(
         plane: ASHVideoAnalyzerV2CodePlane,
-        location: ASHVideoAnalyzerV2Location,
+        x: Double,
+        y: Double,
         boundary: ASHVideoAnalyzerV2BoundaryRule,
         configuration: ASHVideoAnalyzerV2DevelopmentConfiguration
     ) -> ASHVideoAnalyzerV2Measurements {
-        let sample: (Int, Int) -> Double = { x, y in
+        let sample: (Double, Double) -> Double = { x, y in
             plane.luma(x: x, y: y, boundary: boundary)
         }
-        let tensor = structureTensor(x: location.x, y: location.y, sample: sample)
+        let tensor = structureTensor(x: x, y: y, sample: sample)
         let orientation = orientations(tensor)
-        let statistics = localStatistics(x: location.x, y: location.y, sample: sample)
+        let statistics = localStatistics(x: x, y: y, sample: sample)
         let magnitude = sqrt(max(0.0, tensor.xx + tensor.yy))
         let normalizedMagnitude = unit(magnitude / (sqrt(statistics.variance) + configuration.epsilon))
         let coherence = unit(
@@ -607,15 +653,15 @@ enum ASHVideoAnalyzerV2 {
                 / (tensor.xx + tensor.yy + configuration.epsilon)
         )
         let texture = textureMeasurements(
-            x: location.x,
-            y: location.y,
+            x: x,
+            y: y,
             localVariance: statistics.variance,
             epsilon: configuration.epsilon,
             sample: sample
         )
         let risk = riskProxy(
-            x: location.x,
-            y: location.y,
+            x: x,
+            y: y,
             normalRadians: orientation.normal,
             weights: configuration.riskWeights,
             sample: sample
@@ -647,17 +693,17 @@ enum ASHVideoAnalyzerV2 {
         configuration: ASHVideoAnalyzerV2DevelopmentConfiguration
     ) -> (alignment: Double, confidence: Double) {
         guard let chroma else { return (1.0, 0.0) }
-        let cbSample: (Int, Int) -> Double = { x, y in
+        let cbSample: (Double, Double) -> Double = { x, y in
             chroma.cb.chroma(
-                x: chroma.location.horizontal + Double(x),
-                y: chroma.location.vertical + Double(y),
+                x: chroma.location.horizontal + x,
+                y: chroma.location.vertical + y,
                 boundary: boundary
             )
         }
-        let crSample: (Int, Int) -> Double = { x, y in
+        let crSample: (Double, Double) -> Double = { x, y in
             chroma.cr.chroma(
-                x: chroma.location.horizontal + Double(x),
-                y: chroma.location.vertical + Double(y),
+                x: chroma.location.horizontal + x,
+                y: chroma.location.vertical + y,
                 boundary: boundary
             )
         }
@@ -749,15 +795,15 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func scharrGradient(
-        x: Int,
-        y: Int,
-        sample: (Int, Int) -> Double
+        x: Double,
+        y: Double,
+        sample: (Double, Double) -> Double
     ) -> Gradient {
         var gradientX = 0.0
         var gradientY = 0.0
         for row in 0..<3 {
             for column in 0..<3 {
-                let value = sample(x + column - 1, y + row - 1)
+                let value = sample(x + Double(column - 1), y + Double(row - 1))
                 gradientX += scharrX[row][column] * value
                 gradientY += scharrY[row][column] * value
             }
@@ -766,9 +812,9 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func structureTensor(
-        x: Int,
-        y: Int,
-        sample: (Int, Int) -> Double
+        x: Double,
+        y: Double,
+        sample: (Double, Double) -> Double
     ) -> Tensor {
         var xx = 0.0
         var yy = 0.0
@@ -776,7 +822,11 @@ enum ASHVideoAnalyzerV2 {
         for row in 0..<5 {
             for column in 0..<5 {
                 let weight = binomial[row] * binomial[column] / binomialNormalization
-                let gradient = scharrGradient(x: x + column - 2, y: y + row - 2, sample: sample)
+                let gradient = scharrGradient(
+                    x: x + Double(column - 2),
+                    y: y + Double(row - 2),
+                    sample: sample
+                )
                 xx += weight * gradient.x * gradient.x
                 yy += weight * gradient.y * gradient.y
                 xy += weight * gradient.x * gradient.y
@@ -786,10 +836,10 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func combinedStructureTensor(
-        x: Int,
-        y: Int,
-        first: (Int, Int) -> Double,
-        second: (Int, Int) -> Double
+        x: Double,
+        y: Double,
+        first: (Double, Double) -> Double,
+        second: (Double, Double) -> Double
     ) -> Tensor {
         let firstTensor = structureTensor(x: x, y: y, sample: first)
         let secondTensor = structureTensor(x: x, y: y, sample: second)
@@ -821,9 +871,9 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func localStatistics(
-        x: Int,
-        y: Int,
-        sample: (Int, Int) -> Double
+        x: Double,
+        y: Double,
+        sample: (Double, Double) -> Double
     ) -> Statistics {
         var mean = 0.0
         var meanSquare = 0.0
@@ -831,7 +881,7 @@ enum ASHVideoAnalyzerV2 {
         var maximum = -Double.infinity
         for row in 0..<5 {
             for column in 0..<5 {
-                let value = sample(x + column - 2, y + row - 2)
+                let value = sample(x + Double(column - 2), y + Double(row - 2))
                 let weight = binomial[row] * binomial[column] / binomialNormalization
                 mean += weight * value
                 meanSquare += weight * value * value
@@ -847,17 +897,17 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func textureMeasurements(
-        x: Int,
-        y: Int,
+        x: Double,
+        y: Double,
         localVariance: Double,
         epsilon: Double,
-        sample: (Int, Int) -> Double
+        sample: (Double, Double) -> Double
     ) -> (normalizedEnergy: Double, localNoiseEstimate: Double) {
         var residualEnergy = 0.0
         for row in 0..<5 {
             for column in 0..<5 {
-                let localX = x + column - 2
-                let localY = y + row - 2
+                let localX = x + Double(column - 2)
+                let localY = y + Double(row - 2)
                 let residual = sample(localX, localY) - binomialBlur(x: localX, y: localY, sample: sample)
                 let weight = binomial[row] * binomial[column] / binomialNormalization
                 residualEnergy += weight * residual * residual
@@ -870,44 +920,44 @@ enum ASHVideoAnalyzerV2 {
     }
 
     private static func binomialBlur(
-        x: Int,
-        y: Int,
-        sample: (Int, Int) -> Double
+        x: Double,
+        y: Double,
+        sample: (Double, Double) -> Double
     ) -> Double {
         var total = 0.0
         for row in 0..<5 {
             for column in 0..<5 {
                 let weight = binomial[row] * binomial[column] / binomialNormalization
-                total += weight * sample(x + column - 2, y + row - 2)
+                total += weight * sample(x + Double(column - 2), y + Double(row - 2))
             }
         }
         return total
     }
 
     private static func riskProxy(
-        x: Int,
-        y: Int,
+        x: Double,
+        y: Double,
         normalRadians: Double,
         weights: ASHVideoAnalyzerV2RiskWeights,
-        sample: (Int, Int) -> Double
+        sample: (Double, Double) -> Double
     ) -> Double {
         let direction = normalDirection(sector: quantizeTangentSector(normalRadians))
         var laplacianEnergy = 0.0
         var alternatingEnergy = 0.0
         for row in 0..<5 {
             for column in 0..<5 {
-                let localX = x + column - 2
-                let localY = y + row - 2
+                let localX = x + Double(column - 2)
+                let localY = y + Double(row - 2)
                 let center = sample(localX, localY)
                 let laplacian = abs(
                     (4.0 * center)
-                        - sample(localX - 1, localY)
-                        - sample(localX + 1, localY)
-                        - sample(localX, localY - 1)
-                        - sample(localX, localY + 1)
+                        - sample(localX - 1.0, localY)
+                        - sample(localX + 1.0, localY)
+                        - sample(localX, localY - 1.0)
+                        - sample(localX, localY + 1.0)
                 ) / 4.0
-                let before = sample(localX - direction.x, localY - direction.y)
-                let after = sample(localX + direction.x, localY + direction.y)
+                let before = sample(localX - Double(direction.x), localY - Double(direction.y))
+                let after = sample(localX + Double(direction.x), localY + Double(direction.y))
                 let alternating = abs(before - (2.0 * center) + after) / 2.0
                 let weight = binomial[row] * binomial[column] / binomialNormalization
                 laplacianEnergy += weight * laplacian

@@ -1,4 +1,4 @@
-"""Byte-bound native development samples derived from locked decoded frames."""
+"""Byte-bound native calibration samples derived from locked decoded frames."""
 
 from __future__ import annotations
 
@@ -24,8 +24,7 @@ class DevelopmentSampleError(ValueError):
     pass
 
 
-SAMPLE_POLICY = {
-    "split": "development",
+_SAMPLE_POLICY_TEMPLATE = {
     "selection": "representative_samples[0] with index 0 per source asset",
     "crop_dimensions": {"width": 324, "height": 192},
     "crop_alignment": "exact centered crop with even x/y origin for 4:2:0",
@@ -44,20 +43,96 @@ SAMPLE_POLICY = {
     ),
 }
 
+_SAMPLE_SPLIT_COUNTS = {
+    "development": 6,
+    "validation": 3,
+}
+
+
+def _require_calibration_split(split: str) -> int:
+    try:
+        return _SAMPLE_SPLIT_COUNTS[split]
+    except KeyError as error:
+        raise DevelopmentSampleError(
+            "sample split must be development or validation"
+        ) from error
+
+
+def _sample_policy(split: str) -> Dict[str, object]:
+    _require_calibration_split(split)
+    return {"split": split, **deepcopy(_SAMPLE_POLICY_TEMPLATE)}
+
+
+SAMPLE_POLICY = _sample_policy("development")
+VALIDATION_SAMPLE_POLICY = _sample_policy("validation")
+
+_COLOR_TRIPLET_ATTACHMENTS = {
+    "CVImageBufferColorPrimaries": "ITU_R_709_2",
+    "CVImageBufferTransferFunction": "ITU_R_709_2",
+    "CVImageBufferYCbCrMatrix": "ITU_R_709_2",
+}
+_CHROMA_ATTACHMENTS = {
+    "CVImageBufferChromaLocationTopField": "Left",
+    "CVImageBufferChromaLocationBottomField": "Left",
+}
+_DECODED_COLOR_ATTACHMENTS = {
+    **_COLOR_TRIPLET_ATTACHMENTS,
+    **_CHROMA_ATTACHMENTS,
+}
+_CORPUS_COLOR_VALUES = {
+    "color_primaries": "ITU_R_709_2",
+    "transfer_function": "ITU_R_709_2",
+    "ycbcr_matrix": "ITU_R_709_2",
+    "range": "video",
+    "chroma_location": "left",
+}
+_VALIDATION_COLOR_RESOLUTION_METHOD = (
+    "validation_decoded_attachment_corpus_agreement_v1"
+)
+_VALIDATION_COLOR_OBSERVATION_HASH_SCOPE = (
+    "canonical JSON of ordered representative index and required decoded attachment values"
+)
+
+
+def create_sample_lock(
+    *,
+    split: str,
+    corpus_manifest_sha256: str,
+    samples: Sequence[Mapping[str, object]],
+) -> Dict[str, object]:
+    _require_calibration_split(split)
+    lock: Dict[str, object] = {
+        "schema_version": "1.1.0",
+        "corpus_manifest_sha256": corpus_manifest_sha256,
+        "sample_policy": _sample_policy(split),
+        "samples": [dict(sample) for sample in samples],
+    }
+    lock["manifest_sha256"] = manifest_sha256(lock)
+    return lock
+
 
 def create_development_sample_lock(
     *,
     corpus_manifest_sha256: str,
     samples: Sequence[Mapping[str, object]],
 ) -> Dict[str, object]:
-    lock: Dict[str, object] = {
-        "schema_version": "1.1.0",
-        "corpus_manifest_sha256": corpus_manifest_sha256,
-        "sample_policy": deepcopy(SAMPLE_POLICY),
-        "samples": [dict(sample) for sample in samples],
-    }
-    lock["manifest_sha256"] = manifest_sha256(lock)
-    return lock
+    return create_sample_lock(
+        split="development",
+        corpus_manifest_sha256=corpus_manifest_sha256,
+        samples=samples,
+    )
+
+
+def create_validation_sample_lock(
+    *,
+    corpus_manifest_sha256: str,
+    samples: Sequence[Mapping[str, object]],
+) -> Dict[str, object]:
+    return create_sample_lock(
+        split="validation",
+        corpus_manifest_sha256=corpus_manifest_sha256,
+        samples=samples,
+    )
 
 
 def _read_bound_payload(
@@ -251,29 +326,135 @@ def _validate_decode_record_color_metadata(
     *,
     asset_id: object,
 ) -> None:
-    expected = {
-        "CVImageBufferColorPrimaries": "ITU_R_709_2",
-        "CVImageBufferTransferFunction": "ITU_R_709_2",
-        "CVImageBufferYCbCrMatrix": "ITU_R_709_2",
-        "CVImageBufferChromaLocationTopField": "Left",
-        "CVImageBufferChromaLocationBottomField": "Left",
-    }
     decoded = record.get("decoded_attachments")
     source = record.get("source_format_extensions")
     if not isinstance(decoded, dict) or any(
-        decoded.get(field) != value for field, value in expected.items()
+        decoded.get(field) != value
+        for field, value in _DECODED_COLOR_ATTACHMENTS.items()
     ):
         raise DevelopmentSampleError(
             f"asset {asset_id} decode record has unsupported or absent decoded color metadata"
         )
     if (
         not isinstance(source, dict)
-        or any(source.get(field) != value for field, value in expected.items())
+        or any(
+            source.get(field) != value
+            for field, value in _DECODED_COLOR_ATTACHMENTS.items()
+        )
         or source.get("FullRangeVideo") is not False
     ):
         raise DevelopmentSampleError(
             f"asset {asset_id} decode record has unsupported or absent source color metadata"
         )
+
+
+def _validation_color_resolution(
+    decode_manifest: Mapping[str, object],
+    asset: Mapping[str, object],
+) -> Dict[str, object] | None:
+    source = decode_manifest.get("source_format_extensions")
+    if not isinstance(source, dict):
+        raise DevelopmentSampleError(
+            "validation decode manifest lacks source color metadata"
+        )
+    triplet_presence = [field in source for field in _COLOR_TRIPLET_ATTACHMENTS]
+    if all(triplet_presence):
+        return None
+    if any(triplet_presence):
+        raise DevelopmentSampleError(
+            "validation source color triplet is partially present and ambiguous"
+        )
+    if (
+        source.get("FullRangeVideo") is not False
+        or any(source.get(field) != value for field, value in _CHROMA_ATTACHMENTS.items())
+    ):
+        raise DevelopmentSampleError(
+            "validation source range or chroma metadata cannot support color resolution"
+        )
+    if any(asset.get(field) != value for field, value in _CORPUS_COLOR_VALUES.items()):
+        raise DevelopmentSampleError(
+            "validation corpus color metadata cannot support color resolution"
+        )
+
+    records = decode_manifest.get("representative_samples")
+    if not isinstance(records, list) or not records:
+        raise DevelopmentSampleError(
+            "validation color resolution lacks representative decode records"
+        )
+    observations = []
+    observed_indexes = set()
+    for record in records:
+        if not isinstance(record, dict):
+            raise DevelopmentSampleError(
+                "validation color resolution has a non-object representative record"
+            )
+        index = record.get("index")
+        if not isinstance(index, int) or index in observed_indexes:
+            raise DevelopmentSampleError(
+                "validation color resolution has ambiguous representative indexes"
+            )
+        if record.get("source_format_extensions") != source:
+            raise DevelopmentSampleError(
+                "validation representative source color metadata is mixed"
+            )
+        decoded = record.get("decoded_attachments")
+        if (
+            not isinstance(decoded, dict)
+            or record.get("pixel_format") != "420v"
+            or any(
+                decoded.get(field) != value
+                for field, value in _DECODED_COLOR_ATTACHMENTS.items()
+            )
+        ):
+            raise DevelopmentSampleError(
+                "validation representative decoded color metadata is mixed or unsupported"
+            )
+        observations.append(
+            {
+                "index": index,
+                "decoded_attachments": {
+                    field: decoded[field] for field in _DECODED_COLOR_ATTACHMENTS
+                },
+            }
+        )
+        observed_indexes.add(index)
+
+    return {
+        "method": _VALIDATION_COLOR_RESOLUTION_METHOD,
+        "source_color_triplet_status": "absent",
+        "source_color_triplet_fields": list(_COLOR_TRIPLET_ATTACHMENTS),
+        "source_range_evidence": {"FullRangeVideo": False},
+        "source_chroma_evidence": deepcopy(_CHROMA_ATTACHMENTS),
+        "decoded_attachment_values": deepcopy(_DECODED_COLOR_ATTACHMENTS),
+        "corpus_values": deepcopy(_CORPUS_COLOR_VALUES),
+        "representative_sample_count": len(observations),
+        "representative_color_observations_hash_scope": (
+            _VALIDATION_COLOR_OBSERVATION_HASH_SCOPE
+        ),
+        "representative_color_observations_sha256": canonical_sha256(observations),
+    }
+
+
+def _validate_and_resolve_color_metadata(
+    decode_manifest: Mapping[str, object],
+    record: Mapping[str, object],
+    asset: Mapping[str, object],
+    *,
+    split: str,
+) -> Dict[str, object] | None:
+    if split == "development":
+        _validate_decode_record_color_metadata(
+            record,
+            asset_id=asset.get("asset_id"),
+        )
+        return None
+    resolution = _validation_color_resolution(decode_manifest, asset)
+    if resolution is None:
+        _validate_decode_record_color_metadata(
+            record,
+            asset_id=asset.get("asset_id"),
+        )
+    return resolution
 
 
 def _verify_evidence_manifest_entry(
@@ -404,45 +585,53 @@ def _target_frame(
     return frame, observation
 
 
-def load_development_samples(
+def load_sample_split(
     lock: Mapping[str, object],
     corpus: Mapping[str, object],
     *,
+    split: str,
     sample_root: Path,
     asset_root: Path | None = None,
 ) -> List[Tuple[Mapping[str, object], PlanarFrame]]:
+    expected_count = _require_calibration_split(split)
     if lock.get("schema_version") != "1.1.0":
-        raise DevelopmentSampleError("unsupported development sample schema version")
+        raise DevelopmentSampleError(f"unsupported {split} sample schema version")
     if lock.get("manifest_sha256") != manifest_sha256(lock):
-        raise DevelopmentSampleError("development sample manifest hash mismatch")
+        raise DevelopmentSampleError(f"{split} sample manifest hash mismatch")
     if lock.get("corpus_manifest_sha256") != corpus.get("manifest_sha256"):
-        raise DevelopmentSampleError("development sample corpus binding mismatch")
-    if lock.get("sample_policy") != SAMPLE_POLICY:
-        raise DevelopmentSampleError("development sample policy mismatch")
+        raise DevelopmentSampleError(f"{split} sample corpus binding mismatch")
+    if lock.get("sample_policy") != _sample_policy(split):
+        raise DevelopmentSampleError(f"{split} sample policy mismatch")
     media_root = asset_root if asset_root is not None else sample_root
     corpus_assets = corpus.get("assets")
     samples = lock.get("samples")
     if not isinstance(corpus_assets, list) or not isinstance(samples, list):
         raise DevelopmentSampleError("sample or corpus assets are absent")
-    development_assets = {
+    split_assets = {
         str(asset["source_asset_id"]): asset
         for asset in corpus_assets
-        if isinstance(asset, dict) and asset.get("split") == "development"
+        if isinstance(asset, dict) and asset.get("split") == split
     }
-    if len(development_assets) != 6:
-        raise DevelopmentSampleError("production development split must contain six source assets")
-    if len(samples) != 6:
-        raise DevelopmentSampleError("sample lock must contain six development samples")
+    if len(split_assets) != expected_count:
+        raise DevelopmentSampleError(
+            f"production {split} split must contain {expected_count} source assets"
+        )
+    if len(samples) != expected_count:
+        raise DevelopmentSampleError(
+            f"sample lock must contain {expected_count} {split} samples"
+        )
 
     loaded: List[Tuple[Mapping[str, object], PlanarFrame]] = []
     observed = set()
     for sample in samples:
         if not isinstance(sample, dict):
-            raise DevelopmentSampleError("development sample must be an object")
+            raise DevelopmentSampleError(f"{split} sample must be an object")
         source_id = str(sample.get("source_asset_id", ""))
-        if source_id in observed or source_id not in development_assets:
-            raise DevelopmentSampleError("sample source IDs must uniquely cover development")
-        asset = development_assets[source_id]
+        if source_id in observed or source_id not in split_assets:
+            raise DevelopmentSampleError(
+                f"sample source IDs must uniquely cover {split}"
+            )
+        asset = split_assets[source_id]
         if sample.get("asset_id") != asset.get("asset_id"):
             raise DevelopmentSampleError("sample asset ID does not match the corpus")
         route = str(sample.get("target_route", ""))
@@ -497,7 +686,7 @@ def load_development_samples(
         )
         if (
             decode_manifest.get("asset_id") != sample.get("asset_id")
-            or decode_manifest.get("split") != "development"
+            or decode_manifest.get("split") != split
         ):
             raise DevelopmentSampleError("decode manifest asset ID mismatch")
         source_media_path = _bound_decode_media(
@@ -510,10 +699,21 @@ def load_development_samples(
             decode_manifest,
             str(sample["selected_decode_record_sha256"]),
         )
-        _validate_decode_record_color_metadata(
+        color_resolution = _validate_and_resolve_color_metadata(
+            decode_manifest,
             decode_record,
-            asset_id=sample["asset_id"],
+            asset,
+            split=split,
         )
+        if color_resolution is None:
+            if "metadata_resolution" in sample:
+                raise DevelopmentSampleError(
+                    "sample declares an unnecessary metadata resolution"
+                )
+        elif sample.get("metadata_resolution") != color_resolution:
+            raise DevelopmentSampleError(
+                "validation metadata resolution does not match frozen evidence"
+            )
         _validate_display_geometry(
             decode_manifest,
             decode_record,
@@ -639,9 +839,43 @@ def load_development_samples(
         observed.add(source_id)
         loaded.append((asset, target))
 
-    if observed != set(development_assets):
-        raise DevelopmentSampleError("sample lock does not cover every development source")
+    if observed != set(split_assets):
+        raise DevelopmentSampleError(
+            f"sample lock does not cover every {split} source"
+        )
     return loaded
+
+
+def load_development_samples(
+    lock: Mapping[str, object],
+    corpus: Mapping[str, object],
+    *,
+    sample_root: Path,
+    asset_root: Path | None = None,
+) -> List[Tuple[Mapping[str, object], PlanarFrame]]:
+    return load_sample_split(
+        lock,
+        corpus,
+        split="development",
+        sample_root=sample_root,
+        asset_root=asset_root,
+    )
+
+
+def load_validation_samples(
+    lock: Mapping[str, object],
+    corpus: Mapping[str, object],
+    *,
+    sample_root: Path,
+    asset_root: Path | None = None,
+) -> List[Tuple[Mapping[str, object], PlanarFrame]]:
+    return load_sample_split(
+        lock,
+        corpus,
+        split="validation",
+        sample_root=sample_root,
+        asset_root=asset_root,
+    )
 
 
 def build_sample_record(
@@ -652,7 +886,13 @@ def build_sample_record(
     decode_manifest_path: str,
     source_evidence_manifest_path: str,
     asset_root: Path | None = None,
+    split: str = "development",
 ) -> Dict[str, object]:
+    _require_calibration_split(split)
+    if asset.get("split") != split:
+        raise DevelopmentSampleError(
+            "asset does not belong to the requested calibration split"
+        )
     media_root = asset_root if asset_root is not None else sample_root
     evidence_manifest_path = bound_regular_file(
         sample_root,
@@ -681,7 +921,7 @@ def build_sample_record(
     records = decode_manifest.get("representative_samples")
     if (
         decode_manifest.get("asset_id") != asset.get("asset_id")
-        or decode_manifest.get("split") != "development"
+        or decode_manifest.get("split") != split
         or not isinstance(records, list)
         or not records
     ):
@@ -719,9 +959,11 @@ def build_sample_record(
         or any(int(value) < source_width for value in plane_bytes_per_row)
     ):
         raise DevelopmentSampleError("decode record plane storage geometry mismatch")
-    _validate_decode_record_color_metadata(
+    color_resolution = _validate_and_resolve_color_metadata(
+        decode_manifest,
         record,
-        asset_id=asset["asset_id"],
+        asset,
+        split=split,
     )
     _validate_display_geometry(
         decode_manifest,
@@ -807,7 +1049,7 @@ def build_sample_record(
             )
     if source_media_path.read_bytes() != source_media_payload:
         raise DevelopmentSampleError("source media changed while building the sample lock")
-    return {
+    sample = {
         "asset_id": asset["asset_id"],
         "source_asset_id": asset["source_asset_id"],
         "target_route": target_route,
@@ -845,3 +1087,6 @@ def build_sample_record(
         "code_value_observation": observation,
         "target_frame_sha256": frame_sha256(target),
     }
+    if color_resolution is not None:
+        sample["metadata_resolution"] = color_resolution
+    return sample

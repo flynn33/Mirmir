@@ -56,15 +56,40 @@ HARNESS_REQUIRED_IMPLEMENTATION_PATHS = (
     Path("Mirmir/Modules/Telemetry/ASHTelemetryModels.swift"),
     Path("Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryValidationSupportV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedCandidateLUTManifestV1.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlResamplerV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedNonASHOutputCacheV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedLUTManifestRouteV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedOperatorBankV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+DispatchProjection.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+NonASHCache.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferenceTypesV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift"),
     Path("Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift"),
     Path("Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift"),
@@ -188,6 +213,11 @@ def _create_quality_harness_repository(root: Path):
             Path("validation/quality/src/mirmir_quality/holdout.py"): (
                 b"REQUIRED_HASHES = ()\n"
             ),
+            Path("validation/calibration_v2/runner.py"): b"BOUND = True\n",
+            Path("validation/calibration_v2/schemas/runner.schema.json"): b"{}\n",
+            Path("validation/calibration_v2/native_adapter/Bridge.swift"): (
+                b"struct Bridge {}\n"
+            ),
             Path("validation/quality/src/mirmir_quality/nested/check.py"): (
                 b"BOUND = True\n"
             ),
@@ -287,6 +317,14 @@ class CorpusBootstrapHoldoutTests(unittest.TestCase):
             second = create_quality_harness_implementation_manifest(harness_root)
 
             self.assertEqual(first, second)
+            discovered_paths = {
+                record["relative_path"] for record in first["files"]
+            }
+            self.assertIn("validation/calibration_v2/runner.py", discovered_paths)
+            self.assertIn(
+                "validation/calibration_v2/native_adapter/Bridge.swift",
+                discovered_paths,
+            )
             self.assertEqual(read_json(manifest_path), first)
             self.assertEqual(
                 validate_quality_harness_implementation_manifest(

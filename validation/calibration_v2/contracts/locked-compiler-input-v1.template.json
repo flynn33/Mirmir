@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "status": "locked",
+  "configuration_id": "<replace after validation selection>",
+  "hash_bindings": {
+    "mapping_sha256": "<64 lowercase hexadecimal characters>",
+    "operator_bank_sha256": "<64 lowercase hexadecimal characters>",
+    "metric_policy_sha256": "<64 lowercase hexadecimal characters>",
+    "compiler_inputs_sha256": "<recomputed canonical self-hash>",
+    "calibration_plan_sha256": "<64 lowercase hexadecimal characters>",
+    "corpus_lock_bundle_sha256": "<64 lowercase hexadecimal characters>"
+  },
+  "canonicalization": {
+    "encoding": "UTF-8",
+    "object_key_order": "ascending Unicode scalar value",
+    "array_order": "preserved",
+    "whitespace": "none",
+    "string_escaping": "JSON quotation, reverse-solidus, and control escapes; non-ASCII encoded directly as UTF-8",
+    "number_domain": "integers only",
+    "duplicate_keys": "reject",
+    "trailing_newline_in_hash_input": false,
+    "hash_algorithm": "SHA-256",
+    "hash_scope": "complete canonical document with only /hash_bindings/compiler_inputs_sha256 omitted"
+  },
+  "boundary_mode": "<mirror_reflect101 or clamp>",
+  "operator_parameters": {
+    "anisotropy_strength_q12": "<selected integer>",
+    "minimum_anisotropic_magnitude_unorm15": "<selected integer>",
+    "minimum_anisotropic_coherence_unorm15": "<selected integer>",
+    "detail_gain_q12": "<selected integer>",
+    "relaxed_limiter_alpha_q12": "<selected integer>",
+    "risk_detail_suppression_unorm15": "<selected integer>",
+    "low_pass_radius_q8_8": "<selected integer used only by the detail low-pass>",
+    "weight_epsilon_f32_bits": 730643660
+  },
+  "semantic_steps": {
+    "orientation_sector_step": 1,
+    "support_radius_step_q8_8": "<selected integer>",
+    "detail_gain_step_q12": "<selected integer>",
+    "regularization_step_q12": "<selected integer>"
+  },
+  "compiler_policy": {
+    "penalty_decay_denominator": "<selected integer>",
+    "penalty_to_weight_unorm16": ["<exact 256-entry table recomputed from the selected denominator>"],
+    "penalty_orientation_step": "<selected integer>",
+    "penalty_support_step": "<selected integer>",
+    "penalty_detail_step": "<selected integer>",
+    "penalty_regularization_step": "<selected integer>",
+    "penalty_unsupported_support_expansion": "<selected integer>",
+    "penalty_coherent_support_reduction": "<selected integer>",
+    "penalty_unsupported_detail_increase": "<selected integer>",
+    "penalty_supported_detail_reduction": "<selected integer>",
+    "penalty_relaxation_under_risk": "<selected integer>",
+    "penalty_phase_kernel_mismatch": "<selected integer>",
+    "confidence_threshold_unorm16": "<selected integer>"
+  },
+  "routes": {
+    "direct_2x": {
+      "coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "analysis_grid_source_step": "<1, 2, or 4>"
+    },
+    "direct_3_over_2": {
+      "coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "analysis_grid_source_step": "<1, 2, or 4>"
+    }
+  },
+  "temporal": {
+    "enabled": false,
+    "context_count": 4,
+    "context_aliases_to_spatial": [1, 2, 3],
+    "semantic_state": "clear payload coordinate 7 and recompute coordinate 9 parity",
+    "affine_anchor": "original parity-valid source state"
+  },
+  "source_aligned": {
+    "exact": true,
+    "predicate": "source_aligned_rational with horizontal phase zero and vertical phase zero",
+    "primary_message": 0,
+    "primary_descriptor": 0,
+    "secondary": "inactive",
+    "denoising": false
+  },
+  "top_two": 2
+}

@@ -1,0 +1,152 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/video-mapping-v1.schema.json",
+  "title": "Canonical P06 candidate or selected ASH video mapping",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "mapping_id",
+    "configuration_id",
+    "mapping_seed_sha256",
+    "candidate_vector_sha256",
+    "shared_bank_configuration_sha256",
+    "selection_binding",
+    "canonical_core_unchanged",
+    "input_contract",
+    "boundary_mode",
+    "analysis_grid_source_steps",
+    "thresholds_unorm15",
+    "analysis_epsilon_q0_30",
+    "risk_weights_unorm15",
+    "chroma_edge_confidence_unorm15"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "status": {"enum": ["calibration_candidate", "locked_before_p07"]},
+    "mapping_id": {"const": "ash-video-mapping-v2"},
+    "configuration_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "mapping_seed_sha256": {"$ref": "#/$defs/sha256"},
+    "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "selection_binding": {"$ref": "#/$defs/selectionBinding"},
+    "canonical_core_unchanged": {"const": true},
+    "input_contract": {
+      "const": {
+        "bit_depth": 8,
+        "chroma_siting": "left",
+        "matrix": "BT.709",
+        "pixel_format": "420v",
+        "range": "video",
+        "subsampling": "4:2:0"
+      }
+    },
+    "boundary_mode": {"enum": ["mirror_reflect101", "clamp"]},
+    "analysis_grid_source_steps": {
+      "type": "object",
+      "required": ["direct_2x", "direct_3_over_2"],
+      "properties": {
+        "direct_2x": {"enum": [1, 2, 4]},
+        "direct_3_over_2": {"enum": [1, 2, 4]}
+      },
+      "additionalProperties": false
+    },
+    "thresholds_unorm15": {
+      "type": "object",
+      "required": [
+        "edge_present",
+        "coherent_structure",
+        "texture_high_frequency",
+        "alias_or_ringing_risk",
+        "temporal_support_valid",
+        "chroma_luma_structure_aligned"
+      ],
+      "properties": {
+        "edge_present": {"$ref": "#/$defs/spatialBand"},
+        "coherent_structure": {"$ref": "#/$defs/spatialBand"},
+        "texture_high_frequency": {"$ref": "#/$defs/spatialBand"},
+        "alias_or_ringing_risk": {"$ref": "#/$defs/spatialBand"},
+        "temporal_support_valid": {
+          "const": {"low": 32767, "high": 32767}
+        },
+        "chroma_luma_structure_aligned": {"$ref": "#/$defs/spatialBand"}
+      },
+      "additionalProperties": false
+    },
+    "analysis_epsilon_q0_30": {"enum": [1, 2, 4, 8, 16]},
+    "risk_weights_unorm15": {
+      "type": "object",
+      "required": ["laplacian", "alternating_difference"],
+      "properties": {
+        "laplacian": {"enum": [8192, 16384, 24575]},
+        "alternating_difference": {"type": "integer", "minimum": 0, "maximum": 32767}
+      },
+      "additionalProperties": false
+    },
+    "chroma_edge_confidence_unorm15": {"enum": [1638, 3277, 4915, 6553]}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "calibration_candidate"}}},
+      "then": {
+        "properties": {
+          "selection_binding": {
+            "const": {
+              "calibration_selection_sha256": null,
+              "selected_evaluation_sha256": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "locked_before_p07"}}},
+      "then": {
+        "properties": {
+          "selection_binding": {"$ref": "#/$defs/lockedSelectionBinding"}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "spatialBand": {
+      "type": "object",
+      "required": ["low", "high"],
+      "properties": {
+        "low": {"enum": [3277, 4915, 6553, 8192, 9830]},
+        "high": {"enum": [9830, 11468, 13107, 14745, 16384]}
+      },
+      "additionalProperties": false
+    },
+    "selectionBinding": {
+      "type": "object",
+      "required": ["calibration_selection_sha256", "selected_evaluation_sha256"],
+      "properties": {
+        "calibration_selection_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        },
+        "selected_evaluation_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        }
+      },
+      "additionalProperties": false
+    },
+    "lockedSelectionBinding": {
+      "type": "object",
+      "required": ["calibration_selection_sha256", "selected_evaluation_sha256"],
+      "properties": {
+        "calibration_selection_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

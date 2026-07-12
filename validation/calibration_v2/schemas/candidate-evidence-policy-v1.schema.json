@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/candidate-evidence-policy-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "status",
+    "declaration_rule",
+    "source_evidence",
+    "candidate_checks",
+    "performance_estimate",
+    "failure_behavior"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"const": "mirmir-p06-candidate-evidence-policy-v1"},
+    "status": {"const": "preregistered_not_executed"},
+    "declaration_rule": {"type": "string", "minLength": 1},
+    "source_evidence": {
+      "type": "object",
+      "required": [
+        "p00_baseline_reproduction",
+        "p05_cpu_reference",
+        "p05_operator_discrimination",
+        "p05_state_causality",
+        "p05_state_fixtures"
+      ],
+      "properties": {
+        "p00_baseline_reproduction": {
+          "allOf": [
+            {"$ref": "#/$defs/sourceBinding"},
+            {
+              "type": "object",
+              "required": ["one_frame_seconds", "throughput_frames_per_second"],
+              "properties": {
+                "one_frame_seconds": {"const": 20.162},
+                "throughput_frames_per_second": {"const": 0.0491}
+              }
+            }
+          ]
+        },
+        "p05_cpu_reference": {"$ref": "#/$defs/sourceBinding"},
+        "p05_operator_discrimination": {
+          "allOf": [
+            {"$ref": "#/$defs/sourceBinding"},
+            {
+              "type": "object",
+              "required": ["descriptor_count", "unordered_pair_count"],
+              "properties": {
+                "descriptor_count": {"const": 16},
+                "unordered_pair_count": {"const": 120}
+              }
+            }
+          ]
+        },
+        "p05_state_causality": {"$ref": "#/$defs/sourceBinding"},
+        "p05_state_fixtures": {"$ref": "#/$defs/sourceBinding"}
+      },
+      "additionalProperties": false
+    },
+    "candidate_checks": {
+      "type": "object",
+      "required": [
+        "evidence_rule",
+        "compiler_invariants",
+        "operator_distinctness",
+        "state_causality",
+        "analysis_grid"
+      ],
+      "properties": {
+        "evidence_rule": {"type": "string", "minLength": 1},
+        "compiler_invariants": {
+          "type": "object",
+          "required": [
+            "routes",
+            "required_oracle_result",
+            "runtime_leaf_tree_generations",
+            "runtime_path_generations",
+            "per_frame_lut_load_count",
+            "loaded_lut_instance_count_per_route",
+            "maximum_operator_evaluations"
+          ],
+          "properties": {
+            "routes": {
+              "const": [
+                {"target_route": "direct-2x", "entry_count": 4096, "phase_count": 4, "context_count": 4, "valid_state_count": 256},
+                {"target_route": "direct-3over2", "entry_count": 9216, "phase_count": 9, "context_count": 4, "valid_state_count": 256}
+              ]
+            },
+            "required_oracle_result": {"type": "string", "minLength": 1},
+            "runtime_leaf_tree_generations": {"const": 0},
+            "runtime_path_generations": {"const": 0},
+            "per_frame_lut_load_count": {"const": 0},
+            "loaded_lut_instance_count_per_route": {"const": 1},
+            "maximum_operator_evaluations": {"const": 2}
+          },
+          "additionalProperties": false
+        },
+        "operator_distinctness": {
+          "type": "object",
+          "required": ["descriptor_ids", "unordered_pair_count", "witness_scope", "witness_rule", "constant_patch_exception"],
+          "properties": {
+            "descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+            "unordered_pair_count": {"const": 120},
+            "witness_scope": {"type": "string", "minLength": 1},
+            "witness_rule": {"type": "string", "minLength": 1},
+            "constant_patch_exception": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "state_causality": {
+          "type": "object",
+          "required": ["active_spatial_coordinates", "inactive_spatial_coordinate", "integrity_coordinate", "observed_state_rule", "compiled_dispatch_rule", "output_ablation_rule", "state_disabled_rule"],
+          "properties": {
+            "active_spatial_coordinates": {"const": [1, 2, 3, 4, 5, 6, 8]},
+            "inactive_spatial_coordinate": {"const": 7},
+            "integrity_coordinate": {"const": 9},
+            "observed_state_rule": {"type": "string", "minLength": 1},
+            "compiled_dispatch_rule": {"type": "string", "minLength": 1},
+            "output_ablation_rule": {"type": "string", "minLength": 1},
+            "state_disabled_rule": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "analysis_grid": {
+          "type": "object",
+          "required": ["occupancy_rule", "route_quality_rule", "coordinate_assignment_rule"],
+          "properties": {
+            "occupancy_rule": {"type": "string", "minLength": 1},
+            "route_quality_rule": {"type": "string", "minLength": 1},
+            "coordinate_assignment_rule": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "performance_estimate": {
+      "type": "object",
+      "required": [
+        "estimate_kind",
+        "estimate_method",
+        "estimate_model",
+        "comparison_scope",
+        "baseline_frames_per_second",
+        "same_machine_speedup",
+        "production_frames_per_second",
+        "full_ash_dispatch_work",
+        "h07_dispatch_work",
+        "h07_frames_per_second",
+        "full_frame_cpu_reconstruction_loops",
+        "runtime_leaf_tree_generations_per_frame",
+        "candidate_evaluations_per_output_cell",
+        "production_wait_until_completed_calls",
+        "avoidable_full_frame_gpu_readbacks_per_frame",
+        "default_in_flight_frames",
+        "calibration_estimate_relative_error_bound",
+        "interpretation"
+      ],
+      "properties": {
+        "estimate_kind": {"const": "preregistered_production_estimate"},
+        "estimate_method": {"const": "p00-p05-anchored-architectural-floor-and-exact-dispatch-work-v1"},
+        "estimate_model": {"const": "mirmir-p06-preregistered-production-estimate-v1"},
+        "comparison_scope": {"type": "string", "minLength": 1},
+        "baseline_frames_per_second": {"const": 0.0491},
+        "same_machine_speedup": {"const": 20.0},
+        "production_frames_per_second": {"const": 0.982},
+        "full_ash_dispatch_work": {"type": "string", "minLength": 1},
+        "h07_dispatch_work": {"type": "string", "minLength": 1},
+        "h07_frames_per_second": {"type": "string", "minLength": 1},
+        "full_frame_cpu_reconstruction_loops": {"const": 0},
+        "runtime_leaf_tree_generations_per_frame": {"const": 0},
+        "candidate_evaluations_per_output_cell": {"const": 2},
+        "production_wait_until_completed_calls": {"const": 0},
+        "avoidable_full_frame_gpu_readbacks_per_frame": {"const": 0},
+        "default_in_flight_frames": {"const": 3},
+        "calibration_estimate_relative_error_bound": {"const": 0.2},
+        "interpretation": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "failure_behavior": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sourceBinding": {
+      "type": "object",
+      "required": ["path", "file_sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9._/-]+\\.json$"},
+        "file_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "additionalProperties": false
+}

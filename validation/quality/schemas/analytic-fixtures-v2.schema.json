@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/analytic-fixtures-v2.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "status", "supersedes",
+    "numeric_contract", "comparison_domains", "fixtures", "hash_scope",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "metric_analytic_fixture_manifest"},
+    "status": {"const": "locked_complete"},
+    "supersedes": {
+      "type": "object",
+      "required": ["path", "file_sha256", "manifest_sha256", "reason"],
+      "properties": {
+        "path": {"const": "reference/analytic-fixtures-v1.json"},
+        "file_sha256": {"const": "5c7a6d2d91b081a63168e82f222bc0a2d8e6fe4c8f0369b4a8a16e6bf49fde9f"},
+        "manifest_sha256": {"const": "ad538b284b1ec6cad4433757471c2f9de43b74f828ec793b8b7107054adbf336"},
+        "reason": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "numeric_contract": {
+      "type": "object",
+      "required": ["reference_planes", "frame_hash", "support_packing", "target_rule", "low_resolution_rule"],
+      "properties": {
+        "reference_planes": {"const": "IEEE-754 binary64"},
+        "frame_hash": {"const": "mirmir_quality.arrays.frame_sha256 canonical Q16 planar frame"},
+        "support_packing": {"const": "row-major numpy-packbits-big without a shape prefix"},
+        "target_rule": {"const": "construct each native target independently on its declared target lattice"},
+        "low_resolution_rule": {"const": "derive only from the target with the declared locked HQ degradation profile"}
+      },
+      "additionalProperties": false
+    },
+    "comparison_domains": {"const": ["engine_raw", "container_decoded"]},
+    "fixtures": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "prefixItems": [
+        {"$ref": "#/$defs/direct2Vertical"},
+        {"$ref": "#/$defs/direct2Horizontal"},
+        {"$ref": "#/$defs/direct2Diagonal"},
+        {"$ref": "#/$defs/direct2Impulse"},
+        {"$ref": "#/$defs/direct2Line"},
+        {"$ref": "#/$defs/direct2Alias"},
+        {"$ref": "#/$defs/direct2Chroma"},
+        {"$ref": "#/$defs/direct3Vertical"},
+        {"$ref": "#/$defs/direct3Horizontal"},
+        {"$ref": "#/$defs/direct3Diagonal"},
+        {"$ref": "#/$defs/direct3Impulse"},
+        {"$ref": "#/$defs/direct3Line"},
+        {"$ref": "#/$defs/direct3Alias"},
+        {"$ref": "#/$defs/direct3Chroma"}
+      ],
+      "items": false
+    },
+    "hash_scope": {"const": "canonical sorted-key compact UTF-8 JSON excluding manifest_sha256"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "geometry": {
+      "type": "object",
+      "required": ["y", "cb", "cr"],
+      "properties": {
+        "y": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "cb": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}},
+        "cr": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "integer", "minimum": 1}}
+      },
+      "additionalProperties": false
+    },
+    "generator": {
+      "type": "object",
+      "required": ["id", "version", "parameters"],
+      "properties": {
+        "id": {"enum": ["unit-step", "single-unit-impulse", "vertical-unit-thin-line", "normalized-nyquist-checker", "left-sited-centered-chroma-step"]},
+        "version": {"const": "2.0.0"},
+        "parameters": {"type": "object", "minProperties": 1}
+      },
+      "additionalProperties": false
+    },
+    "fixture": {
+      "type": "object",
+      "required": ["fixture_id", "fixture_kind", "required_metric_id", "target_route", "target_geometry", "low_resolution_geometry", "degradation_profile_id", "generator", "measurement_support", "target_reference_frame_sha256", "low_resolution_frame_sha256"],
+      "properties": {
+        "fixture_id": {"type": "string", "minLength": 1},
+        "fixture_kind": {"enum": ["edge_profile", "ringing", "thin_line", "alias", "chroma_displacement"]},
+        "required_metric_id": {"enum": ["edge_location_error_pixels", "ringing_overshoot_undershoot", "thin_line_retention_and_false_side_lobe", "alias_forbidden_band_ratio", "chroma_edge_displacement_pixels"]},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "target_geometry": {"$ref": "#/$defs/geometry"},
+        "low_resolution_geometry": {"const": {"y": [32, 32], "cb": [16, 16], "cr": [16, 16]}},
+        "degradation_profile_id": {"enum": ["hq-binomial7-decimate-2x-v1", "hq-binomial7-resample-2over3-v1"]},
+        "generator": {"$ref": "#/$defs/generator"},
+        "measurement_support": {"type": "object", "minProperties": 2},
+        "target_reference_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "low_resolution_frame_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"target_route": {"const": "direct-2x"}}},
+          "then": {
+            "properties": {
+              "target_geometry": {"const": {"y": [64, 64], "cb": [32, 32], "cr": [32, 32]}},
+              "degradation_profile_id": {"const": "hq-binomial7-decimate-2x-v1"}
+            }
+          },
+          "else": {
+            "properties": {
+              "target_geometry": {"const": {"y": [48, 48], "cb": [24, 24], "cr": [24, 24]}},
+              "degradation_profile_id": {"const": "hq-binomial7-resample-2over3-v1"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"fixture_kind": {"const": "edge_profile"}}},
+          "then": {"properties": {
+            "required_metric_id": {"const": "edge_location_error_pixels"},
+            "generator": {"properties": {"id": {"const": "unit-step"}}},
+            "measurement_support": {
+              "required": ["kind", "center_xy", "normal_xy", "sample_count", "crossing_level", "boundary"],
+              "properties": {"kind": {"const": "edge_profile"}, "sample_count": {"const": 31}, "crossing_level": {"const": 0.5}, "boundary": {"const": "reflect-101"}}
+            }
+          }}
+        },
+        {
+          "if": {"properties": {"fixture_kind": {"const": "ringing"}}},
+          "then": {"properties": {
+            "required_metric_id": {"const": "ringing_overshoot_undershoot"},
+            "generator": {"properties": {"id": {"const": "single-unit-impulse"}}},
+            "measurement_support": {
+              "required": ["kind", "encoding", "true_coordinates", "packed_encoding", "packed_sha256"],
+              "properties": {"kind": {"const": "transition_mask"}, "encoding": {"const": "true-coordinate-pairs-row-column"}, "packed_encoding": {"const": "row-major numpy-packbits-big"}}
+            }
+          }}
+        },
+        {
+          "if": {"properties": {"fixture_kind": {"const": "thin_line"}}},
+          "then": {"properties": {
+            "required_metric_id": {"const": "thin_line_retention_and_false_side_lobe"},
+            "generator": {"properties": {"id": {"const": "vertical-unit-thin-line"}}},
+            "measurement_support": {
+              "required": ["kind", "encoding", "column", "packed_encoding", "packed_sha256"],
+              "properties": {"kind": {"const": "line_mask"}, "encoding": {"const": "complete-column-index"}, "packed_encoding": {"const": "row-major numpy-packbits-big"}}
+            }
+          }}
+        },
+        {
+          "if": {"properties": {"fixture_kind": {"const": "alias"}}},
+          "then": {"properties": {
+            "required_metric_id": {"const": "alias_forbidden_band_ratio"},
+            "generator": {"properties": {"id": {"const": "normalized-nyquist-checker"}}},
+            "measurement_support": {
+              "required": ["kind", "fft", "encoding", "true_coordinates", "packed_encoding", "packed_sha256"],
+              "properties": {"kind": {"const": "forbidden_fft_mask"}, "fft": {"const": "numpy.fft.fft2 norm=ortho without shift"}, "encoding": {"const": "true-coordinate-pairs-row-column"}, "packed_encoding": {"const": "row-major numpy-packbits-big"}}
+            }
+          }}
+        },
+        {
+          "if": {"properties": {"fixture_kind": {"const": "chroma_displacement"}}},
+          "then": {"properties": {
+            "required_metric_id": {"const": "chroma_edge_displacement_pixels"},
+            "generator": {"properties": {"id": {"const": "left-sited-centered-chroma-step"}}},
+            "measurement_support": {
+              "required": ["kind", "luma_row", "chroma_row", "luma_sample_columns", "chroma_sample_columns", "coordinates_luma_pixels", "luma_crossing_level", "chroma_crossing_level"],
+              "properties": {"kind": {"const": "left_sited_chroma_profiles"}, "luma_crossing_level": {"const": 0.5}, "chroma_crossing_level": {"const": 0.0}}
+            }
+          }}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "direct2Vertical": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.vertical-step-v2"}}}]},
+    "direct2Horizontal": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.horizontal-step-v2"}}}]},
+    "direct2Diagonal": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.diagonal-step-v2"}}}]},
+    "direct2Impulse": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.single-impulse-v2"}}}]},
+    "direct2Line": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.vertical-thin-line-v2"}}}]},
+    "direct2Alias": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.near-nyquist-checker-v2"}}}]},
+    "direct2Chroma": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-2x.left-sited-chroma-edge-v2"}}}]},
+    "direct3Vertical": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.vertical-step-v2"}}}]},
+    "direct3Horizontal": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.horizontal-step-v2"}}}]},
+    "direct3Diagonal": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.diagonal-step-v2"}}}]},
+    "direct3Impulse": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.single-impulse-v2"}}}]},
+    "direct3Line": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.vertical-thin-line-v2"}}}]},
+    "direct3Alias": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.near-nyquist-checker-v2"}}}]},
+    "direct3Chroma": {"allOf": [{"$ref": "#/$defs/fixture"}, {"properties": {"fixture_id": {"const": "direct-3over2.left-sited-chroma-edge-v2"}}}]}
+  },
+  "additionalProperties": false
+}

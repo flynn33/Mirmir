@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-frame-extraction-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "sampling_plan_file_sha256",
+    "sampling_plan_manifest_sha256",
+    "corpus_manifest_sha256",
+    "asset_count",
+    "assets",
+    "holdout_accessed",
+    "target_pixel_hashes_recorded_after_open",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_holdout_frame_extraction"},
+    "status": {"const": "complete"},
+    "sampling_plan_file_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "asset_count": {"const": 3},
+    "assets": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/asset"}
+    },
+    "holdout_accessed": {"const": true},
+    "target_pixel_hashes_recorded_after_open": {"const": true},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "asset": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "asset_id",
+        "source_asset_id",
+        "source_family_id",
+        "target_route",
+        "source_sha256",
+        "source_size_bytes",
+        "source_rehashed_after_decode",
+        "presentation_dimensions",
+        "preferred_transform",
+        "frame_range",
+        "selected_presentation_time",
+        "selection_rule",
+        "enabled_video_track_count",
+        "decoded_pixel_format",
+        "decoded_range",
+        "decoded_color_primaries",
+        "decoded_transfer_function",
+        "decoded_ycbcr_matrix",
+        "decoded_chroma_location",
+        "crop",
+        "crop_nv12_filename",
+        "crop_nv12_sha256",
+        "crop_nv12_size_bytes"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 2},
+        "asset_id": {"type": "string", "minLength": 1},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_size_bytes": {"type": "integer", "minimum": 1},
+        "source_rehashed_after_decode": {"const": true},
+        "presentation_dimensions": {"$ref": "#/$defs/dimensions"},
+        "preferred_transform": {
+          "type": "object",
+          "required": ["a", "b", "c", "d", "tx", "ty"],
+          "properties": {
+            "a": {"type": "number"}, "b": {"type": "number"},
+            "c": {"type": "number"}, "d": {"type": "number"},
+            "tx": {"type": "number"}, "ty": {"type": "number"}
+          },
+          "additionalProperties": false
+        },
+        "frame_range": {"$ref": "#/$defs/timeRange"},
+        "selected_presentation_time": {
+          "type": "object",
+          "required": ["value", "timescale"],
+          "properties": {
+            "value": {"type": "integer", "minimum": 0},
+            "timescale": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        },
+        "selection_rule": {"const": "first_presentation_order_sample_at_or_after_exact_range_midpoint"},
+        "enabled_video_track_count": {"const": 1},
+        "decoded_pixel_format": {"const": "420v"},
+        "decoded_range": {"const": "video"},
+        "decoded_color_primaries": {"const": "ITU_R_709_2"},
+        "decoded_transfer_function": {"const": "ITU_R_709_2"},
+        "decoded_ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "decoded_chroma_location": {"const": "left"},
+        "crop": {"$ref": "#/$defs/crop"},
+        "crop_nv12_filename": {"type": "string", "pattern": "^[0-9]{2}-[A-Za-z0-9._-]+\\.nv12$"},
+        "crop_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "crop_nv12_size_bytes": {"const": 93312}
+      },
+      "additionalProperties": false
+    },
+    "dimensions": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": {"type": "integer", "minimum": 324},
+        "height": {"type": "integer", "minimum": 192}
+      },
+      "additionalProperties": false
+    },
+    "crop": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {"type": "integer", "minimum": 0, "multipleOf": 2},
+        "y": {"type": "integer", "minimum": 0, "multipleOf": 2},
+        "width": {"const": 324},
+        "height": {"const": 192}
+      },
+      "additionalProperties": false
+    },
+    "timeRange": {
+      "type": "object",
+      "required": ["start", "duration", "timescale"],
+      "properties": {
+        "start": {"type": "integer", "minimum": 0},
+        "duration": {"type": "integer", "minimum": 1},
+        "timescale": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

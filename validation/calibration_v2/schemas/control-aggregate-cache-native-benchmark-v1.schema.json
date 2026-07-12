@@ -1,0 +1,914 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/control-aggregate-cache-native-benchmark-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "schema_binding",
+    "run_identity",
+    "toolchain_identity",
+    "execution_contract",
+    "prepared_case_bindings",
+    "prepared_case_bindings_sha256",
+    "native_swift_execution",
+    "production_corpus_accessed",
+    "production_corpus_performance_claim",
+    "holdout_accessed",
+    "holdout_statement",
+    "geometry",
+    "configuration",
+    "implementation_closure",
+    "benchmark_input_closure",
+    "formula_derivation",
+    "runtime_environment",
+    "reproduction",
+    "cold",
+    "warm",
+    "setup_timing",
+    "timing_telemetry",
+    "observed",
+    "maximum_formulas",
+    "empirical_storage_projection",
+    "empirical_linear_time_projection",
+    "capacity_headroom",
+    "evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "artifact_kind": {"const": "p06_control_aggregate_cache_native_benchmark"},
+    "schema_binding": {"$ref": "#/$defs/pathBinding"},
+    "run_identity": {"$ref": "#/$defs/runIdentity"},
+    "toolchain_identity": {"$ref": "#/$defs/toolchainIdentity"},
+    "execution_contract": {"$ref": "#/$defs/executionContract"},
+    "prepared_case_bindings": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {"$ref": "#/$defs/preparedCase"}
+    },
+    "prepared_case_bindings_sha256": {"$ref": "#/$defs/sha256"},
+    "native_swift_execution": {"const": true},
+    "production_corpus_accessed": {"const": false},
+    "production_corpus_performance_claim": {"const": false},
+    "holdout_accessed": {"const": false},
+    "holdout_statement": {"type": "string", "minLength": 1},
+    "geometry": {
+      "type": "object",
+      "required": [
+        "prepared_case_count",
+        "output_y_shape",
+        "output_chroma_shape",
+        "direct_2x_input_y_shape",
+        "direct_3over2_input_y_shape"
+      ],
+      "properties": {
+        "prepared_case_count": {"const": 18},
+        "output_y_shape": {"const": [192, 324]},
+        "output_chroma_shape": {"const": [96, 162]},
+        "direct_2x_input_y_shape": {"const": [96, 162]},
+        "direct_3over2_input_y_shape": {"const": [128, 216]}
+      },
+      "additionalProperties": false
+    },
+    "configuration": {
+      "type": "object",
+      "required": [
+        "shared_bank_configuration_sha256",
+        "native_executable_sha256",
+        "native_source_manifest_sha256"
+      ],
+      "properties": {
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "native_executable_sha256": {"$ref": "#/$defs/sha256"},
+        "native_source_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "implementation_closure": {"$ref": "#/$defs/implementationClosure"},
+    "benchmark_input_closure": {"$ref": "#/$defs/inputClosure"},
+    "formula_derivation": {"$ref": "#/$defs/formulaDerivation"},
+    "runtime_environment": {"$ref": "#/$defs/runtimeEnvironment"},
+    "reproduction": {"$ref": "#/$defs/reproduction"},
+    "cold": {"$ref": "#/$defs/coldRun"},
+    "warm": {"$ref": "#/$defs/warmRun"},
+    "setup_timing": {"$ref": "#/$defs/setupTiming"},
+    "timing_telemetry": {"$ref": "#/$defs/timingTelemetry"},
+    "observed": {"$ref": "#/$defs/observed"},
+    "maximum_formulas": {"$ref": "#/$defs/maximumFormulas"},
+    "empirical_storage_projection": {"$ref": "#/$defs/storageProjection"},
+    "empirical_linear_time_projection": {"$ref": "#/$defs/timeProjectionEnvelope"},
+    "capacity_headroom": {"$ref": "#/$defs/capacityHeadroom"},
+    "evidence_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonnegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nonnegativeNumber": {
+      "type": "number",
+      "minimum": 0
+    },
+    "pathBinding": {
+      "type": "object",
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$)).+$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "untrackedFileBinding": {
+      "type": "object",
+      "required": ["path", "entry_kind", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1, "not": {"pattern": "^Artifacts/"}},
+        "entry_kind": {"enum": ["regular_file", "symbolic_link_target"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"$ref": "#/$defs/nonnegativeInteger"}
+      },
+      "additionalProperties": false
+    },
+    "repositoryState": {
+      "type": "object",
+      "required": ["head_commit", "is_dirty", "binding_algorithm", "untracked_artifact_exclusion", "tracked_porcelain_v1_z_sha256", "tracked_porcelain_v1_z_size_bytes", "non_artifact_untracked_files", "non_artifact_untracked_files_sha256", "tracked_binary_diff_sha256", "tracked_binary_diff_size_bytes"],
+      "properties": {
+        "head_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "is_dirty": {"type": "boolean"},
+        "binding_algorithm": {"type": "string", "minLength": 1},
+        "untracked_artifact_exclusion": {"const": "Artifacts/**"},
+        "tracked_porcelain_v1_z_sha256": {"$ref": "#/$defs/sha256"},
+        "tracked_porcelain_v1_z_size_bytes": {"$ref": "#/$defs/nonnegativeInteger"},
+        "non_artifact_untracked_files": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/untrackedFileBinding"}
+        },
+        "non_artifact_untracked_files_sha256": {"$ref": "#/$defs/sha256"},
+        "tracked_binary_diff_sha256": {"$ref": "#/$defs/sha256"},
+        "tracked_binary_diff_size_bytes": {"$ref": "#/$defs/nonnegativeInteger"}
+      },
+      "additionalProperties": false
+    },
+    "finalBundleLinkage": {
+      "type": "object",
+      "required": ["required_artifact_manifest_kind", "required_manifest_run_id", "required_binding", "finalizer"],
+      "properties": {
+        "required_artifact_manifest_kind": {"const": "p06_runtime_feasibility_correction_artifact_manifest"},
+        "required_manifest_run_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "required_binding": {"type": "string", "minLength": 1},
+        "finalizer": {"const": "validation/calibration_v2/tools/finalize_p06_runtime_correction.py"}
+      },
+      "additionalProperties": false
+    },
+    "outputRecoveryAction": {
+      "type": "object",
+      "required": ["action", "path", "sha256", "size_bytes"],
+      "properties": {
+        "action": {"const": "removed_recognized_stale_benchmark_temporary"},
+        "path": {
+          "type": "string",
+          "oneOf": [
+            {"pattern": "^\\.[^/]+\\.[0-9a-f]{32}\\.tmp$"},
+            {"pattern": "^\\.mirmir-benchmark-[0-9a-f]{32}\\.tmp$"}
+          ]
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"$ref": "#/$defs/nonnegativeInteger"}
+      },
+      "additionalProperties": false
+    },
+    "runIdentity": {
+      "type": "object",
+      "required": ["run_id", "started_utc", "finished_utc", "repository_state", "output_recovery_actions", "output_publication_temporary_path", "final_bundle_linkage"],
+      "properties": {
+        "run_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "started_utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "finished_utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+        "repository_state": {"$ref": "#/$defs/repositoryState"},
+        "output_recovery_actions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/outputRecoveryAction"}
+        },
+        "output_publication_temporary_path": {
+          "type": "string",
+          "pattern": "^\\.[^/]+\\.[0-9a-f]{32}\\.tmp$"
+        },
+        "final_bundle_linkage": {"$ref": "#/$defs/finalBundleLinkage"}
+      },
+      "additionalProperties": false
+    },
+    "toolchainIdentity": {
+      "type": "object",
+      "required": ["xcodebuild_version", "swiftc_path", "swift_version", "macos_sdk_version", "macos_sdk_path"],
+      "properties": {
+        "xcodebuild_version": {"type": "string", "minLength": 1},
+        "swiftc_path": {"type": "string", "minLength": 1},
+        "swift_version": {"type": "string", "minLength": 1},
+        "macos_sdk_version": {"type": "string", "minLength": 1},
+        "macos_sdk_path": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "executionContract": {
+      "type": "object",
+      "required": ["routes", "coordinate_policy_by_route", "analysis_grid_source_step_by_route", "temporal_mode", "comparison_domain", "execution_device", "metal_execution", "contract_sha256"],
+      "properties": {
+        "routes": {"const": ["direct-2x", "direct-3over2"]},
+        "coordinate_policy_by_route": {
+          "type": "object",
+          "required": ["direct-2x", "direct-3over2"],
+          "properties": {
+            "direct-2x": {"type": "string", "minLength": 1},
+            "direct-3over2": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "analysis_grid_source_step_by_route": {
+          "type": "object",
+          "required": ["direct-2x", "direct-3over2"],
+          "properties": {
+            "direct-2x": {"$ref": "#/$defs/positiveInteger"},
+            "direct-3over2": {"$ref": "#/$defs/positiveInteger"}
+          },
+          "additionalProperties": false
+        },
+        "temporal_mode": {"const": "disabled"},
+        "comparison_domain": {"const": "engine_raw"},
+        "execution_device": {"const": "CPU native Swift control evaluation"},
+        "metal_execution": {"const": false},
+        "contract_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "preparedCase": {
+      "type": "object",
+      "required": ["ordinal", "source_asset_id", "source_family_id", "categories", "target_route", "degradation_profile_id", "degradation_profile_sha256", "target_frame_sha256", "input_frame_sha256", "target_y_shape", "target_cb_shape", "target_cr_shape", "low_resolution_y_shape"],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 17},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "categories": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "target_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "target_y_shape": {"const": [192, 324]},
+        "target_cb_shape": {"const": [96, 162]},
+        "target_cr_shape": {"const": [96, 162]},
+        "low_resolution_y_shape": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/positiveInteger"}}
+      },
+      "additionalProperties": false
+    },
+    "implementationFile": {
+      "type": "object",
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "implementationClosure": {
+      "type": "object",
+      "required": ["ordered_files", "ordered_files_sha256"],
+      "properties": {
+        "ordered_files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/implementationFile"}
+        },
+        "ordered_files_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "boundFile": {
+      "type": "object",
+      "required": ["id", "path", "sha256", "size_bytes"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "configurationHashes": {
+      "type": "object",
+      "required": [
+        "mapping_seed_sha256",
+        "operator_bank_seed_sha256",
+        "metric_policy_seed_sha256",
+        "candidate_lut_runtime_manifest_sha256",
+        "mapping_sha256",
+        "operator_bank_sha256",
+        "metric_policy_sha256",
+        "compiler_inputs_sha256",
+        "compiler_contract_sha256",
+        "calibration_plan_sha256",
+        "corpus_lock_bundle_sha256",
+        "shared_bank_configuration_sha256",
+        "raw_output_contract_sha256",
+        "full_control_configuration_sha256"
+      ],
+      "properties": {
+        "mapping_seed_sha256": {"$ref": "#/$defs/sha256"},
+        "operator_bank_seed_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_seed_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_lut_runtime_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "mapping_sha256": {"$ref": "#/$defs/sha256"},
+        "operator_bank_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "calibration_plan_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "raw_output_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "full_control_configuration_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "liveVerification": {
+      "type": "object",
+      "required": [
+        "verification_receipt_sha256",
+        "access_status",
+        "access_count",
+        "open_intent_anchor_present",
+        "pixel_content_included"
+      ],
+      "properties": {
+        "verification_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "access_status": {"const": "unopened"},
+        "access_count": {"const": 0},
+        "open_intent_anchor_present": {"const": false},
+        "pixel_content_included": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "qualityClosure": {
+      "type": "object",
+      "required": ["implementation_manifest_file_sha256", "implementation_manifest_sha256"],
+      "properties": {
+        "implementation_manifest_file_sha256": {"$ref": "#/$defs/sha256"},
+        "implementation_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "inputClosure": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "candidate_id",
+        "candidate_configuration_id",
+        "candidate_configuration_sha256",
+        "serialized_candidate_vector",
+        "serialized_candidate_vector_sha256",
+        "configuration_hashes",
+        "selector_contract",
+        "selector_contract_sha256",
+        "baseline_ablation_contract_file_sha256",
+        "degradation_policy_file_sha256",
+        "degradation_policy_sha256",
+        "metric_policy_file_sha256",
+        "metric_policy_sha256",
+        "development_sample_lock_file_sha256",
+        "development_sample_manifest_sha256",
+        "corpus_lock_file_sha256",
+        "corpus_manifest_sha256",
+        "corpus_lock_bundle_sha256",
+        "corpus_lock_bundle_document",
+        "live_holdout_preopen_verification",
+        "live_holdout_preopen_verification_sha256",
+        "common_boundary_contract",
+        "common_boundary_contract_sha256",
+        "quality_implementation_closure",
+        "ordered_bound_input_files",
+        "input_closure_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p06_control_aggregate_native_benchmark_inputs"},
+        "candidate_id": {"type": "string", "minLength": 1},
+        "candidate_configuration_id": {"type": "string", "minLength": 1},
+        "candidate_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "serialized_candidate_vector": {"type": "object", "minProperties": 1},
+        "serialized_candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_hashes": {"$ref": "#/$defs/configurationHashes"},
+        "selector_contract": {"type": "object", "minProperties": 1},
+        "selector_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "baseline_ablation_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_policy_file_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_file_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_document": {"type": "object", "minProperties": 1},
+        "live_holdout_preopen_verification": {"$ref": "#/$defs/liveVerification"},
+        "live_holdout_preopen_verification_sha256": {"$ref": "#/$defs/sha256"},
+        "common_boundary_contract": {"type": "object", "minProperties": 1},
+        "common_boundary_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "quality_implementation_closure": {"$ref": "#/$defs/qualityClosure"},
+        "ordered_bound_input_files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/boundFile"}
+        },
+        "input_closure_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "formulaDerivation": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "ordered_shared_bank_coordinates",
+        "shared_bank_domain_sizes",
+        "shared_bank_alternatives_per_sweep",
+        "calibration_maximum_sweeps",
+        "derived_first_outer_sweep_bank_count",
+        "derived_maximum_bank_count",
+        "selector_coordinate_order",
+        "selector_coordinate_count",
+        "selector_values",
+        "selector_value_count",
+        "selector_maximum_sweeps",
+        "derived_maximum_unique_rules_per_bank",
+        "derivation_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "ordered_shared_bank_coordinates": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "shared_bank_domain_sizes": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/positiveInteger"}},
+        "shared_bank_alternatives_per_sweep": {"const": 38},
+        "calibration_maximum_sweeps": {"const": 8},
+        "derived_first_outer_sweep_bank_count": {"const": 39},
+        "derived_maximum_bank_count": {"const": 305},
+        "selector_coordinate_order": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
+        "selector_coordinate_count": {"const": 27},
+        "selector_values": {"const": [-384, -256, -128, 0, 128, 256, 384]},
+        "selector_value_count": {"const": 7},
+        "selector_maximum_sweeps": {"const": 8},
+        "derived_maximum_unique_rules_per_bank": {"const": 1297},
+        "derivation_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "runtimeEnvironment": {
+      "type": "object",
+      "required": ["host", "system", "release", "version", "machine", "processor", "platform", "python_version", "python_build", "python_compiler", "python_executable"],
+      "properties": {
+        "host": {"type": "string"},
+        "system": {"type": "string", "minLength": 1},
+        "release": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "machine": {"type": "string", "minLength": 1},
+        "processor": {"type": "string"},
+        "platform": {"type": "string", "minLength": 1},
+        "python_version": {"type": "string", "minLength": 1},
+        "python_build": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+        "python_compiler": {"type": "string", "minLength": 1},
+        "python_executable": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "reproduction": {
+      "type": "object",
+      "required": ["working_directory", "environment", "argv", "shell_command"],
+      "properties": {
+        "working_directory": {"const": "<repository-root>"},
+        "environment": {
+          "type": "object",
+          "required": ["MIRMIR_RUN_NATIVE_AGGREGATE_BENCHMARK", "MIRMIR_NATIVE_AGGREGATE_BENCHMARK_OUTPUT"],
+          "properties": {
+            "MIRMIR_RUN_NATIVE_AGGREGATE_BENCHMARK": {"const": "1"},
+            "MIRMIR_NATIVE_AGGREGATE_BENCHMARK_OUTPUT": {"const": "<repository-relative-output.json>"}
+          },
+          "additionalProperties": false
+        },
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "shell_command": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "storage": {
+      "type": "object",
+      "required": ["file_count", "directory_count", "inode_count", "size_bytes", "allocated_or_block_floor_bytes"],
+      "properties": {
+        "file_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "directory_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "inode_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "size_bytes": {"$ref": "#/$defs/nonnegativeInteger"},
+        "allocated_or_block_floor_bytes": {"$ref": "#/$defs/nonnegativeInteger"}
+      },
+      "additionalProperties": false
+    },
+    "outputCachePreparationRecord": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "identity_sha256", "cache_token",
+        "cache_origin_manifest_sha256", "requesting_configuration_id",
+        "shared_bank_configuration_sha256", "cache_reused",
+        "preparation_analysis_grid_invocation_count",
+        "preparation_spatial_operator_evaluation_count",
+        "cache_artifact_sha256", "cache_artifact_size_bytes",
+        "feature_tensor_q15_sha256",
+        "descriptor_output_frame_sha256_values", "record_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p06_non_ash_cache_preparation_evidence"},
+        "identity_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_token": {"$ref": "#/$defs/sha256"},
+        "cache_origin_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "requesting_configuration_id": {"type": "string", "minLength": 1},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_reused": {"type": "boolean"},
+        "preparation_analysis_grid_invocation_count": {"enum": [0, 1]},
+        "preparation_spatial_operator_evaluation_count": {"enum": [0, 16]},
+        "cache_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_artifact_size_bytes": {"type": "integer", "minimum": 1},
+        "feature_tensor_q15_sha256": {"$ref": "#/$defs/sha256"},
+        "descriptor_output_frame_sha256_values": {
+          "type": "array",
+          "minItems": 16,
+          "maxItems": 16,
+          "items": {"$ref": "#/$defs/sha256"}
+        },
+        "record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"cache_reused": {"const": true}}},
+          "then": {
+            "properties": {
+              "preparation_analysis_grid_invocation_count": {"const": 0},
+              "preparation_spatial_operator_evaluation_count": {"const": 0}
+            }
+          },
+          "else": {
+            "properties": {
+              "preparation_analysis_grid_invocation_count": {"const": 1},
+              "preparation_spatial_operator_evaluation_count": {"const": 16}
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "coldRun": {
+      "type": "object",
+      "required": ["scope", "adapter_configuration_session_setup_seconds", "operator_cache_preparation_seconds", "search_and_commit_seconds", "close_seconds", "observed_selector_component_seconds", "metric_call_count", "native_call_count", "control_call_count", "cache_preparation_record_count", "cache_preparation_records", "cache_preparation_records_sha256", "native_storage", "evidence_storage"],
+      "properties": {
+        "scope": {"type": "string", "minLength": 1},
+        "adapter_configuration_session_setup_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "operator_cache_preparation_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "search_and_commit_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "close_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "observed_selector_component_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "metric_call_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "native_call_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "control_call_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "cache_preparation_record_count": {"const": 18},
+        "cache_preparation_records": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {"$ref": "#/$defs/outputCachePreparationRecord"},
+              {"properties": {"cache_reused": {"const": false}}}
+            ]
+          }
+        },
+        "cache_preparation_records_sha256": {"$ref": "#/$defs/sha256"},
+        "native_storage": {"$ref": "#/$defs/storage"},
+        "evidence_storage": {"$ref": "#/$defs/storage"}
+      },
+      "additionalProperties": false
+    },
+    "warmRun": {
+      "type": "object",
+      "required": ["scope", "prepared_case_reconstruction_seconds_benchmark_only", "adapter_configuration_session_setup_seconds", "operator_cache_import_seconds", "search_and_commit_seconds", "close_seconds", "observed_selector_component_seconds", "metric_call_count", "native_recombination_call_count", "control_call_count", "cache_preparation_record_count", "cache_preparation_records", "cache_preparation_records_sha256", "native_storage", "evidence_storage"],
+      "properties": {
+        "scope": {"type": "string", "minLength": 1},
+        "prepared_case_reconstruction_seconds_benchmark_only": {"$ref": "#/$defs/nonnegativeNumber"},
+        "adapter_configuration_session_setup_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "operator_cache_import_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "search_and_commit_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "close_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "observed_selector_component_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "metric_call_count": {"const": 0},
+        "native_recombination_call_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "control_call_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "cache_preparation_record_count": {"const": 18},
+        "cache_preparation_records": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {"$ref": "#/$defs/outputCachePreparationRecord"},
+              {"properties": {"cache_reused": {"const": true}}}
+            ]
+          }
+        },
+        "cache_preparation_records_sha256": {"$ref": "#/$defs/sha256"},
+        "native_storage": {"$ref": "#/$defs/storage"},
+        "evidence_storage": {"$ref": "#/$defs/storage"}
+      },
+      "additionalProperties": false
+    },
+    "setupTiming": {
+      "type": "object",
+      "required": ["one_time_factory_and_bound_input_setup_seconds", "prepared_case_construction_seconds_benchmark_only", "prepared_case_construction_is_production_p06_component"],
+      "properties": {
+        "one_time_factory_and_bound_input_setup_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "prepared_case_construction_seconds_benchmark_only": {"$ref": "#/$defs/nonnegativeNumber"},
+        "prepared_case_construction_is_production_p06_component": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "timingSummary": {
+      "type": "object",
+      "required": ["clock", "percentile_method", "count", "total_seconds", "p50_seconds", "p95_seconds", "p99_seconds", "raw_seconds_in_execution_order"],
+      "properties": {
+        "clock": {"const": "time.perf_counter_monotonic"},
+        "percentile_method": {"const": "nearest_rank_ceiling"},
+        "count": {"$ref": "#/$defs/positiveInteger"},
+        "total_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "p50_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "p95_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "p99_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "raw_seconds_in_execution_order": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/nonnegativeNumber"}}
+      },
+      "additionalProperties": false
+    },
+    "timingTelemetry": {
+      "type": "object",
+      "required": ["cold_unique_rule_evaluator", "warm_restart_unique_rule_evaluator", "lifecycle_stage_seconds", "lifecycle_stage_summary"],
+      "properties": {
+        "cold_unique_rule_evaluator": {"$ref": "#/$defs/timingSummary"},
+        "warm_restart_unique_rule_evaluator": {"$ref": "#/$defs/timingSummary"},
+        "lifecycle_stage_seconds": {"type": "object", "minProperties": 11, "maxProperties": 11, "additionalProperties": {"$ref": "#/$defs/nonnegativeNumber"}},
+        "lifecycle_stage_summary": {"$ref": "#/$defs/timingSummary"}
+      },
+      "additionalProperties": false
+    },
+    "ruleStorage": {
+      "type": "object",
+      "required": ["rule_count", "native_compact_proof_file_count", "native_compact_proof_directory_count", "aggregate_origin_file_count", "aggregate_document_file_count", "file_count", "directory_count", "inode_count", "size_bytes", "minimum_complete_rule_size_bytes", "maximum_complete_rule_size_bytes", "allocated_or_block_floor_bytes", "minimum_complete_rule_allocated_or_block_floor_bytes", "maximum_complete_rule_allocated_or_block_floor_bytes", "ordered_rule_group_summary_sha256"],
+      "properties": {
+        "rule_count": {"$ref": "#/$defs/positiveInteger"},
+        "native_compact_proof_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "native_compact_proof_directory_count": {"$ref": "#/$defs/positiveInteger"},
+        "aggregate_origin_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "aggregate_document_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "file_count": {"$ref": "#/$defs/positiveInteger"},
+        "directory_count": {"$ref": "#/$defs/positiveInteger"},
+        "inode_count": {"$ref": "#/$defs/positiveInteger"},
+        "size_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "minimum_complete_rule_size_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_complete_rule_size_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "minimum_complete_rule_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_complete_rule_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "ordered_rule_group_summary_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "attemptLedgerModel": {
+      "type": "object",
+      "required": ["observed_attempt_count", "maximum_attempt_count", "observed_logical_bytes", "maximum_record_logical_bytes", "modeled_maximum_logical_bytes", "observed_allocated_or_block_floor_bytes", "modeled_maximum_allocated_block_floor_bytes"],
+      "properties": {
+        "observed_attempt_count": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_attempt_count": {"const": 1513},
+        "observed_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_record_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "observed_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_allocated_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "nativeDurabilityGrowthModel": {
+      "type": "object",
+      "required": ["rule_scoped_file_growth_per_rule", "rule_scoped_directory_growth_per_rule", "observed_pending_file_count", "fixed_pending_file_count", "maximum_pending_file_count", "observed_pending_directory_count", "fixed_pending_directory_count", "maximum_pending_directory_count", "observed_document_sha256", "modeled_document_sha256", "observed_logical_bytes", "modeled_maximum_logical_bytes", "observed_allocated_or_block_floor_bytes", "modeled_maximum_allocated_block_floor_bytes"],
+      "properties": {
+        "rule_scoped_file_growth_per_rule": {"const": 18},
+        "rule_scoped_directory_growth_per_rule": {"const": 18},
+        "observed_pending_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "fixed_pending_file_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "maximum_pending_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "observed_pending_directory_count": {"$ref": "#/$defs/positiveInteger"},
+        "fixed_pending_directory_count": {"$ref": "#/$defs/nonnegativeInteger"},
+        "maximum_pending_directory_count": {"$ref": "#/$defs/positiveInteger"},
+        "observed_document_sha256": {"$ref": "#/$defs/sha256"},
+        "modeled_document_sha256": {"$ref": "#/$defs/sha256"},
+        "observed_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "observed_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_allocated_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "evidenceDependencyGrowthModel": {
+      "type": "object",
+      "required": ["fixed_document_count", "document_growth_per_rule", "observed_document_count", "maximum_document_count", "observed_document_sha256", "modeled_document_sha256", "observed_logical_bytes", "modeled_maximum_logical_bytes", "observed_allocated_or_block_floor_bytes", "modeled_maximum_allocated_block_floor_bytes"],
+      "properties": {
+        "fixed_document_count": {"const": 1},
+        "document_growth_per_rule": {"const": 2},
+        "observed_document_count": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_document_count": {"const": 2595},
+        "observed_document_sha256": {"$ref": "#/$defs/sha256"},
+        "modeled_document_sha256": {"$ref": "#/$defs/sha256"},
+        "observed_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "observed_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_allocated_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "selectorSelectionGrowthModel": {
+      "type": "object",
+      "required": ["observed_attempt_count", "maximum_attempt_count", "observed_document_sha256", "modeled_document_sha256", "observed_logical_bytes", "modeled_maximum_logical_bytes", "observed_allocated_or_block_floor_bytes", "modeled_maximum_allocated_block_floor_bytes"],
+      "properties": {
+        "observed_attempt_count": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_attempt_count": {"const": 1513},
+        "observed_document_sha256": {"$ref": "#/$defs/sha256"},
+        "modeled_document_sha256": {"$ref": "#/$defs/sha256"},
+        "observed_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "observed_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_allocated_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "countDependentSharedDocumentGrowthModels": {
+      "type": "object",
+      "required": ["native_durability_commit", "evidence_dependency_commit", "selector_selection", "observed_logical_bytes", "modeled_maximum_logical_bytes", "observed_allocated_or_block_floor_bytes", "modeled_maximum_allocated_block_floor_bytes"],
+      "properties": {
+        "native_durability_commit": {"$ref": "#/$defs/nativeDurabilityGrowthModel"},
+        "evidence_dependency_commit": {"$ref": "#/$defs/evidenceDependencyGrowthModel"},
+        "selector_selection": {"$ref": "#/$defs/selectorSelectionGrowthModel"},
+        "observed_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_logical_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "observed_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "modeled_maximum_allocated_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "observed": {
+      "type": "object",
+      "required": ["development_attempt_count", "unique_rule_count", "origin_file_count", "rule_scoped_storage", "total_storage", "observed_non_rule_scoped_overhead", "attempt_ledger_growth_model", "count_dependent_shared_document_growth_models"],
+      "properties": {
+        "development_attempt_count": {"$ref": "#/$defs/positiveInteger"},
+        "unique_rule_count": {"$ref": "#/$defs/positiveInteger"},
+        "origin_file_count": {"$ref": "#/$defs/positiveInteger"},
+        "rule_scoped_storage": {"$ref": "#/$defs/ruleStorage"},
+        "total_storage": {"$ref": "#/$defs/storage"},
+        "observed_non_rule_scoped_overhead": {"$ref": "#/$defs/storage"},
+        "attempt_ledger_growth_model": {"$ref": "#/$defs/attemptLedgerModel"},
+        "count_dependent_shared_document_growth_models": {"$ref": "#/$defs/countDependentSharedDocumentGrowthModels"}
+      },
+      "additionalProperties": false
+    },
+    "maximumFormulas": {
+      "type": "object",
+      "required": ["unique_rules_per_bank", "native_calls_per_bank", "first_outer_sweep_bank_count", "native_calls_first_outer_sweep", "bank_count", "native_calls_all_banks", "rule_scoped_native_proof_files_per_rule", "rule_scoped_aggregate_origin_files_per_rule", "rule_scoped_aggregate_document_files_per_rule", "rule_scoped_files_per_rule", "rule_scoped_files_per_bank", "rule_scoped_files_all_banks", "rule_scoped_files_first_outer_sweep", "rule_scoped_native_proof_directories_per_rule", "rule_scoped_inodes_per_rule", "rule_scoped_inodes_per_bank", "rule_scoped_inodes_all_banks", "rule_scoped_inodes_first_outer_sweep", "native_calls_per_bank_formula", "native_calls_first_outer_sweep_formula", "native_calls_all_banks_formula", "rule_scoped_files_per_rule_formula", "rule_scoped_files_per_bank_formula", "rule_scoped_files_first_outer_sweep_formula", "rule_scoped_files_all_banks_formula", "rule_scoped_inodes_per_rule_formula", "rule_scoped_inodes_per_bank_formula", "rule_scoped_inodes_first_outer_sweep_formula", "rule_scoped_inodes_all_banks_formula"],
+      "properties": {
+        "unique_rules_per_bank": {"const": 1297},
+        "native_calls_per_bank": {"const": 23346},
+        "first_outer_sweep_bank_count": {"const": 39},
+        "native_calls_first_outer_sweep": {"const": 910494},
+        "bank_count": {"const": 305},
+        "native_calls_all_banks": {"const": 7120530},
+        "rule_scoped_native_proof_files_per_rule": {"const": 18},
+        "rule_scoped_aggregate_origin_files_per_rule": {"const": 1},
+        "rule_scoped_aggregate_document_files_per_rule": {"const": 2},
+        "rule_scoped_files_per_rule": {"const": 21},
+        "rule_scoped_files_per_bank": {"const": 27237},
+        "rule_scoped_files_all_banks": {"const": 8307285},
+        "rule_scoped_files_first_outer_sweep": {"const": 1062243},
+        "rule_scoped_native_proof_directories_per_rule": {"const": 18},
+        "rule_scoped_inodes_per_rule": {"const": 39},
+        "rule_scoped_inodes_per_bank": {"const": 50583},
+        "rule_scoped_inodes_all_banks": {"const": 15427815},
+        "rule_scoped_inodes_first_outer_sweep": {"const": 1972737},
+        "native_calls_per_bank_formula": {"type": "string", "minLength": 1},
+        "native_calls_first_outer_sweep_formula": {"type": "string", "minLength": 1},
+        "native_calls_all_banks_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_files_per_rule_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_files_per_bank_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_files_first_outer_sweep_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_files_all_banks_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_inodes_per_rule_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_inodes_per_bank_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_inodes_first_outer_sweep_formula": {"type": "string", "minLength": 1},
+        "rule_scoped_inodes_all_banks_formula": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "storageProjection": {
+      "type": "object",
+      "required": ["method", "projection_is_capacity_guarantee", "projection_limitations", "allocation_floor_bytes", "maximum_complete_rule_size_bytes", "maximum_complete_rule_allocated_or_block_floor_bytes", "logical_bytes_per_maximum_bank", "first_outer_sweep_bank_count", "logical_bytes_first_outer_sweep", "logical_bytes_all_banks", "allocated_bytes_per_maximum_bank", "allocated_bytes_first_outer_sweep", "allocated_bytes_all_banks", "files_per_maximum_bank", "files_first_outer_sweep", "files_all_banks", "directories_per_maximum_bank", "directories_first_outer_sweep", "directories_all_banks", "inodes_per_maximum_bank", "inodes_first_outer_sweep", "inodes_all_banks"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "projection_is_capacity_guarantee": {"const": false},
+        "projection_limitations": {"type": "string", "minLength": 1},
+        "allocation_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_complete_rule_size_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "maximum_complete_rule_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
+        "logical_bytes_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
+        "first_outer_sweep_bank_count": {"const": 39},
+        "logical_bytes_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
+        "logical_bytes_all_banks": {"$ref": "#/$defs/positiveInteger"},
+        "allocated_bytes_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
+        "allocated_bytes_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
+        "allocated_bytes_all_banks": {"$ref": "#/$defs/positiveInteger"},
+        "files_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
+        "files_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
+        "files_all_banks": {"$ref": "#/$defs/positiveInteger"},
+        "directories_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
+        "directories_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
+        "directories_all_banks": {"$ref": "#/$defs/positiveInteger"},
+        "inodes_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
+        "inodes_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
+        "inodes_all_banks": {"$ref": "#/$defs/positiveInteger"}
+      },
+      "additionalProperties": false
+    },
+    "timeProjection": {
+      "type": "object",
+      "required": ["observed_search_commit_seconds", "seconds_per_observed_unique_rule", "fixed_setup_and_close_seconds_per_bank", "projected_search_seconds_per_maximum_bank", "selector_component_seconds_per_maximum_bank", "selector_component_hours_per_maximum_bank", "first_outer_sweep_bank_count", "first_outer_sweep_seconds", "first_outer_sweep_hours", "first_outer_sweep_days", "all_banks_seconds", "all_banks_days"],
+      "properties": {
+        "observed_search_commit_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "seconds_per_observed_unique_rule": {"$ref": "#/$defs/nonnegativeNumber"},
+        "fixed_setup_and_close_seconds_per_bank": {"$ref": "#/$defs/nonnegativeNumber"},
+        "projected_search_seconds_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
+        "selector_component_seconds_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
+        "selector_component_hours_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
+        "first_outer_sweep_bank_count": {"const": 39},
+        "first_outer_sweep_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "first_outer_sweep_hours": {"$ref": "#/$defs/nonnegativeNumber"},
+        "first_outer_sweep_days": {"$ref": "#/$defs/nonnegativeNumber"},
+        "all_banks_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
+        "all_banks_days": {"$ref": "#/$defs/nonnegativeNumber"}
+      },
+      "additionalProperties": false
+    },
+    "timeProjectionEnvelope": {
+      "type": "object",
+      "required": ["method", "projection_is_runtime_guarantee", "projection_scope", "cold", "warm"],
+      "properties": {
+        "method": {"type": "string", "minLength": 1},
+        "projection_is_runtime_guarantee": {"const": false},
+        "projection_scope": {"type": "string", "minLength": 1},
+        "cold": {"$ref": "#/$defs/timeProjection"},
+        "warm": {"$ref": "#/$defs/timeProjection"}
+      },
+      "additionalProperties": false
+    },
+    "capacityHeadroom": {
+      "type": "object",
+      "required": ["free_disk_bytes_before", "free_disk_bytes_after", "available_inodes_before", "available_inodes_after", "empirical_all_banks_logical_byte_headroom_before", "empirical_first_outer_sweep_logical_byte_headroom_before", "empirical_all_banks_allocated_byte_headroom_before", "empirical_first_outer_sweep_allocated_byte_headroom_before", "empirical_all_banks_inode_headroom_before", "empirical_first_outer_sweep_inode_headroom_before"],
+      "properties": {
+        "free_disk_bytes_before": {"$ref": "#/$defs/nonnegativeInteger"},
+        "free_disk_bytes_after": {"$ref": "#/$defs/nonnegativeInteger"},
+        "available_inodes_before": {"$ref": "#/$defs/nonnegativeInteger"},
+        "available_inodes_after": {"$ref": "#/$defs/nonnegativeInteger"},
+        "empirical_all_banks_logical_byte_headroom_before": {"type": "integer"},
+        "empirical_first_outer_sweep_logical_byte_headroom_before": {"type": "integer"},
+        "empirical_all_banks_allocated_byte_headroom_before": {"type": "integer"},
+        "empirical_first_outer_sweep_allocated_byte_headroom_before": {"type": "integer"},
+        "empirical_all_banks_inode_headroom_before": {"type": "integer"},
+        "empirical_first_outer_sweep_inode_headroom_before": {"type": "integer"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

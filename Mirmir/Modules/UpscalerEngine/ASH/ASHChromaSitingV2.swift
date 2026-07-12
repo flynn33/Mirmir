@@ -42,9 +42,13 @@ enum ASHChromaSitingV2: String, CaseIterable, Equatable, Sendable {
     }
 
     func sourceChromaLocation(lumaX: Int, lumaY: Int) -> ASHChromaContinuousLocationV2 {
+        sourceChromaLocation(lumaX: Double(lumaX), lumaY: Double(lumaY))
+    }
+
+    func sourceChromaLocation(lumaX: Double, lumaY: Double) -> ASHChromaContinuousLocationV2 {
         ASHChromaContinuousLocationV2(
-            horizontal: (Double(lumaX) - (Double(horizontalLumaOffsetNumerator) / 2.0)) / 2.0,
-            vertical: (Double(lumaY) - (Double(verticalLumaOffsetNumerator) / 2.0)) / 2.0
+            horizontal: (lumaX - (Double(horizontalLumaOffsetNumerator) / 2.0)) / 2.0,
+            vertical: (lumaY - (Double(verticalLumaOffsetNumerator) / 2.0)) / 2.0
         )
     }
 

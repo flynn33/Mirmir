@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
+import stat
 import tempfile
-from typing import Any, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Mapping, Optional, Sequence, Tuple
+
+import jsonschema
 
 from .json_tools import read_json, validate_schema
 
@@ -49,12 +54,28 @@ class CommonWriterResult:
     encoded_path: Path
     report_path: Path
     decoded_directory: Path
+    report_payload_sha256: Optional[str] = None
+    source_payload_sha256: Optional[str] = None
+    source_lock_sha256: Optional[str] = None
+    encoded_payload_sha256: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class IsolatedProductionWriterCaseResult:
     case_id: str
     result: CommonWriterResult
+
+
+@dataclass(frozen=True)
+class ProductionWriterAuthorizedExecution:
+    """Retained executable/settings FDs plus a mandatory authorized runner."""
+
+    executable_descriptor: int
+    product_settings_source_descriptor: int
+    run_process: Callable[
+        [Sequence[str], int, Sequence[int]],
+        subprocess.CompletedProcess[bytes],
+    ]
 
 
 class CommonWriterExecutionError(RuntimeError):
@@ -430,6 +451,353 @@ def run_common_writer(
     )
 
 
+def _descriptor_record(descriptor: int) -> Tuple[int, ...]:
+    metadata = os.fstat(descriptor)
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_nlink,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+        metadata.st_ctime_ns,
+    )
+
+
+def _read_descriptor(descriptor: int) -> bytes:
+    before = _descriptor_record(descriptor)
+    if stat.S_IFMT(before[2]) != stat.S_IFREG or before[3] != 1:
+        raise ValueError("retained writer descriptor is not singular regular data")
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    chunks = []
+    while True:
+        try:
+            chunk = os.read(descriptor, 1024 * 1024)
+        except InterruptedError:
+            continue
+        if not chunk:
+            break
+        chunks.append(chunk)
+    after = _descriptor_record(descriptor)
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    if after != before:
+        raise ValueError("retained writer descriptor changed while reading")
+    return b"".join(chunks)
+
+
+def _verify_descriptor_path(
+    descriptor: int,
+    path: Path,
+    *,
+    expected_record: Optional[Tuple[int, ...]] = None,
+) -> None:
+    opened = _descriptor_record(descriptor)
+    linked = os.stat(path, follow_symlinks=False)
+    if (
+        stat.S_ISLNK(linked.st_mode)
+        or (linked.st_dev, linked.st_ino) != (opened[0], opened[1])
+        or (expected_record is not None and opened != expected_record)
+    ):
+        raise ValueError("retained writer descriptor/path identity differs")
+
+
+def _validate_production_report(
+    report: Mapping[str, Any],
+    expected_dimensions: Optional[Tuple[int, int]],
+) -> None:
+    if expected_dimensions is None:
+        validate_schema(report, SCHEMA_ROOT / "production-writer.schema.json")
+        return
+    width, height = expected_dimensions
+    if width <= 0 or height <= 0 or width % 2 or height % 2:
+        raise ValueError("P06 production-writer geometry must be positive and even")
+    schema = copy.deepcopy(read_json(SCHEMA_ROOT / "production-writer.schema.json"))
+    schema["$id"] = (
+        "https://mirmir.local/validation/calibration-v2/"
+        "p06-variable-geometry-production-writer-v1.schema.json"
+    )
+    definitions = schema["$defs"]
+    definitions["pixelLayout"]["properties"]["width"] = {"const": width}
+    definitions["pixelLayout"]["properties"]["height"] = {"const": height}
+    definitions["encoded"]["properties"]["width"] = {"const": width}
+    definitions["encoded"]["properties"]["height"] = {"const": height}
+    definitions["decodedFrame"]["properties"]["width"] = {"const": width}
+    definitions["decodedFrame"]["properties"]["height"] = {"const": height}
+    definitions["decodedFrame"]["properties"]["payload_size_bytes"] = {
+        "const": width * height * 3 // 2
+    }
+    validator = jsonschema.Draft202012Validator(
+        schema,
+        format_checker=jsonschema.FormatChecker(),
+    )
+    errors = sorted(
+        validator.iter_errors(report),
+        key=lambda error: list(error.absolute_path),
+    )
+    if errors:
+        raise ValueError(
+            "P06 variable-geometry production report validation failed: "
+            + "; ".join(error.message for error in errors)
+        )
+
+
+def _run_production_writer_locked_authorized(
+    *,
+    source_path: Path,
+    source_lock_path: Path,
+    output_directory: Path,
+    output_name: str,
+    executable: Path,
+    expected_dimensions: Optional[Tuple[int, int]],
+    execution: ProductionWriterAuthorizedExecution,
+) -> CommonWriterResult:
+    if not output_name or Path(output_name).name != output_name:
+        raise ValueError("output_name must be a nonempty filename stem")
+    output_directory = output_directory.absolute()
+    if source_path.parent.absolute() != output_directory or (
+        source_lock_path.parent.absolute() != output_directory
+    ):
+        raise ValueError("authorized writer inputs must be inside its case directory")
+    root_descriptor = os.open(
+        output_directory,
+        os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+    )
+    descriptors = [root_descriptor]
+    encoded_path = output_directory / f"{output_name}.mp4"
+    report_path = output_directory / f"{output_name}-report.json"
+    failure_path = output_directory / f"{output_name}-report.failed-authorized.json"
+    decoded_directory = output_directory / f"{output_name}-decoded"
+    staging_directory = output_directory / f".{output_name}-encoded-staging"
+    try:
+        root_metadata = os.fstat(root_descriptor)
+        linked_root = os.stat(output_directory, follow_symlinks=False)
+        if (
+            not stat.S_ISDIR(root_metadata.st_mode)
+            or stat.S_ISLNK(linked_root.st_mode)
+            or (root_metadata.st_dev, root_metadata.st_ino)
+            != (linked_root.st_dev, linked_root.st_ino)
+        ):
+            raise ValueError("authorized writer case directory identity differs")
+        source_descriptor = os.open(
+            source_path.name,
+            os.O_RDONLY | os.O_NOFOLLOW,
+            dir_fd=root_descriptor,
+        )
+        source_lock_descriptor = os.open(
+            source_lock_path.name,
+            os.O_RDONLY | os.O_NOFOLLOW,
+            dir_fd=root_descriptor,
+        )
+        encoded_descriptor = os.open(
+            encoded_path.name,
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=root_descriptor,
+        )
+        report_descriptor = os.open(
+            report_path.name,
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=root_descriptor,
+        )
+        failure_descriptor = os.open(
+            failure_path.name,
+            os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+            0o600,
+            dir_fd=root_descriptor,
+        )
+        os.mkdir(decoded_directory.name, 0o700, dir_fd=root_descriptor)
+        decoded_descriptor = os.open(
+            decoded_directory.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            dir_fd=root_descriptor,
+        )
+        os.mkdir(staging_directory.name, 0o700, dir_fd=root_descriptor)
+        staging_descriptor = os.open(
+            staging_directory.name,
+            os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+            dir_fd=root_descriptor,
+        )
+        descriptors.extend(
+            (
+                source_descriptor,
+                source_lock_descriptor,
+                encoded_descriptor,
+                report_descriptor,
+                failure_descriptor,
+                decoded_descriptor,
+                staging_descriptor,
+            )
+        )
+        fixed_descriptors = (
+            execution.executable_descriptor,
+            execution.product_settings_source_descriptor,
+        )
+        fixed_records = tuple(_descriptor_record(value) for value in fixed_descriptors)
+        source_records = (
+            _descriptor_record(source_descriptor),
+            _descriptor_record(source_lock_descriptor),
+        )
+        for descriptor in fixed_descriptors:
+            os.lseek(descriptor, 0, os.SEEK_SET)
+        command = [
+            str(executable),
+            "--source",
+            str(source_path),
+            "--source-lock",
+            str(source_lock_path),
+            "--encoded",
+            str(encoded_path),
+            "--encoded-staging-directory",
+            str(staging_directory),
+            "--report",
+            str(report_path),
+            "--decoded-directory",
+            str(decoded_directory),
+            "--product-settings-source",
+            str(PRODUCT_MEDIA_TYPES_PATH),
+            "--failure-report",
+            str(failure_path),
+        ]
+        roles = (
+            ("source", source_descriptor),
+            ("source-lock", source_lock_descriptor),
+            ("encoded", encoded_descriptor),
+            ("encoded-staging-directory", staging_descriptor),
+            ("report", report_descriptor),
+            ("failure-report", failure_descriptor),
+            ("decoded-directory", decoded_descriptor),
+            (
+                "product-settings-source",
+                execution.product_settings_source_descriptor,
+            ),
+        )
+        for role, descriptor in roles:
+            command.extend((f"--{role}-fd", str(descriptor)))
+        pass_fds = tuple(
+            dict.fromkeys(
+                (
+                    execution.executable_descriptor,
+                    *(descriptor for _, descriptor in roles),
+                )
+            )
+        )
+        process = execution.run_process(command, root_descriptor, pass_fds)
+        for descriptor, expected in zip(fixed_descriptors, fixed_records):
+            if _descriptor_record(descriptor) != expected:
+                raise ValueError("authorized writer fixed input changed")
+            os.lseek(descriptor, 0, os.SEEK_SET)
+        _verify_descriptor_path(
+            execution.executable_descriptor,
+            executable,
+            expected_record=fixed_records[0],
+        )
+        _verify_descriptor_path(
+            execution.product_settings_source_descriptor,
+            PRODUCT_MEDIA_TYPES_PATH,
+            expected_record=fixed_records[1],
+        )
+        _verify_descriptor_path(
+            source_descriptor,
+            source_path,
+            expected_record=source_records[0],
+        )
+        _verify_descriptor_path(
+            source_lock_descriptor,
+            source_lock_path,
+            expected_record=source_records[1],
+        )
+        stdout = process.stdout.decode("utf-8", "replace")
+        stderr = process.stderr.decode("utf-8", "replace")
+        if process.returncode != 0:
+            failure_payload = _read_descriptor(failure_descriptor)
+            failure_paths = ()
+            if failure_payload:
+                failure_document = json.loads(failure_payload)
+                validate_schema(
+                    failure_document,
+                    SCHEMA_ROOT / "common-writer-failure.schema.json",
+                )
+                failure_paths = (failure_path,)
+            raise CommonWriterExecutionError(
+                f"production writer exited with status {process.returncode}",
+                failure_paths=failure_paths,
+                stdout=stdout,
+                stderr=stderr,
+            )
+        report_payload = _read_descriptor(report_descriptor)
+        report = json.loads(report_payload)
+        if not isinstance(report, dict):
+            raise ValueError("authorized production report is not an object")
+        _validate_production_report(report, expected_dimensions)
+        source_payload = _read_descriptor(source_descriptor)
+        source_lock_payload = _read_descriptor(source_lock_descriptor)
+        encoded_payload = _read_descriptor(encoded_descriptor)
+        if _sha256(source_payload) != report["source"]["payload_sha256"]:
+            raise ValueError("production report source payload binding failed")
+        if _sha256(source_lock_payload) != report["source"]["source_lock_sha256"]:
+            raise ValueError("production report source-lock binding failed")
+        if _sha256(_read_descriptor(execution.product_settings_source_descriptor)) != report[
+            "encoder"
+        ]["product_settings_source"]["sha256"]:
+            raise ValueError("production report shared-settings source binding failed")
+        if _sha256(encoded_payload) != report["encoded"]["sha256"]:
+            raise ValueError("production report encoded-file binding failed")
+        decoded_frames = []
+        for frame in report["decoder"]["frames"]:
+            name = frame["payload_path"]
+            if not isinstance(name, str) or Path(name).name != name:
+                raise ValueError("production decoded payload path is invalid")
+            descriptor = os.open(
+                name,
+                os.O_RDONLY | os.O_NOFOLLOW,
+                dir_fd=decoded_descriptor,
+            )
+            try:
+                payload = _read_descriptor(descriptor)
+            finally:
+                os.close(descriptor)
+            if (
+                len(payload) != frame["payload_size_bytes"]
+                or _sha256(payload) != frame["payload_sha256"]
+            ):
+                raise ValueError(
+                    f"production decoded payload binding failed for frame {frame['index']}"
+                )
+            decoded_frames.append(payload)
+        if os.listdir(staging_descriptor):
+            raise ValueError("authorized writer staging directory was not cleaned")
+        staging_metadata = os.fstat(staging_descriptor)
+        if (
+            stat.S_IMODE(staging_metadata.st_mode) != 0o700
+            or staging_metadata.st_flags & getattr(stat, "UF_IMMUTABLE", 0)
+        ):
+            raise ValueError("authorized writer staging state was not restored")
+        if _descriptor_record(failure_descriptor)[4] != 0:
+            raise ValueError("authorized writer failure endpoint is not empty")
+        os.unlink(failure_path.name, dir_fd=root_descriptor)
+        os.rmdir(staging_directory.name, dir_fd=root_descriptor)
+        return CommonWriterResult(
+            report=report,
+            decoded_frames=tuple(decoded_frames),
+            source_path=source_path,
+            source_lock_path=source_lock_path,
+            encoded_path=encoded_path,
+            report_path=report_path,
+            decoded_directory=decoded_directory,
+            report_payload_sha256=_sha256(report_payload),
+            source_payload_sha256=_sha256(source_payload),
+            source_lock_sha256=_sha256(source_lock_payload),
+            encoded_payload_sha256=_sha256(encoded_payload),
+        )
+    finally:
+        for descriptor in reversed(descriptors):
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+
+
 def run_production_writer_locked(
     *,
     source_path: Path,
@@ -437,8 +805,21 @@ def run_production_writer_locked(
     output_directory: Path,
     output_name: str = "production-writer",
     executable: Path,
+    expected_dimensions: Optional[Tuple[int, int]] = None,
+    authorized_execution: Optional[ProductionWriterAuthorizedExecution] = None,
 ) -> CommonWriterResult:
     """Run the product-settings HEVC bridge for an existing locked source."""
+
+    if authorized_execution is not None:
+        return _run_production_writer_locked_authorized(
+            source_path=source_path,
+            source_lock_path=source_lock_path,
+            output_directory=output_directory,
+            output_name=output_name,
+            executable=executable,
+            expected_dimensions=expected_dimensions,
+            execution=authorized_execution,
+        )
 
     if not output_name or Path(output_name).name != output_name:
         raise ValueError("output_name must be a nonempty filename stem")
@@ -483,7 +864,42 @@ def run_production_writer_locked(
             stderr=process.stderr,
         )
     report = read_json(report_path)
-    validate_schema(report, SCHEMA_ROOT / "production-writer.schema.json")
+    if expected_dimensions is None:
+        validate_schema(report, SCHEMA_ROOT / "production-writer.schema.json")
+    else:
+        width, height = expected_dimensions
+        if width <= 0 or height <= 0 or width % 2 or height % 2:
+            raise ValueError("P06 production-writer geometry must be positive and even")
+        schema = copy.deepcopy(
+            read_json(SCHEMA_ROOT / "production-writer.schema.json")
+        )
+        schema["$id"] = (
+            "https://mirmir.local/validation/calibration-v2/"
+            "p06-variable-geometry-production-writer-v1.schema.json"
+        )
+        definitions = schema["$defs"]
+        definitions["pixelLayout"]["properties"]["width"] = {"const": width}
+        definitions["pixelLayout"]["properties"]["height"] = {"const": height}
+        definitions["encoded"]["properties"]["width"] = {"const": width}
+        definitions["encoded"]["properties"]["height"] = {"const": height}
+        definitions["decodedFrame"]["properties"]["width"] = {"const": width}
+        definitions["decodedFrame"]["properties"]["height"] = {"const": height}
+        definitions["decodedFrame"]["properties"]["payload_size_bytes"] = {
+            "const": width * height * 3 // 2
+        }
+        validator = jsonschema.Draft202012Validator(
+            schema,
+            format_checker=jsonschema.FormatChecker(),
+        )
+        errors = sorted(
+            validator.iter_errors(report),
+            key=lambda error: list(error.absolute_path),
+        )
+        if errors:
+            raise ValueError(
+                "P06 variable-geometry production report validation failed: "
+                + "; ".join(error.message for error in errors)
+            )
     if _sha256_path(source_path) != report["source"]["payload_sha256"]:
         raise ValueError("production report source payload binding failed")
     if _sha256_path(source_lock_path) != report["source"]["source_lock_sha256"]:
@@ -526,6 +942,8 @@ def run_production_writer(
     source_id: str,
     output_name: str = "production-writer",
     executable: Path,
+    expected_dimensions: Optional[Tuple[int, int]] = None,
+    authorized_execution: Optional[ProductionWriterAuthorizedExecution] = None,
 ) -> CommonWriterResult:
     """Lock, HEVC encode with product settings, reopen, decode, and verify."""
 
@@ -546,6 +964,8 @@ def run_production_writer(
         output_directory=output_directory,
         output_name=output_name,
         executable=executable,
+        expected_dimensions=expected_dimensions,
+        authorized_execution=authorized_execution,
     )
 
 
@@ -557,6 +977,8 @@ def run_isolated_production_writer_cases(
     output_directory: Path,
     source_id: str,
     executable: Path,
+    expected_dimensions: Optional[Tuple[int, int]] = None,
+    authorized_execution: Optional[ProductionWriterAuthorizedExecution] = None,
 ) -> Tuple[IsolatedProductionWriterCaseResult, ...]:
     """Encode every metric case in a separate one-frame product HEVC container."""
 
@@ -593,6 +1015,8 @@ def run_isolated_production_writer_cases(
             source_id=f"{source_id}-{output_name}",
             output_name=output_name,
             executable=executable,
+            expected_dimensions=expected_dimensions,
+            authorized_execution=authorized_execution,
         )
         decoded_case_ids = [
             item.get("case_id")

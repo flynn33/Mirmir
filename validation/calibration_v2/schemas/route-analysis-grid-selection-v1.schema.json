@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/route-analysis-grid-selection-v1.schema.json",
+  "title": "Locked P06 route coordinate and analysis-grid selection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_id",
+    "candidate_vector_sha256",
+    "calibration_selection_sha256",
+    "selected_evaluation_sha256",
+    "mapping_sha256",
+    "operator_bank_sha256",
+    "compiler_inputs_sha256",
+    "analysis_grid_contract_id",
+    "routes",
+    "holdout_accessed",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_route_analysis_grid_selection"},
+    "status": {"const": "locked_before_p07"},
+    "configuration_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+    "calibration_selection_sha256": {"$ref": "#/$defs/sha256"},
+    "selected_evaluation_sha256": {"$ref": "#/$defs/sha256"},
+    "mapping_sha256": {"$ref": "#/$defs/sha256"},
+    "operator_bank_sha256": {"$ref": "#/$defs/sha256"},
+    "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+    "analysis_grid_contract_id": {"const": "source_lattice_symmetric_cell_center_v1"},
+    "routes": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/direct2x"},
+        {"$ref": "#/$defs/direct3Over2"}
+      ],
+      "items": false
+    },
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "route": {
+      "type": "object",
+      "required": [
+        "route",
+        "scale_numerator",
+        "scale_denominator",
+        "coordinate_policy",
+        "analysis_grid_source_step",
+        "selection_basis"
+      ],
+      "properties": {
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "scale_numerator": {"enum": [2, 3]},
+        "scale_denominator": {"enum": [1, 2]},
+        "coordinate_policy": {
+          "enum": ["source_aligned_rational", "half_pixel_center"]
+        },
+        "analysis_grid_source_step": {"enum": [1, 2, 4]},
+        "selection_basis": {"const": "development_tuning_validation_selection"}
+      },
+      "additionalProperties": false
+    },
+    "direct2x": {
+      "allOf": [
+        {"$ref": "#/$defs/route"},
+        {
+          "properties": {
+            "route": {"const": "direct_2x"},
+            "scale_numerator": {"const": 2},
+            "scale_denominator": {"const": 1}
+          }
+        }
+      ]
+    },
+    "direct3Over2": {
+      "allOf": [
+        {"$ref": "#/$defs/route"},
+        {
+          "properties": {
+            "route": {"const": "direct_3_over_2"},
+            "scale_numerator": {"const": 3},
+            "scale_denominator": {"const": 2}
+          }
+        }
+      ]
+    }
+  }
+}

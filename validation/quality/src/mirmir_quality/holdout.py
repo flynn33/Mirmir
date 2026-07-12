@@ -68,6 +68,77 @@ class HashBinding:
     manifest_hash_field: str = "manifest_sha256"
 
 
+def hash_binding_digest(field: str, binding: HashBinding) -> str:
+    """Reopen one bound artifact using the holdout guard's exact digest mode."""
+
+    if field not in REQUIRED_HASHES:
+        raise HoldoutAccessError(f"unsupported configuration binding field: {field}")
+    if not isinstance(binding, HashBinding):
+        raise TypeError("configuration artifact binding must be HashBinding")
+    root = Path(os.path.abspath(binding.root))
+    path = Path(os.path.abspath(binding.path))
+    if root.is_symlink() or not root.is_dir():
+        raise HoldoutAccessError(f"bound artifact root {field} is absent or symbolic")
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise HoldoutAccessError(f"bound artifact {field} escapes its trusted root") from error
+    if not relative.parts:
+        raise HoldoutAccessError(f"bound artifact {field} does not name a file")
+    current = root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            raise HoldoutAccessError(f"bound artifact {field} traverses a symbolic link")
+    try:
+        root_resolved = root.resolve(strict=True)
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(root_resolved)
+    except (FileNotFoundError, ValueError) as error:
+        raise HoldoutAccessError(
+            f"bound artifact {field} is absent or escapes its trusted root"
+        ) from error
+    if not resolved.is_file():
+        raise HoldoutAccessError(f"bound artifact {field} is absent or not a regular file")
+    if binding.digest_mode == "file_sha256":
+        return _sha256_file(resolved)
+    if binding.digest_mode == "manifest_sha256":
+        value = read_json(resolved)
+        if not isinstance(value, dict):
+            raise HoldoutAccessError(f"bound manifest {field} is not an object")
+        declared = value.get(binding.manifest_hash_field)
+        actual = manifest_sha256(value, binding.manifest_hash_field)
+        if declared != actual:
+            raise HoldoutAccessError(f"bound manifest {field} has an invalid self-hash")
+        return str(actual)
+    if binding.digest_mode == "quality_harness_manifest":
+        if field != "quality_harness_implementation_manifest_sha256":
+            raise HoldoutAccessError(
+                f"bound artifact {field} cannot use quality-harness validation"
+            )
+        try:
+            value = read_json(resolved)
+        except (OSError, json.JSONDecodeError) as error:
+            raise HoldoutAccessError(
+                "bound quality-harness implementation manifest cannot be read"
+            ) from error
+        if not isinstance(value, dict):
+            raise HoldoutAccessError(
+                "bound quality-harness implementation manifest is not an object"
+            )
+        try:
+            return validate_quality_harness_implementation_manifest(
+                value,
+                root,
+            )
+        except QualityHarnessManifestError as error:
+            raise HoldoutAccessError(
+                "bound quality-harness implementation manifest is invalid: "
+                f"{error}"
+            ) from error
+    raise HoldoutAccessError(f"bound artifact {field} has an unsupported digest mode")
+
+
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -252,68 +323,7 @@ class HoldoutAccessGuard:
         self.clock = clock
 
     def _binding_digest(self, field: str, binding: HashBinding) -> str:
-        root = Path(os.path.abspath(binding.root))
-        path = Path(os.path.abspath(binding.path))
-        if root.is_symlink() or not root.is_dir():
-            raise HoldoutAccessError(f"bound artifact root {field} is absent or symbolic")
-        try:
-            relative = path.relative_to(root)
-        except ValueError as error:
-            raise HoldoutAccessError(f"bound artifact {field} escapes its trusted root") from error
-        if not relative.parts:
-            raise HoldoutAccessError(f"bound artifact {field} does not name a file")
-        current = root
-        for part in relative.parts:
-            current = current / part
-            if current.is_symlink():
-                raise HoldoutAccessError(f"bound artifact {field} traverses a symbolic link")
-        try:
-            root_resolved = root.resolve(strict=True)
-            resolved = path.resolve(strict=True)
-            resolved.relative_to(root_resolved)
-        except (FileNotFoundError, ValueError) as error:
-            raise HoldoutAccessError(
-                f"bound artifact {field} is absent or escapes its trusted root"
-            ) from error
-        if not resolved.is_file():
-            raise HoldoutAccessError(f"bound artifact {field} is absent or not a regular file")
-        if binding.digest_mode == "file_sha256":
-            return _sha256_file(resolved)
-        if binding.digest_mode == "manifest_sha256":
-            value = read_json(resolved)
-            if not isinstance(value, dict):
-                raise HoldoutAccessError(f"bound manifest {field} is not an object")
-            declared = value.get(binding.manifest_hash_field)
-            actual = manifest_sha256(value, binding.manifest_hash_field)
-            if declared != actual:
-                raise HoldoutAccessError(f"bound manifest {field} has an invalid self-hash")
-            return str(actual)
-        if binding.digest_mode == "quality_harness_manifest":
-            if field != "quality_harness_implementation_manifest_sha256":
-                raise HoldoutAccessError(
-                    f"bound artifact {field} cannot use quality-harness validation"
-                )
-            try:
-                value = read_json(resolved)
-            except (OSError, json.JSONDecodeError) as error:
-                raise HoldoutAccessError(
-                    "bound quality-harness implementation manifest cannot be read"
-                ) from error
-            if not isinstance(value, dict):
-                raise HoldoutAccessError(
-                    "bound quality-harness implementation manifest is not an object"
-                )
-            try:
-                return validate_quality_harness_implementation_manifest(
-                    value,
-                    root,
-                )
-            except QualityHarnessManifestError as error:
-                raise HoldoutAccessError(
-                    "bound quality-harness implementation manifest is invalid: "
-                    f"{error}"
-                ) from error
-        raise HoldoutAccessError(f"bound artifact {field} has an unsupported digest mode")
+        return hash_binding_digest(field, binding)
 
     def _validate_hash_bindings(self, configuration_lock: Mapping[str, object]) -> None:
         for field in REQUIRED_HASHES:

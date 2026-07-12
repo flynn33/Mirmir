@@ -59,9 +59,9 @@
     ]
   },
   "analytic_fixture_manifest": {
-    "path": "reference/analytic-fixtures-v1.json",
-    "manifest_sha256": "ad538b284b1ec6cad4433757471c2f9de43b74f828ec793b8b7107054adbf336",
-    "file_sha256": "5c7a6d2d91b081a63168e82f222bc0a2d8e6fe4c8f0369b4a8a16e6bf49fde9f"
+    "path": "reference/analytic-fixtures-v2.json",
+    "manifest_sha256": "f52d26ab44bd03b331d325c01f5d3493175921bb1989cfdc1df89c4a5d5ae017",
+    "file_sha256": "4bc11e0b0b074be2a6bfcf509a62181220249f4e107e1ee920170c78b0eb47aa"
   },
   "bootstrap": {
     "unit": "source_asset",
@@ -85,5 +85,5 @@
     "minimum category sample counts",
     "temporal ghosting tolerance"
   ],
-  "policy_sha256": "e3e8237ee2389a031bc491a38f8b06540a036a49f7640f27cc4f0e07777ff221"
+  "policy_sha256": "cbe09cc8077bb4bb230c39d1d00c59f3b0c38f9247a7e20430399e2a4cc29b94"
 }

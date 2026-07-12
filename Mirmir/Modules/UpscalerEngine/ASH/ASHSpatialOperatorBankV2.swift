@@ -293,6 +293,7 @@ struct ASHSpatialDevelopmentParametersV2: Equatable, Sendable {
     let riskDetailSuppressionThreshold: Double
     let lowPassRadius: Double
     let weightEpsilon: Double
+    let supportRadius: Double?
 
     init(
         anisotropyStrength: Double,
@@ -302,7 +303,8 @@ struct ASHSpatialDevelopmentParametersV2: Equatable, Sendable {
         relaxedLimiterAlpha: Double,
         riskDetailSuppressionThreshold: Double,
         lowPassRadius: Double,
-        weightEpsilon: Double
+        weightEpsilon: Double,
+        supportRadius: Double? = nil
     ) {
         self.anisotropyStrength = anisotropyStrength
         self.minimumAnisotropicMagnitude = minimumAnisotropicMagnitude
@@ -312,6 +314,7 @@ struct ASHSpatialDevelopmentParametersV2: Equatable, Sendable {
         self.riskDetailSuppressionThreshold = riskDetailSuppressionThreshold
         self.lowPassRadius = lowPassRadius
         self.weightEpsilon = weightEpsilon
+        self.supportRadius = supportRadius
     }
 
     var isValid: Bool {
@@ -335,6 +338,7 @@ struct ASHSpatialDevelopmentParametersV2: Equatable, Sendable {
             && riskDetailSuppressionThreshold > 0.0
             && lowPassRadius > 0.0
             && weightEpsilon > 0.0
+            && (supportRadius.map { $0.isFinite && (1.0...3.0).contains($0) } ?? true)
     }
 }
 
@@ -642,7 +646,8 @@ enum ASHSpatialOperatorBankV2 {
         let sine = sin(sidecar.orientationRadians)
         let tangentScale = useAnisotropy ? 1.0 + (parameters.anisotropyStrength * sidecar.coherence) : 1.0
         let normalScale = useAnisotropy ? 1.0 / tangentScale : 1.0
-        let radius = descriptor.baseKernel.supportRadius
+        let radius = parameters.supportRadius ?? descriptor.baseKernel.supportRadius
+        let kernelCoordinateScale = descriptor.baseKernel.supportRadius / radius
         let xRadius = radius * ((abs(cosine) * tangentScale) + (abs(sine) * normalScale))
         let yRadius = radius * ((abs(sine) * tangentScale) + (abs(cosine) * normalScale))
         let columns = Int(ceil(sourceX - xRadius))...Int(floor(sourceX + xRadius))
@@ -660,11 +665,13 @@ enum ASHSpatialOperatorBankV2 {
                 let kernelX: Double
                 let kernelY: Double
                 if useAnisotropy {
-                    kernelX = ((offsetX * cosine) + (offsetY * sine)) / tangentScale
-                    kernelY = ((-offsetX * sine) + (offsetY * cosine)) / normalScale
+                    kernelX = (((offsetX * cosine) + (offsetY * sine)) / tangentScale)
+                        * kernelCoordinateScale
+                    kernelY = (((-offsetX * sine) + (offsetY * cosine)) / normalScale)
+                        * kernelCoordinateScale
                 } else {
-                    kernelX = offsetX
-                    kernelY = offsetY
+                    kernelX = offsetX * kernelCoordinateScale
+                    kernelY = offsetY * kernelCoordinateScale
                 }
                 let weight = kernel(descriptor.baseKernel, kernelX) * kernel(descriptor.baseKernel, kernelY)
                 guard weight.isFinite else { throw ASHSpatialOperatorErrorV2.nonFiniteWeight }

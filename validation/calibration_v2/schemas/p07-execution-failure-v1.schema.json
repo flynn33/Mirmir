@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-execution-failure-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_id",
+    "configuration_sha256",
+    "release_bundle_manifest_sha256",
+    "input_bundle_sha256",
+    "direct_input_bindings",
+    "corpus_lock_bundle_sha256",
+    "sampling_plan_file_sha256",
+    "sampling_plan_manifest_sha256",
+    "no_pixel_attestation_file_sha256",
+    "outer_wrapper_file_sha256",
+    "outer_wrapper_manifest_sha256",
+    "loader_executable_sha256",
+    "authorized_execution_bindings_file_sha256",
+    "authorized_execution_bindings_manifest_sha256",
+    "p07_preopen_cache_tree_sha256",
+    "failure_type",
+    "failure_message",
+    "failure_message_sha256",
+    "failure_traceback",
+    "failure_traceback_sha256",
+    "secondary_failure",
+    "archive_publication_failure",
+    "failure_log_file_sha256",
+    "failure_stage",
+    "transaction_state",
+    "cleanup_result",
+    "media_asset_id",
+    "media_case_id",
+    "frame_index",
+    "presentation_timestamp",
+    "media_context_available",
+    "requested_output_directory",
+    "temporary_run_path",
+    "command",
+    "platform",
+    "holdout_access_consumed",
+    "holdout_access_state",
+    "holdout_access_evidence_source",
+    "holdout_access_ledger_file_sha256",
+    "holdout_access_ledger_tip_sha256",
+    "holdout_access_ledger_event_count",
+    "holdout_access_ledger_event_order",
+    "holdout_access_configuration_sha256",
+    "holdout_access_immutable_anchor_file_sha256",
+    "holdout_access_open_intent_linked",
+    "holdout_access_ledger_verification_error_sha256",
+    "result_reusable_for_same_version",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "artifact_kind": {"const": "p07_execution_failure_archive"},
+    "status": {"const": "failed"},
+    "configuration_id": {"type": ["string", "null"], "minLength": 1},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "release_bundle_manifest_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "input_bundle_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "direct_input_bindings": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/directInputBinding"}
+        },
+        {"type": "null"}
+      ]
+    },
+    "corpus_lock_bundle_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "sampling_plan_file_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_manifest_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "no_pixel_attestation_file_sha256": {"$ref": "#/$defs/sha256"},
+    "outer_wrapper_file_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "outer_wrapper_manifest_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "loader_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "authorized_execution_bindings_file_sha256": {"$ref": "#/$defs/sha256"},
+    "authorized_execution_bindings_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "p07_preopen_cache_tree_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "failure_type": {"type": "string", "minLength": 1},
+    "failure_message": {"type": "string"},
+    "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+    "failure_traceback": {"type": "string", "minLength": 1},
+    "failure_traceback_sha256": {"$ref": "#/$defs/sha256"},
+    "secondary_failure": {"anyOf": [{"$ref": "#/$defs/secondaryFailure"}, {"type": "null"}]},
+    "archive_publication_failure": {"anyOf": [{"$ref": "#/$defs/archivePublicationFailure"}, {"type": "null"}]},
+    "failure_log_file_sha256": {"$ref": "#/$defs/sha256"},
+    "failure_stage": {"enum": ["pre_guard_validation", "guard_or_authorized_execution", "post_guard_publication", "restart_recovery"]},
+    "transaction_state": {"$ref": "#/$defs/transactionState"},
+    "cleanup_result": {"$ref": "#/$defs/cleanupResult"},
+    "media_asset_id": {"type": ["string", "null"], "minLength": 1},
+    "media_case_id": {"type": ["string", "null"], "minLength": 1},
+    "frame_index": {"type": ["integer", "null"], "minimum": 0},
+    "presentation_timestamp": {
+      "anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]
+    },
+    "media_context_available": {"type": "boolean"},
+    "requested_output_directory": {"type": "string", "pattern": "^/"},
+    "temporary_run_path": {"type": ["string", "null"], "pattern": "^/"},
+    "command": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "holdout_access_consumed": {"type": ["boolean", "null"]},
+    "holdout_access_state": {"enum": ["sealed", "anchor_only", "intent_recorded", "opened", "completed", "failed", "unavailable"]},
+    "holdout_access_evidence_source": {"enum": ["live_guard_ledger", "anchor_only_guard_evidence", "guard_return", "pre_guard_validation", "unavailable"]},
+    "holdout_access_ledger_file_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "holdout_access_ledger_tip_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "holdout_access_ledger_event_count": {"type": ["integer", "null"], "minimum": 1},
+    "holdout_access_ledger_event_order": {
+      "anyOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {"enum": ["sealed", "open_intent", "opened", "completed", "failed_after_open"]}
+        },
+        {"type": "null"}
+      ]
+    },
+    "holdout_access_configuration_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "holdout_access_immutable_anchor_file_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "holdout_access_open_intent_linked": {"type": ["boolean", "null"]},
+    "holdout_access_ledger_verification_error_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "result_reusable_for_same_version": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "timestamp": {
+      "type": "object",
+      "required": ["value", "timescale"],
+      "properties": {
+        "value": {"type": "integer"},
+        "timescale": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "cleanupResult": {
+      "type": "object",
+      "required": ["status", "mount_invoked", "mount_detached", "support_revalidation"],
+      "properties": {
+        "status": {"enum": ["not_started", "passed", "failed", "unknown"]},
+        "mount_invoked": {"type": "boolean"},
+        "mount_detached": {"type": ["boolean", "null"]},
+        "support_revalidation": {"enum": ["not_run", "passed", "failed", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "transactionState": {
+      "type": "object",
+      "required": ["phase", "guard_returned", "publication_validated", "publication_renamed", "parent_directory_synced"],
+      "properties": {
+        "phase": {"type": "string", "minLength": 1},
+        "guard_returned": {"type": "boolean"},
+        "publication_validated": {"type": "boolean"},
+        "publication_renamed": {"type": "boolean"},
+        "parent_directory_synced": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "secondaryFailure": {
+      "type": "object",
+      "required": ["role", "failure_type", "failure_message", "failure_message_sha256", "failure_traceback", "failure_traceback_sha256"],
+      "properties": {
+        "role": {"const": "mount_cleanup_and_revalidation"},
+        "failure_type": {"type": "string", "minLength": 1},
+        "failure_message": {"type": "string"},
+        "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+        "failure_traceback": {"type": "string", "minLength": 1},
+        "failure_traceback_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "archivePublicationFailure": {
+      "type": "object",
+      "required": ["role", "failure_type", "failure_message", "failure_message_sha256", "failure_traceback", "failure_traceback_sha256"],
+      "properties": {
+        "role": {"const": "failure_evidence_publication"},
+        "failure_type": {"type": "string", "minLength": 1},
+        "failure_message": {"type": "string"},
+        "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+        "failure_traceback": {"type": "string", "minLength": 1},
+        "failure_traceback_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "directInputBinding": {
+      "type": "object",
+      "required": ["id", "path", "sha256", "size_bytes"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"failure_stage": {"const": "pre_guard_validation"}}},
+      "then": {
+        "properties": {
+          "holdout_access_consumed": {"const": false},
+          "direct_input_bindings": {"const": null},
+          "holdout_access_state": {"const": "sealed"},
+          "result_reusable_for_same_version": {"const": false}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"media_context_available": {"const": false}}},
+      "then": {
+        "properties": {
+          "media_asset_id": {"const": null},
+          "media_case_id": {"const": null},
+          "frame_index": {"const": null},
+          "presentation_timestamp": {"const": null}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

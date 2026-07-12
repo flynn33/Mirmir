@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/lut-binary-contract-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "status",
+    "endianness",
+    "magic_ascii",
+    "format_version",
+    "header",
+    "routes",
+    "derived_sizes",
+    "entry_record",
+    "parameter_record",
+    "cross_field_invariants",
+    "ordering",
+    "integrity",
+    "hash_bindings",
+    "validation_order",
+    "error_taxonomy"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"const": "mirmir-ash-route-lut-v1"},
+    "status": {"const": "preregistered_not_executed"},
+    "endianness": {"const": "little"},
+    "magic_ascii": {"const": "ASHV2LUT"},
+    "format_version": {"const": {"major": 1, "minor": 0}},
+    "header": {
+      "type": "object",
+      "required": ["size_bytes", "fields", "flags", "reserved_flag_bits"],
+      "properties": {
+        "size_bytes": {"const": 320},
+        "fields": {"$ref": "#/$defs/fields"},
+        "flags": {"$ref": "#/$defs/flags"},
+        "reserved_flag_bits": {"$ref": "#/$defs/bitList"}
+      },
+      "additionalProperties": false
+    },
+    "routes": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "const": {
+            "name": "direct_2x",
+            "route_id": 1,
+            "scale_numerator": 2,
+            "scale_denominator": 1,
+            "phase_count": 4,
+            "entry_count": 4096,
+            "filename": "direct2x.ashlut"
+          }
+        },
+        {
+          "const": {
+            "name": "direct_3_over_2",
+            "route_id": 2,
+            "scale_numerator": 3,
+            "scale_denominator": 2,
+            "phase_count": 9,
+            "entry_count": 9216,
+            "filename": "direct3over2.ashlut"
+          }
+        }
+      ],
+      "items": false
+    },
+    "derived_sizes": {"$ref": "#/$defs/nonemptyObject"},
+    "entry_record": {
+      "type": "object",
+      "required": [
+        "size_bytes",
+        "fields",
+        "flags",
+        "reserved_flag_bits",
+        "active_secondary",
+        "inactive_secondary"
+      ],
+      "properties": {
+        "size_bytes": {"const": 24},
+        "fields": {"$ref": "#/$defs/fields"},
+        "flags": {"$ref": "#/$defs/flags"},
+        "reserved_flag_bits": {"$ref": "#/$defs/bitList"},
+        "active_secondary": {"$ref": "#/$defs/nonemptyObject"},
+        "inactive_secondary": {"$ref": "#/$defs/nonemptyObject"}
+      },
+      "additionalProperties": false
+    },
+    "parameter_record": {
+      "type": "object",
+      "required": [
+        "size_bytes",
+        "candidate_slot_size_bytes",
+        "primary_slot_offset",
+        "secondary_slot_offset",
+        "candidate_slot_fields",
+        "candidate_flags",
+        "reserved_candidate_flag_bits",
+        "tail_fields",
+        "deduplication",
+        "record_crc_scope"
+      ],
+      "properties": {
+        "size_bytes": {"const": 64},
+        "candidate_slot_size_bytes": {"const": 24},
+        "primary_slot_offset": {"const": 0},
+        "secondary_slot_offset": {"const": 24},
+        "candidate_slot_fields": {"$ref": "#/$defs/fields"},
+        "candidate_flags": {"$ref": "#/$defs/flags"},
+        "reserved_candidate_flag_bits": {"$ref": "#/$defs/bitList"},
+        "tail_fields": {"$ref": "#/$defs/fields"},
+        "deduplication": {"type": "string", "minLength": 1},
+        "record_crc_scope": {"const": "bytes 0...59"}
+      },
+      "additionalProperties": false
+    },
+    "cross_field_invariants": {"$ref": "#/$defs/nonemptyStringArray"},
+    "ordering": {"$ref": "#/$defs/nonemptyObject"},
+    "integrity": {"$ref": "#/$defs/nonemptyObject"},
+    "hash_bindings": {"$ref": "#/$defs/nonemptyObject"},
+    "validation_order": {"$ref": "#/$defs/nonemptyStringArray"},
+    "error_taxonomy": {
+      "type": "array",
+      "minItems": 20,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z0-9_]+$"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "field": {
+      "type": "object",
+      "required": ["name", "offset", "size", "encoding"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "offset": {"type": "integer", "minimum": 0},
+        "size": {"type": "integer", "minimum": 1},
+        "encoding": {"type": "string", "minLength": 1},
+        "value": {"type": ["integer", "string"]},
+        "range": {
+          "type": "array",
+          "prefixItems": [{"type": "integer"}, {"type": "integer"}],
+          "items": false
+        },
+        "values": {"type": "object", "minProperties": 1}
+      },
+      "additionalProperties": false
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/field"}
+    },
+    "flag": {
+      "type": "object",
+      "required": ["bit", "name"],
+      "properties": {
+        "bit": {"type": "integer", "minimum": 0, "maximum": 15},
+        "name": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+        "required": {"enum": [0, 1]},
+        "conditional": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "flags": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/flag"}
+    },
+    "bitList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0, "maximum": 15}
+    },
+    "nonemptyObject": {"type": "object", "minProperties": 1},
+    "nonemptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

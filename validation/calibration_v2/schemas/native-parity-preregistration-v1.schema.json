@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/native-parity-preregistration-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "manifest_id",
+    "status",
+    "conflict_record",
+    "output_filename",
+    "output_schema",
+    "implementations",
+    "routes",
+    "required_input_hashes",
+    "required_comparisons_per_route",
+    "pass_rule",
+    "failure_rule",
+    "canonicalization",
+    "execution_results_present"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "manifest_id": {"const": "mirmir-native-lut-parity-v1"},
+    "status": {"const": "preregistered_not_executed"},
+    "conflict_record": {"type": "string", "minLength": 1},
+    "output_filename": {"const": "native-lut-parity-manifest.json"},
+    "output_schema": {"const": "validation/calibration_v2/schemas/native-parity-manifest-v1.schema.json"},
+    "implementations": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "required": ["role", "platform", "independence"],
+          "properties": {
+            "role": {"const": "production_swift"},
+            "platform": {"const": "native_macos"},
+            "independence": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["role", "platform", "independence"],
+          "properties": {
+            "role": {"const": "independent_test_python"},
+            "platform": {"const": "native_macos_test_only"},
+            "independence": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        }
+      ],
+      "items": false
+    },
+    "routes": {
+      "type": "array",
+      "prefixItems": [
+        {"const": {"route": "direct_2x", "route_id": 1, "entry_count": 4096, "filename": "direct2x.ashlut"}},
+        {"const": {"route": "direct_3_over_2", "route_id": 2, "entry_count": 9216, "filename": "direct3over2.ashlut"}}
+      ],
+      "items": false
+    },
+    "required_input_hashes": {
+      "const": [
+        "mapping_sha256",
+        "operator_bank_sha256",
+        "metric_policy_sha256",
+        "compiler_inputs_sha256",
+        "calibration_plan_sha256",
+        "corpus_lock_bundle_sha256"
+      ]
+    },
+    "required_comparisons_per_route": {
+      "const": [
+        "whole_file_size_bytes",
+        "whole_file_sha256",
+        "payload_sha256",
+        "header_crc32",
+        "payload_crc32",
+        "entry_count",
+        "parameter_count"
+      ]
+    },
+    "pass_rule": {"type": "string", "minLength": 1},
+    "failure_rule": {"type": "string", "minLength": 1},
+    "canonicalization": {"type": "string", "minLength": 1},
+    "execution_results_present": {"const": false}
+  },
+  "additionalProperties": false
+}

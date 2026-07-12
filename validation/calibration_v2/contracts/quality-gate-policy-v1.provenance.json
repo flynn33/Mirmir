@@ -1,0 +1,10 @@
+{
+  "schema_version": "1.0.0",
+  "artifact_kind": "instruction_package_policy_provenance",
+  "repository_copy_path": "validation/calibration_v2/contracts/quality-gate-policy-v1.seed.json",
+  "repository_copy_sha256": "38336d27e0ceba9020b05a62038c6c822ea20daca32f45a8f8891459ea82fff2",
+  "source_package_relative_path": "config/quality_gate_policy.json",
+  "source_package_file_sha256": "38336d27e0ceba9020b05a62038c6c822ea20daca32f45a8f8891459ea82fff2",
+  "source_package_manifest_sha256": "bac31029e2aa0e9ef89cb25f36c9cfd9ac5ce0920e546bd3dea0edea06520afd",
+  "source_package_sha256s_sha256": "176580ebabf5be861a1008dd7180bc1e9ba2c9602864b39af1a3e959aa159651"
+}

@@ -61,6 +61,14 @@ The resulting lock must validate against `schemas/development-sample-lock.schema
 - recorded Y, Cb, and Cr nominal-range excursion counts; and
 - clamping to the nominal video intervals before target normalization.
 
+## Rebuild the validation sample lock
+
+`build_validation_sample_lock.py` applies the identical byte, provenance, geometry, and nominal-range checks to exactly three validation assets. It requires exact decode/evidence-manifest mappings for the validation split, writes a lock conforming to `schemas/validation-sample-lock.schema.json`, and refuses to overwrite an existing lock.
+
+The shared sample loader accepts only `development` and `validation`. It rejects any other split before resolving a sample, evidence, media, or asset path. Calibration code can therefore tune against the development lock and select against the validation lock without providing a holdout root to this loader.
+
+Development samples require the complete source-format color triplet. A validation sample may instead carry the schema-bound `validation_decoded_attachment_corpus_agreement_v1` resolution only when the source triplet is entirely absent, source range is explicitly video, source chroma is Left/Left, every representative decoded buffer has identical 709 and Left/Left attachments, and the frozen corpus agrees exactly. Partial, mixed, conflicting, unnecessary, or tampered resolution evidence is rejected.
+
 ## Run the production-locked development benchmark
 
 ```bash

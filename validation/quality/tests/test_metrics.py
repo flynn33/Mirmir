@@ -39,12 +39,9 @@ class MetricConformanceTests(unittest.TestCase):
         )
         chroma_case = next(
             case for case in result["cases"]
-            if case["case_id"] == "cb-only-and-cr-only"
+            if case["case_id"] == "direct-2x.left-sited-chroma-edge-v2"
         )
-        self.assertEqual(
-            chroma_case["actual"]["fixture_id"],
-            "centered-cb-cr-step-v1",
-        )
+        self.assertEqual(chroma_case["actual"]["displacement"], {"Cb": 0.0, "Cr": 0.0})
         self.assertAlmostEqual(
             chroma_case["actual"]["Cb-only"]["Cb"]["mse"],
             0.25,
@@ -58,18 +55,29 @@ class MetricConformanceTests(unittest.TestCase):
         payload = path.read_bytes()
         self.assertEqual(hashlib.sha256(payload).hexdigest(), binding["file_sha256"])
         fixture = read_json(path)
+        validate_schema(
+            fixture,
+            QUALITY_ROOT / "schemas" / "analytic-fixtures-v2.schema.json",
+        )
         self.assertEqual(
             manifest_sha256(fixture),
             binding["manifest_sha256"],
         )
-        definition = fixture["alias_masks"][0]
-        mask = np.zeros(tuple(definition["dimensions"]), dtype=bool)
-        for row, column in definition["true_coordinates"]:
+        definitions = [
+            definition
+            for definition in fixture["fixtures"]
+            if definition["fixture_kind"] == "alias"
+        ]
+        self.assertEqual(len(definitions), 2)
+        definition = definitions[0]
+        mask = np.zeros(tuple(definition["target_geometry"]["y"]), dtype=bool)
+        support = definition["measurement_support"]
+        for row, column in support["true_coordinates"]:
             mask[row, column] = True
         packed = np.packbits(mask.reshape(-1), bitorder="big").tobytes()
         self.assertEqual(
             hashlib.sha256(packed).hexdigest(),
-            definition["packed_mask_sha256"],
+            support["packed_sha256"],
         )
 
     def test_result_schemas_reject_false_pass_documents(self) -> None:

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-failure-log-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "failure_type",
+    "failure_message",
+    "failure_message_sha256",
+    "failure_traceback",
+    "failure_traceback_sha256",
+    "secondary_failure",
+    "archive_publication_failure",
+    "failure_stage",
+    "transaction_state",
+    "cleanup_result",
+    "media_asset_id",
+    "media_case_id",
+    "frame_index",
+    "presentation_timestamp",
+    "media_context_available",
+    "requested_output_directory",
+    "temporary_run_path",
+    "holdout_access_consumed",
+    "command",
+    "platform",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_failure_log"},
+    "status": {"const": "failed"},
+    "failure_type": {"type": "string", "minLength": 1},
+    "failure_message": {"type": "string"},
+    "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+    "failure_traceback": {"type": "string", "minLength": 1},
+    "failure_traceback_sha256": {"$ref": "#/$defs/sha256"},
+    "secondary_failure": {
+      "anyOf": [{"$ref": "#/$defs/secondaryFailure"}, {"type": "null"}]
+    },
+    "archive_publication_failure": {
+      "anyOf": [{"$ref": "#/$defs/archivePublicationFailure"}, {"type": "null"}]
+    },
+    "failure_stage": {"enum": ["pre_guard_validation", "guard_or_authorized_execution", "post_guard_publication", "restart_recovery"]},
+    "transaction_state": {"$ref": "#/$defs/transactionState"},
+    "cleanup_result": {"$ref": "#/$defs/cleanupResult"},
+    "media_asset_id": {"type": ["string", "null"], "minLength": 1},
+    "media_case_id": {"type": ["string", "null"], "minLength": 1},
+    "frame_index": {"type": ["integer", "null"], "minimum": 0},
+    "presentation_timestamp": {
+      "anyOf": [
+        {"$ref": "#/$defs/timestamp"},
+        {"type": "null"}
+      ]
+    },
+    "media_context_available": {"type": "boolean"},
+    "requested_output_directory": {"type": "string", "pattern": "^/"},
+    "temporary_run_path": {"type": ["string", "null"], "pattern": "^/"},
+    "holdout_access_consumed": {"type": ["boolean", "null"]},
+    "command": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "timestamp": {
+      "type": "object",
+      "required": ["value", "timescale"],
+      "properties": {
+        "value": {"type": "integer"},
+        "timescale": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "cleanupResult": {
+      "type": "object",
+      "required": [
+        "status",
+        "mount_invoked",
+        "mount_detached",
+        "support_revalidation"
+      ],
+      "properties": {
+        "status": {"enum": ["not_started", "passed", "failed", "unknown"]},
+        "mount_invoked": {"type": "boolean"},
+        "mount_detached": {"type": ["boolean", "null"]},
+        "support_revalidation": {"enum": ["not_run", "passed", "failed", "unknown"]}
+      },
+      "additionalProperties": false
+    },
+    "transactionState": {
+      "type": "object",
+      "required": [
+        "phase",
+        "guard_returned",
+        "publication_validated",
+        "publication_renamed",
+        "parent_directory_synced"
+      ],
+      "properties": {
+        "phase": {"type": "string", "minLength": 1},
+        "guard_returned": {"type": "boolean"},
+        "publication_validated": {"type": "boolean"},
+        "publication_renamed": {"type": "boolean"},
+        "parent_directory_synced": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "secondaryFailure": {
+      "type": "object",
+      "required": [
+        "role",
+        "failure_type",
+        "failure_message",
+        "failure_message_sha256",
+        "failure_traceback",
+        "failure_traceback_sha256"
+      ],
+      "properties": {
+        "role": {"const": "mount_cleanup_and_revalidation"},
+        "failure_type": {"type": "string", "minLength": 1},
+        "failure_message": {"type": "string"},
+        "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+        "failure_traceback": {"type": "string", "minLength": 1},
+        "failure_traceback_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "archivePublicationFailure": {
+      "type": "object",
+      "required": ["role", "failure_type", "failure_message", "failure_message_sha256", "failure_traceback", "failure_traceback_sha256"],
+      "properties": {
+        "role": {"const": "failure_evidence_publication"},
+        "failure_type": {"type": "string", "minLength": 1},
+        "failure_message": {"type": "string"},
+        "failure_message_sha256": {"$ref": "#/$defs/sha256"},
+        "failure_traceback": {"type": "string", "minLength": 1},
+        "failure_traceback_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"media_context_available": {"const": false}}},
+      "then": {
+        "properties": {
+          "media_asset_id": {"const": null},
+          "media_case_id": {"const": null},
+          "frame_index": {"const": null},
+          "presentation_timestamp": {"const": null}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

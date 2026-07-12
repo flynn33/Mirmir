@@ -1,0 +1,299 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/validation-sample-lock-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "corpus_manifest_sha256",
+    "sample_policy",
+    "samples",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "sample_policy": {
+      "type": "object",
+      "required": [
+        "split",
+        "selection",
+        "crop_dimensions",
+        "crop_alignment",
+        "source_media_binding",
+        "decoded_frame_binding",
+        "display_geometry",
+        "pixel_normalization"
+      ],
+      "properties": {
+        "split": {"const": "validation"},
+        "selection": {"const": "representative_samples[0] with index 0 per source asset"},
+        "crop_dimensions": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {"const": 324},
+            "height": {"const": 192}
+          },
+          "additionalProperties": false
+        },
+        "crop_alignment": {"const": "exact centered crop with even x/y origin for 4:2:0"},
+        "source_media_binding": {"const": "decode media path resolves to the regular non-symlink corpus asset bytes"},
+        "decoded_frame_binding": {"const": "retain upstream padded-buffer SHA-256 and independently hash active Y||CbCr bytes"},
+        "display_geometry": {"const": "full-frame clean aperture, square pixels, and identity orientation only"},
+        "pixel_normalization": {"const": "420v clamp Y to 16..235 and Cb/Cr to 16..240 before normalization; record every target-crop nominal-range excursion"}
+      },
+      "additionalProperties": false
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/sample"}
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+    },
+    "sample": {
+      "type": "object",
+      "required": [
+        "asset_id",
+        "source_asset_id",
+        "target_route",
+        "source_media_path",
+        "source_media_sha256",
+        "source_media_size_bytes",
+        "source_evidence_manifest_path",
+        "source_evidence_manifest_sha256",
+        "decode_manifest_path",
+        "decode_manifest_sha256",
+        "selected_decode_record_sha256",
+        "decoded_frame_sha256",
+        "active_planes_sha256",
+        "y_active_path",
+        "y_active_sha256",
+        "y_active_size_bytes",
+        "cbcr_active_path",
+        "cbcr_active_sha256",
+        "cbcr_active_size_bytes",
+        "source_dimensions",
+        "plane_bytes_per_row",
+        "plane_heights",
+        "pixel_format",
+        "range",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location",
+        "presentation_time",
+        "crop",
+        "display_geometry",
+        "code_value_observation",
+        "target_frame_sha256"
+      ],
+      "properties": {
+        "asset_id": {"type": "string", "minLength": 1},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "source_media_path": {"$ref": "#/$defs/relativePath"},
+        "source_media_sha256": {"$ref": "#/$defs/sha256"},
+        "source_media_size_bytes": {"type": "integer", "minimum": 1},
+        "source_evidence_manifest_path": {"$ref": "#/$defs/relativePath"},
+        "source_evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "decode_manifest_path": {"$ref": "#/$defs/relativePath"},
+        "decode_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_decode_record_sha256": {"$ref": "#/$defs/sha256"},
+        "decoded_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "active_planes_sha256": {"$ref": "#/$defs/sha256"},
+        "y_active_path": {"$ref": "#/$defs/relativePath"},
+        "y_active_sha256": {"$ref": "#/$defs/sha256"},
+        "y_active_size_bytes": {"type": "integer", "minimum": 1},
+        "cbcr_active_path": {"$ref": "#/$defs/relativePath"},
+        "cbcr_active_sha256": {"$ref": "#/$defs/sha256"},
+        "cbcr_active_size_bytes": {"type": "integer", "minimum": 1},
+        "source_dimensions": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": {"type": "integer", "minimum": 324},
+            "height": {"type": "integer", "minimum": 192}
+          },
+          "additionalProperties": false
+        },
+        "plane_bytes_per_row": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "integer", "minimum": 324},
+            {"type": "integer", "minimum": 324}
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "plane_heights": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "integer", "minimum": 192},
+            {"type": "integer", "minimum": 96}
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "pixel_format": {"const": "420v"},
+        "range": {"const": "video"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location": {"const": "left"},
+        "presentation_time": {
+          "type": "object",
+          "required": ["value", "timescale"],
+          "properties": {
+            "value": {"type": "integer"},
+            "timescale": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        },
+        "crop": {
+          "type": "object",
+          "required": ["x", "y", "width", "height"],
+          "properties": {
+            "x": {"type": "integer", "minimum": 0, "multipleOf": 2},
+            "y": {"type": "integer", "minimum": 0, "multipleOf": 2},
+            "width": {"const": 324},
+            "height": {"const": 192}
+          },
+          "additionalProperties": false
+        },
+        "display_geometry": {
+          "type": "object",
+          "required": ["clean_aperture", "pixel_aspect_ratio", "orientation"],
+          "properties": {
+            "clean_aperture": {"const": "full_frame"},
+            "pixel_aspect_ratio": {"const": "1:1"},
+            "orientation": {"const": "identity"}
+          },
+          "additionalProperties": false
+        },
+        "code_value_observation": {
+          "type": "object",
+          "required": ["y", "cb", "cr"],
+          "properties": {
+            "y": {"$ref": "#/$defs/planeObservation"},
+            "cb": {"$ref": "#/$defs/planeObservation"},
+            "cr": {"$ref": "#/$defs/planeObservation"}
+          },
+          "additionalProperties": false
+        },
+        "target_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "metadata_resolution": {"$ref": "#/$defs/metadataResolution"}
+      },
+      "additionalProperties": false
+    },
+    "metadataResolution": {
+      "type": "object",
+      "required": [
+        "method",
+        "source_color_triplet_status",
+        "source_color_triplet_fields",
+        "source_range_evidence",
+        "source_chroma_evidence",
+        "decoded_attachment_values",
+        "corpus_values",
+        "representative_sample_count",
+        "representative_color_observations_hash_scope",
+        "representative_color_observations_sha256"
+      ],
+      "properties": {
+        "method": {"const": "validation_decoded_attachment_corpus_agreement_v1"},
+        "source_color_triplet_status": {"const": "absent"},
+        "source_color_triplet_fields": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "CVImageBufferColorPrimaries"},
+            {"const": "CVImageBufferTransferFunction"},
+            {"const": "CVImageBufferYCbCrMatrix"}
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "source_range_evidence": {
+          "type": "object",
+          "required": ["FullRangeVideo"],
+          "properties": {"FullRangeVideo": {"const": false}},
+          "additionalProperties": false
+        },
+        "source_chroma_evidence": {
+          "type": "object",
+          "required": [
+            "CVImageBufferChromaLocationTopField",
+            "CVImageBufferChromaLocationBottomField"
+          ],
+          "properties": {
+            "CVImageBufferChromaLocationTopField": {"const": "Left"},
+            "CVImageBufferChromaLocationBottomField": {"const": "Left"}
+          },
+          "additionalProperties": false
+        },
+        "decoded_attachment_values": {
+          "type": "object",
+          "required": [
+            "CVImageBufferColorPrimaries",
+            "CVImageBufferTransferFunction",
+            "CVImageBufferYCbCrMatrix",
+            "CVImageBufferChromaLocationTopField",
+            "CVImageBufferChromaLocationBottomField"
+          ],
+          "properties": {
+            "CVImageBufferColorPrimaries": {"const": "ITU_R_709_2"},
+            "CVImageBufferTransferFunction": {"const": "ITU_R_709_2"},
+            "CVImageBufferYCbCrMatrix": {"const": "ITU_R_709_2"},
+            "CVImageBufferChromaLocationTopField": {"const": "Left"},
+            "CVImageBufferChromaLocationBottomField": {"const": "Left"}
+          },
+          "additionalProperties": false
+        },
+        "corpus_values": {
+          "type": "object",
+          "required": [
+            "color_primaries",
+            "transfer_function",
+            "ycbcr_matrix",
+            "range",
+            "chroma_location"
+          ],
+          "properties": {
+            "color_primaries": {"const": "ITU_R_709_2"},
+            "transfer_function": {"const": "ITU_R_709_2"},
+            "ycbcr_matrix": {"const": "ITU_R_709_2"},
+            "range": {"const": "video"},
+            "chroma_location": {"const": "left"}
+          },
+          "additionalProperties": false
+        },
+        "representative_sample_count": {"type": "integer", "minimum": 1},
+        "representative_color_observations_hash_scope": {
+          "const": "canonical JSON of ordered representative index and required decoded attachment values"
+        },
+        "representative_color_observations_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "planeObservation": {
+      "type": "object",
+      "required": ["minimum", "maximum", "below_nominal_count", "above_nominal_count"],
+      "properties": {
+        "minimum": {"type": "integer", "minimum": 0, "maximum": 255},
+        "maximum": {"type": "integer", "minimum": 0, "maximum": 255},
+        "below_nominal_count": {"type": "integer", "minimum": 0},
+        "above_nominal_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  }
+}

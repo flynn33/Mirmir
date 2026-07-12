@@ -209,6 +209,7 @@ final class ArchitectureGuardrailTests: XCTestCase {
             ".git",
             ".build",
             ".swiftpm",
+            "Artifacts",
             "build",
             "DerivedData",
             "Mirmir.xcodeproj/project.xcworkspace"

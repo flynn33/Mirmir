@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/operator-bank-v1.schema.json",
+  "title": "Canonical P06 candidate or selected ASH operator bank",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "operator_bank_id",
+    "configuration_id",
+    "operator_bank_seed_sha256",
+    "candidate_vector_sha256",
+    "shared_bank_configuration_sha256",
+    "selection_binding",
+    "boundary_mode",
+    "coordinate_policies",
+    "operator_parameters",
+    "semantic_steps"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "status": {"enum": ["calibration_candidate", "locked_before_p07"]},
+    "operator_bank_id": {"const": "ash-spatial-operator-bank-v2"},
+    "configuration_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "operator_bank_seed_sha256": {"$ref": "#/$defs/sha256"},
+    "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "selection_binding": {"$ref": "#/$defs/selectionBinding"},
+    "boundary_mode": {"enum": ["mirror_reflect101", "clamp"]},
+    "coordinate_policies": {
+      "type": "object",
+      "required": ["direct_2x", "direct_3_over_2"],
+      "properties": {
+        "direct_2x": {"$ref": "#/$defs/coordinatePolicy"},
+        "direct_3_over_2": {"$ref": "#/$defs/coordinatePolicy"}
+      },
+      "additionalProperties": false
+    },
+    "operator_parameters": {
+      "type": "object",
+      "required": [
+        "anisotropy_strength_q12",
+        "minimum_anisotropic_magnitude_unorm15",
+        "minimum_anisotropic_coherence_unorm15",
+        "detail_gain_q12",
+        "relaxed_limiter_alpha_q12",
+        "risk_detail_suppression_unorm15",
+        "low_pass_radius_q8_8",
+        "weight_epsilon_f32_bits"
+      ],
+      "properties": {
+        "anisotropy_strength_q12": {"enum": [0, 1024, 2048, 3072, 4096]},
+        "minimum_anisotropic_magnitude_unorm15": {"enum": [819, 1638, 3277, 4915]},
+        "minimum_anisotropic_coherence_unorm15": {"enum": [3277, 4915, 8192, 12288]},
+        "detail_gain_q12": {"enum": [0, 384, 768, 1152, 1536]},
+        "relaxed_limiter_alpha_q12": {"enum": [0, 128, 256, 384, 512]},
+        "risk_detail_suppression_unorm15": {"enum": [16384, 21299, 26214]},
+        "low_pass_radius_q8_8": {"enum": [384, 512, 640]},
+        "weight_epsilon_f32_bits": {"const": 730643660}
+      },
+      "additionalProperties": false
+    },
+    "semantic_steps": {
+      "type": "object",
+      "required": [
+        "orientation_sector_step",
+        "support_radius_step_q8_8",
+        "detail_gain_step_q12",
+        "regularization_step_q12"
+      ],
+      "properties": {
+        "orientation_sector_step": {"const": 1},
+        "support_radius_step_q8_8": {"enum": [32, 64, 96]},
+        "detail_gain_step_q12": {"enum": [64, 128, 256]},
+        "regularization_step_q12": {"enum": [32, 64, 128]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "calibration_candidate"}}},
+      "then": {
+        "properties": {
+          "selection_binding": {
+            "const": {
+              "calibration_selection_sha256": null,
+              "selected_evaluation_sha256": null
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "locked_before_p07"}}},
+      "then": {
+        "properties": {
+          "selection_binding": {"$ref": "#/$defs/lockedSelectionBinding"}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "coordinatePolicy": {
+      "enum": ["source_aligned_rational", "half_pixel_center"]
+    },
+    "selectionBinding": {
+      "type": "object",
+      "required": ["calibration_selection_sha256", "selected_evaluation_sha256"],
+      "properties": {
+        "calibration_selection_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        },
+        "selected_evaluation_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        }
+      },
+      "additionalProperties": false
+    },
+    "lockedSelectionBinding": {
+      "type": "object",
+      "required": ["calibration_selection_sha256", "selected_evaluation_sha256"],
+      "properties": {
+        "calibration_selection_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

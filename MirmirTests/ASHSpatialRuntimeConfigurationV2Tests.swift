@@ -36,7 +36,7 @@ final class ASHSpatialRuntimeConfigurationV2Tests: XCTestCase {
             let value = try XCTUnwrap(rawValue as? String)
             entries.append((key, value))
         }
-        let metadata = try Dictionary(uniqueKeysWithValues: entries)
+        let metadata = Dictionary(uniqueKeysWithValues: entries)
 
         XCTAssertEqual(metadata, ASHSpatialRuntimeConfigurationV2.developmentP05.outputMetadata)
         XCTAssertNil(metadata["com.mirmir.ash.operator-specification"])

@@ -5,13 +5,13 @@ from __future__ import annotations
 import hashlib
 import math
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .arrays import PlanarFrame, normalize_code_plane
-from .fixtures import impulse_fixture, step_fixture, thin_line_fixture
-from .json_tools import manifest_sha256, read_json
+from .arrays import PlanarFrame, frame_sha256, normalize_code_plane
+from .fixtures import locked_analytic_fixture_frames, step_fixture
+from .json_tools import manifest_sha256, read_json, validate_schema
 from .metrics import (
     alias_energy,
     channel_psnr,
@@ -68,7 +68,7 @@ def _locked_analytic_fixtures(metric_policy_sha256: str) -> Dict[str, object]:
     binding = policy.get("analytic_fixture_manifest")
     if (
         not isinstance(binding, dict)
-        or binding.get("path") != "reference/analytic-fixtures-v1.json"
+        or binding.get("path") != "reference/analytic-fixtures-v2.json"
     ):
         raise ValueError("metric policy lacks the locked analytic fixture manifest")
     path = quality_root / str(binding["path"])
@@ -77,13 +77,42 @@ def _locked_analytic_fixtures(metric_policy_sha256: str) -> Dict[str, object]:
         raise ValueError("analytic fixture file SHA-256 mismatch")
     manifest = read_json(path)
     if (
-        manifest.get("schema_version") != "1.0.0"
+        manifest.get("schema_version") != "2.0.0"
         or manifest.get("artifact_kind") != "metric_analytic_fixture_manifest"
         or manifest.get("manifest_sha256") != binding.get("manifest_sha256")
         or manifest_sha256(manifest) != binding.get("manifest_sha256")
     ):
         raise ValueError("analytic fixture manifest identity or self-hash mismatch")
+    validate_schema(
+        manifest,
+        quality_root / "schemas" / "analytic-fixtures-v2.schema.json",
+    )
     return manifest
+
+
+def _f64le_sha256(values: np.ndarray) -> str:
+    return hashlib.sha256(
+        np.asarray(values, dtype="<f8").tobytes(order="C")
+    ).hexdigest()
+
+
+def _packed_mask_sha256(values: np.ndarray) -> str:
+    return hashlib.sha256(
+        np.packbits(
+            np.asarray(values, dtype=bool).reshape(-1),
+            bitorder="big",
+        ).tobytes()
+    ).hexdigest()
+
+
+def _analytic_reference(
+    definition: Dict[str, object],
+) -> Tuple[PlanarFrame, Optional[np.ndarray]]:
+    degradation = read_json(
+        Path(__file__).resolve().parents[2] / "policies" / "degradation-policy.json"
+    )
+    frame, _, support = locked_analytic_fixture_frames(definition, degradation)
+    return frame, support
 
 
 def _case(case_id: str, metric: str, expected: object, actual: object, passed: bool) -> Dict[str, object]:
@@ -99,6 +128,9 @@ def _case(case_id: str, metric: str, expected: object, actual: object, passed: b
 def run_metric_conformance(metric_policy_sha256: str) -> Dict[str, object]:
     cases: List[Dict[str, object]] = []
     analytic_fixtures = _locked_analytic_fixtures(metric_policy_sha256)
+    fixture_definitions = analytic_fixtures.get("fixtures")
+    if not isinstance(fixture_definitions, list) or len(fixture_definitions) != 14:
+        raise ValueError("analytic fixture manifest must contain fourteen route fixtures")
     base = np.full((64, 64), 0.4, dtype=np.float64)
 
     identical = psnr(base, base.copy())
@@ -190,22 +222,39 @@ def run_metric_conformance(metric_policy_sha256: str) -> Dict[str, object]:
         )
     )
 
-    for orientation, normal in (
-        ("vertical", (1.0, 0.0)),
-        ("horizontal", (0.0, 1.0)),
-        ("diagonal", (1.0, 1.0)),
-    ):
-        edge = step_fixture(64, orientation)
+    edge_definitions = [
+        definition
+        for definition in fixture_definitions
+        if isinstance(definition, dict)
+        and definition.get("fixture_kind") == "edge_profile"
+    ]
+    if len(edge_definitions) != 6:
+        raise ValueError("analytic fixture manifest must contain six route edge profiles")
+    for definition in edge_definitions:
+        support = definition["measurement_support"]
+        normal = support.get("normal_xy")
+        center = support.get("center_xy")
+        if (
+            not isinstance(normal, list)
+            or len(normal) != 2
+            or not isinstance(center, list)
+            or len(center) != 2
+        ):
+            raise ValueError("analytic edge geometry is invalid")
+        frame, unused_support = _analytic_reference(definition)
+        if unused_support is not None:
+            raise ValueError("edge fixture unexpectedly declared a binary mask")
+        edge = frame.y
         error = edge_location_error(
             edge,
             edge.copy(),
-            center=(31.5, 31.5),
-            normal=normal,
-            sample_count=31,
+            center=(float(center[0]), float(center[1])),
+            normal=(float(normal[0]), float(normal[1])),
+            sample_count=int(support["sample_count"]),
         )
         cases.append(
             _case(
-                f"{orientation}-step",
+                str(definition["fixture_id"]),
                 "edge-location",
                 0.0,
                 error,
@@ -232,35 +281,62 @@ def run_metric_conformance(metric_policy_sha256: str) -> Dict[str, object]:
         )
     )
 
-    impulse, impulse_support = impulse_fixture()
-    ringing_candidate = impulse.copy()
-    center = impulse.shape[0] // 2
-    ringing_candidate[center, center + 2] = 1.1
-    ringing_candidate[center, center - 2] = -0.05
-    ringing_value = ringing(impulse, ringing_candidate, impulse_support)
-    cases.append(
-        _case(
-            "single-impulse-ringing",
-            "ringing",
-            {"overshoot": 0.1, "undershoot": 0.05},
-            ringing_value,
-            math.isclose(ringing_value["overshoot"], 0.1, abs_tol=1e-12)
-            and math.isclose(ringing_value["undershoot"], 0.05, abs_tol=1e-12),
+    ringing_definitions = [
+        definition
+        for definition in fixture_definitions
+        if isinstance(definition, dict) and definition.get("fixture_kind") == "ringing"
+    ]
+    if len(ringing_definitions) != 2:
+        raise ValueError("analytic fixture manifest must contain two route ringing fixtures")
+    for ringing_definition in ringing_definitions:
+        frame, impulse_support = _analytic_reference(ringing_definition)
+        if impulse_support is None:
+            raise ValueError("analytic ringing fixture has no transition support")
+        declared_support = ringing_definition["measurement_support"]
+        if _packed_mask_sha256(impulse_support) != declared_support["packed_sha256"]:
+            raise ValueError("analytic ringing support hash mismatch")
+        impulse = frame.y
+        ringing_candidate = impulse.copy()
+        impulse_row, impulse_column = declared_support["true_coordinates"][0]
+        ringing_candidate[int(impulse_row), int(impulse_column) + 2] = 1.1
+        ringing_candidate[int(impulse_row), int(impulse_column) - 2] = -0.05
+        ringing_value = ringing(impulse, ringing_candidate, impulse_support)
+        cases.append(
+            _case(
+                str(ringing_definition["fixture_id"]),
+                "ringing",
+                {"overshoot": 0.1, "undershoot": 0.05},
+                ringing_value,
+                math.isclose(ringing_value["overshoot"], 0.1, abs_tol=1e-12)
+                and math.isclose(ringing_value["undershoot"], 0.05, abs_tol=1e-12),
+            )
         )
-    )
 
-    line, line_support = thin_line_fixture()
-    line_value = thin_line_retention(line, line.copy(), line_support)
-    cases.append(
-        _case(
-            "thin-line-identity",
-            "thin-line-retention",
-            {"retention_ratio": 1.0, "false_side_lobe_energy": 0.0},
-            line_value,
-            math.isclose(line_value["retention_ratio"], 1.0, abs_tol=1e-12)
-            and math.isclose(line_value["false_side_lobe_energy"], 0.0, abs_tol=1e-12),
+    line_definitions = [
+        definition
+        for definition in fixture_definitions
+        if isinstance(definition, dict) and definition.get("fixture_kind") == "thin_line"
+    ]
+    if len(line_definitions) != 2:
+        raise ValueError("analytic fixture manifest must contain two route thin-line fixtures")
+    for line_definition in line_definitions:
+        frame, line_support = _analytic_reference(line_definition)
+        if line_support is None:
+            raise ValueError("analytic thin-line fixture has no support")
+        declared_support = line_definition["measurement_support"]
+        if _packed_mask_sha256(line_support) != declared_support["packed_sha256"]:
+            raise ValueError("analytic thin-line support hash mismatch")
+        line_value = thin_line_retention(frame.y, frame.y.copy(), line_support)
+        cases.append(
+            _case(
+                str(line_definition["fixture_id"]),
+                "thin-line-retention",
+                {"retention_ratio": 1.0, "false_side_lobe_energy": 0.0},
+                line_value,
+                math.isclose(line_value["retention_ratio"], 1.0, abs_tol=1e-12)
+                and math.isclose(line_value["false_side_lobe_energy"], 0.0, abs_tol=1e-12),
+            )
         )
-    )
 
     luma_profile = np.asarray([0.0, 0.0, 0.0, 1.0, 1.0, 1.0])
     chroma_profile = np.asarray([-0.5, -0.5, -0.5, 0.5, 0.5, 0.5])
@@ -281,51 +357,30 @@ def run_metric_conformance(metric_policy_sha256: str) -> Dict[str, object]:
         )
     )
 
-    alias_definitions = analytic_fixtures.get("alias_masks")
-    if not isinstance(alias_definitions, list) or len(alias_definitions) != 1:
-        raise ValueError("analytic fixture manifest must contain one alias mask")
-    alias_definition = alias_definitions[0]
-    if (
-        not isinstance(alias_definition, dict)
-        or alias_definition.get("id") != "near-nyquist-single-bin-v1"
-        or alias_definition.get("dimensions") != [32, 32]
-        or alias_definition.get("source_pattern") != "(-1)^(row+column)"
-        or alias_definition.get("encoding")
-        != "true-coordinate-pairs-row-column"
-        or alias_definition.get("packed_encoding")
-        != "row-major numpy-packbits-big"
-    ):
-        raise ValueError("analytic alias fixture definition is invalid")
-    checker = np.fromfunction(lambda row, column: (-1.0) ** (row + column), (32, 32))
-    forbidden = np.zeros_like(checker, dtype=bool)
-    coordinates = alias_definition.get("true_coordinates")
-    if not isinstance(coordinates, list) or not coordinates:
-        raise ValueError("analytic alias fixture has no selected coordinates")
-    for coordinate in coordinates:
-        if (
-            not isinstance(coordinate, list)
-            or len(coordinate) != 2
-            or not all(isinstance(value, int) for value in coordinate)
-            or not 0 <= coordinate[0] < 32
-            or not 0 <= coordinate[1] < 32
-        ):
-            raise ValueError("analytic alias fixture coordinate is invalid")
-        forbidden[coordinate[0], coordinate[1]] = True
-    packed_mask_sha256 = hashlib.sha256(
-        np.packbits(forbidden.reshape(-1), bitorder="big").tobytes()
-    ).hexdigest()
-    if packed_mask_sha256 != alias_definition.get("packed_mask_sha256"):
-        raise ValueError("analytic alias fixture packed-mask SHA-256 mismatch")
-    alias = alias_energy(checker, forbidden)
-    cases.append(
-        _case(
-            "near-nyquist-alias-mask",
-            "alias-energy",
-            1.0,
-            alias["ratio"],
-            math.isclose(alias["ratio"], 1.0, abs_tol=1e-12),
+    alias_definitions = [
+        definition
+        for definition in fixture_definitions
+        if isinstance(definition, dict) and definition.get("fixture_kind") == "alias"
+    ]
+    if len(alias_definitions) != 2:
+        raise ValueError("analytic fixture manifest must contain two route alias masks")
+    for alias_definition in alias_definitions:
+        frame, forbidden = _analytic_reference(alias_definition)
+        if forbidden is None:
+            raise ValueError("analytic alias fixture has no forbidden mask")
+        declared_support = alias_definition["measurement_support"]
+        if _packed_mask_sha256(forbidden) != declared_support["packed_sha256"]:
+            raise ValueError("analytic alias fixture packed-mask SHA-256 mismatch")
+        alias = alias_energy(frame.y, forbidden)
+        cases.append(
+            _case(
+                str(alias_definition["fixture_id"]),
+                "alias-energy",
+                0.5,
+                alias["ratio"],
+                math.isclose(alias["ratio"], 0.5, abs_tol=1e-12),
+            )
         )
-    )
 
     luma_endpoints = normalize_code_plane(np.asarray([[16.0, 235.0]]), 16.0, 235.0)
     chroma_endpoints = normalize_code_plane(
@@ -348,54 +403,69 @@ def run_metric_conformance(metric_policy_sha256: str) -> Dict[str, object]:
         )
     )
 
-    edge_definitions = analytic_fixtures.get("chroma_edge_fixtures")
-    if not isinstance(edge_definitions, list) or len(edge_definitions) != 1:
-        raise ValueError("analytic fixture manifest must contain one chroma edge")
-    edge_definition = edge_definitions[0]
-    if (
-        not isinstance(edge_definition, dict)
-        or edge_definition.get("id") != "centered-cb-cr-step-v1"
-        or edge_definition.get("dimensions") != [32, 32]
-        or edge_definition.get("edge_column") != 16
-        or edge_definition.get("low_value") != -0.5
-        or edge_definition.get("high_value") != 0.5
-        or edge_definition.get("neutral_value") != 0.0
-    ):
-        raise ValueError("analytic chroma-edge fixture definition is invalid")
-    neutral = np.full((32, 32), 0.0, dtype=np.float64)
-    changed = np.full((32, 32), -0.5, dtype=np.float64)
-    changed[:, 16:] = 0.5
-    reference_frame = PlanarFrame(y=base[:32, :32], cb=neutral, cr=neutral)
-    cb_frame = PlanarFrame(y=base[:32, :32], cb=changed, cr=neutral)
-    cr_frame = PlanarFrame(y=base[:32, :32], cb=neutral, cr=changed)
-    cb_metrics = channel_psnr(reference_frame, cb_frame)
-    cr_metrics = channel_psnr(reference_frame, cr_frame)
-    channel_pass = (
-        cb_metrics["Y"]["exact_match"]
-        and not cb_metrics["Cb"]["exact_match"]
-        and cb_metrics["Cr"]["exact_match"]
-        and cr_metrics["Y"]["exact_match"]
-        and cr_metrics["Cb"]["exact_match"]
-        and not cr_metrics["Cr"]["exact_match"]
-    )
-    cases.append(
-        _case(
-            "cb-only-and-cr-only",
-            "channel-PSNR",
-            "only the changed chroma channel is non-exact",
-            {
-                "fixture_id": edge_definition["id"],
-                "edge_values": {
-                    "low": edge_definition["low_value"],
-                    "high": edge_definition["high_value"],
-                    "neutral": edge_definition["neutral_value"],
-                },
-                "Cb-only": cb_metrics,
-                "Cr-only": cr_metrics,
-            },
-            channel_pass,
+    chroma_definitions = [
+        definition
+        for definition in fixture_definitions
+        if isinstance(definition, dict)
+        and definition.get("fixture_kind") == "chroma_displacement"
+    ]
+    if len(chroma_definitions) != 2:
+        raise ValueError("analytic fixture manifest must contain two route chroma edges")
+    for edge_definition in chroma_definitions:
+        frame, unused_support = _analytic_reference(edge_definition)
+        if unused_support is not None:
+            raise ValueError("analytic chroma fixture unexpectedly declared a mask")
+        support = edge_definition["measurement_support"]
+        luma_columns = support["luma_sample_columns"]
+        chroma_columns = support["chroma_sample_columns"]
+        coordinate_rule = support["coordinates_luma_pixels"]
+        y_indices = np.arange(
+            int(luma_columns["start"]),
+            int(luma_columns["start"])
+            + int(luma_columns["step"]) * int(luma_columns["count"]),
+            int(luma_columns["step"]),
         )
-    )
+        c_indices = np.arange(
+            int(chroma_columns["start"]),
+            int(chroma_columns["start"])
+            + int(chroma_columns["step"]) * int(chroma_columns["count"]),
+            int(chroma_columns["step"]),
+        )
+        coordinates = np.arange(
+            int(coordinate_rule["count"]),
+            dtype=np.float64,
+        ) * float(coordinate_rule["step"]) + float(coordinate_rule["start"])
+        displacement = chroma_edge_displacement(
+            frame.y[int(support["luma_row"]), y_indices],
+            frame.cb[int(support["chroma_row"]), c_indices],
+            frame.cr[int(support["chroma_row"]), c_indices],
+            coordinates=coordinates,
+        )
+        neutral = np.zeros_like(frame.cb)
+        reference_frame = PlanarFrame(y=frame.y, cb=neutral, cr=neutral)
+        cb_frame = PlanarFrame(y=frame.y, cb=frame.cb, cr=neutral)
+        cr_frame = PlanarFrame(y=frame.y, cb=neutral, cr=frame.cr)
+        cb_metrics = channel_psnr(reference_frame, cb_frame)
+        cr_metrics = channel_psnr(reference_frame, cr_frame)
+        passed = (
+            cb_metrics["Y"]["exact_match"]
+            and not cb_metrics["Cb"]["exact_match"]
+            and cb_metrics["Cr"]["exact_match"]
+            and cr_metrics["Y"]["exact_match"]
+            and cr_metrics["Cb"]["exact_match"]
+            and not cr_metrics["Cr"]["exact_match"]
+            and math.isclose(displacement["Cb"], 0.0, abs_tol=1e-12)
+            and math.isclose(displacement["Cr"], 0.0, abs_tol=1e-12)
+        )
+        cases.append(
+            _case(
+                str(edge_definition["fixture_id"]),
+                "chroma-edge-displacement-and-channel-PSNR",
+                {"Cb": 0.0, "Cr": 0.0},
+                {"displacement": displacement, "Cb-only": cb_metrics, "Cr-only": cr_metrics},
+                passed,
+            )
+        )
 
     return {
         "schema_version": "1.0.0",

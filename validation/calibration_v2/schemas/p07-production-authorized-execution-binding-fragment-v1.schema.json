@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-production-authorized-execution-binding-fragment-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "spawn_policy",
+    "cache_root_identity",
+    "macos_code_identities",
+    "retained_fd_roles",
+    "production_writer",
+    "p06_release_bundle_manifest_sha256",
+    "fragment_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_authorized_execution_binding_fragment"},
+    "spawn_policy": {
+      "type": "object",
+      "required": ["policy_id", "spawn_flags", "process_group_id", "identity_check_state", "gate_authorization_byte_hex", "environment_policy_id", "environment", "umask_octal"],
+      "properties": {
+        "policy_id": {"const": "macos-posix-spawn-suspended-gated-v1"},
+        "spawn_flags": {
+          "type": "object",
+          "required": ["set_process_group", "start_suspended", "close_on_exec_default"],
+          "properties": {
+            "set_process_group": {"const": 2},
+            "start_suspended": {"const": 128},
+            "close_on_exec_default": {"const": 16384}
+          },
+          "additionalProperties": false
+        },
+        "process_group_id": {"const": "child_pid"},
+        "identity_check_state": {"const": "stopped_before_sigcont"},
+        "gate_authorization_byte_hex": {"const": "a5"},
+        "environment_policy_id": {"const": "mirmir-authorized-env-v1"},
+        "environment": {"$ref": "#/$defs/authorizedEnvironment"},
+        "umask_octal": {"const": "077"}
+      },
+      "additionalProperties": false
+    },
+    "cache_root_identity": {
+      "type": "object",
+      "required": ["device", "inode"],
+      "properties": {
+        "device": {"type": "integer", "minimum": 0},
+        "inode": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "macos_code_identities": {
+      "type": "object",
+      "required": ["production_swift_executable", "production_writer_executable", "p00_native_executable"],
+      "properties": {
+        "production_swift_executable": {"$ref": "#/$defs/codeIdentity"},
+        "production_writer_executable": {"$ref": "#/$defs/codeIdentity"},
+        "p00_native_executable": {"$ref": "#/$defs/codeIdentity"}
+      },
+      "additionalProperties": false
+    },
+    "retained_fd_roles": {
+      "type": "object",
+      "required": ["production_swift", "p00_native", "production_writer"],
+      "properties": {
+        "production_swift": {"$ref": "#/$defs/retainedRoles"},
+        "p00_native": {"$ref": "#/$defs/retainedRoles"},
+        "production_writer": {"$ref": "#/$defs/retainedRoles"}
+      },
+      "additionalProperties": false
+    },
+    "production_writer": {
+      "type": "object",
+      "required": ["support_tree", "settings_sha256", "product_settings_source_sha256", "executable_sha256"],
+      "properties": {
+        "support_tree": {"$ref": "#/$defs/writerTree"},
+        "settings_sha256": {"$ref": "#/$defs/sha256"},
+        "product_settings_source_sha256": {"$ref": "#/$defs/sha256"},
+        "executable_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "p06_release_bundle_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "fragment_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "authorizedEnvironment": {
+      "type": "object",
+      "required": ["LANG", "LC_ALL", "PATH", "TMPDIR"],
+      "properties": {
+        "LANG": {"const": "C"},
+        "LC_ALL": {"const": "C"},
+        "PATH": {"const": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        "TMPDIR": {"const": "/private/tmp"}
+      },
+      "additionalProperties": false
+    },
+    "codeIdentity": {
+      "type": "object",
+      "required": ["schema_version", "artifact_kind", "architecture", "file_sha256", "unique_cdhash", "all_cdhashes", "digest_algorithms", "static_code_flags", "signing_kind", "identifier"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "macos_code_identity_v1"},
+        "architecture": {"type": "string", "minLength": 1},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "unique_cdhash": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"},
+        "all_cdhashes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"}},
+        "digest_algorithms": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1}},
+        "static_code_flags": {"type": "integer", "minimum": 0},
+        "signing_kind": {"enum": ["ad_hoc", "cms"]},
+        "identifier": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "retainedRole": {
+      "type": "object",
+      "required": ["role", "sha256", "size_bytes"],
+      "properties": {
+        "role": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "retainedRoles": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/retainedRole"}
+    },
+    "writerTree": {
+      "type": "object",
+      "required": ["id", "root_id", "path", "kind", "sha256", "size_bytes", "file_count"],
+      "properties": {
+        "id": {"const": "production_writer_tree"},
+        "root_id": {"const": "production_writer"},
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000\\\\]+$"},
+        "kind": {"const": "directory_tree"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "file_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

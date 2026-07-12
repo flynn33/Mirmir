@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/sealed-evaluation-access-ledger-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "ledger_type",
+    "revision_id",
+    "prepared_for_seal_utc",
+    "status",
+    "evaluation_opened_utc",
+    "first_evaluation_access_utc",
+    "last_evaluation_access_utc",
+    "evaluation_access_count",
+    "evaluation_run_id",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "ledger_type": {"const": "sealed_evaluation_access"},
+    "revision_id": {"type": "string", "minLength": 1},
+    "prepared_for_seal_utc": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["unopened", "opened", "completed", "failed"]},
+    "evaluation_opened_utc": {"type": ["string", "null"], "format": "date-time"},
+    "first_evaluation_access_utc": {"type": ["string", "null"], "format": "date-time"},
+    "last_evaluation_access_utc": {"type": ["string", "null"], "format": "date-time"},
+    "evaluation_access_count": {"type": "integer", "minimum": 0},
+    "evaluation_run_id": {"type": ["string", "null"]},
+    "entries": {"type": "array"}
+  },
+  "additionalProperties": false
+}
