@@ -806,6 +806,24 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
         first_payload = _planar_to_video_range_nv12(first_output)
         first_specialized = first.callable.non_ash_cache_records()[-1]
         first_control = first.callable.control_runtime_records()[-1]
+        evidence_provider = PolicyEvaluationEvidenceProvider(
+            metric_performance_tolerances=self.bound.documents[
+                "metric_performance_tolerances"
+            ],
+            measurement_evidence_root=(
+                self.cache / "cold-non-ash-current-call-evidence"
+            ),
+            evidence_store=MemoryEvidenceStore(),
+        )
+        first_output_cache_evidence = evidence_provider._output_cache_evidence(
+            adapter=first,
+            native_control_records=first.callable.control_runtime_records(),
+        )
+        _validate_output_cache_evidence(
+            first_output_cache_evidence,
+            adapter=first,
+            expected_preparation_count=1,
+        )
         first_bindings = first.callable._non_ash_cached_reconstruction_bindings(
             prepared["cache_token"],
             rule,

@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 
 from validation.calibration_v2 import runner
+from validation.calibration_v2.production_evaluator import NON_ASH_COORDINATES
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame
 from validation.quality.src.mirmir_quality.json_tools import canonical_sha256
 from validation.quality.src.mirmir_quality.production_dry_run import (
@@ -689,6 +690,97 @@ class RuntimeEvidenceTests(unittest.TestCase):
         ):
             runner._validate_output_cache_evidence(
                 output_cache,
+                adapter=adapter,
+                expected_preparation_count=1,
+            )
+
+    def test_output_cache_evidence_accepts_cold_cached_non_ash_counts(
+        self,
+    ) -> None:
+        adapter, callable_value = self._output_cache_adapter(reused=False)
+        rule = {name: 0 for name in NON_ASH_COORDINATES}
+        non_ash_record: dict[str, object] = {
+            "schema_version": "1.0.0",
+            "artifact_kind": "p06_native_non_ash_cached_reconstruction",
+            "cache_token": callable_value.token,
+            "cache_manifest_sha256": callable_value.token,
+            "rule_configuration": rule,
+            "rule_sha256": canonical_sha256(rule),
+            "output_frame_sha256": "9" * 64,
+            "target_route": "direct-2x",
+            "stateful_lut_lookup_count": 0,
+            "spatial_operator_recompute_count": 0,
+            "analysis_grid_invocation_count": 0,
+        }
+        non_ash_record["record_sha256"] = canonical_sha256(non_ash_record)
+        callable_value.non_ash = [non_ash_record]
+
+        control = copy.deepcopy(callable_value.controls[0])
+        control.pop("fixed_cache_record_sha256")
+        control.pop("record_sha256")
+        control.update(
+            {
+                "control_key": "non_ash_selector",
+                "control_mode": "non_ash_selector_q15",
+                "non_ash_cache_record_sha256": non_ash_record[
+                    "record_sha256"
+                ],
+                "output_frame_sha256": non_ash_record[
+                    "output_frame_sha256"
+                ],
+                "control_cache_reused": False,
+                "current_call_analysis_grid_invocation_count": 0,
+                "current_call_spatial_operator_evaluation_count": 0,
+            }
+        )
+        control["record_sha256"] = canonical_sha256(control)
+        callable_value.controls = [control]
+
+        def evidence() -> dict[str, object]:
+            return {
+                "preparation_records": copy.deepcopy(
+                    callable_value.preparation
+                ),
+                "preparation_records_sha256": canonical_sha256(
+                    callable_value.preparation
+                ),
+                "fixed_reconstruction_proof": (
+                    runner._cache_reconstruction_proof_binding(
+                        "fixed", callable_value.fixed
+                    )
+                ),
+                "non_ash_reconstruction_proof": (
+                    runner._cache_reconstruction_proof_binding(
+                        "non_ash", callable_value.non_ash
+                    )
+                ),
+                "control_reconstruction_proof": (
+                    runner._cache_reconstruction_proof_binding(
+                        "control", callable_value.controls
+                    )
+                ),
+            }
+
+        runner._validate_output_cache_evidence(
+            evidence(),
+            adapter=adapter,
+            expected_preparation_count=1,
+        )
+
+        callable_value.controls[0][
+            "non_ash_cache_record_sha256"
+        ] = "f" * 64
+        unhashed = dict(callable_value.controls[0])
+        unhashed.pop("record_sha256")
+        callable_value.controls[0]["record_sha256"] = canonical_sha256(
+            unhashed
+        )
+        with self.assertRaisesRegex(
+            runner.CalibrationError,
+            "non-ASH control cache record binding differs",
+        ):
+            runner._validate_output_cache_evidence(
+                evidence(),
                 adapter=adapter,
                 expected_preparation_count=1,
             )

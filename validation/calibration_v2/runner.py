@@ -2968,6 +2968,12 @@ def _validate_output_cache_evidence(
         raise CalibrationError(
             "native output-cache proof binding differs from callable records"
         )
+    fixed_record_sha256_values = {
+        record["record_sha256"] for record in fixed_records
+    }
+    non_ash_record_sha256_values = {
+        record["record_sha256"] for record in non_ash_records
+    }
 
     all_control_records = _native_callable_record_stream(
         adapter,
@@ -3006,6 +3012,22 @@ def _validate_output_cache_evidence(
             if reused:
                 expected_counts = (0, 0)
             elif "fixed_cache_record_sha256" in record:
+                if (
+                    record.get("fixed_cache_record_sha256")
+                    not in fixed_record_sha256_values
+                ):
+                    raise CalibrationError(
+                        "fixed control cache record binding differs"
+                    )
+                expected_counts = (0, 0)
+            elif "non_ash_cache_record_sha256" in record:
+                if (
+                    record.get("non_ash_cache_record_sha256")
+                    not in non_ash_record_sha256_values
+                ):
+                    raise CalibrationError(
+                        "non-ASH control cache record binding differs"
+                    )
                 expected_counts = (0, 0)
             elif mode in {
                 "fixed_descriptor_uniform",

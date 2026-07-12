@@ -525,6 +525,7 @@ def _validate_native_dependency_commit(
     adapter: CandidateAdapter,
     split: str,
     shared_bank_configuration_sha256: str,
+    require_current_requester: bool = True,
 ) -> Mapping[str, object]:
     configuration = adapter.configuration
     swift_cli = configuration.get("swift_cli")
@@ -540,6 +541,7 @@ def _validate_native_dependency_commit(
         )
     unhashed = dict(record)
     declared = unhashed.pop("record_sha256", None)
+    requester = record.get("requesting_configuration_id")
     counts = (
         record.get("pending_file_count"),
         record.get("pending_directory_count"),
@@ -549,8 +551,12 @@ def _validate_native_dependency_commit(
         or record.get("artifact_kind")
         != "p06_control_cache_durability_commit"
         or record.get("split") != split
-        or record.get("requesting_configuration_id")
-        != configuration.get("configuration_id")
+        or not isinstance(requester, str)
+        or not requester
+        or (
+            require_current_requester
+            and requester != configuration.get("configuration_id")
+        )
         or record.get("shared_bank_configuration_sha256")
         != shared_bank_configuration_sha256
         or record.get("native_executable_sha256")
@@ -4054,6 +4060,7 @@ class _NativeSelectionOutputCache:
             adapter=self.adapter,
             split=self.split,
             shared_bank_configuration_sha256=self.bank,
+            require_current_requester=False,
         )
         if (
             native_dependency_record["record_sha256"]

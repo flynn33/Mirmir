@@ -369,8 +369,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/production_evaluator.py",
-      "sha256": "3fe5c5f20b9d86e53421a3e05f6c2fbdb33c3ba84a618857fc794508fc77ec44",
-      "size_bytes": 210455
+      "sha256": "d8a3b48f1e154d10261d511cf2872d8b2a6551622970b2943c1905c022e74229",
+      "size_bytes": 210695
     },
     {
       "relative_path": "validation/calibration_v2/production_evidence.py",
@@ -414,8 +414,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/runner.py",
-      "sha256": "0f5e217d2ddbdeb0615667cd69e6bfa34c46d069a0ba85b9fd5d1a1ac1844f78",
-      "size_bytes": 352537
+      "sha256": "765dadc6a291c020ff6620ace769cb36e68e79a91bfaf46e3d89bc1ec4aab6be",
+      "size_bytes": 353426
     },
     {
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
@@ -674,8 +674,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_cache.py",
-      "sha256": "74caa702b113a81af6a1775b812951296f442cf9ea61df71374893f5c6066281",
-      "size_bytes": 66066
+      "sha256": "9e06b2177f4ea085433e55361a35ad13cb91c1d14398848bac732d11f2268287",
+      "size_bytes": 67991
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
@@ -704,8 +704,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_native_adapter.py",
-      "sha256": "f00f8b17413f89cc6cbbe1d24676058a20797f2cd1aa11e10b4bf3a3259e59c5",
-      "size_bytes": 87013
+      "sha256": "10e108eb7797f5ee6386491a536b930b3662a3d37f1902460d0e364df7e4cd7c",
+      "size_bytes": 87738
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_p06_runtime_correction_artifacts.py",
@@ -779,8 +779,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_runner_evidence.py",
-      "sha256": "8e710ab9414421319e6dc60998c0d075b4e93e6db0496657cad666343ca9bb69",
-      "size_bytes": 45863
+      "sha256": "55b6ad03677343367120eb0e2f6f113dfe796f9760447c13c82ef6ba3e167ee4",
+      "size_bytes": 49464
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_runner_interrupt_preservation.py",
@@ -1168,6 +1168,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "95f868b5418f5128c9493bff41cd3ec394858bfc1b2c8136aaa29c611df8cd61",
+  "manifest_sha256": "5129d55f1dabea291d26d721cc72b611da8f7df93f8f53411b8aa63c0374d7b9",
   "schema_version": "1.0.0"
 }

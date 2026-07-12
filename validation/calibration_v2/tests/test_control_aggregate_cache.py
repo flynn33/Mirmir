@@ -191,7 +191,8 @@ def _prepared_cases(
 
 
 class _FakeCachedCallable:
-    def __init__(self) -> None:
+    def __init__(self, *, configuration_id: str = "focused-cache") -> None:
+        self.configuration_id = configuration_id
         self.preparation_records: list[Mapping[str, object]] = []
         self.cache_records: list[Mapping[str, object]] = []
         self.control_records: list[Mapping[str, object]] = []
@@ -297,7 +298,7 @@ class _FakeCachedCallable:
             "identity_sha256": identity_sha256,
             "cache_token": token,
             "cache_origin_manifest_sha256": origin_sha256,
-            "requesting_configuration_id": "focused-cache",
+            "requesting_configuration_id": self.configuration_id,
             "shared_bank_configuration_sha256": BANK,
             "cache_reused": reused,
             "preparation_analysis_grid_invocation_count": 0 if reused else 1,
@@ -433,7 +434,7 @@ class _FakeCachedCallable:
             "schema_version": "1.0.0",
             "artifact_kind": "p06_control_cache_durability_commit",
             "split": "development",
-            "requesting_configuration_id": "focused-cache",
+            "requesting_configuration_id": self.configuration_id,
             "shared_bank_configuration_sha256": BANK,
             "native_executable_sha256": "a" * 64,
             "native_source_manifest_sha256": "b" * 64,
@@ -461,10 +462,12 @@ class _FakeCachedCallable:
 
 def _adapter(
     context: Mapping[str, object],
+    *,
+    configuration_id: str = "focused-cache",
 ) -> tuple[CandidateAdapter, _FakeCachedCallable]:
-    callable_value = _FakeCachedCallable()
+    callable_value = _FakeCachedCallable(configuration_id=configuration_id)
     configuration = {
-        "configuration_id": "focused-cache",
+        "configuration_id": configuration_id,
         "shared_bank_configuration_sha256": BANK,
         "swift_cli": copy.deepcopy(context["native_implementation_closure"]),
         "raw_output_contract_sha256": context[
@@ -487,9 +490,13 @@ def _operator_cache(
     evidence_store: MemoryEvidenceStore | ContentAddressedEvidenceStore,
     context: Mapping[str, object] | None = None,
     prepared: tuple[_PreparedControlCase, ...] | None = None,
+    configuration_id: str = "focused-cache",
 ) -> tuple[_NativeSelectionOutputCache, _FakeCachedCallable]:
     aggregate_context = context or _aggregate_context()
-    adapter, callable_value = _adapter(aggregate_context)
+    adapter, callable_value = _adapter(
+        aggregate_context,
+        configuration_id=configuration_id,
+    )
     return (
         _NativeSelectionOutputCache(
             adapter=adapter,
@@ -1143,6 +1150,53 @@ def test_persistent_restart_reopens_aggregate_with_new_store_adapter_and_cache(
     assert warm_callable.reconstruction_calls == 0
     assert warm_callable.reopen_calls == len(_prepared_cases())
     assert warm_cache.pending_aggregate_origin_count == 0
+
+
+def test_persistent_restart_accepts_historical_requester_for_same_bank(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    metric_calls = _install_counted_metrics(monkeypatch)
+    evidence_root = tmp_path / "evidence"
+    cold_store = ContentAddressedEvidenceStore(evidence_root)
+    cold_cache, cold_callable = _operator_cache(
+        evidence_store=cold_store,
+        configuration_id="cold-candidate",
+    )
+    cold = cold_cache.non_ash(_zero_rule())
+    cold_cache.commit_pending_aggregate_origins()
+    cold_metric_count = len(metric_calls)
+
+    warm_store = ContentAddressedEvidenceStore(evidence_root)
+    warm_cache, warm_callable = _operator_cache(
+        evidence_store=warm_store,
+        configuration_id="same-bank-neighbor",
+    )
+    warm = warm_cache.non_ash(_zero_rule())
+
+    assert warm == cold
+    assert len(metric_calls) == cold_metric_count
+    assert cold_callable.durability_flush_calls == 1
+    assert warm_callable.durability_flush_calls == 0
+    assert warm_cache.pending_aggregate_origin_count == 0
+
+
+def test_new_native_durability_commit_rejects_wrong_requester(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _install_counted_metrics(monkeypatch)
+    store = MemoryEvidenceStore()
+    cache, callable_value = _operator_cache(evidence_store=store)
+    cache.non_ash(_zero_rule())
+    callable_value.configuration_id = "wrong-requester"
+
+    with pytest.raises(
+        ProductionEvaluatorError,
+        match="native control-cache durability commit is invalid",
+    ):
+        cache.commit_pending_aggregate_origins()
+
+    assert store._control_aggregate_origins == {}
 
 
 def test_partial_origin_batch_contains_only_safe_complete_origins(
