@@ -679,8 +679,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
-      "sha256": "ae66eef7f147ae2234b591798c454ddd62b984ec668b292f87b3bd063eda52bb",
-      "size_bytes": 164900
+      "sha256": "ac8129a6592d28f9d32b6a9c2c0e5ff21947201727adef11da9fd981ce05b1c4",
+      "size_bytes": 165836
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
@@ -1168,6 +1168,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "5129d55f1dabea291d26d721cc72b611da8f7df93f8f53411b8aa63c0374d7b9",
+  "manifest_sha256": "b801d2d0ae54764339585a88bdb3fe0356055cb4e4416b08f6d0e791fd7a64ed",
   "schema_version": "1.0.0"
 }

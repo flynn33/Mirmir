@@ -41,6 +41,7 @@ from validation.calibration_v2.production_providers import (
 from validation.calibration_v2.runner import (
     _SHARED_BANK_COORDINATES,
     _AdapterInvocationTracker,
+    candidate_artifact_documents,
     corpus_lock_bundle_document,
     corpus_lock_bundle_sha256,
     parameter_domains,
@@ -983,6 +984,12 @@ def _repository_state_binding() -> Mapping[str, object]:
 
 def _current_resume_input_bindings() -> Mapping[str, object]:
     bound = _BoundStub()
+    plan = bound.documents["calibration_plan"]
+    vector = dict(plan["search"]["initial_vector_values"])
+    candidate_artifacts = candidate_artifact_documents(vector, plan, bound)
+    candidate_metric_policy_sha256 = canonical_sha256(
+        candidate_artifacts["metric_policy"]
+    )
     baseline_path = (
         REPOSITORY_ROOT
         / "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json"
@@ -1064,7 +1071,7 @@ def _current_resume_input_bindings() -> Mapping[str, object]:
             "calibration_plan_sha256": bound.record("calibration_plan")[
                 "sha256"
             ],
-            "metric_policy_sha256": metric_policy["policy_sha256"],
+            "metric_policy_sha256": candidate_metric_policy_sha256,
             "corpus_lock_bundle_sha256": canonical_sha256(corpus_bundle),
             "raw_output_contract_sha256": canonical_sha256(
                 COMMON_CONTROL_BOUNDARY_CONTRACT
@@ -1313,6 +1320,22 @@ def test_aggregate_context_uses_canonical_full_corpus_lock_bundle() -> None:
                 "corpus_lock_bundle_sha256": "0" * 64,
             },
         )
+
+
+def test_resume_configuration_binds_candidate_metric_policy() -> None:
+    bound = _BoundStub()
+    plan = bound.documents["calibration_plan"]
+    vector = dict(plan["search"]["initial_vector_values"])
+    expected = canonical_sha256(
+        candidate_artifact_documents(vector, plan, bound)["metric_policy"]
+    )
+    resume_bindings = _current_resume_input_bindings()
+    configuration_hashes = resume_bindings[
+        "_configuration_hash_file_bindings"
+    ]
+
+    assert configuration_hashes["metric_policy_sha256"] == expected
+    assert expected != bound.documents["metric_policy_seed"]["policy_sha256"]
 
 
 def _maximum_formula_derivation(
