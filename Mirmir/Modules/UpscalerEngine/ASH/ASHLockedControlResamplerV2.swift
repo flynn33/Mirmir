@@ -35,7 +35,7 @@ enum ASHLockedControlResamplerV2 {
                 outputHeight: route.destinationExtent(for: luma.height),
                 algorithm: algorithm,
                 boundary: input.configuration.boundaryMode,
-                coordinatePolicy: selection.coordinatePolicy,
+                coordinatePolicy: selection.lumaCoordinatePolicy,
                 chromaSiting: nil
             ),
             cb: try resample(
@@ -44,7 +44,7 @@ enum ASHLockedControlResamplerV2 {
                 outputHeight: route.destinationExtent(for: cb.height),
                 algorithm: algorithm,
                 boundary: input.configuration.boundaryMode,
-                coordinatePolicy: selection.coordinatePolicy,
+                coordinatePolicy: selection.chromaCoordinatePolicy,
                 chromaSiting: input.chromaSiting
             ),
             cr: try resample(
@@ -53,7 +53,7 @@ enum ASHLockedControlResamplerV2 {
                 outputHeight: route.destinationExtent(for: cr.height),
                 algorithm: algorithm,
                 boundary: input.configuration.boundaryMode,
-                coordinatePolicy: selection.coordinatePolicy,
+                coordinatePolicy: selection.chromaCoordinatePolicy,
                 chromaSiting: input.chromaSiting
             )
         )

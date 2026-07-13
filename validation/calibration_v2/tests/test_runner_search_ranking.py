@@ -60,6 +60,49 @@ def test_canonical_failure_count_collapses_global_checks_only() -> None:
     )
 
 
+def test_corrected_domains_split_plane_policies_and_scope_alias_override() -> None:
+    plan = _plan()
+    domains = runner.parameter_domains(plan)
+    assert len(domains) == 42
+    policy_domain = ("source_aligned_rational", "half_pixel_center")
+    for route in ("direct_2x", "direct_3_over_2"):
+        assert domains[f"{route}_luma_coordinate_policy"] == policy_domain
+        assert domains[f"{route}_chroma_coordinate_policy"] == policy_domain
+    assert domains["alias_or_ringing_risk_low_unorm15"] == (
+        0,
+        3277,
+        4915,
+        6553,
+        8192,
+        9830,
+    )
+    assert domains["alias_or_ringing_risk_high_unorm15"] == (
+        3277,
+        9830,
+        11468,
+        13107,
+        14745,
+        16384,
+    )
+    assert domains["edge_present_low_unorm15"] == tuple(
+        plan["ranges"]["mapping"]["low_unorm15"]
+    )
+    assert domains["edge_present_high_unorm15"] == tuple(
+        plan["ranges"]["mapping"]["high_unorm15"]
+    )
+    initial = plan["search"]["initial_vector_values"]
+    assert initial["direct_2x_luma_coordinate_policy"] == "half_pixel_center"
+    assert initial["direct_2x_chroma_coordinate_policy"] == "half_pixel_center"
+    assert initial["direct_3_over_2_luma_coordinate_policy"] == (
+        "source_aligned_rational"
+    )
+    assert initial["direct_3_over_2_chroma_coordinate_policy"] == (
+        "source_aligned_rational"
+    )
+    assert initial["alias_or_ringing_risk_low_unorm15"] == 0
+    assert initial["alias_or_ringing_risk_high_unorm15"] == 3277
+
+
 def test_feasible_candidate_dominates_better_scoring_infeasible_candidate() -> None:
     plan = _plan()
     vector = dict(plan["search"]["initial_vector_values"])
@@ -113,7 +156,7 @@ def test_restoration_accumulates_two_coordinate_changes() -> None:
     initial_result = _result(-2.0, feasible=False, failures=failures)
 
     first = dict(initial)
-    first["coherent_structure_low_unorm15"] = 9830
+    first["coherent_structure_low_unorm15"] = 8192
     first_result = _result(-1.0, feasible=False, failures=failures)
     current, _ = min(
         ((initial, initial_result), (first, first_result)),

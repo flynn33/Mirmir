@@ -104,7 +104,7 @@ _DIAGNOSTIC_FIELDS = {
     "cells",
     "risk_state",
 }
-_GENERIC_LUT_FIELDS = {
+_GENERIC_LUT_COMMON_FIELDS = {
     "whole_file_sha256",
     "payload_sha256",
     "entry_count",
@@ -115,10 +115,18 @@ _GENERIC_LUT_FIELDS = {
     "runtime_tree_generation_count",
     "maximum_operator_evaluations",
     "serialization_rebind_contract",
-    "original_coordinate_policy",
-    "serialized_coordinate_policy",
     "serialization_rebind_applied",
     "serialization_rebind_sha256",
+}
+_LEGACY_GENERIC_LUT_FIELDS = _GENERIC_LUT_COMMON_FIELDS | {
+    "original_coordinate_policy",
+    "serialized_coordinate_policy",
+}
+_SPLIT_GENERIC_LUT_FIELDS = _GENERIC_LUT_COMMON_FIELDS | {
+    "original_luma_coordinate_policy",
+    "original_chroma_coordinate_policy",
+    "serialized_luma_coordinate_policy",
+    "serialized_chroma_coordinate_policy",
 }
 _SESSION_COUNTER_FIELDS = {
     "input_decode_count",
@@ -286,6 +294,31 @@ def _serialization_rebind_sha256(
         b"MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0"
     )
     for value in (route, original_policy, serialized_policy):
+        payload.extend(value.encode("utf-8"))
+        payload.append(0)
+    payload.append(1 if applied else 0)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _split_serialization_rebind_sha256(
+    *,
+    route: str,
+    original_luma_policy: str,
+    original_chroma_policy: str,
+    serialized_luma_policy: str,
+    serialized_chroma_policy: str,
+    applied: bool,
+) -> str:
+    payload = bytearray(
+        b"MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0"
+    )
+    for value in (
+        route,
+        original_luma_policy,
+        original_chroma_policy,
+        serialized_luma_policy,
+        serialized_chroma_policy,
+    ):
         payload.extend(value.encode("utf-8"))
         payload.append(0)
     payload.append(1 if applied else 0)
@@ -1423,14 +1456,17 @@ def validate_corrective_native_response(
     )
 
     expected_entry_count = _EXPECTED_ENTRY_COUNT[binding.route]
-    generic = _object(diagnostic.get("generic_lut"), _GENERIC_LUT_FIELDS, "generic LUT")
+    generic_value = diagnostic.get("generic_lut")
+    _require(isinstance(generic_value, dict), "generic LUT is not an object")
+    generic_fields = set(generic_value)
+    _require(
+        generic_fields == _LEGACY_GENERIC_LUT_FIELDS
+        or generic_fields == _SPLIT_GENERIC_LUT_FIELDS,
+        "generic LUT field set differs",
+    )
+    generic = generic_value
     candidate = configuration.get("candidate_vector")
     _require(isinstance(candidate, dict), "native candidate vector is absent")
-    original_policy = candidate.get(
-        f"{binding.contract_route}_coordinate_policy"
-    )
-    serialized_policy = "half_pixel_center"
-    rebind_applied = original_policy != serialized_policy
     _require(
         _is_sha256(generic.get("whole_file_sha256"))
         and _is_sha256(generic.get("payload_sha256"))
@@ -1445,23 +1481,84 @@ def validate_corrective_native_response(
         and generic.get("maximum_operator_evaluations") in {1, 2},
         "generic LUT evidence differs",
     )
-    _require(
-        original_policy
-        in {"half_pixel_center", "source_aligned_rational"}
-        and generic.get("serialization_rebind_contract")
-        == "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
-        and generic.get("original_coordinate_policy") == original_policy
-        and generic.get("serialized_coordinate_policy") == serialized_policy
-        and generic.get("serialization_rebind_applied") is rebind_applied
-        and generic.get("serialization_rebind_sha256")
-        == _serialization_rebind_sha256(
-            route=binding.contract_route,
-            original_policy=str(original_policy),
-            serialized_policy=serialized_policy,
-            applied=rebind_applied,
-        ),
-        "generic LUT serialization-rebind provenance differs",
+    policy_values = {"half_pixel_center", "source_aligned_rational"}
+    rebind_contract = (
+        "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
     )
+    if generic_fields == _LEGACY_GENERIC_LUT_FIELDS:
+        original_policy = candidate.get(
+            f"{binding.contract_route}_coordinate_policy"
+        )
+        if original_policy is None:
+            candidate_luma = candidate.get(
+                f"{binding.contract_route}_luma_coordinate_policy"
+            )
+            candidate_chroma = candidate.get(
+                f"{binding.contract_route}_chroma_coordinate_policy"
+            )
+            _require(
+                candidate_luma == candidate_chroma,
+                "legacy generic LUT cannot represent split candidate policies",
+            )
+            original_policy = candidate_luma
+        serialized_policy = "half_pixel_center"
+        rebind_applied = original_policy != serialized_policy
+        _require(
+            original_policy in policy_values
+            and generic.get("serialization_rebind_contract") == rebind_contract
+            and generic.get("original_coordinate_policy") == original_policy
+            and generic.get("serialized_coordinate_policy") == serialized_policy
+            and generic.get("serialization_rebind_applied") is rebind_applied
+            and generic.get("serialization_rebind_sha256")
+            == _serialization_rebind_sha256(
+                route=binding.contract_route,
+                original_policy=str(original_policy),
+                serialized_policy=serialized_policy,
+                applied=rebind_applied,
+            ),
+            "generic LUT serialization-rebind provenance differs",
+        )
+    else:
+        original_luma = candidate.get(
+            f"{binding.contract_route}_luma_coordinate_policy"
+        )
+        original_chroma = candidate.get(
+            f"{binding.contract_route}_chroma_coordinate_policy"
+        )
+        if original_luma is None and original_chroma is None:
+            legacy_policy = candidate.get(
+                f"{binding.contract_route}_coordinate_policy"
+            )
+            original_luma = legacy_policy
+            original_chroma = legacy_policy
+        serialized_luma = "half_pixel_center"
+        serialized_chroma = "half_pixel_center"
+        rebind_applied = (
+            original_luma != serialized_luma
+            or original_chroma != serialized_chroma
+        )
+        _require(
+            original_luma in policy_values
+            and original_chroma in policy_values
+            and generic.get("serialization_rebind_contract") == rebind_contract
+            and generic.get("original_luma_coordinate_policy") == original_luma
+            and generic.get("original_chroma_coordinate_policy") == original_chroma
+            and generic.get("serialized_luma_coordinate_policy")
+            == serialized_luma
+            and generic.get("serialized_chroma_coordinate_policy")
+            == serialized_chroma
+            and generic.get("serialization_rebind_applied") is rebind_applied
+            and generic.get("serialization_rebind_sha256")
+            == _split_serialization_rebind_sha256(
+                route=binding.contract_route,
+                original_luma_policy=str(original_luma),
+                original_chroma_policy=str(original_chroma),
+                serialized_luma_policy=serialized_luma,
+                serialized_chroma_policy=serialized_chroma,
+                applied=rebind_applied,
+            ),
+            "generic LUT split serialization-rebind provenance differs",
+        )
     counters = _object(
         diagnostic.get("session_counters"),
         _SESSION_COUNTER_FIELDS,

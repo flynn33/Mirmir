@@ -153,7 +153,7 @@ enum ASHLUTLeafCompilerV2 {
         configuration: ASHLUTLockedConfigurationV2
     ) throws -> ASHLUTCompiledEntryV2 {
         let routeSelection = configuration.routeSelection(for: route)
-        let sourceAligned = routeSelection.coordinatePolicy == .sourceAlignedRational
+        let sourceAligned = routeSelection.bothPlanesAreSourceAligned
             && phaseOrdinal == 0
         if sourceAligned {
             _ = try genericGroups(
@@ -260,7 +260,8 @@ extension ASHLUTLeafCompilerV2 {
                     parameterSlot(candidate: $0, sourceAligned: false, configuration: configuration)
                 } ?? .inactive,
                 confidenceThresholdUNorm16: configuration.compilerPolicy.confidenceThresholdUNorm16,
-                coordinatePolicy: routeSelection.coordinatePolicy,
+                lumaCoordinatePolicy: routeSelection.lumaCoordinatePolicy,
+                chromaCoordinatePolicy: routeSelection.chromaCoordinatePolicy,
                 boundaryMode: configuration.boundaryMode
             )
         )
@@ -398,7 +399,8 @@ extension ASHLUTLeafCompilerV2 {
                 primary: sourcePreservationParameterSlot(configuration: configuration),
                 secondary: .inactive,
                 confidenceThresholdUNorm16: configuration.compilerPolicy.confidenceThresholdUNorm16,
-                coordinatePolicy: routeSelection.coordinatePolicy,
+                lumaCoordinatePolicy: routeSelection.lumaCoordinatePolicy,
+                chromaCoordinatePolicy: routeSelection.chromaCoordinatePolicy,
                 boundaryMode: configuration.boundaryMode
             )
         )

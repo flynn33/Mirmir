@@ -90,7 +90,7 @@ LIVE_HOLDOUT_PREOPEN_VERIFICATION_SCHEMA = (
     SCHEMAS_ROOT / "live-holdout-preopen-verification-v1.schema.json"
 )
 
-_PARAMETER_ORDER_LENGTH = 40
+_PARAMETER_ORDER_LENGTH = 42
 _THRESHOLD_BANDS = (
     "edge_present",
     "coherent_structure",
@@ -104,8 +104,10 @@ _SHARED_BANK_COORDINATES = (
     "chroma_edge_confidence_unorm15",
     "direct_2x_analysis_grid_source_step",
     "direct_3_over_2_analysis_grid_source_step",
-    "direct_2x_coordinate_policy",
-    "direct_3_over_2_coordinate_policy",
+    "direct_2x_luma_coordinate_policy",
+    "direct_2x_chroma_coordinate_policy",
+    "direct_3_over_2_luma_coordinate_policy",
+    "direct_3_over_2_chroma_coordinate_policy",
     "boundary_mode",
     "anisotropy_strength_q12",
     "minimum_anisotropic_magnitude_unorm15",
@@ -522,8 +524,22 @@ def operator_bank_document(
         ),
         "boundary_mode": vector["boundary_mode"],
         "coordinate_policies": {
-            "direct_2x": vector["direct_2x_coordinate_policy"],
-            "direct_3_over_2": vector["direct_3_over_2_coordinate_policy"],
+            "direct_2x": {
+                "luma_coordinate_policy": vector[
+                    "direct_2x_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_2x_chroma_coordinate_policy"
+                ],
+            },
+            "direct_3_over_2": {
+                "luma_coordinate_policy": vector[
+                    "direct_3_over_2_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_3_over_2_chroma_coordinate_policy"
+                ],
+            },
         },
         "operator_parameters": {
             "anisotropy_strength_q12": vector["anisotropy_strength_q12"],
@@ -679,14 +695,22 @@ def locked_compiler_input_document(
         },
         "routes": {
             "direct_2x": {
-                "coordinate_policy": vector["direct_2x_coordinate_policy"],
+                "luma_coordinate_policy": vector[
+                    "direct_2x_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_2x_chroma_coordinate_policy"
+                ],
                 "analysis_grid_source_step": vector[
                     "direct_2x_analysis_grid_source_step"
                 ],
             },
             "direct_3_over_2": {
-                "coordinate_policy": vector[
-                    "direct_3_over_2_coordinate_policy"
+                "luma_coordinate_policy": vector[
+                    "direct_3_over_2_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_3_over_2_chroma_coordinate_policy"
                 ],
                 "analysis_grid_source_step": vector[
                     "direct_3_over_2_analysis_grid_source_step"
@@ -703,6 +727,7 @@ def locked_compiler_input_document(
         "source_aligned": {
             "exact": True,
             "predicate": (
+                "both luma and chroma coordinate policies are "
                 "source_aligned_rational with horizontal phase zero and "
                 "vertical phase zero"
             ),
@@ -1612,7 +1637,12 @@ def route_analysis_grid_selection_document(
                 "route": "direct_2x",
                 "scale_numerator": 2,
                 "scale_denominator": 1,
-                "coordinate_policy": vector["direct_2x_coordinate_policy"],
+                "luma_coordinate_policy": vector[
+                    "direct_2x_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_2x_chroma_coordinate_policy"
+                ],
                 "analysis_grid_source_step": vector[
                     "direct_2x_analysis_grid_source_step"
                 ],
@@ -1622,8 +1652,11 @@ def route_analysis_grid_selection_document(
                 "route": "direct_3_over_2",
                 "scale_numerator": 3,
                 "scale_denominator": 2,
-                "coordinate_policy": vector[
-                    "direct_3_over_2_coordinate_policy"
+                "luma_coordinate_policy": vector[
+                    "direct_3_over_2_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_3_over_2_chroma_coordinate_policy"
                 ],
                 "analysis_grid_source_step": vector[
                     "direct_3_over_2_analysis_grid_source_step"
@@ -2498,7 +2531,12 @@ def _route_record(
         "phase_count": route.phase_count,
         "context_count": 4,
         "valid_state_count": 256,
-        "coordinate_policy": configuration.routes[route_name].coordinate_policy,
+        "luma_coordinate_policy": configuration.routes[
+            route_name
+        ].luma_coordinate_policy,
+        "chroma_coordinate_policy": configuration.routes[
+            route_name
+        ].chroma_coordinate_policy,
         "analysis_grid_source_step": configuration.routes[
             route_name
         ].analysis_grid_source_step,

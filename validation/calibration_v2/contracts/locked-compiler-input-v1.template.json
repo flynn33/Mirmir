@@ -56,11 +56,13 @@
   },
   "routes": {
     "direct_2x": {
-      "coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "luma_coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "chroma_coordinate_policy": "<source_aligned_rational or half_pixel_center>",
       "analysis_grid_source_step": "<1, 2, or 4>"
     },
     "direct_3_over_2": {
-      "coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "luma_coordinate_policy": "<source_aligned_rational or half_pixel_center>",
+      "chroma_coordinate_policy": "<source_aligned_rational or half_pixel_center>",
       "analysis_grid_source_step": "<1, 2, or 4>"
     }
   },
@@ -73,7 +75,7 @@
   },
   "source_aligned": {
     "exact": true,
-    "predicate": "source_aligned_rational with horizontal phase zero and vertical phase zero",
+    "predicate": "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero",
     "primary_message": 0,
     "primary_descriptor": 0,
     "secondary": "inactive",

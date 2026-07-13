@@ -35,7 +35,7 @@ final class ASHCorrectiveCLITests: XCTestCase {
     var contractPath: String!
 
     override func setUpWithError() throws {
-        let base = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        let base = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
         temporaryRoot = base.appendingPathComponent(
             "mirmir-corrective-cli-\(UUID().uuidString)",
             isDirectory: true
@@ -227,14 +227,15 @@ final class ASHCorrectiveCLITests: XCTestCase {
     func test_genericSerializationRebindIsStrictAndSemanticsPreserving() throws {
         let fixture = try Self.fixtureResult.get()
         let session = try makeSession(fixture)
-        let route = ASHSpatialRouteV2.direct2x
+        let route = ASHSpatialRouteV2.direct3Over2
         let original = fixture.configuration
         let transformed = try session.correctiveDiagnosticContainerConfiguration(
             for: route
         )
-        assertOnlyDirect2xCoordinatePolicyChanged(
+        assertOnlySelectedRouteCoordinatePoliciesChanged(
             original: original,
-            transformed: transformed
+            transformed: transformed,
+            route: route
         )
 
         let compilation = try session.correctiveGenericDiagnosticCompilation(
@@ -261,7 +262,8 @@ final class ASHCorrectiveCLITests: XCTestCase {
                 && source.parameters.confidenceThresholdUNorm16
                     == serialized.parameters.confidenceThresholdUNorm16
                 && source.parameters.boundaryMode == serialized.parameters.boundaryMode
-                && serialized.parameters.coordinatePolicy == .halfPixelCenter
+                && serialized.parameters.lumaCoordinatePolicy == .halfPixelCenter
+                && serialized.parameters.chromaCoordinatePolicy == .halfPixelCenter
         })
 
         let artifact = try session.correctiveGenericDiagnosticArtifact(for: route)
@@ -312,9 +314,10 @@ final class ASHCorrectiveCLITests: XCTestCase {
         })
     }
 
-    private func assertOnlyDirect2xCoordinatePolicyChanged(
+    private func assertOnlySelectedRouteCoordinatePoliciesChanged(
         original: ASHLUTLockedConfigurationV2,
-        transformed: ASHLUTLockedConfigurationV2
+        transformed: ASHLUTLockedConfigurationV2,
+        route: ASHSpatialRouteV2
     ) {
         XCTAssertEqual(transformed.configurationID, original.configurationID)
         XCTAssertEqual(transformed.mappingSHA256, original.mappingSHA256)
@@ -327,12 +330,30 @@ final class ASHCorrectiveCLITests: XCTestCase {
         XCTAssertEqual(transformed.operatorParameters, original.operatorParameters)
         XCTAssertEqual(transformed.semanticSteps, original.semanticSteps)
         XCTAssertEqual(transformed.compilerPolicy, original.compilerPolicy)
-        XCTAssertEqual(transformed.routes.direct3Over2, original.routes.direct3Over2)
+        let otherRoute: ASHSpatialRouteV2 = route == .direct2x ? .direct3Over2 : .direct2x
         XCTAssertEqual(
-            transformed.routes.direct2x.analysisGridSourceStep,
-            original.routes.direct2x.analysisGridSourceStep
+            transformed.routeSelection(for: otherRoute),
+            original.routeSelection(for: otherRoute)
         )
-        XCTAssertEqual(original.routes.direct2x.coordinatePolicy, .sourceAlignedRational)
-        XCTAssertEqual(transformed.routes.direct2x.coordinatePolicy, .halfPixelCenter)
+        XCTAssertEqual(
+            transformed.routeSelection(for: route).analysisGridSourceStep,
+            original.routeSelection(for: route).analysisGridSourceStep
+        )
+        XCTAssertEqual(
+            original.routeSelection(for: route).lumaCoordinatePolicy,
+            .halfPixelCenter
+        )
+        XCTAssertEqual(
+            original.routeSelection(for: route).chromaCoordinatePolicy,
+            .sourceAlignedRational
+        )
+        XCTAssertEqual(
+            transformed.routeSelection(for: route).lumaCoordinatePolicy,
+            .halfPixelCenter
+        )
+        XCTAssertEqual(
+            transformed.routeSelection(for: route).chromaCoordinatePolicy,
+            .halfPixelCenter
+        )
     }
 }

@@ -120,8 +120,8 @@
     },
     "candidateVector": {
       "type": "object",
-      "minProperties": 40,
-      "maxProperties": 40,
+      "minProperties": 42,
+      "maxProperties": 42,
       "additionalProperties": {
         "oneOf": [
           {"type": "integer"},

@@ -157,7 +157,7 @@
     "source_aligned": {
       "const": {
         "exact": true,
-        "predicate": "source_aligned_rational with horizontal phase zero and vertical phase zero",
+        "predicate": "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero",
         "primary_message": 0,
         "primary_descriptor": 0,
         "secondary": "inactive",
@@ -174,9 +174,14 @@
     },
     "routeSelection": {
       "type": "object",
-      "required": ["coordinate_policy", "analysis_grid_source_step"],
+      "required": [
+        "luma_coordinate_policy",
+        "chroma_coordinate_policy",
+        "analysis_grid_source_step"
+      ],
       "properties": {
-        "coordinate_policy": {"enum": ["source_aligned_rational", "half_pixel_center"]},
+        "luma_coordinate_policy": {"enum": ["source_aligned_rational", "half_pixel_center"]},
+        "chroma_coordinate_policy": {"enum": ["source_aligned_rational", "half_pixel_center"]},
         "analysis_grid_source_step": {"enum": [1, 2, 4]}
       },
       "additionalProperties": false

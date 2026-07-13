@@ -294,8 +294,10 @@ def _validate_route_lut_semantics(
             or not isinstance(selected_row, dict)
             or selected_row.get("payload_sha256")
             != release_row.get("payload_sha256")
-            or selected_row.get("coordinate_policy")
-            != release_row.get("coordinate_policy")
+            or selected_row.get("luma_coordinate_policy")
+            != release_row.get("luma_coordinate_policy")
+            or selected_row.get("chroma_coordinate_policy")
+            != release_row.get("chroma_coordinate_policy")
             or selected_row.get("analysis_grid_source_step")
             != release_row.get("analysis_grid_source_step")
         ):
@@ -4131,7 +4133,12 @@ def _build_release_native_configuration(
             route: {
                 "whole_file_sha256": rows_by_route[route]["whole_file_sha256"],
                 "payload_sha256": rows_by_route[route]["payload_sha256"],
-                "coordinate_policy": rows_by_route[route]["coordinate_policy"],
+                "luma_coordinate_policy": rows_by_route[route][
+                    "luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": rows_by_route[route][
+                    "chroma_coordinate_policy"
+                ],
                 "analysis_grid_source_step": rows_by_route[route]["analysis_grid_source_step"],
             }
             for route in ROUTE_ORDER

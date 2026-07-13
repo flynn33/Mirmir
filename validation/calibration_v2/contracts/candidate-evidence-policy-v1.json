@@ -11,22 +11,22 @@
       "throughput_frames_per_second": 0.0491
     },
     "p05_cpu_reference": {
-      "path": "Artifacts/ASH/20260712-p05-current-source-dbfb6027-787d-41a4-a107-93c9b4a7ffb1/evidence/run-a/cpu-reference-results.json",
-      "file_sha256": "3f69af2cd2fa3cb51d7fe0acfe47e56ca1e74c137939a735ea2fc6661b10676a"
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/cpu-reference-results.json",
+      "file_sha256": "4b8a4834cea10128be529f66388da067bc2a67bbc7e968388632c4d030c4aede"
     },
     "p05_operator_discrimination": {
-      "path": "Artifacts/ASH/20260712-p05-current-source-dbfb6027-787d-41a4-a107-93c9b4a7ffb1/evidence/run-a/operator-discrimination.json",
-      "file_sha256": "303edc7920fb8d850cdd561bf7c8aa43b6b7dc700dec30f55048858561ac41ec",
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/operator-discrimination.json",
+      "file_sha256": "45c43242f180ecf9053bc38071c60730244c81f1083e35690c6bb6a955eba013",
       "descriptor_count": 16,
       "unordered_pair_count": 120
     },
     "p05_state_causality": {
-      "path": "Artifacts/ASH/20260712-p05-current-source-dbfb6027-787d-41a4-a107-93c9b4a7ffb1/evidence/run-a/state-causality-results.json",
-      "file_sha256": "1430bc28c90f80b4c4b2152dbd2f7e81a713c289ad41caa548b6139feaef2c39"
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/state-causality-results.json",
+      "file_sha256": "8f1a071e9727462bc529f23b7787a7651086d48fe53603db9ca31df194a38fec"
     },
     "p05_state_fixtures": {
-      "path": "Artifacts/ASH/20260712-p05-current-source-dbfb6027-787d-41a4-a107-93c9b4a7ffb1/evidence/run-a/state-fixtures.json",
-      "file_sha256": "7b639e93ded4102f00e3dd2442ae80580fafe57c4a5d40e8a6c10b7747e214e2"
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/state-fixtures.json",
+      "file_sha256": "7d151df2f048bc5a399360f7a9180465b3262e9b48b58208e087757f169f3fb3"
     }
   },
   "candidate_checks": {

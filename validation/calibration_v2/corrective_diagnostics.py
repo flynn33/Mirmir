@@ -346,11 +346,21 @@ def _serialization_rebind_sha256(row: Mapping[str, object]) -> str:
     payload = bytearray(
         b"MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0"
     )
-    for field in (
-        "route",
-        "original_coordinate_policy",
-        "serialized_coordinate_policy",
-    ):
+    if "original_luma_coordinate_policy" in row:
+        fields = (
+            "route",
+            "original_luma_coordinate_policy",
+            "original_chroma_coordinate_policy",
+            "serialized_luma_coordinate_policy",
+            "serialized_chroma_coordinate_policy",
+        )
+    else:
+        fields = (
+            "route",
+            "original_coordinate_policy",
+            "serialized_coordinate_policy",
+        )
+    for field in fields:
         value = row.get(field)
         _semantic(isinstance(value, str), "serialization rebind field is invalid")
         payload.extend(value.encode("utf-8"))
@@ -1524,16 +1534,33 @@ def validate_coordinate_anisotropy_artifact(
     )
     for row in route_luts:
         assert isinstance(row, dict)
-        _semantic(
-            row.get("serialization_rebind_contract")
-            == "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
-            and row.get("serialized_coordinate_policy")
-            == "half_pixel_center"
-            and row.get("serialization_rebind_applied")
-            is (
+        if "original_luma_coordinate_policy" in row:
+            expected_applied = (
+                row.get("original_luma_coordinate_policy")
+                != row.get("serialized_luma_coordinate_policy")
+                or row.get("original_chroma_coordinate_policy")
+                != row.get("serialized_chroma_coordinate_policy")
+            )
+            policy_binding_valid = (
+                row.get("serialized_luma_coordinate_policy")
+                == "half_pixel_center"
+                and row.get("serialized_chroma_coordinate_policy")
+                == "half_pixel_center"
+            )
+        else:
+            expected_applied = (
                 row.get("original_coordinate_policy")
                 != row.get("serialized_coordinate_policy")
             )
+            policy_binding_valid = (
+                row.get("serialized_coordinate_policy")
+                == "half_pixel_center"
+            )
+        _semantic(
+            row.get("serialization_rebind_contract")
+            == "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
+            and policy_binding_valid
+            and row.get("serialization_rebind_applied") is expected_applied
             and row.get("serialization_rebind_sha256")
             == _serialization_rebind_sha256(row),
             "generic route serialization-rebind evidence differs",

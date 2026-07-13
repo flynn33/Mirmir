@@ -46,7 +46,11 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
     }
 
     func test_sourceAlignedEntryFlagIsDistinctFromActualChromaSamplePreservation() throws {
-        let fixture = try ASHLockedRuntimeTestSupportV2.existingFixture(.direct2x)
+        let fixture = try ASHLockedRuntimeTestSupportV2.fixture(
+            route: .direct2x,
+            policy: .sourceAlignedRational,
+            step: 1
+        )
         let planes = try ASHLockedRuntimeTestSupportV2.planes()
         let grid = try ASHLockedRuntimeTestSupportV2.analysisGrid(
             planes: planes,
@@ -108,6 +112,114 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
         XCTAssertTrue(cositedChroma.sourceCoordinates.horizontal.isIntegral)
         XCTAssertFalse(cositedChroma.sourceCoordinates.vertical.isIntegral)
         XCTAssertFalse(cositedChroma.sourceAlignedSamplePreserved)
+    }
+}
+
+extension ASHLockedGeometryRuntimeV2Tests {
+    func test_mixedLockedPoliciesSelectLumaAndSharedChromaCoordinates() throws {
+        let fixture = try ASHLockedRuntimeTestSupportV2.existingFixture(.direct2x)
+        assertMixedCoordinatePolicies(in: fixture.configuration.routeSelection(for: .direct2x))
+
+        let planes = try ASHLockedRuntimeTestSupportV2.planes()
+        let grid = try ASHLockedRuntimeTestSupportV2.analysisGrid(
+            planes: planes,
+            configuration: fixture.configuration,
+            route: .direct2x,
+            siting: .left
+        )
+        let dispatchGrid = try ASHLockedRuntimeV2.makeDispatchGrid(
+            lut: fixture.loaded,
+            configuration: fixture.configuration,
+            analysisGrid: grid
+        )
+        let lumaPlane = try ASHLockedRuntimeTestSupportV2.spatialPlane(planes.luma)
+        let cbPlane = try ASHLockedRuntimeTestSupportV2.spatialPlane(planes.cb, chroma: true)
+        let crPlane = try ASHLockedRuntimeTestSupportV2.spatialPlane(planes.cr, chroma: true)
+        let destinationColumn = 1
+        let destinationRow = 1
+
+        let luma = try ASHLockedRuntimeV2.evaluateSample(
+            dispatchGrid: dispatchGrid,
+            configuration: fixture.configuration,
+            analysisGrid: grid,
+            plane: lumaPlane,
+            destinationColumn: destinationColumn,
+            destinationRow: destinationRow,
+            chromaSiting: nil
+        )
+        let cb = try ASHLockedRuntimeV2.evaluateSample(
+            dispatchGrid: dispatchGrid,
+            configuration: fixture.configuration,
+            analysisGrid: grid,
+            plane: cbPlane,
+            destinationColumn: destinationColumn,
+            destinationRow: destinationRow,
+            chromaSiting: .left
+        )
+        let cr = try ASHLockedRuntimeV2.evaluateSample(
+            dispatchGrid: dispatchGrid,
+            configuration: fixture.configuration,
+            analysisGrid: grid,
+            plane: crPlane,
+            destinationColumn: destinationColumn,
+            destinationRow: destinationRow,
+            chromaSiting: .left
+        )
+
+        let lumaOutputWidth = try ASHSpatialRouteV2.direct2x.destinationExtent(
+            for: lumaPlane.width
+        )
+        let lumaOutputHeight = try ASHSpatialRouteV2.direct2x.destinationExtent(
+            for: lumaPlane.height
+        )
+        let expectedLuma = try sourceCoordinates(
+            column: destinationColumn,
+            row: destinationRow,
+            plane: lumaPlane,
+            outputWidth: lumaOutputWidth,
+            outputHeight: lumaOutputHeight,
+            policy: .sourceAlignedRational,
+            siting: nil
+        )
+        let unexpectedHalfPixelLuma = try sourceCoordinates(
+            column: destinationColumn,
+            row: destinationRow,
+            plane: lumaPlane,
+            outputWidth: lumaOutputWidth,
+            outputHeight: lumaOutputHeight,
+            policy: .halfPixelCenter,
+            siting: nil
+        )
+        XCTAssertEqual(luma.sourceCoordinates, expectedLuma)
+        XCTAssertNotEqual(luma.sourceCoordinates, unexpectedHalfPixelLuma)
+
+        let chromaOutputWidth = try ASHSpatialRouteV2.direct2x.destinationExtent(
+            for: cbPlane.width
+        )
+        let chromaOutputHeight = try ASHSpatialRouteV2.direct2x.destinationExtent(
+            for: cbPlane.height
+        )
+        let expectedChroma = try sourceCoordinates(
+            column: destinationColumn,
+            row: destinationRow,
+            plane: cbPlane,
+            outputWidth: chromaOutputWidth,
+            outputHeight: chromaOutputHeight,
+            policy: .halfPixelCenter,
+            siting: .left
+        )
+        let unexpectedSourceAlignedChroma = try sourceCoordinates(
+            column: destinationColumn,
+            row: destinationRow,
+            plane: cbPlane,
+            outputWidth: chromaOutputWidth,
+            outputHeight: chromaOutputHeight,
+            policy: .sourceAlignedRational,
+            siting: .left
+        )
+        XCTAssertEqual(cb.sourceCoordinates, expectedChroma)
+        XCTAssertEqual(cr.sourceCoordinates, expectedChroma)
+        XCTAssertNotEqual(cb.sourceCoordinates, unexpectedSourceAlignedChroma)
     }
 
     func test_bothRoutesOccupyEveryAnalysisCellAcrossAllLockedGridSteps() throws {
@@ -222,6 +334,11 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
         }
     }
 
+    private func assertMixedCoordinatePolicies(in selection: ASHLUTLockedRouteSelectionV2) {
+        XCTAssertEqual(selection.lumaCoordinatePolicy, .sourceAlignedRational)
+        XCTAssertEqual(selection.chromaCoordinatePolicy, .halfPixelCenter)
+    }
+
     private func sourceCoordinates(
         column: Int,
         row: Int,
@@ -263,5 +380,45 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
                 policy: policy
             )
         )
+    }
+}
+
+extension ASHLockedReferencePipelineV2Tests {
+    func test_h07ResamplesExactDirect2xIntermediateToThreeOverTwoExtent() throws {
+        let fixture = try ASHLockedRuntimeTestSupportV2.lockedMappingFixture(.direct2x)
+        let planes = try ASHLockedRuntimeTestSupportV2.planes(width: 4, height: 4)
+        let direct2x = try ASHLockedReferencePipelineV2.process(
+            ASHLockedReferenceInputV2(
+                luma: planes.luma,
+                cb: planes.cb,
+                cr: planes.cr,
+                chromaSiting: .left,
+                lut: fixture.runtime.loaded,
+                configuration: fixture.runtime.configuration,
+                mapping: fixture.mapping
+            )
+        )
+        XCTAssertEqual(direct2x.luma.width, 8)
+        let first = try ASHLockedControlResamplerV2.h07Lanczos3(
+            direct2x: direct2x,
+            targetLumaWidth: 6,
+            targetLumaHeight: 6,
+            targetChromaWidth: 3,
+            targetChromaHeight: 3,
+            boundary: fixture.runtime.configuration.boundaryMode
+        )
+        let second = try ASHLockedControlResamplerV2.h07Lanczos3(
+            direct2x: direct2x,
+            targetLumaWidth: 6,
+            targetLumaHeight: 6,
+            targetChromaWidth: 3,
+            targetChromaHeight: 3,
+            boundary: fixture.runtime.configuration.boundaryMode
+        )
+        XCTAssertEqual(first, second)
+        XCTAssertEqual(first.luma.width, 6)
+        XCTAssertEqual(first.luma.height, 6)
+        XCTAssertEqual(first.cb.width, 3)
+        XCTAssertEqual(first.cb.height, 3)
     }
 }

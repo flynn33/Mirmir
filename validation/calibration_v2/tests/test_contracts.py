@@ -93,6 +93,53 @@ class CalibrationContractSchemaTests(unittest.TestCase):
             with self.subTest(schema=schema_name):
                 self.assertEqual(errors(document, self.schemas[schema_name]), [])
 
+    def test_shared_compiler_fixture_self_hash_and_plane_policy_independence(self):
+        fixture = self.shared_compiler_fixture
+        self.assertEqual(
+            fixture["hash_bindings"]["compiler_inputs_sha256"],
+            canonical_compiler_input_sha256(fixture),
+        )
+        for route in fixture["routes"].values():
+            self.assertNotEqual(
+                route["luma_coordinate_policy"],
+                route["chroma_coordinate_policy"],
+            )
+
+    def test_route_contracts_require_independent_luma_and_chroma_policies(self):
+        definitions = [
+            ("candidate-evaluation-v1.schema.json", "routeBinding"),
+            ("route-analysis-grid-selection-v1.schema.json", "route"),
+            ("locked-compiler-input-v1.schema.json", "routeSelection"),
+            ("operator-bank-v1.schema.json", "routeCoordinatePolicies"),
+            ("candidate-lut-runtime-manifest-v1.schema.json", "routeBase"),
+            ("lut-manifest-v2.schema.json", "routeBase"),
+        ]
+        for schema_name, definition_name in definitions:
+            with self.subTest(schema=schema_name, definition=definition_name):
+                definition = self.schemas[schema_name]["$defs"][definition_name]
+                self.assertIn("luma_coordinate_policy", definition["required"])
+                self.assertIn("chroma_coordinate_policy", definition["required"])
+                self.assertNotIn("coordinate_policy", definition["properties"])
+
+        execution = self.schemas[
+            "control-aggregate-cache-native-benchmark-v1.schema.json"
+        ]["$defs"]["executionContract"]
+        self.assertIn("luma_coordinate_policy_by_route", execution["required"])
+        self.assertIn("chroma_coordinate_policy_by_route", execution["required"])
+        self.assertNotIn("coordinate_policy_by_route", execution["properties"])
+
+    def test_video_mapping_uses_the_alias_specific_threshold_domain(self):
+        definitions = self.schemas["video-mapping-v1.schema.json"]["$defs"]
+        generic = definitions["spatialBand"]["properties"]
+        alias = definitions["aliasRiskBand"]["properties"]
+        self.assertEqual(generic["low"]["enum"], [3277, 4915, 6553, 8192, 9830])
+        self.assertEqual(generic["high"]["enum"], [9830, 11468, 13107, 14745, 16384])
+        self.assertEqual(alias["low"]["enum"], [0, 3277, 4915, 6553, 8192, 9830])
+        self.assertEqual(
+            alias["high"]["enum"],
+            [3277, 9830, 11468, 13107, 14745, 16384],
+        )
+
     def test_runtime_normalization_constants_exactly_match_preregistration(self):
         fixed = self.plan["fixed_choices"]
         self.assertEqual(
@@ -162,6 +209,9 @@ class LUTBinaryLayoutTests(unittest.TestCase):
         self.assertEqual(header["size_bytes"], 320)
         self.assert_contiguous(header["fields"], 0, 320)
         fields = field_map(header["fields"])
+        self.assertEqual(self.contract["format_version"], {"major": 1, "minor": 1})
+        self.assertEqual(fields["format_major"]["value"], 1)
+        self.assertEqual(fields["format_minor"]["value"], 1)
         self.assertEqual(fields["endianness_tag"]["value"], 0x4C45)
         self.assertEqual(fields["entry_stride"]["value"], 24)
         self.assertEqual(fields["parameter_stride"]["value"], 64)
@@ -184,7 +234,24 @@ class LUTBinaryLayoutTests(unittest.TestCase):
         self.assertEqual(parameter["secondary_slot_offset"], 24)
         self.assert_contiguous(parameter["candidate_slot_fields"], 0, 24)
         self.assert_contiguous(parameter["tail_fields"], 48, 64)
-        self.assertEqual(parameter["tail_fields"][-1]["name"], "record_crc32")
+        tail = field_map(parameter["tail_fields"])
+        self.assertEqual(
+            [(field["name"], field["offset"], field["size"]) for field in parameter["tail_fields"]],
+            [
+                ("confidence_threshold_unorm16", 48, 2),
+                ("luma_coordinate_policy", 50, 1),
+                ("boundary_mode", 51, 1),
+                ("source_aligned_policy", 52, 1),
+                ("temporal_mode", 53, 1),
+                ("chroma_coordinate_policy", 54, 1),
+                ("reserved_tail", 55, 5),
+                ("record_crc32", 60, 4),
+            ],
+        )
+        self.assertEqual(
+            tail["luma_coordinate_policy"]["values"],
+            tail["chroma_coordinate_policy"]["values"],
+        )
         self.assertEqual(parameter["record_crc_scope"], "bytes 0...59")
 
     def test_every_flag_bit_is_declared_or_reserved(self):
@@ -252,9 +319,15 @@ class LUTBinaryLayoutTests(unittest.TestCase):
 
     def test_cross_field_invariants_close_source_and_secondary_semantics(self):
         invariants = "\n".join(self.contract["cross_field_invariants"])
-        self.assertIn("source_aligned_rational phase indices horizontal zero and vertical zero", invariants)
+        self.assertIn(
+            "both luma_coordinate_policy and chroma_coordinate_policy are source_aligned_rational",
+            invariants,
+        )
         self.assertIn("primary message and descriptor zero", invariants)
-        self.assertIn("source_aligned_exact is zero for every half_pixel_center entry", invariants)
+        self.assertIn(
+            "source_aligned_exact is zero when either luma_coordinate_policy or chroma_coordinate_policy is half_pixel_center",
+            invariants,
+        )
         self.assertIn("secondary candidate active flag equals has_secondary", invariants)
         self.assertIn("retains the provisional top-two margin", invariants)
         self.assertIn("all six header input digests", invariants)
@@ -290,8 +363,10 @@ class CompilerAndRangeContractTests(unittest.TestCase):
         )
         expected.update(
             {
-                "direct_2x_coordinate_policy",
-                "direct_3_over_2_coordinate_policy",
+                "direct_2x_luma_coordinate_policy",
+                "direct_2x_chroma_coordinate_policy",
+                "direct_3_over_2_luma_coordinate_policy",
+                "direct_3_over_2_chroma_coordinate_policy",
                 "boundary_mode",
             }
         )
@@ -311,11 +386,20 @@ class CompilerAndRangeContractTests(unittest.TestCase):
         ranges = self.plan["ranges"]
         initial = self.plan["search"]["initial_vector_values"]
         for name, value in initial.items():
-            if name.endswith("_low_unorm15"):
+            if name == "alias_or_ringing_risk_low_unorm15":
+                candidates = ranges["mapping"][name]
+            elif name == "alias_or_ringing_risk_high_unorm15":
+                candidates = ranges["mapping"][name]
+            elif name.endswith("_low_unorm15"):
                 candidates = ranges["mapping"]["low_unorm15"]
             elif name.endswith("_high_unorm15"):
                 candidates = ranges["mapping"]["high_unorm15"]
-            elif name in {"direct_2x_coordinate_policy", "direct_3_over_2_coordinate_policy"}:
+            elif name in {
+                "direct_2x_luma_coordinate_policy",
+                "direct_2x_chroma_coordinate_policy",
+                "direct_3_over_2_luma_coordinate_policy",
+                "direct_3_over_2_chroma_coordinate_policy",
+            }:
                 candidates = ranges["operator"]["coordinate_policy_by_route"]
             elif name == "boundary_mode":
                 candidates = ranges["operator"]["boundary_mode"]
@@ -329,9 +413,58 @@ class CompilerAndRangeContractTests(unittest.TestCase):
                 self.assertIn(value, candidates)
         self.assertEqual(initial["confidence_threshold_unorm16"], 36044)
 
+    def test_initial_vector_is_the_declared_sequence_86_incumbent_correction(self):
+        self.assertEqual(
+            self.plan["search"]["initial_vector_values"],
+            {
+                "edge_present_low_unorm15": 3277,
+                "edge_present_high_unorm15": 11468,
+                "coherent_structure_low_unorm15": 9830,
+                "coherent_structure_high_unorm15": 16384,
+                "texture_high_frequency_low_unorm15": 3277,
+                "texture_high_frequency_high_unorm15": 9830,
+                "alias_or_ringing_risk_low_unorm15": 0,
+                "alias_or_ringing_risk_high_unorm15": 3277,
+                "chroma_luma_structure_aligned_low_unorm15": 3277,
+                "chroma_luma_structure_aligned_high_unorm15": 9830,
+                "analysis_epsilon_q0_30": 1,
+                "risk_laplacian_weight_unorm15": 8192,
+                "chroma_edge_confidence_unorm15": 1638,
+                "direct_2x_analysis_grid_source_step": 1,
+                "direct_3_over_2_analysis_grid_source_step": 1,
+                "direct_2x_luma_coordinate_policy": "half_pixel_center",
+                "direct_2x_chroma_coordinate_policy": "half_pixel_center",
+                "direct_3_over_2_luma_coordinate_policy": "source_aligned_rational",
+                "direct_3_over_2_chroma_coordinate_policy": "source_aligned_rational",
+                "boundary_mode": "mirror_reflect101",
+                "anisotropy_strength_q12": 0,
+                "minimum_anisotropic_magnitude_unorm15": 1638,
+                "minimum_anisotropic_coherence_unorm15": 8192,
+                "detail_gain_q12": 768,
+                "relaxed_limiter_alpha_q12": 384,
+                "risk_detail_suppression_unorm15": 21299,
+                "low_pass_radius_q8_8": 512,
+                "support_radius_step_q8_8": 64,
+                "detail_gain_step_q12": 128,
+                "regularization_step_q12": 64,
+                "confidence_threshold_unorm16": 36044,
+                "penalty_decay_denominator": 32,
+                "penalty_orientation_step": 4,
+                "penalty_support_step": 8,
+                "penalty_detail_step": 8,
+                "penalty_regularization_step": 8,
+                "penalty_unsupported_support_expansion": 32,
+                "penalty_coherent_support_reduction": 16,
+                "penalty_unsupported_detail_increase": 32,
+                "penalty_supported_detail_reduction": 16,
+                "penalty_relaxation_under_risk": 64,
+                "penalty_phase_kernel_mismatch": 8,
+            },
+        )
+
     def test_search_preregisters_fail_closed_infeasible_restoration(self):
         search = self.plan["search"]
-        self.assertEqual(search["protocol_version"], "1.1.0")
+        self.assertEqual(search["protocol_version"], "1.2.0")
         self.assertIn("including the current value", search["sweep_rule"])
         self.assertIn(
             "minimum canonical development-feasibility failure count",
@@ -354,14 +487,44 @@ class CompilerAndRangeContractTests(unittest.TestCase):
 
     def test_threshold_pair_space_has_only_declared_valid_pairs(self):
         mapping = self.plan["ranges"]["mapping"]
-        pairs = [
-            (low, high)
-            for low in mapping["low_unorm15"]
-            for high in mapping["high_unorm15"]
-            if low <= high and high - low >= 3277
+        self.assertEqual(
+            mapping["spatial_threshold_bands"],
+            [
+                "edge_present",
+                "coherent_structure",
+                "texture_high_frequency",
+                "alias_or_ringing_risk",
+                "chroma_luma_structure_aligned",
+            ],
+        )
+        self.assertEqual(mapping["low_unorm15"], [3277, 4915, 6553, 8192, 9830])
+        self.assertEqual(mapping["high_unorm15"], [9830, 11468, 13107, 14745, 16384])
+        self.assertEqual(
+            mapping["alias_or_ringing_risk_low_unorm15"],
+            [0, 3277, 4915, 6553, 8192, 9830],
+        )
+        self.assertEqual(
+            mapping["alias_or_ringing_risk_high_unorm15"],
+            [3277, 9830, 11468, 13107, 14745, 16384],
+        )
+        domains = [
+            (mapping["low_unorm15"], mapping["high_unorm15"]),
+            (
+                mapping["alias_or_ringing_risk_low_unorm15"],
+                mapping["alias_or_ringing_risk_high_unorm15"],
+            ),
         ]
-        self.assertGreater(len(pairs), 0)
-        self.assertTrue(all(0 <= low <= high <= 32767 for low, high in pairs))
+        for low_domain, high_domain in domains:
+            pairs = [
+                (low, high)
+                for low in low_domain
+                for high in high_domain
+                if low <= high and high - low >= 3277
+            ]
+            self.assertGreater(len(pairs), 0)
+            self.assertTrue(
+                all(0 <= low <= high <= 32767 and high - low >= 3277 for low, high in pairs)
+            )
 
     def test_canonical_path_order_is_base_three_not_character_order(self):
         branch = self.compiler["canonical_branch"]
@@ -894,11 +1057,13 @@ class LockedCompilerInputTests(unittest.TestCase):
             },
             "routes": {
                 "direct_2x": {
-                    "coordinate_policy": "source_aligned_rational",
+                    "luma_coordinate_policy": "source_aligned_rational",
+                    "chroma_coordinate_policy": "half_pixel_center",
                     "analysis_grid_source_step": 1,
                 },
                 "direct_3_over_2": {
-                    "coordinate_policy": "half_pixel_center",
+                    "luma_coordinate_policy": "half_pixel_center",
+                    "chroma_coordinate_policy": "source_aligned_rational",
                     "analysis_grid_source_step": 2,
                 },
             },
@@ -911,7 +1076,7 @@ class LockedCompilerInputTests(unittest.TestCase):
             },
             "source_aligned": {
                 "exact": True,
-                "predicate": "source_aligned_rational with horizontal phase zero and vertical phase zero",
+                "predicate": "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero",
                 "primary_message": 0,
                 "primary_descriptor": 0,
                 "secondary": "inactive",
@@ -959,7 +1124,14 @@ class LockedCompilerInputTests(unittest.TestCase):
 
     def test_locked_routes_can_select_coordinate_and_grid_independently(self):
         routes = self.fixture()["routes"]
-        self.assertNotEqual(routes["direct_2x"]["coordinate_policy"], routes["direct_3_over_2"]["coordinate_policy"])
+        self.assertNotEqual(
+            routes["direct_2x"]["luma_coordinate_policy"],
+            routes["direct_2x"]["chroma_coordinate_policy"],
+        )
+        self.assertNotEqual(
+            routes["direct_3_over_2"]["luma_coordinate_policy"],
+            routes["direct_3_over_2"]["chroma_coordinate_policy"],
+        )
         self.assertNotEqual(
             routes["direct_2x"]["analysis_grid_source_step"],
             routes["direct_3_over_2"]["analysis_grid_source_step"],

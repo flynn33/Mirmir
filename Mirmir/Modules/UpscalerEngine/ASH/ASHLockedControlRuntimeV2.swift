@@ -306,13 +306,13 @@ extension ASHLockedControlRuntimeV2 {
             destinationIndex: horizontalPhaseIndex,
             sourceExtent: sourceWidth,
             destinationExtent: outputWidth,
-            policy: selection.coordinatePolicy
+            policy: selection.lumaCoordinatePolicy
         )
         let verticalCoordinate = try ASHSpatialOperatorBankV2.coordinate(
             destinationIndex: verticalPhaseIndex,
             sourceExtent: sourceHeight,
             destinationExtent: outputHeight,
-            policy: selection.coordinatePolicy
+            policy: selection.lumaCoordinatePolicy
         )
         let horizontalPhase = ASHSpatialPhaseComponentV2(
             coordinate: horizontalCoordinate

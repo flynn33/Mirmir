@@ -232,14 +232,14 @@
         "parameter_order"
       ],
       "properties": {
-        "protocol_version": {"const": "1.1.0"},
+        "protocol_version": {"const": "1.2.0"},
         "algorithm": {"const": "deterministic_coordinate_search"},
         "candidate_order": {"type": "string", "minLength": 1},
         "initial_vector": {"type": "string", "minLength": 1},
         "initial_vector_values": {
           "type": "object",
-          "minProperties": 40,
-          "maxProperties": 40,
+          "minProperties": 42,
+          "maxProperties": 42,
           "additionalProperties": {"type": ["integer", "string"]}
         },
         "sweep_rule": {"type": "string", "minLength": 1},
@@ -250,7 +250,8 @@
         "record_rule": {"type": "string", "minLength": 1},
         "parameter_order": {
           "type": "array",
-          "minItems": 40,
+          "minItems": 42,
+          "maxItems": 42,
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[a-z0-9_]+$"}
         }

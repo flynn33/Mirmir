@@ -38,13 +38,17 @@ extension ASHLUTCompilerV2Tests {
             XCTAssertEqual(entry.temporalForcedSpatial, contextRaw != 0)
             XCTAssertLessThanOrEqual(entry.operatorEvaluationCount, 2)
             XCTAssertEqual(
-                entry.parameters.coordinatePolicy,
-                configuration.routeSelection(for: route).coordinatePolicy
+                entry.parameters.lumaCoordinatePolicy,
+                configuration.routeSelection(for: route).lumaCoordinatePolicy
+            )
+            XCTAssertEqual(
+                entry.parameters.chromaCoordinatePolicy,
+                configuration.routeSelection(for: route).chromaCoordinatePolicy
             )
             XCTAssertEqual(entry.parameters.boundaryMode, configuration.boundaryMode)
 
-            let expectedSourceExact = configuration.routeSelection(for: route).coordinatePolicy
-                == .sourceAlignedRational && phase == 0
+            let expectedSourceExact = configuration.routeSelection(for: route)
+                .bothPlanesAreSourceAligned && phase == 0
             XCTAssertEqual(entry.sourceAlignedExact, expectedSourceExact)
             if let secondary = entry.secondary {
                 secondaryObserved = true

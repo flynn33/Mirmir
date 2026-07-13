@@ -271,9 +271,11 @@ extension ASHLockedReferencePipelineV2 {
         let stateHistogram = Dictionary(grouping: analysisGrid.cells, by: { $0.analysis.state.rawValue })
             .mapValues(\.count)
         let configuration = input.configuration
+        let selection = configuration.routeSelection(for: input.lut.route)
         return ASHLockedReferenceSummaryV2(
             route: input.lut.route,
-            coordinatePolicy: configuration.routeSelection(for: input.lut.route).coordinatePolicy,
+            lumaCoordinatePolicy: selection.lumaCoordinatePolicy,
+            chromaCoordinatePolicy: selection.chromaCoordinatePolicy,
             boundaryMode: configuration.boundaryMode,
             analysisGridSourceStep: analysisGrid.step,
             analysisCellCount: analysisGrid.count,

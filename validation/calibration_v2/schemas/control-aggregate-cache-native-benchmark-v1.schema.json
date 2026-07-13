@@ -224,15 +224,24 @@
     },
     "executionContract": {
       "type": "object",
-      "required": ["routes", "coordinate_policy_by_route", "analysis_grid_source_step_by_route", "temporal_mode", "comparison_domain", "execution_device", "metal_execution", "contract_sha256"],
+      "required": ["routes", "luma_coordinate_policy_by_route", "chroma_coordinate_policy_by_route", "analysis_grid_source_step_by_route", "temporal_mode", "comparison_domain", "execution_device", "metal_execution", "contract_sha256"],
       "properties": {
         "routes": {"const": ["direct-2x", "direct-3over2"]},
-        "coordinate_policy_by_route": {
+        "luma_coordinate_policy_by_route": {
           "type": "object",
           "required": ["direct-2x", "direct-3over2"],
           "properties": {
-            "direct-2x": {"type": "string", "minLength": 1},
-            "direct-3over2": {"type": "string", "minLength": 1}
+            "direct-2x": {"enum": ["half_pixel_center", "source_aligned_rational"]},
+            "direct-3over2": {"enum": ["half_pixel_center", "source_aligned_rational"]}
+          },
+          "additionalProperties": false
+        },
+        "chroma_coordinate_policy_by_route": {
+          "type": "object",
+          "required": ["direct-2x", "direct-3over2"],
+          "properties": {
+            "direct-2x": {"enum": ["half_pixel_center", "source_aligned_rational"]},
+            "direct-3over2": {"enum": ["half_pixel_center", "source_aligned_rational"]}
           },
           "additionalProperties": false
         },
@@ -462,10 +471,10 @@
         "schema_version": {"const": "1.0.0"},
         "ordered_shared_bank_coordinates": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
         "shared_bank_domain_sizes": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/positiveInteger"}},
-        "shared_bank_alternatives_per_sweep": {"const": 38},
+        "shared_bank_alternatives_per_sweep": {"const": 40},
         "calibration_maximum_sweeps": {"const": 8},
-        "derived_first_outer_sweep_bank_count": {"const": 39},
-        "derived_maximum_bank_count": {"const": 305},
+        "derived_first_outer_sweep_bank_count": {"const": 41},
+        "derived_maximum_bank_count": {"const": 321},
         "selector_coordinate_order": {"type": "array", "minItems": 1, "items": {"type": "string"}, "uniqueItems": true},
         "selector_coordinate_count": {"const": 27},
         "selector_values": {"const": [-384, -256, -128, 0, 128, 256, 384]},
@@ -803,22 +812,22 @@
       "properties": {
         "unique_rules_per_bank": {"const": 1297},
         "native_calls_per_bank": {"const": 23346},
-        "first_outer_sweep_bank_count": {"const": 39},
-        "native_calls_first_outer_sweep": {"const": 910494},
-        "bank_count": {"const": 305},
-        "native_calls_all_banks": {"const": 7120530},
+        "first_outer_sweep_bank_count": {"const": 41},
+        "native_calls_first_outer_sweep": {"const": 957186},
+        "bank_count": {"const": 321},
+        "native_calls_all_banks": {"const": 7494066},
         "rule_scoped_native_proof_files_per_rule": {"const": 18},
         "rule_scoped_aggregate_origin_files_per_rule": {"const": 1},
         "rule_scoped_aggregate_document_files_per_rule": {"const": 2},
         "rule_scoped_files_per_rule": {"const": 21},
         "rule_scoped_files_per_bank": {"const": 27237},
-        "rule_scoped_files_all_banks": {"const": 8307285},
-        "rule_scoped_files_first_outer_sweep": {"const": 1062243},
+        "rule_scoped_files_all_banks": {"const": 8743077},
+        "rule_scoped_files_first_outer_sweep": {"const": 1116717},
         "rule_scoped_native_proof_directories_per_rule": {"const": 18},
         "rule_scoped_inodes_per_rule": {"const": 39},
         "rule_scoped_inodes_per_bank": {"const": 50583},
-        "rule_scoped_inodes_all_banks": {"const": 15427815},
-        "rule_scoped_inodes_first_outer_sweep": {"const": 1972737},
+        "rule_scoped_inodes_all_banks": {"const": 16237143},
+        "rule_scoped_inodes_first_outer_sweep": {"const": 2073903},
         "native_calls_per_bank_formula": {"type": "string", "minLength": 1},
         "native_calls_first_outer_sweep_formula": {"type": "string", "minLength": 1},
         "native_calls_all_banks_formula": {"type": "string", "minLength": 1},
@@ -844,7 +853,7 @@
         "maximum_complete_rule_size_bytes": {"$ref": "#/$defs/positiveInteger"},
         "maximum_complete_rule_allocated_or_block_floor_bytes": {"$ref": "#/$defs/positiveInteger"},
         "logical_bytes_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
-        "first_outer_sweep_bank_count": {"const": 39},
+        "first_outer_sweep_bank_count": {"const": 41},
         "logical_bytes_first_outer_sweep": {"$ref": "#/$defs/positiveInteger"},
         "logical_bytes_all_banks": {"$ref": "#/$defs/positiveInteger"},
         "allocated_bytes_per_maximum_bank": {"$ref": "#/$defs/positiveInteger"},
@@ -872,7 +881,7 @@
         "projected_search_seconds_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
         "selector_component_seconds_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
         "selector_component_hours_per_maximum_bank": {"$ref": "#/$defs/nonnegativeNumber"},
-        "first_outer_sweep_bank_count": {"const": 39},
+        "first_outer_sweep_bank_count": {"const": 41},
         "first_outer_sweep_seconds": {"$ref": "#/$defs/nonnegativeNumber"},
         "first_outer_sweep_hours": {"$ref": "#/$defs/nonnegativeNumber"},
         "first_outer_sweep_days": {"$ref": "#/$defs/nonnegativeNumber"},

@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 import unittest
 
+from jsonschema import Draft202012Validator
+
 from validation.calibration_v2.corrective_diagnostics import (
     ANISOTROPY_CELLS,
     COMPOSITION_SPECS,
@@ -1246,6 +1248,46 @@ def envelope_fixture(coordinate: dict, risk: dict) -> dict:
 
 
 class CorrectiveDiagnosticContractTests(unittest.TestCase):
+    def test_generic_route_lut_schema_accepts_legacy_or_split_policy_provenance(self):
+        schema_path = (
+            Path(__file__).resolve().parents[1]
+            / "schemas/coordinate-anisotropy-diagnostic-v1.schema.json"
+        )
+        root_schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        wrapper = {
+            "$schema": root_schema["$schema"],
+            "$defs": root_schema["$defs"],
+            "$ref": "#/$defs/diagnosticGenericRouteLUT",
+        }
+        validator = Draft202012Validator(wrapper)
+        common = {
+            "route": "direct_2x",
+            "whole_file_sha256": digest("generic-file"),
+            "payload_sha256": digest("generic-payload"),
+            "entry_count": 4096,
+            "serialization_rebind_contract": (
+                "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
+            ),
+            "serialization_rebind_applied": True,
+            "serialization_rebind_sha256": digest("rebind"),
+        }
+        legacy = {
+            **common,
+            "original_coordinate_policy": "source_aligned_rational",
+            "serialized_coordinate_policy": "half_pixel_center",
+        }
+        split = {
+            **common,
+            "original_luma_coordinate_policy": "source_aligned_rational",
+            "original_chroma_coordinate_policy": "half_pixel_center",
+            "serialized_luma_coordinate_policy": "half_pixel_center",
+            "serialized_chroma_coordinate_policy": "half_pixel_center",
+        }
+        self.assertEqual(list(validator.iter_errors(legacy)), [])
+        self.assertEqual(list(validator.iter_errors(split)), [])
+        mixed = {**legacy, **split}
+        self.assertNotEqual(list(validator.iter_errors(mixed)), [])
+
     def setUp(self) -> None:
         self.coordinate = coordinate_fixture()
         self.risk = risk_fixture()

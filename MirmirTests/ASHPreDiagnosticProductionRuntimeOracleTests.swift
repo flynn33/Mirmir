@@ -19,7 +19,8 @@ final class ASHPreDiagnosticRuntimeOracleTests: XCTestCase {
         ]
         let planes = try ASHLockedRuntimeTestSupportV2.planes()
         for (route, expectedHash) in expectedRouteHashes {
-            let fixture = try ASHLockedRuntimeTestSupportV2.lockedMappingFixture(route)
+            let fixture = try ASHLockedRuntimeTestSupportV2
+                .preDiagnosticLockedMappingFixture(route)
             let output = try ASHLockedReferencePipelineV2.process(
                 ASHLockedReferenceInputV2(
                     luma: planes.luma,

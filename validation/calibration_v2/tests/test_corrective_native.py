@@ -52,6 +52,34 @@ def rebind_sha256(route: str, original: str) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def split_rebind_sha256(
+    route: str,
+    original_luma: str,
+    original_chroma: str,
+) -> str:
+    serialized_luma = "half_pixel_center"
+    serialized_chroma = "half_pixel_center"
+    payload = bytearray(
+        b"MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0"
+    )
+    for value in (
+        route,
+        original_luma,
+        original_chroma,
+        serialized_luma,
+        serialized_chroma,
+    ):
+        payload.extend(value.encode("utf-8"))
+        payload.append(0)
+    payload.append(
+        1
+        if original_luma != serialized_luma
+        or original_chroma != serialized_chroma
+        else 0
+    )
+    return hashlib.sha256(payload).hexdigest()
+
+
 def configuration() -> dict[str, object]:
     route_lut = {
         "whole_file_sha256": digest("production-lut-file"),
@@ -433,6 +461,62 @@ def test_strict_response_reopens_all_outputs_and_cleanup_is_durable(
             assert row["inode"] == metadata.st_ino
             assert row["size_bytes"] == metadata.st_size == 0
             assert row["sha256"] == empty_sha256
+    finally:
+        native.close_corrective_native_binding(binding)
+
+
+def test_strict_response_accepts_split_plane_serialization_provenance(
+    tmp_path: Path,
+) -> None:
+    request, config, binding, payload = prepared_binding(tmp_path)
+    candidate = config["candidate_vector"]
+    assert isinstance(candidate, dict)
+    candidate.pop("direct_2x_coordinate_policy")
+    candidate["direct_2x_luma_coordinate_policy"] = (
+        "source_aligned_rational"
+    )
+    candidate["direct_2x_chroma_coordinate_policy"] = "half_pixel_center"
+    executable_hash = digest("native-executable")
+    source_hash = digest("native-source-manifest")
+    response = response_fixture(
+        request,
+        config,
+        binding,
+        payload,
+        process_id=os.getpid(),
+        executable_sha256=executable_hash,
+        source_manifest_sha256=source_hash,
+    )
+    diagnostic = response["corrective_diagnostic"]
+    assert isinstance(diagnostic, dict)
+    generic = diagnostic["generic_lut"]
+    assert isinstance(generic, dict)
+    generic.pop("original_coordinate_policy")
+    generic.pop("serialized_coordinate_policy")
+    generic.update(
+        {
+            "original_luma_coordinate_policy": "source_aligned_rational",
+            "original_chroma_coordinate_policy": "half_pixel_center",
+            "serialized_luma_coordinate_policy": "half_pixel_center",
+            "serialized_chroma_coordinate_policy": "half_pixel_center",
+            "serialization_rebind_applied": True,
+            "serialization_rebind_sha256": split_rebind_sha256(
+                "direct_2x",
+                "source_aligned_rational",
+                "half_pixel_center",
+            ),
+        }
+    )
+    try:
+        validated = native.validate_corrective_native_response(
+            response,
+            binding=binding,
+            configuration=config,
+            native_executable_sha256=executable_hash,
+            native_source_manifest_sha256=source_hash,
+            native_process_id=os.getpid(),
+        )
+        assert validated == response
     finally:
         native.close_corrective_native_binding(binding)
 

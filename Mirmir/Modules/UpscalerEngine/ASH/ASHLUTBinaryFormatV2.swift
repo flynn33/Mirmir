@@ -6,7 +6,7 @@ import Foundation
 enum ASHLUTBinaryContractV2 {
     static let magic = Array("ASHV2LUT".utf8)
     static let majorVersion: UInt16 = 1
-    static let minorVersion: UInt16 = 0
+    static let minorVersion: UInt16 = 1
     static let headerSize = 320
     static let endianTag: UInt16 = 0x4c45
     static let contextCount = 4
@@ -315,11 +315,12 @@ extension ASHLUTBinaryCodecV2 {
         encode(parameter.primary, into: &data)
         encode(parameter.secondary, into: &data)
         ASHLUTLittleEndianV2.append(parameter.confidenceThresholdUNorm16, to: &data)
-        data.append(parameter.coordinatePolicy == .halfPixelCenter ? 0 : 1)
+        data.append(parameter.lumaCoordinatePolicy == .halfPixelCenter ? 0 : 1)
         data.append(parameter.boundaryMode == .clamp ? 0 : 1)
         data.append(1)
         data.append(0)
-        data.append(Data(repeating: 0, count: 6))
+        data.append(parameter.chromaCoordinatePolicy == .halfPixelCenter ? 0 : 1)
+        data.append(Data(repeating: 0, count: 5))
         return data
     }
 

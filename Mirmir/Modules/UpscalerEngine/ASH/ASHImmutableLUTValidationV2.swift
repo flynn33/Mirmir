@@ -24,8 +24,8 @@ extension ASHLUTBinaryCodecV2 {
         let contextRaw = phaseAndContext % ASHLUTBinaryContractV2.contextCount
         let phaseOrdinal = phaseAndContext / ASHLUTBinaryContractV2.contextCount
         let hasSecondary = flags & ASHLUTBinaryContractV2.entryHasSecondary != 0
-        let sourceAlignedExact = configuration.routeSelection(for: route).coordinatePolicy
-            == .sourceAlignedRational
+        let sourceAlignedExact = configuration.routeSelection(for: route)
+            .bothPlanesAreSourceAligned
             && phaseOrdinal == 0
         var expectedFlags = ASHLUTBinaryContractV2.entryPrimaryExactVerified
         if sourceAlignedExact { expectedFlags |= ASHLUTBinaryContractV2.entrySourceAlignedExact }
@@ -391,22 +391,20 @@ extension ASHLUTBinaryCodecV2 {
     ) throws -> ASHLUTParameterPairV2 {
         guard record[52] == 1,
               record[53] == 0,
-              record[54..<60].allSatisfy({ $0 == 0 }) else {
+              record[55..<60].allSatisfy({ $0 == 0 }) else {
             throw ASHLUTBinaryErrorV2.reservedNonzero
         }
-        let coordinatePolicy: ASHSpatialCoordinatePolicyV2
-        switch record[50] {
-        case 0: coordinatePolicy = .halfPixelCenter
-        case 1: coordinatePolicy = .sourceAlignedRational
-        default: throw ASHLUTBinaryErrorV2.reservedNonzero
-        }
+        let lumaCoordinatePolicy = try decodeCoordinatePolicy(record[50])
+        let chromaCoordinatePolicy = try decodeCoordinatePolicy(record[54])
         let boundaryMode: ASHSpatialBoundaryModeV2
         switch record[51] {
         case 0: boundaryMode = .clamp
         case 1: boundaryMode = .mirrorReflect101
         default: throw ASHLUTBinaryErrorV2.reservedNonzero
         }
-        guard coordinatePolicy == configuration.routeSelection(for: route).coordinatePolicy,
+        let selection = configuration.routeSelection(for: route)
+        guard lumaCoordinatePolicy == selection.lumaCoordinatePolicy,
+              chromaCoordinatePolicy == selection.chromaCoordinatePolicy,
               boundaryMode == configuration.boundaryMode else {
             throw ASHLUTBinaryErrorV2.inputHashMismatch
         }
@@ -414,9 +412,20 @@ extension ASHLUTBinaryCodecV2 {
             primary: try decodeSlot(record, offset: 0, requiresActive: true),
             secondary: try decodeSlot(record, offset: 24, requiresActive: false),
             confidenceThresholdUNorm16: ASHLUTLittleEndianV2.uint16(record, at: 48),
-            coordinatePolicy: coordinatePolicy,
+            lumaCoordinatePolicy: lumaCoordinatePolicy,
+            chromaCoordinatePolicy: chromaCoordinatePolicy,
             boundaryMode: boundaryMode
         )
+    }
+
+    private static func decodeCoordinatePolicy(
+        _ byte: UInt8
+    ) throws -> ASHSpatialCoordinatePolicyV2 {
+        switch byte {
+        case 0: .halfPixelCenter
+        case 1: .sourceAlignedRational
+        default: throw ASHLUTBinaryErrorV2.reservedNonzero
+        }
     }
 
     static func decodeSlot(

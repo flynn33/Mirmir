@@ -68,7 +68,8 @@ TEMPORAL_CONTRACT = {
 SOURCE_ALIGNED_CONTRACT = {
     "exact": True,
     "predicate": (
-        "source_aligned_rational with horizontal phase zero and vertical phase zero"
+        "both luma and chroma coordinate policies are source_aligned_rational "
+        "with horizontal phase zero and vertical phase zero"
     ),
     "primary_message": 0,
     "primary_descriptor": 0,
@@ -115,7 +116,8 @@ ROUTES_BY_ID = {route.route_id: route for route in ROUTES.values()}
 
 @dataclass(frozen=True)
 class RouteSelection:
-    coordinate_policy: str
+    luma_coordinate_policy: str
+    chroma_coordinate_policy: str
     analysis_grid_source_step: int
 
 
@@ -485,12 +487,36 @@ def parse_locked_compiler_input(document: Mapping[str, Any]) -> LockedCompilerIn
         selection = route_values[route_name]
         if not isinstance(selection, dict):
             raise OracleError("invalid_locked_input", f"routes.{route_name} must be an object")
-        _strict_keys(selection, ("coordinate_policy", "analysis_grid_source_step"), route_name)
-        coordinate_policy = selection["coordinate_policy"]
-        if coordinate_policy not in ("half_pixel_center", "source_aligned_rational"):
-            raise OracleError("invalid_locked_input", f"{route_name} coordinate policy is invalid")
+        _strict_keys(
+            selection,
+            (
+                "luma_coordinate_policy",
+                "chroma_coordinate_policy",
+                "analysis_grid_source_step",
+            ),
+            route_name,
+        )
+        luma_coordinate_policy = selection["luma_coordinate_policy"]
+        chroma_coordinate_policy = selection["chroma_coordinate_policy"]
+        if luma_coordinate_policy not in (
+            "half_pixel_center",
+            "source_aligned_rational",
+        ):
+            raise OracleError(
+                "invalid_locked_input",
+                f"{route_name} luma coordinate policy is invalid",
+            )
+        if chroma_coordinate_policy not in (
+            "half_pixel_center",
+            "source_aligned_rational",
+        ):
+            raise OracleError(
+                "invalid_locked_input",
+                f"{route_name} chroma coordinate policy is invalid",
+            )
         selections[route_name] = RouteSelection(
-            coordinate_policy,
+            luma_coordinate_policy,
+            chroma_coordinate_policy,
             _enum_integer(selection["analysis_grid_source_step"], (1, 2, 4), "analysis grid step"),
         )
 
@@ -930,7 +956,10 @@ def compile_cell(
     )
 
     source_aligned_exact = (
-        configuration.routes[route.name].coordinate_policy == "source_aligned_rational"
+        configuration.routes[route.name].luma_coordinate_policy
+        == "source_aligned_rational"
+        and configuration.routes[route.name].chroma_coordinate_policy
+        == "source_aligned_rational"
         and horizontal == 0
         and vertical == 0
     )
@@ -1062,17 +1091,23 @@ def _serialize_slot(slot: CandidateSlot) -> bytes:
 
 
 def _parameter_prefix(entry: CompiledEntry, configuration: LockedCompilerInput, route: Route) -> bytes:
-    coordinate_policy = configuration.routes[route.name].coordinate_policy
-    coordinate_code = 1 if coordinate_policy == "source_aligned_rational" else 0
+    route_selection = configuration.routes[route.name]
+    luma_coordinate_code = (
+        1 if route_selection.luma_coordinate_policy == "source_aligned_rational" else 0
+    )
+    chroma_coordinate_code = (
+        1 if route_selection.chroma_coordinate_policy == "source_aligned_rational" else 0
+    )
     boundary_code = 1 if configuration.boundary_mode == "mirror_reflect101" else 0
     tail = struct.pack(
-        "<HBBBB6s",
+        "<HBBBBB5s",
         configuration.compiler_policy.confidence_threshold_unorm16,
-        coordinate_code,
+        luma_coordinate_code,
         boundary_code,
         1,
         0,
-        b"\x00" * 6,
+        chroma_coordinate_code,
+        b"\x00" * 5,
     )
     prefix = _serialize_slot(entry.primary_slot) + _serialize_slot(entry.secondary_slot) + tail
     if len(prefix) != PARAMETER_PREFIX_SIZE:
@@ -1158,7 +1193,7 @@ def serialize_compiled_route(compilation: CompiledRoute) -> bytes:
 
     header = bytearray(HEADER_SIZE)
     header[0:8] = MAGIC
-    struct.pack_into("<HH", header, 8, 1, 0)
+    struct.pack_into("<HH", header, 8, 1, 1)
     struct.pack_into("<HH", header, 12, HEADER_SIZE, 0x4C45)
     struct.pack_into("<HH", header, 16, route.route_id, HEADER_FLAGS)
     struct.pack_into("<HH", header, 20, route.phase_count, 4)
@@ -1519,7 +1554,7 @@ def validate_lut(
     if header[:8] != MAGIC:
         raise OracleError("bad_magic")
     major, minor = struct.unpack_from("<HH", header, 8)
-    if (major, minor) != (1, 0):
+    if (major, minor) != (1, 1):
         raise OracleError("unsupported_version")
     header_size, endian_tag = struct.unpack_from("<HH", header, 12)
     if header_size != HEADER_SIZE:
@@ -1614,20 +1649,32 @@ def validate_lut(
         for index in range(parameter_count)
     ]
     prefixes: list[bytes] = []
-    parameter_slots: list[tuple[CandidateSlot, CandidateSlot, int, int, int]] = []
+    parameter_slots: list[
+        tuple[CandidateSlot, CandidateSlot, int, int, int, int]
+    ] = []
     for index, record in enumerate(parameter_records):
         prefix = record[:PARAMETER_PREFIX_SIZE]
         if _crc32(prefix) != struct.unpack_from("<I", record, 60)[0]:
             raise OracleError("parameter_crc_mismatch", str(index))
-        if any(record[54:60]):
+        if any(record[55:60]):
             raise OracleError("reserved_nonzero", f"parameter {index}")
         primary_slot = _unpack_slot(record[0:24])
         secondary_slot = _unpack_slot(record[24:48])
         confidence = struct.unpack_from("<H", record, 48)[0]
-        coordinate_policy, boundary_mode, source_policy, temporal_mode = struct.unpack_from(
-            "<BBBB", record, 50
+        (
+            luma_coordinate_policy,
+            boundary_mode,
+            source_policy,
+            temporal_mode,
+            chroma_coordinate_policy,
+        ) = struct.unpack_from(
+            "<BBBBB", record, 50
         )
-        if coordinate_policy not in (0, 1) or boundary_mode not in (0, 1):
+        if (
+            luma_coordinate_policy not in (0, 1)
+            or chroma_coordinate_policy not in (0, 1)
+            or boundary_mode not in (0, 1)
+        ):
             raise OracleError("parameter_out_of_range", f"parameter {index} policy")
         if source_policy != 1 or temporal_mode != 0:
             raise OracleError("invalid_entry_flags", f"parameter {index} mode")
@@ -1635,22 +1682,36 @@ def validate_lut(
         if secondary_slot != INACTIVE_SLOT:
             _validate_active_slot(secondary_slot, f"parameter {index} secondary")
         if expected_configuration is not None:
-            expected_coordinate = (
+            expected_luma_coordinate = (
                 1
-                if expected_configuration.routes[route.name].coordinate_policy
+                if expected_configuration.routes[route.name].luma_coordinate_policy
+                == "source_aligned_rational"
+                else 0
+            )
+            expected_chroma_coordinate = (
+                1
+                if expected_configuration.routes[route.name].chroma_coordinate_policy
                 == "source_aligned_rational"
                 else 0
             )
             expected_boundary = 1 if expected_configuration.boundary_mode == "mirror_reflect101" else 0
             if (
                 confidence != expected_configuration.compiler_policy.confidence_threshold_unorm16
-                or coordinate_policy != expected_coordinate
+                or luma_coordinate_policy != expected_luma_coordinate
+                or chroma_coordinate_policy != expected_chroma_coordinate
                 or boundary_mode != expected_boundary
             ):
                 raise OracleError("input_hash_mismatch", f"parameter {index} tail")
         prefixes.append(prefix)
         parameter_slots.append(
-            (primary_slot, secondary_slot, confidence, coordinate_policy, boundary_mode)
+            (
+                primary_slot,
+                secondary_slot,
+                confidence,
+                luma_coordinate_policy,
+                chroma_coordinate_policy,
+                boundary_mode,
+            )
         )
     if prefixes != sorted(set(prefixes)):
         raise OracleError("nondeterministic_order", "parameter table")
@@ -1703,9 +1764,14 @@ def validate_lut(
             raise OracleError("affine_decode_rejected", str(logical_index))
         if message != primary_message:
             raise OracleError("decoded_message_mismatch", str(logical_index))
-        primary_slot, secondary_slot, confidence, coordinate_policy, _ = parameter_slots[
-            parameter_index
-        ]
+        (
+            primary_slot,
+            secondary_slot,
+            confidence,
+            luma_coordinate_policy,
+            chroma_coordinate_policy,
+            _,
+        ) = parameter_slots[parameter_index]
         if has_secondary:
             if (
                 secondary_affine > 511
@@ -1738,7 +1804,12 @@ def validate_lut(
                 raise OracleError("invalid_sentinel", str(logical_index))
 
         horizontal, vertical = phase_components(route, phase_index)
-        exact_predicate = coordinate_policy == 1 and horizontal == 0 and vertical == 0
+        exact_predicate = (
+            luma_coordinate_policy == 1
+            and chroma_coordinate_policy == 1
+            and horizontal == 0
+            and vertical == 0
+        )
         if source_exact != exact_predicate:
             raise OracleError("invalid_entry_flags", f"{logical_index} source exact")
         base = base_descriptor(source_state, route, phase_index)

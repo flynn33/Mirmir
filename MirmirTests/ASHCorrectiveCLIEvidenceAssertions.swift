@@ -59,42 +59,7 @@ extension ASHCorrectiveCLITests {
             ASHCalibrationCorrectiveHashContract.analysisGridDomain,
             Data("MIRMIR-ASH-ANALYSIS-GRID-V3\0".utf8)
         )
-        let unchangedPreimage = serializationRebindPreimage(
-            route: .direct2x,
-            original: .halfPixelCenter,
-            serialized: .halfPixelCenter
-        )
-        XCTAssertEqual(unchangedPreimage.count, 104)
-        XCTAssertEqual(
-            ASHCalibrationCLIHash.hex(unchangedPreimage),
-            "1fe7e9a224ef4e432dd8dac588f1010458f7d8fa27b99206844f7f9e2fb0050c"
-        )
-        XCTAssertEqual(
-            session.correctiveSerializationRebindSHA256(
-                route: .direct2x,
-                original: .halfPixelCenter,
-                serialized: .halfPixelCenter
-            ),
-            "1fe7e9a224ef4e432dd8dac588f1010458f7d8fa27b99206844f7f9e2fb0050c"
-        )
-        let appliedPreimage = serializationRebindPreimage(
-            route: .direct3Over2,
-            original: .sourceAlignedRational,
-            serialized: .halfPixelCenter
-        )
-        XCTAssertEqual(appliedPreimage.count, 116)
-        XCTAssertEqual(
-            ASHCalibrationCLIHash.hex(appliedPreimage),
-            "84ffa2b3c2b558affa98dc86a315b3c679a6049bfc00836a28845a3ac6b83dc8"
-        )
-        XCTAssertEqual(
-            session.correctiveSerializationRebindSHA256(
-                route: .direct3Over2,
-                original: .sourceAlignedRational,
-                serialized: .halfPixelCenter
-            ),
-            "84ffa2b3c2b558affa98dc86a315b3c679a6049bfc00836a28845a3ac6b83dc8"
-        )
+        try assertSerializationRebindHashVectors(session)
         let knownPlane = ASHLockedReferencePlaneOutputV2(
             width: 2,
             height: 2,
@@ -149,6 +114,57 @@ extension ASHCorrectiveCLITests {
         XCTAssertNotEqual(
             originalHash,
             try session.correctiveAnalysisGridSHA256(hysteresisMutation)
+        )
+    }
+
+    private func assertSerializationRebindHashVectors(
+        _ session: ASHCalibrationNativeSession
+    ) throws {
+        let halfHalf = try ASHLUTLockedRouteSelectionV2(
+            lumaCoordinatePolicy: .halfPixelCenter,
+            chromaCoordinatePolicy: .halfPixelCenter,
+            analysisGridSourceStep: 1
+        )
+        let sourceSource = try ASHLUTLockedRouteSelectionV2(
+            lumaCoordinatePolicy: .sourceAlignedRational,
+            chromaCoordinatePolicy: .sourceAlignedRational,
+            analysisGridSourceStep: 1
+        )
+        let unchangedPreimage = serializationRebindPreimage(
+            route: .direct2x,
+            original: halfHalf,
+            serialized: halfHalf
+        )
+        XCTAssertEqual(unchangedPreimage.count, 140)
+        XCTAssertEqual(
+            ASHCalibrationCLIHash.hex(unchangedPreimage),
+            "3ed8c81f113cefbf598143404ab67012a2b5f5b046ef6d902a6713790ef68762"
+        )
+        XCTAssertEqual(
+            session.correctiveSerializationRebindSHA256(
+                route: .direct2x,
+                original: halfHalf,
+                serialized: halfHalf
+            ),
+            "3ed8c81f113cefbf598143404ab67012a2b5f5b046ef6d902a6713790ef68762"
+        )
+        let appliedPreimage = serializationRebindPreimage(
+            route: .direct3Over2,
+            original: sourceSource,
+            serialized: halfHalf
+        )
+        XCTAssertEqual(appliedPreimage.count, 158)
+        XCTAssertEqual(
+            ASHCalibrationCLIHash.hex(appliedPreimage),
+            "c04531c94bfb111dec57c6a5fa7c7a81ba615d7f2c4ba92a6fe1048d3c803a4a"
+        )
+        XCTAssertEqual(
+            session.correctiveSerializationRebindSHA256(
+                route: .direct3Over2,
+                original: sourceSource,
+                serialized: halfHalf
+            ),
+            "c04531c94bfb111dec57c6a5fa7c7a81ba615d7f2c4ba92a6fe1048d3c803a4a"
         )
     }
 }
@@ -261,8 +277,9 @@ extension ASHCorrectiveCLITests {
             "whole_file_sha256", "payload_sha256", "entry_count", "parameter_count",
             "header_crc32", "payload_crc32", "offline_path_evaluation_count",
             "runtime_tree_generation_count", "maximum_operator_evaluations",
-            "serialization_rebind_contract", "original_coordinate_policy",
-            "serialized_coordinate_policy", "serialization_rebind_applied",
+            "serialization_rebind_contract", "original_luma_coordinate_policy",
+            "original_chroma_coordinate_policy", "serialized_luma_coordinate_policy",
+            "serialized_chroma_coordinate_policy", "serialization_rebind_applied",
             "serialization_rebind_sha256"
         ])
         let entryCount = try XCTUnwrap(generic["entry_count"] as? Int)
@@ -277,26 +294,37 @@ extension ASHCorrectiveCLITests {
             ASHCalibrationCorrectiveHashContract.serializationRebindID
         )
         XCTAssertEqual(
-            generic["original_coordinate_policy"] as? String,
-            fixture.configuration.routeSelection(for: route).coordinatePolicy.rawValue
+            generic["original_luma_coordinate_policy"] as? String,
+            fixture.configuration.routeSelection(for: route).lumaCoordinatePolicy.rawValue
         )
         XCTAssertEqual(
-            generic["serialized_coordinate_policy"] as? String,
+            generic["original_chroma_coordinate_policy"] as? String,
+            fixture.configuration.routeSelection(for: route).chromaCoordinatePolicy.rawValue
+        )
+        XCTAssertEqual(
+            generic["serialized_luma_coordinate_policy"] as? String,
             ASHSpatialCoordinatePolicyV2.halfPixelCenter.rawValue
         )
         XCTAssertEqual(
+            generic["serialized_chroma_coordinate_policy"] as? String,
+            ASHSpatialCoordinatePolicyV2.halfPixelCenter.rawValue
+        )
+        let originalSelection = fixture.configuration.routeSelection(for: route)
+        let serializedSelection = try ASHLUTLockedRouteSelectionV2(
+            lumaCoordinatePolicy: .halfPixelCenter,
+            chromaCoordinatePolicy: .halfPixelCenter,
+            analysisGridSourceStep: originalSelection.analysisGridSourceStep
+        )
+        XCTAssertEqual(
             generic["serialization_rebind_applied"] as? Bool,
-            fixture.configuration.routeSelection(for: route).coordinatePolicy
-                != .halfPixelCenter
+            originalSelection != serializedSelection
         )
         XCTAssertEqual(
             generic["serialization_rebind_sha256"] as? String,
             ASHCalibrationCLIHash.hex(serializationRebindPreimage(
                 route: route,
-                original: fixture.configuration.routeSelection(
-                    for: route
-                ).coordinatePolicy,
-                serialized: .halfPixelCenter
+                original: originalSelection,
+                serialized: serializedSelection
             ))
         )
         XCTAssertNotNil(

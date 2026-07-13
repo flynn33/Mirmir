@@ -27,7 +27,7 @@
     "status": {"const": "preregistered_not_executed"},
     "endianness": {"const": "little"},
     "magic_ascii": {"const": "ASHV2LUT"},
-    "format_version": {"const": {"major": 1, "minor": 0}},
+    "format_version": {"const": {"major": 1, "minor": 1}},
     "header": {
       "type": "object",
       "required": ["size_bytes", "fields", "flags", "reserved_flag_bits"],

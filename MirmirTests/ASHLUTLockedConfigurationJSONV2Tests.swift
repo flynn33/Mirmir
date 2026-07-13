@@ -7,19 +7,19 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
         let data = try ASHLUTTestSupportV2.sharedLockedInputData()
         XCTAssertEqual(
             hex(SHA256.hash(data: data)),
-            "75293d2c18998df82131305fa33e4805f555246632137c3f7ae393a7d700ee7f"
+            "ba5438b47365c92175a6601aa757138648251004f0e4ddeba13969fdaa0428bb"
         )
         let canonical = try ASHLUTLockedConfigurationJSONLoaderV2.canonicalHashInput(data)
         XCTAssertEqual(
             hex(SHA256.hash(data: canonical)),
-            "63fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f"
+            "77b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851"
         )
 
         let configuration = try ASHLUTLockedConfigurationJSONLoaderV2.load(data)
         XCTAssertEqual(configuration.configurationID, "p06-reference-fixture-001")
         XCTAssertEqual(
             configuration.compilerInputsSHA256.hex,
-            "63fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f"
+            "77b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851"
         )
         XCTAssertEqual(configuration.boundaryMode, .mirrorReflect101)
         XCTAssertEqual(configuration.compilerPolicy.penaltyDecayDenominator, 16)
@@ -29,33 +29,47 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
             configuration.compilerPolicy.penaltyToWeight,
             ASHLUTTestSupportV2.exactPenaltyTable(denominator: 16)
         )
-        XCTAssertEqual(configuration.routeSelection(for: .direct2x).coordinatePolicy, .sourceAlignedRational)
+        XCTAssertEqual(
+            configuration.routeSelection(for: .direct2x).lumaCoordinatePolicy,
+            .sourceAlignedRational
+        )
+        XCTAssertEqual(
+            configuration.routeSelection(for: .direct2x).chromaCoordinatePolicy,
+            .halfPixelCenter
+        )
         XCTAssertEqual(configuration.routeSelection(for: .direct2x).analysisGridSourceStep, 1)
-        XCTAssertEqual(configuration.routeSelection(for: .direct3Over2).coordinatePolicy, .halfPixelCenter)
+        XCTAssertEqual(
+            configuration.routeSelection(for: .direct3Over2).lumaCoordinatePolicy,
+            .halfPixelCenter
+        )
+        XCTAssertEqual(
+            configuration.routeSelection(for: .direct3Over2).chromaCoordinatePolicy,
+            .sourceAlignedRational
+        )
         XCTAssertEqual(configuration.routeSelection(for: .direct3Over2).analysisGridSourceStep, 2)
 
-        let direct2x = try ASHLUTTestSupportV2.sourceDirect2x().artifact
-        XCTAssertEqual(direct2x.data.count, 99_968)
-        XCTAssertEqual(direct2x.parameterCount, 21)
+        let direct2x = try ASHLUTTestSupportV2.mixedDirect2x().artifact
+        XCTAssertEqual(direct2x.data.count, 99_904)
+        XCTAssertEqual(direct2x.parameterCount, 20)
         XCTAssertEqual(
             direct2x.payloadSHA256.hex,
-            "fece24272e5718c2bb22351556a62bb870d0dc9f30a6d0823581607f7603d3b4"
+            "029a3a1d97a187ba81a4229d6b6a20265a1114f06b65d421c840686d3a7a6636"
         )
         XCTAssertEqual(
             direct2x.wholeFileSHA256.hex,
-            "4ec42ac66f0aa6e34ea65e19ea4f1573c6bbb4d603c954f090c237e84ddc2653"
+            "0a129a035eb83bda6849eab344e8f496a21051e16920afae38989b82b1d90c2b"
         )
 
-        let direct3Over2 = try ASHLUTTestSupportV2.halfPixelDirect3Over2().artifact
+        let direct3Over2 = try ASHLUTTestSupportV2.mixedDirect3Over2().artifact
         XCTAssertEqual(direct3Over2.data.count, 222_784)
         XCTAssertEqual(direct3Over2.parameterCount, 20)
         XCTAssertEqual(
             direct3Over2.payloadSHA256.hex,
-            "25130666370718490f4ca66d7cf4ebb6a052c33059c6ad7dd89362db77c350c1"
+            "578947a902079fe75d78851a2e8778c96a7950ebd1c00218b166658975af2763"
         )
         XCTAssertEqual(
             direct3Over2.wholeFileSHA256.hex,
-            "43a88d21833076ba4d436204689cc98b3d846d1eb40ae4d2018ab485a81c926e"
+            "6dd4e01e8ba2a7beec3ddf106f24af7a1aa79ef795c5986f8c93133166e7aa26"
         )
     }
 
@@ -72,7 +86,7 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
         )
         XCTAssertEqual(
             hex(SHA256.hash(data: try Data(contentsOf: fixture))),
-            "75293d2c18998df82131305fa33e4805f555246632137c3f7ae393a7d700ee7f"
+            "ba5438b47365c92175a6601aa757138648251004f0e4ddeba13969fdaa0428bb"
         )
         XCTAssertEqual(
             hex(SHA256.hash(data: try Data(contentsOf: compiler))),
@@ -80,21 +94,21 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
         )
         XCTAssertEqual(
             hex(SHA256.hash(data: try Data(contentsOf: oracle))),
-            "1050316b3d477c0ba3838613f7630aeb2aeb0187f13329ddb1823d0a70ad6778"
+            "72b6ff321c6fe79a708a8d3775b6ba2c569825ff3c33f87026d47f72d7ceba64"
         )
 
-        let direct2x = try ASHLUTTestSupportV2.sourceDirect2x().artifact.data
-        XCTAssertEqual(direct2x.count, 99_968)
+        let direct2x = try ASHLUTTestSupportV2.mixedDirect2x().artifact.data
+        XCTAssertEqual(direct2x.count, 99_904)
         XCTAssertEqual(
             hex(SHA256.hash(data: direct2x)),
-            "4ec42ac66f0aa6e34ea65e19ea4f1573c6bbb4d603c954f090c237e84ddc2653"
+            "0a129a035eb83bda6849eab344e8f496a21051e16920afae38989b82b1d90c2b"
         )
 
-        let direct3Over2 = try ASHLUTTestSupportV2.halfPixelDirect3Over2().artifact.data
+        let direct3Over2 = try ASHLUTTestSupportV2.mixedDirect3Over2().artifact.data
         XCTAssertEqual(direct3Over2.count, 222_784)
         XCTAssertEqual(
             hex(SHA256.hash(data: direct3Over2)),
-            "43a88d21833076ba4d436204689cc98b3d846d1eb40ae4d2018ab485a81c926e"
+            "6dd4e01e8ba2a7beec3ddf106f24af7a1aa79ef795c5986f8c93133166e7aa26"
         )
     }
 
@@ -123,8 +137,8 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
 
         var selfHash = text
         selfHash.replaceFirst(
-            "63fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f",
-            with: "73fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f"
+            "77b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851",
+            with: "87b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851"
         )
         assertRejected(Data(selfHash.utf8), expected: .selfHashMismatch)
 

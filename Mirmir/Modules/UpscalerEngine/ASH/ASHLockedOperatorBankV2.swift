@@ -110,11 +110,38 @@ struct ASHLockedOperatorBankV2: Equatable, Sendable {
         configuration: ASHLUTLockedConfigurationV2
     ) throws {
         let fields = try object(value, keys: ["direct_2x", "direct_3_over_2"])
-        guard try string(fields["direct_2x"])
-                == configuration.routes.direct2x.coordinatePolicy.rawValue,
-              try string(fields["direct_3_over_2"])
-                == configuration.routes.direct3Over2.coordinatePolicy.rawValue else {
+        try validateCoordinatePolicies(
+            fields["direct_2x"],
+            selection: configuration.routes.direct2x
+        )
+        try validateCoordinatePolicies(
+            fields["direct_3_over_2"],
+            selection: configuration.routes.direct3Over2
+        )
+    }
+
+    private static func validateCoordinatePolicies(
+        _ value: ASHLUTStrictJSONValueV2?,
+        selection: ASHLUTLockedRouteSelectionV2
+    ) throws {
+        let fields = try object(value, keys: [
+            "luma_coordinate_policy", "chroma_coordinate_policy"
+        ])
+        guard try coordinatePolicy(string(fields["luma_coordinate_policy"]))
+                == selection.lumaCoordinatePolicy,
+              try coordinatePolicy(string(fields["chroma_coordinate_policy"]))
+                == selection.chromaCoordinatePolicy else {
             throw ASHLockedOperatorBankV2Error.configurationMismatch
+        }
+    }
+
+    private static func coordinatePolicy(
+        _ value: String
+    ) throws -> ASHSpatialCoordinatePolicyV2 {
+        switch value {
+        case "half_pixel_center": .halfPixelCenter
+        case "source_aligned_rational": .sourceAlignedRational
+        default: throw ASHLockedOperatorBankV2Error.invalidValue
         }
     }
 

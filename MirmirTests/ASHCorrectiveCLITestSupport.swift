@@ -27,17 +27,21 @@ extension ASHCorrectiveCLITests {
 
     func serializationRebindPreimage(
         route: ASHSpatialRouteV2,
-        original: ASHSpatialCoordinatePolicyV2,
-        serialized: ASHSpatialCoordinatePolicyV2
+        original: ASHLUTLockedRouteSelectionV2,
+        serialized: ASHLUTLockedRouteSelectionV2
     ) -> Data {
         var data = Data(
             "MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0".utf8
         )
         data.append(Data(route.rawValue.utf8))
         data.append(0)
-        data.append(Data(original.rawValue.utf8))
+        data.append(Data(original.lumaCoordinatePolicy.rawValue.utf8))
         data.append(0)
-        data.append(Data(serialized.rawValue.utf8))
+        data.append(Data(original.chromaCoordinatePolicy.rawValue.utf8))
+        data.append(0)
+        data.append(Data(serialized.lumaCoordinatePolicy.rawValue.utf8))
+        data.append(0)
+        data.append(Data(serialized.chromaCoordinatePolicy.rawValue.utf8))
         data.append(0)
         data.append(original == serialized ? 0 : 1)
         return data
@@ -346,9 +350,18 @@ extension ASHCorrectiveCLITests {
             "boundary_mode": configuration.boundaryMode == .clamp
                 ? "clamp" : "mirror_reflect101",
             "coordinate_policies": [
-                "direct_2x": configuration.routes.direct2x.coordinatePolicy.rawValue,
-                "direct_3_over_2": configuration.routes.direct3Over2
-                    .coordinatePolicy.rawValue
+                "direct_2x": [
+                    "luma_coordinate_policy": configuration.routes.direct2x
+                        .lumaCoordinatePolicy.rawValue,
+                    "chroma_coordinate_policy": configuration.routes.direct2x
+                        .chromaCoordinatePolicy.rawValue
+                ],
+                "direct_3_over_2": [
+                    "luma_coordinate_policy": configuration.routes.direct3Over2
+                        .lumaCoordinatePolicy.rawValue,
+                    "chroma_coordinate_policy": configuration.routes.direct3Over2
+                        .chromaCoordinatePolicy.rawValue
+                ]
             ],
             "operator_parameters": [
                 "anisotropy_strength_q12": Int(parameters.anisotropyStrengthQ12),
@@ -384,7 +397,8 @@ extension ASHCorrectiveCLITests {
             return [
                 "analysis_grid_source_step": Int(selection.analysisGridSourceStep),
                 "context_count": 4,
-                "coordinate_policy": selection.coordinatePolicy.rawValue,
+                "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
+                "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
                 "entry_count": loaded.entries.count,
                 "header_crc32": String(
                     format: "0x%08X",

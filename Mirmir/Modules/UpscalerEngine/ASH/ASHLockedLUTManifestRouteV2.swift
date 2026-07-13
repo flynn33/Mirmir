@@ -23,7 +23,8 @@ struct ASHLockedLUTFileBindingV2: Equatable, Sendable {
 
 struct ASHLockedLUTManifestRouteV2: Equatable, Sendable {
     let route: ASHSpatialRouteV2
-    let coordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
     let analysisGridSourceStep: UInt8
     let entryCount: Int
     let parameterCount: Int
@@ -47,7 +48,8 @@ enum ASHLockedLUTManifestParsingV2 {
     static let routeKeys: Set<String> = [
         "route", "route_id", "scale_numerator", "scale_denominator",
         "phase_count", "context_count", "valid_state_count",
-        "coordinate_policy", "analysis_grid_source_step", "entry_count",
+        "luma_coordinate_policy", "chroma_coordinate_policy",
+        "analysis_grid_source_step", "entry_count",
         "parameter_count", "path", "whole_file_size_bytes",
         "whole_file_sha256", "payload_sha256", "header_crc32", "payload_crc32"
     ]
@@ -259,7 +261,10 @@ enum ASHLockedLUTManifestParsingV2 {
             throw ASHLockedLUTManifestErrorV2.routeOrderMismatch
         }
         let selection = configuration.routeSelection(for: route)
-        guard try string(row["coordinate_policy"]) == selection.coordinatePolicy.rawValue,
+        guard try string(row["luma_coordinate_policy"])
+                == selection.lumaCoordinatePolicy.rawValue,
+              try string(row["chroma_coordinate_policy"])
+                == selection.chromaCoordinatePolicy.rawValue,
               try integer(row["analysis_grid_source_step"])
                 == Int(selection.analysisGridSourceStep) else {
             throw ASHLockedLUTManifestErrorV2.routeIdentityMismatch
@@ -275,7 +280,8 @@ enum ASHLockedLUTManifestParsingV2 {
         }
         return ASHLockedLUTManifestRouteV2(
             route: route,
-            coordinatePolicy: selection.coordinatePolicy,
+            lumaCoordinatePolicy: selection.lumaCoordinatePolicy,
+            chromaCoordinatePolicy: selection.chromaCoordinatePolicy,
             analysisGridSourceStep: selection.analysisGridSourceStep,
             entryCount: entryCount,
             parameterCount: parameterCount,

@@ -287,7 +287,7 @@
   "configuration_id": "p06-reference-fixture-001",
   "hash_bindings": {
     "calibration_plan_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
-    "compiler_inputs_sha256": "63fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f",
+    "compiler_inputs_sha256": "77b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851",
     "corpus_lock_bundle_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
     "mapping_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "metric_policy_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
@@ -306,11 +306,13 @@
   "routes": {
     "direct_2x": {
       "analysis_grid_source_step": 1,
-      "coordinate_policy": "source_aligned_rational"
+      "chroma_coordinate_policy": "half_pixel_center",
+      "luma_coordinate_policy": "source_aligned_rational"
     },
     "direct_3_over_2": {
       "analysis_grid_source_step": 2,
-      "coordinate_policy": "half_pixel_center"
+      "chroma_coordinate_policy": "source_aligned_rational",
+      "luma_coordinate_policy": "half_pixel_center"
     }
   },
   "schema_version": "1.0.0",
@@ -323,7 +325,7 @@
   "source_aligned": {
     "denoising": false,
     "exact": true,
-    "predicate": "source_aligned_rational with horizontal phase zero and vertical phase zero",
+    "predicate": "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero",
     "primary_descriptor": 0,
     "primary_message": 0,
     "secondary": "inactive"

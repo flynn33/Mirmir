@@ -9,6 +9,22 @@ struct ASHLUTTestFixtureV2 {
 
 enum ASHLUTTestSupportV2 {
     private static let sourceDirect2xResult = Result {
+        let configuration = try ASHLUTTestSupportV2.configuration(
+            lumaPolicy: .sourceAlignedRational,
+            chromaPolicy: .sourceAlignedRational
+        )
+        let compilation = try ASHLUTLeafCompilerV2.compile(
+            route: .direct2x,
+            configuration: configuration
+        )
+        return ASHLUTTestFixtureV2(
+            configuration: configuration,
+            compilation: compilation,
+            artifact: try ASHLUTBinaryCodecV2.serialize(compilation)
+        )
+    }
+
+    private static let mixedDirect2xResult = Result {
         let configuration = try ASHLUTTestSupportV2.sharedConfiguration()
         let compilation = try ASHLUTLeafCompilerV2.compile(
             route: .direct2x,
@@ -22,7 +38,7 @@ enum ASHLUTTestSupportV2 {
         )
     }
 
-    private static let halfPixelDirect3Over2Result = Result {
+    private static let mixedDirect3Over2Result = Result {
         let configuration = try ASHLUTTestSupportV2.sharedConfiguration()
         let compilation = try ASHLUTLeafCompilerV2.compile(
             route: .direct3Over2,
@@ -36,12 +52,16 @@ enum ASHLUTTestSupportV2 {
         )
     }
 
+    static func mixedDirect2x() throws -> ASHLUTTestFixtureV2 {
+        try mixedDirect2xResult.get()
+    }
+
     static func sourceDirect2x() throws -> ASHLUTTestFixtureV2 {
         try sourceDirect2xResult.get()
     }
 
-    static func halfPixelDirect3Over2() throws -> ASHLUTTestFixtureV2 {
-        try halfPixelDirect3Over2Result.get()
+    static func mixedDirect3Over2() throws -> ASHLUTTestFixtureV2 {
+        try mixedDirect3Over2Result.get()
     }
 
     static func sharedConfiguration() throws -> ASHLUTLockedConfigurationV2 {
@@ -59,6 +79,13 @@ enum ASHLUTTestSupportV2 {
 
     static func configuration(
         policy: ASHSpatialCoordinatePolicyV2
+    ) throws -> ASHLUTLockedConfigurationV2 {
+        try configuration(lumaPolicy: policy, chromaPolicy: policy)
+    }
+
+    static func configuration(
+        lumaPolicy: ASHSpatialCoordinatePolicyV2,
+        chromaPolicy: ASHSpatialCoordinatePolicyV2
     ) throws -> ASHLUTLockedConfigurationV2 {
         let operatorParameters = try ASHLUTLockedOperatorParametersV2(
             anisotropyStrengthQ12: 2_048,
@@ -79,11 +106,13 @@ enum ASHLUTTestSupportV2 {
         let compilerPolicy = try compilerPolicy()
         let routes = ASHLUTLockedRoutesV2(
             direct2x: try ASHLUTLockedRouteSelectionV2(
-                coordinatePolicy: policy,
+                lumaCoordinatePolicy: lumaPolicy,
+                chromaCoordinatePolicy: chromaPolicy,
                 analysisGridSourceStep: 1
             ),
             direct3Over2: try ASHLUTLockedRouteSelectionV2(
-                coordinatePolicy: policy,
+                lumaCoordinatePolicy: lumaPolicy,
+                chromaCoordinatePolicy: chromaPolicy,
                 analysisGridSourceStep: 2
             )
         )

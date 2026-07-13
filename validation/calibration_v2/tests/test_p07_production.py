@@ -551,7 +551,8 @@ class P07ProductionLockTests(unittest.TestCase):
                 "whole_file_sha256": bundle["artifacts"][0]["sha256"],
                 "whole_file_size_bytes": len(direct2),
                 "payload_sha256": _digest("payload-2"),
-                "coordinate_policy": "source_aligned_rational",
+                "luma_coordinate_policy": "source_aligned_rational",
+                "chroma_coordinate_policy": "half_pixel_center",
                 "analysis_grid_source_step": 1,
             },
             {
@@ -559,7 +560,8 @@ class P07ProductionLockTests(unittest.TestCase):
                 "whole_file_sha256": bundle["artifacts"][1]["sha256"],
                 "whole_file_size_bytes": len(direct3),
                 "payload_sha256": _digest("payload-3"),
-                "coordinate_policy": "half_pixel_center",
+                "luma_coordinate_policy": "half_pixel_center",
+                "chroma_coordinate_policy": "source_aligned_rational",
                 "analysis_grid_source_step": 2,
             },
         ]
@@ -568,14 +570,18 @@ class P07ProductionLockTests(unittest.TestCase):
                 "direct-2x": {
                     key: routes[0][key]
                     for key in (
-                        "payload_sha256", "coordinate_policy",
+                        "payload_sha256",
+                        "luma_coordinate_policy",
+                        "chroma_coordinate_policy",
                         "analysis_grid_source_step",
                     )
                 },
                 "direct-3over2": {
                     key: routes[1][key]
                     for key in (
-                        "payload_sha256", "coordinate_policy",
+                        "payload_sha256",
+                        "luma_coordinate_policy",
+                        "chroma_coordinate_policy",
                         "analysis_grid_source_step",
                     )
                 },
@@ -597,6 +603,20 @@ class P07ProductionLockTests(unittest.TestCase):
                 lut_manifest={"routes": routes},
                 selected_runtime=forged,
             )
+        for field in ("luma_coordinate_policy", "chroma_coordinate_policy"):
+            forged = copy.deepcopy(runtime)
+            forged["route_luts"]["direct-2x"][field] = (
+                "half_pixel_center"
+                if runtime["route_luts"]["direct-2x"][field]
+                == "source_aligned_rational"
+                else "source_aligned_rational"
+            )
+            with self.assertRaisesRegex(P07ProductionError, "LUT binding"):
+                _validate_route_lut_semantics(
+                    bundle=bundle,
+                    lut_manifest={"routes": routes},
+                    selected_runtime=forged,
+                )
         forged_routes = copy.deepcopy(routes)
         forged_routes[1]["whole_file_sha256"] = _digest("forged-whole")
         with self.assertRaisesRegex(P07ProductionError, "LUT binding"):

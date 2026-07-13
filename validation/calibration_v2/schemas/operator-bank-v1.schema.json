@@ -34,8 +34,8 @@
       "type": "object",
       "required": ["direct_2x", "direct_3_over_2"],
       "properties": {
-        "direct_2x": {"$ref": "#/$defs/coordinatePolicy"},
-        "direct_3_over_2": {"$ref": "#/$defs/coordinatePolicy"}
+        "direct_2x": {"$ref": "#/$defs/routeCoordinatePolicies"},
+        "direct_3_over_2": {"$ref": "#/$defs/routeCoordinatePolicies"}
       },
       "additionalProperties": false
     },
@@ -111,6 +111,15 @@
     },
     "coordinatePolicy": {
       "enum": ["source_aligned_rational", "half_pixel_center"]
+    },
+    "routeCoordinatePolicies": {
+      "type": "object",
+      "required": ["luma_coordinate_policy", "chroma_coordinate_policy"],
+      "properties": {
+        "luma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "chroma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"}
+      },
+      "additionalProperties": false
     },
     "selectionBinding": {
       "type": "object",

@@ -499,6 +499,17 @@ class ReleaseLUTManifestTests(unittest.TestCase):
             candidate_mapping["shared_bank_configuration_sha256"],
             candidate_bank["shared_bank_configuration_sha256"],
         )
+        self.assertEqual(
+            candidate_bank["coordinate_policies"]["direct_2x"],
+            {
+                "luma_coordinate_policy": vector[
+                    "direct_2x_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    "direct_2x_chroma_coordinate_policy"
+                ],
+            },
+        )
         selected_mapping = video_mapping_document(
             vector=vector,
             plan=self.plan,
@@ -567,6 +578,14 @@ class ReleaseLUTManifestTests(unittest.TestCase):
         )
         parsed = parse_locked_compiler_input(document)
         self.assertEqual(parsed.configuration_id, "ash-p06-spatial-v2-test")
+        self.assertEqual(
+            parsed.routes["direct_2x"].luma_coordinate_policy,
+            vector["direct_2x_luma_coordinate_policy"],
+        )
+        self.assertEqual(
+            parsed.routes["direct_2x"].chroma_coordinate_policy,
+            vector["direct_2x_chroma_coordinate_policy"],
+        )
         self.assertEqual(
             document["hash_bindings"]["compiler_inputs_sha256"],
             canonical_compiler_input_sha256(document),
@@ -954,6 +973,14 @@ class ReleaseLUTManifestTests(unittest.TestCase):
         self.assertEqual(
             [route["route"] for route in document["routes"]],
             ["direct_2x", "direct_3_over_2"],
+        )
+        self.assertEqual(
+            document["routes"][0]["luma_coordinate_policy"],
+            vector["direct_2x_luma_coordinate_policy"],
+        )
+        self.assertEqual(
+            document["routes"][0]["chroma_coordinate_policy"],
+            vector["direct_2x_chroma_coordinate_policy"],
         )
         self.assertEqual(document["manifest_sha256"], manifest_hash(document))
 

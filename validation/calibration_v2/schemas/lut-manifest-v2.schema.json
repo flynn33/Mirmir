@@ -139,7 +139,8 @@
         "phase_count",
         "context_count",
         "valid_state_count",
-        "coordinate_policy",
+        "luma_coordinate_policy",
+        "chroma_coordinate_policy",
         "analysis_grid_source_step",
         "entry_count",
         "parameter_count",
@@ -158,7 +159,10 @@
         "phase_count": {"enum": [4, 9]},
         "context_count": {"const": 4},
         "valid_state_count": {"const": 256},
-        "coordinate_policy": {
+        "luma_coordinate_policy": {
+          "enum": ["source_aligned_rational", "half_pixel_center"]
+        },
+        "chroma_coordinate_policy": {
           "enum": ["source_aligned_rational", "half_pixel_center"]
         },
         "analysis_grid_source_step": {"enum": [1, 2, 4]},

@@ -153,16 +153,39 @@ struct ASHLUTLockedSemanticStepsV2: Equatable, Sendable {
     }
 }
 
+enum ASHLUTPlaneRoleV2: Equatable, Sendable {
+    case luma
+    case chroma
+}
+
 struct ASHLUTLockedRouteSelectionV2: Equatable, Sendable {
-    let coordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
     let analysisGridSourceStep: UInt8
 
-    init(coordinatePolicy: ASHSpatialCoordinatePolicyV2, analysisGridSourceStep: UInt8) throws {
+    init(
+        lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2,
+        chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2,
+        analysisGridSourceStep: UInt8
+    ) throws {
         guard [1, 2, 4].contains(analysisGridSourceStep) else {
             throw ASHLUTCompilerErrorV2.invalidLockedConfiguration
         }
-        self.coordinatePolicy = coordinatePolicy
+        self.lumaCoordinatePolicy = lumaCoordinatePolicy
+        self.chromaCoordinatePolicy = chromaCoordinatePolicy
         self.analysisGridSourceStep = analysisGridSourceStep
+    }
+
+    func coordinatePolicy(for planeRole: ASHLUTPlaneRoleV2) -> ASHSpatialCoordinatePolicyV2 {
+        switch planeRole {
+        case .luma: lumaCoordinatePolicy
+        case .chroma: chromaCoordinatePolicy
+        }
+    }
+
+    var bothPlanesAreSourceAligned: Bool {
+        lumaCoordinatePolicy == .sourceAlignedRational
+            && chromaCoordinatePolicy == .sourceAlignedRational
     }
 }
 
@@ -363,7 +386,8 @@ struct ASHLUTParameterPairV2: Equatable, Sendable {
     let primary: ASHLUTParameterSlotV2
     let secondary: ASHLUTParameterSlotV2
     let confidenceThresholdUNorm16: UInt16
-    let coordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
     let boundaryMode: ASHSpatialBoundaryModeV2
 }
 

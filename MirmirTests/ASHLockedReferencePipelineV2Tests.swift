@@ -33,7 +33,8 @@ final class ASHLockedReferencePipelineV2Tests: XCTestCase {
             let summary = output.summary
             let selection = fixture.configuration.routeSelection(for: route)
             XCTAssertEqual(summary.route, route)
-            XCTAssertEqual(summary.coordinatePolicy, selection.coordinatePolicy)
+            XCTAssertEqual(summary.lumaCoordinatePolicy, selection.lumaCoordinatePolicy)
+            XCTAssertEqual(summary.chromaCoordinatePolicy, selection.chromaCoordinatePolicy)
             XCTAssertEqual(summary.analysisGridSourceStep, Int(selection.analysisGridSourceStep))
             XCTAssertEqual(summary.occupiedAnalysisCellCount, summary.analysisCellCount)
             XCTAssertEqual(summary.dispatchRecordCount, summary.analysisCellCount * route.phasePairCount)
@@ -143,6 +144,32 @@ final class ASHLockedReferencePipelineV2Tests: XCTestCase {
             expectedSHA256: fixture.runtime.configuration.mappingSHA256
         )) { error in
             XCTAssertEqual(error as? ASHLockedVideoMappingV2Error, .hashMismatch)
+        }
+    }
+    func test_lockedMappingAcceptsAliasRiskFloorBand() throws {
+        let data = try ASHLockedRuntimeTestSupportV2.lockedMappingData(
+            aliasRiskLow: 0,
+            aliasRiskHigh: 3_277
+        )
+        let hash = ASHLUTHashV2(validatedBytes: Array(SHA256.hash(data: data)))
+        let mapping = try ASHLockedVideoMappingV2.load(data, expectedSHA256: hash)
+        XCTAssertEqual(mapping.analyzerConfiguration.bands.aliasOrRingingRisk.low, 0.0)
+        XCTAssertEqual(
+            mapping.analyzerConfiguration.bands.aliasOrRingingRisk.high,
+            3_277.0 / 32_767.0
+        )
+
+        let invalidGenericData = try ASHLockedRuntimeTestSupportV2.lockedMappingData(
+            edgePresentLow: 0
+        )
+        let invalidGenericHash = ASHLUTHashV2(
+            validatedBytes: Array(SHA256.hash(data: invalidGenericData))
+        )
+        XCTAssertThrowsError(try ASHLockedVideoMappingV2.load(
+            invalidGenericData,
+            expectedSHA256: invalidGenericHash
+        )) { error in
+            XCTAssertEqual(error as? ASHLockedVideoMappingV2Error, .invalidValue)
         }
     }
     func test_wholeFrameRejectsMappingWithChangedThresholdsAndDifferentHash() throws {
@@ -460,41 +487,4 @@ extension ASHLockedReferencePipelineV2Tests {
         XCTAssertEqual(nearest.luma.normalizedSamples[1], normalizedSource)
     }
 
-    func test_h07ResamplesExactDirect2xIntermediateToThreeOverTwoExtent() throws {
-        let fixture = try ASHLockedRuntimeTestSupportV2.lockedMappingFixture(.direct2x)
-        let planes = try ASHLockedRuntimeTestSupportV2.planes(width: 4, height: 4)
-        let direct2x = try ASHLockedReferencePipelineV2.process(
-            ASHLockedReferenceInputV2(
-                luma: planes.luma,
-                cb: planes.cb,
-                cr: planes.cr,
-                chromaSiting: .left,
-                lut: fixture.runtime.loaded,
-                configuration: fixture.runtime.configuration,
-                mapping: fixture.mapping
-            )
-        )
-        XCTAssertEqual(direct2x.luma.width, 8)
-        let first = try ASHLockedControlResamplerV2.h07Lanczos3(
-            direct2x: direct2x,
-            targetLumaWidth: 6,
-            targetLumaHeight: 6,
-            targetChromaWidth: 3,
-            targetChromaHeight: 3,
-            boundary: fixture.runtime.configuration.boundaryMode
-        )
-        let second = try ASHLockedControlResamplerV2.h07Lanczos3(
-            direct2x: direct2x,
-            targetLumaWidth: 6,
-            targetLumaHeight: 6,
-            targetChromaWidth: 3,
-            targetChromaHeight: 3,
-            boundary: fixture.runtime.configuration.boundaryMode
-        )
-        XCTAssertEqual(first, second)
-        XCTAssertEqual(first.luma.width, 6)
-        XCTAssertEqual(first.luma.height, 6)
-        XCTAssertEqual(first.cb.width, 3)
-        XCTAssertEqual(first.cb.height, 3)
-    }
 }

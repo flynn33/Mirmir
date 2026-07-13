@@ -34,7 +34,8 @@ struct ASHLockedReferencePlaneOutputV2: Equatable, Sendable {
 
 struct ASHLockedReferenceSummaryV2: Equatable, Sendable {
     let route: ASHSpatialRouteV2
-    let coordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
     let boundaryMode: ASHSpatialBoundaryModeV2
     let analysisGridSourceStep: Int
     let analysisCellCount: Int

@@ -2642,12 +2642,6 @@ class CorrectiveDiagnosticExecutor:
                             "serialization_rebind_contract": generic[
                                 "serialization_rebind_contract"
                             ],
-                            "original_coordinate_policy": generic[
-                                "original_coordinate_policy"
-                            ],
-                            "serialized_coordinate_policy": generic[
-                                "serialized_coordinate_policy"
-                            ],
                             "serialization_rebind_applied": generic[
                                 "serialization_rebind_applied"
                             ],
@@ -2655,6 +2649,20 @@ class CorrectiveDiagnosticExecutor:
                                 "serialization_rebind_sha256"
                             ],
                         }
+                        if "original_luma_coordinate_policy" in generic:
+                            for field in (
+                                "original_luma_coordinate_policy",
+                                "original_chroma_coordinate_policy",
+                                "serialized_luma_coordinate_policy",
+                                "serialized_chroma_coordinate_policy",
+                            ):
+                                generic_row[field] = generic[field]
+                        else:
+                            for field in (
+                                "original_coordinate_policy",
+                                "serialized_coordinate_policy",
+                            ):
+                                generic_row[field] = generic[field]
                         previous_generic = generic_luts.get(contract_route)
                         _require(
                             previous_generic is None

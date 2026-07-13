@@ -73,11 +73,12 @@ extension ASHLUTBinaryCodecV2 {
         guard loaded.payloadSHA256 == manifestRoute.payloadSHA256 else {
             throw ASHLockedLUTManifestErrorV2.payloadHashMismatch
         }
+        let selection = configuration.routeSelection(for: loaded.route)
         guard loaded.entries.count == manifestRoute.entryCount,
               loaded.parameters.count == manifestRoute.parameterCount,
-              configuration.routeSelection(for: loaded.route).coordinatePolicy
-                == manifestRoute.coordinatePolicy,
-              configuration.routeSelection(for: loaded.route).analysisGridSourceStep
+              selection.lumaCoordinatePolicy == manifestRoute.lumaCoordinatePolicy,
+              selection.chromaCoordinatePolicy == manifestRoute.chromaCoordinatePolicy,
+              selection.analysisGridSourceStep
                 == manifestRoute.analysisGridSourceStep else {
             throw ASHLockedLUTManifestErrorV2.routeIdentityMismatch
         }

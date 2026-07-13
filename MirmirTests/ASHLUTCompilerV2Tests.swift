@@ -63,14 +63,14 @@ final class ASHLUTCompilerV2Tests: XCTestCase {
     }
 
     func testBothRoutesExhaustivelyHonorCompilerAndRuntimeInvariants() throws {
-        let source = try ASHLUTTestSupportV2.sourceDirect2x()
-        let halfPixel = try ASHLUTTestSupportV2.halfPixelDirect3Over2()
+        let direct2x = try ASHLUTTestSupportV2.mixedDirect2x()
+        let direct3Over2 = try ASHLUTTestSupportV2.mixedDirect3Over2()
         var descriptorIDs = Set<UInt8>()
         var observedGainAndAlpha = false
         var observedSecondary = false
         var observedOrdinaryPruning = false
 
-        for fixture in [source, halfPixel] {
+        for fixture in [direct2x, direct3Over2] {
             let observations = try assertCompilation(
                 fixture.compilation,
                 configuration: fixture.configuration
@@ -81,13 +81,10 @@ final class ASHLUTCompilerV2Tests: XCTestCase {
             observedOrdinaryPruning = observedOrdinaryPruning || observations.ordinaryPruning
         }
 
-        XCTAssertEqual(source.compilation.entries.count, 4_096)
-        XCTAssertEqual(halfPixel.compilation.entries.count, 9_216)
-        XCTAssertEqual(
-            source.compilation.entries.filter(\.sourceAlignedExact).count,
-            4 * 256
-        )
-        XCTAssertFalse(halfPixel.compilation.entries.contains(where: \.sourceAlignedExact))
+        XCTAssertEqual(direct2x.compilation.entries.count, 4_096)
+        XCTAssertEqual(direct3Over2.compilation.entries.count, 9_216)
+        XCTAssertFalse(direct2x.compilation.entries.contains(where: \.sourceAlignedExact))
+        XCTAssertFalse(direct3Over2.compilation.entries.contains(where: \.sourceAlignedExact))
         XCTAssertEqual(descriptorIDs, Set(UInt8(0)..<UInt8(16)))
         XCTAssertTrue(observedGainAndAlpha)
         XCTAssertTrue(observedSecondary)
@@ -95,7 +92,7 @@ final class ASHLUTCompilerV2Tests: XCTestCase {
     }
 
     func testCompilationAndSerializationAreDeterministic() throws {
-        let fixture = try ASHLUTTestSupportV2.sourceDirect2x()
+        let fixture = try ASHLUTTestSupportV2.mixedDirect2x()
         let repeated = try ASHLUTLeafCompilerV2.compile(
             route: .direct2x,
             configuration: fixture.configuration
@@ -106,6 +103,33 @@ final class ASHLUTCompilerV2Tests: XCTestCase {
         XCTAssertEqual(repeatedArtifact.data, fixture.artifact.data)
         XCTAssertEqual(repeatedArtifact.payloadSHA256, fixture.artifact.payloadSHA256)
         XCTAssertEqual(repeatedArtifact.wholeFileSHA256, fixture.artifact.wholeFileSHA256)
+    }
+
+    func testSourceAlignedExactRequiresBothPlanePoliciesForBothRoutes() throws {
+        let policies = ASHSpatialCoordinatePolicyV2.allCases
+        for route in ASHSpatialRouteV2.allCases {
+            for lumaPolicy in policies {
+                for chromaPolicy in policies {
+                    let configuration = try ASHLUTTestSupportV2.configuration(
+                        lumaPolicy: lumaPolicy,
+                        chromaPolicy: chromaPolicy
+                    )
+                    let compilation = try ASHLUTLeafCompilerV2.compile(
+                        route: route,
+                        configuration: configuration
+                    )
+                    let expectedCount = lumaPolicy == .sourceAlignedRational
+                        && chromaPolicy == .sourceAlignedRational
+                        ? 4 * 256
+                        : 0
+                    XCTAssertEqual(
+                        compilation.entries.filter(\.sourceAlignedExact).count,
+                        expectedCount,
+                        "\(route.rawValue) \(lumaPolicy.rawValue)/\(chromaPolicy.rawValue)"
+                    )
+                }
+            }
+        }
     }
 
     func testLockedConfigurationRejectsNonCanonicalInputs() throws {
@@ -121,7 +145,8 @@ final class ASHLUTCompilerV2Tests: XCTestCase {
             XCTAssertEqual($0 as? ASHLUTCompilerErrorV2, .invalidPenaltyTable)
         }
         XCTAssertThrowsError(try ASHLUTLockedRouteSelectionV2(
-            coordinatePolicy: .halfPixelCenter,
+            lumaCoordinatePolicy: .halfPixelCenter,
+            chromaCoordinatePolicy: .halfPixelCenter,
             analysisGridSourceStep: 3
         )) {
             XCTAssertEqual($0 as? ASHLUTCompilerErrorV2, .invalidLockedConfiguration)

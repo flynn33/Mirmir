@@ -213,7 +213,8 @@ final class ASHLockedPlanePolicyDiagnosticV3Tests: XCTestCase {
             let fixture = try makeFixture(route: route, contract: contract)
             let sourceConfiguration = fixture.runtime.configuration
             let routeSelection = try ASHLUTLockedRouteSelectionV2(
-                coordinatePolicy: .sourceAlignedRational,
+                lumaCoordinatePolicy: .sourceAlignedRational,
+                chromaCoordinatePolicy: .sourceAlignedRational,
                 analysisGridSourceStep: sourceConfiguration
                     .routeSelection(for: fixture.spatialRoute)
                     .analysisGridSourceStep

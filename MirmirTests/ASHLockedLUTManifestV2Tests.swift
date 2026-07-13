@@ -102,7 +102,8 @@ final class ASHLockedLUTManifestV2Tests: XCTestCase {
             return [
                 "analysis_grid_source_step": Int(selection.analysisGridSourceStep),
                 "context_count": 4,
-                "coordinate_policy": selection.coordinatePolicy.rawValue,
+                "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
+                "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
                 "entry_count": loaded.entries.count,
                 "header_crc32": crc32(loaded.immutableBytes, at: 288),
                 "parameter_count": loaded.parameters.count,

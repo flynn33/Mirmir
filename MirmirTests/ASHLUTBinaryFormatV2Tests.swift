@@ -6,40 +6,7 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
     func testExactEndianLayoutIntegrityAndImmutableRoundTrip() throws {
         let fixture = try ASHLUTTestSupportV2.sourceDirect2x()
         let data = fixture.artifact.data
-        XCTAssertEqual(Array(data[0..<8]), Array("ASHV2LUT".utf8))
-        XCTAssertEqual(u16(data, 8), 1)
-        XCTAssertEqual(u16(data, 10), 0)
-        XCTAssertEqual(u16(data, 12), 320)
-        XCTAssertEqual(u16(data, 14), 0x4c45)
-        XCTAssertEqual(u16(data, 16), 1)
-        XCTAssertEqual(u16(data, 18), 15)
-        XCTAssertEqual(u16(data, 20), 4)
-        XCTAssertEqual(u16(data, 22), 4)
-        XCTAssertEqual(u16(data, 24), 256)
-        XCTAssertEqual(u16(data, 26), 24)
-        XCTAssertEqual(u16(data, 28), 64)
-        XCTAssertEqual(u16(data, 30), 0)
-        XCTAssertEqual(u32(data, 32), 4_096)
-        XCTAssertEqual(u32(data, 40), 320)
-        XCTAssertEqual(u32(data, 48), u32(data, 36) * 64)
-        XCTAssertEqual(u32(data, 44), 320 + u32(data, 48))
-        XCTAssertEqual(u32(data, 52), 4_096 * 24)
-        XCTAssertEqual(u32(data, 56), 320)
-        XCTAssertEqual(u32(data, 60), u32(data, 48) + u32(data, 52))
-        XCTAssertEqual(u32(data, 296), UInt32(data.count))
-        XCTAssertTrue(data[300..<320].allSatisfy { $0 == 0 })
-
-        var header = Data(data[0..<320])
-        write(UInt32(0), at: 288, in: &header)
-        XCTAssertEqual(u32(data, 288), ASHLUTCRC32V2.checksum(header))
-        let payload = Data(data[320..<data.count])
-        XCTAssertEqual(u32(data, 292), ASHLUTCRC32V2.checksum(payload))
-        XCTAssertEqual(
-            Array(data[256..<288]),
-            Array(SHA256.hash(data: payload))
-        )
-        XCTAssertEqual(fixture.artifact.payloadSHA256.bytes, Array(SHA256.hash(data: payload)))
-        XCTAssertEqual(fixture.artifact.wholeFileSHA256.bytes, Array(SHA256.hash(data: data)))
+        assertEnvelope(data, fixture: fixture)
 
         let parameterOffset = Int(u32(data, 40))
         let parameterCount = Int(u32(data, 36))
@@ -49,6 +16,9 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
             let record = Data(data[offset..<(offset + 64)])
             let prefix = Data(record[0..<60])
             XCTAssertEqual(u32(record, 60), ASHLUTCRC32V2.checksum(prefix))
+            XCTAssertEqual(record[50], 1)
+            XCTAssertEqual(record[54], 1)
+            XCTAssertTrue(record[55..<60].allSatisfy { $0 == 0 })
             if let previousPrefix {
                 XCTAssertTrue(previousPrefix.lexicographicallyPrecedes(prefix))
             }
@@ -138,6 +108,49 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
         }
     }
 
+    func testMixedPlanePoliciesRoundTripAndByte54FailsClosed() throws {
+        let configuration = try ASHLUTTestSupportV2.configuration(
+            lumaPolicy: .halfPixelCenter,
+            chromaPolicy: .sourceAlignedRational
+        )
+        let compilation = try ASHLUTLeafCompilerV2.compile(
+            route: .direct2x,
+            configuration: configuration
+        )
+        let artifact = try ASHLUTBinaryCodecV2.serialize(compilation)
+        let fixture = ASHLUTTestFixtureV2(
+            configuration: configuration,
+            compilation: compilation,
+            artifact: artifact
+        )
+        let parameterOffset = Int(u32(artifact.data, 40))
+        let parameterCount = Int(u32(artifact.data, 36))
+        for index in 0..<parameterCount {
+            let offset = parameterOffset + index * 64
+            XCTAssertEqual(artifact.data[offset + 50], 0)
+            XCTAssertEqual(artifact.data[offset + 54], 1)
+            XCTAssertTrue(artifact.data[(offset + 55)..<(offset + 60)].allSatisfy { $0 == 0 })
+        }
+        XCTAssertFalse(compilation.entries.contains(where: \.sourceAlignedExact))
+        XCTAssertNoThrow(try ASHLUTBinaryCodecV2.load(
+            artifact.data,
+            expectedRoute: .direct2x,
+            configuration: configuration
+        ))
+
+        var invalidCode = artifact.data
+        invalidCode[parameterOffset + 54] = 2
+        resealParameter(at: parameterOffset, in: &invalidCode)
+        resealPayload(&invalidCode)
+        try assertError(invalidCode, .reservedNonzero, fixture)
+
+        var mismatchedPolicy = artifact.data
+        mismatchedPolicy[parameterOffset + 54] = 0
+        resealParameter(at: parameterOffset, in: &mismatchedPolicy)
+        resealPayload(&mismatchedPolicy)
+        try assertError(mismatchedPolicy, .inputHashMismatch, fixture)
+    }
+
     func testLoaderRejectsHeaderPayloadAndIndexCorruptionByTaxonomy() throws {
         let fixture = try ASHLUTTestSupportV2.sourceDirect2x()
         let original = fixture.artifact.data
@@ -148,6 +161,9 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
         try assertError(data, .badMagic, fixture)
         data = original
         write(UInt16(2), at: 8, in: &data)
+        try assertError(data, .unsupportedVersion, fixture)
+        data = original
+        write(UInt16(0), at: 10, in: &data)
         try assertError(data, .unsupportedVersion, fixture)
         data = original
         write(UInt16(0), at: 14, in: &data)
@@ -245,6 +261,40 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
         try assertError(data, .invalidEntryFlags, fixture)
     }
 
+    private func assertEnvelope(_ data: Data, fixture: ASHLUTTestFixtureV2) {
+        XCTAssertEqual(Array(data[0..<8]), Array("ASHV2LUT".utf8))
+        XCTAssertEqual(u16(data, 8), 1)
+        XCTAssertEqual(u16(data, 10), 1)
+        XCTAssertEqual(u16(data, 12), 320)
+        XCTAssertEqual(u16(data, 14), 0x4c45)
+        XCTAssertEqual(u16(data, 16), 1)
+        XCTAssertEqual(u16(data, 18), 15)
+        XCTAssertEqual(u16(data, 20), 4)
+        XCTAssertEqual(u16(data, 22), 4)
+        XCTAssertEqual(u16(data, 24), 256)
+        XCTAssertEqual(u16(data, 26), 24)
+        XCTAssertEqual(u16(data, 28), 64)
+        XCTAssertEqual(u16(data, 30), 0)
+        XCTAssertEqual(u32(data, 32), 4_096)
+        XCTAssertEqual(u32(data, 40), 320)
+        XCTAssertEqual(u32(data, 48), u32(data, 36) * 64)
+        XCTAssertEqual(u32(data, 44), 320 + u32(data, 48))
+        XCTAssertEqual(u32(data, 52), 4_096 * 24)
+        XCTAssertEqual(u32(data, 56), 320)
+        XCTAssertEqual(u32(data, 60), u32(data, 48) + u32(data, 52))
+        XCTAssertEqual(u32(data, 296), UInt32(data.count))
+        XCTAssertTrue(data[300..<320].allSatisfy { $0 == 0 })
+
+        var header = Data(data[0..<320])
+        write(UInt32(0), at: 288, in: &header)
+        XCTAssertEqual(u32(data, 288), ASHLUTCRC32V2.checksum(header))
+        let payload = Data(data[320..<data.count])
+        XCTAssertEqual(u32(data, 292), ASHLUTCRC32V2.checksum(payload))
+        XCTAssertEqual(Array(data[256..<288]), Array(SHA256.hash(data: payload)))
+        XCTAssertEqual(fixture.artifact.payloadSHA256.bytes, Array(SHA256.hash(data: payload)))
+        XCTAssertEqual(fixture.artifact.wholeFileSHA256.bytes, Array(SHA256.hash(data: data)))
+    }
+
     private func assertError(
         _ data: Data,
         _ expected: ASHLUTBinaryErrorV2,
@@ -274,6 +324,11 @@ final class ASHLUTBinaryFormatV2Tests: XCTestCase {
         provenance.append(data[offset..<(offset + 20)])
         provenance.append(data[parameterOffset..<(parameterOffset + 64)])
         write(ASHLUTCRC32V2.checksum(provenance), at: offset + 20, in: &data)
+    }
+
+    private func resealParameter(at offset: Int, in data: inout Data) {
+        let prefix = Data(data[offset..<(offset + 60)])
+        write(ASHLUTCRC32V2.checksum(prefix), at: offset + 60, in: &data)
     }
 
     private func resealPayload(_ data: inout Data, updateSHA: Bool = true) {

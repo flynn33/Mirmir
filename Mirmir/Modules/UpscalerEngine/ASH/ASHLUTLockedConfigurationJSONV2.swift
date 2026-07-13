@@ -187,18 +187,28 @@ enum ASHLUTLockedConfigurationJSONLoaderV2 {
         _ value: ASHLUTStrictJSONValueV2?
     ) throws -> ASHLUTLockedRouteSelectionV2 {
         let fields = try object(value, keys: [
-            "coordinate_policy", "analysis_grid_source_step"
+            "luma_coordinate_policy", "chroma_coordinate_policy",
+            "analysis_grid_source_step"
         ])
-        let policy: ASHSpatialCoordinatePolicyV2
-        switch try string(fields["coordinate_policy"]) {
-        case "half_pixel_center": policy = .halfPixelCenter
-        case "source_aligned_rational": policy = .sourceAlignedRational
-        default: throw ASHLUTLockedConfigurationJSONErrorV2.invalidValue
-        }
         return try ASHLUTLockedRouteSelectionV2(
-            coordinatePolicy: policy,
+            lumaCoordinatePolicy: try decodeCoordinatePolicy(
+                fields["luma_coordinate_policy"]
+            ),
+            chromaCoordinatePolicy: try decodeCoordinatePolicy(
+                fields["chroma_coordinate_policy"]
+            ),
             analysisGridSourceStep: uint8(fields["analysis_grid_source_step"])
         )
+    }
+
+    private static func decodeCoordinatePolicy(
+        _ value: ASHLUTStrictJSONValueV2?
+    ) throws -> ASHSpatialCoordinatePolicyV2 {
+        switch try string(value) {
+        case "half_pixel_center": .halfPixelCenter
+        case "source_aligned_rational": .sourceAlignedRational
+        default: throw ASHLUTLockedConfigurationJSONErrorV2.invalidValue
+        }
     }
 
     private static func validateCanonicalization(
@@ -254,7 +264,7 @@ enum ASHLUTLockedConfigurationJSONLoaderV2 {
         try require(boolean(fields["exact"]), equals: true)
         try require(
             string(fields["predicate"]),
-            equals: "source_aligned_rational with horizontal phase zero and vertical phase zero"
+            equals: "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero"
         )
         try require(integer(fields["primary_message"]), equals: 0)
         try require(integer(fields["primary_descriptor"]), equals: 0)

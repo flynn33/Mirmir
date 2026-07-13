@@ -1054,8 +1054,18 @@ def parameter_domains(plan: Mapping[str, object]) -> Mapping[str, Tuple[object, 
         raise CalibrationError("calibration plan range groups are invalid")
     domains: Dict[str, Tuple[object, ...]] = {}
     for band in _THRESHOLD_BANDS:
-        domains[f"{band}_low_unorm15"] = tuple(mapping["low_unorm15"])
-        domains[f"{band}_high_unorm15"] = tuple(mapping["high_unorm15"])
+        low_domain_name = (
+            "alias_or_ringing_risk_low_unorm15"
+            if band == "alias_or_ringing_risk"
+            else "low_unorm15"
+        )
+        high_domain_name = (
+            "alias_or_ringing_risk_high_unorm15"
+            if band == "alias_or_ringing_risk"
+            else "high_unorm15"
+        )
+        domains[f"{band}_low_unorm15"] = tuple(mapping[low_domain_name])
+        domains[f"{band}_high_unorm15"] = tuple(mapping[high_domain_name])
     for name in (
         "analysis_epsilon_q0_30",
         "risk_laplacian_weight_unorm15",
@@ -1064,8 +1074,10 @@ def parameter_domains(plan: Mapping[str, object]) -> Mapping[str, Tuple[object, 
         "direct_3_over_2_analysis_grid_source_step",
     ):
         domains[name] = tuple(mapping[name])
-    domains["direct_2x_coordinate_policy"] = tuple(operator["coordinate_policy_by_route"])
-    domains["direct_3_over_2_coordinate_policy"] = tuple(operator["coordinate_policy_by_route"])
+    coordinate_domain = tuple(operator["coordinate_policy_by_route"])
+    for route_name in ("direct_2x", "direct_3_over_2"):
+        domains[f"{route_name}_luma_coordinate_policy"] = coordinate_domain
+        domains[f"{route_name}_chroma_coordinate_policy"] = coordinate_domain
     domains["boundary_mode"] = tuple(operator["boundary_mode"])
     for name, values in operator.items():
         if name not in {"coordinate_policy_by_route", "boundary_mode"}:
@@ -1167,8 +1179,10 @@ _SHARED_BANK_COORDINATES = (
     "chroma_edge_confidence_unorm15",
     "direct_2x_analysis_grid_source_step",
     "direct_3_over_2_analysis_grid_source_step",
-    "direct_2x_coordinate_policy",
-    "direct_3_over_2_coordinate_policy",
+    "direct_2x_luma_coordinate_policy",
+    "direct_2x_chroma_coordinate_policy",
+    "direct_3_over_2_luma_coordinate_policy",
+    "direct_3_over_2_chroma_coordinate_policy",
     "boundary_mode",
     "anisotropy_strength_q12",
     "minimum_anisotropic_magnitude_unorm15",
@@ -1823,14 +1837,17 @@ def _validate_runtime_adapter(
         raise CalibrationError("candidate adapter lacks Swift CLI executable/source binding")
     for route in ROUTES:
         binding = route_bindings[route]
+        route_key = route.replace("-", "_").replace("3over2", "3_over_2")
         if (
             not isinstance(binding, dict)
             or not _is_sha256(binding.get("whole_file_sha256"))
             or not _is_sha256(binding.get("payload_sha256"))
-            or binding.get("coordinate_policy")
-            != vector[route.replace("-", "_").replace("3over2", "3_over_2") + "_coordinate_policy"]
+            or binding.get("luma_coordinate_policy")
+            != vector[f"{route_key}_luma_coordinate_policy"]
+            or binding.get("chroma_coordinate_policy")
+            != vector[f"{route_key}_chroma_coordinate_policy"]
             or binding.get("analysis_grid_source_step")
-            != vector[route.replace("-", "_").replace("3over2", "3_over_2") + "_analysis_grid_source_step"]
+            != vector[f"{route_key}_analysis_grid_source_step"]
         ):
             raise CalibrationError(f"candidate adapter route binding is invalid: {route}")
     if configuration.get("boundary_mode") != vector["boundary_mode"]:

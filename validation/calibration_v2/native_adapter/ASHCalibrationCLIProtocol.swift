@@ -1332,24 +1332,23 @@ final class ASHCalibrationNativeSession {
                     .maximumOperatorEvaluations,
                 "serialization_rebind_contract": ASHCalibrationCorrectiveHashContract
                     .serializationRebindID,
-                "original_coordinate_policy": configuration.routeSelection(
+                "original_luma_coordinate_policy": configuration.routeSelection(
                     for: frame.route
-                ).coordinatePolicy.rawValue,
-                "serialized_coordinate_policy": generic.diagnosticConfiguration
-                    .routeSelection(for: frame.route).coordinatePolicy.rawValue,
+                ).lumaCoordinatePolicy.rawValue,
+                "original_chroma_coordinate_policy": configuration.routeSelection(
+                    for: frame.route
+                ).chromaCoordinatePolicy.rawValue,
+                "serialized_luma_coordinate_policy": generic.diagnosticConfiguration
+                    .routeSelection(for: frame.route).lumaCoordinatePolicy.rawValue,
+                "serialized_chroma_coordinate_policy": generic.diagnosticConfiguration
+                    .routeSelection(for: frame.route).chromaCoordinatePolicy.rawValue,
                 "serialization_rebind_applied": configuration.routeSelection(
                     for: frame.route
-                ).coordinatePolicy != generic.diagnosticConfiguration.routeSelection(
-                    for: frame.route
-                ).coordinatePolicy,
+                ) != generic.diagnosticConfiguration.routeSelection(for: frame.route),
                 "serialization_rebind_sha256": correctiveSerializationRebindSHA256(
                     route: frame.route,
-                    original: configuration.routeSelection(
-                        for: frame.route
-                    ).coordinatePolicy,
-                    serialized: generic.diagnosticConfiguration.routeSelection(
-                        for: frame.route
-                    ).coordinatePolicy
+                    original: configuration.routeSelection(for: frame.route),
+                    serialized: generic.diagnosticConfiguration.routeSelection(for: frame.route)
                 )
             ],
             "session_counters": [
@@ -1452,8 +1451,8 @@ final class ASHCalibrationNativeSession {
                 "generic corrective LUT serialize/load binding"
             )
         }
-        if configuration.routeSelection(for: route).coordinatePolicy
-            == .sourceAlignedRational {
+        if configuration.routeSelection(for: route) != containerConfiguration
+            .routeSelection(for: route) {
             do {
                 _ = try ASHLUTBinaryCodecV2.load(
                     artifact.data,
@@ -1484,7 +1483,8 @@ final class ASHCalibrationNativeSession {
     ) throws -> ASHLUTLockedConfigurationV2 {
         let routeSelection = configuration.routeSelection(for: route)
         let diagnosticSelection = try ASHLUTLockedRouteSelectionV2(
-            coordinatePolicy: .halfPixelCenter,
+            lumaCoordinatePolicy: .halfPixelCenter,
+            chromaCoordinatePolicy: .halfPixelCenter,
             analysisGridSourceStep: routeSelection.analysisGridSourceStep
         )
         let routes = ASHLUTLockedRoutesV2(
@@ -1517,7 +1517,8 @@ final class ASHCalibrationNativeSession {
                 primary: entry.parameters.primary,
                 secondary: entry.parameters.secondary,
                 confidenceThresholdUNorm16: entry.parameters.confidenceThresholdUNorm16,
-                coordinatePolicy: .halfPixelCenter,
+                lumaCoordinatePolicy: .halfPixelCenter,
+                chromaCoordinatePolicy: .halfPixelCenter,
                 boundaryMode: entry.parameters.boundaryMode
             )
             return ASHLUTCompiledEntryV2(
@@ -1558,15 +1559,19 @@ final class ASHCalibrationNativeSession {
 
     func correctiveSerializationRebindSHA256(
         route: ASHSpatialRouteV2,
-        original: ASHSpatialCoordinatePolicyV2,
-        serialized: ASHSpatialCoordinatePolicyV2
+        original: ASHLUTLockedRouteSelectionV2,
+        serialized: ASHLUTLockedRouteSelectionV2
     ) -> String {
         var data = ASHCalibrationCorrectiveHashContract.serializationRebindDomain
         data.append(Data(route.rawValue.utf8))
         data.append(0)
-        data.append(Data(original.rawValue.utf8))
+        data.append(Data(original.lumaCoordinatePolicy.rawValue.utf8))
         data.append(0)
-        data.append(Data(serialized.rawValue.utf8))
+        data.append(Data(original.chromaCoordinatePolicy.rawValue.utf8))
+        data.append(0)
+        data.append(Data(serialized.lumaCoordinatePolicy.rawValue.utf8))
+        data.append(0)
+        data.append(Data(serialized.chromaCoordinatePolicy.rawValue.utf8))
         data.append(0)
         data.append(original == serialized ? 0 : 1)
         return ASHCalibrationCLIHash.hex(data)
@@ -1595,7 +1600,8 @@ final class ASHCalibrationNativeSession {
                 && source.parameters.confidenceThresholdUNorm16
                     == rebound.parameters.confidenceThresholdUNorm16
                 && source.parameters.boundaryMode == rebound.parameters.boundaryMode
-                && rebound.parameters.coordinatePolicy == .halfPixelCenter
+                && rebound.parameters.lumaCoordinatePolicy == .halfPixelCenter
+                && rebound.parameters.chromaCoordinatePolicy == .halfPixelCenter
         }
     }
 
@@ -2435,8 +2441,10 @@ final class ASHCalibrationNativeSession {
                 proof = [
                     "dispatch_source": "uniform_conventional_separable",
                     "algorithm_id": algorithm.rawValue,
-                    "coordinate_policy": configuration.routeSelection(for: frame.route)
-                        .coordinatePolicy.rawValue,
+                    "luma_coordinate_policy": configuration.routeSelection(for: frame.route)
+                        .lumaCoordinatePolicy.rawValue,
+                    "chroma_coordinate_policy": configuration.routeSelection(for: frame.route)
+                        .chromaCoordinatePolicy.rawValue,
                     "boundary_mode": configuration.boundaryMode.rawValue
                 ]
             case .nearest:
@@ -2616,6 +2624,8 @@ final class ASHCalibrationNativeSession {
         _ summary: ASHLockedReferenceSummaryV2
     ) -> [String: Any] {
         [
+            "luma_coordinate_policy": summary.lumaCoordinatePolicy.rawValue,
+            "chroma_coordinate_policy": summary.chromaCoordinatePolicy.rawValue,
             "state_histogram": summary.stateHistogram.keys.sorted().map { state in
                 [
                     "state_raw_value": Int(state),

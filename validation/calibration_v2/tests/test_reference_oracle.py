@@ -18,7 +18,7 @@ SHARED_FIXTURE_PATH = (
     CALIBRATION_ROOT / "fixtures" / "locked-compiler-input-shared-v1.json"
 )
 SHARED_FIXTURE_FILE_SHA256 = (
-    "75293d2c18998df82131305fa33e4805f555246632137c3f7ae393a7d700ee7f"
+    "ba5438b47365c92175a6601aa757138648251004f0e4ddeba13969fdaa0428bb"
 )
 
 
@@ -105,11 +105,13 @@ def locked_input_fixture():
         },
         "routes": {
             "direct_2x": {
-                "coordinate_policy": "source_aligned_rational",
+                "luma_coordinate_policy": "source_aligned_rational",
+                "chroma_coordinate_policy": "half_pixel_center",
                 "analysis_grid_source_step": 1,
             },
             "direct_3_over_2": {
-                "coordinate_policy": "half_pixel_center",
+                "luma_coordinate_policy": "half_pixel_center",
+                "chroma_coordinate_policy": "source_aligned_rational",
                 "analysis_grid_source_step": 2,
             },
         },
@@ -123,7 +125,9 @@ def locked_input_fixture():
         "source_aligned": {
             "exact": True,
             "predicate": (
-                "source_aligned_rational with horizontal phase zero and vertical phase zero"
+                "both luma and chroma coordinate policies are "
+                "source_aligned_rational with horizontal phase zero and "
+                "vertical phase zero"
             ),
             "primary_message": 0,
             "primary_descriptor": 0,
@@ -167,7 +171,7 @@ class CanonicalReferenceTests(unittest.TestCase):
         )
         self.assertEqual(
             self.document["hash_bindings"]["compiler_inputs_sha256"],
-            "63fd1b11387d72e9209e6d833233512b5ddc34315865edfdd30696001de41f9f",
+            "77b5ae88de2735626df508f41777662d71529a65d864b17c6dbc009d23890851",
         )
 
     def test_locked_input_self_hash_and_mutation_are_checked(self):
@@ -290,7 +294,15 @@ class CanonicalReferenceTests(unittest.TestCase):
             self.assertEqual(entry.primary, alias.primary)
             self.assertEqual(entry.secondary, alias.secondary)
             self.assertEqual(entry.primary_slot, alias.primary_slot)
-        exact = oracle.compile_cell(route, self.configuration, 0, 0, ordinal)
+        exact_document = json.loads(json.dumps(self.document))
+        exact_document["routes"]["direct_2x"][
+            "chroma_coordinate_policy"
+        ] = "source_aligned_rational"
+        exact_document["hash_bindings"][
+            "compiler_inputs_sha256"
+        ] = canonical_self_hash(exact_document)
+        exact_configuration = oracle.parse_locked_compiler_input(exact_document)
+        exact = oracle.compile_cell(route, exact_configuration, 0, 0, ordinal)
         self.assertTrue(exact.source_aligned_exact)
         self.assertEqual(
             (
@@ -312,6 +324,33 @@ class CanonicalReferenceTests(unittest.TestCase):
         )
         self.assertFalse(half_pixel.source_aligned_exact)
 
+    def test_source_exact_requires_both_plane_policies(self):
+        state = oracle.VALID_STATES[0]
+        for half_pixel_plane in (
+            "luma_coordinate_policy",
+            "chroma_coordinate_policy",
+        ):
+            document = json.loads(json.dumps(self.document))
+            document["routes"]["direct_2x"].update(
+                {
+                    "luma_coordinate_policy": "source_aligned_rational",
+                    "chroma_coordinate_policy": "source_aligned_rational",
+                    half_pixel_plane: "half_pixel_center",
+                }
+            )
+            document["hash_bindings"][
+                "compiler_inputs_sha256"
+            ] = canonical_self_hash(document)
+            configuration = oracle.parse_locked_compiler_input(document)
+            entry = oracle.compile_cell(
+                oracle.ROUTES["direct_2x"],
+                configuration,
+                0,
+                0,
+                oracle.RAW_TO_VALID_ORDINAL[state],
+            )
+            self.assertFalse(entry.source_aligned_exact)
+
 
 class BinaryReferenceTests(unittest.TestCase):
     @classmethod
@@ -329,6 +368,7 @@ class BinaryReferenceTests(unittest.TestCase):
     def test_route_serialization_is_deterministic_sorted_and_self_validating(self):
         repeated = oracle.compile_route_bytes(self.route, self.configuration)
         self.assertEqual(self.data, repeated)
+        self.assertEqual(struct.unpack_from("<HH", self.data, 8), (1, 1))
         validated = oracle.validate_lut(
             self.data,
             expected_configuration=self.configuration,
@@ -342,6 +382,10 @@ class BinaryReferenceTests(unittest.TestCase):
             for index in range(parameter_count)
         ]
         self.assertEqual(prefixes, sorted(set(prefixes)))
+        for prefix in prefixes:
+            self.assertEqual(prefix[50], 1)
+            self.assertEqual(prefix[54], 0)
+            self.assertEqual(prefix[55:60], b"\x00" * 5)
         self.assertEqual(hashlib.sha256(self.data).hexdigest(), validated.whole_file_sha256)
 
     def test_state_conditioning_evidence_excludes_anchor_only_changes(self):

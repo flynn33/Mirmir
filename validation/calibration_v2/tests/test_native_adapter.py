@@ -202,6 +202,8 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
         ):
             dispatch_count = 3 * phase_pair_count
             summary = {
+                "luma_coordinate_policy": "source_aligned_rational",
+                "chroma_coordinate_policy": "half_pixel_center",
                 "state_histogram": [
                     {"state_raw_value": 0, "count": 3}
                 ],
@@ -220,7 +222,29 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                 summary,
                 control_mode="full_ash",
                 target_route=route,
+                expected_luma_coordinate_policy="source_aligned_rational",
+                expected_chroma_coordinate_policy="half_pixel_center",
             )
+
+            for field, replacement in (
+                ("luma_coordinate_policy", "half_pixel_center"),
+                ("chroma_coordinate_policy", "source_aligned_rational"),
+            ):
+                wrong_policy = dict(summary)
+                wrong_policy[field] = replacement
+                with self.assertRaisesRegex(
+                    NativeAdapterError,
+                    "field set is invalid",
+                ):
+                    NativeCandidateCallable._validate_locked_runtime_summary(
+                        wrong_policy,
+                        control_mode="full_ash",
+                        target_route=route,
+                        expected_luma_coordinate_policy=(
+                            "source_aligned_rational"
+                        ),
+                        expected_chroma_coordinate_policy="half_pixel_center",
+                    )
 
             wrong_phase_count = dict(summary)
             wrong_phase_count["dispatch_record_count"] -= 1
@@ -232,6 +256,8 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                     wrong_phase_count,
                     control_mode="full_ash",
                     target_route=route,
+                    expected_luma_coordinate_policy="source_aligned_rational",
+                    expected_chroma_coordinate_policy="half_pixel_center",
                 )
 
             out_of_bounds_occupancy = dict(summary)
@@ -244,6 +270,8 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                     out_of_bounds_occupancy,
                     control_mode="full_ash",
                     target_route=route,
+                    expected_luma_coordinate_policy="source_aligned_rational",
+                    expected_chroma_coordinate_policy="half_pixel_center",
                 )
 
     def test_both_routes_are_native_deterministic_and_common_nv12_quantized(self) -> None:
@@ -550,6 +578,8 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                 self.assertEqual(
                     set(summary),
                     {
+                        "luma_coordinate_policy",
+                        "chroma_coordinate_policy",
                         "state_histogram",
                         "operator_histogram",
                         "maximum_operator_evaluations",

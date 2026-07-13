@@ -76,7 +76,7 @@ extension ASHLockedRuntimeV2 {
             diagnosticOptions: DiagnosticEvaluationOptions(
                 coordinatePolicy: configuration
                     .routeSelection(for: dispatchGrid.route)
-                    .coordinatePolicy,
+                    .coordinatePolicy(for: chromaSiting == nil ? .luma : .chroma),
                 anisotropyStrengthQ12Override: nil
             )
         )
@@ -249,7 +249,8 @@ extension ASHLockedRuntimeV2 {
               analysisGrid.sourceHeight == expectedLumaHeight else {
             throw ASHLockedRuntimeV2Error.invalidAnalysisGrid
         }
-        let coordinatePolicy = coordinatePolicyOverride ?? routeSelection.coordinatePolicy
+        let coordinatePolicy = coordinatePolicyOverride
+            ?? routeSelection.coordinatePolicy(for: chromaSiting == nil ? .luma : .chroma)
         let sourceCoordinates = try coordinates(
             plane: plane,
             destinationColumn: destinationColumn,

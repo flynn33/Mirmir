@@ -59,8 +59,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 OUTPUT_Y_SHAPE = (192, 324)
 OUTPUT_CHROMA_SHAPE = (96, 162)
 MAXIMUM_UNIQUE_RULES_PER_BANK = 1297
-FIRST_OUTER_SWEEP_BANK_COUNT = 39
-MAXIMUM_BANK_COUNT = 305
+FIRST_OUTER_SWEEP_BANK_COUNT = 41
+MAXIMUM_BANK_COUNT = 321
 PREPARED_CASE_COUNT = 18
 RULE_SCOPED_NATIVE_PROOF_FILES_PER_RULE = PREPARED_CASE_COUNT
 RULE_SCOPED_NATIVE_PROOF_DIRECTORIES_PER_RULE = PREPARED_CASE_COUNT
@@ -2079,8 +2079,8 @@ def test_benchmark_formula_derivation_matches_bound_contracts() -> None:
         baseline["non_ash_selector"],
     )
 
-    assert derivation["derived_first_outer_sweep_bank_count"] == 39
-    assert derivation["derived_maximum_bank_count"] == 305
+    assert derivation["derived_first_outer_sweep_bank_count"] == 41
+    assert derivation["derived_maximum_bank_count"] == 321
     assert derivation["derived_maximum_unique_rules_per_bank"] == 1297
 
 
@@ -3138,9 +3138,15 @@ def test_actual_native_tracked_full_selector_cold_warm_benchmark(
     bank = str(adapter.configuration["shared_bank_configuration_sha256"])
     route_execution_contract = {
         "routes": ["direct-2x", "direct-3over2"],
-        "coordinate_policy_by_route": {
+        "luma_coordinate_policy_by_route": {
             route: adapter.configuration["route_luts"][route][
-                "coordinate_policy"
+                "luma_coordinate_policy"
+            ]
+            for route in ("direct-2x", "direct-3over2")
+        },
+        "chroma_coordinate_policy_by_route": {
+            route: adapter.configuration["route_luts"][route][
+                "chroma_coordinate_policy"
             ]
             for route in ("direct-2x", "direct-3over2")
         },
@@ -4031,24 +4037,24 @@ def test_actual_native_tracked_full_selector_cold_warm_benchmark(
             ),
             "native_calls_per_bank_formula": "1297 * 18 = 23346",
             "native_calls_first_outer_sweep_formula": (
-                "23346 * 39 = 910494"
+                "23346 * 41 = 957186"
             ),
-            "native_calls_all_banks_formula": "23346 * 305 = 7120530",
+            "native_calls_all_banks_formula": "23346 * 321 = 7494066",
             "rule_scoped_files_per_rule_formula": "18 + 1 + 2 = 21",
             "rule_scoped_files_per_bank_formula": "1297 * 21 = 27237",
             "rule_scoped_files_first_outer_sweep_formula": (
-                "27237 * 39 = 1062243"
+                "27237 * 41 = 1116717"
             ),
             "rule_scoped_files_all_banks_formula": (
-                "27237 * 305 = 8307285"
+                "27237 * 321 = 8743077"
             ),
             "rule_scoped_inodes_per_rule_formula": "21 + 18 = 39",
             "rule_scoped_inodes_per_bank_formula": "1297 * 39 = 50583",
             "rule_scoped_inodes_first_outer_sweep_formula": (
-                "50583 * 39 = 1972737"
+                "50583 * 41 = 2073903"
             ),
             "rule_scoped_inodes_all_banks_formula": (
-                "50583 * 305 = 15427815"
+                "50583 * 321 = 16237143"
             ),
         },
         "empirical_storage_projection": {
@@ -4303,14 +4309,14 @@ def test_actual_native_tracked_full_selector_cold_warm_benchmark(
         observed_attempt_ledger_logical_bytes
     )
     assert maximum_native_calls_per_bank == 23_346
-    assert maximum_native_calls_first_outer_sweep == 910_494
-    assert maximum_native_calls_all_banks == 7_120_530
+    assert maximum_native_calls_first_outer_sweep == 957_186
+    assert maximum_native_calls_all_banks == 7_494_066
     assert maximum_rule_scoped_files_per_bank == 27_237
-    assert maximum_rule_scoped_files_first_outer_sweep == 1_062_243
-    assert maximum_rule_scoped_files_all_banks == 8_307_285
+    assert maximum_rule_scoped_files_first_outer_sweep == 1_116_717
+    assert maximum_rule_scoped_files_all_banks == 8_743_077
     assert maximum_rule_scoped_inodes_per_bank == 50_583
-    assert maximum_rule_scoped_inodes_first_outer_sweep == 1_972_737
-    assert maximum_rule_scoped_inodes_all_banks == 15_427_815
+    assert maximum_rule_scoped_inodes_first_outer_sweep == 2_073_903
+    assert maximum_rule_scoped_inodes_all_banks == 16_237_143
     assert warm_native_storage == cold_native_storage
     assert warm_evidence_storage == cold_evidence_storage
     unhashed_inputs = dict(benchmark_input_closure)

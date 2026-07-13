@@ -171,7 +171,7 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
             edgePresent: band(thresholds["edge_present"]),
             coherentStructure: band(thresholds["coherent_structure"]),
             textureHighFrequency: band(thresholds["texture_high_frequency"]),
-            aliasOrRingingRisk: band(thresholds["alias_or_ringing_risk"]),
+            aliasOrRingingRisk: aliasRiskBand(thresholds["alias_or_ringing_risk"]),
             temporalSupportValid: fixedTemporalBand(
                 thresholds["temporal_support_valid"]
             ),
@@ -223,6 +223,18 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
         let result = try encodedBand(value)
         guard [3_277, 4_915, 6_553, 8_192, 9_830].contains(result.low),
               [9_830, 11_468, 13_107, 14_745, 16_384].contains(result.high),
+              result.high - result.low >= 3_277 else {
+            throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+        return try decodedBand(result)
+    }
+
+    private static func aliasRiskBand(
+        _ value: ASHLUTStrictJSONValueV2?
+    ) throws -> ASHVideoAnalyzerV2ThresholdBand {
+        let result = try encodedBand(value)
+        guard [0, 3_277, 4_915, 6_553, 8_192, 9_830].contains(result.low),
+              [3_277, 9_830, 11_468, 13_107, 14_745, 16_384].contains(result.high),
               result.high - result.low >= 3_277 else {
             throw ASHLockedVideoMappingV2Error.invalidValue
         }

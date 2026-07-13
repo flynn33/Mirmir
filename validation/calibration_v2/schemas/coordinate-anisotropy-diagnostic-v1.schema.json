@@ -80,8 +80,6 @@
         "payload_sha256",
         "entry_count",
         "serialization_rebind_contract",
-        "original_coordinate_policy",
-        "serialized_coordinate_policy",
         "serialization_rebind_applied",
         "serialization_rebind_sha256"
       ],
@@ -93,9 +91,43 @@
         "serialization_rebind_contract": {"const": "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"},
         "original_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
         "serialized_coordinate_policy": {"const": "half_pixel_center"},
+        "original_luma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "original_chroma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "serialized_luma_coordinate_policy": {"const": "half_pixel_center"},
+        "serialized_chroma_coordinate_policy": {"const": "half_pixel_center"},
         "serialization_rebind_applied": {"type": "boolean"},
         "serialization_rebind_sha256": {"$ref": "#/$defs/sha256"}
       },
+      "oneOf": [
+        {
+          "required": [
+            "original_coordinate_policy",
+            "serialized_coordinate_policy"
+          ],
+          "not": {
+            "anyOf": [
+              {"required": ["original_luma_coordinate_policy"]},
+              {"required": ["original_chroma_coordinate_policy"]},
+              {"required": ["serialized_luma_coordinate_policy"]},
+              {"required": ["serialized_chroma_coordinate_policy"]}
+            ]
+          }
+        },
+        {
+          "required": [
+            "original_luma_coordinate_policy",
+            "original_chroma_coordinate_policy",
+            "serialized_luma_coordinate_policy",
+            "serialized_chroma_coordinate_policy"
+          ],
+          "not": {
+            "anyOf": [
+              {"required": ["original_coordinate_policy"]},
+              {"required": ["serialized_coordinate_policy"]}
+            ]
+          }
+        }
+      ],
       "additionalProperties": false
     },
     "inputBindings": {

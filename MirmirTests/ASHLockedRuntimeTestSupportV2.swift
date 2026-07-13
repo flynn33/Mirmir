@@ -25,11 +25,13 @@ enum ASHLockedRuntimeTestSupportV2 {
         Dictionary(uniqueKeysWithValues: ASHSpatialRouteV2.allCases.map { route in
             (route, Result { try makeLockedMappingFixture(route) })
         })
+}
 
+extension ASHLockedRuntimeTestSupportV2 {
     static func existingFixture(_ route: ASHSpatialRouteV2) throws -> Fixture {
         switch route {
         case .direct2x:
-            let source = try ASHLUTTestSupportV2.sourceDirect2x()
+            let source = try ASHLUTTestSupportV2.mixedDirect2x()
             return Fixture(
                 configuration: source.configuration,
                 compilation: source.compilation,
@@ -40,7 +42,7 @@ enum ASHLockedRuntimeTestSupportV2 {
                 )
             )
         case .direct3Over2:
-            let source = try ASHLUTTestSupportV2.halfPixelDirect3Over2()
+            let source = try ASHLUTTestSupportV2.mixedDirect3Over2()
             return Fixture(
                 configuration: source.configuration,
                 compilation: source.compilation,
@@ -62,8 +64,32 @@ enum ASHLockedRuntimeTestSupportV2 {
         return try result.get()
     }
 
+    static func preDiagnosticLockedMappingFixture(
+        _ route: ASHSpatialRouteV2
+    ) throws -> MappingFixture {
+        let base = try ASHLUTTestSupportV2.sharedConfiguration()
+        let legacyRoutes = ASHLUTLockedRoutesV2(
+            direct2x: try ASHLUTLockedRouteSelectionV2(
+                lumaCoordinatePolicy: .sourceAlignedRational,
+                chromaCoordinatePolicy: .sourceAlignedRational,
+                analysisGridSourceStep: 1
+            ),
+            direct3Over2: try ASHLUTLockedRouteSelectionV2(
+                lumaCoordinatePolicy: .halfPixelCenter,
+                chromaCoordinatePolicy: .halfPixelCenter,
+                analysisGridSourceStep: 2
+            )
+        )
+        return try makeLockedMappingFixture(
+            route,
+            base: configurationCopy(base, routes: legacyRoutes)
+        )
+    }
+
     static func lockedMappingData(
-        edgePresentLow: Int = 6_553
+        edgePresentLow: Int = 6_553,
+        aliasRiskLow: Int = 6_553,
+        aliasRiskHigh: Int = 13_107
     ) throws -> Data {
         let document: [String: Any] = [
             "analysis_epsilon_q0_30": 1,
@@ -98,7 +124,7 @@ enum ASHLockedRuntimeTestSupportV2 {
             "shared_bank_configuration_sha256": String(repeating: "cc", count: 32),
             "status": "calibration_candidate",
             "thresholds_unorm15": [
-                "alias_or_ringing_risk": ["high": 13_107, "low": 6_553],
+                "alias_or_ringing_risk": ["high": aliasRiskHigh, "low": aliasRiskLow],
                 "chroma_luma_structure_aligned": ["high": 13_107, "low": 6_553],
                 "coherent_structure": ["high": 13_107, "low": 6_553],
                 "edge_present": ["high": 13_107, "low": edgePresentLow],
@@ -145,7 +171,8 @@ enum ASHLockedRuntimeTestSupportV2 {
     ) throws -> ASHLUTLockedConfigurationV2 {
         let base = try ASHLUTTestSupportV2.configuration(policy: policy)
         let selection = try ASHLUTLockedRouteSelectionV2(
-            coordinatePolicy: policy,
+            lumaCoordinatePolicy: policy,
+            chromaCoordinatePolicy: policy,
             analysisGridSourceStep: UInt8(step)
         )
         let routeByte = route == .direct2x ? UInt8(0x70) : UInt8(0x78)
@@ -182,6 +209,26 @@ enum ASHLockedRuntimeTestSupportV2 {
             semanticSteps: source.semanticSteps,
             compilerPolicy: source.compilerPolicy,
             routes: source.routes
+        )
+    }
+
+    static func configurationCopy(
+        _ source: ASHLUTLockedConfigurationV2,
+        routes: ASHLUTLockedRoutesV2
+    ) throws -> ASHLUTLockedConfigurationV2 {
+        try ASHLUTLockedConfigurationV2(
+            configurationID: source.configurationID,
+            mappingSHA256: source.mappingSHA256,
+            operatorBankSHA256: source.operatorBankSHA256,
+            metricPolicySHA256: source.metricPolicySHA256,
+            compilerInputsSHA256: source.compilerInputsSHA256,
+            calibrationPlanSHA256: source.calibrationPlanSHA256,
+            corpusLockBundleSHA256: source.corpusLockBundleSHA256,
+            boundaryMode: source.boundaryMode,
+            operatorParameters: source.operatorParameters,
+            semanticSteps: source.semanticSteps,
+            compilerPolicy: source.compilerPolicy,
+            routes: routes
         )
     }
 
@@ -270,8 +317,10 @@ enum ASHLockedRuntimeTestSupportV2 {
             localMaximum: 1.0
         )
     }
+}
 
-    private static func codePlane(
+private extension ASHLockedRuntimeTestSupportV2 {
+    static func codePlane(
         width: Int,
         height: Int,
         generator: (Int, Int) -> UInt8
@@ -291,10 +340,19 @@ enum ASHLockedRuntimeTestSupportV2 {
         )
     }
 
-    private static func makeLockedMappingFixture(
+    static func makeLockedMappingFixture(
         _ route: ASHSpatialRouteV2
     ) throws -> MappingFixture {
-        let base = try existingFixture(route).configuration
+        try makeLockedMappingFixture(
+            route,
+            base: existingFixture(route).configuration
+        )
+    }
+
+    static func makeLockedMappingFixture(
+        _ route: ASHSpatialRouteV2,
+        base: ASHLUTLockedConfigurationV2
+    ) throws -> MappingFixture {
         let mappingData = try lockedMappingData()
         let mappingSHA256 = ASHLUTHashV2(
             validatedBytes: Array(SHA256.hash(data: mappingData))
@@ -327,7 +385,7 @@ enum ASHLockedRuntimeTestSupportV2 {
         )
     }
 
-    private static func lumaCode(column: Int, row: Int, width: Int) -> UInt8 {
+    static func lumaCode(column: Int, row: Int, width: Int) -> UInt8 {
         if column < width / 2 {
             let value = 16 + ((column * 17 + row * 37) % 100)
             return UInt8(value)
@@ -337,11 +395,11 @@ enum ASHLockedRuntimeTestSupportV2 {
         return UInt8(value)
     }
 
-    private static func cbCode(column: Int, row: Int) -> UInt8 {
+    static func cbCode(column: Int, row: Int) -> UInt8 {
         UInt8(16 + ((column * 47 + row * 23) % 225))
     }
 
-    private static func crCode(column: Int, row: Int) -> UInt8 {
+    static func crCode(column: Int, row: Int) -> UInt8 {
         UInt8(240 - ((column * 29 + row * 53) % 225))
     }
 }

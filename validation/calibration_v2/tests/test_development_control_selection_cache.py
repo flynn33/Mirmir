@@ -1250,7 +1250,7 @@ def test_production_evaluator_cold_then_fresh_threshold_neighbor_cache_hit(
     cache_root = cache_parent / _DEVELOPMENT_CONTROL_SELECTION_CACHE_DIRECTORY
     evidence_root = tmp_path / "evidence"
     cold_vector = {
-        **{f"integration_coordinate_{ordinal:02d}": 0 for ordinal in range(39)},
+        **{f"integration_coordinate_{ordinal:02d}": 0 for ordinal in range(41)},
         "edge_present_low_unorm15": 4096,
     }
     threshold_neighbor = {

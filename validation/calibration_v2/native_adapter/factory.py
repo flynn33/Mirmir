@@ -1927,7 +1927,12 @@ class NativeSwiftBuilder:
                 route: {
                     "whole_file_sha256": rows_by_route[route]["whole_file_sha256"],
                     "payload_sha256": rows_by_route[route]["payload_sha256"],
-                    "coordinate_policy": rows_by_route[route]["coordinate_policy"],
+                    "luma_coordinate_policy": rows_by_route[route][
+                        "luma_coordinate_policy"
+                    ],
+                    "chroma_coordinate_policy": rows_by_route[route][
+                        "chroma_coordinate_policy"
+                    ],
                     "analysis_grid_source_step": rows_by_route[route][
                         "analysis_grid_source_step"
                     ],
@@ -5637,14 +5642,21 @@ class NativeCandidateCallable:
         ):
             raise NativeAdapterError("native control summary binding mismatch")
         if isinstance(locked_summary, dict):
+            runtime_route = (
+                "direct-2x"
+                if request["control_mode"] == "h07_direct2x_then_lanczos3"
+                else str(native_frame["route"])
+            )
+            route_binding = configuration["route_luts"][runtime_route]
             self._validate_locked_runtime_summary(
                 locked_summary,
                 control_mode=str(request["control_mode"]),
-                target_route=(
-                    "direct-2x"
-                    if request["control_mode"]
-                    == "h07_direct2x_then_lanczos3"
-                    else str(native_frame["route"])
+                target_route=runtime_route,
+                expected_luma_coordinate_policy=str(
+                    route_binding["luma_coordinate_policy"]
+                ),
+                expected_chroma_coordinate_policy=str(
+                    route_binding["chroma_coordinate_policy"]
                 ),
             )
         if isinstance(h07_summary, dict):
@@ -5661,8 +5673,12 @@ class NativeCandidateCallable:
         *,
         control_mode: str,
         target_route: str,
+        expected_luma_coordinate_policy: str,
+        expected_chroma_coordinate_policy: str,
     ) -> None:
         fields = {
+            "luma_coordinate_policy",
+            "chroma_coordinate_policy",
             "state_histogram",
             "operator_histogram",
             "maximum_operator_evaluations",
@@ -5686,6 +5702,10 @@ class NativeCandidateCallable:
         ]
         if (
             set(summary) != fields
+            or summary.get("luma_coordinate_policy")
+            != expected_luma_coordinate_policy
+            or summary.get("chroma_coordinate_policy")
+            != expected_chroma_coordinate_policy
             or not isinstance(states, list)
             or not states
             or not isinstance(operators, list)
