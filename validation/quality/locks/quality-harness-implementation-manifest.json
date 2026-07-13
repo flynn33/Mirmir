@@ -254,8 +254,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v1.json",
-      "sha256": "4ffe325660105a57682e5e0067279436381bfc1614949f9928477e35e23a3133",
-      "size_bytes": 7851
+      "sha256": "4f922f75b33428734d9e2b56b01422643f14f4cb7df1ca22bb74f79ec953ebe6",
+      "size_bytes": 7879
     },
     {
       "relative_path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
@@ -1173,6 +1173,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "43a2f066ceaf830bf0e51d940f155a913860c135dcb9afc6b6ff36a191379c27",
+  "manifest_sha256": "fd538874c0449c1ef2fb872ae66106d13521ccd9991419a147c69f7a967d3e14",
   "schema_version": "1.0.0"
 }
