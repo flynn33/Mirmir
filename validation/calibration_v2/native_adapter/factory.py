@@ -57,9 +57,15 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateModelContractV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateDiagnosticRuntimeV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedPlanePolicyDiagnosticV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHGenericPhaseCompilerDiagnosticV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV2.swift",
@@ -2501,6 +2507,8 @@ class NativeSwiftSession:
         self.configuration = configuration
         self.timeout_seconds = timeout_seconds
         self._lock = threading.Lock()
+        self._corrective_output_bindings: dict[str, object] = {}
+        self._poisoned = False
         command = (
             str(executable.path),
             "serve-candidate",
@@ -2620,9 +2628,157 @@ class NativeSwiftSession:
             )
         return response
 
+    def diagnose_corrective_frame(
+        self,
+        document: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        """Run and fully reopen-validate one development corrective frame."""
+
+        from validation.calibration_v2.corrective_native import (
+            CorrectiveNativeContractError,
+            capture_corrective_native_outputs,
+            close_corrective_native_binding,
+            cleanup_corrective_native_outputs,
+            validate_corrective_native_request,
+            validate_corrective_native_response,
+        )
+
+        if self._poisoned:
+            raise NativeAdapterError(
+                "native session is poisoned after a corrective transport failure"
+            )
+        binding = None
+        request_sent = False
+        binding_key = _sha256(canonical_json_bytes(document))
+        if binding_key in self._corrective_output_bindings:
+            raise NativeAdapterError(
+                "native corrective request has an unreleased output transaction"
+            )
+        try:
+            binding = validate_corrective_native_request(
+                document,
+                configuration=self.configuration.configuration,
+                require_outputs_absent=True,
+            )
+            request_sent = True
+            response = self._send(document)
+            capture_corrective_native_outputs(binding, require_all=True)
+            validated = validate_corrective_native_response(
+                response,
+                binding=binding,
+                configuration=self.configuration.configuration,
+                native_executable_sha256=self.executable.sha256,
+                native_source_manifest_sha256=(
+                    self.executable.source_manifest_sha256
+                ),
+                native_process_id=self.process.pid,
+            )
+            self._corrective_output_bindings[binding_key] = binding
+            binding = None
+            return validated
+        except BaseException as primary_error:
+            termination_error = None
+            if request_sent and not self._poisoned:
+                try:
+                    self._poison_corrective_transport()
+                except BaseException as error:
+                    termination_error = error
+            if binding is not None:
+                capture_error = None
+                try:
+                    capture_corrective_native_outputs(
+                        binding,
+                        require_all=False,
+                    )
+                except BaseException as error:
+                    capture_error = error
+                cleanup_error = None
+                try:
+                    cleanup_corrective_native_outputs(binding)
+                except BaseException as error:
+                    cleanup_error = error
+                finally:
+                    close_corrective_native_binding(binding)
+                if (
+                    termination_error is not None
+                    or capture_error is not None
+                    or cleanup_error is not None
+                ):
+                    combined = NativeAdapterError(
+                        "native corrective request, termination, or output recovery failed"
+                    )
+                    combined.primary_error = primary_error  # type: ignore[attr-defined]
+                    combined.termination_error = termination_error  # type: ignore[attr-defined]
+                    combined.capture_error = capture_error  # type: ignore[attr-defined]
+                    combined.cleanup_error = cleanup_error  # type: ignore[attr-defined]
+                    raise combined from primary_error
+            elif termination_error is not None:
+                combined = NativeAdapterError(
+                    "native corrective request and process termination both failed"
+                )
+                combined.primary_error = primary_error  # type: ignore[attr-defined]
+                combined.termination_error = termination_error  # type: ignore[attr-defined]
+                raise combined from primary_error
+            if isinstance(primary_error, CorrectiveNativeContractError):
+                raise NativeAdapterError(str(primary_error)) from primary_error
+            raise
+
+    def reopen_corrective_frame_output(
+        self,
+        document: Mapping[str, object],
+        path: Path,
+        *,
+        width: int,
+        height: int,
+    ) -> PlanarFrame:
+        """Read one output through its retained transaction descriptor."""
+
+        from validation.calibration_v2.corrective_native import (
+            reopen_corrective_output_frame,
+        )
+
+        key = _sha256(canonical_json_bytes(document))
+        binding = self._corrective_output_bindings.get(key)
+        if binding is None:
+            raise NativeAdapterError(
+                "native corrective output transaction is not active"
+            )
+        return reopen_corrective_output_frame(
+            binding,
+            path,
+            width=width,
+            height=height,
+        )
+
+    def release_corrective_frame_outputs(
+        self,
+        document: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        """Sanitize captured outputs, retain stubs, and close the pinned directory."""
+
+        from validation.calibration_v2.corrective_native import (
+            close_corrective_native_binding,
+            cleanup_corrective_native_outputs,
+        )
+
+        key = _sha256(canonical_json_bytes(document))
+        binding = self._corrective_output_bindings.pop(key, None)
+        if binding is None:
+            raise NativeAdapterError(
+                "native corrective output transaction is not active"
+            )
+        try:
+            return cleanup_corrective_native_outputs(binding)
+        finally:
+            close_corrective_native_binding(binding)
+
     def _send(self, document: Mapping[str, object]) -> Mapping[str, object]:
         payload = canonical_json_bytes(document)
         with self._lock:
+            if self._poisoned:
+                raise NativeAdapterError(
+                    "native session is poisoned after a corrective transport failure"
+                )
             if self.process.poll() is not None:
                 raise NativeAdapterError("native session terminated before request")
             assert self.process.stdin is not None
@@ -2641,7 +2797,35 @@ class NativeSwiftSession:
             )
         return response
 
+    def _poison_corrective_transport(self) -> None:
+        """Make a failed corrective request impossible to reuse or desynchronize."""
+
+        self._poisoned = True
+        if self.process.poll() is None:
+            self.process.kill()
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=5)
+
     def close(self) -> None:
+        recovery_errors = []
+        if self._corrective_output_bindings:
+            from validation.calibration_v2.corrective_native import (
+                close_corrective_native_binding,
+                cleanup_corrective_native_outputs,
+            )
+
+            bindings = tuple(self._corrective_output_bindings.values())
+            self._corrective_output_bindings.clear()
+            for binding in bindings:
+                try:
+                    cleanup_corrective_native_outputs(binding)
+                except BaseException as error:
+                    recovery_errors.append(error)
+                finally:
+                    close_corrective_native_binding(binding)
         if self.process.poll() is None:
             if self.process.stdin is not None and not self.process.stdin.closed:
                 self.process.stdin.close()
@@ -2653,6 +2837,12 @@ class NativeSwiftSession:
         for stream in (self.process.stdin, self.process.stdout, self.process.stderr):
             if stream is not None and not stream.closed:
                 stream.close()
+        if recovery_errors:
+            error = NativeAdapterError(
+                "native corrective output recovery failed while closing session"
+            )
+            error.cleanup_errors = tuple(recovery_errors)  # type: ignore[attr-defined]
+            raise error from recovery_errors[0]
 
     def _readline(self, timeout: float) -> bytes:
         assert self.process.stdout is not None
@@ -2686,6 +2876,71 @@ class _NonASHCachedReconstructionBindings:
     output_height: int
     control_request: Mapping[str, object]
     control_identity: Mapping[str, object]
+
+
+class NativeCorrectiveDiagnosticCapability:
+    """Owned native session for open-development corrective diagnostics only."""
+
+    def __init__(
+        self,
+        *,
+        session: NativeSwiftSession,
+        executable: NativeExecutable,
+        configuration: NativeConfiguration,
+    ) -> None:
+        self.session = session
+        self.executable = executable
+        self.native_configuration = configuration
+        self.configuration = configuration.configuration
+        self._closed = False
+
+    def diagnose_corrective_frame(
+        self,
+        document: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        if self._closed:
+            raise NativeAdapterError("native corrective capability is closed")
+        return self.session.diagnose_corrective_frame(document)
+
+    def reopen_corrective_frame_output(
+        self,
+        document: Mapping[str, object],
+        path: Path,
+        *,
+        width: int,
+        height: int,
+    ) -> PlanarFrame:
+        if self._closed:
+            raise NativeAdapterError("native corrective capability is closed")
+        return self.session.reopen_corrective_frame_output(
+            document,
+            path,
+            width=width,
+            height=height,
+        )
+
+    def release_corrective_frame_outputs(
+        self,
+        document: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        if self._closed:
+            raise NativeAdapterError("native corrective capability is closed")
+        return self.session.release_corrective_frame_outputs(document)
+
+    def close(self) -> None:
+        if not self._closed:
+            try:
+                self.session.close()
+            finally:
+                self._closed = True
+
+    def __enter__(self) -> "NativeCorrectiveDiagnosticCapability":
+        if self._closed:
+            raise NativeAdapterError("native corrective capability is closed")
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()
 
 
 class NativeCandidateCallable:
@@ -6228,6 +6483,36 @@ class NativeCandidateAdapterFactory:
             callable=callable_object,
         )
 
+    def make_corrective_diagnostic_capability(
+        self,
+        vector: Mapping[str, object],
+    ) -> NativeCorrectiveDiagnosticCapability:
+        """Build one development-only native corrective session."""
+
+        if self.verify_bound_inputs:
+            self.bound.verify_unchanged()
+        native = self.builder.ensure_configuration(
+            vector=vector,
+            plan=self.plan,
+            bound=self.bound,
+        )
+        capability = NativeCorrectiveDiagnosticCapability(
+            session=NativeSwiftSession(
+                self.builder.executable,
+                native,
+                timeout_seconds=self.timeout_seconds,
+            ),
+            executable=self.builder.executable,
+            configuration=native,
+        )
+        try:
+            if self.verify_bound_inputs:
+                self.bound.verify_unchanged()
+        except BaseException:
+            capability.close()
+            raise
+        return capability
+
     def make_p07_holdout_adapter(
         self,
         vector: Mapping[str, object],
@@ -6373,9 +6658,59 @@ def make_native_candidate_adapter_factory(
     )
 
 
+def make_native_corrective_diagnostic_capability(
+    repository_root: Path,
+    *,
+    cache_root: Path,
+    bound_inputs: object,
+    vector: Mapping[str, object],
+    timeout_seconds: float = 900.0,
+) -> NativeCorrectiveDiagnosticCapability:
+    """Build only the Swift corrective capability, without a P00 backend."""
+
+    root = repository_root.resolve(strict=True)
+    if root != REPOSITORY_ROOT.resolve(strict=True):
+        raise NativeAdapterError(
+            "native corrective repository root differs from the loaded source tree"
+        )
+    verify = getattr(bound_inputs, "verify_unchanged", None)
+    documents = getattr(bound_inputs, "documents", None)
+    if not callable(verify) or not isinstance(documents, Mapping):
+        raise NativeAdapterError(
+            "native corrective capability requires immutable bound inputs"
+        )
+    plan = documents.get("calibration_plan")
+    if not isinstance(plan, Mapping):
+        raise NativeAdapterError("native corrective calibration plan is absent")
+    verify()
+    builder = NativeSwiftBuilder(root, cache_root.resolve())
+    native = builder.ensure_configuration(
+        vector=vector,
+        plan=plan,
+        bound=bound_inputs,
+    )
+    capability = NativeCorrectiveDiagnosticCapability(
+        session=NativeSwiftSession(
+            builder.executable,
+            native,
+            timeout_seconds=timeout_seconds,
+        ),
+        executable=builder.executable,
+        configuration=native,
+    )
+    try:
+        verify()
+    except BaseException:
+        capability.close()
+        raise
+    return capability
+
+
 __all__ = [
     "NativeAdapterError",
     "NativeCandidateAdapterFactory",
     "NativeCandidateCallable",
+    "NativeCorrectiveDiagnosticCapability",
+    "make_native_corrective_diagnostic_capability",
     "make_native_candidate_adapter_factory",
 ]

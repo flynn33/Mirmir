@@ -725,11 +725,11 @@ enum ASHSpatialOperatorBankV2 {
             let parameter = -0.5
             if distance < 1.0 {
                 return ((parameter + 2.0) * pow(distance, 3.0))
-                    - ((parameter + 3.0) * pow(distance, 2.0)) + 1.0
+                    - ((parameter + 3.0) * (distance * distance)) + 1.0
             }
             if distance < 2.0 {
                 return (parameter * pow(distance, 3.0))
-                    - (5.0 * parameter * pow(distance, 2.0))
+                    - (5.0 * parameter * (distance * distance))
                     + (8.0 * parameter * distance) - (4.0 * parameter)
             }
             return 0.0

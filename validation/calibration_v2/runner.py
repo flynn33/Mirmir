@@ -110,6 +110,12 @@ _RUN_TRANSACTION_INTENT_TARGET_PREFIX = "mirmir-p06-intent-v1:"
 _RUN_PREMARKER_RECOVERY_JOURNAL = ".calibration-pre-marker-recovery"
 _RUN_PREMARKER_RECOVERY_TARGET_PREFIX = "mirmir-p06-pre-marker-recovery-v1:"
 _RUN_RECOVERY_PENDING_TARGET_PREFIX = "mirmir-p06-recovery-record-v1:"
+_DEVELOPMENT_CONTROL_SELECTION_CACHE_DIRECTORY = (
+    ".development-control-selection-cache-v1"
+)
+_DEVELOPMENT_CONTROL_SELECTION_CACHE_SCHEMA = (
+    "development-control-selection-cache-v1.schema.json"
+)
 _PREMARKER_RECOVERY_ACTIONS = frozenset(
     {
         "not_required",
@@ -6053,6 +6059,216 @@ def _write_json_atomic_durable(
             temporary.unlink(missing_ok=True)
 
 
+def _validate_development_control_selection_cache_origin(
+    origin: Mapping[str, object],
+    *,
+    identity: Mapping[str, object],
+) -> Mapping[str, object]:
+    try:
+        validate_schema(
+            origin,
+            SCHEMAS_ROOT / _DEVELOPMENT_CONTROL_SELECTION_CACHE_SCHEMA,
+        )
+    except ValueError as error:
+        raise CalibrationBindingError(
+            "expected development control-selection cache artifact is corrupt"
+        ) from error
+    unhashed = dict(origin)
+    declared = unhashed.pop("origin_manifest_sha256", None)
+    artifacts = origin.get("artifacts")
+    if (
+        origin.get("identity") != dict(identity)
+        or origin.get("identity_sha256") != canonical_sha256(identity)
+        or origin.get("shared_bank_configuration_sha256")
+        != identity.get("shared_bank_configuration_sha256")
+        or origin.get("split") != "development"
+        or origin.get("selection_stage") != "development_provisional"
+        or origin.get("validation_evidence_imported") is not False
+        or origin.get("holdout_evidence_imported") is not False
+        or origin.get("candidate_bound_outputs_cached") is not False
+        or declared != canonical_sha256(unhashed)
+        or not isinstance(artifacts, dict)
+        or set(artifacts)
+        != {"best_fixed", "conventional", "non_ash_selector"}
+        or any(
+            not isinstance(embedded, dict)
+            or set(embedded) != {"sha256", "document"}
+            or not isinstance(embedded.get("document"), dict)
+            or embedded.get("sha256")
+            != canonical_sha256(embedded["document"])
+            for embedded in artifacts.values()
+        )
+    ):
+        raise CalibrationBindingError(
+            "expected development control-selection cache artifact is corrupt"
+        )
+    return json.loads(canonical_json_bytes(origin))
+
+
+class _DevelopmentControlSelectionCache:
+    """Pinned, atomic, development-only bank selection origin store."""
+
+    def __init__(self, root: Path) -> None:
+        if (
+            root.name != _DEVELOPMENT_CONTROL_SELECTION_CACHE_DIRECTORY
+            or not root.is_absolute()
+        ):
+            raise CalibrationBindingError(
+                "development control-selection cache root is invalid"
+            )
+        parent_descriptor, parent_identity = _open_directory_nofollow(
+            root.parent
+        )
+        try:
+            self._descriptor = _open_or_create_child_directory_at(
+                parent_descriptor,
+                root.name,
+                display_path=root,
+            )
+        except BaseException:
+            os.close(parent_descriptor)
+            raise
+        self._parent_descriptor = parent_descriptor
+        self._parent_identity = parent_identity
+        opened = os.fstat(self._descriptor)
+        self._identity = (opened.st_dev, opened.st_ino)
+        self._root = root
+        try:
+            storage_source = Path(__file__).resolve(strict=True)
+            schema_path = (
+                SCHEMAS_ROOT / _DEVELOPMENT_CONTROL_SELECTION_CACHE_SCHEMA
+            ).resolve(strict=True)
+            if (
+                storage_source.is_symlink()
+                or not storage_source.is_file()
+                or schema_path.is_symlink()
+                or not schema_path.is_file()
+            ):
+                raise OSError("cache implementation closure is not regular")
+            self._implementation_identity = {
+                "storage_implementation_sha256": hashlib.sha256(
+                    storage_source.read_bytes()
+                ).hexdigest(),
+                "cache_schema_sha256": hashlib.sha256(
+                    schema_path.read_bytes()
+                ).hexdigest(),
+            }
+        except OSError as error:
+            os.close(self._descriptor)
+            self._descriptor = -1
+            os.close(self._parent_descriptor)
+            self._parent_descriptor = -1
+            raise CalibrationBindingError(
+                "development control-selection cache implementation cannot be hash-bound"
+            ) from error
+
+    @property
+    def implementation_identity(self) -> Mapping[str, object]:
+        return dict(self._implementation_identity)
+
+    def _require_open(self) -> int:
+        if self._descriptor < 0 or self._parent_descriptor < 0:
+            raise CalibrationBindingError(
+                "development control-selection cache is closed"
+            )
+        metadata = os.fstat(self._descriptor)
+        parent_metadata = os.fstat(self._parent_descriptor)
+        try:
+            entry_metadata = os.stat(
+                self._root.name,
+                dir_fd=self._parent_descriptor,
+                follow_symlinks=False,
+            )
+        except OSError as error:
+            raise CalibrationBindingError(
+                "development control-selection cache directory changed"
+            ) from error
+        if (
+            not stat.S_ISDIR(metadata.st_mode)
+            or (metadata.st_dev, metadata.st_ino) != self._identity
+            or not stat.S_ISDIR(parent_metadata.st_mode)
+            or (parent_metadata.st_dev, parent_metadata.st_ino)
+            != self._parent_identity
+            or stat.S_ISLNK(entry_metadata.st_mode)
+            or not stat.S_ISDIR(entry_metadata.st_mode)
+            or (entry_metadata.st_dev, entry_metadata.st_ino) != self._identity
+        ):
+            raise CalibrationBindingError(
+                "development control-selection cache directory is invalid"
+            )
+        return self._descriptor
+
+    @staticmethod
+    def _filename(identity: Mapping[str, object]) -> str:
+        return f"{canonical_sha256(identity)}.json"
+
+    def reopen(
+        self,
+        identity: Mapping[str, object],
+    ) -> Optional[Mapping[str, object]]:
+        descriptor = self._require_open()
+        filename = self._filename(identity)
+        if not _entry_exists_at(descriptor, filename):
+            return None
+        try:
+            payload = _read_regular_at(
+                descriptor,
+                filename,
+                display_path=self._root / filename,
+            )
+            origin = json.loads(payload)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise CalibrationBindingError(
+                "expected development control-selection cache artifact is corrupt"
+            ) from error
+        if not isinstance(origin, dict):
+            raise CalibrationBindingError(
+                "expected development control-selection cache artifact is corrupt"
+            )
+        return _validate_development_control_selection_cache_origin(
+            origin,
+            identity=identity,
+        )
+
+    def publish(
+        self,
+        *,
+        identity: Mapping[str, object],
+        origin: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        descriptor = self._require_open()
+        validated = _validate_development_control_selection_cache_origin(
+            origin,
+            identity=identity,
+        )
+        filename = self._filename(identity)
+        payload = canonical_json_bytes(validated)
+        _publish_bytes_atomic_durable_at(
+            descriptor,
+            filename,
+            payload,
+            display_path=self._root / filename,
+            collision_message=(
+                "development control-selection cache origin changed"
+            ),
+            allow_identical_existing=True,
+        )
+        reopened = self.reopen(identity)
+        if reopened != validated:
+            raise CalibrationBindingError(
+                "development control-selection cache origin failed reopen"
+            )
+        return reopened
+
+    def close(self) -> None:
+        if self._descriptor >= 0:
+            os.close(self._descriptor)
+            self._descriptor = -1
+        if self._parent_descriptor >= 0:
+            os.close(self._parent_descriptor)
+            self._parent_descriptor = -1
+
+
 def _run_transaction_marker(run_id: str, transaction_id: str) -> Mapping[str, object]:
     record: dict[str, object] = {
         "schema_version": "1.0.0",
@@ -8289,6 +8505,9 @@ class CalibrationExecutor:
             self.output_root
         )
         partial_descriptor = -1
+        development_selection_cache: Optional[
+            _DevelopmentControlSelectionCache
+        ] = None
         active_intent: Mapping[str, object] | None = None
         try:
             if _entry_exists_at(output_root_descriptor, final.name) or _entry_exists_at(
@@ -8423,6 +8642,28 @@ class CalibrationExecutor:
                 live_holdout_preopen_binding=self.live_holdout_preopen_binding,
                 implementation_manifest_validator=self.implementation_manifest_validator,
             )
+            configure_selection_cache = getattr(
+                self.candidate.evaluator,
+                "configure_development_control_selection_cache",
+                None,
+            )
+            if configure_selection_cache is not None:
+                if not callable(configure_selection_cache):
+                    raise CalibrationBindingError(
+                        "development control-selection cache configurator is invalid"
+                    )
+                cache_root = Path(
+                    os.path.abspath(
+                        os.fspath(
+                            self.output_root
+                            / _DEVELOPMENT_CONTROL_SELECTION_CACHE_DIRECTORY
+                        )
+                    )
+                )
+                development_selection_cache = (
+                    _DevelopmentControlSelectionCache(cache_root)
+                )
+                configure_selection_cache(development_selection_cache)
             verify_transaction_paths()
             _write_json_atomic_durable(
                 partial / "input-bindings.json",
@@ -8953,5 +9194,7 @@ class CalibrationExecutor:
                 raise CalibrationRunInterrupted(str(error), failed) from error
             raise
         finally:
+            if development_selection_cache is not None:
+                development_selection_cache.close()
             os.close(partial_descriptor)
             os.close(output_root_descriptor)

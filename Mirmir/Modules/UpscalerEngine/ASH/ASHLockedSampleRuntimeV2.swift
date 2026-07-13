@@ -1,6 +1,13 @@
 import Foundation
 
+// swiftlint:disable file_length
+
 extension ASHLockedRuntimeV2 {
+    private struct DiagnosticEvaluationOptions {
+        let coordinatePolicy: ASHSpatialCoordinatePolicyV2
+        let anisotropyStrengthQ12Override: UInt16?
+    }
+
     static func evaluateSample(
         lut: ASHLUTLoadedV2,
         configuration: ASHLUTLockedConfigurationV2,
@@ -41,7 +48,11 @@ extension ASHLockedRuntimeV2 {
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
             route: lut.route,
-            configuration: configuration
+            configuration: configuration,
+            diagnosticOptions: DiagnosticEvaluationOptions(
+                coordinatePolicy: location.coordinatePolicy,
+                anisotropyStrengthQ12Override: nil
+            )
         )
     }
 
@@ -53,6 +64,62 @@ extension ASHLockedRuntimeV2 {
         destinationColumn: Int,
         destinationRow: Int,
         chromaSiting: ASHChromaSitingV2?
+    ) throws -> ASHLockedRuntimeSampleResultV2 {
+        try evaluateSample(
+            dispatchGrid: dispatchGrid,
+            configuration: configuration,
+            analysisGrid: analysisGrid,
+            plane: plane,
+            destinationColumn: destinationColumn,
+            destinationRow: destinationRow,
+            chromaSiting: chromaSiting,
+            diagnosticOptions: DiagnosticEvaluationOptions(
+                coordinatePolicy: configuration
+                    .routeSelection(for: dispatchGrid.route)
+                    .coordinatePolicy,
+                anisotropyStrengthQ12Override: nil
+            )
+        )
+    }
+
+    // swiftlint:disable function_parameter_count
+    /// Diagnostic only; production callers retain the locked configuration policy.
+    static func evaluateSampleForDiagnostic(
+        dispatchGrid: ASHLockedDispatchGridV2,
+        configuration: ASHLUTLockedConfigurationV2,
+        analysisGrid: ASHAnalysisGridV2,
+        plane: ASHSpatialPlaneV2,
+        destinationColumn: Int,
+        destinationRow: Int,
+        chromaSiting: ASHChromaSitingV2?,
+        coordinatePolicyOverride: ASHSpatialCoordinatePolicyV2,
+        anisotropyStrengthQ12Override: UInt16?
+    ) throws -> ASHLockedRuntimeSampleResultV2 {
+        try evaluateSample(
+            dispatchGrid: dispatchGrid,
+            configuration: configuration,
+            analysisGrid: analysisGrid,
+            plane: plane,
+            destinationColumn: destinationColumn,
+            destinationRow: destinationRow,
+            chromaSiting: chromaSiting,
+            diagnosticOptions: DiagnosticEvaluationOptions(
+                coordinatePolicy: coordinatePolicyOverride,
+                anisotropyStrengthQ12Override: anisotropyStrengthQ12Override
+            )
+        )
+    }
+    // swiftlint:enable function_parameter_count
+
+    private static func evaluateSample(
+        dispatchGrid: ASHLockedDispatchGridV2,
+        configuration: ASHLUTLockedConfigurationV2,
+        analysisGrid: ASHAnalysisGridV2,
+        plane: ASHSpatialPlaneV2,
+        destinationColumn: Int,
+        destinationRow: Int,
+        chromaSiting: ASHChromaSitingV2?,
+        diagnosticOptions: DiagnosticEvaluationOptions
     ) throws -> ASHLockedRuntimeSampleResultV2 {
         guard dispatchGrid.configuration == configuration else {
             throw ASHLockedRuntimeV2Error.configurationMismatch
@@ -68,7 +135,8 @@ extension ASHLockedRuntimeV2 {
             plane: plane,
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
-            chromaSiting: chromaSiting
+            chromaSiting: chromaSiting,
+            coordinatePolicyOverride: diagnosticOptions.coordinatePolicy
         )
         let dispatch = try dispatchGrid.dispatch(
             cellColumn: location.cell.column,
@@ -82,7 +150,8 @@ extension ASHLockedRuntimeV2 {
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
             route: dispatchGrid.route,
-            configuration: configuration
+            configuration: configuration,
+            diagnosticOptions: diagnosticOptions
         )
     }
 
@@ -160,7 +229,8 @@ extension ASHLockedRuntimeV2 {
         plane: ASHSpatialPlaneV2,
         destinationColumn: Int,
         destinationRow: Int,
-        chromaSiting: ASHChromaSitingV2?
+        chromaSiting: ASHChromaSitingV2?,
+        coordinatePolicyOverride: ASHSpatialCoordinatePolicyV2? = nil
     ) throws -> SampleLocation {
         let outputWidth = try route.destinationExtent(for: plane.width)
         let outputHeight = try route.destinationExtent(for: plane.height)
@@ -179,13 +249,14 @@ extension ASHLockedRuntimeV2 {
               analysisGrid.sourceHeight == expectedLumaHeight else {
             throw ASHLockedRuntimeV2Error.invalidAnalysisGrid
         }
+        let coordinatePolicy = coordinatePolicyOverride ?? routeSelection.coordinatePolicy
         let sourceCoordinates = try coordinates(
             plane: plane,
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
             outputWidth: outputWidth,
             outputHeight: outputHeight,
-            policy: routeSelection.coordinatePolicy,
+            policy: coordinatePolicy,
             chromaSiting: chromaSiting
         )
         let cell: ASHAnalysisGridCellV2
@@ -210,10 +281,10 @@ extension ASHLockedRuntimeV2 {
                 outputWidth: outputWidth,
                 outputHeight: outputHeight,
                 route: route,
-                policy: routeSelection.coordinatePolicy,
+                policy: coordinatePolicy,
                 chromaSiting: chromaSiting
             ),
-            coordinatePolicy: routeSelection.coordinatePolicy
+            coordinatePolicy: coordinatePolicy
         )
     }
 
@@ -224,7 +295,8 @@ extension ASHLockedRuntimeV2 {
         destinationColumn: Int,
         destinationRow: Int,
         route: ASHSpatialRouteV2,
-        configuration: ASHLUTLockedConfigurationV2
+        configuration: ASHLUTLockedConfigurationV2,
+        diagnosticOptions: DiagnosticEvaluationOptions
     ) throws -> ASHLockedRuntimeSampleResultV2 {
         let evaluation = try evaluate(
             dispatch: dispatch,
@@ -232,9 +304,9 @@ extension ASHLockedRuntimeV2 {
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
             route: route,
-            coordinatePolicy: location.coordinatePolicy,
             boundary: configuration.boundaryMode,
-            sourceCoordinates: location.sourceCoordinates
+            sourceCoordinates: location.sourceCoordinates,
+            diagnosticOptions: diagnosticOptions
         )
         return ASHLockedRuntimeSampleResultV2(
             value: evaluation.value,
@@ -257,9 +329,9 @@ extension ASHLockedRuntimeV2 {
         destinationColumn: Int,
         destinationRow: Int,
         route: ASHSpatialRouteV2,
-        coordinatePolicy: ASHSpatialCoordinatePolicyV2,
         boundary: ASHSpatialBoundaryModeV2,
-        sourceCoordinates: ASHSpatialSourceCoordinatesV2
+        sourceCoordinates: ASHSpatialSourceCoordinatesV2,
+        diagnosticOptions: DiagnosticEvaluationOptions
     ) throws -> Evaluation {
         do {
             let primary = try evaluate(
@@ -268,9 +340,9 @@ extension ASHLockedRuntimeV2 {
                 destinationColumn: destinationColumn,
                 destinationRow: destinationRow,
                 route: route,
-                coordinatePolicy: coordinatePolicy,
                 boundary: boundary,
-                sourceCoordinates: sourceCoordinates
+                sourceCoordinates: sourceCoordinates,
+                diagnosticOptions: diagnosticOptions
             )
             guard let secondaryCandidate = dispatch.secondary else {
                 return Evaluation(value: primary.value, primary: primary, secondary: nil, fallbackUsed: false)
@@ -281,9 +353,9 @@ extension ASHLockedRuntimeV2 {
                 destinationColumn: destinationColumn,
                 destinationRow: destinationRow,
                 route: route,
-                coordinatePolicy: coordinatePolicy,
                 boundary: boundary,
-                sourceCoordinates: sourceCoordinates
+                sourceCoordinates: sourceCoordinates,
+                diagnosticOptions: diagnosticOptions
             )
             let denominator = Double(UInt16.max)
             let value = plane.legalClamp(
@@ -301,9 +373,9 @@ extension ASHLockedRuntimeV2 {
                 destinationColumn: destinationColumn,
                 destinationRow: destinationRow,
                 route: route,
-                coordinatePolicy: coordinatePolicy,
                 boundary: boundary,
-                sourceCoordinates: sourceCoordinates
+                sourceCoordinates: sourceCoordinates,
+                diagnosticOptions: diagnosticOptions
             )
             return Evaluation(value: fallback.value, primary: fallback, secondary: nil, fallbackUsed: true)
         }
@@ -315,11 +387,15 @@ extension ASHLockedRuntimeV2 {
         destinationColumn: Int,
         destinationRow: Int,
         route: ASHSpatialRouteV2,
-        coordinatePolicy: ASHSpatialCoordinatePolicyV2,
         boundary: ASHSpatialBoundaryModeV2,
-        sourceCoordinates: ASHSpatialSourceCoordinatesV2
+        sourceCoordinates: ASHSpatialSourceCoordinatesV2,
+        diagnosticOptions: DiagnosticEvaluationOptions
     ) throws -> ASHSpatialSampleResultV2 {
-        let source = dispatch.primary.parameters
+        let source = parametersByApplyingDiagnosticAnisotropyOverride(
+            dispatch.primary.parameters,
+            anisotropyStrengthQ12Override: diagnosticOptions
+                .anisotropyStrengthQ12Override
+        )
         let parameters = ASHSpatialDevelopmentParametersV2(
             anisotropyStrength: source.anisotropyStrength,
             minimumAnisotropicMagnitude: source.minimumAnisotropicMagnitude,
@@ -337,7 +413,7 @@ extension ASHLockedRuntimeV2 {
                 destinationColumn: destinationColumn,
                 destinationRow: destinationRow,
                 route: route,
-                coordinatePolicy: coordinatePolicy,
+                coordinatePolicy: diagnosticOptions.coordinatePolicy,
                 descriptor: try ASHSpatialDescriptorV2(id: 0),
                 sidecar: dispatch.primary.sidecar,
                 boundary: boundary,
@@ -355,22 +431,45 @@ extension ASHLockedRuntimeV2 {
         destinationColumn: Int,
         destinationRow: Int,
         route: ASHSpatialRouteV2,
-        coordinatePolicy: ASHSpatialCoordinatePolicyV2,
         boundary: ASHSpatialBoundaryModeV2,
-        sourceCoordinates: ASHSpatialSourceCoordinatesV2
+        sourceCoordinates: ASHSpatialSourceCoordinatesV2,
+        diagnosticOptions: DiagnosticEvaluationOptions
     ) throws -> ASHSpatialSampleResultV2 {
         try ASHSpatialOperatorBankV2.evaluateSample(ASHSpatialSampleRequestV2(
             plane: plane,
             destinationColumn: destinationColumn,
             destinationRow: destinationRow,
             route: route,
-            coordinatePolicy: coordinatePolicy,
+            coordinatePolicy: diagnosticOptions.coordinatePolicy,
             descriptor: candidate.descriptor,
             sidecar: candidate.sidecar,
             boundary: boundary,
-            parameters: candidate.parameters,
+            parameters: parametersByApplyingDiagnosticAnisotropyOverride(
+                candidate.parameters,
+                anisotropyStrengthQ12Override: diagnosticOptions
+                    .anisotropyStrengthQ12Override
+            ),
             coordinateOverride: sourceCoordinates
         ))
+    }
+
+    /// Diagnostic helper used only by the private sample-evaluation override path.
+    static func parametersByApplyingDiagnosticAnisotropyOverride(
+        _ source: ASHSpatialDevelopmentParametersV2,
+        anisotropyStrengthQ12Override: UInt16?
+    ) -> ASHSpatialDevelopmentParametersV2 {
+        guard let anisotropyStrengthQ12Override else { return source }
+        return ASHSpatialDevelopmentParametersV2(
+            anisotropyStrength: Double(anisotropyStrengthQ12Override) / 4_096.0,
+            minimumAnisotropicMagnitude: source.minimumAnisotropicMagnitude,
+            minimumAnisotropicCoherence: source.minimumAnisotropicCoherence,
+            controlledDetailGain: source.controlledDetailGain,
+            relaxedLimiterAlpha: source.relaxedLimiterAlpha,
+            riskDetailSuppressionThreshold: source.riskDetailSuppressionThreshold,
+            lowPassRadius: source.lowPassRadius,
+            weightEpsilon: source.weightEpsilon,
+            supportRadius: source.supportRadius
+        )
     }
 
     private static func coordinates(

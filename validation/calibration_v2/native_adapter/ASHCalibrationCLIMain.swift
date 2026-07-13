@@ -224,6 +224,18 @@ struct ASHCalibrationCLIMain {
                         "request_sha256": requestSHA256,
                         "cached_reconstruction": reconstruction
                     ])
+                case "diagnose_corrective_frame":
+                    let request = try ASHCalibrationCorrectiveDiagnosticRequest.parse(
+                        data,
+                        configuration: inputs.configuration
+                    )
+                    let diagnostic = try session.diagnoseCorrective(request)
+                    try ASHCalibrationCLIJSON.writeLine([
+                        "schema_version": "1.0.0",
+                        "status": "ok",
+                        "request_sha256": requestSHA256,
+                        "corrective_diagnostic": diagnostic
+                    ])
                 default:
                     throw ASHCalibrationCLIError.unsupported("operation")
                 }

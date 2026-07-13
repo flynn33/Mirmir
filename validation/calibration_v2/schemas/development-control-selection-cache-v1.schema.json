@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/development-control-selection-cache-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "selection_stage",
+    "split",
+    "shared_bank_configuration_sha256",
+    "identity_sha256",
+    "identity",
+    "artifacts",
+    "validation_evidence_imported",
+    "holdout_evidence_imported",
+    "candidate_bound_outputs_cached",
+    "origin_manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_development_control_selection_cache_origin"},
+    "selection_stage": {"const": "development_provisional"},
+    "split": {"const": "development"},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "identity_sha256": {"$ref": "#/$defs/sha256"},
+    "identity": {"$ref": "#/$defs/identity"},
+    "artifacts": {"$ref": "#/$defs/artifacts"},
+    "validation_evidence_imported": {"const": false},
+    "holdout_evidence_imported": {"const": false},
+    "candidate_bound_outputs_cached": {"const": false},
+    "origin_manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "selector": {
+      "type": "object",
+      "required": [
+        "selector_id",
+        "bank_descriptor_ids",
+        "candidate_evaluation_budget",
+        "full_ash_maximum_candidate_evaluation_budget",
+        "coordinates"
+      ],
+      "properties": {
+        "selector_id": {"const": "continuous-linear-bank-selector-q15-v1"},
+        "bank_descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        "candidate_evaluation_budget": {"const": 1513},
+        "full_ash_maximum_candidate_evaluation_budget": {"const": 1297},
+        "coordinates": {
+          "type": "object",
+          "required": ["order", "values", "initial_value", "maximum_sweeps"],
+          "properties": {
+            "order": {
+              "const": [
+                "bias_descriptor_00_q8_8",
+                "bias_descriptor_01_q8_8",
+                "bias_descriptor_02_q8_8",
+                "bias_descriptor_03_q8_8",
+                "bias_descriptor_04_q8_8",
+                "bias_descriptor_05_q8_8",
+                "bias_descriptor_06_q8_8",
+                "bias_descriptor_07_q8_8",
+                "bias_descriptor_08_q8_8",
+                "bias_descriptor_09_q8_8",
+                "bias_descriptor_10_q8_8",
+                "bias_descriptor_11_q8_8",
+                "bias_descriptor_12_q8_8",
+                "bias_descriptor_13_q8_8",
+                "bias_descriptor_14_q8_8",
+                "bias_descriptor_15_q8_8",
+                "weight_magnitude_q8_8",
+                "weight_coherence_q8_8",
+                "weight_texture_q8_8",
+                "weight_risk_q8_8",
+                "weight_chroma_alignment_q8_8",
+                "weight_orientation_cos_q8_8",
+                "weight_orientation_sin_q8_8",
+                "weight_noise_q8_8",
+                "weight_horizontal_phase_q8_8",
+                "weight_vertical_phase_q8_8",
+                "weight_route_q8_8"
+              ]
+            },
+            "values": {"const": [-384, -256, -128, 0, 128, 256, 384]},
+            "initial_value": {"const": 0},
+            "maximum_sweeps": {"const": 8}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "objective": {
+      "const": {
+        "comparison_domain": "engine_raw",
+        "row_scope": "natural corpus asset rows only",
+        "per_source_aggregation": "unweighted arithmetic mean across that source's locked degradation-profile rows",
+        "across_source_aggregation": "unweighted arithmetic mean across source assets",
+        "direction": "lexicographically maximize",
+        "metric_order": ["y_psnr_db", "y_ms_ssim", "y_ssim", "cb_psnr_db", "cr_psnr_db"]
+      }
+    },
+    "aggregateContext": {
+      "type": "object",
+      "required": [
+        "degradation_policy_file_sha256",
+        "metric_policy_file_sha256",
+        "metric_policy_sha256",
+        "baseline_ablation_contract_file_sha256",
+        "baseline_selector_contract",
+        "baseline_selector_contract_sha256",
+        "sample_lock_file_sha256",
+        "corpus_manifest_sha256",
+        "corpus_lock_bundle_sha256",
+        "common_boundary_contract",
+        "common_boundary_contract_sha256",
+        "native_implementation_closure",
+        "quality_implementation_closure"
+      ],
+      "properties": {
+        "degradation_policy_file_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_file_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "baseline_ablation_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "baseline_selector_contract": {"$ref": "#/$defs/selector"},
+        "baseline_selector_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "sample_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "common_boundary_contract": {"type": "object"},
+        "common_boundary_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "native_implementation_closure": {
+          "type": "object",
+          "required": ["executable_sha256", "source_manifest_sha256"],
+          "properties": {
+            "executable_sha256": {"$ref": "#/$defs/sha256"},
+            "source_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "quality_implementation_closure": {
+          "type": "object",
+          "required": ["implementation_manifest_file_sha256", "implementation_manifest_sha256"],
+          "properties": {
+            "implementation_manifest_file_sha256": {"$ref": "#/$defs/sha256"},
+            "implementation_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "inputBinding": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "source_asset_id",
+        "source_family_id",
+        "categories",
+        "target_route",
+        "degradation_profile_id",
+        "degradation_profile_sha256",
+        "target_frame_sha256",
+        "input_frame_sha256",
+        "cache_token",
+        "cache_identity_sha256",
+        "cache_origin_manifest_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "target_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_token": {"$ref": "#/$defs/sha256"},
+        "cache_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "cache_origin_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "searchContract": {
+      "type": "object",
+      "required": [
+        "fixed_descriptor_ids",
+        "conventional_algorithm_ids",
+        "non_ash_selector_contract",
+        "selection_objective",
+        "fixed_tie_break",
+        "conventional_tie_break",
+        "non_ash_tie_break"
+      ],
+      "properties": {
+        "fixed_descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        "conventional_algorithm_ids": {"const": ["bilinear-separable-v1", "keys-cubic-a-minus-0.5-separable-v1", "lanczos3-separable-v1"]},
+        "non_ash_selector_contract": {"$ref": "#/$defs/selector"},
+        "selection_objective": {"$ref": "#/$defs/objective"},
+        "fixed_tie_break": {"const": "lexicographically maximize the development engine_raw corpus-mean tuple, then choose the numerically smallest descriptor ID"},
+        "conventional_tie_break": {"const": "lexicographically maximize the development engine_raw corpus-mean tuple, then choose the lexicographically ascending stable algorithm ID"},
+        "non_ash_tie_break": {"const": "lexicographically maximize the development engine_raw corpus-mean tuple, then choose the lexicographically ascending canonical serialized complete rule vector"}
+      },
+      "additionalProperties": false
+    },
+    "identity": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "split",
+        "selection_stage",
+        "shared_bank_configuration_sha256",
+        "degradation_policy_sha256",
+        "aggregate_identity_context",
+        "ordered_input_bindings",
+        "selection_search_contract",
+        "implementation_closure",
+        "reuse_scope"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p06_development_control_selection_cache_identity"},
+        "split": {"const": "development"},
+        "selection_stage": {"const": "development_provisional"},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "aggregate_identity_context": {"$ref": "#/$defs/aggregateContext"},
+        "ordered_input_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/inputBinding"}
+        },
+        "selection_search_contract": {"$ref": "#/$defs/searchContract"},
+        "implementation_closure": {
+          "type": "object",
+          "required": ["production_evaluator_source_sha256", "storage_implementation_sha256", "cache_schema_sha256"],
+          "properties": {
+            "production_evaluator_source_sha256": {"$ref": "#/$defs/sha256"},
+            "storage_implementation_sha256": {"$ref": "#/$defs/sha256"},
+            "cache_schema_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "reuse_scope": {"const": "exact_bank_aggregate_input_search_implementation_identity"}
+      },
+      "additionalProperties": false
+    },
+    "embeddedSelection": {
+      "type": "object",
+      "required": ["sha256", "document"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "document": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "artifacts": {
+      "type": "object",
+      "required": ["best_fixed", "conventional", "non_ash_selector"],
+      "properties": {
+        "best_fixed": {"$ref": "#/$defs/embeddedSelection"},
+        "conventional": {"$ref": "#/$defs/embeddedSelection"},
+        "non_ash_selector": {"$ref": "#/$defs/embeddedSelection"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

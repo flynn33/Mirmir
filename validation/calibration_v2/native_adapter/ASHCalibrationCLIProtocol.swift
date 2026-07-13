@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(Mirmir)
+@testable import Mirmir
+#endif
+
 struct ASHCalibrationFrameRequest {
     let requestID: String
     let route: ASHSpatialRouteV2
@@ -109,6 +113,160 @@ struct ASHCalibrationBatchRequest {
             outputWidth: outputWidth,
             outputHeight: outputHeight
         )
+    }
+}
+
+struct ASHCalibrationCorrectiveOutputDescriptor {
+    let ordinal: Int
+    let coordinateCellID: String
+    let anisotropyCellID: String
+    let outputPath: String
+}
+
+enum ASHCalibrationCorrectiveHashContract {
+    static let outputPlaneID = "active-nv12-code-bytes-sha256-v1"
+    static let normalizedPlaneID = "mirmir-ash-normalized-plane-f64-be-v1"
+    static let normalizedPlaneDomain = Data(
+        "MIRMIR-ASH-NORMALIZED-PLANE-F64-V1\0".utf8
+    )
+    static let analysisGridID = "mirmir-ash-analysis-grid-v3-be-v1"
+    static let analysisGridDomain = Data("MIRMIR-ASH-ANALYSIS-GRID-V3\0".utf8)
+    static let serializationRebindID =
+        "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"
+    static let serializationRebindDomain = Data(
+        "MIRMIR-ASH-GENERIC-V3-DIAGNOSTIC-SERIALIZATION-REBIND-V1\0".utf8
+    )
+}
+
+struct ASHCalibrationCorrectiveDiagnosticRequest {
+    static let coordinateCells = ["HH", "HS", "SH", "SS"]
+    static let anisotropyCells = ["00", "03", "30", "33"]
+
+    let configurationID: String
+    let compilerInputsSHA256: String
+    let coordinateModelContractPath: String
+    let coordinateModelContractSHA256: String
+    let analysisGridSourceStep: Int
+    let outputDescriptors: [ASHCalibrationCorrectiveOutputDescriptor]
+    let productionV2ReferenceOutputPath: String
+    let frame: ASHCalibrationFrameRequest
+
+    static func parse(
+        _ data: Data,
+        configuration: ASHLUTLockedConfigurationV2
+    ) throws -> ASHCalibrationCorrectiveDiagnosticRequest {
+        let json = ASHCalibrationCLIJSON.self
+        let root = try json.object(try json.strictCanonicalValue(data), keys: [
+            "schema_version", "operation", "configuration_id",
+            "compiler_inputs_sha256", "coordinate_model_contract_path",
+            "coordinate_model_contract_sha256", "analysis_grid_source_step",
+            "output_descriptors", "production_v2_reference_output_path", "frame"
+        ])
+        guard try json.string(root["schema_version"]) == "1.0.0",
+              try json.string(root["operation"]) == "diagnose_corrective_frame" else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic protocol identity"
+            )
+        }
+        let configurationID = try json.string(root["configuration_id"])
+        let compilerInputsSHA256 = try json.string(root["compiler_inputs_sha256"])
+        guard configurationID == configuration.configurationID,
+              compilerInputsSHA256 == configuration.compilerInputsSHA256.hex else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic configuration identity"
+            )
+        }
+        let contractPath = try json.string(root["coordinate_model_contract_path"])
+        let contractSHA256 = try json.string(root["coordinate_model_contract_sha256"])
+        guard isSHA256(contractSHA256), isLexicallySafeAbsolutePath(contractPath) else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic coordinate contract binding"
+            )
+        }
+        let step = try json.integer(root["analysis_grid_source_step"])
+        let frame = try ASHCalibrationBatchRequest.parseFrame(root["frame"]!)
+        guard step == Int(
+            configuration.routeSelection(for: frame.route).analysisGridSourceStep
+        ) else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic analysis step"
+            )
+        }
+        let productionOutputPath = try json.string(
+            root["production_v2_reference_output_path"]
+        )
+        guard productionOutputPath == frame.outputPath,
+              isLexicallySafeAbsolutePath(frame.inputPath),
+              isLexicallySafeAbsolutePath(productionOutputPath) else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic production output identity"
+            )
+        }
+
+        let descriptorValues = try json.array(root["output_descriptors"])
+        guard descriptorValues.count
+                == coordinateCells.count * anisotropyCells.count else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic output descriptor cardinality"
+            )
+        }
+        var descriptors: [ASHCalibrationCorrectiveOutputDescriptor] = []
+        descriptors.reserveCapacity(descriptorValues.count)
+        for (ordinal, value) in descriptorValues.enumerated() {
+            let fields = try json.object(value, keys: [
+                "ordinal", "coordinate_cell_id", "anisotropy_cell_id", "output_path"
+            ])
+            let expectedCoordinate = coordinateCells[ordinal / anisotropyCells.count]
+            let expectedAnisotropy = anisotropyCells[ordinal % anisotropyCells.count]
+            let outputPath = try json.string(fields["output_path"])
+            guard try json.integer(fields["ordinal"]) == ordinal,
+                  try json.string(fields["coordinate_cell_id"]) == expectedCoordinate,
+                  try json.string(fields["anisotropy_cell_id"]) == expectedAnisotropy,
+                  isLexicallySafeAbsolutePath(outputPath) else {
+                throw ASHCalibrationCLIError.invalidRequest(
+                    "corrective diagnostic output descriptor order or identity"
+                )
+            }
+            descriptors.append(ASHCalibrationCorrectiveOutputDescriptor(
+                ordinal: ordinal,
+                coordinateCellID: expectedCoordinate,
+                anisotropyCellID: expectedAnisotropy,
+                outputPath: outputPath
+            ))
+        }
+        let outputPaths = descriptors.map(\.outputPath) + [productionOutputPath]
+        guard Set(outputPaths).count == outputPaths.count,
+              !outputPaths.contains(frame.inputPath),
+              !outputPaths.contains(contractPath) else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic output paths are not unique"
+            )
+        }
+        return ASHCalibrationCorrectiveDiagnosticRequest(
+            configurationID: configurationID,
+            compilerInputsSHA256: compilerInputsSHA256,
+            coordinateModelContractPath: contractPath,
+            coordinateModelContractSHA256: contractSHA256,
+            analysisGridSourceStep: step,
+            outputDescriptors: descriptors,
+            productionV2ReferenceOutputPath: productionOutputPath,
+            frame: frame
+        )
+    }
+
+    private static func isSHA256(_ value: String) -> Bool {
+        value.count == 64 && value.allSatisfy {
+            $0.isNumber || ("a"..."f").contains(String($0))
+        }
+    }
+
+    private static func isLexicallySafeAbsolutePath(_ path: String) -> Bool {
+        path.hasPrefix("/")
+            && path.count > 1
+            && !path.contains("\0")
+            && !path.contains("//")
+            && !(path as NSString).pathComponents.contains(".")
+            && !(path as NSString).pathComponents.contains("..")
     }
 }
 
@@ -684,6 +842,18 @@ enum ASHCalibrationRequestOperation {
 }
 
 final class ASHCalibrationNativeSession {
+    private struct GenericCorrectiveDiagnosticRuntime {
+        let compilation: ASHGenericPhaseCompilationV3
+        let artifact: ASHLUTBinaryArtifactV2
+        let loaded: ASHLUTLoadedV2
+        let diagnosticConfiguration: ASHLUTLockedConfigurationV2
+    }
+
+    private struct PreparedCorrectiveOutput {
+        let path: String
+        let data: Data
+    }
+
     let configuration: ASHLUTLockedConfigurationV2
     let mapping: ASHLockedVideoMappingV2
     let operatorBank: ASHLockedOperatorBankV2
@@ -692,6 +862,12 @@ final class ASHCalibrationNativeSession {
     let direct3Over2LUT: ASHLUTLoadedV2
 
     private(set) var invocationCount = 0
+    private var genericCorrectiveDiagnosticRuntimes:
+        [ASHSpatialRouteV2: GenericCorrectiveDiagnosticRuntime] = [:]
+    private var genericCorrectiveCompilationCounts: [ASHSpatialRouteV2: Int] = [:]
+    private let correctiveOutputWriter: (Data, String) throws -> Void
+    private let correctiveOutputReopener: (String) throws -> Data
+    private let correctiveOutputRemover: (String) -> Void
     private var nonASHCaches: [String: ASHLockedNonASHOutputCacheV2] = [:]
     private var nonASHCacheManifests: [String: [String: Any]] = [:]
     private var nonASHCacheIdentityTokens: [String: String] = [:]
@@ -702,7 +878,17 @@ final class ASHCalibrationNativeSession {
         operatorBank: ASHLockedOperatorBankV2,
         manifest: ASHLockedCandidateLUTManifestV1,
         direct2xData: Data,
-        direct3Over2Data: Data
+        direct3Over2Data: Data,
+        correctiveOutputWriter: @escaping (Data, String) throws -> Void = {
+            data, path in
+            try ASHCalibrationCLIFileIO.writeNewEphemeralRegularFile(data, path: path)
+        },
+        correctiveOutputReopener: @escaping (String) throws -> Data = {
+            try ASHCalibrationCLIFileIO.readRegularFile($0)
+        },
+        correctiveOutputRemover: @escaping (String) -> Void = {
+            ASHCalibrationCLIFileIO.removeIfPresent($0)
+        }
     ) throws {
         try mapping.validate(configuration: configuration)
         try operatorBank.validate(mapping: mapping)
@@ -710,6 +896,9 @@ final class ASHCalibrationNativeSession {
         self.mapping = mapping
         self.operatorBank = operatorBank
         self.manifest = manifest
+        self.correctiveOutputWriter = correctiveOutputWriter
+        self.correctiveOutputReopener = correctiveOutputReopener
+        self.correctiveOutputRemover = correctiveOutputRemover
         direct2xLUT = try ASHLUTBinaryCodecV2.load(
             direct2xData,
             manifestRoute: manifest.route(.direct2x),
@@ -756,6 +945,921 @@ final class ASHCalibrationNativeSession {
         _ request: ASHCalibrationFixedCachedReconstructionRequest
     ) throws -> [String: Any] {
         try reconstructFixedCachedFrame(request)
+    }
+
+    func diagnoseCorrective(
+        _ request: ASHCalibrationCorrectiveDiagnosticRequest
+    ) throws -> [String: Any] {
+        invocationCount += 1
+        let frame = request.frame
+        let inputData = try ASHCalibrationCLIFileIO.readRegularFile(frame.inputPath)
+        guard inputData.count == frame.inputWidth * frame.inputHeight * 3 / 2 else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic input NV12 byte count"
+            )
+        }
+        guard ASHCalibrationCLIHash.hex(inputData) == frame.inputSHA256 else {
+            throw ASHCalibrationCLIError.hashMismatch(
+                "corrective diagnostic input NV12"
+            )
+        }
+        let codePlanes = try decodeNV12(
+            inputData,
+            width: frame.inputWidth,
+            height: frame.inputHeight
+        )
+        let contractData = try ASHCalibrationCLIFileIO.readRegularFile(
+            request.coordinateModelContractPath
+        )
+        let expectedContractHash = try ASHLUTHashV2(
+            hex: request.coordinateModelContractSHA256
+        )
+        guard ASHCalibrationCLIHash.value(contractData) == expectedContractHash else {
+            throw ASHCalibrationCLIError.hashMismatch(
+                "corrective diagnostic coordinate contract file"
+            )
+        }
+        let contract = try ASHCoordinateModelContractV3.load(
+            contractData,
+            expectedSHA256: expectedContractHash
+        )
+        let productionLUT = frame.route == .direct2x ? direct2xLUT : direct3Over2LUT
+        let referenceInput = ASHLockedReferenceInputV2(
+            luma: codePlanes.luma,
+            cb: codePlanes.cb,
+            cr: codePlanes.cr,
+            chromaSiting: .left,
+            lut: productionLUT,
+            configuration: configuration,
+            mapping: mapping
+        )
+        try ASHLockedReferencePipelineV2.validate(referenceInput)
+        let riskDiagnostic = try ASHRiskStateDiagnosticV3.process(
+            ASHRiskStateDiagnosticRequestV3(
+                luma: codePlanes.luma,
+                cb: codePlanes.cb,
+                cr: codePlanes.cr,
+                chromaSiting: .left,
+                step: request.analysisGridSourceStep,
+                boundary: configuration.boundaryMode,
+                baseConfiguration: mapping.analyzerConfiguration,
+                riskWeights: ASHRiskStateDiagnosticV3.exactRiskWeights,
+                riskThresholdBands: ASHRiskStateDiagnosticV3.exactRiskThresholdBands
+            )
+        )
+        let analysisGrid = riskDiagnostic.baselineGrid
+        let analysisGridSHA256 = try correctiveAnalysisGridSHA256(analysisGrid)
+        let lumaPlane = try ASHLockedReferencePipelineV2.makePlane(
+            codePlanes.luma,
+            channel: .luma
+        )
+        let cbPlane = try ASHLockedReferencePipelineV2.makePlane(
+            codePlanes.cb,
+            channel: .chroma
+        )
+        let crPlane = try ASHLockedReferencePipelineV2.makePlane(
+            codePlanes.cr,
+            channel: .chroma
+        )
+
+        let generic = try genericCorrectiveRuntime(for: frame.route)
+        let genericDispatch = try ASHLockedRuntimeV2.makeDispatchGrid(
+            lut: generic.loaded,
+            configuration: generic.diagnosticConfiguration,
+            analysisGrid: analysisGrid,
+            context: .spatialOnly
+        )
+        let coordinateRoute: ASHCoordinateModelRouteV3 = frame.route == .direct2x
+            ? .direct2x : .direct3Over2
+        let anisotropyCells = ASHLockedPlanePolicyDiagnosticV3.requiredAnisotropyCells
+        var preparedOutputs: [PreparedCorrectiveOutput] = []
+        preparedOutputs.reserveCapacity(request.outputDescriptors.count + 1)
+        var cellEvidence: [[String: Any]] = []
+        cellEvidence.reserveCapacity(request.outputDescriptors.count)
+
+        for coordinateCellID in ASHCalibrationCorrectiveDiagnosticRequest.coordinateCells {
+            let policies = try correctiveCoordinatePolicies(coordinateCellID)
+            let selection = try ASHCoordinateDiagnosticRouteSelectionV3(
+                route: coordinateRoute,
+                lumaCoordinatePolicy: policies.luma,
+                chromaCoordinatePolicy: policies.chroma,
+                contract: contract
+            )
+            let diagnostic = try ASHLockedPlanePolicyDiagnosticV3.process(
+                ASHLockedPlanePolicyDiagnosticRequestV3(
+                    selection: selection,
+                    lumaPlane: lumaPlane,
+                    cbPlane: cbPlane,
+                    crPlane: crPlane,
+                    dispatchGrid: genericDispatch,
+                    configuration: generic.diagnosticConfiguration,
+                    analysisGrid: analysisGrid,
+                    chromaSiting: .left,
+                    anisotropyCells: anisotropyCells
+                )
+            )
+            guard diagnostic.route == coordinateRoute,
+                  diagnostic.contractSHA256 == contract.sha256,
+                  diagnostic.anisotropyCells.count == anisotropyCells.count else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "corrective diagnostic plane result identity"
+                )
+            }
+            for (anisotropyIndex, anisotropy) in diagnostic.anisotropyCells.enumerated() {
+                let ordinal = cellEvidence.count
+                let descriptor = request.outputDescriptors[ordinal]
+                let expectedAnisotropyID = ASHCalibrationCorrectiveDiagnosticRequest
+                    .anisotropyCells[anisotropyIndex]
+                guard descriptor.ordinal == ordinal,
+                      descriptor.coordinateCellID == coordinateCellID,
+                      descriptor.anisotropyCellID == expectedAnisotropyID,
+                      anisotropy.selection == anisotropyCells[anisotropyIndex] else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic cell result order"
+                    )
+                }
+                let outputData = try encodeNV12(
+                    luma: anisotropy.luma.output,
+                    cb: anisotropy.cb.output,
+                    cr: anisotropy.cr.output
+                )
+                try validateCorrectiveOutputGeometry(
+                    outputData,
+                    frame: frame,
+                    luma: anisotropy.luma.output,
+                    cb: anisotropy.cb.output,
+                    cr: anisotropy.cr.output
+                )
+                let planeHashes = try correctivePlaneCodeSHA256(
+                    nv12: outputData,
+                    width: frame.outputWidth,
+                    height: frame.outputHeight
+                )
+                let blockID = "\(coordinateRoute.rawValue)-\(coordinateCellID)-\(expectedAnisotropyID)"
+                cellEvidence.append([
+                    "ordinal": ordinal,
+                    "block_id": blockID,
+                    "coordinate_cell_id": coordinateCellID,
+                    "anisotropy_cell_id": expectedAnisotropyID,
+                    "output_path": descriptor.outputPath,
+                    "output_nv12_sha256": ASHCalibrationCLIHash.hex(outputData),
+                    "output_frame_sha256": try planarFrameSHA256(
+                        nv12: outputData,
+                        width: frame.outputWidth,
+                        height: frame.outputHeight
+                    ),
+                    "planes": [
+                        "y": try correctivePlaneEvidence(
+                            anisotropy.luma,
+                            channelTag: "Y\0",
+                            outputPlaneSHA256: planeHashes["y"]!
+                        ),
+                        "cb": try correctivePlaneEvidence(
+                            anisotropy.cb,
+                            channelTag: "CB\0",
+                            outputPlaneSHA256: planeHashes["cb"]!
+                        ),
+                        "cr": try correctivePlaneEvidence(
+                            anisotropy.cr,
+                            channelTag: "CR\0",
+                            outputPlaneSHA256: planeHashes["cr"]!
+                        )
+                    ]
+                ])
+                preparedOutputs.append(PreparedCorrectiveOutput(
+                    path: descriptor.outputPath,
+                    data: outputData
+                ))
+            }
+        }
+        guard cellEvidence.count == request.outputDescriptors.count,
+              preparedOutputs.count == request.outputDescriptors.count else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic cell cardinality"
+            )
+        }
+
+        let productionDispatch = try ASHLockedRuntimeV2.makeDispatchGrid(
+            lut: productionLUT,
+            configuration: configuration,
+            analysisGrid: analysisGrid,
+            context: .spatialOnly
+        )
+        let productionReconstruction = try ASHLockedReferencePipelineV2
+            .reconstructForMeasurement(
+                lumaPlane: lumaPlane,
+                cbPlane: cbPlane,
+                crPlane: crPlane,
+                dispatchGrid: productionDispatch,
+                configuration: configuration,
+                analysisGrid: analysisGrid,
+                chromaSiting: .left
+            )
+        let productionData = try encodeNV12(
+            luma: productionReconstruction.luma.output,
+            cb: productionReconstruction.cb.output,
+            cr: productionReconstruction.cr.output
+        )
+        try validateCorrectiveOutputGeometry(
+            productionData,
+            frame: frame,
+            luma: productionReconstruction.luma.output,
+            cb: productionReconstruction.cb.output,
+            cr: productionReconstruction.cr.output
+        )
+        let productionPlaneHashes = try correctivePlaneCodeSHA256(
+            nv12: productionData,
+            width: frame.outputWidth,
+            height: frame.outputHeight
+        )
+        let productionManifestRoute = try manifest.route(frame.route)
+        let productionEvidence: [String: Any] = [
+            "output_path": request.productionV2ReferenceOutputPath,
+            "output_nv12_sha256": ASHCalibrationCLIHash.hex(productionData),
+            "output_frame_sha256": try planarFrameSHA256(
+                nv12: productionData,
+                width: frame.outputWidth,
+                height: frame.outputHeight
+            ),
+            "planes": [
+                "y": [
+                    "output_plane_sha256": productionPlaneHashes["y"]!,
+                    "normalized_plane_sha256": try correctiveNormalizedPlaneSHA256(
+                        productionReconstruction.luma.output,
+                        channelTag: "Y\0"
+                    )
+                ],
+                "cb": [
+                    "output_plane_sha256": productionPlaneHashes["cb"]!,
+                    "normalized_plane_sha256": try correctiveNormalizedPlaneSHA256(
+                        productionReconstruction.cb.output,
+                        channelTag: "CB\0"
+                    )
+                ],
+                "cr": [
+                    "output_plane_sha256": productionPlaneHashes["cr"]!,
+                    "normalized_plane_sha256": try correctiveNormalizedPlaneSHA256(
+                        productionReconstruction.cr.output,
+                        channelTag: "CR\0"
+                    )
+                ]
+            ],
+            "lut_whole_file_sha256": productionManifestRoute.wholeFileSHA256.hex,
+            "lut_payload_sha256": productionManifestRoute.payloadSHA256.hex,
+            "lut_entry_count": productionManifestRoute.entryCount
+        ]
+        preparedOutputs.append(PreparedCorrectiveOutput(
+            path: request.productionV2ReferenceOutputPath,
+            data: productionData
+        ))
+
+        guard riskDiagnostic.baselineGrid == analysisGrid,
+              riskDiagnostic.cells.count
+                == ASHRiskStateDiagnosticV3.exactRiskWeights.count
+                    * ASHRiskStateDiagnosticV3.exactRiskThresholdBands.count else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective risk diagnostic baseline or cardinality"
+            )
+        }
+        let riskCells: [[String: Any]] = try riskDiagnostic.cells.map { cell in
+            let weightIndex = cell.ordinal
+                / ASHRiskStateDiagnosticV3.exactRiskThresholdBands.count
+            let bandIndex = cell.ordinal
+                % ASHRiskStateDiagnosticV3.exactRiskThresholdBands.count
+            guard weightIndex < ASHRiskStateDiagnosticV3.exactRiskWeights.count,
+                  bandIndex < ASHRiskStateDiagnosticV3.exactRiskThresholdBands.count,
+                  cell.riskWeights
+                    == ASHRiskStateDiagnosticV3.exactRiskWeights[weightIndex],
+                  cell.riskThresholdBand
+                    == ASHRiskStateDiagnosticV3.exactRiskThresholdBands[bandIndex],
+                  let minimum = cell.sortedRiskProxyUNorm15.first,
+                  let maximum = cell.sortedRiskProxyUNorm15.last,
+                  cell.sortedRiskProxyUNorm15.count == riskDiagnostic.baselineGrid.count else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "corrective risk diagnostic cell identity"
+                )
+            }
+            return [
+                "ordinal": cell.ordinal,
+                "cell_id": String(
+                    format: "weight-%02d-band-%02d",
+                    weightIndex,
+                    bandIndex
+                ),
+                "risk_weight_pair": [
+                    "laplacian_unorm15": Int(cell.riskWeights.laplacianUNorm15),
+                    "alternating_difference_unorm15": Int(
+                        cell.riskWeights.alternatingDifferenceUNorm15
+                    )
+                ],
+                "risk_threshold_band": [
+                    "low_unorm15": Int(cell.riskThresholdBand.lowUNorm15),
+                    "high_unorm15": Int(cell.riskThresholdBand.highUNorm15)
+                ],
+                "risk_zero_count": cell.riskZeroCount,
+                "risk_one_count": cell.riskOneCount,
+                "risk_proxy_minimum_unorm15": Int(minimum),
+                "risk_proxy_maximum_unorm15": Int(maximum),
+                "risk_proxy_value_count": cell.sortedRiskProxyUNorm15.count,
+                "risk_proxy_vector_sha256": cell.riskProxyVectorSHA256.hex
+            ]
+        }
+
+        guard preparedOutputs.count == 17,
+              Set(preparedOutputs.map(\.path)).count == preparedOutputs.count,
+              genericCorrectiveCompilationCounts[frame.route] == 1 else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic transaction or compiler counters"
+            )
+        }
+        let response: [String: Any] = [
+            "schema_version": "1.0.0",
+            "status": "development_diagnostic_no_selection",
+            "split": "development",
+            "validation_accessed": false,
+            "holdout_accessed": false,
+            "selected_winner": NSNull(),
+            "request_id": frame.requestID,
+            "target_route": coordinateRoute.rawValue,
+            "configuration_id": request.configurationID,
+            "compiler_inputs_sha256": request.compilerInputsSHA256,
+            "candidate_vector_sha256": mapping.candidateVectorSHA256.hex,
+            "shared_bank_configuration_sha256": mapping
+                .sharedBankConfigurationSHA256.hex,
+            "mapping_sha256": configuration.mappingSHA256.hex,
+            "operator_bank_sha256": configuration.operatorBankSHA256.hex,
+            "metric_policy_sha256": configuration.metricPolicySHA256.hex,
+            "calibration_plan_sha256": configuration.calibrationPlanSHA256.hex,
+            "corpus_lock_bundle_sha256": configuration.corpusLockBundleSHA256.hex,
+            "candidate_lut_runtime_manifest_sha256": manifest.manifestSHA256.hex,
+            "input_sha256": ASHCalibrationCLIHash.hex(inputData),
+            "coordinate_model_contract_file_sha256": contract.sha256.hex,
+            "coordinate_oracle_matrix_sha256": contract.coordinateOracleMatrixSHA256.hex,
+            "coordinate_experiment_dimensions_sha256": contract.experimentDimensionsSHA256.hex,
+            "output_plane_hash_contract": ASHCalibrationCorrectiveHashContract
+                .outputPlaneID,
+            "normalized_plane_hash_contract": ASHCalibrationCorrectiveHashContract
+                .normalizedPlaneID,
+            "analysis_grid_hash_contract": ASHCalibrationCorrectiveHashContract
+                .analysisGridID,
+            "analysis_grid_source_step": analysisGrid.step,
+            "analysis_cell_count": analysisGrid.count,
+            "analysis_grid_sha256": analysisGridSHA256,
+            "generic_lut": [
+                "whole_file_sha256": generic.artifact.wholeFileSHA256.hex,
+                "payload_sha256": generic.artifact.payloadSHA256.hex,
+                "entry_count": generic.loaded.entries.count,
+                "parameter_count": generic.loaded.parameters.count,
+                "header_crc32": String(
+                    format: "0x%08X",
+                    ASHLUTLittleEndianV2.uint32(
+                        generic.loaded.immutableBytes,
+                        at: 288
+                    )
+                ),
+                "payload_crc32": String(
+                    format: "0x%08X",
+                    ASHLUTLittleEndianV2.uint32(
+                        generic.loaded.immutableBytes,
+                        at: 292
+                    )
+                ),
+                "offline_path_evaluation_count": generic.compilation
+                    .offlinePathEvaluationCount,
+                "runtime_tree_generation_count": generic.compilation
+                    .runtimeTreeGenerationCount,
+                "maximum_operator_evaluations": generic.compilation
+                    .maximumOperatorEvaluations,
+                "serialization_rebind_contract": ASHCalibrationCorrectiveHashContract
+                    .serializationRebindID,
+                "original_coordinate_policy": configuration.routeSelection(
+                    for: frame.route
+                ).coordinatePolicy.rawValue,
+                "serialized_coordinate_policy": generic.diagnosticConfiguration
+                    .routeSelection(for: frame.route).coordinatePolicy.rawValue,
+                "serialization_rebind_applied": configuration.routeSelection(
+                    for: frame.route
+                ).coordinatePolicy != generic.diagnosticConfiguration.routeSelection(
+                    for: frame.route
+                ).coordinatePolicy,
+                "serialization_rebind_sha256": correctiveSerializationRebindSHA256(
+                    route: frame.route,
+                    original: configuration.routeSelection(
+                        for: frame.route
+                    ).coordinatePolicy,
+                    serialized: generic.diagnosticConfiguration.routeSelection(
+                        for: frame.route
+                    ).coordinatePolicy
+                )
+            ],
+            "session_counters": [
+                "input_decode_count": 1,
+                "analysis_grid_build_count": 1,
+                "generic_compile_count_for_route": genericCorrectiveCompilationCounts[
+                    frame.route
+                ]!,
+                "generic_dispatch_count": 1,
+                "plane_diagnostic_count": 4,
+                "risk_diagnostic_count": 1,
+                "production_v2_dispatch_count": 1,
+                "output_write_count": preparedOutputs.count,
+                "output_reopen_count": preparedOutputs.count
+            ],
+            "production_v2_reference": productionEvidence,
+            "cells": cellEvidence,
+            "native_invocation_proof": [
+                "protocol": "serve-candidate/diagnose_corrective_frame-v1",
+                "process_id": Int(ProcessInfo.processInfo.processIdentifier),
+                "executable_sha256": manifest.executableSHA256.hex,
+                "source_manifest_sha256": manifest.sourceManifestSHA256.hex
+            ],
+            "risk_state": [
+                "analysis_grid_source_step": riskDiagnostic.baselineGrid.step,
+                "analysis_cell_count": riskDiagnostic.baselineGrid.count,
+                "baseline_analysis_grid_sha256": try correctiveAnalysisGridSHA256(
+                    riskDiagnostic.baselineGrid
+                ),
+                "cells": riskCells
+            ]
+        ]
+        _ = try ASHCalibrationCLIJSON.canonicalData(response)
+        var writtenPaths: [String] = []
+        do {
+            for output in preparedOutputs {
+                try correctiveOutputWriter(output.data, output.path)
+                writtenPaths.append(output.path)
+                guard try correctiveOutputReopener(output.path) == output.data else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic output reopen"
+                    )
+                }
+            }
+            return response
+        } catch {
+            for path in writtenPaths {
+                correctiveOutputRemover(path)
+            }
+            throw error
+        }
+    }
+
+    func correctiveGenericCompilationCount(for route: ASHSpatialRouteV2) -> Int {
+        genericCorrectiveCompilationCounts[route, default: 0]
+    }
+
+    private func genericCorrectiveRuntime(
+        for route: ASHSpatialRouteV2
+    ) throws -> GenericCorrectiveDiagnosticRuntime {
+        if let existing = genericCorrectiveDiagnosticRuntimes[route] {
+            return existing
+        }
+        let diagnostic = try ASHGenericPhaseCompilerDiagnosticV3.compile(
+            route: route,
+            configuration: configuration
+        )
+        let containerConfiguration = try correctiveDiagnosticContainerConfiguration(
+            for: route
+        )
+        let containerEntries = correctiveDiagnosticContainerEntries(diagnostic.entries)
+        guard correctiveDiagnosticContainerEntriesPreserveSemantics(
+            original: diagnostic.entries,
+            container: containerEntries
+        ) else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "generic corrective serialization rebind semantics"
+            )
+        }
+        let compilation = ASHLUTCompilationV2(
+            route: route,
+            configuration: containerConfiguration,
+            entries: containerEntries,
+            offlinePathEvaluationCount: diagnostic.offlinePathEvaluationCount,
+            runtimeTreeGenerationCount: diagnostic.runtimeTreeGenerationCount
+        )
+        let artifact = try ASHLUTBinaryCodecV2.serialize(compilation)
+        let loaded = try ASHLUTBinaryCodecV2.load(
+            artifact.data,
+            expectedRoute: route,
+            configuration: containerConfiguration
+        )
+        guard loaded.immutableBytes == artifact.data,
+              loaded.wholeFileSHA256 == artifact.wholeFileSHA256,
+              loaded.payloadSHA256 == artifact.payloadSHA256,
+              loaded.entries.count == diagnostic.entries.count,
+              loaded.configuration == containerConfiguration,
+              diagnostic.runtimeTreeGenerationCount == 0 else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "generic corrective LUT serialize/load binding"
+            )
+        }
+        if configuration.routeSelection(for: route).coordinatePolicy
+            == .sourceAlignedRational {
+            do {
+                _ = try ASHLUTBinaryCodecV2.load(
+                    artifact.data,
+                    expectedRoute: route,
+                    configuration: configuration
+                )
+                throw ASHCalibrationCLIError.outputValidation(
+                    "generic corrective original configuration accepted rebind artifact"
+                )
+            } catch ASHLUTBinaryErrorV2.inputHashMismatch {
+                // The frozen loader rejects the serialized half-pixel parameter table
+                // before decoding entries under the original source-aligned route.
+            }
+        }
+        let runtime = GenericCorrectiveDiagnosticRuntime(
+            compilation: diagnostic,
+            artifact: artifact,
+            loaded: loaded,
+            diagnosticConfiguration: containerConfiguration
+        )
+        genericCorrectiveDiagnosticRuntimes[route] = runtime
+        genericCorrectiveCompilationCounts[route, default: 0] += 1
+        return runtime
+    }
+
+    func correctiveDiagnosticContainerConfiguration(
+        for route: ASHSpatialRouteV2
+    ) throws -> ASHLUTLockedConfigurationV2 {
+        let routeSelection = configuration.routeSelection(for: route)
+        let diagnosticSelection = try ASHLUTLockedRouteSelectionV2(
+            coordinatePolicy: .halfPixelCenter,
+            analysisGridSourceStep: routeSelection.analysisGridSourceStep
+        )
+        let routes = ASHLUTLockedRoutesV2(
+            direct2x: route == .direct2x
+                ? diagnosticSelection : configuration.routes.direct2x,
+            direct3Over2: route == .direct3Over2
+                ? diagnosticSelection : configuration.routes.direct3Over2
+        )
+        return try ASHLUTLockedConfigurationV2(
+            configurationID: configuration.configurationID,
+            mappingSHA256: configuration.mappingSHA256,
+            operatorBankSHA256: configuration.operatorBankSHA256,
+            metricPolicySHA256: configuration.metricPolicySHA256,
+            compilerInputsSHA256: configuration.compilerInputsSHA256,
+            calibrationPlanSHA256: configuration.calibrationPlanSHA256,
+            corpusLockBundleSHA256: configuration.corpusLockBundleSHA256,
+            boundaryMode: configuration.boundaryMode,
+            operatorParameters: configuration.operatorParameters,
+            semanticSteps: configuration.semanticSteps,
+            compilerPolicy: configuration.compilerPolicy,
+            routes: routes
+        )
+    }
+
+    func correctiveDiagnosticContainerEntries(
+        _ entries: [ASHLUTCompiledEntryV2]
+    ) -> [ASHLUTCompiledEntryV2] {
+        entries.map { entry in
+            let parameters = ASHLUTParameterPairV2(
+                primary: entry.parameters.primary,
+                secondary: entry.parameters.secondary,
+                confidenceThresholdUNorm16: entry.parameters.confidenceThresholdUNorm16,
+                coordinatePolicy: .halfPixelCenter,
+                boundaryMode: entry.parameters.boundaryMode
+            )
+            return ASHLUTCompiledEntryV2(
+                logicalIndex: entry.logicalIndex,
+                sourceState: entry.sourceState,
+                validStateOrdinal: entry.validStateOrdinal,
+                phaseOrdinal: entry.phaseOrdinal,
+                context: entry.context,
+                primary: entry.primary,
+                secondary: entry.secondary,
+                primaryWeightUNorm16: entry.primaryWeightUNorm16,
+                secondaryWeightUNorm16: entry.secondaryWeightUNorm16,
+                marginUNorm16: entry.marginUNorm16,
+                sourceAlignedExact: entry.sourceAlignedExact,
+                temporalForcedSpatial: entry.temporalForcedSpatial,
+                parameters: parameters
+            )
+        }
+    }
+
+    func correctiveGenericDiagnosticArtifact(
+        for route: ASHSpatialRouteV2
+    ) throws -> Data {
+        try genericCorrectiveRuntime(for: route).artifact.data
+    }
+
+    func correctiveGenericDiagnosticConfiguration(
+        for route: ASHSpatialRouteV2
+    ) throws -> ASHLUTLockedConfigurationV2 {
+        try genericCorrectiveRuntime(for: route).diagnosticConfiguration
+    }
+
+    func correctiveGenericDiagnosticCompilation(
+        for route: ASHSpatialRouteV2
+    ) throws -> ASHGenericPhaseCompilationV3 {
+        try genericCorrectiveRuntime(for: route).compilation
+    }
+
+    func correctiveSerializationRebindSHA256(
+        route: ASHSpatialRouteV2,
+        original: ASHSpatialCoordinatePolicyV2,
+        serialized: ASHSpatialCoordinatePolicyV2
+    ) -> String {
+        var data = ASHCalibrationCorrectiveHashContract.serializationRebindDomain
+        data.append(Data(route.rawValue.utf8))
+        data.append(0)
+        data.append(Data(original.rawValue.utf8))
+        data.append(0)
+        data.append(Data(serialized.rawValue.utf8))
+        data.append(0)
+        data.append(original == serialized ? 0 : 1)
+        return ASHCalibrationCLIHash.hex(data)
+    }
+
+    private func correctiveDiagnosticContainerEntriesPreserveSemantics(
+        original: [ASHLUTCompiledEntryV2],
+        container: [ASHLUTCompiledEntryV2]
+    ) -> Bool {
+        guard original.count == container.count else { return false }
+        return zip(original, container).allSatisfy { source, rebound in
+            source.logicalIndex == rebound.logicalIndex
+                && source.sourceState == rebound.sourceState
+                && source.validStateOrdinal == rebound.validStateOrdinal
+                && source.phaseOrdinal == rebound.phaseOrdinal
+                && source.context == rebound.context
+                && source.primary == rebound.primary
+                && source.secondary == rebound.secondary
+                && source.primaryWeightUNorm16 == rebound.primaryWeightUNorm16
+                && source.secondaryWeightUNorm16 == rebound.secondaryWeightUNorm16
+                && source.marginUNorm16 == rebound.marginUNorm16
+                && source.sourceAlignedExact == rebound.sourceAlignedExact
+                && source.temporalForcedSpatial == rebound.temporalForcedSpatial
+                && source.parameters.primary == rebound.parameters.primary
+                && source.parameters.secondary == rebound.parameters.secondary
+                && source.parameters.confidenceThresholdUNorm16
+                    == rebound.parameters.confidenceThresholdUNorm16
+                && source.parameters.boundaryMode == rebound.parameters.boundaryMode
+                && rebound.parameters.coordinatePolicy == .halfPixelCenter
+        }
+    }
+
+    private func correctiveCoordinatePolicies(
+        _ cellID: String
+    ) throws -> (
+        luma: ASHCoordinateModelPolicyV3,
+        chroma: ASHCoordinateModelPolicyV3
+    ) {
+        switch cellID {
+        case "HH": (.halfPixelCenter, .halfPixelCenter)
+        case "HS": (.halfPixelCenter, .sourceAlignedRational)
+        case "SH": (.sourceAlignedRational, .halfPixelCenter)
+        case "SS": (.sourceAlignedRational, .sourceAlignedRational)
+        default:
+            throw ASHCalibrationCLIError.invalidRequest(
+                "corrective diagnostic coordinate cell"
+            )
+        }
+    }
+
+    private func validateCorrectiveOutputGeometry(
+        _ data: Data,
+        frame: ASHCalibrationFrameRequest,
+        luma: ASHLockedReferencePlaneOutputV2,
+        cb: ASHLockedReferencePlaneOutputV2,
+        cr: ASHLockedReferencePlaneOutputV2
+    ) throws {
+        guard luma.width == frame.outputWidth,
+              luma.height == frame.outputHeight,
+              cb.width == frame.outputWidth / 2,
+              cb.height == frame.outputHeight / 2,
+              cr.width == cb.width,
+              cr.height == cb.height,
+              data.count == frame.outputWidth * frame.outputHeight * 3 / 2 else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic output geometry"
+            )
+        }
+    }
+
+    private func correctivePlaneCodeSHA256(
+        nv12: Data,
+        width: Int,
+        height: Int
+    ) throws -> [String: String] {
+        let yByteCount = width * height
+        guard width > 0,
+              height > 0,
+              width.isMultiple(of: 2),
+              height.isMultiple(of: 2),
+              nv12.count == yByteCount * 3 / 2 else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic plane hash geometry"
+            )
+        }
+        let chromaSampleCount = yByteCount / 4
+        var cb = Data()
+        var cr = Data()
+        cb.reserveCapacity(chromaSampleCount)
+        cr.reserveCapacity(chromaSampleCount)
+        for index in 0..<chromaSampleCount {
+            cb.append(nv12[yByteCount + 2 * index])
+            cr.append(nv12[yByteCount + 2 * index + 1])
+        }
+        return [
+            "y": ASHCalibrationCLIHash.hex(Data(nv12.prefix(yByteCount))),
+            "cb": ASHCalibrationCLIHash.hex(cb),
+            "cr": ASHCalibrationCLIHash.hex(cr)
+        ]
+    }
+
+    private func correctivePlaneEvidence(
+        _ output: ASHLockedPlaneDiagnosticOutputV3,
+        channelTag: String,
+        outputPlaneSHA256: String
+    ) throws -> [String: Any] {
+        [
+            "coordinate_policy": output.coordinatePolicy.rawValue,
+            "anisotropy_strength_q12": Int(output.anisotropyStrengthQ12),
+            "sample_count": output.output.width * output.output.height,
+            "output_plane_sha256": outputPlaneSHA256,
+            "normalized_plane_sha256": try correctiveNormalizedPlaneSHA256(
+                output.output,
+                channelTag: channelTag
+            ),
+            "source_aligned_entry_flag_sample_count": output
+                .sourceAlignedEntryFlagSampleCount,
+            "source_aligned_sample_preservation_count": output
+                .sourceAlignedSamplePreservationCount,
+            "numerical_fallback_count": output.numericalFallbackCount
+        ]
+    }
+
+    func correctiveNormalizedPlaneSHA256(
+        _ plane: ASHLockedReferencePlaneOutputV2,
+        channelTag: String
+    ) throws -> String {
+        guard ["Y\0", "CB\0", "CR\0"].contains(channelTag),
+              plane.width > 0,
+              plane.height > 0,
+              plane.normalizedSamples.count == plane.width * plane.height,
+              let width = UInt32(exactly: plane.width),
+              let height = UInt32(exactly: plane.height),
+              let sampleCount = UInt32(exactly: plane.normalizedSamples.count) else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic normalized plane hash geometry"
+            )
+        }
+        var data = ASHCalibrationCorrectiveHashContract.normalizedPlaneDomain
+        data.append(contentsOf: Data(channelTag.utf8))
+        appendBigEndian(height, to: &data)
+        appendBigEndian(width, to: &data)
+        appendBigEndian(sampleCount, to: &data)
+        for sample in plane.normalizedSamples {
+            guard sample.isFinite else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "corrective diagnostic normalized plane hash sample"
+                )
+            }
+            appendBigEndian(sample.bitPattern, to: &data)
+        }
+        return ASHCalibrationCLIHash.hex(data)
+    }
+
+    func correctiveAnalysisGridSHA256(
+        _ grid: ASHAnalysisGridV2
+    ) throws -> String {
+        guard grid.cells.count == grid.columnCount * grid.rowCount else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic analysis grid cardinality"
+            )
+        }
+        var data = ASHCalibrationCorrectiveHashContract.analysisGridDomain
+        for value in [
+            grid.sourceWidth, grid.sourceHeight, grid.step,
+            grid.columnCount, grid.rowCount, grid.cells.count
+        ] {
+            guard let exact = UInt32(exactly: value) else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "corrective diagnostic analysis grid extent"
+                )
+            }
+            appendBigEndian(exact, to: &data)
+        }
+        for cell in grid.cells {
+            for value in [
+                cell.column, cell.row, cell.originX, cell.originY,
+                cell.actualWidth, cell.actualHeight
+            ] {
+                guard let exact = UInt32(exactly: value) else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic analysis cell extent"
+                    )
+                }
+                appendBigEndian(exact, to: &data)
+            }
+            appendBigEndian(cell.centerX.bitPattern, to: &data)
+            appendBigEndian(cell.centerY.bitPattern, to: &data)
+            appendBigEndian(cell.analysis.state.rawValue, to: &data)
+            let measurements = cell.analysis.measurements
+            for value in [
+                measurements.tensorXX,
+                measurements.tensorYY,
+                measurements.tensorXY,
+                measurements.normalizedGradientMagnitude,
+                measurements.structureCoherence,
+                measurements.edgeNormalRadians,
+                measurements.edgeTangentRadians,
+                Double(measurements.orientationSector),
+                measurements.textureEnergy,
+                measurements.riskProxy,
+                measurements.localNoiseEstimate,
+                measurements.chromaAlignment,
+                measurements.chromaEdgeConfidence,
+                measurements.localMinimumY,
+                measurements.localMaximumY
+            ] {
+                guard value.isFinite else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic nonfinite analysis value"
+                    )
+                }
+                appendBigEndian(value.bitPattern, to: &data)
+            }
+            let sidecar = cell.analysis.sidecar
+            data.append(sidecar.inputRange == .video ? 0 : 1)
+            for value in [
+                sidecar.normalizedGradientMagnitude,
+                sidecar.structureCoherence,
+                sidecar.edgeNormalRadians,
+                sidecar.edgeTangentRadians
+            ] {
+                guard value.isFinite else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic nonfinite sidecar value"
+                    )
+                }
+                appendBigEndian(value.bitPattern, to: &data)
+            }
+            guard let orientationSector = UInt32(exactly: sidecar.orientationSector) else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "corrective diagnostic sidecar orientation"
+                )
+            }
+            appendBigEndian(orientationSector, to: &data)
+            for value in [
+                sidecar.textureEnergy,
+                sidecar.riskProxy,
+                sidecar.localNoiseEstimate,
+                sidecar.temporalConfidence
+            ] {
+                guard value.isFinite else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic nonfinite sidecar value"
+                    )
+                }
+                appendBigEndian(value.bitPattern, to: &data)
+            }
+            appendBigEndian(sidecar.motionVectorQ8_8.x, to: &data)
+            appendBigEndian(sidecar.motionVectorQ8_8.y, to: &data)
+            for value in [
+                sidecar.chromaAlignment,
+                sidecar.chromaEdgeConfidence,
+                sidecar.localMinimumY,
+                sidecar.localMaximumY
+            ] {
+                guard value.isFinite else {
+                    throw ASHCalibrationCLIError.outputValidation(
+                        "corrective diagnostic nonfinite sidecar value"
+                    )
+                }
+                appendBigEndian(value.bitPattern, to: &data)
+            }
+            let hysteresis = cell.analysis.hysteresis
+            for decision in [
+                hysteresis.edgePresent,
+                hysteresis.coherentStructure,
+                hysteresis.textureHighFrequency,
+                hysteresis.aliasOrRingingRisk,
+                hysteresis.temporalSupportValid,
+                hysteresis.chromaLumaStructureAligned
+            ] {
+                try appendCorrectiveLengthPrefixedUTF8(
+                    decision.rawValue,
+                    to: &data
+                )
+            }
+        }
+        return ASHCalibrationCLIHash.hex(data)
+    }
+
+    private func appendCorrectiveLengthPrefixedUTF8(
+        _ value: String,
+        to data: inout Data
+    ) throws {
+        let bytes = Data(value.utf8)
+        guard let count = UInt16(exactly: bytes.count) else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "corrective diagnostic hash string length"
+            )
+        }
+        appendBigEndian(count, to: &data)
+        data.append(bytes)
     }
 
     private func processFrame(_ request: ASHCalibrationFrameRequest) throws -> [String: Any] {

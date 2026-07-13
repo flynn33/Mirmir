@@ -152,28 +152,17 @@ enum ASHLUTLeafCompilerV2 {
         paths: [ASHLUTCanonicalPathV2],
         configuration: ASHLUTLockedConfigurationV2
     ) throws -> ASHLUTCompiledEntryV2 {
-        let semanticState = try spatialSemanticState(sourceState)
-        let baseDescriptor = baseDescriptorID(
-            state: semanticState,
-            phaseOrdinal: Int(phaseOrdinal),
-            route: route
-        )
-        let groups = try compatibleGroups(
-            sourceState: sourceState,
-            semanticState: semanticState,
-            baseDescriptor: baseDescriptor,
-            phaseOrdinal: phaseOrdinal,
-            route: route,
-            paths: paths,
-            configuration: configuration
-        )
-        guard groups.count >= 2 else {
-            throw ASHLUTCompilerErrorV2.noCompatibleCandidate
-        }
         let routeSelection = configuration.routeSelection(for: route)
         let sourceAligned = routeSelection.coordinatePolicy == .sourceAlignedRational
             && phaseOrdinal == 0
         if sourceAligned {
+            _ = try genericGroups(
+                sourceState: sourceState,
+                phaseOrdinal: phaseOrdinal,
+                route: route,
+                paths: paths,
+                configuration: configuration
+            )
             return sourceAlignedEntry(
                 logicalIndex: logicalIndex,
                 sourceState: sourceState,
@@ -184,6 +173,38 @@ enum ASHLUTLeafCompilerV2 {
                 configuration: configuration
             )
         }
+        return try compileGenericCell(
+            logicalIndex: logicalIndex,
+            sourceState: sourceState,
+            validStateOrdinal: validStateOrdinal,
+            phaseOrdinal: phaseOrdinal,
+            context: context,
+            route: route,
+            paths: paths,
+            configuration: configuration
+        )
+    }
+}
+
+extension ASHLUTLeafCompilerV2 {
+    static func compileGenericCell(
+        logicalIndex: Int,
+        sourceState: ASHState,
+        validStateOrdinal: UInt16,
+        phaseOrdinal: UInt16,
+        context: ASHLUTContextV2,
+        route: ASHSpatialRouteV2,
+        paths: [ASHLUTCanonicalPathV2],
+        configuration: ASHLUTLockedConfigurationV2
+    ) throws -> ASHLUTCompiledEntryV2 {
+        let groups = try genericGroups(
+            sourceState: sourceState,
+            phaseOrdinal: phaseOrdinal,
+            route: route,
+            paths: paths,
+            configuration: configuration
+        )
+        let routeSelection = configuration.routeSelection(for: route)
         let ranked = try groups.values.map { group in
             RankedMessageGroup(
                 representative: group.representative,
@@ -227,22 +248,50 @@ enum ASHLUTLeafCompilerV2 {
             primaryWeightUNorm16: weights.primary,
             secondaryWeightUNorm16: weights.secondary,
             marginUNorm16: provisionalMargin,
-            sourceAlignedExact: sourceAligned,
+            sourceAlignedExact: false,
             temporalForcedSpatial: context != .spatialOnly,
             parameters: ASHLUTParameterPairV2(
                 primary: parameterSlot(
                     candidate: primary,
-                    sourceAligned: sourceAligned,
+                    sourceAligned: false,
                     configuration: configuration
                 ),
                 secondary: secondary.map {
-                    parameterSlot(candidate: $0, sourceAligned: sourceAligned, configuration: configuration)
+                    parameterSlot(candidate: $0, sourceAligned: false, configuration: configuration)
                 } ?? .inactive,
                 confidenceThresholdUNorm16: configuration.compilerPolicy.confidenceThresholdUNorm16,
                 coordinatePolicy: routeSelection.coordinatePolicy,
                 boundaryMode: configuration.boundaryMode
             )
         )
+    }
+
+    private static func genericGroups(
+        sourceState: ASHState,
+        phaseOrdinal: UInt16,
+        route: ASHSpatialRouteV2,
+        paths: [ASHLUTCanonicalPathV2],
+        configuration: ASHLUTLockedConfigurationV2
+    ) throws -> [UInt8: MessageGroup] {
+        let semanticState = try spatialSemanticState(sourceState)
+        let baseDescriptor = baseDescriptorID(
+            state: semanticState,
+            phaseOrdinal: Int(phaseOrdinal),
+            route: route
+        )
+        let groups = try compatibleGroups(
+            sourceState: sourceState,
+            semanticState: semanticState,
+            baseDescriptor: baseDescriptor,
+            phaseOrdinal: phaseOrdinal,
+            route: route,
+            paths: paths,
+            configuration: configuration
+        )
+        guard groups.count >= 2 else {
+            throw ASHLUTCompilerErrorV2.noCompatibleCandidate
+        }
+        return groups
     }
 
     private static func compatibleGroups(

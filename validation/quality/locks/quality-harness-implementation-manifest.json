@@ -1,11 +1,11 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 234,
+  "file_count": 264,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
-      "sha256": "f85d7e7e2df89d7f58913aee35ecb69f53d2381173108b7d87b092646001cbdb",
-      "size_bytes": 90897
+      "sha256": "8b01bc3999bd4b00bf30d88e82543bf05ef93b2030195cd4913977f1d83f9963",
+      "size_bytes": 101619
     },
     {
       "relative_path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
@@ -53,6 +53,16 @@
       "size_bytes": 3389
     },
     {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateDiagnosticRuntimeV3.swift",
+      "sha256": "2eaf038cc322e5af1e0fe000c4ae344a0f77f6fa04c383c35f683d42e3240ec3",
+      "size_bytes": 7843
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateModelContractV3.swift",
+      "sha256": "0f39e357ee4c520fe389bc9123ea979fb8d9198175bcaf481717e9ed6a452c44",
+      "size_bytes": 14682
+    },
+    {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
       "sha256": "5a93ba96e00193cf03dce7ba942b78b003113779691d8e8598babb286bf59b4f",
       "size_bytes": 12023
@@ -61,6 +71,11 @@
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
       "sha256": "889e0aadf6b25cf17459e72293acc3a4b3a6c62906adac7bdac2fca04b66fbd4",
       "size_bytes": 847
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHGenericPhaseCompilerDiagnosticV3.swift",
+      "sha256": "0420d9b1c3f4b3b97a385d211b0e670d1563d4318e7fbb77d78e47065608b588",
+      "size_bytes": 2841
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV2.swift",
@@ -89,8 +104,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV2.swift",
-      "sha256": "c916b0a99e4a0e6c58be175082c1b7833df2397c7e396dbe4bfb488fd3da01a7",
-      "size_bytes": 14475
+      "sha256": "e32b73b744ab5dbfa3c88efd4e78f76ed7b99bfa31ed341d737f8929ce2dc896",
+      "size_bytes": 16016
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV2.swift",
@@ -133,6 +148,11 @@
       "size_bytes": 10634
     },
     {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedPlanePolicyDiagnosticV3.swift",
+      "sha256": "6e9a2d30410679d664df1f1fa4f346ecc6ad768e43fc742eebc82097e5badb97",
+      "size_bytes": 8676
+    },
+    {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+DispatchProjection.swift",
       "sha256": "5c0719030633b09b23d519c4735b754930f2afe22e0c9eb6c2d0089b5b3468b9",
       "size_bytes": 5241
@@ -169,13 +189,18 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift",
-      "sha256": "93b0e58026010619651ac8109a6bd934c8826237cc656bbd70dca70ef5e56689",
-      "size_bytes": 17657
+      "sha256": "9228bb0d2347e561dee205a6243c5a1d4447ae4d7bcba3ef145113d16f94304b",
+      "size_bytes": 21999
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
       "sha256": "3dcb393d6a32ee4ad5fa36c9ae27d12b3cc42dc44ff08e13858feca6392abb1d",
       "size_bytes": 15190
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
+      "sha256": "3dc736d52d4c80646cad6876926048e605634536de3088ca4f212549908956a9",
+      "size_bytes": 10686
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
@@ -184,8 +209,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
-      "sha256": "41105f057d022991f942ac63a70d8454db3218a550c1d324262852b8f9e6f8df",
-      "size_bytes": 28770
+      "sha256": "b9811a932d05b1b54a8ea91ac0f650bcb0522e27b2a46da1852282d7b5eeeb32",
+      "size_bytes": 28776
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
@@ -211,6 +236,11 @@
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
       "sha256": "979caeef41bd281ceb60471b725654a6cc72a32d07371244349a5a3969134197",
       "size_bytes": 36222
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
+      "sha256": "25722af98467d2ccad589aaef245bfbf7bc5cbe272bc2c8e783687b1e792c0d3",
+      "size_bytes": 14003
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
@@ -239,8 +269,8 @@
     },
     {
       "relative_path": "project.yml",
-      "sha256": "9e6c47cb852d1b7202eeff06d0de36a0e78fb46f9eda2de6bfbc8df916d516f5",
-      "size_bytes": 2285
+      "sha256": "fe0c37266d21bde9e871c58c956400255732f93c6ab19dea03b07a470383579d",
+      "size_bytes": 2458
     },
     {
       "relative_path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
@@ -261,6 +291,11 @@
       "relative_path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
       "sha256": "3e55885471aacd3e1468ab6d8d967d8335d5d322c77859b94a5321391cabf798",
       "size_bytes": 12600
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/coordinate-model-contract-v3.json",
+      "sha256": "283704ffcd267be7d85eb74c3791d466f94ba6aaa5430e7443a37683db0faced",
+      "size_bytes": 4865
     },
     {
       "relative_path": "validation/calibration_v2/contracts/holdout-sampling-plan-v1.json",
@@ -298,6 +333,31 @@
       "size_bytes": 4708
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/video-profile-contract-v1.json",
+      "sha256": "8c61d53cab158838e559b81a1d0c6b65ecc734a61ade76f84d41c92187214ef3",
+      "size_bytes": 493
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_diagnostic_executor.py",
+      "sha256": "f4bd1362598d157b5b1da23b0a0e572bb5d7433c59dcdfa5fe0bfa4ddca47334",
+      "size_bytes": 132981
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_diagnostics.py",
+      "sha256": "406a5766db54036ba8c6e7c9709379f273a0d360790542c6821b00b4a2204fb8",
+      "size_bytes": 82705
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_native.py",
+      "sha256": "f72042d7fce1fd72df6df9d6ff182fc70276a3f4e7bc683624f525c074213b0c",
+      "size_bytes": 57538
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_preregistration.py",
+      "sha256": "9520974ac72454e4cb5d2923d4125a3cefe71badf10ace59ce96a0fd9473f010",
+      "size_bytes": 18309
+    },
+    {
       "relative_path": "validation/calibration_v2/fixtures/locked-compiler-input-shared-v1.json",
       "sha256": "75293d2c18998df82131305fa33e4805f555246632137c3f7ae393a7d700ee7f",
       "size_bytes": 6317
@@ -314,18 +374,18 @@
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIMain.swift",
-      "sha256": "45b8dad712142120331cfdc5a436def24abea8f91168dd45de547ac3c919f6ba",
-      "size_bytes": 13564
+      "sha256": "2be53e973f3fd161bb74cb67d1a7ef11a437e78c31de1c465173e060ec7104de",
+      "size_bytes": 14179
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift",
-      "sha256": "c600c99aa60f26fc259ee496dc0a00e8e58427d85898c1e77f6944302e9c76e2",
-      "size_bytes": 77711
+      "sha256": "e72d0312313ed05373caa78a9722d3d589ff6374272b39fdb6c87fb0b5bcd989",
+      "size_bytes": 126981
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift",
-      "sha256": "a711ff3d483a4dc06d98e11c020e91c49000c349ce581a4b67d464706d83ab28",
-      "size_bytes": 10530
+      "sha256": "b81e5d5ff42f66817f5125c5308ab0d84c89d9a10c292cd6dfbd9dc7e0ea25db",
+      "size_bytes": 10614
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationP00Main.swift",
@@ -334,13 +394,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/__init__.py",
-      "sha256": "b55588b226563c02c01c5c1f3c20bcc6997d051ba5da4d2e096ed0ad7b3c8b95",
-      "size_bytes": 361
+      "sha256": "27e671b2cd7c20ef471303fdb5dbe0d850afb10433f838ba175c6a6155bec517",
+      "size_bytes": 549
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/factory.py",
-      "sha256": "fd65abbe9f97fbf11b7c7f369e0d167b22cc95968814bfbe1dc2ee5fa86ea7b1",
-      "size_bytes": 266113
+      "sha256": "50ab98045acf53dab225f68429ef20af92ac539a078b7e96ffc748f163f57881",
+      "size_bytes": 278782
     },
     {
       "relative_path": "validation/calibration_v2/p07/P07HoldoutFrameLoader.swift",
@@ -369,8 +429,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/production_evaluator.py",
-      "sha256": "d8a3b48f1e154d10261d511cf2872d8b2a6551622970b2943c1905c022e74229",
-      "size_bytes": 210695
+      "sha256": "2f0aa71443910d807d07573e39f98b4264176d097a0dd8a3b73d377a896f8fdb",
+      "size_bytes": 240184
     },
     {
       "relative_path": "validation/calibration_v2/production_evidence.py",
@@ -414,8 +474,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/runner.py",
-      "sha256": "df7271df9922b15934aa8c9d5755d8b67a515b071441c91828c56534ce184965",
-      "size_bytes": 358128
+      "sha256": "71ebe38667bf78ae65051b08b6b2c0d94e325ee219c29299254fb0cb6f2673f1",
+      "size_bytes": 367463
     },
     {
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
@@ -439,8 +499,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/candidate-evaluation-v1.schema.json",
-      "sha256": "f8960ff898a922941b0ce0073019953806ffcb269cead9df1505b30e43e5bf6e",
-      "size_bytes": 57533
+      "sha256": "72ad6f65e96eb67e80ec919fc523eb3892de9ed652647e1ae4fb0c0ccce07f7a",
+      "size_bytes": 62004
     },
     {
       "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v1.schema.json",
@@ -466,6 +526,31 @@
       "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v1.schema.json",
       "sha256": "6c299f1c2ed4a9493bd2d5b17958ca59ca1dca20b2195fa2a7fe6aba79d83069",
       "size_bytes": 3587
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-v1.schema.json",
+      "sha256": "c20a20bfd8a839f7053e6d8acf1216f83c1d280671603629c1900bf6b5cf515d",
+      "size_bytes": 23768
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-model-contract-v3.schema.json",
+      "sha256": "93b217e5b51759481ee246e45acff75465770740ed786075e7d4c2c661677c7f",
+      "size_bytes": 13861
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/corrective-diagnostic-envelope-v1.schema.json",
+      "sha256": "67d45cc8d2d18faf4b595eac9923d7bde2b2c45ea85f22c1e9d8d3ca44526c63",
+      "size_bytes": 1497
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/corrective-diagnostic-preregistration-v1.schema.json",
+      "sha256": "b0fb2eb2e9dead5d2a6d31ee9fd9e56d4cf10eb7621026a12770e6424b479f9f",
+      "size_bytes": 16716
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/development-control-selection-cache-v1.schema.json",
+      "sha256": "883d9cb526c2923b4cfaff89a04ee2dc9f550df41c2c5ba76d1fe422d53a40b5",
+      "size_bytes": 11249
     },
     {
       "relative_path": "validation/calibration_v2/schemas/dispatch-measurement-v1.schema.json",
@@ -648,6 +733,11 @@
       "size_bytes": 3156
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/risk-state-diagnostic-v1.schema.json",
+      "sha256": "260a0d4c45cf57e6cb1e0e8fef16fe1d25b8830b6821df1e1e550f567f03dc8e",
+      "size_bytes": 11998
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/route-analysis-grid-selection-v1.schema.json",
       "sha256": "84031bde47febc20bc3dc3c621730925b726c8a54b11e91270fa4eb18726d830",
       "size_bytes": 3041
@@ -668,6 +758,11 @@
       "size_bytes": 4841
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/video-profile-contract-v1.schema.json",
+      "sha256": "31038f725a3465a30c2aa73716cac6a3a7bfd6409fcd0f63a65ab1a9d61e0e07",
+      "size_bytes": 898
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/test_contracts.py",
       "sha256": "a4080cdd89024928def416c78a8107ab8abd69acfa32fe0e7ffaf41973cf1e40",
       "size_bytes": 46205
@@ -681,6 +776,41 @@
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
       "sha256": "ac8129a6592d28f9d32b6a9c2c0e5ff21947201727adef11da9fd981ce05b1c4",
       "size_bytes": 165836
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_coordinate_model_contract_v3.py",
+      "sha256": "694264838a8cbe5cd5e8806b75c13f21c4b50fa164903c04b1e6a811590414c9",
+      "size_bytes": 9951
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_cli.py",
+      "sha256": "2d573f9efcc19a118686f0f75d250bc887acc72a9cff901cf1bcae740187732c",
+      "size_bytes": 18434
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_executor.py",
+      "sha256": "5069c9726f3c123c02fab4965f5771a5f58a34df21a3216413a91cd4c9aed126",
+      "size_bytes": 38661
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostics.py",
+      "sha256": "cca405beb46445d6a02d009ddefa0c6f97d63d692c81725d54cb931bd1808f60",
+      "size_bytes": 76582
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_native.py",
+      "sha256": "40f352d36032e4c1b140a689d2bf952096694155a56b43ccb9f7dbdc621fe2d6",
+      "size_bytes": 28925
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_preregistration.py",
+      "sha256": "d6fc74d2d13625c66007494ec6aeb88fe9fe96a6bb8896680f94c5c43b4c10f3",
+      "size_bytes": 14975
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_development_control_selection_cache.py",
+      "sha256": "01f94eb91b34b1d875663364a2cf1dbc7ef6f0f462e1c7f914e53ea197869770",
+      "size_bytes": 53936
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
@@ -798,6 +928,11 @@
       "size_bytes": 20400
     },
     {
+      "relative_path": "validation/calibration_v2/tests/test_video_profile_contract.py",
+      "sha256": "6ab92d902d0fa8fc6d9a93e24fc032c7388ccba314851719abc68ad92830f904",
+      "size_bytes": 3285
+    },
+    {
       "relative_path": "validation/calibration_v2/tools/compile_reference_luts.py",
       "sha256": "35aae92379969411779748150ead94e595a1873a269fcd437dd3df5974f3088a",
       "size_bytes": 2465
@@ -813,9 +948,24 @@
       "size_bytes": 2547
     },
     {
+      "relative_path": "validation/calibration_v2/tools/inspect_p06_corrective_archive.py",
+      "sha256": "1108fcfd10dc8f074fc010f3c3a7e67706d5e582237542741df249460444c473",
+      "size_bytes": 4088
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/prepare_p06_corrective_diagnostics.py",
+      "sha256": "8d753fb628201909f778b0245e2bfa5b3b83bca729a6237e748349abe36427d7",
+      "size_bytes": 30005
+    },
+    {
       "relative_path": "validation/calibration_v2/tools/run_g06_verification.py",
       "sha256": "cddd4bf46a79b285ac2f8330e0ba1f8c2080dca2908447e452da447ac5c4c444",
       "size_bytes": 48794
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_p06_corrective_diagnostics.py",
+      "sha256": "9ff1aedbd6782c942c505924c047df7020899d2fd2c19a5c23c2d36974d5c055",
+      "size_bytes": 108826
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_p06_production_calibration.py",
@@ -999,8 +1149,8 @@
     },
     {
       "relative_path": "validation/quality/src/mirmir_quality/harness_manifest.py",
-      "sha256": "7fd327f9c957f3547f086ffa7d9ff624ae48c8246d486d087592d1ecb45aa23b",
-      "size_bytes": 15845
+      "sha256": "8798c0d5ec48a8fba37bb8467bd19482fcff1006ca65579fc690cefd1a7f6cbe",
+      "size_bytes": 16309
     },
     {
       "relative_path": "validation/quality/src/mirmir_quality/holdout.py",
@@ -1173,6 +1323,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "fd538874c0449c1ef2fb872ae66106d13521ccd9991419a147c69f7a967d3e14",
+  "manifest_sha256": "2a3d66ea19b7763c23cca9f97c3826f482ed1ec9f76a8b25a705493d3f606d04",
   "schema_version": "1.0.0"
 }

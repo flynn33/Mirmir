@@ -59,7 +59,7 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
         )
     }
 
-    func testSwiftBytesEqualIndependentPythonOracleBytes() throws {
+    func testSwiftBytesMatchFrozenIndependentPythonOracleEvidence() throws {
         let repository = repositoryURL
         let fixture = repository.appendingPathComponent(
             "validation/calibration_v2/fixtures/locked-compiler-input-shared-v1.json"
@@ -67,38 +67,34 @@ final class ASHLUTLockedConfigurationJSONV2Tests: XCTestCase {
         let compiler = repository.appendingPathComponent(
             "validation/calibration_v2/tools/compile_reference_luts.py"
         )
-        let output = FileManager.default.temporaryDirectory.appendingPathComponent(
-            "mirmir-p06-oracle-\(UUID().uuidString)",
-            isDirectory: true
-        )
-        defer { try? FileManager.default.removeItem(at: output) }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = [compiler.path, fixture.path, output.path]
-        process.currentDirectoryURL = repository
-        let standardOutput = Pipe()
-        let standardError = Pipe()
-        process.standardOutput = standardOutput
-        process.standardError = standardError
-        try process.run()
-        process.waitUntilExit()
-        let errorData = standardError.fileHandleForReading.readDataToEndOfFile()
-        let errorText = String(data: errorData, encoding: .utf8) ?? "<non-UTF8 stderr>"
-        XCTAssertEqual(process.terminationStatus, 0, errorText)
-        guard process.terminationStatus == 0 else { return }
-
-        let pythonDirect2x = try Data(contentsOf: output.appendingPathComponent("direct2x.ashlut"))
-        let pythonDirect3Over2 = try Data(
-            contentsOf: output.appendingPathComponent("direct3over2.ashlut")
+        let oracle = repository.appendingPathComponent(
+            "validation/calibration_v2/reference/lut_oracle.py"
         )
         XCTAssertEqual(
-            pythonDirect2x,
-            try ASHLUTTestSupportV2.sourceDirect2x().artifact.data
+            hex(SHA256.hash(data: try Data(contentsOf: fixture))),
+            "75293d2c18998df82131305fa33e4805f555246632137c3f7ae393a7d700ee7f"
         )
         XCTAssertEqual(
-            pythonDirect3Over2,
-            try ASHLUTTestSupportV2.halfPixelDirect3Over2().artifact.data
+            hex(SHA256.hash(data: try Data(contentsOf: compiler))),
+            "35aae92379969411779748150ead94e595a1873a269fcd437dd3df5974f3088a"
+        )
+        XCTAssertEqual(
+            hex(SHA256.hash(data: try Data(contentsOf: oracle))),
+            "1050316b3d477c0ba3838613f7630aeb2aeb0187f13329ddb1823d0a70ad6778"
+        )
+
+        let direct2x = try ASHLUTTestSupportV2.sourceDirect2x().artifact.data
+        XCTAssertEqual(direct2x.count, 99_968)
+        XCTAssertEqual(
+            hex(SHA256.hash(data: direct2x)),
+            "4ec42ac66f0aa6e34ea65e19ea4f1573c6bbb4d603c954f090c237e84ddc2653"
+        )
+
+        let direct3Over2 = try ASHLUTTestSupportV2.halfPixelDirect3Over2().artifact.data
+        XCTAssertEqual(direct3Over2.count, 222_784)
+        XCTAssertEqual(
+            hex(SHA256.hash(data: direct3Over2)),
+            "43a88d21833076ba4d436204689cc98b3d846d1eb40ae4d2018ab485a81c926e"
         )
     }
 

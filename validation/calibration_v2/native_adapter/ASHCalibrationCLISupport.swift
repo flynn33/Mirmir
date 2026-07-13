@@ -2,6 +2,10 @@ import CryptoKit
 import Darwin
 import Foundation
 
+#if canImport(Mirmir)
+@testable import Mirmir
+#endif
+
 enum ASHCalibrationCLIError: Error, CustomStringConvertible {
     case invalidArguments
     case unsafePath(String)
@@ -32,6 +36,7 @@ enum ASHCalibrationCLIError: Error, CustomStringConvertible {
     }
 }
 
+#if !canImport(Mirmir)
 protocol ASHTelemetryRecording: AnyObject, Sendable {
     func recordState(rawValue: UInt16)
     func recordMessage(_ rawValue: UInt8)
@@ -51,6 +56,7 @@ final class ASHNoopTelemetryRecorder: ASHTelemetryRecording, @unchecked Sendable
     func recordDecode(_: ASHDecodeStatus) {}
     func recordCandidateCount(_: Int) {}
 }
+#endif
 
 enum ASHCalibrationCLIHash {
     static func hex(_ data: Data) -> String {

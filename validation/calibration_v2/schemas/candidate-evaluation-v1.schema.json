@@ -15,6 +15,7 @@
     "runtime_summary",
     "comparison_identities",
     "control_selection_artifacts",
+    "development_control_selection_cache",
     "corpus_asset_results",
     "analytic_fixture_results",
     "checks",
@@ -22,7 +23,7 @@
     "dispatch_measurement"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "1.1.0"},
     "artifact_kind": {"const": "p06_candidate_evaluation"},
     "candidate_id": {"type": "string", "minLength": 1},
     "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
@@ -82,6 +83,9 @@
       },
       "additionalProperties": false
     },
+    "development_control_selection_cache": {
+      "$ref": "#/$defs/developmentControlSelectionCache"
+    },
     "corpus_asset_results": {
       "type": "array",
       "minItems": 6,
@@ -125,10 +129,147 @@
           }
         }
       }
+    },
+    {
+      "if": {"properties": {"split": {"const": "validation"}}},
+      "then": {
+        "properties": {
+          "development_control_selection_cache": {
+            "properties": {
+              "status": {"const": "disabled"},
+              "disabled_reason": {"const": "split_not_development"}
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "development_control_selection_cache": {
+            "not": {
+              "properties": {
+                "disabled_reason": {"const": "split_not_development"}
+              },
+              "required": ["disabled_reason"]
+            }
+          }
+        }
+      }
     }
   ],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "developmentControlSelectionCache": {
+      "type": "object",
+      "required": [
+        "status",
+        "disabled_reason",
+        "identity_sha256",
+        "origin_manifest_sha256",
+        "selector_search_invocation_count",
+        "selector_rule_aggregate_evaluation_count",
+        "selector_search_native_recombination_count"
+      ],
+      "properties": {
+        "status": {"enum": ["disabled", "miss", "hit"]},
+        "disabled_reason": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "capability_absent",
+            "runner_selection_supplied",
+            "split_not_development"
+          ]
+        },
+        "identity_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "origin_manifest_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/sha256"},
+            {"type": "null"}
+          ]
+        },
+        "selector_search_invocation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selector_rule_aggregate_evaluation_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selector_search_native_recombination_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "status": {"const": "hit"},
+            "disabled_reason": {"type": "null"},
+            "identity_sha256": {"$ref": "#/$defs/sha256"},
+            "origin_manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "selector_search_invocation_count": {"const": 0},
+            "selector_rule_aggregate_evaluation_count": {"const": 0},
+            "selector_search_native_recombination_count": {"const": 0}
+          }
+        },
+        {
+          "properties": {
+            "status": {"const": "miss"},
+            "disabled_reason": {"type": "null"},
+            "identity_sha256": {"$ref": "#/$defs/sha256"},
+            "origin_manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "selector_search_invocation_count": {"const": 1},
+            "selector_rule_aggregate_evaluation_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "selector_search_native_recombination_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {"const": "disabled"},
+            "disabled_reason": {"const": "capability_absent"},
+            "identity_sha256": {"type": "null"},
+            "origin_manifest_sha256": {"type": "null"},
+            "selector_search_invocation_count": {"const": 1},
+            "selector_rule_aggregate_evaluation_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "selector_search_native_recombination_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {"const": "disabled"},
+            "disabled_reason": {
+              "enum": [
+                "runner_selection_supplied",
+                "split_not_development"
+              ]
+            },
+            "identity_sha256": {"type": "null"},
+            "origin_manifest_sha256": {"type": "null"},
+            "selector_search_invocation_count": {"const": 0},
+            "selector_rule_aggregate_evaluation_count": {"const": 0},
+            "selector_search_native_recombination_count": {"const": 0}
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
     "route": {"enum": ["direct-2x", "direct-3over2"]},
     "routeBinding": {
       "type": "object",

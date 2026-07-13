@@ -216,6 +216,26 @@ class EvidenceStore(Protocol):
         ...
 
 
+class DevelopmentControlSelectionCache(Protocol):
+    """Development-only durable origin store for bank-level selections."""
+
+    implementation_identity: Mapping[str, object]
+
+    def reopen(
+        self,
+        identity: Mapping[str, object],
+    ) -> Optional[Mapping[str, object]]:
+        ...
+
+    def publish(
+        self,
+        *,
+        identity: Mapping[str, object],
+        origin: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        ...
+
+
 class EvaluationEvidenceProvider(Protocol):
     """Formula-derived checks, performance, and dispatch evidence boundary."""
 
@@ -361,6 +381,31 @@ _NON_ASH_AGGREGATE_INPUT_FIELDS = {
     "cache_token",
     "cache_identity_sha256",
     "cache_origin_manifest_sha256",
+}
+_DEVELOPMENT_SELECTION_CACHE_SCHEMA = (
+    "development-control-selection-cache-v1.schema.json"
+)
+_DEVELOPMENT_SELECTION_CACHE_IDENTITY_FIELDS = {
+    "schema_version",
+    "artifact_kind",
+    "split",
+    "selection_stage",
+    "shared_bank_configuration_sha256",
+    "degradation_policy_sha256",
+    "aggregate_identity_context",
+    "ordered_input_bindings",
+    "selection_search_contract",
+    "implementation_closure",
+    "reuse_scope",
+}
+_DEVELOPMENT_SELECTION_CACHE_IMPLEMENTATION_FIELDS = {
+    "production_evaluator_source_sha256",
+    "storage_implementation_sha256",
+    "cache_schema_sha256",
+}
+_DEVELOPMENT_SELECTION_CACHE_CAPABILITY_IMPLEMENTATION_FIELDS = {
+    "storage_implementation_sha256",
+    "cache_schema_sha256",
 }
 
 
@@ -2124,6 +2169,343 @@ def _selection_document(embedded: Mapping[str, object], label: str) -> Mapping[s
     return document
 
 
+def _development_selection_search_contract(
+    selector_contract: Mapping[str, object],
+) -> Mapping[str, object]:
+    _validate_non_ash_contract(selector_contract)
+    return {
+        "fixed_descriptor_ids": list(FIXED_DESCRIPTOR_IDS),
+        "conventional_algorithm_ids": list(CONVENTIONAL_ALGORITHM_IDS),
+        "non_ash_selector_contract": json.loads(
+            canonical_json_bytes(selector_contract)
+        ),
+        "selection_objective": dict(SELECTION_OBJECTIVE),
+        "fixed_tie_break": (
+            "lexicographically maximize the development engine_raw "
+            "corpus-mean tuple, then choose the numerically smallest "
+            "descriptor ID"
+        ),
+        "conventional_tie_break": (
+            "lexicographically maximize the development engine_raw "
+            "corpus-mean tuple, then choose the lexicographically "
+            "ascending stable algorithm ID"
+        ),
+        "non_ash_tie_break": (
+            "lexicographically maximize the development engine_raw "
+            "corpus-mean tuple, then choose the lexicographically ascending "
+            "canonical serialized complete rule vector"
+        ),
+    }
+
+
+def _selection_cache_file_sha256(path: Path, label: str) -> str:
+    try:
+        if path.is_symlink() or not path.is_file():
+            raise OSError(f"{label} is not a regular file")
+        payload = path.read_bytes()
+    except OSError as error:
+        raise ProductionEvaluatorError(f"{label} cannot be hash-bound") from error
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _validate_development_selection_cache_identity(
+    identity: Mapping[str, object],
+) -> Mapping[str, object]:
+    if (
+        not isinstance(identity, dict)
+        or set(identity) != _DEVELOPMENT_SELECTION_CACHE_IDENTITY_FIELDS
+    ):
+        raise ProductionEvaluatorError(
+            "development control-selection cache identity field set differs"
+        )
+    context = identity.get("aggregate_identity_context")
+    ordered = identity.get("ordered_input_bindings")
+    search = identity.get("selection_search_contract")
+    implementation = identity.get("implementation_closure")
+    if (
+        identity.get("schema_version") != "1.0.0"
+        or identity.get("artifact_kind")
+        != "p06_development_control_selection_cache_identity"
+        or identity.get("split") != "development"
+        or identity.get("selection_stage") != "development_provisional"
+        or identity.get("reuse_scope")
+        != "exact_bank_aggregate_input_search_implementation_identity"
+        or not _is_sha256(
+            identity.get("shared_bank_configuration_sha256")
+        )
+        or not _is_sha256(identity.get("degradation_policy_sha256"))
+        or not isinstance(context, dict)
+        or not isinstance(search, dict)
+        or not isinstance(implementation, dict)
+        or set(implementation)
+        != _DEVELOPMENT_SELECTION_CACHE_IMPLEMENTATION_FIELDS
+        or any(not _is_sha256(value) for value in implementation.values())
+    ):
+        raise ProductionEvaluatorError(
+            "development control-selection cache identity is invalid"
+        )
+    validated_context = _validate_non_ash_aggregate_context(context)
+    validated_ordered = _validate_non_ash_ordered_input_bindings(ordered)
+    selector = validated_context["baseline_selector_contract"]
+    if search != _development_selection_search_contract(selector):
+        raise ProductionEvaluatorError(
+            "development control-selection search identity differs"
+        )
+    _reject_path_or_sealed_split_fields(identity)
+    normalized = json.loads(canonical_json_bytes(identity))
+    normalized["aggregate_identity_context"] = validated_context
+    normalized["ordered_input_bindings"] = validated_ordered
+    return normalized
+
+
+def _development_selection_cache_identity(
+    *,
+    shared_bank_configuration_sha256: str,
+    degradation_policy_sha256: str,
+    aggregate_identity_context: Mapping[str, object],
+    ordered_input_bindings: Sequence[Mapping[str, object]],
+    cache_implementation_identity: Mapping[str, object],
+) -> Mapping[str, object]:
+    cache_implementation = dict(cache_implementation_identity)
+    if (
+        set(cache_implementation)
+        != _DEVELOPMENT_SELECTION_CACHE_CAPABILITY_IMPLEMENTATION_FIELDS
+        or any(not _is_sha256(value) for value in cache_implementation.values())
+    ):
+        raise ProductionEvaluatorError(
+            "development control-selection cache implementation identity is invalid"
+        )
+    schema_sha256 = _selection_cache_file_sha256(
+        SCHEMAS_ROOT / _DEVELOPMENT_SELECTION_CACHE_SCHEMA,
+        "development control-selection cache schema",
+    )
+    if cache_implementation["cache_schema_sha256"] != schema_sha256:
+        raise ProductionEvaluatorError(
+            "development control-selection cache schema identity differs"
+        )
+    context = _validate_non_ash_aggregate_context(
+        aggregate_identity_context
+    )
+    identity = {
+        "schema_version": "1.0.0",
+        "artifact_kind": "p06_development_control_selection_cache_identity",
+        "split": "development",
+        "selection_stage": "development_provisional",
+        "shared_bank_configuration_sha256": _require_sha256(
+            shared_bank_configuration_sha256,
+            "development control-selection cache shared-bank hash",
+        ),
+        "degradation_policy_sha256": _require_sha256(
+            degradation_policy_sha256,
+            "development control-selection cache degradation-policy hash",
+        ),
+        "aggregate_identity_context": context,
+        "ordered_input_bindings": _validate_non_ash_ordered_input_bindings(
+            list(ordered_input_bindings)
+        ),
+        "selection_search_contract": _development_selection_search_contract(
+            context["baseline_selector_contract"]
+        ),
+        "implementation_closure": {
+            "production_evaluator_source_sha256": (
+                _selection_cache_file_sha256(
+                    Path(__file__).resolve(strict=True),
+                    "production evaluator source",
+                )
+            ),
+            **cache_implementation,
+        },
+        "reuse_scope": (
+            "exact_bank_aggregate_input_search_implementation_identity"
+        ),
+    }
+    return _validate_development_selection_cache_identity(identity)
+
+
+def _validate_development_selection_cache_origin(
+    origin: Mapping[str, object],
+    *,
+    identity: Mapping[str, object],
+) -> Mapping[str, object]:
+    expected_identity = _validate_development_selection_cache_identity(identity)
+    if not isinstance(origin, dict):
+        raise ProductionEvaluatorError(
+            "development control-selection cache origin is not an object"
+        )
+    try:
+        validate_schema(
+            origin,
+            SCHEMAS_ROOT / _DEVELOPMENT_SELECTION_CACHE_SCHEMA,
+        )
+    except ValueError as error:
+        raise ProductionEvaluatorError(
+            "development control-selection cache origin violates its schema"
+        ) from error
+    unhashed = dict(origin)
+    declared = unhashed.pop("origin_manifest_sha256", None)
+    artifacts = origin.get("artifacts")
+    if (
+        origin.get("identity") != expected_identity
+        or origin.get("identity_sha256") != canonical_sha256(expected_identity)
+        or origin.get("shared_bank_configuration_sha256")
+        != expected_identity["shared_bank_configuration_sha256"]
+        or origin.get("validation_evidence_imported") is not False
+        or origin.get("holdout_evidence_imported") is not False
+        or origin.get("candidate_bound_outputs_cached") is not False
+        or declared != canonical_sha256(unhashed)
+        or not isinstance(artifacts, dict)
+        or set(artifacts)
+        != {"best_fixed", "conventional", "non_ash_selector"}
+    ):
+        raise ProductionEvaluatorError(
+            "development control-selection cache origin is invalid"
+        )
+    for name, schema_name in (
+        ("best_fixed", "fixed-control-selection-v1.schema.json"),
+        ("conventional", "conventional-control-selection-v1.schema.json"),
+        ("non_ash_selector", "non-ash-selector-selection-v1.schema.json"),
+    ):
+        document = _selection_document(artifacts[name], name)
+        try:
+            validate_schema(document, SCHEMAS_ROOT / schema_name)
+        except ValueError as error:
+            raise ProductionEvaluatorError(
+                "cached development control selection violates its staged schema"
+            ) from error
+        if (
+            document.get("selection_stage") != "development_provisional"
+            or document.get("shared_bank_configuration_sha256")
+            != expected_identity["shared_bank_configuration_sha256"]
+        ):
+            raise ProductionEvaluatorError(
+                "cached development control selection is stale"
+            )
+    _reject_path_or_sealed_split_fields(origin)
+    return json.loads(canonical_json_bytes(origin))
+
+
+def _development_selection_cache_origin(
+    *,
+    identity: Mapping[str, object],
+    artifacts: Mapping[str, Mapping[str, object]],
+) -> Mapping[str, object]:
+    validated_identity = _validate_development_selection_cache_identity(identity)
+    origin: Dict[str, object] = {
+        "schema_version": "1.0.0",
+        "artifact_kind": "p06_development_control_selection_cache_origin",
+        "selection_stage": "development_provisional",
+        "split": "development",
+        "shared_bank_configuration_sha256": validated_identity[
+            "shared_bank_configuration_sha256"
+        ],
+        "identity_sha256": canonical_sha256(validated_identity),
+        "identity": validated_identity,
+        "artifacts": json.loads(canonical_json_bytes(artifacts)),
+        "validation_evidence_imported": False,
+        "holdout_evidence_imported": False,
+        "candidate_bound_outputs_cached": False,
+    }
+    origin["origin_manifest_sha256"] = canonical_sha256(origin)
+    return _validate_development_selection_cache_origin(
+        origin,
+        identity=validated_identity,
+    )
+
+
+def _development_selection_cache_provenance(
+    *,
+    status: str,
+    disabled_reason: Optional[str],
+    identity_sha256: Optional[str],
+    origin_manifest_sha256: Optional[str],
+    selector_counts: Mapping[str, object],
+) -> Mapping[str, object]:
+    count_fields = {
+        "selector_search_invocation_count",
+        "selector_rule_aggregate_evaluation_count",
+        "selector_search_native_recombination_count",
+    }
+    if (
+        not isinstance(selector_counts, dict)
+        or set(selector_counts) != count_fields
+        or any(
+            not isinstance(selector_counts[field], int)
+            or isinstance(selector_counts[field], bool)
+            or selector_counts[field] < 0
+            for field in count_fields
+        )
+    ):
+        raise ProductionEvaluatorError(
+            "development control-selection cache counters are invalid"
+        )
+    search_count = int(selector_counts["selector_search_invocation_count"])
+    aggregate_count = int(
+        selector_counts["selector_rule_aggregate_evaluation_count"]
+    )
+    recombination_count = int(
+        selector_counts["selector_search_native_recombination_count"]
+    )
+    hashes_present = _is_sha256(identity_sha256) and _is_sha256(
+        origin_manifest_sha256
+    )
+    if status == "hit":
+        valid = (
+            disabled_reason is None
+            and hashes_present
+            and search_count == 0
+            and aggregate_count == 0
+            and recombination_count == 0
+        )
+    elif status == "miss":
+        valid = (
+            disabled_reason is None
+            and hashes_present
+            and search_count == 1
+            and aggregate_count > 0
+        )
+    elif status == "disabled" and disabled_reason == "capability_absent":
+        valid = (
+            identity_sha256 is None
+            and origin_manifest_sha256 is None
+            and search_count == 1
+            and aggregate_count > 0
+        )
+    elif status == "disabled" and disabled_reason in {
+        "runner_selection_supplied",
+        "split_not_development",
+    }:
+        valid = (
+            identity_sha256 is None
+            and origin_manifest_sha256 is None
+            and search_count == 0
+            and aggregate_count == 0
+            and recombination_count == 0
+        )
+    else:
+        valid = False
+    if not valid:
+        raise ProductionEvaluatorError(
+            "development control-selection cache provenance is inconsistent"
+        )
+    return {
+        "status": status,
+        "disabled_reason": disabled_reason,
+        "identity_sha256": identity_sha256,
+        "origin_manifest_sha256": origin_manifest_sha256,
+        "selector_search_invocation_count": search_count,
+        "selector_rule_aggregate_evaluation_count": aggregate_count,
+        "selector_search_native_recombination_count": recombination_count,
+    }
+
+
+@dataclass(frozen=True)
+class _CachedDevelopmentControlSelection:
+    selection_stage: str
+    shared_bank_configuration_sha256: str
+    artifacts: Mapping[str, Mapping[str, object]]
+    full_ash_development_candidates_frozen_sha256: None = None
+
+
 def _validate_p00_identity(identity: Mapping[str, object]) -> str:
     required = {
         "commit",
@@ -3461,6 +3843,44 @@ def _validate_non_ash_aggregate_context(
     return json.loads(canonical_json_bytes(context))
 
 
+def _validate_non_ash_ordered_input_bindings(
+    ordered: object,
+) -> list[Mapping[str, object]]:
+    if (
+        not isinstance(ordered, list)
+        or not ordered
+        or any(
+            not isinstance(binding, dict)
+            or set(binding) != _NON_ASH_AGGREGATE_INPUT_FIELDS
+            or binding.get("ordinal") != ordinal
+            or not isinstance(binding.get("source_asset_id"), str)
+            or not binding["source_asset_id"]
+            or not isinstance(binding.get("source_family_id"), str)
+            or not binding["source_family_id"]
+            or not isinstance(binding.get("categories"), list)
+            or not binding["categories"]
+            or len(binding["categories"]) != len(set(binding["categories"]))
+            or binding.get("target_route") not in ROUTES
+            or not isinstance(binding.get("degradation_profile_id"), str)
+            or not binding["degradation_profile_id"]
+            or any(
+                not _is_sha256(binding.get(field))
+                for field in (
+                    "degradation_profile_sha256",
+                    "target_frame_sha256",
+                    "input_frame_sha256",
+                    "cache_token",
+                    "cache_identity_sha256",
+                    "cache_origin_manifest_sha256",
+                )
+            )
+            for ordinal, binding in enumerate(ordered)
+        )
+    ):
+        raise ProductionEvaluatorError("non-ASH aggregate identity is invalid")
+    return json.loads(canonical_json_bytes(ordered))
+
+
 def _validate_non_ash_aggregate_identity(
     identity: Mapping[str, object],
 ) -> Mapping[str, object]:
@@ -3504,37 +3924,10 @@ def _validate_non_ash_aggregate_identity(
             )
         )
         or not isinstance(ordered, list)
-        or not ordered
-        or any(
-            not isinstance(binding, dict)
-            or set(binding) != _NON_ASH_AGGREGATE_INPUT_FIELDS
-            or binding.get("ordinal") != ordinal
-            or not isinstance(binding.get("source_asset_id"), str)
-            or not binding["source_asset_id"]
-            or not isinstance(binding.get("source_family_id"), str)
-            or not binding["source_family_id"]
-            or not isinstance(binding.get("categories"), list)
-            or not binding["categories"]
-            or len(binding["categories"]) != len(set(binding["categories"]))
-            or binding.get("target_route") not in ROUTES
-            or not isinstance(binding.get("degradation_profile_id"), str)
-            or not binding["degradation_profile_id"]
-            or any(
-                not _is_sha256(binding.get(field))
-                for field in (
-                    "degradation_profile_sha256",
-                    "target_frame_sha256",
-                    "input_frame_sha256",
-                    "cache_token",
-                    "cache_identity_sha256",
-                    "cache_origin_manifest_sha256",
-                )
-            )
-            for ordinal, binding in enumerate(ordered)
-        )
     ):
         raise ProductionEvaluatorError("non-ASH aggregate identity is invalid")
     _validate_non_ash_aggregate_context(context)
+    _validate_non_ash_ordered_input_bindings(ordered)
     _reject_path_or_sealed_split_fields(identity)
     return json.loads(canonical_json_bytes(identity))
 
@@ -3657,6 +4050,10 @@ class _NativeSelectionOutputCache:
         ] = None
         self._pending_native_dependency: Optional[Mapping[str, object]] = None
         self._pending_evidence_dependency: Optional[Mapping[str, object]] = None
+        self._development_selector_search_active = False
+        self._development_selector_search_invocation_count = 0
+        self._development_selector_rule_aggregate_evaluation_count = 0
+        self._development_selector_native_recombination_count = 0
 
     @staticmethod
     def _identity(
@@ -3703,6 +4100,38 @@ class _NativeSelectionOutputCache:
             }
             for ordinal, entry in enumerate(self.entries)
         ]
+
+    def begin_development_selector_search(self) -> None:
+        if self._development_selector_search_active:
+            raise ProductionEvaluatorError(
+                "development selector search scope is already active"
+            )
+        self._development_selector_search_active = True
+        self._development_selector_search_invocation_count += 1
+
+    def end_development_selector_search(self) -> None:
+        if not self._development_selector_search_active:
+            raise ProductionEvaluatorError(
+                "development selector search scope is not active"
+            )
+        self._development_selector_search_active = False
+
+    def development_selector_search_counts(self) -> Mapping[str, int]:
+        if self._development_selector_search_active:
+            raise ProductionEvaluatorError(
+                "development selector search counts are not final"
+            )
+        return {
+            "selector_search_invocation_count": (
+                self._development_selector_search_invocation_count
+            ),
+            "selector_rule_aggregate_evaluation_count": (
+                self._development_selector_rule_aggregate_evaluation_count
+            ),
+            "selector_search_native_recombination_count": (
+                self._development_selector_native_recombination_count
+            ),
+        }
 
     def _non_ash_aggregate_identity(
         self,
@@ -4163,6 +4592,8 @@ class _NativeSelectionOutputCache:
                 rule=rule,
                 context=entry.item.context,
             )
+            if self._development_selector_search_active:
+                self._development_selector_native_recombination_count += 1
             if (
                 frame_sha256(output) != proof["output_frame_sha256"]
                 or record.get("record_sha256")
@@ -4200,6 +4631,8 @@ class _NativeSelectionOutputCache:
         return evidence
 
     def non_ash(self, rule: Mapping[str, object]) -> ControlAggregateEvidence:
+        if self._development_selector_search_active:
+            self._development_selector_rule_aggregate_evaluation_count += 1
         request = non_ash_control_request(rule, self.bank)
         identity = self._non_ash_aggregate_identity(
             rule=rule,
@@ -4223,6 +4656,8 @@ class _NativeSelectionOutputCache:
                 rule=rule,
                 context=entry.item.context,
             )
+            if self._development_selector_search_active:
+                self._development_selector_native_recombination_count += 1
             if record["rule_sha256"] != request["parameters"][
                 "selected_rule_sha256"
             ]:
@@ -4337,6 +4772,38 @@ class ProductionCandidateEvaluator:
         self.analytic_fixtures = analytic_fixtures
         self.evidence_store = evidence_store
         self.evaluation_evidence_provider = evaluation_evidence_provider
+        self._development_control_selection_cache: Optional[
+            DevelopmentControlSelectionCache
+        ] = None
+
+    def configure_development_control_selection_cache(
+        self,
+        cache: DevelopmentControlSelectionCache,
+    ) -> None:
+        """Install one runner-owned development-only persistent capability."""
+
+        implementation = getattr(cache, "implementation_identity", None)
+        if (
+            self._development_control_selection_cache is not None
+            or not callable(getattr(cache, "reopen", None))
+            or not callable(getattr(cache, "publish", None))
+            or not isinstance(implementation, dict)
+            or set(implementation)
+            != _DEVELOPMENT_SELECTION_CACHE_CAPABILITY_IMPLEMENTATION_FIELDS
+            or any(not _is_sha256(value) for value in implementation.values())
+        ):
+            raise ProductionEvaluatorError(
+                "development control-selection cache capability is invalid"
+            )
+        expected_schema_sha256 = _selection_cache_file_sha256(
+            SCHEMAS_ROOT / _DEVELOPMENT_SELECTION_CACHE_SCHEMA,
+            "development control-selection cache schema",
+        )
+        if implementation["cache_schema_sha256"] != expected_schema_sha256:
+            raise ProductionEvaluatorError(
+                "development control-selection cache capability schema differs"
+            )
+        self._development_control_selection_cache = cache
 
     @staticmethod
     def _capture(view: SplitView) -> _CapturedSplitView:
@@ -4663,6 +5130,159 @@ class ProductionCandidateEvaluator:
         }
         return fixed, conventional, operator_cache.manifest_sha256
 
+    def _validate_cached_development_selection_dependencies(
+        self,
+        *,
+        artifacts: Mapping[str, Mapping[str, object]],
+        operator_cache: _NativeSelectionOutputCache,
+    ) -> None:
+        """Reopen the complete selected-search evidence closure without pixels."""
+
+        documents = {
+            name: _selection_document(embedded, name)
+            for name, embedded in artifacts.items()
+        }
+        for name, embedded in artifacts.items():
+            if self.evidence_store.reopen(str(embedded["sha256"])) != documents[name]:
+                raise ProductionEvaluatorError(
+                    "cached development selection document changed"
+                )
+
+        non_ash = documents["non_ash_selector"]
+        cached_manifest_sha256 = non_ash.get(
+            "cached_16_operator_output_manifest_sha256"
+        )
+        if cached_manifest_sha256 != operator_cache.manifest_sha256:
+            raise ProductionEvaluatorError(
+                "cached development selection input manifest changed"
+            )
+        manifest = self.evidence_store.reopen(operator_cache.manifest_sha256)
+        if (
+            manifest.get("artifact_kind")
+            != "p06_cached_16_operator_output_manifest"
+            or manifest.get("split") != "development"
+            or manifest.get("shared_bank_configuration_sha256")
+            != operator_cache.bank
+            or manifest.get("degradation_policy_sha256")
+            != operator_cache.degradation_policy_sha256
+            or manifest.get("descriptor_ids") != list(FIXED_DESCRIPTOR_IDS)
+            or manifest.get("input_cache_manifest_sha256_values")
+            != [
+                binding["cache_token"]
+                for binding in operator_cache._ordered_input_bindings()
+            ]
+        ):
+            raise ProductionEvaluatorError(
+                "cached development selection input manifest is invalid"
+            )
+
+        dependency_sha256_values = []
+        for name in ("best_fixed", "conventional"):
+            results = documents[name].get("development_results")
+            if not isinstance(results, list):
+                raise ProductionEvaluatorError(
+                    "cached development selection results are absent"
+                )
+            for result in results:
+                if not isinstance(result, dict):
+                    raise ProductionEvaluatorError(
+                        "cached development selection result is invalid"
+                    )
+                dependency_sha256_values.extend(
+                    (
+                        result.get("objective_summary_sha256"),
+                        result.get("output_manifest_sha256"),
+                    )
+                )
+
+        attempt_ledger_sha256 = non_ash.get(
+            "development_attempt_ledger_sha256"
+        )
+        terminal_objective_sha256 = non_ash.get(
+            "development_objective_summary_sha256"
+        )
+        if not _is_sha256(attempt_ledger_sha256) or not _is_sha256(
+            terminal_objective_sha256
+        ):
+            raise ProductionEvaluatorError(
+                "cached development non-ASH dependencies are absent"
+            )
+        attempt_ledger = self.evidence_store.reopen(
+            str(attempt_ledger_sha256)
+        )
+        records = attempt_ledger.get("records")
+        if (
+            attempt_ledger.get("schema_version") != "1.0.0"
+            or attempt_ledger.get("artifact_kind")
+            != "p06_non_ash_selector_attempt_ledger"
+            or attempt_ledger.get("selection_stage")
+            != "development_provisional"
+            or attempt_ledger.get("shared_bank_configuration_sha256")
+            != operator_cache.bank
+            or attempt_ledger.get("degradation_policy_sha256")
+            != operator_cache.degradation_policy_sha256
+            or not isinstance(records, list)
+            or len(records) != non_ash.get("development_attempt_count")
+        ):
+            raise ProductionEvaluatorError(
+                "cached development non-ASH attempt ledger is invalid"
+            )
+        terminal_rule_sha256 = non_ash.get(
+            "development_terminal_rule_sha256"
+        )
+        terminal_record_found = False
+        required_record_fields = {
+            "ordinal",
+            "split",
+            "rule_sha256",
+            "rule_serialization",
+            "objective_summary_sha256",
+            "output_manifest_sha256",
+        }
+        for ordinal, record in enumerate(records):
+            if (
+                not isinstance(record, dict)
+                or set(record) != required_record_fields
+                or record.get("ordinal") != ordinal
+                or record.get("split") != "development"
+                or not _is_sha256(record.get("rule_sha256"))
+                or not isinstance(record.get("rule_serialization"), list)
+                or len(record["rule_serialization"]) != len(NON_ASH_COORDINATES)
+                or any(
+                    not isinstance(value, int)
+                    or isinstance(value, bool)
+                    or value not in NON_ASH_VALUES
+                    for value in record["rule_serialization"]
+                )
+                or not _is_sha256(record.get("objective_summary_sha256"))
+                or not _is_sha256(record.get("output_manifest_sha256"))
+            ):
+                raise ProductionEvaluatorError(
+                    "cached development non-ASH attempt record is invalid"
+                )
+            dependency_sha256_values.extend(
+                (
+                    record["objective_summary_sha256"],
+                    record["output_manifest_sha256"],
+                )
+            )
+            if (
+                record["rule_sha256"] == terminal_rule_sha256
+                and record["objective_summary_sha256"]
+                == terminal_objective_sha256
+            ):
+                terminal_record_found = True
+        if not terminal_record_found:
+            raise ProductionEvaluatorError(
+                "cached development terminal non-ASH evidence is absent"
+            )
+        for dependency_sha256 in dict.fromkeys(dependency_sha256_values):
+            if not _is_sha256(dependency_sha256):
+                raise ProductionEvaluatorError(
+                    "cached development selection dependency hash is invalid"
+                )
+            self.evidence_store.reopen(str(dependency_sha256))
+
     def _resolve_selection(
         self,
         *,
@@ -4711,20 +5331,24 @@ class ProductionCandidateEvaluator:
             ) -> ControlAggregateEvidence:
                 return operator_cache.non_ash(rule)
 
-            non_ash = search_non_ash_development(
-                shared_bank_configuration_sha256=bank,
-                degradation_policy_sha256=str(
-                    self.degradation_policy["policy_sha256"]
-                ),
-                selector_contract=self.baseline_ablation_contract[
-                    "non_ash_selector"
-                ],
-                development_evaluator=development_rule,
-                cached_16_operator_output_manifest_sha256=(
-                    cached_manifest_sha256
-                ),
-                evidence_store=self.evidence_store,
-            )
+            operator_cache.begin_development_selector_search()
+            try:
+                non_ash = search_non_ash_development(
+                    shared_bank_configuration_sha256=bank,
+                    degradation_policy_sha256=str(
+                        self.degradation_policy["policy_sha256"]
+                    ),
+                    selector_contract=self.baseline_ablation_contract[
+                        "non_ash_selector"
+                    ],
+                    development_evaluator=development_rule,
+                    cached_16_operator_output_manifest_sha256=(
+                        cached_manifest_sha256
+                    ),
+                    evidence_store=self.evidence_store,
+                )
+            finally:
+                operator_cache.end_development_selector_search()
             operator_cache.commit_pending_aggregate_origins()
             artifacts = {
                 **fixed_artifacts,
@@ -5121,6 +5745,10 @@ class ProductionCandidateEvaluator:
             raise ProductionEvaluatorError("candidate evaluator received sealed split")
         captured = self._capture(view)
         prepared = self._prepare_cases(captured, degradation_cache)
+        aggregate_identity_context = self._aggregate_identity_context(
+            adapter=adapter,
+            captured=captured,
+        )
         operator_cache = _NativeSelectionOutputCache(
             adapter=adapter,
             prepared=prepared,
@@ -5132,17 +5760,117 @@ class ProductionCandidateEvaluator:
                 self.degradation_policy["policy_sha256"]
             ),
             evidence_store=self.evidence_store,
-            aggregate_identity_context=self._aggregate_identity_context(
-                adapter=adapter,
-                captured=captured,
-            ),
+            aggregate_identity_context=aggregate_identity_context,
         )
+        effective_control_selection = control_selection
+        cache_identity: Optional[Mapping[str, object]] = None
+        cache_missed = False
+        selection_cache = self._development_control_selection_cache
+        cache_status = "disabled"
+        cache_disabled_reason: Optional[str]
+        if view.split != "development":
+            cache_disabled_reason = "split_not_development"
+        elif control_selection is not None:
+            cache_disabled_reason = "runner_selection_supplied"
+        elif selection_cache is None:
+            cache_disabled_reason = "capability_absent"
+        else:
+            cache_disabled_reason = None
+        cache_identity_sha256: Optional[str] = None
+        cache_origin_manifest_sha256: Optional[str] = None
+        if (
+            view.split == "development"
+            and control_selection is None
+            and selection_cache is not None
+        ):
+            cache_identity = _development_selection_cache_identity(
+                shared_bank_configuration_sha256=str(
+                    adapter.configuration[
+                        "shared_bank_configuration_sha256"
+                    ]
+                ),
+                degradation_policy_sha256=str(
+                    self.degradation_policy["policy_sha256"]
+                ),
+                aggregate_identity_context=aggregate_identity_context,
+                ordered_input_bindings=(
+                    operator_cache._ordered_input_bindings()
+                ),
+                cache_implementation_identity=(
+                    selection_cache.implementation_identity
+                ),
+            )
+            cache_identity_sha256 = canonical_sha256(cache_identity)
+            cached_origin = selection_cache.reopen(cache_identity)
+            if cached_origin is None:
+                cache_missed = True
+                cache_status = "miss"
+            else:
+                validated_origin = _validate_development_selection_cache_origin(
+                    cached_origin,
+                    identity=cache_identity,
+                )
+                cache_status = "hit"
+                cache_origin_manifest_sha256 = str(
+                    validated_origin["origin_manifest_sha256"]
+                )
+                cached_artifacts = validated_origin["artifacts"]
+                if not isinstance(cached_artifacts, dict):
+                    raise ProductionEvaluatorError(
+                        "cached development selection artifacts are invalid"
+                    )
+                self._validate_cached_development_selection_dependencies(
+                    artifacts=cached_artifacts,
+                    operator_cache=operator_cache,
+                )
+                effective_control_selection = (
+                    _CachedDevelopmentControlSelection(
+                        selection_stage="development_provisional",
+                        shared_bank_configuration_sha256=str(
+                            cache_identity[
+                                "shared_bank_configuration_sha256"
+                            ]
+                        ),
+                        artifacts=cached_artifacts,
+                    )
+                )
         bundle, artifacts = self._resolve_selection(
             adapter=adapter,
             prepared=prepared,
             split=view.split,
-            control_selection=control_selection,
+            control_selection=effective_control_selection,
             operator_cache=operator_cache,
+        )
+        if cache_missed:
+            assert cache_identity is not None
+            assert selection_cache is not None
+            origin = _development_selection_cache_origin(
+                identity=cache_identity,
+                artifacts=artifacts,
+            )
+            cache_origin_manifest_sha256 = str(
+                origin["origin_manifest_sha256"]
+            )
+            published = selection_cache.publish(
+                identity=cache_identity,
+                origin=origin,
+            )
+            if (
+                _validate_development_selection_cache_origin(
+                    published,
+                    identity=cache_identity,
+                )
+                != origin
+            ):
+                raise ProductionEvaluatorError(
+                    "development control-selection cache publication changed"
+                )
+        cache_provenance = _development_selection_cache_provenance(
+            status=cache_status,
+            disabled_reason=cache_disabled_reason,
+            identity_sha256=cache_identity_sha256,
+            origin_manifest_sha256=cache_origin_manifest_sha256,
+            selector_counts=operator_cache.development_selector_search_counts(),
         )
         comparison_identities = self._comparison_identities(
             adapter=adapter,
@@ -5231,7 +5959,7 @@ class ProductionCandidateEvaluator:
                 "evaluation evidence provider field set differs"
             )
         document: Dict[str, object] = {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "artifact_kind": "p06_candidate_evaluation",
             "candidate_id": adapter.candidate_id,
             "candidate_vector_sha256": adapter.configuration[
@@ -5248,6 +5976,7 @@ class ProductionCandidateEvaluator:
             ),
             "comparison_identities": comparison_identities,
             "control_selection_artifacts": dict(artifacts),
+            "development_control_selection_cache": cache_provenance,
             "corpus_asset_results": corpus_rows,
             "analytic_fixture_results": analytic_document["results"],
             **provider_result,
