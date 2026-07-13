@@ -339,8 +339,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/native_adapter/factory.py",
-      "sha256": "c744f5598b891f835b8d7ed5398a4eb8703552a58353961bc2a659b3ce8232b2",
-      "size_bytes": 264002
+      "sha256": "fd65abbe9f97fbf11b7c7f369e0d167b22cc95968814bfbe1dc2ee5fa86ea7b1",
+      "size_bytes": 266113
     },
     {
       "relative_path": "validation/calibration_v2/p07/P07HoldoutFrameLoader.swift",
@@ -704,8 +704,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_native_adapter.py",
-      "sha256": "e41c2635b2e059aa8f77ff4ff32965bf61b6fbc3e12a27ad05390c531356b52f",
-      "size_bytes": 89781
+      "sha256": "60d196418c9ba3b277242e40c859645989c050393265c771db7a1870c68b969c",
+      "size_bytes": 91255
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_p06_runtime_correction_artifacts.py",
@@ -1173,6 +1173,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "ffaa62c3bf998b6e1992b68bc6ba3c4f9a3e5696f382cf6f2f7ea211b5c793d9",
+  "manifest_sha256": "43a2f066ceaf830bf0e51d940f155a913860c135dcb9afc6b6ff36a191379c27",
   "schema_version": "1.0.0"
 }

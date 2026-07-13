@@ -163,6 +163,38 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary.cleanup()
 
+    def test_native_build_manifests_bind_compiler_to_its_macos_sdk(self) -> None:
+        for executable in (
+            self.factory.builder.executable,
+            self.factory.p00_builder.executable,
+        ):
+            manifest = json.loads(executable.source_manifest_path.read_bytes())
+            toolchain = manifest["toolchain"]
+            developer_root = Path(toolchain["developer_root"])
+            swiftc_path = Path(toolchain["swiftc_path"])
+            swiftc_path.relative_to(developer_root / "Toolchains")
+            sdk = toolchain["macos_sdk"]
+            expected_sdk_path = (
+                developer_root
+                / "Platforms"
+                / "MacOSX.platform"
+                / "Developer"
+                / "SDKs"
+                / "MacOSX.sdk"
+            ).resolve(strict=True)
+            self.assertEqual(Path(sdk["path"]), expected_sdk_path)
+            settings_path = Path(sdk["settings_path"])
+            settings = settings_path.read_bytes()
+            self.assertEqual(settings_path, expected_sdk_path / "SDKSettings.json")
+            self.assertEqual(
+                hashlib.sha256(settings).hexdigest(), sdk["settings_sha256"]
+            )
+            self.assertEqual(len(settings), sdk["settings_size_bytes"])
+            self.assertEqual(json.loads(settings)["Version"], sdk["version"])
+            self.assertEqual(
+                manifest["compile_flags"][-2:], ["-sdk", str(expected_sdk_path)]
+            )
+
     def test_locked_runtime_summary_enforces_route_phase_cardinality(self) -> None:
         for route, phase_pair_count in (
             ("direct-2x", 4),

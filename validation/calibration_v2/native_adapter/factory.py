@@ -1611,6 +1611,80 @@ def _run_checked(
     return result
 
 
+def _resolve_swift_toolchain(
+    repository_root: Path,
+) -> tuple[str, str, Mapping[str, object]]:
+    swiftc_output = _run_checked(
+        ("/usr/bin/xcrun", "--find", "swiftc"),
+        cwd=repository_root,
+    ).stdout.decode("utf-8").strip()
+    if not swiftc_output:
+        raise NativeAdapterError("xcrun returned an empty Swift compiler path")
+    try:
+        swiftc_path = Path(swiftc_output)
+        swiftc_resolved_path = swiftc_path.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise NativeAdapterError("xcrun returned an invalid Swift compiler path") from error
+    developer_root = next(
+        (
+            parent
+            for parent in swiftc_resolved_path.parents
+            if parent.name == "Developer" and (parent / "Toolchains").is_dir()
+        ),
+        None,
+    )
+    if developer_root is None:
+        raise NativeAdapterError("Swift compiler is not inside an Apple developer root")
+    try:
+        swiftc_path.relative_to(developer_root / "Toolchains")
+        sdk_path = (
+            developer_root
+            / "Platforms"
+            / "MacOSX.platform"
+            / "Developer"
+            / "SDKs"
+            / "MacOSX.sdk"
+        ).resolve(strict=True)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise NativeAdapterError(
+            "Swift compiler developer root has no valid macOS SDK"
+        ) from error
+    if not sdk_path.is_dir():
+        raise NativeAdapterError("Swift compiler macOS SDK path is not a directory")
+    sdk_settings_path = sdk_path / "SDKSettings.json"
+    sdk_settings = _read_regular(sdk_settings_path)
+    try:
+        sdk_settings_document = json.loads(sdk_settings)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise NativeAdapterError("macOS SDK settings are not valid JSON") from error
+    sdk_version = sdk_settings_document.get("Version")
+    if not isinstance(sdk_version, str) or not sdk_version:
+        raise NativeAdapterError("macOS SDK settings have no valid version")
+    swiftc = str(swiftc_path)
+    swift_version = _run_checked(
+        (swiftc, "--version"), cwd=repository_root
+    ).stdout.decode("utf-8").rstrip("\n")
+    target_info = _run_checked(
+        (swiftc, "-sdk", str(sdk_path), "-print-target-info"),
+        cwd=repository_root,
+    ).stdout.decode("utf-8").rstrip("\n")
+    toolchain = {
+        "swiftc_path": swiftc,
+        "swiftc_resolved_path": str(swiftc_resolved_path),
+        "swift_version": swift_version,
+        "target_info": target_info,
+        "developer_root": str(developer_root),
+        "macos_sdk": {
+            "path": str(sdk_path),
+            "version": sdk_version,
+            "settings_path": str(sdk_settings_path),
+            "settings_sha256": _sha256(sdk_settings),
+            "settings_size_bytes": len(sdk_settings),
+        },
+    }
+    return swiftc, str(sdk_path), toolchain
+
+
 @dataclass(frozen=True)
 class NativeExecutable:
     path: Path
@@ -1653,17 +1727,7 @@ class NativeSwiftBuilder:
         self.candidate_compile_invocation_count = 0
 
     def _ensure_executable(self) -> NativeExecutable:
-        swiftc = _run_checked(
-            ("/usr/bin/xcrun", "--find", "swiftc"),
-            cwd=self.repository_root,
-        ).stdout.decode("utf-8").strip()
-        swift_version = _run_checked((swiftc, "--version"), cwd=self.repository_root).stdout.decode(
-            "utf-8"
-        )
-        target_info = _run_checked(
-            (swiftc, "-print-target-info"),
-            cwd=self.repository_root,
-        ).stdout.decode("utf-8").rstrip("\n")
+        swiftc, sdk_path, toolchain = _resolve_swift_toolchain(self.repository_root)
         source_records = []
         source_paths = []
         for relative in _SWIFT_SOURCE_PATHS:
@@ -1676,12 +1740,8 @@ class NativeSwiftBuilder:
         manifest = {
             "schema_version": "1.0.0",
             "implementation_role": "production_swift",
-            "toolchain": {
-                "swiftc_path": swiftc,
-                "swift_version": swift_version.rstrip("\n"),
-                "target_info": target_info,
-            },
-            "compile_flags": list(_COMPILE_FLAGS),
+            "toolchain": toolchain,
+            "compile_flags": [*_COMPILE_FLAGS, "-sdk", sdk_path],
             "sources": source_records,
         }
         manifest_bytes = canonical_json_bytes(manifest)
@@ -1694,7 +1754,15 @@ class NativeSwiftBuilder:
         compiled_now = False
         if not executable_path.exists():
             temporary = root / f".ash-calibration-cli.{os.getpid()}.{uuid.uuid4().hex}.tmp"
-            command = [swiftc, *_COMPILE_FLAGS, *(str(path) for path in source_paths), "-o", str(temporary)]
+            command = [
+                swiftc,
+                *_COMPILE_FLAGS,
+                "-sdk",
+                sdk_path,
+                *(str(path) for path in source_paths),
+                "-o",
+                str(temporary),
+            ]
             try:
                 _run_checked(command, cwd=self.repository_root)
                 os.chmod(temporary, 0o700)
@@ -1973,16 +2041,7 @@ class P00NativeBuilder:
             ("git", "rev-parse", f"{_P00_COMMIT}^{{tree}}"),
             cwd=self.repository_root,
         ).stdout.decode("utf-8").strip()
-        swiftc = _run_checked(
-            ("/usr/bin/xcrun", "--find", "swiftc"),
-            cwd=self.repository_root,
-        ).stdout.decode("utf-8").strip()
-        swift_version = _run_checked(
-            (swiftc, "--version"), cwd=self.repository_root
-        ).stdout.decode("utf-8").rstrip("\n")
-        target_info = _run_checked(
-            (swiftc, "-print-target-info"), cwd=self.repository_root
-        ).stdout.decode("utf-8").rstrip("\n")
+        swiftc, sdk_path, toolchain = _resolve_swift_toolchain(self.repository_root)
         extracted: list[tuple[str, bytes]] = []
         source_records = []
         for relative in _P00_SOURCE_PATHS:
@@ -2018,12 +2077,8 @@ class P00NativeBuilder:
             "commit": _P00_COMMIT,
             "commit_tree_sha1": tree,
             "backend_source_sha256": _P00_BACKEND_SOURCE_SHA256,
-            "toolchain": {
-                "swiftc_path": swiftc,
-                "swift_version": swift_version,
-                "target_info": target_info,
-            },
-            "compile_flags": compile_flags,
+            "toolchain": toolchain,
+            "compile_flags": [*compile_flags, "-sdk", sdk_path],
             "commit_sources": source_records,
             "adapter_source": {
                 "path": _P00_ADAPTER_PATH,
@@ -2053,6 +2108,8 @@ class P00NativeBuilder:
             command = [
                 swiftc,
                 *compile_flags,
+                "-sdk",
+                sdk_path,
                 *(str(path) for path in source_paths),
                 "-o",
                 str(temporary),
