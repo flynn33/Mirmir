@@ -154,7 +154,7 @@
           "additionalProperties": false
         },
         "candidate_evaluation_budget": {"const": 1513},
-        "full_ash_maximum_candidate_evaluation_budget": {"const": 1297},
+        "full_ash_maximum_candidate_evaluation_budget": {"const": 1345},
         "budget_formula": {"type": "string", "minLength": 1},
         "data_separation": {"type": "string", "minLength": 1},
         "output_cache": {"type": "string", "minLength": 1}

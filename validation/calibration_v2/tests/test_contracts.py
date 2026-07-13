@@ -16,6 +16,10 @@ from validation.calibration_v2.native_adapter.factory import (
 from validation.calibration_v2.production_providers import (
     _CONTAINER_DECODED_LEGAL_RANGE_NORMALIZATION,
 )
+from validation.calibration_v2.production_evaluator import (
+    FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET,
+)
+from validation.calibration_v2.runner import parameter_domains
 
 
 CALIBRATION_ROOT = Path(__file__).resolve().parents[1]
@@ -338,6 +342,7 @@ class CompilerAndRangeContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.plan = load("contracts/calibration-plan-v1.json")
         cls.compiler = load("contracts/compiler-contract-v1.json")
+        cls.baseline = load("contracts/baseline-ablation-contract-v1.json")
 
     def test_every_numeric_range_is_sorted_unique_and_nonempty(self):
         for group_name, group in self.plan["ranges"].items():
@@ -381,6 +386,30 @@ class CompilerAndRangeContractTests(unittest.TestCase):
         self.assertEqual(set(order), expected)
         initial = self.plan["search"]["initial_vector_values"]
         self.assertEqual(set(initial), set(order))
+
+    def test_full_ash_attempt_budget_is_derived_from_every_declared_domain(self):
+        domains = parameter_domains(self.plan)
+        maximum_sweeps = self.plan["search"]["maximum_sweeps"]
+        declared_value_count = sum(len(values) for values in domains.values())
+        maximum_attempt_count = 1 + maximum_sweeps * declared_value_count
+        selector = self.baseline["non_ash_selector"]
+
+        self.assertEqual(len(domains), 42)
+        self.assertEqual(declared_value_count, 168)
+        self.assertEqual(maximum_attempt_count, 1345)
+        self.assertEqual(
+            FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET,
+            maximum_attempt_count,
+        )
+        self.assertEqual(
+            selector["full_ash_maximum_candidate_evaluation_budget"],
+            maximum_attempt_count,
+        )
+        self.assertEqual(selector["candidate_evaluation_budget"], 1513)
+        self.assertIn(
+            "sum(42 declared domain cardinalities)",
+            selector["budget_formula"],
+        )
 
     def test_initial_vector_uses_only_declared_candidates(self):
         ranges = self.plan["ranges"]

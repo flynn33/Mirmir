@@ -41,18 +41,52 @@
       "required": [
         "selector_id",
         "bank_descriptor_ids",
+        "inputs",
+        "input_contract",
+        "forbidden_inputs_and_operations",
+        "score",
         "candidate_evaluation_budget",
         "full_ash_maximum_candidate_evaluation_budget",
+        "budget_formula",
+        "data_separation",
+        "output_cache",
         "coordinates"
       ],
       "properties": {
         "selector_id": {"const": "continuous-linear-bank-selector-q15-v1"},
         "bank_descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        "inputs": {
+          "type": "array",
+          "minItems": 11,
+          "maxItems": 11,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "input_contract": {"type": "string", "minLength": 1},
+        "forbidden_inputs_and_operations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "score": {"type": "string", "minLength": 1},
         "candidate_evaluation_budget": {"const": 1513},
-        "full_ash_maximum_candidate_evaluation_budget": {"const": 1297},
+        "full_ash_maximum_candidate_evaluation_budget": {"const": 1345},
+        "budget_formula": {"type": "string", "minLength": 1},
+        "data_separation": {"type": "string", "minLength": 1},
+        "output_cache": {"type": "string", "minLength": 1},
         "coordinates": {
           "type": "object",
-          "required": ["order", "values", "initial_value", "maximum_sweeps"],
+          "required": [
+            "order",
+            "values",
+            "initial_value",
+            "candidate_order",
+            "sweep_rule",
+            "termination",
+            "maximum_sweeps",
+            "tie_break"
+          ],
           "properties": {
             "order": {
               "const": [
@@ -87,7 +121,11 @@
             },
             "values": {"const": [-384, -256, -128, 0, 128, 256, 384]},
             "initial_value": {"const": 0},
-            "maximum_sweeps": {"const": 8}
+            "candidate_order": {"type": "string", "minLength": 1},
+            "sweep_rule": {"type": "string", "minLength": 1},
+            "termination": {"type": "string", "minLength": 1},
+            "maximum_sweeps": {"const": 8},
+            "tie_break": {"type": "string", "minLength": 1}
           },
           "additionalProperties": false
         }

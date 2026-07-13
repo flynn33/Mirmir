@@ -53,7 +53,7 @@ def _selector_contract() -> Mapping[str, object]:
         "selector_id": NON_ASH_SELECTOR_ID,
         "bank_descriptor_ids": list(FIXED_DESCRIPTOR_IDS),
         "candidate_evaluation_budget": 1513,
-        "full_ash_maximum_candidate_evaluation_budget": 1297,
+        "full_ash_maximum_candidate_evaluation_budget": 1345,
         "coordinates": {
             "order": list(NON_ASH_COORDINATES),
             "values": list(NON_ASH_VALUES),
@@ -1832,7 +1832,7 @@ def test_tracked_full_selector_cold_warm_benchmark_and_exact_ledger(
     maximum_native_calls_per_bank = (
         maximum_unique_rules_per_bank * prepared_case_count
     )
-    maximum_bank_count = 305
+    maximum_bank_count = 321
     maximum_native_calls_all_banks = (
         maximum_native_calls_per_bank * maximum_bank_count
     )
@@ -1884,7 +1884,7 @@ def test_tracked_full_selector_cold_warm_benchmark_and_exact_ledger(
             "bank_count": maximum_bank_count,
             "native_calls_all_banks": maximum_native_calls_all_banks,
             "native_calls_per_bank_formula": "1297 * 18 = 23346",
-            "native_calls_all_banks_formula": "23346 * 305 = 7120530",
+            "native_calls_all_banks_formula": "23346 * 321 = 7494066",
         },
     }
     benchmark["evidence_sha256"] = canonical_sha256(benchmark)
@@ -1905,6 +1905,6 @@ def test_tracked_full_selector_cold_warm_benchmark_and_exact_ledger(
     assert observed_unique_rules <= maximum_unique_rules_per_bank
     assert callable_value.reopen_calls == first_reconstruction_count
     assert maximum_native_calls_per_bank == 23_346
-    assert maximum_native_calls_all_banks == 7_120_530
+    assert maximum_native_calls_all_banks == 7_494_066
     assert warm_file_count == cold_file_count
     assert warm_size_bytes == cold_size_bytes

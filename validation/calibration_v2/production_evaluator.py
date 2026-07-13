@@ -48,6 +48,7 @@ CONVENTIONAL_ALGORITHM_IDS = (
 )
 NON_ASH_SELECTOR_ID = "continuous-linear-bank-selector-q15-v1"
 NON_ASH_VALUES = (-384, -256, -128, 0, 128, 256, 384)
+FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET = 1345
 NON_ASH_COORDINATES = tuple(
     [f"bias_descriptor_{index:02d}_q8_8" for index in range(16)]
     + [
@@ -1747,7 +1748,8 @@ def _validate_non_ash_contract(contract: Mapping[str, object]) -> None:
         contract.get("selector_id") != NON_ASH_SELECTOR_ID
         or contract.get("bank_descriptor_ids") != list(FIXED_DESCRIPTOR_IDS)
         or contract.get("candidate_evaluation_budget") != 1513
-        or contract.get("full_ash_maximum_candidate_evaluation_budget") != 1297
+        or contract.get("full_ash_maximum_candidate_evaluation_budget")
+        != FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET
         or not isinstance(coordinates, dict)
         or coordinates.get("order") != list(NON_ASH_COORDINATES)
         or coordinates.get("values") != list(NON_ASH_VALUES)
@@ -1942,7 +1944,9 @@ def search_non_ash_development(
         "shared_bank_configuration_sha256": shared_bank_configuration_sha256,
         "uniform_application": True,
         "candidate_evaluation_budget": 1513,
-        "full_ash_maximum_candidate_evaluation_budget": 1297,
+        "full_ash_maximum_candidate_evaluation_budget": (
+            FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET
+        ),
         "selection_objective": SELECTION_OBJECTIVE,
         "development_attempt_count": len(attempts),
         "development_attempt_ledger_sha256": attempt_binding["sha256"],

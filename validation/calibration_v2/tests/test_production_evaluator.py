@@ -123,7 +123,7 @@ def _selector_contract() -> Mapping[str, object]:
         "selector_id": NON_ASH_SELECTOR_ID,
         "bank_descriptor_ids": list(FIXED_DESCRIPTOR_IDS),
         "candidate_evaluation_budget": 1513,
-        "full_ash_maximum_candidate_evaluation_budget": 1297,
+        "full_ash_maximum_candidate_evaluation_budget": 1345,
         "coordinates": {
             "order": list(NON_ASH_COORDINATES),
             "values": list(NON_ASH_VALUES),

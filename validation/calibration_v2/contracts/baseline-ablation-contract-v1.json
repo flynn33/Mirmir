@@ -127,8 +127,8 @@
       "tie_break": "lexicographically maximize the declared validation engine_raw corpus-mean tuple, then choose the lexicographically ascending canonical serialized complete rule vector"
     },
     "candidate_evaluation_budget": 1513,
-    "full_ash_maximum_candidate_evaluation_budget": 1297,
-    "budget_formula": "1 + maximum_sweeps * coordinate_count * values_per_coordinate = 1 + 8*27*7 = 1513; full ASH is 1 + 8*sum(40 declared domain cardinalities) = 1297",
+    "full_ash_maximum_candidate_evaluation_budget": 1345,
+    "budget_formula": "1 + maximum_sweeps * coordinate_count * values_per_coordinate = 1 + 8*27*7 = 1513; full ASH development search is 1 + 8*sum(42 declared domain cardinalities) = 1 + 8*168 = 1345",
     "data_separation": "For each exact shared-bank hash, tune selector coordinates only on development and choose only among the development terminal vector and one-coordinate neighbors on validation. The comparison result is bound to that bank; only the final selected bank's rule is frozen for P07.",
     "output_cache": "Cache all 16 operator outputs for each locked degraded input by source/degradation/route/operator/configuration hash; selector search may choose among cached outputs but cannot alter pixels."
   },

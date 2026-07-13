@@ -16,7 +16,7 @@
     "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
     "uniform_application": {"const": true},
     "candidate_evaluation_budget": {"const": 1513},
-    "full_ash_maximum_candidate_evaluation_budget": {"const": 1297},
+    "full_ash_maximum_candidate_evaluation_budget": {"const": 1345},
     "selection_objective": {"$ref": "#/$defs/objective"},
     "development_attempt_count": {"type": "integer", "minimum": 1, "maximum": 1513},
     "development_attempt_ledger_sha256": {"$ref": "#/$defs/sha256"},

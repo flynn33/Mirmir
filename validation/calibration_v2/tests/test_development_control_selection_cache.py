@@ -163,18 +163,13 @@ def _candidate_schema_fixture(
 
 
 def _selector_contract() -> Mapping[str, object]:
-    return {
-        "selector_id": NON_ASH_SELECTOR_ID,
-        "bank_descriptor_ids": list(FIXED_DESCRIPTOR_IDS),
-        "candidate_evaluation_budget": 1513,
-        "full_ash_maximum_candidate_evaluation_budget": 1297,
-        "coordinates": {
-            "order": list(NON_ASH_COORDINATES),
-            "values": list(NON_ASH_VALUES),
-            "initial_value": 0,
-            "maximum_sweeps": 8,
-        },
-    }
+    contract_path = (
+        Path(__file__).resolve().parents[1]
+        / "contracts"
+        / "baseline-ablation-contract-v1.json"
+    )
+    contract = json.loads(contract_path.read_text(encoding="utf-8"))
+    return copy.deepcopy(contract["non_ash_selector"])
 
 
 def _aggregate_context(*, sample_lock: str = "sample-lock") -> Mapping[str, object]:
@@ -317,7 +312,7 @@ def _selection_artifacts(bank: str = BANK) -> Mapping[str, Mapping[str, object]]
         "shared_bank_configuration_sha256": bank,
         "uniform_application": True,
         "candidate_evaluation_budget": 1513,
-        "full_ash_maximum_candidate_evaluation_budget": 1297,
+        "full_ash_maximum_candidate_evaluation_budget": 1345,
         "selection_objective": SELECTION_OBJECTIVE,
         "development_attempt_count": 1,
         "development_attempt_ledger_sha256": _sha256("attempt-ledger"),

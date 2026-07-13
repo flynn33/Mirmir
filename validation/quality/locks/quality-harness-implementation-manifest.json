@@ -274,8 +274,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
-      "sha256": "726a65f3c7d9ca83a6407e94884836333e1619fba613650fcccb802953d30759",
-      "size_bytes": 13457
+      "sha256": "23e3972b4c91ae01a05a8c82d16616fdc1765de4942d2f36e4432454adfe8535",
+      "size_bytes": 13488
     },
     {
       "relative_path": "validation/calibration_v2/contracts/calibration-plan-v1.json",
@@ -429,8 +429,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/production_evaluator.py",
-      "sha256": "2f0aa71443910d807d07573e39f98b4264176d097a0dd8a3b73d377a896f8fdb",
-      "size_bytes": 240184
+      "sha256": "9c3f5e52ee7a56caea9fd0252d83ac2fbcdecca959df256904ddaceac4ea3f3b",
+      "size_bytes": 240348
     },
     {
       "relative_path": "validation/calibration_v2/production_evidence.py",
@@ -479,7 +479,7 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
-      "sha256": "036d9de86c5fef79ad1716fb4eebff3e6210d40f5d9cccbcc89336072f1ffe0d",
+      "sha256": "7da980490d90cab2bfdc9933fffa56cddc2327f8703014c896aa9e9b712c79d5",
       "size_bytes": 10908
     },
     {
@@ -549,8 +549,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/development-control-selection-cache-v1.schema.json",
-      "sha256": "883d9cb526c2923b4cfaff89a04ee2dc9f550df41c2c5ba76d1fe422d53a40b5",
-      "size_bytes": 11249
+      "sha256": "8c8bca3f3e9a6ed7c2db3750a04cee3fea6c53ec3ea204a505ab446f6ee4b917",
+      "size_bytes": 12540
     },
     {
       "relative_path": "validation/calibration_v2/schemas/dispatch-measurement-v1.schema.json",
@@ -634,7 +634,7 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-selector-selection-v1.schema.json",
-      "sha256": "d024c411be8704fe00b646de419b0e907d5cd09a5e05ee909306e14e63a7b5ca",
+      "sha256": "a5b41ddcd39d26a257f88f752b873d5264ae491fd35275d1f19f1297e4af49ac",
       "size_bytes": 7867
     },
     {
@@ -764,12 +764,12 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_contracts.py",
-      "sha256": "5b133127c6715270cd5377e298b01340a3d701b06b393546a108e220defaa50e",
-      "size_bytes": 54358
+      "sha256": "aef54e299bf7fd3e8f33e45d3123825bf028c2fbfda98309bf01925bcbd0e4c6",
+      "size_bytes": 55627
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_cache.py",
-      "sha256": "9e06b2177f4ea085433e55361a35ad13cb91c1d14398848bac732d11f2268287",
+      "sha256": "2534a47d5c65f1d9f8137075fb85b2b276ee56f4b625536ca76945521b24a575",
       "size_bytes": 67991
     },
     {
@@ -809,8 +809,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_development_control_selection_cache.py",
-      "sha256": "9bd7d179c7f6b9ed5779b8554b19bf33a653597432e8b138bdf87dadecbe8925",
-      "size_bytes": 53936
+      "sha256": "03f84dcf413b734fc8727abc5dc264e1a5ee83ed0f7697d124b2eee5c5f7dcab",
+      "size_bytes": 53779
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
@@ -869,7 +869,7 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_production_evaluator.py",
-      "sha256": "41db468a06580068b43eece45d00ad2da38303003ad22b1ac9084202dc0facc9",
+      "sha256": "ba0101fad03bd27d128035213f5e57fe448039d8bcb8efac6a5d2d8252f27697",
       "size_bytes": 24889
     },
     {
@@ -1323,6 +1323,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "d6d65f8502119111f4d089daa2b176e62e69a1fdcf7f58fbf745bd06bd990bed",
+  "manifest_sha256": "05809ad9e4f7c6ddb35aad593f9699af802124252066d52aba1e568df9526955",
   "schema_version": "1.0.0"
 }
