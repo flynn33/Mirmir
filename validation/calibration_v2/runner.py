@@ -153,6 +153,29 @@ class CalibrationBindingError(CalibrationError):
     """A preregistered input is absent, unsafe, changed, or inconsistent."""
 
 
+class CandidateEvaluationPreconditionError(CalibrationError):
+    """A domain-valid candidate cannot satisfy a mandatory evaluation control."""
+
+    def __init__(
+        self,
+        *,
+        control_id: str,
+        parameter: str,
+        value: object,
+        incompatible_descriptor_ids: Sequence[int],
+    ) -> None:
+        descriptor_ids = tuple(incompatible_descriptor_ids)
+        self.control_id = control_id
+        self.parameter = parameter
+        self.value = value
+        self.incompatible_descriptor_ids = descriptor_ids
+        super().__init__(
+            "mandatory control bank compatibility failed: "
+            f"control_id={control_id}; {parameter}={value}; "
+            f"incompatible_descriptor_ids={list(descriptor_ids)}"
+        )
+
+
 class CalibrationRunInterrupted(RuntimeError):
     """A run failed after its partial evidence was preserved."""
 
@@ -1086,6 +1109,37 @@ def validate_candidate_vector(
             raise CalibrationError(f"threshold pair is not integral: {band}")
         if low > high or high - low < 3277:
             raise CalibrationError(f"threshold pair constraint failed: {band}")
+
+
+def _validate_mandatory_control_bank_compatibility(
+    vector: Mapping[str, object],
+    baseline_contract: Mapping[str, object],
+) -> None:
+    best_fixed = baseline_contract.get("best_fixed")
+    if not isinstance(best_fixed, dict):
+        raise CalibrationBindingError(
+            "baseline ablation contract lacks its mandatory fixed-descriptor bank"
+        )
+    control_id = best_fixed.get("control_id")
+    descriptor_ids = best_fixed.get("eligible_descriptor_ids")
+    if (
+        control_id != "fixed-descriptor-uniform-v1"
+        or descriptor_ids != list(range(16))
+    ):
+        raise CalibrationBindingError(
+            "baseline ablation contract has an invalid mandatory fixed-descriptor bank"
+        )
+    if vector.get("detail_gain_q12") != 0:
+        return
+    incompatible_descriptor_ids = tuple(
+        descriptor_id for descriptor_id in descriptor_ids if descriptor_id & (1 << 2)
+    )
+    raise CandidateEvaluationPreconditionError(
+        control_id=control_id,
+        parameter="detail_gain_q12",
+        value=0,
+        incompatible_descriptor_ids=incompatible_descriptor_ids,
+    )
 
 
 def serialized_candidate_vector(
@@ -8381,8 +8435,13 @@ class CalibrationExecutor:
                     "development control selection exposes validation-only evidence"
                 )
 
-        # Validation authorization and the frozen file/self-hash check above must
-        # complete before this first possible validation-pixel access.
+        _validate_mandatory_control_bank_compatibility(
+            vector,
+            bound.documents["baseline_ablation_contract"],
+        )
+
+        # Immutable binding/hash checks and candidate evaluation preconditions above
+        # must complete before this first possible split metadata or pixel access.
         samples = load_split_metadata(bound, split)
         frames = self._split_frames(bound, split, samples)
         view = _evaluation_view(bound, split, samples, frames)

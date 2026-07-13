@@ -333,6 +333,7 @@ def completed_execution_evidence_fixture(
 
 def native_records_fixture() -> list[dict]:
     records = []
+    configuration_id = f"ash-p06-{digest('configuration')[:24]}"
     for record_ordinal, route in enumerate(ROUTES):
         evaluator_route = evaluator_route_for_contract_route(route)
         entry_count = 4096 if route == "direct_2x" else 9216
@@ -411,7 +412,7 @@ def native_records_fixture() -> list[dict]:
         request = {
             "schema_version": "1.0.0",
             "operation": "diagnose_corrective_frame",
-            "configuration_id": digest("configuration"),
+            "configuration_id": configuration_id,
             "compiler_inputs_sha256": digest("compiler-inputs"),
             "coordinate_model_contract_path": "/tmp/coordinate-contract.json",
             "coordinate_model_contract_sha256": digest("coordinate-contract"),
@@ -463,7 +464,7 @@ def native_records_fixture() -> list[dict]:
             "selected_winner": None,
             "request_id": request_id,
             "target_route": route,
-            "configuration_id": digest("configuration"),
+            "configuration_id": configuration_id,
             "compiler_inputs_sha256": digest("compiler-inputs"),
             **provenance,
             "native_invocation_proof": {
@@ -1535,6 +1536,24 @@ class CorrectiveDiagnosticContractTests(unittest.TestCase):
         ]["operator_bank_sha256"] = digest("wrong-operator-bank")
         reseal_coordinate_native_record(provenance, 0)
         self.assert_coordinate_rejected(provenance)
+
+    def test_native_configuration_id_uses_locked_configuration_grammar(
+        self,
+    ) -> None:
+        native_record = self.coordinate["native_records"][0]
+        self.assertEqual(
+            native_record["request"]["configuration_id"],
+            f"ash-p06-{digest('configuration')[:24]}",
+        )
+
+        malformed = copy.deepcopy(self.coordinate)
+        malformed_record = malformed["native_records"][0]
+        malformed_record["request"]["configuration_id"] = "Ash-p06-invalid"
+        malformed_record["response"]["corrective_diagnostic"][
+            "configuration_id"
+        ] = "Ash-p06-invalid"
+        reseal_coordinate_native_record(malformed, 0)
+        self.assert_coordinate_rejected(malformed)
 
     def test_coordinate_rejects_block_reorder_missing_and_extra(self) -> None:
         reordered = copy.deepcopy(self.coordinate)

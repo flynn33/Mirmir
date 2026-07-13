@@ -344,8 +344,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/corrective_diagnostics.py",
-      "sha256": "406a5766db54036ba8c6e7c9709379f273a0d360790542c6821b00b4a2204fb8",
-      "size_bytes": 82705
+      "sha256": "c6a1e9b8c353ec6ebb5da936fdd1b9db2d75f8bcfc321a39c88b55aee81f78f5",
+      "size_bytes": 83011
     },
     {
       "relative_path": "validation/calibration_v2/corrective_native.py",
@@ -474,8 +474,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/runner.py",
-      "sha256": "71ebe38667bf78ae65051b08b6b2c0d94e325ee219c29299254fb0cb6f2673f1",
-      "size_bytes": 367463
+      "sha256": "e56bd55e5d9fe7170f428525a8c710e15271fe6be207ae06c293b0b555f996ea",
+      "size_bytes": 369518
     },
     {
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
@@ -794,8 +794,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostics.py",
-      "sha256": "cca405beb46445d6a02d009ddefa0c6f97d63d692c81725d54cb931bd1808f60",
-      "size_bytes": 76582
+      "sha256": "3960337a9969c629638eb600fe52737b831901b3521fbd78fda3212855465401",
+      "size_bytes": 77360
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_corrective_native.py",
@@ -924,8 +924,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_runner_stage_context.py",
-      "sha256": "eee56b03f4951e8b5ff2b8541f545d7e360ee54c772c23bc9ec0c5e5285c9587",
-      "size_bytes": 20400
+      "sha256": "318240dc92f01360d1ca1e3242556dec7069932b5183370ec6a98948d6482b60",
+      "size_bytes": 25399
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_video_profile_contract.py",
@@ -1323,6 +1323,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "2a3d66ea19b7763c23cca9f97c3826f482ed1ec9f76a8b25a705493d3f606d04",
+  "manifest_sha256": "1d409cd3cffbacd754939d9f88d4bc5c41c657b07d331da951ccc7a6f51b5c4a",
   "schema_version": "1.0.0"
 }

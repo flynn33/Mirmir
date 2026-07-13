@@ -24,8 +24,12 @@ CALIBRATION_ROOT = Path(__file__).resolve().parents[1]
 
 
 class _BoundWithoutPixels:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        documents: dict[str, dict[str, object]] | None = None,
+    ) -> None:
         self.verification_count = 0
+        self.documents = {} if documents is None else documents
 
     def verify_unchanged(self) -> None:
         self.verification_count += 1
@@ -65,6 +69,11 @@ class AdapterLifecycleTests(unittest.TestCase):
             )
         )
         cls.vector = dict(cls.plan["search"]["initial_vector_values"])
+        cls.baseline_contract = json.loads(
+            (CALIBRATION_ROOT / "contracts/baseline-ablation-contract-v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
         cls.bank_sha256 = runner.shared_bank_configuration_sha256(
             cls.vector,
             cls.plan,
@@ -143,7 +152,9 @@ class AdapterLifecycleTests(unittest.TestCase):
             return executor._evaluate(
                 self.vector,
                 "development",
-                bound=_BoundWithoutPixels(),
+                bound=_BoundWithoutPixels(
+                    {"baseline_ablation_contract": self.baseline_contract}
+                ),
                 plan=self.plan,
                 tolerances={},
                 cache=object(),
@@ -230,6 +241,119 @@ class AdapterLifecycleTests(unittest.TestCase):
                     analytic_test_mode=False,
                 )
             )
+
+
+class MandatoryControlBankCompatibilityTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.plan = json.loads(
+            (CALIBRATION_ROOT / "contracts/calibration-plan-v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cls.baseline_contract = json.loads(
+            (CALIBRATION_ROOT / "contracts/baseline-ablation-contract-v1.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+    def _vector(self, detail_gain_q12: int) -> dict[str, object]:
+        vector = dict(self.plan["search"]["initial_vector_values"])
+        vector["detail_gain_q12"] = detail_gain_q12
+        return vector
+
+    def test_zero_remains_candidate_valid_and_reports_incompatible_descriptors(
+        self,
+    ) -> None:
+        vector = self._vector(0)
+        runner.validate_candidate_vector(vector, self.plan)
+
+        with self.assertRaises(
+            runner.CandidateEvaluationPreconditionError
+        ) as raised:
+            runner._validate_mandatory_control_bank_compatibility(
+                vector,
+                self.baseline_contract,
+            )
+
+        self.assertEqual(raised.exception.control_id, "fixed-descriptor-uniform-v1")
+        self.assertEqual(raised.exception.parameter, "detail_gain_q12")
+        self.assertEqual(raised.exception.value, 0)
+        self.assertEqual(
+            raised.exception.incompatible_descriptor_ids,
+            (4, 5, 6, 7, 12, 13, 14, 15),
+        )
+        self.assertEqual(
+            str(raised.exception),
+            "mandatory control bank compatibility failed: "
+            "control_id=fixed-descriptor-uniform-v1; detail_gain_q12=0; "
+            "incompatible_descriptor_ids=[4, 5, 6, 7, 12, 13, 14, 15]",
+        )
+
+    def test_positive_detail_gain_values_pass_control_bank_precondition(self) -> None:
+        for detail_gain_q12 in (384, 768, 1152, 1536):
+            with self.subTest(detail_gain_q12=detail_gain_q12):
+                vector = self._vector(detail_gain_q12)
+                runner.validate_candidate_vector(vector, self.plan)
+                runner._validate_mandatory_control_bank_compatibility(
+                    vector,
+                    self.baseline_contract,
+                )
+
+    def test_rejection_precedes_split_metadata_pixels_and_native_adapter(self) -> None:
+        vector = self._vector(0)
+        executor = object.__new__(runner.CalibrationExecutor)
+        executor._development_control_selections = {}
+        executor._validation_control_selections = {}
+        executor._validation_candidate_evidence_path = None
+        executor._validation_candidate_evidence_file_binding = None
+        executor._validation_candidate_evidence_binding = None
+        executor._loaded_split_frames = {}
+        executor.analytic_test_mode = True
+        split_frames = mock.Mock(name="split_frames")
+        adapter_factory = mock.Mock(name="adapter_factory")
+        evaluator = mock.Mock(name="evaluator")
+        executor._split_frames = split_frames
+        executor.candidate = SimpleNamespace(
+            adapter_factory=adapter_factory,
+            evaluator=evaluator,
+        )
+        bound = _BoundWithoutPixels(
+            {"baseline_ablation_contract": self.baseline_contract}
+        )
+
+        with (
+            mock.patch.object(runner, "load_split_metadata") as load_metadata,
+            mock.patch.object(runner, "_evaluation_view") as evaluation_view,
+            mock.patch.object(
+                runner,
+                "candidate_vector_sha256",
+                wraps=runner.candidate_vector_sha256,
+            ) as vector_hash,
+            mock.patch.object(
+                runner,
+                "shared_bank_configuration_sha256",
+                wraps=runner.shared_bank_configuration_sha256,
+            ) as bank_hash,
+        ):
+            with self.assertRaises(runner.CandidateEvaluationPreconditionError):
+                executor._evaluate(
+                    vector,
+                    "development",
+                    bound=bound,
+                    plan=self.plan,
+                    tolerances={},
+                    cache=object(),
+                )
+
+        self.assertEqual(bound.verification_count, 1)
+        vector_hash.assert_called_once_with(vector, self.plan)
+        bank_hash.assert_called_once_with(vector, self.plan)
+        load_metadata.assert_not_called()
+        split_frames.assert_not_called()
+        evaluation_view.assert_not_called()
+        adapter_factory.assert_not_called()
+        evaluator.assert_not_called()
 
 
 class ValidationStageContextTests(unittest.TestCase):

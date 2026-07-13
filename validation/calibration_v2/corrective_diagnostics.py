@@ -297,6 +297,15 @@ def _is_sha256(value: object) -> bool:
     )
 
 
+def _is_configuration_id(value: object) -> bool:
+    if not isinstance(value, str) or not 3 <= len(value) <= 128:
+        return False
+    allowed = "abcdefghijklmnopqrstuvwxyz0123456789._-"
+    return value[0] in allowed[:36] and all(
+        character in allowed for character in value
+    )
+
+
 def _semantic(condition: bool, message: str) -> None:
     if not condition:
         raise CorrectiveDiagnosticContractError(message)
@@ -701,7 +710,7 @@ def _validate_native_records(
             and diagnostic.get("target_route") == route
             and diagnostic.get("configuration_id")
             == request.get("configuration_id")
-            and _is_sha256(diagnostic.get("configuration_id"))
+            and _is_configuration_id(diagnostic.get("configuration_id"))
             and diagnostic.get("compiler_inputs_sha256")
             == request.get("compiler_inputs_sha256")
             == bindings.get("compiler_inputs_sha256")
