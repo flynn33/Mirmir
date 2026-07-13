@@ -35,6 +35,7 @@ final class ASHLockedReferencePipelineV2Tests: XCTestCase {
             XCTAssertEqual(summary.route, route)
             XCTAssertEqual(summary.coordinatePolicy, selection.coordinatePolicy)
             XCTAssertEqual(summary.analysisGridSourceStep, Int(selection.analysisGridSourceStep))
+            XCTAssertEqual(summary.occupiedAnalysisCellCount, summary.analysisCellCount)
             XCTAssertEqual(summary.dispatchRecordCount, summary.analysisCellCount * route.phasePairCount)
             XCTAssertEqual(summary.stateHistogram.values.reduce(0, +), summary.analysisCellCount)
             XCTAssertEqual(summary.correctedDecodeCount, 0)

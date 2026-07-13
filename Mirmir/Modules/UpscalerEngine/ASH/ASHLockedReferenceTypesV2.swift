@@ -38,6 +38,7 @@ struct ASHLockedReferenceSummaryV2: Equatable, Sendable {
     let boundaryMode: ASHSpatialBoundaryModeV2
     let analysisGridSourceStep: Int
     let analysisCellCount: Int
+    let occupiedAnalysisCellCount: Int
     let dispatchRecordCount: Int
     let stateHistogram: [UInt16: Int]
     let operatorHistogram: [UInt8: Int]

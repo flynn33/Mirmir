@@ -218,11 +218,13 @@
     "search": {
       "type": "object",
       "required": [
+        "protocol_version",
         "algorithm",
         "candidate_order",
         "initial_vector",
         "initial_vector_values",
         "sweep_rule",
+        "infeasible_retention_rule",
         "termination",
         "maximum_sweeps",
         "tie_break",
@@ -230,6 +232,7 @@
         "parameter_order"
       ],
       "properties": {
+        "protocol_version": {"const": "1.1.0"},
         "algorithm": {"const": "deterministic_coordinate_search"},
         "candidate_order": {"type": "string", "minLength": 1},
         "initial_vector": {"type": "string", "minLength": 1},
@@ -240,6 +243,7 @@
           "additionalProperties": {"type": ["integer", "string"]}
         },
         "sweep_rule": {"type": "string", "minLength": 1},
+        "infeasible_retention_rule": {"type": "string", "minLength": 1},
         "termination": {"type": "string", "minLength": 1},
         "maximum_sweeps": {"const": 8},
         "tie_break": {"type": "string", "minLength": 1},

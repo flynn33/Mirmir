@@ -32,6 +32,12 @@ from validation.quality.src.mirmir_quality.json_tools import (
 from validation.quality.src.mirmir_quality.production_dry_run import CandidateAdapter
 
 
+ROUTE_PHASE_PAIR_COUNTS = {
+    "direct-2x": 4,
+    "direct-3over2": 9,
+}
+
+
 def _is_sha256(value: object) -> bool:
     return (
         isinstance(value, str)
@@ -630,10 +636,19 @@ class PolicyEvaluationEvidenceProvider:
             record = matches.pop(0)
             summary = record["locked_runtime_summary"]
             analysis_count = int(summary.get("analysis_cell_count", 0))
+            occupied_count = int(
+                summary.get("occupied_analysis_cell_count", -1)
+            )
             dispatch_count = int(summary.get("dispatch_record_count", 0))
-            if analysis_count <= 0 or dispatch_count <= 0:
+            route = str(case["target_route"])
+            phase_pair_count = ROUTE_PHASE_PAIR_COUNTS[route]
+            if (
+                analysis_count <= 0
+                or not 0 <= occupied_count <= analysis_count
+                or dispatch_count != analysis_count * phase_pair_count
+            ):
                 raise ProductionEvaluatorError(
-                    "analysis-grid count is not positive"
+                    "analysis-grid occupancy or phase cardinality is invalid"
                 )
             invocations.append(
                 {
@@ -643,6 +658,7 @@ class PolicyEvaluationEvidenceProvider:
                     "target_route": case["target_route"],
                     "input_frame_sha256": case["input_frame_sha256"],
                     "analysis_cell_count": analysis_count,
+                    "occupied_analysis_cell_count": occupied_count,
                     "dispatch_record_count": dispatch_count,
                 }
             )
@@ -766,10 +782,11 @@ class PolicyEvaluationEvidenceProvider:
             ]
             route_occupancy[route] = {
                 "occupied_cells": sum(
-                    int(row["analysis_cell_count"]) for row in route_rows
+                    int(row["occupied_analysis_cell_count"])
+                    for row in route_rows
                 ),
                 "total_cells": sum(
-                    int(row["dispatch_record_count"]) for row in route_rows
+                    int(row["analysis_cell_count"]) for row in route_rows
                 ),
             }
         occupancy_pass = all(

@@ -110,14 +110,17 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
         XCTAssertFalse(cositedChroma.sourceAlignedSamplePreserved)
     }
 
-    func test_bothRoutesEvaluateEveryTargetAcrossAllLockedGridSteps() throws {
+    func test_bothRoutesOccupyEveryAnalysisCellAcrossAllLockedGridSteps() throws {
         let planes = try ASHLockedRuntimeTestSupportV2.planes()
         let lumaPlane = try ASHLockedRuntimeTestSupportV2.spatialPlane(planes.luma)
+        let policySteps = ASHSpatialCoordinatePolicyV2.allCases.flatMap { policy in
+            [1, 2, 4].map { (policy, $0) }
+        }
         for route in ASHSpatialRouteV2.allCases {
-            for step in [1, 2, 4] {
+            for (policy, step) in policySteps {
                 let fixture = try ASHLockedRuntimeTestSupportV2.fixture(
                     route: route,
-                    policy: .sourceAlignedRational,
+                    policy: policy,
                     step: step
                 )
                 let grid = try ASHLockedRuntimeTestSupportV2.analysisGrid(
@@ -132,6 +135,13 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
                 )
                 let outputWidth = try route.destinationExtent(for: lumaPlane.width)
                 let outputHeight = try route.destinationExtent(for: lumaPlane.height)
+                let reconstruction = try ASHLockedReferencePipelineV2.reconstruct(
+                    plane: lumaPlane,
+                    dispatchGrid: dispatchGrid,
+                    configuration: fixture.configuration,
+                    analysisGrid: grid,
+                    chromaSiting: nil
+                )
                 for row in 0..<outputHeight {
                     for column in 0..<outputWidth {
                         let result = try ASHLockedRuntimeV2.evaluateSample(
@@ -154,6 +164,9 @@ final class ASHLockedGeometryRuntimeV2Tests: XCTestCase {
                         XCTAssertEqual(result.dispatch.counters, .zero)
                     }
                 }
+                XCTAssertEqual(reconstruction.output.width, outputWidth)
+                XCTAssertEqual(reconstruction.output.height, outputHeight)
+                XCTAssertEqual(reconstruction.occupiedAnalysisCellCount, grid.count)
                 XCTAssertEqual(dispatchGrid.dispatches.count, grid.count * route.phasePairCount)
                 XCTAssertEqual(dispatchGrid.counters, .zero)
                 XCTAssertEqual(grid.step, step)

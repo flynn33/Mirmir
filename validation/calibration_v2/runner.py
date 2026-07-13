@@ -74,6 +74,10 @@ DEFAULT_TOLERANCES_PATH = (
 SCHEMAS_ROOT = CALIBRATION_ROOT / "schemas"
 SHA256_PATTERN_LENGTH = 64
 ROUTES = ("direct-2x", "direct-3over2")
+ROUTE_PHASE_PAIR_COUNTS = {
+    "direct-2x": 4,
+    "direct-3over2": 9,
+}
 CONVENTIONAL_ALGORITHM_IDS = (
     "bilinear-separable-v1",
     "keys-cubic-a-minus-0.5-separable-v1",
@@ -88,6 +92,16 @@ _THRESHOLD_BANDS = (
     "texture_high_frequency",
     "alias_or_ringing_risk",
     "chroma_luma_structure_aligned",
+)
+_GLOBAL_DEVELOPMENT_CHECK_FAILURES = frozenset(
+    {
+        "compiler_invariants",
+        "operator_distinctness",
+        "state_causality",
+        "analysis_grid_route_quality",
+        "analysis_grid_occupancy",
+        "candidate_count",
+    }
 )
 _RUN_TRANSACTION_MARKER = ".calibration-transaction.json"
 _RUN_RECOVERY_DIRECTORY = "stale-transaction-recoveries"
@@ -3252,7 +3266,18 @@ def _validate_state_and_grid_evidence(
         native = matching.pop(0)
         summary = native["locked_runtime_summary"]
         analysis_count = int(summary["analysis_cell_count"])
+        occupied_count = int(summary["occupied_analysis_cell_count"])
         dispatch_count = int(summary["dispatch_record_count"])
+        route = str(case["target_route"])
+        if (
+            analysis_count <= 0
+            or not 0 <= occupied_count <= analysis_count
+            or dispatch_count
+            != analysis_count * ROUTE_PHASE_PAIR_COUNTS[route]
+        ):
+            raise CalibrationError(
+                "analysis-grid occupancy or phase cardinality is invalid"
+            )
         expected_invocations.append(
             {
                 "scope": case["witness_scope"],
@@ -3261,6 +3286,7 @@ def _validate_state_and_grid_evidence(
                 "target_route": case["target_route"],
                 "input_frame_sha256": case["input_frame_sha256"],
                 "analysis_cell_count": analysis_count,
+                "occupied_analysis_cell_count": occupied_count,
                 "dispatch_record_count": dispatch_count,
             }
         )
@@ -3373,10 +3399,11 @@ def _validate_state_and_grid_evidence(
         ]
         route_occupancy[route] = {
             "occupied_cells": sum(
-                int(row["analysis_cell_count"]) for row in route_rows
+                int(row["occupied_analysis_cell_count"])
+                for row in route_rows
             ),
             "total_cells": sum(
-                int(row["dispatch_record_count"]) for row in route_rows
+                int(row["analysis_cell_count"]) for row in route_rows
             ),
         }
     occupancy_pass = all(
@@ -4920,6 +4947,84 @@ def development_objective_key(
         summary["maximum_alias_ratio"],
         summary["estimated_dispatch_cost"],
         serialized_candidate_vector(vector, plan),
+    )
+
+
+def canonical_development_failure_reasons(
+    failures: Sequence[str],
+) -> Tuple[str, ...]:
+    """Count global predicates once and domain-quality predicates separately."""
+
+    canonical = set()
+    for failure in failures:
+        domain, separator, reason = failure.partition(":")
+        if domain not in {"engine_raw", "container_decoded"} or not separator:
+            raise CalibrationError(
+                "development failure reason lacks a comparison domain"
+            )
+        if reason in _GLOBAL_DEVELOPMENT_CHECK_FAILURES:
+            canonical.add(f"check:{reason}")
+        elif reason.startswith("occupancy:"):
+            canonical.add(f"check:route_{reason}")
+        elif reason == "h07_performance":
+            canonical.add("performance:h07")
+        elif reason.startswith("performance:"):
+            canonical.add(reason)
+        else:
+            canonical.add(failure)
+    return tuple(sorted(canonical))
+
+
+def development_search_key(
+    result: Tuple[
+        Mapping[str, object],
+        Mapping[str, object],
+        bool,
+        Tuple[str, ...],
+    ],
+    vector: Mapping[str, object],
+    plan: Mapping[str, object],
+) -> Tuple[object, ...]:
+    """Rank feasible values first, then deterministic restoration progress."""
+
+    _, summary, feasible, failures = result
+    canonical_failures = canonical_development_failure_reasons(failures)
+    if feasible and canonical_failures:
+        raise CalibrationError("feasible result contains failure reasons")
+    return (
+        0 if feasible else 1,
+        0 if feasible else len(canonical_failures),
+        *development_objective_key(summary, vector, plan),
+    )
+
+
+def development_search_rank_sha256(
+    result: Tuple[
+        Mapping[str, object],
+        Mapping[str, object],
+        bool,
+        Tuple[str, ...],
+    ],
+    vector: Mapping[str, object],
+    plan: Mapping[str, object],
+) -> str:
+    """Bind the replay inputs for one candidate's development search rank."""
+
+    _, summary, feasible, failures = result
+    objective = development_objective_key(summary, vector, plan)
+    return canonical_sha256(
+        {
+            "candidate_vector_sha256": candidate_vector_sha256(vector, plan),
+            "canonical_failure_reasons": list(
+                canonical_development_failure_reasons(failures)
+            ),
+            "development_objective": list(objective[:-1]),
+            "serialized_candidate_vector_sha256": hashlib.sha256(
+                objective[-1]
+            ).hexdigest(),
+            "feasible": feasible,
+            "summary_sha256": canonical_sha256(summary),
+        }
     )
 
 
@@ -8407,6 +8512,9 @@ class CalibrationExecutor:
                         )
                     result = evaluation_cache[key]
                     _, summary, feasible, failures = result
+                    canonical_failures = canonical_development_failure_reasons(
+                        failures
+                    ) if split == "development" else ()
                     ledger.append(
                         {
                             "phase": phase,
@@ -8419,6 +8527,25 @@ class CalibrationExecutor:
                             "status": "feasible" if feasible else "infeasible",
                             "cache_hit": cache_hit,
                             "failure_reasons": list(failures),
+                            **(
+                                {
+                                    "canonical_failure_reasons": list(
+                                        canonical_failures
+                                    ),
+                                    "canonical_failure_count": len(
+                                        canonical_failures
+                                    ),
+                                    "development_search_rank_sha256": (
+                                        development_search_rank_sha256(
+                                            result,
+                                            vector,
+                                            plan,
+                                        )
+                                    ),
+                                }
+                                if split == "development"
+                                else {}
+                            ),
                             "summary_sha256": canonical_sha256(summary),
                             "evaluation": evaluation_bindings[key],
                             "control_selection_artifacts": list(
@@ -8461,7 +8588,7 @@ class CalibrationExecutor:
                 sweep_count = sweep
                 changed = False
                 for coordinate in order:
-                    feasible_values = []
+                    successful_values = []
                     for value in domains[coordinate]:
                         candidate_vector = dict(current)
                         candidate_vector[coordinate] = value
@@ -8473,12 +8600,16 @@ class CalibrationExecutor:
                             coordinate=coordinate,
                             value=value,
                         )
-                        if result is not None and result[2]:
-                            feasible_values.append((candidate_vector, result[1]))
-                    if feasible_values:
+                        if result is not None:
+                            successful_values.append((candidate_vector, result))
+                    if successful_values:
                         best_vector, _ = min(
-                            feasible_values,
-                            key=lambda item: development_objective_key(item[1], item[0], plan),
+                            successful_values,
+                            key=lambda item: development_search_key(
+                                item[1],
+                                item[0],
+                                plan,
+                            ),
                         )
                         if best_vector[coordinate] != current[coordinate]:
                             changed = True

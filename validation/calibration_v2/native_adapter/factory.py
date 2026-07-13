@@ -5328,6 +5328,12 @@ class NativeCandidateCallable:
             self._validate_locked_runtime_summary(
                 locked_summary,
                 control_mode=str(request["control_mode"]),
+                target_route=(
+                    "direct-2x"
+                    if request["control_mode"]
+                    == "h07_direct2x_then_lanczos3"
+                    else str(native_frame["route"])
+                ),
             )
         if isinstance(h07_summary, dict):
             assert isinstance(locked_summary, dict)
@@ -5342,12 +5348,14 @@ class NativeCandidateCallable:
         summary: Mapping[str, object],
         *,
         control_mode: str,
+        target_route: str,
     ) -> None:
         fields = {
             "state_histogram",
             "operator_histogram",
             "maximum_operator_evaluations",
             "analysis_cell_count",
+            "occupied_analysis_cell_count",
             "dispatch_record_count",
             "exact_decode_count",
             "corrected_decode_count",
@@ -5358,6 +5366,7 @@ class NativeCandidateCallable:
         numeric_fields = [
             "maximum_operator_evaluations",
             "analysis_cell_count",
+            "occupied_analysis_cell_count",
             "dispatch_record_count",
             "exact_decode_count",
             "corrected_decode_count",
@@ -5404,7 +5413,10 @@ class NativeCandidateCallable:
         state_rows = histogram_rows(states, "state_raw_value", 511)
         operator_rows = histogram_rows(operators, "descriptor_id", 15)
         analysis_count = int(summary["analysis_cell_count"])
+        occupied_count = int(summary["occupied_analysis_cell_count"])
         dispatch_count = int(summary["dispatch_record_count"])
+        phase_pair_counts = {"direct-2x": 4, "direct-3over2": 9}
+        phase_pair_count = phase_pair_counts.get(target_route)
         operator_count = sum(count for _, count in operator_rows)
         decode_count = sum(
             int(summary[field])
@@ -5418,7 +5430,9 @@ class NativeCandidateCallable:
         if (
             sum(count for _, count in state_rows) != analysis_count
             or analysis_count <= 0
-            or dispatch_count <= 0
+            or not 0 <= occupied_count <= analysis_count
+            or phase_pair_count is None
+            or dispatch_count != analysis_count * phase_pair_count
             or operator_count != decode_count
             or not (dispatch_count <= operator_count <= dispatch_count * 2)
             or not (1 <= maximum <= 2)

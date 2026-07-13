@@ -163,6 +163,57 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary.cleanup()
 
+    def test_locked_runtime_summary_enforces_route_phase_cardinality(self) -> None:
+        for route, phase_pair_count in (
+            ("direct-2x", 4),
+            ("direct-3over2", 9),
+        ):
+            dispatch_count = 3 * phase_pair_count
+            summary = {
+                "state_histogram": [
+                    {"state_raw_value": 0, "count": 3}
+                ],
+                "operator_histogram": [
+                    {"descriptor_id": 0, "count": dispatch_count}
+                ],
+                "maximum_operator_evaluations": 1,
+                "analysis_cell_count": 3,
+                "occupied_analysis_cell_count": 3,
+                "dispatch_record_count": dispatch_count,
+                "exact_decode_count": dispatch_count,
+                "corrected_decode_count": 0,
+                "rejected_decode_count": 0,
+            }
+            NativeCandidateCallable._validate_locked_runtime_summary(
+                summary,
+                control_mode="full_ash",
+                target_route=route,
+            )
+
+            wrong_phase_count = dict(summary)
+            wrong_phase_count["dispatch_record_count"] -= 1
+            with self.assertRaisesRegex(
+                NativeAdapterError,
+                "cardinality differs",
+            ):
+                NativeCandidateCallable._validate_locked_runtime_summary(
+                    wrong_phase_count,
+                    control_mode="full_ash",
+                    target_route=route,
+                )
+
+            out_of_bounds_occupancy = dict(summary)
+            out_of_bounds_occupancy["occupied_analysis_cell_count"] = 4
+            with self.assertRaisesRegex(
+                NativeAdapterError,
+                "cardinality differs",
+            ):
+                NativeCandidateCallable._validate_locked_runtime_summary(
+                    out_of_bounds_occupancy,
+                    control_mode="full_ash",
+                    target_route=route,
+                )
+
     def test_both_routes_are_native_deterministic_and_common_nv12_quantized(self) -> None:
         adapter = self.factory(self.vector, "development")
         self.addCleanup(adapter.callable.close)
@@ -471,6 +522,7 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                         "operator_histogram",
                         "maximum_operator_evaluations",
                         "analysis_cell_count",
+                        "occupied_analysis_cell_count",
                         "dispatch_record_count",
                         "exact_decode_count",
                         "corrected_decode_count",

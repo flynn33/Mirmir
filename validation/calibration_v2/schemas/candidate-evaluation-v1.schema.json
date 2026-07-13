@@ -988,7 +988,7 @@
                 "required": [
                   "scope", "source_or_fixture_id", "degradation_profile_id",
                   "target_route", "input_frame_sha256", "analysis_cell_count",
-                  "dispatch_record_count"
+                  "occupied_analysis_cell_count", "dispatch_record_count"
                 ],
                 "properties": {
                   "scope": {"enum": ["natural", "analytic"]},
@@ -997,6 +997,7 @@
                   "target_route": {"$ref": "#/$defs/route"},
                   "input_frame_sha256": {"$ref": "#/$defs/sha256"},
                   "analysis_cell_count": {"type": "integer", "minimum": 1},
+                  "occupied_analysis_cell_count": {"type": "integer", "minimum": 0},
                   "dispatch_record_count": {"type": "integer", "minimum": 1}
                 },
                 "additionalProperties": false

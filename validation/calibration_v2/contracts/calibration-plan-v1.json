@@ -204,6 +204,7 @@
     }
   },
   "search": {
+    "protocol_version": "1.1.0",
     "algorithm": "deterministic_coordinate_search",
     "candidate_order": "the parameter_order list below; each candidate vector is visited in ascending serialized integer or listed categorical order",
     "initial_vector": "use initial_vector_values exactly; every value is a declared candidate and no runtime or corpus observation may alter initialization",
@@ -249,7 +250,8 @@
       "penalty_relaxation_under_risk": 64,
       "penalty_phase_kernel_mismatch": 8
     },
-    "sweep_rule": "visit every parameter exactly once per sweep; retain the best feasible value for that coordinate before advancing",
+    "sweep_rule": "visit every parameter exactly once per sweep and evaluate every constraint-valid declared value, including the current value; if one or more values are development-feasible, retain the minimum existing development objective tuple among feasible values only; otherwise retain the minimum canonical development-feasibility failure count followed by the existing development objective tuple; constraint failures and evaluation failures are never eligible; restoration ranking changes no feasibility predicate, tolerance, validation-admission rule, or terminal requirement",
+    "infeasible_retention_rule": "global checks and performance predicates count once per candidate; quality predicates count independently for engine_raw and container_decoded; the included current value guarantees that once current is feasible all subsequent coordinate choices remain feasible-only",
     "termination": "stop after a complete sweep changes no coordinate",
     "maximum_sweeps": 8,
     "tie_break": "objective tuple, then lexicographically smallest complete serialized candidate vector",

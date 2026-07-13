@@ -72,7 +72,7 @@
       "state_disabled_rule": "The state-only control retains the exact route, phase, analysis grid, coordinate policy, boundary mode, operator bank, and input bytes while disabling branch-message deltas and confidence blending."
     },
     "analysis_grid": {
-      "occupancy_rule": "For every natural and analytic full-ASH native invocation, analysis_cell_count equals dispatch_record_count and is positive. Route occupied_cells and total_cells are the respective sums of those exact counts; each route must have occupied_cells equal to total_cells.",
+      "occupancy_rule": "For every natural and analytic full-ASH native invocation, analysis_cell_count is positive, occupied_analysis_cell_count is the number of distinct luma analysis cells reached by exact target-to-source assignment, occupied_analysis_cell_count equals analysis_cell_count, and dispatch_record_count equals analysis_cell_count multiplied by the route phase-pair count (4 for direct-2x and 9 for direct-3over2). Route occupied_cells and total_cells are the respective sums of occupied_analysis_cell_count and analysis_cell_count; each route must have occupied_cells equal to total_cells.",
       "route_quality_rule": "Each route must contain natural rows in both comparison domains and analytic rows in both comparison domains; every per-source engine_raw Y-PSNR delta versus the selected conventional control is at least the severe-regression floor; route analytic ringing, alias, and chroma limits use the unchanged locked tolerances.",
       "coordinate_assignment_rule": "All occupancy counts use the locked source-lattice cell geometry and exact target-to-source assignment from calibration-plan-v1.json."
     }

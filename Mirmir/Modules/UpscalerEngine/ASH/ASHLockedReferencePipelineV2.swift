@@ -164,6 +164,7 @@ extension ASHLockedReferencePipelineV2 {
         let output: ASHLockedReferencePlaneOutputV2
         let numericalFallbacks: Int
         let sourcePreservations: Int
+        let occupiedAnalysisCellCount: Int
     }
 
     private struct DispatchSummary {
@@ -276,6 +277,7 @@ extension ASHLockedReferencePipelineV2 {
             boundaryMode: configuration.boundaryMode,
             analysisGridSourceStep: analysisGrid.step,
             analysisCellCount: analysisGrid.count,
+            occupiedAnalysisCellCount: luma.occupiedAnalysisCellCount,
             dispatchRecordCount: dispatchGrid.dispatches.count,
             stateHistogram: stateHistogram,
             operatorHistogram: dispatch.operatorHistogram,
@@ -382,6 +384,10 @@ extension ASHLockedReferencePipelineV2 {
         samples.reserveCapacity(outputWidth * outputHeight)
         var numericalFallbacks = 0
         var sourcePreservations = 0
+        var occupiedAnalysisCells = chromaSiting == nil
+            ? [Bool](repeating: false, count: analysisGrid.count)
+            : []
+        var occupiedAnalysisCellCount = 0
         for row in 0..<outputHeight {
             for column in 0..<outputWidth {
                 if samples.count.isMultiple(of: 4_096) {
@@ -397,6 +403,15 @@ extension ASHLockedReferencePipelineV2 {
                     chromaSiting: chromaSiting
                 )
                 samples.append(result.value)
+                if chromaSiting == nil {
+                    let cellIndex =
+                        (result.analysisCellRow * analysisGrid.columnCount)
+                            + result.analysisCellColumn
+                    if !occupiedAnalysisCells[cellIndex] {
+                        occupiedAnalysisCells[cellIndex] = true
+                        occupiedAnalysisCellCount += 1
+                    }
+                }
                 if result.numericalFallbackUsed { numericalFallbacks += 1 }
                 if result.sourceAlignedSamplePreserved { sourcePreservations += 1 }
             }
@@ -408,7 +423,8 @@ extension ASHLockedReferencePipelineV2 {
                 normalizedSamples: samples
             ),
             numericalFallbacks: numericalFallbacks,
-            sourcePreservations: sourcePreservations
+            sourcePreservations: sourcePreservations,
+            occupiedAnalysisCellCount: occupiedAnalysisCellCount
         )
     }
 

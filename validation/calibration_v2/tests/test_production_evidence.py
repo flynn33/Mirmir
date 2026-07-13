@@ -4,11 +4,16 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from validation.calibration_v2 import runner
 from validation.calibration_v2.production_evidence import (
     PolicyEvaluationEvidenceProvider,
 )
-from validation.calibration_v2.production_evaluator import MemoryEvidenceStore
+from validation.calibration_v2.production_evaluator import (
+    MemoryEvidenceStore,
+    ProductionEvaluatorError,
+)
 from validation.quality.src.mirmir_quality.json_tools import (
     canonical_json_bytes,
     canonical_sha256,
@@ -44,22 +49,27 @@ def _analytic_metrics(kind: str, candidate: bool) -> dict[str, object]:
     return values
 
 
-def _runtime_summary() -> dict[str, object]:
+def _runtime_summary(route: str) -> dict[str, object]:
     states = [
         state
         for state in range(512)
         if not state & (1 << 2)
         and (state & 1) == (bin(state >> 1).count("1") & 1)
     ]
+    phase_pair_count = {"direct-2x": 4, "direct-3over2": 9}[route]
+    dispatch_count = len(states) * phase_pair_count
     return {
         "state_histogram": [
             {"state_raw_value": state, "count": 1} for state in states
         ],
-        "operator_histogram": [{"descriptor_id": 0, "count": len(states)}],
+        "operator_histogram": [
+            {"descriptor_id": 0, "count": dispatch_count}
+        ],
         "maximum_operator_evaluations": 2,
         "analysis_cell_count": len(states),
-        "dispatch_record_count": len(states),
-        "exact_decode_count": len(states),
+        "occupied_analysis_cell_count": len(states),
+        "dispatch_record_count": dispatch_count,
+        "exact_decode_count": dispatch_count,
         "corrected_decode_count": 0,
         "rejected_decode_count": 0,
     }
@@ -356,7 +366,6 @@ def test_provider_matches_independent_runner_recomputation(tmp_path: Path) -> No
 
     control_records = []
     tracked_control_calls = []
-    summary = _runtime_summary()
     all_cases = [
         (source_id, route, input_sha256)
         for source_id, _, route, input_sha256 in natural_cases
@@ -400,7 +409,7 @@ def test_provider_matches_independent_runner_recomputation(tmp_path: Path) -> No
                 input_frame_sha256=input_sha256,
                 output_frame_sha256=_hash(f"{case_id}-full-control"),
                 target_route=route,
-                locked_runtime_summary=summary,
+                locked_runtime_summary=_runtime_summary(route),
             )
         )
         for descriptor_id in range(16):
@@ -437,7 +446,7 @@ def test_provider_matches_independent_runner_recomputation(tmp_path: Path) -> No
                 input_frame_sha256=input_sha256,
                 output_frame_sha256=_hash(f"{source_id}-{profile_id}-h07"),
                 target_route=route,
-                h07_direct2_runtime_summary=summary,
+                h07_direct2_runtime_summary=_runtime_summary("direct-2x"),
                 )
             )
     callable_.set_control_records(control_records)
@@ -480,8 +489,70 @@ def test_provider_matches_independent_runner_recomputation(tmp_path: Path) -> No
     )
     assert result["dispatch_measurement"]["validation_accessed"] is False
     assert result["checks"]["operator_distinctness"] is True
+    assert result["checks"]["analysis_grid_occupancy"] is True
+    for route in ROUTES:
+        occupancy = result["checks"]["route_occupancy"][route]
+        assert occupancy["occupied_cells"] == occupancy["total_cells"]
     assert len(
         result["checks"]["evidence"]["operator_distinctness"][
             "pair_witnesses"
         ]
     ) == 120
+
+    cases = [
+        {
+            "witness_scope": "natural",
+            "source_or_fixture_id": source_id,
+            "degradation_profile_id": profile_id,
+            "target_route": route,
+            "input_frame_sha256": input_sha256,
+        }
+        for source_id, profile_id, route, input_sha256 in natural_cases
+    ] + [
+        {
+            "witness_scope": "analytic",
+            "source_or_fixture_id": fixture_id,
+            "degradation_profile_id": None,
+            "target_route": route,
+            "input_frame_sha256": input_sha256,
+        }
+        for fixture_id, route, input_sha256 in analytic_cases
+    ]
+    incomplete_controls = json.loads(canonical_json_bytes(control_records))
+    incomplete_record = next(
+        record
+        for record in incomplete_controls
+        if record["control_mode"] == "full_ash"
+    )
+    incomplete_record["locked_runtime_summary"][
+        "occupied_analysis_cell_count"
+    ] -= 1
+    state_and_grid = provider._state_and_grid(
+        cases=cases,
+        corpus_rows=corpus_rows,
+        fixture_rows=fixture_rows,
+        compiler_evidence=compiler,
+        control_records=incomplete_controls,
+    )
+    assert state_and_grid[4] is False
+
+    wrong_phase_controls = json.loads(canonical_json_bytes(control_records))
+    wrong_phase_record = next(
+        record
+        for record in wrong_phase_controls
+        if record["control_mode"] == "full_ash"
+    )
+    wrong_phase_record["locked_runtime_summary"][
+        "dispatch_record_count"
+    ] -= 1
+    with pytest.raises(
+        ProductionEvaluatorError,
+        match="phase cardinality is invalid",
+    ):
+        provider._state_and_grid(
+            cases=cases,
+            corpus_rows=corpus_rows,
+            fixture_rows=fixture_rows,
+            compiler_evidence=compiler,
+            control_records=wrong_phase_controls,
+        )

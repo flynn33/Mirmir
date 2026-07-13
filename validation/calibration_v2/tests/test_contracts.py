@@ -329,6 +329,23 @@ class CompilerAndRangeContractTests(unittest.TestCase):
                 self.assertIn(value, candidates)
         self.assertEqual(initial["confidence_threshold_unorm16"], 36044)
 
+    def test_search_preregisters_fail_closed_infeasible_restoration(self):
+        search = self.plan["search"]
+        self.assertEqual(search["protocol_version"], "1.1.0")
+        self.assertIn("including the current value", search["sweep_rule"])
+        self.assertIn(
+            "minimum canonical development-feasibility failure count",
+            search["sweep_rule"],
+        )
+        self.assertIn(
+            "evaluation failures are never eligible",
+            search["sweep_rule"],
+        )
+        self.assertIn(
+            "once current is feasible",
+            search["infeasible_retention_rule"],
+        )
+
     def test_analysis_grid_is_independent_per_route(self):
         mapping = self.plan["ranges"]["mapping"]
         self.assertEqual(mapping["direct_2x_analysis_grid_source_step"], [1, 2, 4])
