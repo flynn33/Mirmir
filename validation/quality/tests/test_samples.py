@@ -1,6 +1,7 @@
 from copy import deepcopy
 import hashlib
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,7 +10,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from mirmir_quality.corpus import create_corpus_lock
+from mirmir_quality.corpus import CorpusValidationError, create_corpus_lock
 from mirmir_quality.json_tools import (
     canonical_sha256,
     manifest_sha256,
@@ -298,6 +299,86 @@ class DevelopmentSampleIntegrityTests(unittest.TestCase):
                     sample_root=fixture["sample_root"],
                     asset_root=fixture["asset_root"],
                 )
+
+    def test_locked_absolute_media_paths_survive_byte_identical_root_relocation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_root = root / "original"
+            fixture = _fixture(original_root)
+            relocated_root = root / "relocated"
+            relocated_assets = shutil.copytree(
+                fixture["asset_root"],
+                relocated_root / "assets",
+            )
+            relocated_samples = shutil.copytree(
+                fixture["sample_root"],
+                relocated_root / "samples",
+            )
+            shutil.rmtree(original_root)
+
+            self.assertFalse(original_root.exists())
+            loaded = load_development_samples(
+                fixture["lock"],
+                fixture["corpus"],
+                sample_root=relocated_samples,
+                asset_root=relocated_assets,
+            )
+
+            self.assertEqual(len(loaded), 6)
+            self.assertEqual(
+                [asset["asset_id"] for asset, _ in loaded],
+                [asset["asset_id"] for asset in fixture["assets"]],
+            )
+
+    def test_absolute_media_path_with_parent_traversal_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = _fixture(Path(temporary))
+            asset = fixture["assets"][0]
+            decode_path = fixture["decode_paths"][asset["asset_id"]]
+            decode = read_json(decode_path)
+            decode["media_path"] = "{}/discarded/../{}".format(
+                fixture["asset_root"].as_posix(),
+                asset["relative_path"],
+            )
+            write_json(decode_path, decode)
+            _rebind_decode_evidence(decode_path.parent)
+
+            with self.assertRaisesRegex(DevelopmentSampleError, "does not identify"):
+                build_sample_record(
+                    asset=asset,
+                    target_route="direct-2x",
+                    sample_root=fixture["sample_root"],
+                    asset_root=fixture["asset_root"],
+                    decode_manifest_path=f"{asset['asset_id']}/decode-manifest.json",
+                    source_evidence_manifest_path=(
+                        f"{asset['asset_id']}/evidence-manifest.json"
+                    ),
+                )
+
+    def test_relative_media_path_remains_strictly_root_and_asset_bound(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            fixture = _fixture(Path(temporary))
+            asset = fixture["assets"][0]
+            decode_path = fixture["decode_paths"][asset["asset_id"]]
+            decode = read_json(decode_path)
+
+            decode["media_path"] = asset["relative_path"]
+            write_json(decode_path, decode)
+            _rebind_decode_evidence(decode_path.parent)
+            record = _rebuild_fixture_record(fixture, asset)
+            self.assertEqual(record["source_media_path"], asset["relative_path"])
+
+            decode["media_path"] = f"../{asset['relative_path']}"
+            write_json(decode_path, decode)
+            _rebind_decode_evidence(decode_path.parent)
+            with self.assertRaisesRegex(CorpusValidationError, "unsafe relative path"):
+                _rebuild_fixture_record(fixture, asset)
+
+            decode["media_path"] = fixture["assets"][1]["relative_path"]
+            write_json(decode_path, decode)
+            _rebind_decode_evidence(decode_path.parent)
+            with self.assertRaisesRegex(DevelopmentSampleError, "does not identify"):
+                _rebuild_fixture_record(fixture, asset)
 
     def test_nonfirst_selection_and_offcenter_crop_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

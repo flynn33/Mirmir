@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "started_utc": "2026-07-11T12:04:47Z",
-  "ended_utc": "2026-07-11T21:15:07Z",
+  "ended_utc": "2026-07-14T01:22:23Z",
   "overall_status": "fail",
-  "mandatory_failure_count": 7,
+  "mandatory_failure_count": 9,
   "gates": [
     {
       "id": "G00",
@@ -92,7 +92,7 @@
     },
     {
       "id": "G04",
-      "status": "pass",
+      "status": "not_run",
       "criteria": [
         "Native-HR corpus manifest and source rights/provenance recorded",
         "Assets split before tuning and hashes locked",
@@ -115,11 +115,13 @@
         "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/inputs/quality-harness-implementation-manifest.json",
         "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/tests/python-unittest.log"
       ],
-      "defects": []
+      "defects": [
+        "The listed G04 artifacts are historical evidence; upstream evidence-publication source changed and requires a fresh current-source G04 run."
+      ]
     },
     {
       "id": "G05",
-      "status": "pass",
+      "status": "not_run",
       "criteria": [
         "Every state bit has controlled fixture coverage",
         "Structure-tensor normal/tangent convention passes orientation fixtures",
@@ -140,9 +142,27 @@
         "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/analysis/independent-audit.json",
         "Artifacts/ASH/20260711-p05-spatial-6c1cb01f-e25e-4c06-ae7f-4fc76bc6aa71/artifact-manifest.json"
       ],
-      "defects": []
+      "defects": [
+        "The listed G05 artifacts are historical evidence; upstream evidence-publication source changed and requires a fresh current-source G05 run."
+      ]
     },
-    {"id":"G06","status":"not_run","criteria":[],"evidence":[],"defects":[]},
+    {
+      "id": "G06",
+      "status": "fail",
+      "criteria": [
+        "Python unittest discovery, isolated pytest, and native benchmark proof all pass with zero skips",
+        "Native Xcode integration and Release runtime evidence pass",
+        "SwiftLint and release-lock unit evidence pass",
+        "Five ordered evidence documents are atomically published and enclosed by an immutable wrapper"
+      ],
+      "evidence": [
+        "Artifacts/ASH/20260713-p06-postrepair-8f0de437-3230-421e-8b25-464e2dbbe16e/g06/g06-postrepair-r1.failed/python_calibration_full_suite.json"
+      ],
+      "defects": [
+        "The preserved run executed 398 unittest tests and 537 pytest outcomes; one pytest outcome was skipped, so the Python evidence group failed and the remaining four groups were not run.",
+        "G06 requires a committed clean repository, while gate discipline permits phase commits only after a green gate. The next local commit is therefore a clean-source prerequisite checkpoint and is not a G06 pass claim."
+      ]
+    },
     {"id":"G07","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G08","status":"not_run","criteria":[],"evidence":[],"defects":[]},
     {"id":"G09","status":"not_run","criteria":[],"evidence":[],"defects":[]},
@@ -175,15 +195,71 @@
     },
     {
       "sha": "85ae0e10b805bff03bf6450f2fe94dff1f5c3d58",
-      "subject": "Lock ASH quality benchmark harness",
+      "subject": "P04: lock native quality benchmark harness",
       "gate_ids": ["G04"]
+    },
+    {
+      "sha": "35a8ce6a981d047eb6e0a9a09eefaf12cd6a3ab7",
+      "subject": "Implement spatial ASH v2 CPU reference",
+      "gate_ids": ["G05"]
+    },
+    {
+      "sha": "fc093d5c8c5dc0f3350013da287a62817c738962",
+      "subject": "P06: harden calibration and holdout evidence",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "eed5c0a50e64c89b881ff7b765fecb9dc717689b",
+      "subject": "P06: correct shared cache proof validation",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "1a4f9d60e8e066978c001bf012fcdc6e7d188ee2",
+      "subject": "P06: fix benchmark resume closure",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "5d8ce2e8ee05bf7ad46fbd37fee8bf0da52840a9",
+      "subject": "P06: repair occupancy proof and search restoration",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "8ca73eee5ff90f4b6bbbea527e4125025a4caf1e",
+      "subject": "P06: bind native compiler to its macOS SDK",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "6a978871fbf4d731b338879cf1c627d6b8aa16dc",
+      "subject": "Rebind P06 evidence to current G05 checkpoint",
+      "gate_ids": ["G04", "G05", "G06"]
+    },
+    {
+      "sha": "efd2913d3942d521e60a976fd719ccdbe6511cf5",
+      "subject": "Add P06 corrective diagnostics",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "28ff1cad36f740fa236472f5e1110bd34bd6f35c",
+      "subject": "Repair P06 diagnostic contracts",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "d4450fdb4ebe966b97f68f982828f5575167d1de",
+      "subject": "Implement split-plane ASH calibration correction",
+      "gate_ids": ["G06"]
+    },
+    {
+      "sha": "dba59498abc6e1d3cffe5b985f16940aa67e734a",
+      "subject": "Repair P06 capacity and cache contracts",
+      "gate_ids": ["G06"]
     }
   ],
   "attribution_scan": {
     "status": "pass",
     "base": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
-    "changed_file_count": 3045,
-    "findings": []
+    "changed_file_count": 3256,
+    "findings": [],
+    "scope_note": "The stabilized source checkpoint passed the changed-source scan. Historical nondistributable Artifacts/ASH runs are locally excluded; every handoff root will be scanned through an explicit include."
   },
   "residual_nonblocking_objectives": []
 }

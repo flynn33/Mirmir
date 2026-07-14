@@ -69,7 +69,7 @@ BASELINE_ABLATION_CONTRACT_SCHEMA = (
     SCHEMAS_ROOT / "baseline-ablation-contract-v1.schema.json"
 )
 P06_RELEASE_BUNDLE_SCHEMA = (
-    SCHEMAS_ROOT / "p06-release-bundle-v1.schema.json"
+    SCHEMAS_ROOT / "p06-release-bundle-v2.schema.json"
 )
 ROUTE_SELECTION_SCHEMA = (
     SCHEMAS_ROOT / "route-analysis-grid-selection-v1.schema.json"
@@ -138,6 +138,12 @@ _RELEASE_ARTIFACTS = (
     ("lut_manifest", "lut-manifest.json"),
     ("configuration_lock", "configuration-lock.json"),
     ("evidence_closure", "p06-evidence-closure.json"),
+)
+_P06_RELEASE_BUNDLE_NAME = "p06-release-bundle.json"
+P06_TRANSACTION_TOKEN_NAME = ".p06-release-transaction-token"
+_P06_FILESYSTEM_CLOSURE_RULE = "all_entries_except_self_manifest_v1"
+P06_RELEASE_SELF_MANIFEST_EXCLUSIONS = frozenset(
+    {_P06_RELEASE_BUNDLE_NAME}
 )
 _SUPPORT_TREE_ROOT_IDS = (
     "open_split",
@@ -269,15 +275,24 @@ def _read_regular_file(path: Path) -> bytes:
         before = os.stat(absolute, follow_symlinks=False)
     except OSError as error:
         raise ReleaseLockError(f"file cannot be inspected: {path}") from error
-    if stat.S_ISLNK(before.st_mode) or not stat.S_ISREG(before.st_mode):
+    if (
+        stat.S_ISLNK(before.st_mode)
+        or not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+    ):
         raise ReleaseLockError(f"path is symbolic or not a regular file: {path}")
-    flags = os.O_RDONLY
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0)
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW
     descriptor = os.open(absolute, flags)
     try:
         opened = os.fstat(descriptor)
-        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_nlink != 1
+            or (opened.st_dev, opened.st_ino)
+            != (before.st_dev, before.st_ino)
+        ):
             raise ReleaseLockError(f"file changed while opening: {path}")
         chunks = []
         while True:
@@ -288,10 +303,18 @@ def _read_regular_file(path: Path) -> bytes:
         after = os.fstat(descriptor)
     finally:
         os.close(descriptor)
+    current = os.stat(absolute, follow_symlinks=False)
     if (
         (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
+        or (current.st_dev, current.st_ino)
+        != (before.st_dev, before.st_ino)
+        or not stat.S_ISREG(current.st_mode)
+        or after.st_nlink != 1
+        or current.st_nlink != 1
         or after.st_size != before.st_size
+        or current.st_size != before.st_size
         or after.st_mtime_ns != before.st_mtime_ns
+        or current.st_mtime_ns != before.st_mtime_ns
     ):
         raise ReleaseLockError(f"file changed while reading: {path}")
     return b"".join(chunks)
@@ -1543,6 +1566,7 @@ def build_p06_release_bundle_manifest(
     input_bundle_sha256: str,
     corpus_lock_bundle_sha256: str,
     selected_evaluation_path: str,
+    transaction_id: str | None = None,
 ) -> Mapping[str, object]:
     """Publish the exact ordered set of mandatory P06 release artifacts."""
 
@@ -1562,9 +1586,13 @@ def build_p06_release_bundle_manifest(
             relative_path,
         )
         artifacts.append({"id": identifier, **binding})
+    transient_exclusions = _authenticated_p06_transaction_token_exclusions(
+        release,
+        transaction_id=transaction_id,
+    )
     document: dict[str, object] = {
-        "schema_version": "1.0.0",
-        "bundle_id": "mirmir-p06-spatial-release-lock-v1",
+        "schema_version": "2.0.0",
+        "bundle_id": "mirmir-p06-spatial-release-lock-v2",
         "status": "locked_before_p07",
         "configuration_id": configuration_id,
         "locked_utc": locked_utc,
@@ -1581,13 +1609,22 @@ def build_p06_release_bundle_manifest(
         "holdout_accessed": False,
         "holdout_access_count": 0,
         "artifacts": artifacts,
+        "filesystem_closure_rule": _P06_FILESYSTEM_CLOSURE_RULE,
+        "filesystem_closure": _release_filesystem_closure(
+            release,
+            excluded_paths=(
+                P06_RELEASE_SELF_MANIFEST_EXCLUSIONS
+                | transient_exclusions
+            ),
+        ),
     }
     document["manifest_sha256"] = _manifest_sha256(document)
     validate_schema(document, P06_RELEASE_BUNDLE_SCHEMA)
     _publish_new_file(output_path, _canonical_bytes(document) + b"\n")
-    validate_p06_release_bundle_manifest(
+    _validate_p06_release_bundle_manifest(
         release_root=release,
         manifest_path=output_path,
+        transaction_id=transaction_id,
     )
     return document
 
@@ -1671,17 +1708,24 @@ def route_analysis_grid_selection_document(
     return document
 
 
-def validate_p06_release_bundle_manifest(
+def _validate_p06_release_bundle_manifest(
     *,
     release_root: Path,
     manifest_path: Path,
     support_evidence_roots: Mapping[str, Path] | None = None,
+    transaction_id: str | None,
 ) -> Mapping[str, object]:
-    """Reopen every mandatory release artifact and reject substitutions."""
+    """Validate a release, optionally inside one authenticated transaction."""
 
     release = release_root.resolve(strict=True)
+    transient_exclusions = _authenticated_p06_transaction_token_exclusions(
+        release,
+        transaction_id=transaction_id,
+    )
     document = _read_strict_json(manifest_path)
     validate_schema(document, P06_RELEASE_BUNDLE_SCHEMA)
+    if document.get("filesystem_closure_rule") != _P06_FILESYSTEM_CLOSURE_RULE:
+        raise ReleaseLockError("P06 release filesystem closure rule differs")
     if document.get("manifest_sha256") != _manifest_sha256(document):
         raise ReleaseLockError("P06 release bundle self-hash mismatch")
     rows = document.get("artifacts")
@@ -1696,6 +1740,15 @@ def validate_p06_release_bundle_manifest(
         actual = _binding(_path_under_root(release, path), path)
         if row != {"id": expected_id, **actual}:
             raise ReleaseLockError(f"P06 release artifact changed: {expected_id}")
+    declared_filesystem_closure = document.get("filesystem_closure")
+    observed_filesystem_closure = _release_filesystem_closure(
+        release,
+        excluded_paths=(
+            P06_RELEASE_SELF_MANIFEST_EXCLUSIONS | transient_exclusions
+        ),
+    )
+    if declared_filesystem_closure != observed_filesystem_closure:
+        raise ReleaseLockError("P06 release filesystem closure changed")
     _validate_p06_release_cross_bindings(
         release_root=release,
         bundle=document,
@@ -1713,6 +1766,22 @@ def validate_p06_release_bundle_manifest(
             support_evidence_roots=support_evidence_roots,
         )
     return document
+
+
+def validate_p06_release_bundle_manifest(
+    *,
+    release_root: Path,
+    manifest_path: Path,
+    support_evidence_roots: Mapping[str, Path] | None = None,
+) -> Mapping[str, object]:
+    """Reopen the final release and reject every non-self filesystem entry."""
+
+    return _validate_p06_release_bundle_manifest(
+        release_root=release_root,
+        manifest_path=manifest_path,
+        support_evidence_roots=support_evidence_roots,
+        transaction_id=None,
+    )
 
 
 def _validate_support_evidence_trees(
@@ -2319,6 +2388,113 @@ def _binding(path: Path, relative_path: str) -> Mapping[str, object]:
         "sha256": _sha256(payload),
         "size_bytes": len(payload),
     }
+
+
+def _authenticated_p06_transaction_token_exclusions(
+    release_root: Path,
+    *,
+    transaction_id: str | None,
+) -> frozenset[str]:
+    if transaction_id is not None and (
+        len(transaction_id) != 32
+        or any(character not in "0123456789abcdef" for character in transaction_id)
+    ):
+        raise ReleaseLockError("P06 transaction ID is invalid")
+    token_path = release_root / P06_TRANSACTION_TOKEN_NAME
+    try:
+        metadata = os.stat(token_path, follow_symlinks=False)
+    except FileNotFoundError:
+        if transaction_id is not None:
+            raise ReleaseLockError("authenticated P06 transaction token is absent")
+        return frozenset()
+    except OSError as error:
+        raise ReleaseLockError(
+            "P06 transaction token cannot be inspected"
+        ) from error
+    if transaction_id is None:
+        raise ReleaseLockError(
+            "P06 transaction token is present outside authenticated validation"
+        )
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise ReleaseLockError(
+            "authenticated P06 transaction token is not a single-link file"
+        )
+    expected = f"{transaction_id}\n".encode("ascii")
+    if _read_regular_file(token_path) != expected:
+        raise ReleaseLockError("authenticated P06 transaction token differs")
+    return frozenset({P06_TRANSACTION_TOKEN_NAME})
+
+
+def _raise_release_filesystem_walk_error(error: OSError) -> None:
+    raise ReleaseLockError(
+        f"P06 release filesystem closure traversal failed: {error}"
+    ) from error
+
+
+def _release_filesystem_closure(
+    release_root: Path,
+    *,
+    excluded_paths: frozenset[str],
+) -> list[Mapping[str, object]]:
+    root = release_root.resolve(strict=True)
+    if release_root.is_symlink() or not root.is_dir():
+        raise ReleaseLockError("P06 release filesystem root is symbolic or absent")
+    rows: list[Mapping[str, object]] = []
+    for current_name, directory_names, file_names in os.walk(
+        root,
+        topdown=True,
+        onerror=_raise_release_filesystem_walk_error,
+        followlinks=False,
+    ):
+        current = Path(current_name)
+        directory_names.sort()
+        file_names.sort()
+        for name in directory_names:
+            child = current / name
+            metadata = os.stat(child, follow_symlinks=False)
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise ReleaseLockError(
+                    "P06 release filesystem closure contains a symbolic directory"
+                )
+            rows.append(
+                {
+                    "path": child.relative_to(root).as_posix(),
+                    "entry_kind": "directory",
+                }
+            )
+        for name in file_names:
+            child = current / name
+            relative = child.relative_to(root).as_posix()
+            if relative in excluded_paths:
+                continue
+            before = os.stat(child, follow_symlinks=False)
+            if not stat.S_ISREG(before.st_mode) or before.st_nlink != 1:
+                raise ReleaseLockError(
+                    "P06 release filesystem closure contains a non-regular file"
+                )
+            payload = _read_regular_file(child)
+            current_metadata = os.stat(child, follow_symlinks=False)
+            if (
+                (current_metadata.st_dev, current_metadata.st_ino)
+                != (before.st_dev, before.st_ino)
+                or current_metadata.st_nlink != 1
+                or current_metadata.st_mode & 0o777 != before.st_mode & 0o777
+            ):
+                raise ReleaseLockError(
+                    "P06 release filesystem closure file changed while binding"
+                )
+            rows.append(
+                {
+                    "path": relative,
+                    "entry_kind": "regular_file",
+                    "sha256": _sha256(payload),
+                    "size_bytes": len(payload),
+                    "executable_mode_bits": before.st_mode
+                    & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH),
+                }
+            )
+    rows.sort(key=lambda row: (str(row["path"]), str(row["entry_kind"])))
+    return rows
 
 
 def _crc32_hex(value: int) -> str:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import errno
 import hashlib
@@ -47,6 +48,31 @@ MANIFEST_TEMPORARY_PATTERN = re.compile(
 
 class RuntimeCorrectionArtifactError(RuntimeError):
     """The P06 correction artifact tree cannot be safely published."""
+
+
+def _reject_duplicate_json_pairs(
+    pairs: Sequence[Tuple[str, object]],
+    *,
+    label: str,
+) -> Dict[str, object]:
+    result: Dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise RuntimeCorrectionArtifactError(
+                f"{label} contains a duplicate JSON member: {key}"
+            )
+        result[key] = value
+    return result
+
+
+@dataclass(frozen=True)
+class VerifiedRuntimeCorrection:
+    """Descriptor-pinned bytes and provenance from one frozen runtime run."""
+
+    root: Path
+    manifest: Mapping[str, object]
+    manifest_file_sha256: str
+    files: Tuple[Tuple[str, bytes], ...]
 
 
 def _safe_relative(value: object, *, label: str) -> str:
@@ -149,7 +175,18 @@ def _load_metadata(
     exact_paths: Sequence[str],
 ) -> Dict[str, Mapping[str, object]]:
     try:
-        document = json.loads(metadata_bytes)
+        document = json.loads(
+            metadata_bytes,
+            object_pairs_hook=lambda pairs: _reject_duplicate_json_pairs(
+                pairs,
+                label="artifact metadata",
+            ),
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                RuntimeCorrectionArtifactError(
+                    f"artifact metadata contains a non-finite value: {token}"
+                )
+            ),
+        )
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RuntimeCorrectionArtifactError(
             "artifact metadata is not valid JSON"
@@ -552,7 +589,9 @@ def _read_regular_at(
         )
     descriptor = os.open(
         name,
-        os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
+        os.O_RDONLY
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_NONBLOCK", 0),
         dir_fd=directory_descriptor,
     )
     try:
@@ -583,7 +622,31 @@ def _read_regular_at(
         raise RuntimeCorrectionArtifactError(
             f"descriptor-relative artifact changed while reading: {name}"
         )
+    try:
+        current = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+    except OSError as error:
+        raise RuntimeCorrectionArtifactError(
+            f"descriptor-relative artifact path changed while reading: {name}"
+        ) from error
+    if (
+        not stat.S_ISREG(current.st_mode)
+        or current.st_nlink != 1
+        or (current.st_dev, current.st_ino) != (opened.st_dev, opened.st_ino)
+    ):
+        raise RuntimeCorrectionArtifactError(
+            f"descriptor-relative artifact path changed while reading: {name}"
+        )
     return b"".join(chunks), after
+
+
+def _raise_descriptor_walk_error(error: OSError) -> None:
+    raise RuntimeCorrectionArtifactError(
+        f"descriptor artifact tree traversal failed: {error}"
+    ) from error
 
 
 def _walk_artifact_descriptor(
@@ -597,6 +660,7 @@ def _walk_artifact_descriptor(
     for directory, directory_names, file_names, descriptor in os.fwalk(
         ".",
         topdown=True,
+        onerror=_raise_descriptor_walk_error,
         follow_symlinks=False,
         dir_fd=root_descriptor,
     ):
@@ -684,6 +748,7 @@ def _freeze_tree_descriptor(root_descriptor: int) -> None:
     for _, directory_names, file_names, descriptor in os.fwalk(
         ".",
         topdown=True,
+        onerror=_raise_descriptor_walk_error,
         follow_symlinks=False,
         dir_fd=root_descriptor,
     ):
@@ -733,6 +798,7 @@ def _seal_descendant_directories_descriptor(root_descriptor: int) -> None:
     for directory, _, _, descriptor in os.fwalk(
         ".",
         topdown=False,
+        onerror=_raise_descriptor_walk_error,
         follow_symlinks=False,
         dir_fd=root_descriptor,
     ):
@@ -767,7 +833,9 @@ def _verify_manifest_descriptor(
     *,
     metadata_relative: str,
     require_directory_immutable: bool,
-) -> None:
+    require_tree_read_only: bool = True,
+    require_file_immutable: bool = True,
+) -> Tuple[Tuple[str, bytes], ...]:
     files, directories = _walk_artifact_descriptor(root_descriptor)
     by_path = {relative: (payload, metadata) for relative, payload, metadata in files}
     manifest_entry = by_path.pop(MANIFEST_NAME, None)
@@ -778,7 +846,10 @@ def _verify_manifest_descriptor(
         manifest = json.loads(manifest_bytes)
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         raise RuntimeCorrectionArtifactError("artifact manifest is not valid JSON") from error
-    if manifest != expected_manifest:
+    if (
+        manifest != expected_manifest
+        or manifest_bytes != canonical_json_bytes(expected_manifest) + b"\n"
+    ):
         raise RuntimeCorrectionArtifactError("artifact manifest bytes changed")
     validate_schema(manifest, SCHEMA_PATH)
     if manifest.get("manifest_sha256") != manifest_sha256(manifest):
@@ -791,6 +862,21 @@ def _verify_manifest_descriptor(
         record.get("path") for record in expected_records if isinstance(record, dict)
     ]:
         raise RuntimeCorrectionArtifactError("artifact manifest path set changed")
+    expected_directories = sorted(
+        {
+            parent.as_posix()
+            for relative in actual
+            for parent in PurePosixPath(relative).parents
+            if parent.as_posix() != "."
+        }
+    )
+    actual_directories = sorted(
+        relative for relative, _ in directories if relative
+    )
+    if actual_directories != expected_directories:
+        raise RuntimeCorrectionArtifactError(
+            "artifact directory set is not derived from manifest file paths"
+        )
     for record, relative in zip(expected_records, actual):
         payload, _ = by_path[relative]
         if (
@@ -818,7 +904,9 @@ def _verify_manifest_descriptor(
                     f"artifact metadata binding differs for {relative}"
                 )
     for relative, metadata in directories:
-        if metadata.st_mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH):
+        if require_tree_read_only and metadata.st_mode & (
+            stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+        ):
             raise RuntimeCorrectionArtifactError(
                 f"artifact directory is writable: {relative or '<root>'}"
             )
@@ -830,14 +918,189 @@ def _verify_manifest_descriptor(
         (MANIFEST_NAME, (manifest_bytes, manifest_metadata)),
         *tuple((path, by_path[path]) for path in actual),
     ):
-        if metadata.st_mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH):
+        if require_tree_read_only and metadata.st_mode & (
+            stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH
+        ):
             raise RuntimeCorrectionArtifactError(
                 f"artifact file is writable: {relative}"
             )
-        if not metadata.st_flags & stat.UF_IMMUTABLE:
+        if require_file_immutable and not metadata.st_flags & stat.UF_IMMUTABLE:
             raise RuntimeCorrectionArtifactError(
                 f"artifact file is mutable: {relative}"
             )
+    return tuple((relative, payload) for relative, payload, _ in files)
+
+
+def _verify_runtime_correction(
+    final: Path,
+    *,
+    expected_manifest_file_sha256: str,
+    expected_root_label: str | None = None,
+    require_frozen: bool,
+) -> VerifiedRuntimeCorrection:
+    if re.fullmatch(r"[0-9a-f]{64}", expected_manifest_file_sha256) is None:
+        raise RuntimeCorrectionArtifactError(
+            "expected artifact manifest file SHA-256 is invalid"
+        )
+    root = Path(os.path.abspath(final))
+    try:
+        resolved_root = root.resolve(strict=True)
+    except OSError as error:
+        raise RuntimeCorrectionArtifactError(
+            f"frozen artifact root is absent: {root}"
+        ) from error
+    if resolved_root != root:
+        raise RuntimeCorrectionArtifactError(
+            f"frozen artifact root has a symbolic ancestor: {root}"
+        )
+    try:
+        expected_identity = os.stat(root, follow_symlinks=False)
+    except OSError as error:
+        raise RuntimeCorrectionArtifactError(
+            f"frozen artifact root is absent: {root}"
+        ) from error
+    if not stat.S_ISDIR(expected_identity.st_mode):
+        raise RuntimeCorrectionArtifactError(
+            f"frozen artifact root is linked or not a directory: {root}"
+        )
+    descriptor = _open_directory(root)
+    try:
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (
+            expected_identity.st_dev,
+            expected_identity.st_ino,
+        ):
+            raise RuntimeCorrectionArtifactError(
+                "frozen artifact root identity changed while opening"
+            )
+        manifest_payload, _ = _read_regular_at(descriptor, MANIFEST_NAME)
+        manifest_file_sha256 = hashlib.sha256(manifest_payload).hexdigest()
+        if manifest_file_sha256 != expected_manifest_file_sha256:
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest file SHA-256 differs"
+            )
+        try:
+            manifest = json.loads(
+                manifest_payload,
+                object_pairs_hook=lambda pairs: _reject_duplicate_json_pairs(
+                    pairs,
+                    label="artifact manifest",
+                ),
+                parse_constant=lambda token: (_ for _ in ()).throw(
+                    RuntimeCorrectionArtifactError(
+                        f"artifact manifest contains a non-finite value: {token}"
+                    )
+                ),
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest is not valid JSON"
+            ) from error
+        if not isinstance(manifest, dict):
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest is not an object"
+            )
+        if manifest_payload != canonical_json_bytes(manifest) + b"\n":
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest bytes are not canonical"
+            )
+        validate_schema(manifest, SCHEMA_PATH)
+        if manifest.get("manifest_sha256") != manifest_sha256(manifest):
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest self-hash is invalid"
+            )
+        if (
+            expected_root_label is not None
+            and manifest.get("root") != expected_root_label
+        ):
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest root label differs"
+            )
+        repository_state = manifest.get("repository_state")
+        if not isinstance(repository_state, dict) or (
+            manifest.get("project_commit")
+            != repository_state.get("project_commit")
+            or manifest.get("dirty_state_sha256")
+            != repository_state.get("dirty_state_sha256")
+        ):
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest repository identity differs"
+            )
+        started = _parse_utc(manifest.get("started_utc"), label="started UTC")
+        finished = _parse_utc(manifest.get("finished_utc"), label="finished UTC")
+        created = _parse_utc(manifest.get("created_utc"), label="created UTC")
+        if finished < started or created < finished:
+            raise RuntimeCorrectionArtifactError(
+                "artifact manifest time ordering differs"
+            )
+        snapshot = _verify_manifest_descriptor(
+            descriptor,
+            manifest,
+            metadata_relative="artifact-records.json",
+            require_directory_immutable=require_frozen,
+            require_tree_read_only=require_frozen,
+            require_file_immutable=require_frozen,
+        )
+        try:
+            current_identity = os.stat(root, follow_symlinks=False)
+        except OSError as error:
+            raise RuntimeCorrectionArtifactError(
+                "artifact root path changed during verification"
+            ) from error
+        opened = os.fstat(descriptor)
+        if (current_identity.st_dev, current_identity.st_ino) != (
+            opened.st_dev,
+            opened.st_ino,
+        ):
+            raise RuntimeCorrectionArtifactError(
+                "artifact root path changed during verification"
+            )
+        return VerifiedRuntimeCorrection(
+            root=root,
+            manifest=dict(manifest),
+            manifest_file_sha256=manifest_file_sha256,
+            files=snapshot,
+        )
+    finally:
+        os.close(descriptor)
+
+
+def verify_frozen_runtime_correction(
+    final: Path,
+    *,
+    expected_manifest_file_sha256: str,
+    expected_root_label: str | None = None,
+) -> VerifiedRuntimeCorrection:
+    """Reopen and verify one finalized immutable runtime-correction bundle."""
+
+    return _verify_runtime_correction(
+        final,
+        expected_manifest_file_sha256=expected_manifest_file_sha256,
+        expected_root_label=expected_root_label,
+        require_frozen=True,
+    )
+
+
+def verify_runtime_correction_copy(
+    copied_root: Path,
+    *,
+    expected_manifest_file_sha256: str,
+    expected_root_label: str | None = None,
+) -> VerifiedRuntimeCorrection:
+    """Verify a copied runtime closure without claiming filesystem freezing."""
+
+    return _verify_runtime_correction(
+        copied_root,
+        expected_manifest_file_sha256=expected_manifest_file_sha256,
+        expected_root_label=expected_root_label,
+        require_frozen=False,
+    )
+
+
+def runtime_correction_repository_state() -> Tuple[Mapping[str, object], bool]:
+    """Return the exact repository-state contract used by the finalizer."""
+
+    return _repository_state()
 
 
 def _rename_exclusive(source: Path, destination: Path) -> None:

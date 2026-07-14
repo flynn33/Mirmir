@@ -9,7 +9,7 @@
     "evidence_schema", "evidence_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "1.0.0"},
+    "schema_version": {"const": "1.2.0"},
     "artifact_kind": {"const": "p06_g06_test_evidence"},
     "evidence_id": {
       "enum": [
@@ -71,7 +71,8 @@
         "artifact_id": {"type": "string", "minLength": 1},
         "artifact_kind": {
           "enum": [
-            "command_log", "xcresult", "xcresult_summary",
+            "command_log", "native_runtime_evidence_input",
+            "xcresult", "xcresult_summary",
             "release_product", "internal_error"
           ]
         },
@@ -80,8 +81,22 @@
         },
         "sha256": {"$ref": "#/$defs/sha256"},
         "size_bytes": {"type": "integer", "minimum": 0},
-        "file_count": {"type": "integer", "minimum": 1}
+        "file_count": {"type": "integer", "minimum": 1},
+        "executable_mode_bits": {
+          "type": "integer",
+          "enum": [0, 1, 8, 9, 64, 65, 72, 73]
+        }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"digest_mode": {"const": "file_sha256"}},
+            "required": ["digest_mode"]
+          },
+          "then": {"required": ["executable_mode_bits"]},
+          "else": {"not": {"required": ["executable_mode_bits"]}}
+        }
+      ],
       "additionalProperties": false
     },
     "command": {

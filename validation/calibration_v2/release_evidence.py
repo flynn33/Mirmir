@@ -53,7 +53,11 @@ TEST_EVIDENCE_IDS = (
     "swiftlint",
     "release_lock_unit_suite",
 )
-PYTHON_TEST_RUNNER_IDS = ("unittest_discovery", "pytest")
+PYTHON_TEST_RUNNER_IDS = (
+    "unittest_discovery",
+    "pytest",
+    "native_benchmark_proof",
+)
 NATIVE_INTEGRATION_TEST_IDS = (
     "ASHAnalysisGridV2Tests",
     "ASHLUTBinaryFormatV2Tests",
@@ -63,6 +67,11 @@ NATIVE_INTEGRATION_TEST_IDS = (
     "ASHLockedGeometryRuntimeV2Tests",
     "ASHLockedLUTManifestV2Tests",
     "ASHLockedReferencePipelineV2Tests",
+)
+NATIVE_BENCHMARK_PROOF_NODE_ID = (
+    "validation/calibration_v2/tests/"
+    "test_control_aggregate_native_benchmark.py::"
+    "test_actual_native_tracked_full_selector_cold_warm_benchmark"
 )
 RELEASE_RUNTIME_TEST_IDS = (
     "ASHAnalysisGridV2Tests",
@@ -102,6 +111,12 @@ def actionable_diagnostic_counts(text: str) -> Mapping[str, int]:
 
 def _sha256(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
+
+
+def _raise_directory_walk_error(error: OSError) -> None:
+    raise P06EvidenceClosureError(
+        f"evidence tree traversal failed: {error}"
+    ) from error
 
 
 def _relative(path: Path, root: Path) -> str:
@@ -159,17 +174,27 @@ def _directory_tree(path: Path) -> tuple[int, int, str]:
         raise P06EvidenceClosureError("evidence tree is not a directory")
     rows = []
     total = 0
+    file_count = 0
     for current_name, directory_names, file_names in os.walk(
         root,
         topdown=True,
+        onerror=_raise_directory_walk_error,
         followlinks=False,
     ):
         current = Path(current_name)
         directory_names.sort()
         file_names.sort()
         for name in directory_names:
-            if (current / name).is_symlink():
+            child = current / name
+            if child.is_symlink():
                 raise P06EvidenceClosureError("evidence tree contains a symbolic link")
+            rows.append(
+                {
+                    "path": child.relative_to(root).as_posix(),
+                    "entry_kind": "directory",
+                    "size_bytes": 0,
+                }
+            )
         for name in file_names:
             candidate = current / name
             payload = _read_file(candidate)
@@ -177,14 +202,16 @@ def _directory_tree(path: Path) -> tuple[int, int, str]:
             rows.append(
                 {
                     "path": relative,
+                    "entry_kind": "regular_file",
                     "sha256": _sha256(payload),
                     "size_bytes": len(payload),
                 }
             )
             total += len(payload)
-    if not rows or total < 1:
+            file_count += 1
+    if not rows or file_count < 1 or total < 1:
         raise P06EvidenceClosureError("evidence tree is empty")
-    return len(rows), total, _sha256(canonical_json_bytes(rows))
+    return file_count, total, _sha256(canonical_json_bytes(rows))
 
 
 def evidence_binding(
@@ -378,6 +405,7 @@ def publish_p06_evidence_closure(
 
 __all__ = [
     "IMPLEMENTATION_IDS",
+    "NATIVE_BENCHMARK_PROOF_NODE_ID",
     "NATIVE_INTEGRATION_TEST_IDS",
     "P00_FAILURE_ID",
     "P06EvidenceClosureError",

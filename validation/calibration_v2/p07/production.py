@@ -58,6 +58,11 @@ from validation.calibration_v2.p07.gate import (
     FIXED_CONTROLS,
 )
 from validation.calibration_v2.release_evidence import evidence_binding
+from validation.calibration_v2.release_lock import (
+    ReleaseLockError,
+    P06_RELEASE_SELF_MANIFEST_EXCLUSIONS,
+    _release_filesystem_closure,
+)
 from validation.calibration_v2.production_evaluator import (
     CONVENTIONAL_ALGORITHM_IDS,
     ControlSelectionBundle,
@@ -146,7 +151,7 @@ PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA = (
 P06_RELEASE_BUNDLE_SCHEMA = (
     Path(__file__).resolve().parents[1]
     / "schemas"
-    / "p06-release-bundle-v1.schema.json"
+    / "p06-release-bundle-v2.schema.json"
 )
 P06_EVIDENCE_CLOSURE_SCHEMA = (
     Path(__file__).resolve().parents[1]
@@ -751,6 +756,14 @@ def _derive_production_execution_fragment_from_open_cache(
 
     if not isinstance(release_bundle, dict):
         raise P07ProductionError("P06 release bundle is not a JSON object")
+    if (
+        release_bundle.get("schema_version") != "2.0.0"
+        or release_bundle.get("bundle_id")
+        != "mirmir-p06-spatial-release-lock-v2"
+    ):
+        raise P07ProductionError(
+            "historical or unknown P06 release bundle version is not executable"
+        )
     try:
         validate_schema(release_bundle, P06_RELEASE_BUNDLE_SCHEMA)
     except ValueError as error:
@@ -775,6 +788,22 @@ def _derive_production_execution_fragment_from_open_cache(
         raise P07ProductionError(
             "P06 release bundle differs from the release root"
         )
+    try:
+        observed_filesystem_closure = _release_filesystem_closure(
+            release_root,
+            excluded_paths=P06_RELEASE_SELF_MANIFEST_EXCLUSIONS,
+        )
+    except ReleaseLockError as error:
+        raise P07ProductionError(
+            "P06 release filesystem closure cannot be reconstructed"
+        ) from error
+    if (
+        release_bundle.get("filesystem_closure_rule")
+        != "all_entries_except_self_manifest_v1"
+        or release_bundle.get("filesystem_closure")
+        != observed_filesystem_closure
+    ):
+        raise P07ProductionError("P06 release filesystem closure differs")
     artifact_rows = release_bundle.get("artifacts")
     if not isinstance(artifact_rows, list):
         raise P07ProductionError("P06 release artifact rows are absent")

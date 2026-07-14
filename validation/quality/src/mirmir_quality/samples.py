@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 import hashlib
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Dict, List, Mapping, Sequence, Tuple
 
 import numpy as np
@@ -270,23 +270,39 @@ def _bound_decode_media(
     asset: Mapping[str, object],
 ) -> Path:
     asset_id = asset.get("asset_id")
+    expected_relative = str(asset.get("relative_path", ""))
     asset_path = bound_regular_file(
         asset_root,
-        str(asset.get("relative_path", "")),
+        expected_relative,
         label=f"asset {asset_id} source media",
     )
     media_value = decode_manifest.get("media_path")
     if not isinstance(media_value, str) or not media_value:
         raise DevelopmentSampleError(f"asset {asset_id} decode manifest lacks media_path")
-    media_path = Path(media_value)
-    root_resolved = asset_root.resolve(strict=True)
+    if "\x00" in media_value:
+        raise DevelopmentSampleError(
+            f"asset {asset_id} decode media path does not identify the corpus asset"
+        )
+    media_path = PurePosixPath(media_value)
     if media_path.is_absolute():
-        try:
-            relative_media = media_path.relative_to(root_resolved).as_posix()
-        except ValueError as error:
+        expected_path = PurePosixPath(expected_relative)
+        expected_parts = expected_path.parts
+        normalized_media = media_path.as_posix()
+        if (
+            not expected_parts
+            or expected_path.is_absolute()
+            or expected_path.as_posix() != expected_relative
+            or normalized_media != media_value
+            or media_value.startswith("//")
+            or "\\" in media_value
+            or ".." in media_path.parts
+            or len(media_path.parts) <= len(expected_parts)
+            or media_path.parts[-len(expected_parts) :] != expected_parts
+        ):
             raise DevelopmentSampleError(
-                f"asset {asset_id} decode media path escapes the asset root"
-            ) from error
+                f"asset {asset_id} decode media path does not identify the corpus asset"
+            )
+        relative_media = expected_relative
     else:
         relative_media = media_path.as_posix()
     decoded_media_path = bound_regular_file(

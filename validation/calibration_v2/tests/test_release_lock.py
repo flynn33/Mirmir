@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+from jsonschema import Draft202012Validator
+
 from validation.calibration_v2.reference.lut_oracle import (
     OracleError,
     ROUTES,
@@ -928,6 +930,15 @@ class ReleaseLUTManifestTests(unittest.TestCase):
                 selected_evaluation_path=selected_path,
             )
             self.assertEqual(len(document["artifacts"]), 17)
+            self.assertEqual(document["schema_version"], "2.0.0")
+            self.assertEqual(
+                document["filesystem_closure_rule"],
+                "all_entries_except_self_manifest_v1",
+            )
+            self.assertNotIn(
+                "p06-release-bundle.json",
+                {row["path"] for row in document["filesystem_closure"]},
+            )
             self.assertEqual(
                 validate_p06_release_bundle_manifest(
                     release_root=root,
@@ -935,6 +946,94 @@ class ReleaseLUTManifestTests(unittest.TestCase):
                 ),
                 document,
             )
+
+    def test_release_bundle_v2_schema_is_valid_and_rejects_v1_identity(self) -> None:
+        schema_path = (
+            REPOSITORY_ROOT
+            / "validation/calibration_v2/schemas/p06-release-bundle-v2.schema.json"
+        )
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        Draft202012Validator.check_schema(schema)
+        root, selected_path = self._release_bundle_root()
+        manifest_path = root / "p06-release-bundle.json"
+        with mock.patch(
+            "validation.calibration_v2.release_lock._validate_p06_release_cross_bindings"
+        ):
+            document = build_p06_release_bundle_manifest(
+                release_root=root,
+                output_path=manifest_path,
+                configuration_id="ash-p06-spatial-v2-test",
+                locked_utc="2026-07-11T23:59:00Z",
+                input_bundle_sha256="1" * 64,
+                corpus_lock_bundle_sha256="2" * 64,
+                selected_evaluation_path=selected_path,
+            )
+        historical = copy.deepcopy(document)
+        historical["schema_version"] = "1.0.0"
+        historical["bundle_id"] = "mirmir-p06-spatial-release-lock-v1"
+        historical["manifest_sha256"] = manifest_hash(historical)
+        manifest_path.write_bytes(canonical_bytes(historical) + b"\n")
+        with self.assertRaises(ValueError):
+            validate_p06_release_bundle_manifest(
+                release_root=root,
+                manifest_path=manifest_path,
+            )
+
+    def test_release_bundle_rejects_unbound_filesystem_entries(self) -> None:
+        root, selected_path = self._release_bundle_root()
+        manifest_path = root / "p06-release-bundle.json"
+        with mock.patch(
+            "validation.calibration_v2.release_lock._validate_p06_release_cross_bindings"
+        ):
+            build_p06_release_bundle_manifest(
+                release_root=root,
+                output_path=manifest_path,
+                configuration_id="ash-p06-spatial-v2-test",
+                locked_utc="2026-07-11T23:59:00Z",
+                input_bundle_sha256="1" * 64,
+                corpus_lock_bundle_sha256="2" * 64,
+                selected_evaluation_path=selected_path,
+            )
+            for relative in ("unbound.bin", ".undeclared-hidden"):
+                with self.subTest(relative=relative):
+                    extra = root / relative
+                    extra.write_bytes(b"unbound\n")
+                    with self.assertRaisesRegex(
+                        ReleaseLockError,
+                        "filesystem closure changed",
+                    ):
+                        validate_p06_release_bundle_manifest(
+                            release_root=root,
+                            manifest_path=manifest_path,
+                        )
+                    extra.unlink()
+
+    def test_release_bundle_rejects_leftover_transaction_token(self) -> None:
+        root, selected_path = self._release_bundle_root()
+        manifest_path = root / "p06-release-bundle.json"
+        with mock.patch(
+            "validation.calibration_v2.release_lock._validate_p06_release_cross_bindings"
+        ):
+            build_p06_release_bundle_manifest(
+                release_root=root,
+                output_path=manifest_path,
+                configuration_id="ash-p06-spatial-v2-test",
+                locked_utc="2026-07-11T23:59:00Z",
+                input_bundle_sha256="1" * 64,
+                corpus_lock_bundle_sha256="2" * 64,
+                selected_evaluation_path=selected_path,
+            )
+            (root / ".p06-release-transaction-token").write_bytes(
+                ("c" * 32 + "\n").encode("ascii")
+            )
+            with self.assertRaisesRegex(
+                ReleaseLockError,
+                "outside authenticated validation",
+            ):
+                validate_p06_release_bundle_manifest(
+                    release_root=root,
+                    manifest_path=manifest_path,
+                )
 
     def test_release_bundle_rejects_postlock_artifact_change(self) -> None:
         root, selected_path = self._release_bundle_root()

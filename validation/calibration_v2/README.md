@@ -65,6 +65,53 @@ release evidence closure hashes each resulting evidence directory as a whole,
 so the copied JSON, logs, products, summaries, and `.xcresult` contents remain
 one transitive release-local binding.
 
+The G06 verifier also requires a finalized native-runtime evidence root under
+repository `Artifacts/ASH` and the expected file SHA-256 of that root's
+`artifact-manifest.json`. Before any benchmark command runs, it descriptor-
+reopens the complete manifest closure, proves every file and directory is
+non-writable and user-immutable, verifies the clean repository identity and
+no-holdout provenance, and derives the benchmark binding from the manifest. It
+copies the complete verified runtime bundle into the G06 transaction, binds the
+copy as tree evidence, and records the benchmark opt-in and copied benchmark
+path in the pytest command arguments. The Python group runs unittest discovery,
+the complete pytest calibration suite, and the exact native-benchmark pytest
+node ID as three separately parsed commands. Each command clears
+`PYTHONOPTIMIZE`; pytest also disables plugin autoload, ancestor conftests, and
+the cache provider. The full suite therefore retains its zero-skip and
+zero-deselection requirement without depending on ambient shell variables.
+
+A passing verifier directory is provisional until its enclosing evidence
+wrapper publishes `artifact-manifest.json`, recursively freezes the complete
+run tree, and reopens the same manifest and tree snapshot. The manifest belongs
+in the wrapper, not the verifier run root, because P06 requires exactly the five
+top-level G06 evidence JSON files in that run root.
+
+`tools/finalize_evidence_wrapper.py` performs that publication from the exact
+hidden sibling `.<final-name>.partial`. Its version-2 manifest binds every
+regular file, every non-root directory path (including empty directories), and
+per-file producer, command, platform, machine, and gate provenance. A durable,
+identity-bound transaction marker is written before the partial becomes
+non-retryable. The marker is enclosed by the wrapper manifest, while its sibling
+recovery locator is removed only after a durable completion receipt exists and
+the final root has passed a frozen descriptor-relative reopen. A later
+invocation either completes receipt cleanup or preserves an interrupted owned
+root as immutable failure evidence; source substitutions are never accepted as
+successful publication and foreign collisions are retained under neutral
+tokenized sibling names.
+
+Invoke the verifier with the finalized runtime root and the SHA-256 of its
+manifest file (the raw file digest, not the manifest's internal self-hash):
+
+```sh
+/usr/bin/python3 validation/calibration_v2/tools/run_g06_verification.py \
+  --repository-root /absolute/path/to/Mirmir \
+  --output-root /absolute/path/to/Mirmir/Artifacts/ASH/<run>/g06 \
+  --run-id <unique-g06-run-id> \
+  --native-runtime-evidence-root \
+    /absolute/path/to/Mirmir/Artifacts/ASH/<run>/runtime/<finalized-run> \
+  --expected-native-runtime-manifest-file-sha256 <lowercase-hex-sha256>
+```
+
 It also requires preserved failure evidence containing
 `p00_pinned_lanczos_postcommit_handler`. The release evidence closure binds
 those records, the complete calibration run tree, the selected controls, both

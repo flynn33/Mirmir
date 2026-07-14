@@ -42,6 +42,7 @@ from validation.quality.src.mirmir_quality.json_tools import canonical_sha256
 from validation.calibration_v2.p07 import execution as execution_module
 from validation.calibration_v2.macos_code_identity import static_code_identity
 from validation.calibration_v2.release_evidence import evidence_binding
+from validation.calibration_v2.release_lock import _release_filesystem_closure
 from validation.calibration_v2.production_providers import (
     production_writer_settings_document,
 )
@@ -587,8 +588,8 @@ def _static_production_fragment_inputs(
         ("evidence_closure", "p06-evidence-closure.json"),
     )
     bundle_core: dict[str, object] = {
-        "schema_version": "1.0.0",
-        "bundle_id": "mirmir-p06-spatial-release-lock-v1",
+        "schema_version": "2.0.0",
+        "bundle_id": "mirmir-p06-spatial-release-lock-v2",
         "status": "locked_before_p07",
         "configuration_id": configuration_id,
         "locked_utc": "2026-07-12T00:00:00Z",
@@ -604,6 +605,11 @@ def _static_production_fragment_inputs(
             file_binding(identifier, relative)
             for identifier, relative in artifact_paths
         ],
+        "filesystem_closure_rule": "all_entries_except_self_manifest_v1",
+        "filesystem_closure": _release_filesystem_closure(
+            release,
+            excluded_paths=frozenset({"p06-release-bundle.json"}),
+        ),
     }
     bundle = {
         **bundle_core,

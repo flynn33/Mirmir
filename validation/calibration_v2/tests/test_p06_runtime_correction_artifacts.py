@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,9 +16,14 @@ from validation.calibration_v2.tools.finalize_p06_runtime_correction import (
     _rename_exclusive_at,
     _seal_root_descriptor,
     _verify_descriptor_snapshots_unchanged,
+    _verify_manifest_descriptor,
+    _walk_artifact_descriptor,
     finalize_runtime_correction,
+    verify_frozen_runtime_correction,
+    verify_runtime_correction_copy,
 )
 from validation.quality.src.mirmir_quality.json_tools import (
+    canonical_json_bytes,
     manifest_sha256,
     read_json,
     validate_schema,
@@ -35,7 +41,7 @@ SCHEMA_PATH = (
 class P06RuntimeCorrectionArtifactTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name).resolve(strict=True)
         self.final = self.root / "runtime-feasibility-correction-r2"
         self.partial = self.root / ".runtime-feasibility-correction-r2.test.partial"
         self.partial.mkdir()
@@ -119,6 +125,15 @@ class P06RuntimeCorrectionArtifactTests(unittest.TestCase):
             ),
         )
 
+    def _copy_finalized_closure(self, name: str) -> Path:
+        self._finalize()
+        copied = self.root / name
+        copied.mkdir()
+        for source in self.final.iterdir():
+            if source.is_file():
+                (copied / source.name).write_bytes(source.read_bytes())
+        return copied
+
     def test_finalizes_exact_tree_with_complete_provenance(self) -> None:
         result = self._finalize()
 
@@ -155,6 +170,325 @@ class P06RuntimeCorrectionArtifactTests(unittest.TestCase):
                 metadata.st_mode & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
             )
             self.assertTrue(metadata.st_flags & stat.UF_IMMUTABLE)
+
+    def test_public_verifier_reopens_exact_frozen_closure(self) -> None:
+        self._finalize()
+        manifest_payload = (self.final / "artifact-manifest.json").read_bytes()
+        verified = verify_frozen_runtime_correction(
+            self.final,
+            expected_manifest_file_sha256=hashlib.sha256(
+                manifest_payload
+            ).hexdigest(),
+            expected_root_label=(
+                "Artifacts/ASH/test/p06/runtime-feasibility-correction-r2"
+            ),
+        )
+
+        self.assertEqual(verified.root, self.final)
+        self.assertEqual(
+            verified.manifest_file_sha256,
+            hashlib.sha256(manifest_payload).hexdigest(),
+        )
+        self.assertEqual(
+            [path for path, _ in verified.files],
+            ["artifact-manifest.json", "artifact-records.json", "benchmark.json"],
+        )
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "manifest file SHA-256 differs",
+        ):
+            verify_frozen_runtime_correction(
+                self.final,
+                expected_manifest_file_sha256="0" * 64,
+            )
+
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "root label differs",
+        ):
+            verify_frozen_runtime_correction(
+                self.final,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    manifest_payload
+                ).hexdigest(),
+                expected_root_label="Artifacts/ASH/substituted",
+            )
+
+    def test_copy_verifier_requires_canonical_manifest_and_time_order(self) -> None:
+        self._finalize()
+        copied = self.root / "runtime-copy"
+        copied.mkdir()
+        for source in self.final.iterdir():
+            if source.is_file():
+                (copied / source.name).write_bytes(source.read_bytes())
+        manifest_path = copied / "artifact-manifest.json"
+        manifest_payload = manifest_path.read_bytes()
+        verified = verify_runtime_correction_copy(
+            copied,
+            expected_manifest_file_sha256=hashlib.sha256(
+                manifest_payload
+            ).hexdigest(),
+        )
+        self.assertEqual(verified.manifest["root"], (
+            "Artifacts/ASH/test/p06/runtime-feasibility-correction-r2"
+        ))
+
+        manifest = json.loads(manifest_payload)
+        noncanonical = json.dumps(manifest, indent=2, sort_keys=True).encode() + b"\n"
+        manifest_path.write_bytes(noncanonical)
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "not canonical",
+        ):
+            verify_runtime_correction_copy(
+                copied,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    noncanonical
+                ).hexdigest(),
+            )
+
+        manifest["finished_utc"] = "1999-12-31T23:59:59Z"
+        manifest["manifest_sha256"] = manifest_sha256(manifest)
+        reordered = canonical_json_bytes(manifest) + b"\n"
+        manifest_path.write_bytes(reordered)
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "time ordering differs",
+        ):
+            verify_runtime_correction_copy(
+                copied,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    reordered
+                ).hexdigest(),
+            )
+
+    def test_copy_verifier_rejects_duplicate_json_metadata_member(self) -> None:
+        copied = self._copy_finalized_closure("duplicate-metadata-copy")
+        metadata_path = copied / "artifact-records.json"
+        metadata = json.loads(metadata_path.read_bytes())
+        duplicate_metadata = (
+            "{\"artifact_kind\":"
+            + json.dumps(
+                metadata["artifact_kind"],
+                separators=(",", ":"),
+            )
+            + ",\"records\":"
+            + json.dumps(
+                metadata["records"],
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + ",\"schema_version\":\"1.0.0\""
+            + ",\"schema_version\":\"1.0.0\"}\n"
+        ).encode("utf-8")
+        metadata_path.write_bytes(duplicate_metadata)
+
+        manifest_path = copied / "artifact-manifest.json"
+        manifest = json.loads(manifest_path.read_bytes())
+        metadata_record = next(
+            record
+            for record in manifest["artifacts"]
+            if record["path"] == "artifact-records.json"
+        )
+        metadata_record["size_bytes"] = len(duplicate_metadata)
+        metadata_record["sha256"] = hashlib.sha256(
+            duplicate_metadata
+        ).hexdigest()
+        manifest["manifest_sha256"] = manifest_sha256(manifest)
+        manifest_payload = canonical_json_bytes(manifest) + b"\n"
+        manifest_path.write_bytes(manifest_payload)
+
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "artifact metadata contains a duplicate JSON member: schema_version",
+        ):
+            verify_runtime_correction_copy(
+                copied,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    manifest_payload
+                ).hexdigest(),
+            )
+
+    def test_copy_verifier_rejects_symbolic_ancestor(self) -> None:
+        self._finalize()
+        symbolic_parent = self.root / "symbolic-artifact-parent"
+        symbolic_parent.symlink_to(self.final.parent, target_is_directory=True)
+        symbolic_root = symbolic_parent / self.final.name
+        manifest_payload = (self.final / "artifact-manifest.json").read_bytes()
+
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "frozen artifact root has a symbolic ancestor",
+        ):
+            verify_runtime_correction_copy(
+                symbolic_root,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    manifest_payload
+                ).hexdigest(),
+            )
+
+    def test_copy_verifier_returns_the_single_validated_descriptor_walk(
+        self,
+    ) -> None:
+        copied = self._copy_finalized_closure("single-walk-copy")
+        manifest_payload = (copied / "artifact-manifest.json").read_bytes()
+        walk_count = 0
+
+        def substitute_only_on_a_second_walk(
+            root_descriptor: int,
+        ) -> object:
+            nonlocal walk_count
+            walk_count += 1
+            files, directories = _walk_artifact_descriptor(root_descriptor)
+            if walk_count == 1:
+                return files, directories
+            substituted = tuple(
+                (
+                    relative,
+                    b"substituted-after-validation"
+                    if relative == "benchmark.json"
+                    else payload,
+                    metadata,
+                )
+                for relative, payload, metadata in files
+            )
+            return substituted, directories
+
+        with mock.patch(
+            "validation.calibration_v2.tools."
+            "finalize_p06_runtime_correction._walk_artifact_descriptor",
+            side_effect=substitute_only_on_a_second_walk,
+        ):
+            verified = verify_runtime_correction_copy(
+                copied,
+                expected_manifest_file_sha256=hashlib.sha256(
+                    manifest_payload
+                ).hexdigest(),
+            )
+
+        self.assertEqual(walk_count, 1)
+        self.assertEqual(
+            dict(verified.files)["benchmark.json"],
+            b'{"status":"passed"}\n',
+        )
+
+    def test_copy_verifier_detects_descriptor_relative_file_path_swap(
+        self,
+    ) -> None:
+        copied = self._copy_finalized_closure("file-path-swap-copy")
+        benchmark_path = copied / "benchmark.json"
+        displaced_path = copied / "displaced-benchmark.json"
+        expected_identity = os.stat(benchmark_path, follow_symlinks=False)
+        manifest_payload = (copied / "artifact-manifest.json").read_bytes()
+        original_read = os.read
+        injected = False
+
+        def swap_path_at_eof(descriptor: int, length: int) -> bytes:
+            nonlocal injected
+            payload = original_read(descriptor, length)
+            opened = os.fstat(descriptor)
+            if (
+                not injected
+                and not payload
+                and (opened.st_dev, opened.st_ino)
+                == (expected_identity.st_dev, expected_identity.st_ino)
+            ):
+                injected = True
+                os.rename(benchmark_path, displaced_path)
+                benchmark_path.write_bytes(b"substituted")
+            return payload
+
+        with mock.patch(
+            "validation.calibration_v2.tools."
+            "finalize_p06_runtime_correction.os.read",
+            side_effect=swap_path_at_eof,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeCorrectionArtifactError,
+                "descriptor-relative artifact path changed while reading: "
+                "benchmark.json",
+            ):
+                verify_runtime_correction_copy(
+                    copied,
+                    expected_manifest_file_sha256=hashlib.sha256(
+                        manifest_payload
+                    ).hexdigest(),
+                )
+
+        self.assertTrue(injected)
+        self.assertEqual(displaced_path.read_bytes(), b'{"status":"passed"}\n')
+        self.assertEqual(benchmark_path.read_bytes(), b"substituted")
+
+    def test_copy_verifier_detects_root_path_replacement(self) -> None:
+        copied = self._copy_finalized_closure("root-replacement-copy")
+        displaced_root = self.root / "displaced-root-replacement-copy"
+        manifest_payload = (copied / "artifact-manifest.json").read_bytes()
+
+        def replace_root_after_validated_walk(
+            root_descriptor: int,
+            expected_manifest: object,
+            *,
+            metadata_relative: str,
+            require_directory_immutable: bool,
+            require_tree_read_only: bool = True,
+            require_file_immutable: bool = True,
+        ) -> object:
+            snapshot = _verify_manifest_descriptor(
+                root_descriptor,
+                expected_manifest,  # type: ignore[arg-type]
+                metadata_relative=metadata_relative,
+                require_directory_immutable=require_directory_immutable,
+                require_tree_read_only=require_tree_read_only,
+                require_file_immutable=require_file_immutable,
+            )
+            os.rename(copied, displaced_root)
+            copied.mkdir()
+            (copied / "foreign-marker").write_bytes(b"foreign")
+            return snapshot
+
+        with mock.patch(
+            "validation.calibration_v2.tools."
+            "finalize_p06_runtime_correction._verify_manifest_descriptor",
+            side_effect=replace_root_after_validated_walk,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeCorrectionArtifactError,
+                "artifact root path changed during verification",
+            ):
+                verify_runtime_correction_copy(
+                    copied,
+                    expected_manifest_file_sha256=hashlib.sha256(
+                        manifest_payload
+                    ).hexdigest(),
+                )
+
+        self.assertEqual((copied / "foreign-marker").read_bytes(), b"foreign")
+        self.assertTrue((displaced_root / "artifact-manifest.json").is_file())
+
+    def test_finalizer_rejects_unbound_empty_directory(self) -> None:
+        (self.partial / "empty").mkdir()
+        with self.assertRaisesRegex(
+            RuntimeCorrectionArtifactError,
+            "directory set is not derived",
+        ):
+            self._finalize()
+
+    def test_finalizer_fails_closed_on_inaccessible_unbound_subtree(self) -> None:
+        hidden = self.partial / "hidden-unbound"
+        hidden.mkdir()
+        (hidden / "unbound.bin").write_bytes(b"unbound\n")
+        hidden.chmod(0)
+        try:
+            with self.assertRaisesRegex(
+                RuntimeCorrectionArtifactError,
+                "tree traversal failed",
+            ):
+                self._finalize()
+        finally:
+            hidden.chmod(0o700)
+
+        self.assertFalse(self.final.exists())
+        self.assertTrue((hidden / "unbound.bin").is_file())
 
     def test_refuses_preexisting_final_without_modifying_it(self) -> None:
         self.final.mkdir()

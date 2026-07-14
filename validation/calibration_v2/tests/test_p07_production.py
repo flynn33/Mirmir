@@ -46,6 +46,7 @@ from validation.calibration_v2.production_providers import (
     production_writer_settings_document,
 )
 from validation.calibration_v2.release_evidence import evidence_binding
+from validation.calibration_v2.release_lock import _release_filesystem_closure
 from validation.calibration_v2.p07.execution import (
     P07DualFailure,
     _directory_file_snapshot,
@@ -390,13 +391,18 @@ def _build_fragment_derivation_fixture(root: Path) -> dict[str, object]:
         }
     )
     bundle: dict[str, object] = {
-        "schema_version": "1.0.0",
-        "bundle_id": "mirmir-p06-spatial-release-lock-v1",
+        "schema_version": "2.0.0",
+        "bundle_id": "mirmir-p06-spatial-release-lock-v2",
         "status": "locked_before_p07",
         "configuration_id": configuration_id,
         "input_bundle_sha256": closure["input_bundle_sha256"],
         "corpus_lock_bundle_sha256": closure["corpus_lock_bundle_sha256"],
         "artifacts": artifact_rows,
+        "filesystem_closure_rule": "all_entries_except_self_manifest_v1",
+        "filesystem_closure": _release_filesystem_closure(
+            release_root,
+            excluded_paths=frozenset({"p06-release-bundle.json"}),
+        ),
     }
     bundle["manifest_sha256"] = canonical_sha256(bundle)
     _write_canonical_json(release_root / "p06-release-bundle.json", bundle)
@@ -481,7 +487,7 @@ def _selective_derivation_schema_validation(
     schema_path: Path,
 ) -> None:
     if Path(schema_path).name in {
-        "p06-release-bundle-v1.schema.json",
+        "p06-release-bundle-v2.schema.json",
         "p06-evidence-closure-v1.schema.json",
         "candidate-lut-runtime-manifest-v1.schema.json",
     }:
@@ -825,6 +831,45 @@ class P07ProductionRuntimeTests(unittest.TestCase):
             evaluator._cache_guard = None
             self.assertEqual(observed, derived)
 
+    def test_pure_fragment_derivation_rejects_historical_p06_bundle(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as name:
+            fixture = _build_fragment_derivation_fixture(Path(name))
+            historical = copy.deepcopy(fixture["release_bundle"])
+            assert isinstance(historical, dict)
+            historical["schema_version"] = "1.0.0"
+            historical["bundle_id"] = "mirmir-p06-spatial-release-lock-v1"
+            historical["manifest_sha256"] = canonical_sha256(
+                {
+                    key: value
+                    for key, value in historical.items()
+                    if key != "manifest_sha256"
+                }
+            )
+            fixture["release_bundle"] = historical
+            release_root = fixture["release_root"]
+            assert isinstance(release_root, Path)
+            _write_canonical_json(
+                release_root / "p06-release-bundle.json",
+                historical,
+            )
+            with self.assertRaisesRegex(
+                P07ProductionError,
+                "historical or unknown P06 release bundle",
+            ):
+                self._derive_fragment_fixture(fixture)
+
+    def test_pure_fragment_derivation_rejects_unbound_release_entry(self) -> None:
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as name:
+            fixture = _build_fragment_derivation_fixture(Path(name))
+            release_root = fixture["release_root"]
+            assert isinstance(release_root, Path)
+            (release_root / "unbound.bin").write_bytes(b"not in closure\n")
+            with self.assertRaisesRegex(
+                P07ProductionError,
+                "filesystem closure differs",
+            ):
+                self._derive_fragment_fixture(fixture)
+
     def test_pure_fragment_derivation_rejects_cache_and_p00_substitution(
         self,
     ) -> None:
@@ -901,7 +946,7 @@ class P07ProductionRuntimeTests(unittest.TestCase):
             path.write_bytes(b"changed-role-bytes")
             with self.assertRaisesRegex(
                 P07ProductionError,
-                "artifact bytes changed",
+                "filesystem closure differs",
             ):
                 self._derive_fragment_fixture(fixture)
 
@@ -977,7 +1022,7 @@ class P07ProductionRuntimeTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(
                 P07ProductionError,
-                "production-writer executable identity is not singular",
+                "filesystem closure differs",
             ):
                 self._derive_fragment_fixture(fixture)
 
