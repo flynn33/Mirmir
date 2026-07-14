@@ -204,6 +204,7 @@ class G06ReleaseEvidenceHandoffTests(unittest.TestCase):
                     "YES",
                     "-parallel-testing-enabled",
                     "NO",
+                    *(("-jobs", "1") if configuration == "Release" else ()),
                     "CODE_SIGNING_ALLOWED=NO",
                     *(("ENABLE_TESTABILITY=YES",) if configuration == "Release" else ()),
                     *(f"-only-testing:MirmirTests/{name}" for name in tests),
@@ -1769,6 +1770,32 @@ class G06ReleaseEvidenceHandoffTests(unittest.TestCase):
                         test_evidence_paths=evidence_paths,
                         release_root=release,
                     )
+
+    def test_rejects_release_xcode_serialization_substitution(self) -> None:
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-g06-xcode-serialization-"
+        ) as value:
+            root = Path(value).resolve(strict=True)
+            _, evidence_paths = self._make_run(root / "source")
+            target = evidence_paths["xcode_release_runtime"]
+
+            def mutate(document: dict[str, object]) -> None:
+                command = document["commands"][1]
+                jobs_index = command["argv"].index("-jobs")
+                command["argv"][jobs_index + 1] = "2"
+                command["command_text"] = shlex.join(command["argv"])
+
+            self._rewrite_document(target, mutate, rehash=True)
+            release = root / "release"
+            release.mkdir()
+            with self.assertRaisesRegex(
+                P06ReleaseOrchestrationError,
+                "command contract",
+            ):
+                self._consume_g06(
+                    test_evidence_paths=evidence_paths,
+                    release_root=release,
+                )
 
     def test_rejects_lexical_symlink_alias_for_native_runtime_output(self) -> None:
         with tempfile.TemporaryDirectory(

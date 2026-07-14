@@ -1991,6 +1991,7 @@ class G06AtomicPublicationTests(unittest.TestCase):
             )
             self.assertIn("CODE_SIGNING_ALLOWED=NO", command)
             self.assertNotIn("ENABLE_TESTABILITY=YES", command)
+            self.assertNotIn("-jobs", command)
             self.assertIn("-enableCodeCoverage", command)
             self.assertEqual(
                 [value for value in command if value.startswith("-only-testing:")],
@@ -2011,6 +2012,11 @@ class G06AtomicPublicationTests(unittest.TestCase):
             self.assertEqual(release_command[-1], "test")
             self.assertNotIn("clean", release_command)
             self.assertIn("ENABLE_TESTABILITY=YES", release_command)
+            jobs_index = release_command.index("-jobs")
+            self.assertEqual(
+                release_command[jobs_index : jobs_index + 2],
+                ("-jobs", "1"),
+            )
             self.assertNotIn("holdout", " ".join(command).lower())
             self.assertNotIn("holdout", " ".join(release_command).lower())
 

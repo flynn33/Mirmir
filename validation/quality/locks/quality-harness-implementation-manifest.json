@@ -469,8 +469,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/release_orchestrator.py",
-      "sha256": "1dd54df20c00fc72efa21abdc560609f5f033c2b3398d5cd945ccabb688cea1c",
-      "size_bytes": 195231
+      "sha256": "0871ab8f672cc7ad7a3875402caca7496f53fee2a94c29821ff236f761d39942",
+      "size_bytes": 195296
     },
     {
       "relative_path": "validation/calibration_v2/runner.py",
@@ -849,13 +849,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
-      "sha256": "d6df9d2531f2fe1d7ac90370dbfce5513cccf1d3d66f5f28509b05210e794fb2",
-      "size_bytes": 90297
+      "sha256": "d8f095732ddf77eee418a11248e1e5be0e668dd90f6bb1093075636fbfa4dded",
+      "size_bytes": 91461
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_verification_runner.py",
-      "sha256": "d09ea8db31cd5b96b53e8e6875134ea86fc5fa7c81682d0d0165908fa277e43e",
-      "size_bytes": 98390
+      "sha256": "e6d297ab1d08d2472ee5e9abdf2dad1352e115385b1c6f8e3ef0be3a7f6ee570",
+      "size_bytes": 98631
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_live_holdout_preopen.py",
@@ -999,8 +999,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_g06_verification.py",
-      "sha256": "3c248009c7ac5cbaee123ee38a58df729412facf1b11daaccc9633c3ac896586",
-      "size_bytes": 147878
+      "sha256": "fdce2a8ba98123eda52627e64ee20a733143b272f8187802b2cfa34765893761",
+      "size_bytes": 147947
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_p06_corrective_diagnostics.py",
@@ -1363,6 +1363,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "c116fbb8e7de6ffcab32a08de8148d1ff1dcba3bd7efd3152d15064f48061db5",
+  "manifest_sha256": "f16eb2d7869631cfdb723291cb1c35a57e225361ac2003f31d0848335c5a75fa",
   "schema_version": "1.0.0"
 }

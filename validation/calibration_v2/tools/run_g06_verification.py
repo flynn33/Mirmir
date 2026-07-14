@@ -3316,6 +3316,7 @@ class G06VerificationRunner:
             "YES",
             "-parallel-testing-enabled",
             "NO",
+            *(("-jobs", "1") if configuration == "Release" else ()),
             "CODE_SIGNING_ALLOWED=NO",
             *(("ENABLE_TESTABILITY=YES",) if configuration == "Release" else ()),
             *(f"-only-testing:MirmirTests/{name}" for name in tests),
