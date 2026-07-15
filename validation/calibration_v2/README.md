@@ -73,6 +73,24 @@ angle-bracket placeholders fail the strict locked-input schema. The selection
 stage must replace every placeholder, recompute the penalty table, compute the
 canonical self-hash, and validate the result before either compiler may read it.
 
+`locked-compiler-input-v2.template.json` is the equally non-consumable sibling
+for plane-aware format 1.2. Schema 2 preserves the six schema-1 hash bindings
+and every legacy non-anisotropy tunable at its existing shared scope. Each route
+adds one admissible spatial-policy ID and one anisotropy-mode ordinal per plane;
+the two coordinate policies and route analysis-grid step retain their existing
+scope. The mode ordinal is the sole compiler-input authority and maps through
+the plane-aware preregistration to its exact mode ID, Q12 strength, and
+`use_anisotropy` value. The all-isotropic four-plane vector is invalid.
+
+Schema 2 contains no confidence value, format selector, default, or winner.
+Version dispatch supplies format 1.2 and its confidence ABI marker; dynamic
+chroma confidence remains runtime sidecar data and is not stored in a LUT. No
+consumable schema-2 input may be generated until a versioned joint-vector
+calibration plan binds the plane-aware preregistration. That future plan is
+carried by the unchanged `calibration_plan_sha256` field, while repository
+contracts remain bound by quality-manifest and gate evidence outside the six
+binary-header digests.
+
 ## Plane-aware LUT preregistration
 
 `contracts/plane-aware-lut-preregistration-v1.json`, validated by

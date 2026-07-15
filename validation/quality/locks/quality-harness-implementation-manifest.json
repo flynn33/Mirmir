@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 297,
+  "file_count": 300,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -311,6 +311,11 @@
       "relative_path": "validation/calibration_v2/contracts/locked-compiler-input-v1.template.json",
       "sha256": "7d753b7a2043114cc5ed04115d69954f7c44fc4ba5b8eb75b2942d289554dd14",
       "size_bytes": 3768
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/locked-compiler-input-v2.template.json",
+      "sha256": "30e171551361972fc83a038d56b163e7e202fe321ff7b1e38703cc9b3a3c0f02",
+      "size_bytes": 4223
     },
     {
       "relative_path": "validation/calibration_v2/contracts/lut-binary-contract-v1.json",
@@ -678,6 +683,11 @@
       "size_bytes": 6952
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/locked-compiler-input-v2.schema.json",
+      "sha256": "1e01fad80f6948e3c0a4ed3970e1193d8b930e16afa08421052e9f7a5030799f",
+      "size_bytes": 8046
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/locked-metric-policy-v2.schema.json",
       "sha256": "e996daca6ad0568b76ed971348265a150336280d6f075d4d1d67f37561725959",
       "size_bytes": 10122
@@ -966,6 +976,11 @@
       "relative_path": "validation/calibration_v2/tests/test_live_holdout_preopen.py",
       "sha256": "b757d7a4be4a67a10194284d4ef0ae525b2284251144b2db002ea82fc54df4f8",
       "size_bytes": 20807
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_locked_compiler_input_v2_contract.py",
+      "sha256": "026c488676b78c75c0a272586d84624505482432599a882378b586302f8fa4ec",
+      "size_bytes": 15864
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_macos_code_identity.py",
@@ -1488,6 +1503,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "19e34b998f65ab2381fc7e7e3505559d5a760d8ad6f793b0b449cdc927a5b315",
+  "manifest_sha256": "56b8dd4b9f940a66f7d7d427b9f56c165eccb2fb37e51bddfac6328a39db0a39",
   "schema_version": "1.0.0"
 }
