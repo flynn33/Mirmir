@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 306,
+  "file_count": 308,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -276,6 +276,11 @@
       "relative_path": "validation/calibration_v2/calibration_plan_codec.py",
       "sha256": "740762f6cff139c4ddff291ef21ca087aa845c97cdec0f7e78b4cab195b7670c",
       "size_bytes": 28219
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_scheduler_v2.py",
+      "sha256": "765eeaf89dd661642f616fd5ba08a05a8310f3ff3f8ce6101ffbae305370fdb4",
+      "size_bytes": 36145
     },
     {
       "relative_path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
@@ -918,6 +923,11 @@
       "size_bytes": 23467
     },
     {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_scheduler_v2.py",
+      "sha256": "4d29e8ebb59b73c1fb8425d2f2352090ccc0050b302c3356a85ba98259fc3bf8",
+      "size_bytes": 20152
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/test_contracts.py",
       "sha256": "aef54e299bf7fd3e8f33e45d3123825bf028c2fbfda98309bf01925bcbd0e4c6",
       "size_bytes": 55627
@@ -1533,6 +1543,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "6bd14879c7dbfabdbdf11c4074831d69f212a92f2d2d4a72bb3a0247819832ec",
+  "manifest_sha256": "7b77701fef5d09a19686aa823181b5b170da97c90c3838be8185333e7040bfb8",
   "schema_version": "1.0.0"
 }
