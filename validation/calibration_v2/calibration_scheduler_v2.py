@@ -33,6 +33,7 @@ SCALAR_ATTEMPTS_PER_SWEEP = 155
 ATTEMPTS_PER_COMPLETE_SWEEP = 411
 MAXIMUM_SWEEPS = 8
 MAXIMUM_DEVELOPMENT_ATTEMPTS = 3288
+MAXIMUM_VALIDATION_NEIGHBORHOOD = 374
 
 STATUS_IN_PROGRESS = "in_progress"
 STATUS_TERMINATED_FEASIBLE = "terminated_feasible"
@@ -69,7 +70,13 @@ def _is_sha256(value: object) -> bool:
 
 
 def _require_finite_number(value: object, *, label: str) -> None:
-    if type(value) not in {int, float} or not math.isfinite(float(value)):
+    if type(value) not in {int, float}:
+        raise CalibrationSchedulerV2Error(f"{label} must be a finite built-in number")
+    try:
+        finite = math.isfinite(value)
+    except OverflowError:
+        finite = False
+    if not finite:
         raise CalibrationSchedulerV2Error(f"{label} must be a finite built-in number")
 
 
@@ -138,6 +145,13 @@ def _validate_development_evaluation(
         "estimated_dispatch_cost",
     ):
         _require_finite_number(getattr(evaluation, name), label=name)
+    for name in (
+        "maximum_ringing_excursion",
+        "maximum_alias_ratio",
+        "estimated_dispatch_cost",
+    ):
+        if getattr(evaluation, name) < 0:
+            raise CalibrationSchedulerV2Error(f"{name} must be nonnegative")
 
 
 @dataclass(frozen=True)
@@ -956,3 +970,817 @@ def run_development_search_v2(
             "first structural incumbent terminated without a later sweep"
         )
     return result
+
+
+@dataclass(frozen=True)
+class ValidationCandidateV2:
+    """One complete V2 candidate identity in the validation neighborhood."""
+
+    logical_candidate_items: Tuple[Tuple[str, object], ...]
+    physical_candidate_items: Tuple[Tuple[str, object], ...]
+    candidate_vector_sha256: str
+    development_cache_identity: EvaluationCacheIdentityV2
+    validation_cache_identity: EvaluationCacheIdentityV2
+
+
+@dataclass(frozen=True)
+class ValidationNeighborhoodV2:
+    """The frozen candidate set; tuple order is not validation-access authority."""
+
+    terminal_candidate_sha256: str
+    candidates_before_constraint_filtering: Tuple[ValidationCandidateV2, ...]
+    constraint_valid_candidates: Tuple[ValidationCandidateV2, ...]
+
+    @property
+    def candidate_count_before_constraint_filtering(self) -> int:
+        return len(self.candidates_before_constraint_filtering)
+
+    @property
+    def constraint_valid_candidate_count(self) -> int:
+        return len(self.constraint_valid_candidates)
+
+
+@dataclass(frozen=True)
+class DevelopmentCandidateEvidenceV2:
+    """Exact successful development evidence for one constraint-valid neighbor."""
+
+    candidate: ValidationCandidateV2
+    evaluation: DevelopmentEvaluationV2
+
+
+@dataclass(frozen=True)
+class ValidationAdmissionV2:
+    """Development-only freeze produced before any validation access."""
+
+    development_attempt_records: Tuple[AttemptRecordV2, ...]
+    development_last_record_sha256: str
+    neighborhood: ValidationNeighborhoodV2
+    development_evidence: Tuple[DevelopmentCandidateEvidenceV2, ...]
+    admitted_candidates: Tuple[ValidationCandidateV2, ...]
+
+    @property
+    def development_attempt_count(self) -> int:
+        return len(self.development_attempt_records)
+
+    @property
+    def development_evidence_count(self) -> int:
+        return len(self.development_evidence)
+
+    @property
+    def admitted_candidate_count(self) -> int:
+        return len(self.admitted_candidates)
+
+
+@dataclass(frozen=True)
+class ValidationEvaluationV2:
+    """Aggregate feasibility plus inherited engine-raw validation rank fields."""
+
+    feasible: bool
+    failure_reasons: Tuple[str, ...]
+    y_vs_fixed_ci_low: object
+    y_vs_non_ash_ci_low: object
+    y_vs_conventional_ci_low: object
+    mean_ms_ssim_delta_vs_conventional: object
+    maximum_ringing_excursion: object
+    maximum_alias_ratio: object
+    estimated_dispatch_cost: object
+
+    def __post_init__(self) -> None:
+        _validate_validation_evaluation(self)
+
+
+@dataclass(frozen=True)
+class ScoredValidationCandidateV2:
+    """One successful validation evaluation tied to its exact candidate."""
+
+    candidate: ValidationCandidateV2
+    evaluation: ValidationEvaluationV2
+
+
+@dataclass(frozen=True)
+class ValidationEvaluationFailureV2:
+    """One attempted admitted candidate whose validation evaluator failed."""
+
+    candidate: ValidationCandidateV2
+    failure_reasons: Tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ValidationSelectionV2:
+    """Pure feasible frontier and winner; not a persisted selection artifact."""
+
+    pareto_frontier: Tuple[ScoredValidationCandidateV2, ...]
+    evaluation_failures: Tuple[ValidationEvaluationFailureV2, ...]
+    selected: ScoredValidationCandidateV2
+
+
+def _validate_validation_evaluation(evaluation: ValidationEvaluationV2) -> None:
+    if type(evaluation) is not ValidationEvaluationV2:
+        raise CalibrationSchedulerV2Error("validation evaluation has the wrong type")
+    if type(evaluation.feasible) is not bool:
+        raise CalibrationSchedulerV2Error("validation feasibility must be bool")
+    if type(evaluation.failure_reasons) is not tuple or any(
+        type(reason) is not str or not reason for reason in evaluation.failure_reasons
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation failure-reason members must be nonempty built-in strings"
+        )
+    if len(set(evaluation.failure_reasons)) != len(evaluation.failure_reasons):
+        raise CalibrationSchedulerV2Error("validation failure reasons repeat")
+    if evaluation.feasible != (len(evaluation.failure_reasons) == 0):
+        raise CalibrationSchedulerV2Error(
+            "validation feasibility and failure reasons disagree"
+        )
+    for name in (
+        "y_vs_fixed_ci_low",
+        "y_vs_non_ash_ci_low",
+        "y_vs_conventional_ci_low",
+        "mean_ms_ssim_delta_vs_conventional",
+        "maximum_ringing_excursion",
+        "maximum_alias_ratio",
+        "estimated_dispatch_cost",
+    ):
+        _require_finite_number(getattr(evaluation, name), label=name)
+    for name in (
+        "maximum_ringing_excursion",
+        "maximum_alias_ratio",
+        "estimated_dispatch_cost",
+    ):
+        if getattr(evaluation, name) < 0:
+            raise CalibrationSchedulerV2Error(f"{name} must be nonnegative")
+
+
+def _validation_candidate_from_logical(
+    logical_candidate: Mapping[str, object],
+    plan: ParsedCalibrationPlanV2,
+) -> ValidationCandidateV2:
+    physical = materialize_candidate_vector_v2(logical_candidate, plan)
+    logical = {
+        name: physical[name]
+        for name in plan.logical_parameter_order
+    }
+    candidate_sha256 = candidate_vector_sha256_v2(physical, plan)
+    return ValidationCandidateV2(
+        logical_candidate_items=tuple(logical.items()),
+        physical_candidate_items=tuple(physical.items()),
+        candidate_vector_sha256=candidate_sha256,
+        development_cache_identity=EvaluationCacheIdentityV2(
+            split=DEVELOPMENT_SPLIT,
+            candidate_vector_sha256=candidate_sha256,
+            calibration_plan_file_sha256=plan.plan_file_sha256,
+        ),
+        validation_cache_identity=EvaluationCacheIdentityV2(
+            split=VALIDATION_SPLIT,
+            candidate_vector_sha256=candidate_sha256,
+            calibration_plan_file_sha256=plan.plan_file_sha256,
+        ),
+    )
+
+
+def _validate_validation_candidate(
+    candidate: ValidationCandidateV2,
+    plan: ParsedCalibrationPlanV2,
+) -> None:
+    if type(candidate) is not ValidationCandidateV2:
+        raise CalibrationSchedulerV2Error("validation candidate has the wrong type")
+    if (
+        type(candidate.logical_candidate_items) is not tuple
+        or type(candidate.physical_candidate_items) is not tuple
+        or len(candidate.logical_candidate_items) != len(plan.logical_parameter_order)
+        or len(candidate.physical_candidate_items) != len(plan.physical_candidate_order)
+        or not _is_sha256(candidate.candidate_vector_sha256)
+    ):
+        raise CalibrationSchedulerV2Error("validation candidate fields are invalid")
+    for items in (
+        candidate.logical_candidate_items,
+        candidate.physical_candidate_items,
+    ):
+        for item in items:
+            if (
+                type(item) is not tuple
+                or len(item) != 2
+                or type(item[0]) is not str
+                or type(item[1]) not in {int, str}
+            ):
+                raise CalibrationSchedulerV2Error(
+                    "validation candidate item is invalid"
+                )
+    logical_names = tuple(name for name, _ in candidate.logical_candidate_items)
+    physical_names = tuple(name for name, _ in candidate.physical_candidate_items)
+    if (
+        logical_names != plan.logical_parameter_order
+        or physical_names != plan.physical_candidate_order
+    ):
+        raise CalibrationSchedulerV2Error("validation candidate order is invalid")
+    _validate_cache_identity(candidate.development_cache_identity)
+    _validate_cache_identity(candidate.validation_cache_identity)
+    expected = _validation_candidate_from_logical(
+        dict(candidate.logical_candidate_items),
+        plan,
+    )
+    if (
+        not _physical_items_equal(
+            candidate.physical_candidate_items,
+            expected.physical_candidate_items,
+        )
+        or candidate.candidate_vector_sha256 != expected.candidate_vector_sha256
+        or candidate.development_cache_identity
+        != expected.development_cache_identity
+        or candidate.validation_cache_identity != expected.validation_cache_identity
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation candidate identity differs from materialization"
+        )
+
+
+def validation_neighborhood_v2(
+    terminal_logical_candidate: Mapping[str, object],
+    plan: ParsedCalibrationPlanV2,
+) -> ValidationNeighborhoodV2:
+    """Build the exact unique 374-candidate set before relational filtering.
+
+    Canonical serialization is used only to normalize this in-memory tuple.  It
+    does not define or authorize a validation evaluation order.
+    """
+
+    terminal_physical = materialize_candidate_vector_v2(
+        terminal_logical_candidate,
+        plan,
+    )
+    validate_candidate_constraints_v2(terminal_physical, plan)
+    terminal = {
+        name: terminal_physical[name]
+        for name in plan.logical_parameter_order
+    }
+    generated = []
+    for ordinal in range(STRUCTURAL_ATTEMPTS_PER_SWEEP):
+        logical = dict(terminal)
+        logical[ATOMIC_STRUCTURAL_COORDINATE] = ordinal
+        generated.append(_validation_candidate_from_logical(logical, plan))
+    domains = dict(plan.scalar_domains)
+    for coordinate in plan.scalar_parameter_order:
+        for value in domains[coordinate]:
+            if (
+                type(value) is type(terminal[coordinate])
+                and value == terminal[coordinate]
+            ):
+                continue
+            logical = dict(terminal)
+            logical[coordinate] = value
+            generated.append(_validation_candidate_from_logical(logical, plan))
+
+    if len(generated) != MAXIMUM_VALIDATION_NEIGHBORHOOD:
+        raise CalibrationSchedulerV2Error(
+            "validation neighborhood does not contain 374 generated candidates"
+        )
+    by_sha256: Dict[str, ValidationCandidateV2] = {}
+    for candidate in generated:
+        existing = by_sha256.get(candidate.candidate_vector_sha256)
+        if existing is not None:
+            if not _physical_items_equal(
+                existing.physical_candidate_items,
+                candidate.physical_candidate_items,
+            ):
+                raise CalibrationSchedulerV2Error(
+                    "validation candidate SHA-256 collision"
+                )
+            raise CalibrationSchedulerV2Error(
+                "validation neighborhood contains a duplicate candidate"
+            )
+        by_sha256[candidate.candidate_vector_sha256] = candidate
+
+    normalized = tuple(
+        sorted(
+            by_sha256.values(),
+            key=lambda candidate: serialized_candidate_vector_v2(
+                dict(candidate.physical_candidate_items),
+                plan,
+            ),
+        )
+    )
+    constraint_valid = []
+    for candidate in normalized:
+        try:
+            validate_candidate_constraints_v2(
+                dict(candidate.physical_candidate_items),
+                plan,
+            )
+        except CalibrationPlanCodecError:
+            continue
+        constraint_valid.append(candidate)
+
+    terminal_sha256 = candidate_vector_sha256_v2(terminal_physical, plan)
+    if terminal_sha256 not in by_sha256:
+        raise CalibrationSchedulerV2Error(
+            "terminal candidate is absent from its validation neighborhood"
+        )
+    return ValidationNeighborhoodV2(
+        terminal_candidate_sha256=terminal_sha256,
+        candidates_before_constraint_filtering=normalized,
+        constraint_valid_candidates=tuple(constraint_valid),
+    )
+
+
+def _derive_validation_admission_from_replay(
+    plan: ParsedCalibrationPlanV2,
+    replay: DevelopmentSearchResultV2,
+) -> ValidationAdmissionV2:
+    """Derive admission only from an already replay-verified terminal trace."""
+
+    if (
+        replay.status != STATUS_TERMINATED_FEASIBLE
+        or replay.incumbent_logical_candidate_items is None
+        or replay.incumbent_candidate_sha256 is None
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation admission requires a feasible development terminal"
+        )
+    neighborhood = validation_neighborhood_v2(
+        dict(replay.incumbent_logical_candidate_items),
+        plan,
+    )
+    if neighborhood.terminal_candidate_sha256 != replay.incumbent_candidate_sha256:
+        raise CalibrationSchedulerV2Error(
+            "validation neighborhood terminal differs from development replay"
+        )
+
+    evaluation_index: Dict[str, Tuple[Tuple[Tuple[str, object], ...], DevelopmentEvaluationV2]] = {}
+    for record in replay.attempt_records:
+        if record.evaluation is None:
+            continue
+        existing = evaluation_index.get(record.candidate_vector_sha256)
+        if existing is not None:
+            if (
+                not _physical_items_equal(existing[0], record.physical_candidate_items)
+                or _evaluation_semantic_sha256(existing[1])
+                != _evaluation_semantic_sha256(record.evaluation)
+            ):
+                raise CalibrationSchedulerV2Error(
+                    "development evidence index contains inconsistent duplicates"
+                )
+            continue
+        evaluation_index[record.candidate_vector_sha256] = (
+            record.physical_candidate_items,
+            record.evaluation,
+        )
+
+    evidence = []
+    admitted = []
+    for candidate in neighborhood.constraint_valid_candidates:
+        indexed = evaluation_index.get(candidate.candidate_vector_sha256)
+        if indexed is None:
+            raise CalibrationSchedulerV2Error(
+                "constraint-valid validation neighbor lacks development evidence"
+            )
+        physical_items, evaluation = indexed
+        if not _physical_items_equal(
+            physical_items,
+            candidate.physical_candidate_items,
+        ):
+            raise CalibrationSchedulerV2Error(
+                "development evidence candidate bytes differ from neighborhood"
+            )
+        row = DevelopmentCandidateEvidenceV2(candidate, evaluation)
+        evidence.append(row)
+        if evaluation.feasible:
+            admitted.append(candidate)
+    if not admitted or not any(
+        candidate.candidate_vector_sha256
+        == neighborhood.terminal_candidate_sha256
+        for candidate in admitted
+    ):
+        raise CalibrationSchedulerV2Error(
+            "development-feasible terminal is absent from validation admission"
+        )
+    return ValidationAdmissionV2(
+        development_attempt_records=replay.attempt_records,
+        development_last_record_sha256=replay.last_record_sha256,
+        neighborhood=neighborhood,
+        development_evidence=tuple(evidence),
+        admitted_candidates=tuple(admitted),
+    )
+
+
+def validation_admission_v2(
+    plan: ParsedCalibrationPlanV2,
+    development_records: Sequence[AttemptRecordV2],
+    *,
+    expected_attempt_count: int,
+    expected_last_record_sha256: str,
+) -> ValidationAdmissionV2:
+    """Freeze development-complete validation admission without validation access."""
+
+    replay = replay_development_attempts_v2(
+        plan,
+        development_records,
+        expected_attempt_count=expected_attempt_count,
+        expected_last_record_sha256=expected_last_record_sha256,
+    )
+    return _derive_validation_admission_from_replay(plan, replay)
+
+
+def validation_objective_key_v2(
+    evaluation: ValidationEvaluationV2,
+    physical_candidate: Mapping[str, object],
+    plan: ParsedCalibrationPlanV2,
+) -> Tuple[object, ...]:
+    """Apply the inherited validation tuple and complete 48-field tie-break."""
+
+    _validate_validation_evaluation(evaluation)
+    return (
+        -evaluation.y_vs_fixed_ci_low,
+        -evaluation.y_vs_non_ash_ci_low,
+        -evaluation.y_vs_conventional_ci_low,
+        -evaluation.mean_ms_ssim_delta_vs_conventional,
+        evaluation.maximum_ringing_excursion,
+        evaluation.maximum_alias_ratio,
+        evaluation.estimated_dispatch_cost,
+        serialized_candidate_vector_v2(physical_candidate, plan),
+    )
+
+
+def _validation_pareto_dimensions(
+    evaluation: ValidationEvaluationV2,
+) -> Tuple[object, ...]:
+    _validate_validation_evaluation(evaluation)
+    return (
+        -evaluation.y_vs_fixed_ci_low,
+        -evaluation.y_vs_non_ash_ci_low,
+        -evaluation.y_vs_conventional_ci_low,
+        -evaluation.mean_ms_ssim_delta_vs_conventional,
+        evaluation.maximum_ringing_excursion,
+        evaluation.maximum_alias_ratio,
+        evaluation.estimated_dispatch_cost,
+    )
+
+
+def _validate_scored_validation_candidate(
+    scored: ScoredValidationCandidateV2,
+    plan: ParsedCalibrationPlanV2,
+) -> None:
+    if type(scored) is not ScoredValidationCandidateV2:
+        raise CalibrationSchedulerV2Error(
+            "scored validation candidate has the wrong type"
+        )
+    _validate_validation_candidate(scored.candidate, plan)
+    _validate_validation_evaluation(scored.evaluation)
+
+
+def _validate_validation_evaluation_failure(
+    failure: ValidationEvaluationFailureV2,
+    plan: ParsedCalibrationPlanV2,
+) -> None:
+    if type(failure) is not ValidationEvaluationFailureV2:
+        raise CalibrationSchedulerV2Error(
+            "validation evaluation failure has the wrong type"
+        )
+    _validate_validation_candidate(failure.candidate, plan)
+    if (
+        type(failure.failure_reasons) is not tuple
+        or not failure.failure_reasons
+        or any(
+            type(reason) is not str or not reason
+            for reason in failure.failure_reasons
+        )
+        or len(set(failure.failure_reasons)) != len(failure.failure_reasons)
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation evaluator failure reasons are invalid"
+        )
+
+
+def _validate_validation_admission(
+    admission: ValidationAdmissionV2,
+    plan: ParsedCalibrationPlanV2,
+) -> None:
+    if (
+        type(admission) is not ValidationAdmissionV2
+        or type(admission.development_attempt_records) is not tuple
+        or not admission.development_attempt_records
+        or not _is_sha256(admission.development_last_record_sha256)
+        or type(admission.neighborhood) is not ValidationNeighborhoodV2
+        or type(admission.development_evidence) is not tuple
+        or type(admission.admitted_candidates) is not tuple
+    ):
+        raise CalibrationSchedulerV2Error("validation admission fields are invalid")
+    replay = replay_development_attempts_v2(
+        plan,
+        admission.development_attempt_records,
+        expected_attempt_count=len(admission.development_attempt_records),
+        expected_last_record_sha256=admission.development_last_record_sha256,
+    )
+    replay_admission = _derive_validation_admission_from_replay(plan, replay)
+    neighborhood = admission.neighborhood
+    if (
+        not _is_sha256(neighborhood.terminal_candidate_sha256)
+        or type(neighborhood.candidates_before_constraint_filtering) is not tuple
+        or type(neighborhood.constraint_valid_candidates) is not tuple
+        or len(neighborhood.candidates_before_constraint_filtering)
+        != MAXIMUM_VALIDATION_NEIGHBORHOOD
+    ):
+        raise CalibrationSchedulerV2Error("validation neighborhood fields are invalid")
+
+    all_candidates: Dict[str, ValidationCandidateV2] = {}
+    derived_constraint_valid = set()
+    for candidate in neighborhood.candidates_before_constraint_filtering:
+        _validate_validation_candidate(candidate, plan)
+        candidate_sha256 = candidate.candidate_vector_sha256
+        if candidate_sha256 in all_candidates:
+            raise CalibrationSchedulerV2Error(
+                "validation neighborhood candidate repeats"
+            )
+        all_candidates[candidate_sha256] = candidate
+        try:
+            validate_candidate_constraints_v2(
+                dict(candidate.physical_candidate_items),
+                plan,
+            )
+        except CalibrationPlanCodecError:
+            continue
+        derived_constraint_valid.add(candidate_sha256)
+    if neighborhood.terminal_candidate_sha256 not in all_candidates:
+        raise CalibrationSchedulerV2Error(
+            "validation neighborhood terminal is absent"
+        )
+    terminal_candidate = all_candidates[neighborhood.terminal_candidate_sha256]
+    expected_neighborhood = validation_neighborhood_v2(
+        dict(terminal_candidate.logical_candidate_items),
+        plan,
+    )
+    expected_candidates = {
+        candidate.candidate_vector_sha256: candidate
+        for candidate in expected_neighborhood.candidates_before_constraint_filtering
+    }
+    if (
+        expected_neighborhood.terminal_candidate_sha256
+        != neighborhood.terminal_candidate_sha256
+        or set(expected_candidates) != set(all_candidates)
+        or any(
+            not _physical_items_equal(
+                candidate.physical_candidate_items,
+                all_candidates[candidate_sha256].physical_candidate_items,
+            )
+            for candidate_sha256, candidate in expected_candidates.items()
+        )
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation neighborhood differs from exact terminal replacements"
+        )
+
+    declared_constraint_valid = set()
+    for candidate in neighborhood.constraint_valid_candidates:
+        _validate_validation_candidate(candidate, plan)
+        candidate_sha256 = candidate.candidate_vector_sha256
+        if (
+            candidate_sha256 in declared_constraint_valid
+            or candidate_sha256 not in all_candidates
+            or not _physical_items_equal(
+                candidate.physical_candidate_items,
+                all_candidates[candidate_sha256].physical_candidate_items,
+            )
+        ):
+            raise CalibrationSchedulerV2Error(
+                "constraint-valid validation neighborhood is inconsistent"
+            )
+        declared_constraint_valid.add(candidate_sha256)
+    if declared_constraint_valid != derived_constraint_valid:
+        raise CalibrationSchedulerV2Error(
+            "constraint-valid validation neighborhood set differs"
+        )
+
+    evidence_by_sha256 = {}
+    for row in admission.development_evidence:
+        if type(row) is not DevelopmentCandidateEvidenceV2:
+            raise CalibrationSchedulerV2Error(
+                "development candidate evidence has the wrong type"
+            )
+        _validate_validation_candidate(row.candidate, plan)
+        _validate_development_evaluation(row.evaluation)
+        candidate_sha256 = row.candidate.candidate_vector_sha256
+        if (
+            candidate_sha256 in evidence_by_sha256
+            or candidate_sha256 not in declared_constraint_valid
+            or not _physical_items_equal(
+                row.candidate.physical_candidate_items,
+                all_candidates[candidate_sha256].physical_candidate_items,
+            )
+        ):
+            raise CalibrationSchedulerV2Error(
+                "development candidate evidence is inconsistent"
+            )
+        evidence_by_sha256[candidate_sha256] = row
+    if set(evidence_by_sha256) != declared_constraint_valid:
+        raise CalibrationSchedulerV2Error(
+            "development evidence does not cover the valid neighborhood"
+        )
+
+    admitted_by_sha256 = {}
+    for candidate in admission.admitted_candidates:
+        _validate_validation_candidate(candidate, plan)
+        candidate_sha256 = candidate.candidate_vector_sha256
+        if (
+            candidate_sha256 in admitted_by_sha256
+            or candidate_sha256 not in evidence_by_sha256
+            or not evidence_by_sha256[candidate_sha256].evaluation.feasible
+            or not _physical_items_equal(
+                candidate.physical_candidate_items,
+                all_candidates[candidate_sha256].physical_candidate_items,
+            )
+        ):
+            raise CalibrationSchedulerV2Error(
+                "admitted validation candidate is inconsistent"
+            )
+        admitted_by_sha256[candidate_sha256] = candidate
+    expected_admitted = {
+        candidate_sha256
+        for candidate_sha256, row in evidence_by_sha256.items()
+        if row.evaluation.feasible
+    }
+    if (
+        set(admitted_by_sha256) != expected_admitted
+        or neighborhood.terminal_candidate_sha256 not in admitted_by_sha256
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation admission differs from feasible development evidence"
+        )
+
+    replay_evidence_by_sha256 = {
+        row.candidate.candidate_vector_sha256: row
+        for row in replay_admission.development_evidence
+    }
+    replay_admitted_sha256 = {
+        candidate.candidate_vector_sha256
+        for candidate in replay_admission.admitted_candidates
+    }
+    if (
+        replay_admission.neighborhood.terminal_candidate_sha256
+        != neighborhood.terminal_candidate_sha256
+        or set(replay_evidence_by_sha256) != set(evidence_by_sha256)
+        or replay_admitted_sha256 != set(admitted_by_sha256)
+        or any(
+            not _physical_items_equal(
+                row.candidate.physical_candidate_items,
+                evidence_by_sha256[
+                    candidate_sha256
+                ].candidate.physical_candidate_items,
+            )
+            or _evaluation_semantic_sha256(row.evaluation)
+            != _evaluation_semantic_sha256(
+                evidence_by_sha256[candidate_sha256].evaluation
+            )
+            for candidate_sha256, row in replay_evidence_by_sha256.items()
+        )
+    ):
+        raise CalibrationSchedulerV2Error(
+            "validation admission differs from replayed development evidence"
+        )
+
+
+def validation_pareto_frontier_v2(
+    scored_candidates: Sequence[ScoredValidationCandidateV2],
+    plan: ParsedCalibrationPlanV2,
+) -> Tuple[ScoredValidationCandidateV2, ...]:
+    """Return the feasible, non-dominated frontier in deterministic rank order."""
+
+    if type(scored_candidates) not in {tuple, list}:
+        raise CalibrationSchedulerV2Error(
+            "scored validation candidates must be a concrete sequence"
+        )
+    snapshot = tuple(scored_candidates)
+    seen = set()
+    feasible = []
+    for scored in snapshot:
+        _validate_scored_validation_candidate(scored, plan)
+        candidate_sha256 = scored.candidate.candidate_vector_sha256
+        if candidate_sha256 in seen:
+            raise CalibrationSchedulerV2Error(
+                "scored validation candidate identity repeats"
+            )
+        seen.add(candidate_sha256)
+        if scored.evaluation.feasible:
+            feasible.append(scored)
+    if not feasible:
+        raise CalibrationSchedulerV2Error(
+            "validation selection contains no feasible candidate"
+        )
+
+    frontier = []
+    for index, scored in enumerate(feasible):
+        observed = _validation_pareto_dimensions(scored.evaluation)
+        dominated = False
+        for other_index, other in enumerate(feasible):
+            if index == other_index:
+                continue
+            comparison = _validation_pareto_dimensions(other.evaluation)
+            if all(
+                left <= right
+                for left, right in zip(comparison, observed)
+            ) and any(
+                left < right
+                for left, right in zip(comparison, observed)
+            ):
+                dominated = True
+                break
+        if not dominated:
+            frontier.append(scored)
+    return tuple(
+        sorted(
+            frontier,
+            key=lambda scored: validation_objective_key_v2(
+                scored.evaluation,
+                dict(scored.candidate.physical_candidate_items),
+                plan,
+            ),
+        )
+    )
+
+
+def select_validation_candidate_v2(
+    admission: ValidationAdmissionV2,
+    scored_candidates: Sequence[ScoredValidationCandidateV2],
+    plan: ParsedCalibrationPlanV2,
+    *,
+    evaluation_failures: Sequence[ValidationEvaluationFailureV2],
+) -> ValidationSelectionV2:
+    """Require and rank one explicit validation outcome per admitted candidate."""
+
+    _validate_validation_admission(admission, plan)
+    admitted_by_sha256 = {
+        candidate.candidate_vector_sha256: candidate
+        for candidate in admission.admitted_candidates
+    }
+    if not admitted_by_sha256:
+        raise CalibrationSchedulerV2Error("validation admission is empty")
+    if type(scored_candidates) not in {tuple, list}:
+        raise CalibrationSchedulerV2Error(
+            "scored validation candidates must be a concrete sequence"
+        )
+    if type(evaluation_failures) not in {tuple, list}:
+        raise CalibrationSchedulerV2Error(
+            "validation evaluation failures must be a concrete sequence"
+        )
+    snapshot = tuple(scored_candidates)
+    scored_sha256 = set()
+    for scored in snapshot:
+        _validate_scored_validation_candidate(scored, plan)
+        candidate_sha256 = scored.candidate.candidate_vector_sha256
+        admitted = admitted_by_sha256.get(candidate_sha256)
+        if (
+            candidate_sha256 in scored_sha256
+            or admitted is None
+            or not _physical_items_equal(
+                scored.candidate.physical_candidate_items,
+                admitted.physical_candidate_items,
+            )
+        ):
+            raise CalibrationSchedulerV2Error(
+                "scored validation result is duplicated or not development-admitted"
+            )
+        scored_sha256.add(candidate_sha256)
+
+    failure_snapshot = tuple(evaluation_failures)
+    failure_sha256 = set()
+    for failure in failure_snapshot:
+        _validate_validation_evaluation_failure(failure, plan)
+        candidate_sha256 = failure.candidate.candidate_vector_sha256
+        admitted = admitted_by_sha256.get(candidate_sha256)
+        if (
+            candidate_sha256 in failure_sha256
+            or candidate_sha256 in scored_sha256
+            or admitted is None
+            or not _physical_items_equal(
+                failure.candidate.physical_candidate_items,
+                admitted.physical_candidate_items,
+            )
+        ):
+            raise CalibrationSchedulerV2Error(
+                "validation evaluator failure is duplicated, scored, or not admitted"
+            )
+        failure_sha256.add(candidate_sha256)
+    if scored_sha256 | failure_sha256 != set(admitted_by_sha256):
+        raise CalibrationSchedulerV2Error(
+            "validation outcomes do not exactly cover admitted candidates"
+        )
+
+    frontier = validation_pareto_frontier_v2(snapshot, plan)
+    selected = min(
+        frontier,
+        key=lambda scored: validation_objective_key_v2(
+            scored.evaluation,
+            dict(scored.candidate.physical_candidate_items),
+            plan,
+        ),
+    )
+    return ValidationSelectionV2(
+        pareto_frontier=frontier,
+        evaluation_failures=tuple(
+            sorted(
+                failure_snapshot,
+                key=lambda failure: serialized_candidate_vector_v2(
+                    dict(failure.candidate.physical_candidate_items),
+                    plan,
+                ),
+            )
+        ),
+        selected=selected,
+    )

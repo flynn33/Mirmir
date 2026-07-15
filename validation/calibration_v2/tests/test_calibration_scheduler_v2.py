@@ -304,6 +304,18 @@ class CalibrationSchedulerV2Tests(unittest.TestCase):
             runner.canonical_development_failure_reasons(failures),
         )
 
+    def test_development_evaluation_rejects_negative_rank_costs(self) -> None:
+        baseline = evaluation(0)
+        for name in (
+            "maximum_ringing_excursion",
+            "maximum_alias_ratio",
+            "estimated_dispatch_cost",
+        ):
+            with self.subTest(name=name), self.assertRaises(
+                CalibrationSchedulerV2Error
+            ):
+                replace(baseline, **{name: -1})
+
     def test_cache_identity_attempt_accounting_and_constraint_identity(self) -> None:
         result, evaluator = self.run_preferred()
         self.assertEqual(
