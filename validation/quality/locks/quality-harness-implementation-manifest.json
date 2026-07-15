@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 289,
+  "file_count": 292,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -301,6 +301,11 @@
       "relative_path": "validation/calibration_v2/contracts/holdout-sampling-plan-v1.json",
       "sha256": "60f10ec4da68a2c215bc800b17a94be0fce525fa6874f3d274088ce93b52afd2",
       "size_bytes": 4426
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/instruction-conflict-normalization-v1.json",
+      "sha256": "94f99533ad454a7d4fe33a810636b49ed040a81127ced232ac84de5dda482632",
+      "size_bytes": 5981
     },
     {
       "relative_path": "validation/calibration_v2/contracts/locked-compiler-input-v1.template.json",
@@ -643,6 +648,11 @@
       "size_bytes": 10520
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/instruction-conflict-normalization-v1.schema.json",
+      "sha256": "08863255ae74575a7579403b7ff7ebb8b0462e264616bdd429679958554f5a96",
+      "size_bytes": 7984
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/live-holdout-preopen-receipt-v1.schema.json",
       "sha256": "e8f40936c6270aa5ccfe9bd3ac3d659b11a5a90e50c3817b67c9e92ece3eea5d",
       "size_bytes": 2006
@@ -926,6 +936,11 @@
       "relative_path": "validation/calibration_v2/tests/test_g06_verification_runner.py",
       "sha256": "e6d297ab1d08d2472ee5e9abdf2dad1352e115385b1c6f8e3ef0be3a7f6ee570",
       "size_bytes": 98631
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_instruction_conflict_normalization.py",
+      "sha256": "3b9d76319e6215851b9c27239d1515ee04a5ec6192a81d14804747de9121c9d4",
+      "size_bytes": 8526
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_live_holdout_preopen.py",
@@ -1448,6 +1463,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "be63b12a43499cbe541459406e967797ce13a0e6f8d5defc4b4d0ff422fa634a",
+  "manifest_sha256": "34b4f5f87cd6f14c26834ca4621efac0b97e606cf1ae1de9b2ae7919ede1e2ab",
   "schema_version": "1.0.0"
 }

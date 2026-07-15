@@ -23,6 +23,17 @@ The P00 conflict record controls platform normalization. No calibration command,
 quality result, holdout result, generated LUT, or pass claim belongs in this
 directory during contract closure.
 
+## Instruction conflict normalization
+
+`contracts/instruction-conflict-normalization-v1.json` is the canonical pre-lock
+resolution of six package conflicts that affect P07, P08, and P11. Consumers
+must validate it against
+`schemas/instruction-conflict-normalization-v1.schema.json`, require canonical
+file bytes and its self-hash, bind the complete instruction-package manifest,
+and bind every cited package-relative source range to the recorded complete-file
+SHA-256. The contract changes no gate result, holdout state, or release
+configuration; it fixes interpretation before those phases execute.
+
 ## P05 spatial-semantics preregistration
 
 `contracts/spatial-semantics-preregistration-v2.json` freezes the unselected
