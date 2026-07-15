@@ -85,11 +85,38 @@ the plane-aware preregistration to its exact mode ID, Q12 strength, and
 Schema 2 contains no confidence value, format selector, default, or winner.
 Version dispatch supplies format 1.2 and its confidence ABI marker; dynamic
 chroma confidence remains runtime sidecar data and is not stored in a LUT. No
-consumable schema-2 input may be generated until a versioned joint-vector
-calibration plan binds the plane-aware preregistration. That future plan is
-carried by the unchanged `calibration_plan_sha256` field, while repository
-contracts remain bound by quality-manifest and gate evidence outside the six
-binary-header digests.
+consumable schema-2 input may be generated from this preregistration until the
+versioned joint-vector plan has been implemented and a fresh formal
+development/validation selection has completed. `contracts/calibration-plan-v2.json`
+now binds the plane-aware preregistration through the unchanged `calibration_plan_sha256` field,
+while repository contracts remain bound by
+quality-manifest and gate evidence outside the six binary-header digests.
+
+## Plane-aware joint calibration plan
+
+`contracts/calibration-plan-v2.json`, validated by
+`schemas/calibration-plan-v2.schema.json`, is a hash-bound overlay on the exact
+schema-1 plan. It preserves all 37 nonstructural search coordinates and replaces
+the four independently searched route-plane coordinate policies plus global
+anisotropy strength with one atomic ten-factor structural unit. Its reference
+derivation is `reference/calibration_plan_v2.py`.
+
+The structural domain is a deterministic 256-row GF(16) mixed-level covering
+array. Every route-policy pair occurs exactly once, every one- and two-factor
+combination is covered, all 16 complete coordinate vectors occur, and no row is
+all-isotropic. The design contains 226 of the 1,295 admissible complete mode vectors
+and makes no exhaustive claim for interactions of strength three or
+greater. Formal results may identify only the best feasible candidate among
+these 256 preregistered atoms, never an optimum over all 5,304,320 admissible
+complete structural configurations.
+
+Plan v2 separates 38 logical search units from 48 physical candidate fields.
+Each sweep evaluates all 256 complete structural rows before the 37 inherited
+scalar coordinates; eight full sweeps contain at most 3,288 attempts and there
+is no pre-sweep structural default. The contract alone does not authorize
+execution. Versioned runner, compiler/runtime, ledger, cache-budget, selection,
+and release evidence paths plus fresh current-source G04-G06 evidence remain
+mandatory before a consumable schema-2 compiler input can exist.
 
 ## Plane-aware LUT preregistration
 

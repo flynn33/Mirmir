@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 300,
+  "file_count": 304,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -283,6 +283,11 @@
       "size_bytes": 22339
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/calibration-plan-v2.json",
+      "sha256": "1977c85b9a3b7001294a04d33e7654ae20ffb4266ac0c8d2dc76880bdec99fef",
+      "size_bytes": 21234
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v1.json",
       "sha256": "97c6d898b247cc960535ad393b053d723782c398df18d6dd9472d6226d933190",
       "size_bytes": 7879
@@ -488,6 +493,11 @@
       "size_bytes": 58
     },
     {
+      "relative_path": "validation/calibration_v2/reference/calibration_plan_v2.py",
+      "sha256": "a8f6172fdd1ad5ef15beeae06ff78f3bdd075bb59582228dc48d38a0dfb91729",
+      "size_bytes": 10207
+    },
+    {
       "relative_path": "validation/calibration_v2/reference/lut_oracle.py",
       "sha256": "72b6ff321c6fe79a708a8d3775b6ba2c569825ff3c33f87026d47f72d7ceba64",
       "size_bytes": 71663
@@ -526,6 +536,11 @@
       "relative_path": "validation/calibration_v2/schemas/calibration-plan-v1.schema.json",
       "sha256": "051a804b32121a99241270c0199e5f3a90034f717ab05e67019b3d8384a7854a",
       "size_bytes": 16897
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-plan-v2.schema.json",
+      "sha256": "09a21861104bd1b03667d1207a79d523386ad4431e710ba44e4d298180753c09",
+      "size_bytes": 32022
     },
     {
       "relative_path": "validation/calibration_v2/schemas/calibration-run-ledger-v1.schema.json",
@@ -886,6 +901,11 @@
       "relative_path": "validation/calibration_v2/tests/native_benchmark_fixture.py",
       "sha256": "992d7d5f89ac4b236e013c414841616766c5f34d6eef90d022a66b1f0d7e8b46",
       "size_bytes": 7199
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_plan_v2_contract.py",
+      "sha256": "4311c411d1b44df66215528f7815db3230c91656cf79ca4342e508e14a262255",
+      "size_bytes": 23467
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_contracts.py",
@@ -1503,6 +1523,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "56b8dd4b9f940a66f7d7d427b9f56c165eccb2fb37e51bddfac6328a39db0a39",
+  "manifest_sha256": "fbb3682c6599577ece6d7d06e7ca9dff58dd0af7772bdee305603b68311ce293",
   "schema_version": "1.0.0"
 }
