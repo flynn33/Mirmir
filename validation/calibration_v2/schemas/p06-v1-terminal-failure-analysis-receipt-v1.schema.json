@@ -1,0 +1,547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p06-v1-terminal-failure-analysis-receipt-v1.schema.json",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+    },
+    "selfHash": {
+      "type": "object",
+      "required": ["field", "sha256"],
+      "properties": {
+        "field": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "coreArtifact": {
+      "type": "object",
+      "required": ["role", "path", "sha256", "size_bytes", "self_hash"],
+      "properties": {
+        "role": {"type": "string", "minLength": 1},
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "self_hash": {
+          "anyOf": [
+            {"$ref": "#/$defs/selfHash"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "treeBinding": {
+      "type": "object",
+      "required": ["digest_mode", "sha256", "size_bytes", "file_count", "directory_count"],
+      "properties": {
+        "digest_mode": {"const": "p06_release_evidence_directory_tree_v1"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "file_count": {"type": "integer", "minimum": 1},
+        "directory_count": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "routeClassCounts": {
+      "type": "object",
+      "required": ["pass", "chroma_only", "route_y_only", "both"],
+      "properties": {
+        "pass": {"type": "integer", "minimum": 0},
+        "chroma_only": {"type": "integer", "minimum": 0},
+        "route_y_only": {"type": "integer", "minimum": 0},
+        "both": {"type": "integer", "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "routeCohort": {
+      "type": "object",
+      "required": [
+        "observation_count",
+        "composite_failure_count",
+        "chroma_or_route_y_failure_count",
+        "equivalence_disagreement_count",
+        "direct_2x",
+        "direct_3_over_2"
+      ],
+      "properties": {
+        "observation_count": {"type": "integer", "minimum": 1},
+        "composite_failure_count": {"type": "integer", "minimum": 0},
+        "chroma_or_route_y_failure_count": {"type": "integer", "minimum": 0},
+        "equivalence_disagreement_count": {"const": 0},
+        "direct_2x": {"$ref": "#/$defs/routeClassCounts"},
+        "direct_3_over_2": {"$ref": "#/$defs/routeClassCounts"}
+      },
+      "additionalProperties": false
+    },
+    "association": {
+      "type": "object",
+      "required": ["left", "right", "contingency_00_01_10_11", "phi"],
+      "properties": {
+        "left": {
+          "enum": ["chroma_displacement", "severe_category_regression"]
+        },
+        "right": {
+          "enum": ["severe_asset_regression", "severe_category_regression"]
+        },
+        "contingency_00_01_10_11": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"type": "integer", "minimum": 0}
+        },
+        "phi": {"type": "number", "minimum": -1, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "associationCohort": {
+      "type": "object",
+      "required": ["observation_count", "values"],
+      "properties": {
+        "observation_count": {"type": "integer", "minimum": 2},
+        "values": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/association"}
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "receipt_id",
+    "status",
+    "source_scope",
+    "terminal_analysis",
+    "terminal_archive",
+    "bounded_predecessor",
+    "terminal_findings",
+    "causal_boundary",
+    "claims",
+    "hash_scope",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_v1_terminal_failure_analysis_receipt"},
+    "receipt_id": {"const": "mirmir-p06-v1-terminal-failure-analysis-receipt-v1"},
+    "status": {"const": "authenticated_terminal_development_failure"},
+    "source_scope": {
+      "type": "object",
+      "required": [
+        "phase",
+        "configuration_generation",
+        "split",
+        "run_id",
+        "validation_accessed",
+        "holdout_accessed",
+        "media_payload_accessed"
+      ],
+      "properties": {
+        "phase": {"const": "P06"},
+        "configuration_generation": {"const": "v1_shared_bank"},
+        "split": {"const": "development"},
+        "run_id": {"const": "p06-current-source-r1"},
+        "validation_accessed": {"const": false},
+        "holdout_accessed": {"const": false},
+        "media_payload_accessed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "terminal_analysis": {
+      "type": "object",
+      "required": [
+        "path",
+        "file_sha256",
+        "size_bytes",
+        "self_hash",
+        "schema_version",
+        "artifact_kind",
+        "analysis_repository_head",
+        "bound_repository_head",
+        "cutoff_sequence",
+        "cutoff_record_sha256"
+      ],
+      "properties": {
+        "path": {
+          "const": "analysis/ash-failure-patterns/evidence/p06-current-source-terminal-failure-v1.json"
+        },
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "self_hash": {"$ref": "#/$defs/selfHash"},
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p06_failure_pattern_analysis"},
+        "analysis_repository_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "bound_repository_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "cutoff_sequence": {"const": 1008},
+        "cutoff_record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "terminal_archive": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "digest_contract",
+        "tree",
+        "evaluation_tree",
+        "control_selection_tree",
+        "core_artifacts",
+        "failure_envelope",
+        "transaction_marker",
+        "input_bundle_sha256",
+        "ledger_closure"
+      ],
+      "properties": {
+        "root_path": {"$ref": "#/$defs/safeRelativePath"},
+        "digest_contract": {
+          "type": "object",
+          "required": ["implementation", "walk_order", "row_encoding", "hash_input"],
+          "properties": {
+            "implementation": {
+              "const": "validation.calibration_v2.release_evidence._directory_tree"
+            },
+            "walk_order": {
+              "const": "top_down; sorted directories and files; directory rows precede file rows at each visited directory"
+            },
+            "row_encoding": {
+              "const": "relative POSIX path, entry kind, byte size, and SHA-256 for regular files"
+            },
+            "hash_input": {
+              "const": "canonical sorted-key compact UTF-8 JSON row array with preserved array order and no trailing LF"
+            }
+          },
+          "additionalProperties": false
+        },
+        "tree": {"$ref": "#/$defs/treeBinding"},
+        "evaluation_tree": {"$ref": "#/$defs/treeBinding"},
+        "control_selection_tree": {"$ref": "#/$defs/treeBinding"},
+        "core_artifacts": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {"$ref": "#/$defs/coreArtifact"}
+        },
+        "failure_envelope": {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "artifact_kind",
+            "run_id",
+            "error_type",
+            "error",
+            "attempt_count",
+            "attempt_ledger_sha256",
+            "holdout_accessed",
+            "release_locks_written"
+          ],
+          "properties": {
+            "schema_version": {"const": "1.0.0"},
+            "artifact_kind": {"const": "p06_calibration_failure"},
+            "run_id": {"const": "p06-current-source-r1"},
+            "error_type": {"const": "CalibrationError"},
+            "error": {
+              "const": "coordinate search produced no development-feasible terminal vector"
+            },
+            "attempt_count": {"const": 1009},
+            "attempt_ledger_sha256": {"$ref": "#/$defs/sha256"},
+            "holdout_accessed": {"const": false},
+            "release_locks_written": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "transaction_marker": {
+          "type": "object",
+          "required": ["artifact_kind", "transaction_state", "record_sha256"],
+          "properties": {
+            "artifact_kind": {"const": "p06_calibration_run_transaction"},
+            "transaction_state": {"const": "in_progress"},
+            "record_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "ledger_closure": {
+          "type": "object",
+          "required": [
+            "canonical_ndjson",
+            "sequence_continuous",
+            "record_hash_chain_valid",
+            "first_sequence",
+            "last_sequence",
+            "genesis_previous_record_sha256",
+            "tail_previous_record_sha256",
+            "tail_record_sha256",
+            "attempt_count"
+          ],
+          "properties": {
+            "canonical_ndjson": {"const": true},
+            "sequence_continuous": {"const": true},
+            "record_hash_chain_valid": {"const": true},
+            "first_sequence": {"const": 0},
+            "last_sequence": {"const": 1008},
+            "genesis_previous_record_sha256": {"$ref": "#/$defs/sha256"},
+            "tail_previous_record_sha256": {"$ref": "#/$defs/sha256"},
+            "tail_record_sha256": {"$ref": "#/$defs/sha256"},
+            "attempt_count": {"const": 1009}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "bounded_predecessor": {
+      "type": "object",
+      "required": [
+        "path",
+        "file_sha256",
+        "size_bytes",
+        "self_hash",
+        "cutoff_sequence",
+        "ledger_prefix_size_bytes",
+        "ledger_prefix_sha256",
+        "cutoff_record_sha256",
+        "terminal_prefix_match_verified"
+      ],
+      "properties": {
+        "path": {
+          "const": "analysis/ash-failure-patterns/evidence/p06-current-source-snapshot-final.json"
+        },
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "self_hash": {"$ref": "#/$defs/selfHash"},
+        "cutoff_sequence": {"const": 240},
+        "ledger_prefix_size_bytes": {"const": 919520},
+        "ledger_prefix_sha256": {"$ref": "#/$defs/sha256"},
+        "cutoff_record_sha256": {"$ref": "#/$defs/sha256"},
+        "terminal_prefix_match_verified": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "terminal_findings": {
+      "type": "object",
+      "required": [
+        "status_counts",
+        "search",
+        "final_incumbent",
+        "failure_pattern_counts",
+        "route_failure_equivalence",
+        "raw_decoded_indicator_equivalence",
+        "binary_associations",
+        "controlled_coordinates",
+        "improvement_targets"
+      ],
+      "properties": {
+        "status_counts": {
+          "type": "object",
+          "required": ["infeasible", "constraint_failure", "evaluation_failure", "feasible"],
+          "properties": {
+            "infeasible": {"type": "integer", "minimum": 0},
+            "constraint_failure": {"type": "integer", "minimum": 0},
+            "evaluation_failure": {"type": "integer", "minimum": 0},
+            "feasible": {"const": 0}
+          },
+          "additionalProperties": false
+        },
+        "search": {
+          "type": "object",
+          "required": [
+            "fresh_evaluation_count",
+            "cache_hit_count",
+            "sweep_count",
+            "neighbors_per_sweep",
+            "selected_moves_by_sweep",
+            "selected_move_count",
+            "selected_moves_changing_canonical_failures",
+            "selected_moves_changing_summary",
+            "selected_moves_without_summary_change"
+          ],
+          "properties": {
+            "fresh_evaluation_count": {"type": "integer", "minimum": 0},
+            "cache_hit_count": {"type": "integer", "minimum": 0},
+            "sweep_count": {"const": 6},
+            "neighbors_per_sweep": {"const": 168},
+            "selected_moves_by_sweep": {
+              "type": "array",
+              "minItems": 6,
+              "maxItems": 6,
+              "items": {"type": "integer", "minimum": 0}
+            },
+            "selected_move_count": {"type": "integer", "minimum": 0},
+            "selected_moves_changing_canonical_failures": {"type": "integer", "minimum": 0},
+            "selected_moves_changing_summary": {"type": "integer", "minimum": 0},
+            "selected_moves_without_summary_change": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "final_incumbent": {
+          "type": "object",
+          "required": [
+            "candidate_vector_sha256",
+            "ledger_observation_count",
+            "tail_candidate_vector_sha256",
+            "tail_candidate_is_incumbent"
+          ],
+          "properties": {
+            "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+            "ledger_observation_count": {"type": "integer", "minimum": 1},
+            "tail_candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+            "tail_candidate_is_incumbent": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "failure_pattern_counts": {
+          "type": "object",
+          "required": ["attempt_weighted", "unique_evaluation"],
+          "properties": {
+            "attempt_weighted": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {"type": "integer", "minimum": 1}
+            },
+            "unique_evaluation": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {"type": "integer", "minimum": 1}
+            }
+          },
+          "additionalProperties": false
+        },
+        "route_failure_equivalence": {
+          "type": "object",
+          "required": ["criterion", "attempt_weighted", "unique_evaluation"],
+          "properties": {
+            "criterion": {
+              "const": "aggregate route failure equals absolute chroma failure or severe per-route asset Y failure within this run"
+            },
+            "attempt_weighted": {"$ref": "#/$defs/routeCohort"},
+            "unique_evaluation": {"$ref": "#/$defs/routeCohort"}
+          },
+          "additionalProperties": false
+        },
+        "raw_decoded_indicator_equivalence": {
+          "type": "object",
+          "required": [
+            "paired_criterion_count",
+            "attempt_weighted_observation_count",
+            "unique_evaluation_observation_count",
+            "attempt_weighted_disagreement_count",
+            "unique_evaluation_disagreement_count"
+          ],
+          "properties": {
+            "paired_criterion_count": {"const": 6},
+            "attempt_weighted_observation_count": {"type": "integer", "minimum": 1},
+            "unique_evaluation_observation_count": {"type": "integer", "minimum": 1},
+            "attempt_weighted_disagreement_count": {"const": 0},
+            "unique_evaluation_disagreement_count": {"const": 0}
+          },
+          "additionalProperties": false
+        },
+        "binary_associations": {
+          "type": "object",
+          "required": ["method", "causal_interpretation_allowed", "attempt_weighted", "unique_evaluation"],
+          "properties": {
+            "method": {"const": "Pearson phi coefficient for binary failure indicators"},
+            "causal_interpretation_allowed": {"const": false},
+            "attempt_weighted": {"$ref": "#/$defs/associationCohort"},
+            "unique_evaluation": {"$ref": "#/$defs/associationCohort"}
+          },
+          "additionalProperties": false
+        },
+        "controlled_coordinates": {
+          "type": "object",
+          "required": [
+            "coordinate_count",
+            "canonical_failure_changing_count",
+            "canonical_failure_changing_coordinates",
+            "summary_inert_count",
+            "summary_inert_coordinates"
+          ],
+          "properties": {
+            "coordinate_count": {"type": "integer", "minimum": 1},
+            "canonical_failure_changing_count": {"type": "integer", "minimum": 0},
+            "canonical_failure_changing_coordinates": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "summary_inert_count": {"type": "integer", "minimum": 0},
+            "summary_inert_coordinates": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            }
+          },
+          "additionalProperties": false
+        },
+        "improvement_targets": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "prefixItems": [
+            {"const": "plane_specific_luma_chroma_decoupling"},
+            {"const": "adaptive_uplift_against_fixed_and_non_ash_controls"},
+            {"const": "risk_threshold_state_causality_decoupling"},
+            {"const": "invalid_search_domain_preflight"}
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "causal_boundary": {
+      "type": "object",
+      "required": ["predicate_equivalence", "correlations", "controlled_coordinates", "code_path_mapping"],
+      "properties": {
+        "predicate_equivalence": {"const": "run_bounded_logical_equivalence_not_root_cause"},
+        "correlations": {"const": "descriptive_association_only"},
+        "controlled_coordinates": {"const": "conditional_within_sweep_effect_not_general_causal_estimate"},
+        "code_path_mapping": {"const": "implementation_hypothesis_only"}
+      },
+      "additionalProperties": false
+    },
+    "claims": {
+      "type": "object",
+      "required": [
+        "terminal_v1_failure_preserved",
+        "full_development_replay_verified",
+        "bounded_predecessor_is_exact_terminal_prefix",
+        "winner_selected",
+        "formal_g06_result_established",
+        "release_authorized",
+        "v2_fix_validated",
+        "implementation_root_cause_established",
+        "writer_root_cause_established"
+      ],
+      "properties": {
+        "terminal_v1_failure_preserved": {"const": true},
+        "full_development_replay_verified": {"const": true},
+        "bounded_predecessor_is_exact_terminal_prefix": {"const": true},
+        "winner_selected": {"const": false},
+        "formal_g06_result_established": {"const": false},
+        "release_authorized": {"const": false},
+        "v2_fix_validated": {"const": false},
+        "implementation_root_cause_established": {"const": false},
+        "writer_root_cause_established": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /receipt_sha256"
+    },
+    "receipt_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false
+}

@@ -149,6 +149,50 @@ no gate claim. After G07, the complete spatial LUT bytes and SHA-256 are
 immutable; P10 must use a separately preregistered temporal overlay that binds
 the exact spatial LUT SHA-256.
 
+## Plane-aware compiler contract V2
+
+`contracts/compiler-contract-v2.json`, validated by
+`schemas/compiler-contract-v2.schema.json`, freezes the future format-1.2
+compiler boundary without claiming that the current format-1.1 Swift or Python
+implementation satisfies it. The contract adds plane-major
+route/plane/phase/context/state indexing, plane-local source-exact semantics,
+joint route-plane coordinate and anisotropy-mode selection, and the exact V3
+header extension. It preserves the eleven byte-semantic V1 compiler sections,
+keeps temporal contexts spatially mirrored through G07, and requires downstream
+Swift production and independent conformance implementations before any LUT
+bytes can become release evidence.
+
+## Candidate evidence and comparator budget V2
+
+`contracts/candidate-evidence-policy-v2.json`, validated by
+`schemas/candidate-evidence-policy-v2.schema.json`, freezes the 48-field
+candidate identity, 23-field shared-bank identity, split-aware cache tuple,
+3,288-attempt development ceiling, 374-candidate validation neighborhood,
+typed failure coverage, Pareto dimensions, and final canonical-byte tie-break.
+It also names every versioned evidence sibling and the non-colliding release
+schema required before execution.
+
+The policy binds `contracts/baseline-ablation-budget-v2.json` and
+`schemas/baseline-ablation-budget-v2.schema.json`. That overlay preserves the
+V1 non-ASH selector rule family, 27-coordinate order, seven-value domains, and
+selection rules while extending the maximum from eight to eighteen complete
+sweeps. Its 3,403-attempt ceiling is the smallest whole-sweep ceiling that is
+not below the V2 full-ASH ceiling of 3,288. These contracts perform no
+candidate evaluation, validation access, holdout access, selection, compiler
+execution, or gate decision.
+
+## Preserved V1 terminal failure analysis
+
+`analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json`
+binds the additive terminal replay, the earlier bounded predecessor, the
+1,009-record development ledger, and the complete 818-file failed-run tree.
+Its claims are deliberately limited: the V1 run ended without a feasible
+terminal vector; no winner, V2 fix, root cause, G06 result, or release is
+claimed. `tools/verify_p06_v1_terminal_failure_analysis.py` verifies the
+tracked receipt and analyses by default. Supplying `--failed-root` explicitly
+adds a complete tree, ledger, evaluation, control-selection, and recomputed
+finding verification of the preserved development-only archive.
+
 Run both test runners before executing calibration. Some evidence/provider tests
 use pytest-style functions and are intentionally outside unittest discovery.
 

@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 312,
+  "file_count": 324,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -283,6 +283,11 @@
       "size_bytes": 67597
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/baseline-ablation-budget-v2.json",
+      "sha256": "1885aa30b46f72ed1de0570a3de5f615cf788ec0d494ed5396731279763da4c8",
+      "size_bytes": 8475
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
       "sha256": "23e3972b4c91ae01a05a8c82d16616fdc1765de4942d2f36e4432454adfe8535",
       "size_bytes": 13488
@@ -303,9 +308,19 @@
       "size_bytes": 7879
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v2.json",
+      "sha256": "2e7d281ca1959d0eafe42aa6bbf57e34cf48d7dde39c4767a1b83f413fb5fb9c",
+      "size_bytes": 21616
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
       "sha256": "3e55885471aacd3e1468ab6d8d967d8335d5d322c77859b94a5321391cabf798",
       "size_bytes": 12600
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/compiler-contract-v2.json",
+      "sha256": "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a",
+      "size_bytes": 26462
     },
     {
       "relative_path": "validation/calibration_v2/contracts/coordinate-model-contract-v3.json",
@@ -543,6 +558,11 @@
       "size_bytes": 370159
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/baseline-ablation-budget-v2.schema.json",
+      "sha256": "080cc48a86569d68aecb0ca9384c89300df57dbeaa995e0651cf6082c969416b",
+      "size_bytes": 8722
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
       "sha256": "7da980490d90cab2bfdc9933fffa56cddc2327f8703014c896aa9e9b712c79d5",
       "size_bytes": 10908
@@ -578,6 +598,11 @@
       "size_bytes": 7898
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v2.schema.json",
+      "sha256": "1bbe2402851fe584eb86b589553b9fb2f3ddb3c809a5ef37ba18a5ce34cf2129",
+      "size_bytes": 22856
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/candidate-lut-runtime-manifest-v1.schema.json",
       "sha256": "c57e083785722dfc2d76f45fc2d3864979ba025b85e3409a1dc513cbe67306f6",
       "size_bytes": 5363
@@ -586,6 +611,11 @@
       "relative_path": "validation/calibration_v2/schemas/compiler-contract-v1.schema.json",
       "sha256": "46e55413adde5f0195a20c9a1ddb73d33684cd36ccae59139157f2165f9fe379",
       "size_bytes": 7072
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/compiler-contract-v2.schema.json",
+      "sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
+      "size_bytes": 27445
     },
     {
       "relative_path": "validation/calibration_v2/schemas/control-aggregate-cache-native-benchmark-v1.schema.json",
@@ -788,6 +818,11 @@
       "size_bytes": 4969
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/p06-v1-terminal-failure-analysis-receipt-v1.schema.json",
+      "sha256": "9dd99472e8a288830fe30ab0c849b544bcedd83b2d909b5eec8e68888fcc0e65",
+      "size_bytes": 19975
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/p07-artifact-manifest-v1.schema.json",
       "sha256": "98129eb7712fcdfa6b9ddbad68f42b19f25a989a0f37ac83fc8662db0591ca49",
       "size_bytes": 3774
@@ -923,6 +958,11 @@
       "size_bytes": 7199
     },
     {
+      "relative_path": "validation/calibration_v2/tests/test_baseline_ablation_budget_v2.py",
+      "sha256": "4f2c45e42bdd650876566f50a9406f42e634c73b2e92fb292ff5739c539e646f",
+      "size_bytes": 11911
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/test_calibration_plan_codec.py",
       "sha256": "e46bb58a55cee88c325cf7e99ef3b118c37205480d8392748ca78bb127c0fea2",
       "size_bytes": 21318
@@ -941,6 +981,16 @@
       "relative_path": "validation/calibration_v2/tests/test_calibration_validation_v2.py",
       "sha256": "b079082ac3a7031103fc0d6024bc54c88eb9fa2836ebb7ac3e94861487dc8f3f",
       "size_bytes": 27551
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_candidate_evidence_policy_v2.py",
+      "sha256": "303cff3681638f64525808a603ba5f947a9d90f465677510ed29084b4bb300d1",
+      "size_bytes": 24972
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_compiler_contract_v2.py",
+      "sha256": "c3b23b19815d96630d2dcb876651edf7f330274eacdde22fe745b9aa8d930c75",
+      "size_bytes": 31552
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_contracts.py",
@@ -1051,6 +1101,11 @@
       "relative_path": "validation/calibration_v2/tests/test_p06_runtime_correction_artifacts.py",
       "sha256": "75bc139d7b55cf42e0b87929ab556a133ccbce73a9f1f9595d6cdd2a42b2bd83",
       "size_bytes": 44588
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p06_v1_terminal_failure_analysis_receipt.py",
+      "sha256": "6cfd4a03e7251d19507347e671ce865179eeb60034681f0724c3836e40c8e9a9",
+      "size_bytes": 9773
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_p07_execution.py",
@@ -1216,6 +1271,11 @@
       "relative_path": "validation/calibration_v2/tools/run_p07_locked_holdout.py",
       "sha256": "74b81f71f9f898477f9392a8f139b7612a541d57411ed8db6a4cae7361dd9703",
       "size_bytes": 37750
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/verify_p06_v1_terminal_failure_analysis.py",
+      "sha256": "0ad30bebe667bab08eabaf8e64ee41b0594da3e6279967763b01d5df85c8506a",
+      "size_bytes": 53716
     },
     {
       "relative_path": "validation/quality/reference/analytic-fixtures-v1.json",
@@ -1563,6 +1623,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "479fd222fda3771671ee11653a27ef3b4365c83bd67105eddb9c932329e2bd04",
+  "manifest_sha256": "48c6dfb58745c5e607d29062489334cd842224c5f3c522c7ec461bfbda3e84a5",
   "schema_version": "1.0.0"
 }
