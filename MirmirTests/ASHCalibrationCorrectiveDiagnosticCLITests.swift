@@ -35,7 +35,7 @@ final class ASHCorrectiveCLITests: XCTestCase {
     var contractPath: String!
 
     override func setUpWithError() throws {
-        let base = URL(fileURLWithPath: "/private/tmp", isDirectory: true)
+        let base = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
         temporaryRoot = base.appendingPathComponent(
             "mirmir-corrective-cli-\(UUID().uuidString)",
             isDirectory: true

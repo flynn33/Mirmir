@@ -368,13 +368,17 @@ def _execute(
                 f"{gate_id} report",
                 getattr(arguments, f"expected_{gate}_report_sha256"),
             )
-            core._validate_gate_semantics(
+            semantic_snapshots = core._validate_gate_semantics(
                 gate_id=gate_id,
                 root=root,
                 manifest=manifest,
                 receipt=receipt,
                 report=report,
                 expected_source_commit=str(repository_state["git_head_commit"]),
+            )
+            snapshots.extend(
+                (snapshot, f"{gate_id} gate semantic binding")
+                for snapshot in semantic_snapshots
             )
             snapshots.extend(
                 (

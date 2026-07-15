@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 279,
+  "file_count": 289,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -368,6 +368,16 @@
       "size_bytes": 6488
     },
     {
+      "relative_path": "validation/calibration_v2/g05/__init__.py",
+      "sha256": "78e776094d6dfe559ec9a177d8df98c14cc68e568478b64abc6dbcaddff12a97",
+      "size_bytes": 664
+    },
+    {
+      "relative_path": "validation/calibration_v2/g05/gate.py",
+      "sha256": "9e8f1ba3562a2cf67e60377b3e349c9f725fb70a08da40eaadac24b3fa313912",
+      "size_bytes": 142481
+    },
+    {
       "relative_path": "validation/calibration_v2/live_holdout_preopen.py",
       "sha256": "3b13a8d25ae40dbf7eacecae1684b3aa124f1ea437e18b7110f31b7118078bbd",
       "size_bytes": 41491
@@ -586,6 +596,31 @@
       "relative_path": "validation/calibration_v2/schemas/fixed-control-selection-v1.schema.json",
       "sha256": "646919f448ffd335e3fa168a392944c41e9c9a9403a3b523273f0fceb01439ba",
       "size_bytes": 3501
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-command-plan-v1.schema.json",
+      "sha256": "ed5c8e5f87a0942a3ad3067f2144ab58ebd0f5e009e114e018344fcd3c64d6cd",
+      "size_bytes": 1724
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-current-source-receipt-v1.schema.json",
+      "sha256": "5827b768f61fb43890347586dc5b86eecadc28403e3ce546da35a950478be5b5",
+      "size_bytes": 4167
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-gate-assessment-v2.schema.json",
+      "sha256": "cda7e794ac31954b1d0362a631426e60425c175ead440902fd91145822059af2",
+      "size_bytes": 5857
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-run-identity-v1.schema.json",
+      "sha256": "9872750806a928325f90554dcc8d9a41857b809275426ac07f891fe6babe04c9",
+      "size_bytes": 9364
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-scoped-finding-register-v2.schema.json",
+      "sha256": "5abcafe871899222dfbfcea61157163f10dc61516d60a41be8b0f7beda50257f",
+      "size_bytes": 1646
     },
     {
       "relative_path": "validation/calibration_v2/schemas/g06-outer-wrapper-manifest-binding-v1.schema.json",
@@ -839,8 +874,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_cli.py",
-      "sha256": "2d573f9efcc19a118686f0f75d250bc887acc72a9cff901cf1bcae740187732c",
-      "size_bytes": 18434
+      "sha256": "efa64231ff09c22e8bba4c6d13b78235c429731e77f5deda85911c696f7bc332",
+      "size_bytes": 34575
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_executor.py",
@@ -871,6 +906,16 @@
       "relative_path": "validation/calibration_v2/tests/test_evidence_wrapper_finalizer.py",
       "sha256": "5fc5a36255cd134e499737eba6c40c4cfd08e7f8e3659428575f58729b02d4ae",
       "size_bytes": 53149
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g05_current_source.py",
+      "sha256": "28c8eff6737c052e94399fdbab80fbe315cade0956029117e45c6594a0403156",
+      "size_bytes": 89806
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g05_gate.py",
+      "sha256": "67c97ed1cb799a3d836d610e0ddb26677502cb8d76fe5be1502c1faf66614de9",
+      "size_bytes": 85501
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
@@ -1029,8 +1074,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/tools/prepare_p06_corrective_diagnostics.py",
-      "sha256": "8d753fb628201909f778b0245e2bfa5b3b83bca729a6237e748349abe36427d7",
-      "size_bytes": 30005
+      "sha256": "f68bcd47aaf2260e228e5a3391b5314c2d9c3bea03a8f46bc48a7898d44a1e91",
+      "size_bytes": 30184
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_g05_current_source.py",
+      "sha256": "351881617389c958d4ec113df747c76f77762af881faa9fbd63a74293cd55444",
+      "size_bytes": 194702
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_g06_verification.py",
@@ -1039,8 +1089,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_p06_corrective_diagnostics.py",
-      "sha256": "9ff1aedbd6782c942c505924c047df7020899d2fd2c19a5c23c2d36974d5c055",
-      "size_bytes": 108826
+      "sha256": "17fdbbc999ab71bc26a7c12fccddec5633893a45534a0f4ef17786f580d252c4",
+      "size_bytes": 124990
     },
     {
       "relative_path": "validation/calibration_v2/tools/run_p06_production_calibration.py",
@@ -1398,6 +1448,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "1dde1c77a921e8ee50ae1873e8af08f8b5fe45b522883f6ed36ae8c24c9d2a30",
+  "manifest_sha256": "be63b12a43499cbe541459406e967797ce13a0e6f8d5defc4b4d0ff422fa634a",
   "schema_version": "1.0.0"
 }

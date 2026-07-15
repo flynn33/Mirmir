@@ -42,6 +42,10 @@ from validation.calibration_v2.corrective_preregistration import (  # noqa: E402
     validate_corrective_preregistration,
     verify_attempt_ledger_payload,
 )
+from validation.calibration_v2.g05.gate import (  # noqa: E402
+    G05GateError,
+    validate_g05_receipt,
+)
 from validation.calibration_v2.macos_code_identity import (  # noqa: E402
     static_code_identity,
 )
@@ -64,6 +68,7 @@ from validation.quality.src.mirmir_quality.arrays import (  # noqa: E402
 from validation.quality.src.mirmir_quality.json_tools import (  # noqa: E402
     canonical_json_bytes,
     canonical_sha256,
+    validate_schema,
 )
 from validation.quality.src.mirmir_quality.samples import (  # noqa: E402
     load_development_samples,
@@ -71,6 +76,11 @@ from validation.quality.src.mirmir_quality.samples import (  # noqa: E402
 
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_EVIDENCE_WRAPPER_MANIFEST_SCHEMA = (
+    REPOSITORY_ROOT
+    / "validation/calibration_v2/schemas/"
+    "evidence-wrapper-artifact-manifest-v2.schema.json"
+)
 
 
 class CorrectiveDiagnosticCLIError(ValueError):
@@ -324,7 +334,16 @@ def _run_git(repository_root: Path, *arguments: str) -> bytes:
         ["/usr/bin/git", "-C", os.fspath(repository_root), *arguments],
         check=False,
         capture_output=True,
-        env={**os.environ, "LC_ALL": "C", "LANG": "C"},
+        env={
+            "HOME": "/var/empty",
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "LANG": "C",
+            "LC_ALL": "C",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_CONFIG_GLOBAL": "/dev/null",
+            "GIT_OPTIONAL_LOCKS": "0",
+            "GIT_TERMINAL_PROMPT": "0",
+        },
     )
     _require(
         completed.returncode == 0,
@@ -521,6 +540,193 @@ def _archive_closure(
     )
 
 
+def _validate_finalized_gate_manifest(
+    *,
+    gate_id: str,
+    root: _PinnedDirectory,
+    manifest_document: Mapping[str, object],
+    manifest_payload: bytes,
+    expected_source_commit: str,
+) -> _RegularSnapshot:
+    _require(
+        gate_id != "G05" or not root.path.name.endswith(".failed"),
+        "G05 artifact root is a failure namespace",
+    )
+    try:
+        validate_schema(manifest_document, _EVIDENCE_WRAPPER_MANIFEST_SCHEMA)
+    except ValueError as error:
+        raise CorrectiveDiagnosticCLIError(
+            f"{gate_id} artifact manifest schema validation failed: {error}"
+        ) from error
+    _require(
+        manifest_payload == canonical_json_bytes(manifest_document) + b"\n",
+        f"{gate_id} artifact manifest v2 is not canonical JSON",
+    )
+    rows = manifest_document.get("artifacts")
+    directories = manifest_document.get("directories")
+    _require(
+        isinstance(rows, list)
+        and [row.get("path") for row in rows if isinstance(row, Mapping)]
+        == sorted(row["path"] for row in rows if isinstance(row, Mapping))
+        and len({row["path"] for row in rows if isinstance(row, Mapping)})
+        == len(rows)
+        and isinstance(directories, list)
+        and directories == sorted(directories),
+        f"{gate_id} artifact manifest closure order or uniqueness differs",
+    )
+    transaction_rows = [
+        row
+        for row in rows
+        if isinstance(row, Mapping)
+        and row.get("path") == "publication-transaction.json"
+    ]
+    expected_gate_ids = ["G04"] if gate_id == "G04" else ["G05", "P05"]
+    _require(
+        len(transaction_rows) == 1
+        and transaction_rows[0].get("gate_ids") == expected_gate_ids,
+        f"{gate_id} artifact manifest lacks its exact publication transaction",
+    )
+    transaction_row = transaction_rows[0]
+    transaction = _descendant_file(
+        root,
+        root.path / "publication-transaction.json",
+        f"{gate_id} publication transaction",
+        _require_sha256(
+            transaction_row.get("sha256"),
+            f"{gate_id} publication transaction",
+        ),
+    )
+    _require(
+        transaction.size_bytes == transaction_row.get("size_bytes"),
+        f"{gate_id} publication transaction size differs",
+    )
+    document = _strict_json_object(
+        transaction.payload,
+        f"{gate_id} publication transaction",
+    )
+    required = {
+        "schema_version",
+        "artifact_kind",
+        "transaction_token",
+        "created_utc",
+        "project_commit",
+        "partial_name",
+        "final_name",
+        "failure_name",
+        "gate_ids",
+        "root_device",
+        "root_inode",
+    }
+    _require(
+        set(document) == required
+        and transaction.payload == canonical_json_bytes(document) + b"\n"
+        and document.get("schema_version") == "1.0.0"
+        and document.get("artifact_kind")
+        == "evidence_wrapper_publication_transaction"
+        and isinstance(document.get("transaction_token"), str)
+        and re.fullmatch(r"[0-9a-f]{32}", str(document["transaction_token"]))
+        is not None
+        and isinstance(document.get("created_utc"), str)
+        and re.fullmatch(
+            r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:"
+            r"[0-9]{2}(?:\.[0-9]{1,6})?Z",
+            str(document["created_utc"]),
+        )
+        is not None
+        and document.get("project_commit") == expected_source_commit
+        and document.get("partial_name") == f".{root.path.name}.partial"
+        and document.get("final_name") == root.path.name
+        and document.get("failure_name") == f"{root.path.name}.failed"
+        and document.get("gate_ids") == expected_gate_ids
+        and type(document.get("root_device")) is int
+        and document["root_device"] >= 0
+        and type(document.get("root_inode")) is int
+        and document.get("root_inode") == root.identity[1],
+        f"{gate_id} publication transaction identity or root differs",
+    )
+    return transaction
+
+
+def _validate_finalized_manifest_tree_closure(
+    *,
+    gate_id: str,
+    root: _PinnedDirectory,
+    manifest: _RegularSnapshot,
+    manifest_document: Mapping[str, object],
+) -> None:
+    _require(
+        manifest.path == root.path / "artifact-manifest.json",
+        f"{gate_id} manifest is not the canonical artifact-root manifest",
+    )
+    rows = manifest_document.get("artifacts")
+    directories = manifest_document.get("directories")
+    _require(
+        isinstance(rows, list) and isinstance(directories, list),
+        f"{gate_id} manifest closure is absent",
+    )
+    expected_files = sorted(
+        ("artifact-manifest.json", *(str(row["path"]) for row in rows))
+    )
+    _require(
+        len(expected_files) == len(set(expected_files))
+        and "artifact-manifest.json"
+        not in {str(row["path"]) for row in rows},
+        f"{gate_id} manifest file closure is ambiguous",
+    )
+    actual_files: list[str] = []
+    actual_directories: list[str] = []
+    root.verify()
+    for current_name, child_directories, child_files in os.walk(
+        root.path,
+        topdown=True,
+        followlinks=False,
+    ):
+        current = Path(current_name)
+        _require(
+            current.resolve(strict=True) == current,
+            f"{gate_id} wrapper contains a linked directory",
+        )
+        child_directories.sort()
+        child_files.sort()
+        for name in child_directories:
+            path = current / name
+            metadata = os.lstat(path)
+            _require(
+                stat.S_ISDIR(metadata.st_mode)
+                and not stat.S_ISLNK(metadata.st_mode),
+                f"{gate_id} wrapper directory closure contains a non-directory",
+            )
+            actual_directories.append(path.relative_to(root.path).as_posix())
+        for name in child_files:
+            path = current / name
+            metadata = os.lstat(path)
+            _require(
+                stat.S_ISREG(metadata.st_mode)
+                and not stat.S_ISLNK(metadata.st_mode)
+                and metadata.st_nlink == 1,
+                f"{gate_id} wrapper file closure contains a linked file",
+            )
+            actual_files.append(path.relative_to(root.path).as_posix())
+    _require(
+        sorted(actual_files) == expected_files
+        and sorted(actual_directories) == list(directories),
+        f"{gate_id} finalized manifest tree closure differs",
+    )
+    for index, row in enumerate(rows):
+        relative = PurePosixPath(str(row["path"]))
+        snapshot = _RegularSnapshot.capture(
+            root.path.joinpath(*relative.parts),
+            f"{gate_id} manifest artifact {index}",
+        )
+        _require(
+            snapshot.file_sha256 == row.get("sha256")
+            and snapshot.size_bytes == row.get("size_bytes"),
+            f"{gate_id} manifest artifact {index} bytes differ",
+        )
+    manifest.verify(f"{gate_id} artifact manifest")
+    root.verify()
+
+
 def _validate_gate_semantics(
     *,
     gate_id: str,
@@ -529,7 +735,7 @@ def _validate_gate_semantics(
     receipt: _RegularSnapshot,
     report: _RegularSnapshot,
     expected_source_commit: str,
-) -> None:
+) -> tuple[_RegularSnapshot, ...]:
     manifest_document = _strict_json_object(
         manifest.payload,
         f"{gate_id} artifact manifest",
@@ -539,9 +745,10 @@ def _validate_gate_semantics(
         f"{gate_id} test receipt",
     )
     _require(
-        manifest_document.get("schema_version") == "1.0.0"
+        manifest_document.get("schema_version") == "2.0.0"
         and manifest_document.get("working_tree_clean") is True
         and isinstance(manifest_document.get("project_commit"), str)
+        and manifest_document.get("project_commit") == expected_source_commit
         and re.fullmatch(
             r"(?:[0-9a-f]{40}|[0-9a-f]{64})",
             str(manifest_document.get("project_commit")),
@@ -549,6 +756,13 @@ def _validate_gate_semantics(
         is not None
         and isinstance(manifest_document.get("artifacts"), list),
         f"{gate_id} artifact manifest identity is invalid",
+    )
+    transaction_snapshot = _validate_finalized_gate_manifest(
+        gate_id=gate_id,
+        root=root,
+        manifest_document=manifest_document,
+        manifest_payload=manifest.payload,
+        expected_source_commit=expected_source_commit,
     )
     entries = manifest_document["artifacts"]
     by_path = {
@@ -590,19 +804,195 @@ def _validate_gate_semantics(
         and receipt_document.get("source_commit")
         == manifest_document["project_commit"]
         == expected_source_commit
-        and receipt_document.get("holdout_accessed") is not True,
+        and receipt_document.get("holdout_accessed") is False,
         f"{gate_id} receipt does not prove an all-pass holdout-free gate",
     )
+    bound_snapshots: list[_RegularSnapshot] = [transaction_snapshot]
     if gate_id == "G05":
         _require(
             receipt_document.get("gate") == "G05"
             and receipt_document.get("phase") == "P05",
             "G05 receipt gate or phase identity differs",
         )
-        upstream = receipt_document.get("upstream_gates")
+        def bound_json(binding_name: str, label: str) -> Mapping[str, object]:
+            binding = receipt_document.get(binding_name)
+            _require(
+                isinstance(binding, Mapping)
+                and set(binding) == {"path", "sha256", "size_bytes"},
+                f"G05 {label} binding is invalid",
+            )
+            relative_value = binding.get("path")
+            expected_size = binding.get("size_bytes")
+            _require(
+                isinstance(relative_value, str)
+                and isinstance(expected_size, int)
+                and not isinstance(expected_size, bool)
+                and expected_size > 0,
+                f"G05 {label} binding path or size is invalid",
+            )
+            relative = PurePosixPath(relative_value)
+            _require(
+                relative.as_posix() == relative_value
+                and not relative.is_absolute()
+                and relative.suffix == ".json"
+                and all(part not in {"", ".", ".."} for part in relative.parts),
+                f"G05 {label} binding path is unsafe",
+            )
+            expected_sha256 = _require_sha256(
+                binding.get("sha256"),
+                f"G05 {label} binding",
+            )
+            snapshot = _descendant_file(
+                root,
+                root.path.joinpath(*relative.parts),
+                f"G05 {label}",
+                expected_sha256,
+            )
+            _require(
+                snapshot.size_bytes == expected_size,
+                f"G05 {label} binding size differs",
+            )
+            row = by_path.get(relative_value)
+            _require(
+                isinstance(row, Mapping)
+                and row.get("sha256") == snapshot.file_sha256
+                and row.get("size_bytes") == snapshot.size_bytes
+                and isinstance(row.get("gate_ids"), list)
+                and {"G05", "P05"}.issubset(set(row["gate_ids"])),
+                f"G05 {label} is not exact in its artifact manifest",
+            )
+            document = _strict_json_object(snapshot.payload, f"G05 {label}")
+            _require(
+                snapshot.payload == canonical_json_bytes(document) + b"\n",
+                f"G05 {label} is not canonical JSON",
+            )
+            bound_snapshots.append(snapshot)
+            return document
+
+        finding_register = bound_json("finding_register", "finding register")
+        finding_self_hash = finding_register.get("register_sha256")
+        finding_material = dict(finding_register)
+        finding_material.pop("register_sha256", None)
+        open_counts = finding_register.get("open_counts")
+        findings = finding_register.get("findings")
         _require(
-            isinstance(upstream, Mapping) and upstream.get("G04") == "pass",
-            "G05 receipt does not bind passing upstream G04",
+            finding_register.get("schema_version") == "2.0.0"
+            and finding_register.get("source_commit") == expected_source_commit
+            and finding_register.get("review_status") == "pass"
+            and isinstance(open_counts, Mapping)
+            and open_counts.get("severity_1") == 0
+            and open_counts.get("severity_2") == 0
+            and isinstance(findings, list)
+            and (
+                "total" not in open_counts
+                or open_counts.get("total") == len(findings)
+            )
+            and not any(
+                isinstance(finding, Mapping)
+                and finding.get("status") == "open"
+                and finding.get("severity") in {1, 2}
+                for finding in findings
+            )
+            and finding_self_hash == canonical_sha256(finding_material),
+            "G05 finding register does not prove a closed current-source review",
+        )
+
+        assessment = bound_json("assessment", "gate assessment")
+        criteria = assessment.get("mandatory_criteria")
+        _require(
+            assessment.get("schema_version") == "2.0.0"
+            and assessment.get("gate_id") == "G05"
+            and assessment.get("phase") == "P05"
+            and assessment.get("source_commit") == expected_source_commit
+            and assessment.get("status") == "pass"
+            and assessment.get("holdout_accessed") is False
+            and assessment.get("finding_register_sha256") == finding_self_hash
+            and isinstance(criteria, list)
+            and len(criteria) == 8
+            and all(
+                isinstance(criterion, Mapping)
+                and criterion.get("status") == "pass"
+                for criterion in criteria
+            ),
+            "G05 assessment does not prove all current-source criteria",
+        )
+        upstream_bindings = bound_json("upstream_bindings", "upstream bindings")
+        command_execution = bound_json(
+            "command_execution",
+            "command execution aggregate",
+        )
+        _require(
+            receipt.payload == canonical_json_bytes(receipt_document) + b"\n",
+            "G05 receipt is not canonical JSON",
+        )
+        try:
+            validated = validate_g05_receipt(
+                repository_root=REPOSITORY_ROOT,
+                wrapper_root=root.path,
+                receipt=receipt_document,
+            )
+        except G05GateError as error:
+            raise CorrectiveDiagnosticCLIError(
+                f"G05 receipt-bound document validation failed: {error}"
+            ) from error
+        _require(
+            validated.assessment == assessment
+            and validated.finding_register == finding_register
+            and validated.upstream_bindings == upstream_bindings
+            and validated.command_execution_aggregate == command_execution,
+            "G05 independently validated receipt documents differ",
+        )
+        snapshots_by_relative = {
+            snapshot.path.relative_to(root.path).as_posix(): snapshot
+            for snapshot in bound_snapshots
+        }
+        for index, relative_value in enumerate(validated.reopened_relative_paths):
+            if relative_value in snapshots_by_relative:
+                continue
+            relative = PurePosixPath(relative_value)
+            _require(
+                relative.as_posix() == relative_value
+                and not relative.is_absolute()
+                and all(part not in {"", ".", ".."} for part in relative.parts),
+                f"G05 reopened evidence path {index} is unsafe",
+            )
+            row = by_path.get(relative_value)
+            execution_stream = (
+                relative_value.startswith("outputs/")
+                and relative_value.endswith(".log")
+            )
+            _require(
+                isinstance(row, Mapping)
+                and type(row.get("size_bytes")) is int
+                and (
+                    row["size_bytes"] >= 0
+                    if execution_stream
+                    else row["size_bytes"] > 0
+                )
+                and isinstance(row.get("gate_ids"), list)
+                and {"G05", "P05"}.issubset(set(row["gate_ids"])),
+                f"G05 reopened evidence is absent from its artifact manifest: {relative_value}",
+            )
+            snapshot = _descendant_file(
+                root,
+                root.path.joinpath(*relative.parts),
+                f"G05 reopened evidence {index}",
+                _require_sha256(row.get("sha256"), f"G05 reopened evidence {index}"),
+            )
+            _require(
+                snapshot.size_bytes == row["size_bytes"],
+                f"G05 reopened evidence size differs: {relative_value}",
+            )
+            snapshots_by_relative[relative_value] = snapshot
+            bound_snapshots.append(snapshot)
+        expected_snapshot_paths = {
+            *validated.reopened_relative_paths,
+            "publication-transaction.json",
+        }
+        _require(
+            len(snapshots_by_relative) == len(expected_snapshot_paths)
+            and set(snapshots_by_relative) == expected_snapshot_paths,
+            "G05 P06 snapshot closure differs from receipt validation",
         )
     try:
         report_text = report.payload.decode("utf-8", errors="strict")
@@ -616,6 +1006,13 @@ def _validate_gate_semantics(
         and f"All {gate_id} criteria pass." in report_text,
         f"{gate_id} report does not state the exact passing result and criteria",
     )
+    _validate_finalized_manifest_tree_closure(
+        gate_id=gate_id,
+        root=root,
+        manifest=manifest,
+        manifest_document=manifest_document,
+    )
+    return tuple(bound_snapshots)
 
 
 def _require_distinct_roots(paths: Sequence[Path]) -> None:
@@ -2360,7 +2757,7 @@ def _execute(
                 (g05_report, "G05 report"),
             )
         )
-        _validate_gate_semantics(
+        g04_gate_snapshots = _validate_gate_semantics(
             gate_id="G04",
             root=g04_root,
             manifest=g04_manifest,
@@ -2368,13 +2765,21 @@ def _execute(
             report=g04_report,
             expected_source_commit=str(repository_state["git_head_commit"]),
         )
-        _validate_gate_semantics(
+        g05_gate_snapshots = _validate_gate_semantics(
             gate_id="G05",
             root=g05_root,
             manifest=g05_manifest,
             receipt=g05_receipt,
             report=g05_report,
             expected_source_commit=str(repository_state["git_head_commit"]),
+        )
+        snapshots.extend(
+            (snapshot, "G04 gate semantic binding")
+            for snapshot in g04_gate_snapshots
+        )
+        snapshots.extend(
+            (snapshot, "G05 gate semantic binding")
+            for snapshot in g05_gate_snapshots
         )
 
         coordinate = _RegularSnapshot.capture(
