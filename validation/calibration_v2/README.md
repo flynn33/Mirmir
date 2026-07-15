@@ -181,6 +181,30 @@ not below the V2 full-ASH ceiling of 3,288. These contracts perform no
 candidate evaluation, validation access, holdout access, selection, compiler
 execution, or gate decision.
 
+`baseline_ablation_budget_v2.py` authenticates the overlay bytes, its schema,
+all seven authority payloads, and the exact five-field materialization before
+exposing an immutable V2 execution profile. `non_ash_selector_v2.py` is the
+data-free selector core for that profile. It preserves the V1 canonical
+sorted-key rule-object hash and tie-break, records the initial attempt and each
+ordered coordinate/value scan including cache hits, distinguishes convergence
+from an eighteenth-sweep change, and emits no terminal rule on exhaustion or
+abort. Every evaluation and replay is bound to one shared-bank configuration,
+degradation policy, calibration-plan identity, and cached 16-operator output
+manifest. Cache hits require a content-addressed evidence reopener, and
+evidence-integrity failures abort.
+
+Validation evaluation is structurally unavailable until the core has replayed
+a complete converged development trace, reopened every unique development
+evaluation, and proved development evidence for the exact terminal-plus-one-
+coordinate neighborhood of 163 rules. The four `non-ash-*-v2` schemas freeze
+the attempt failure, development ledger, neighbor manifest, and two-stage
+selection artifact surfaces. Schema validation is only the structural layer:
+publication and reopening must also invoke semantic replay to prove ordinal
+arithmetic, the previous-record hash chain, rule hashes, exact neighbor order,
+one-coordinate differences, and complete validation outcome coverage. This
+isolated core and schema layer does not authorize production execution or
+claim that a persisted P06 V2 evidence family exists.
+
 ## Preserved V1 terminal failure analysis
 
 `analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json`
