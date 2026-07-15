@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 292,
+  "file_count": 297,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -328,6 +328,11 @@
       "size_bytes": 1899
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/plane-aware-lut-preregistration-v1.json",
+      "sha256": "4f2c5aa2ef510e46f51080863056d3aff4b142825318ff20f4a3443197db04f3",
+      "size_bytes": 12112
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/quality-gate-policy-v1.provenance.json",
       "sha256": "3bfa0bcba46611a2f33a7b040fd21f1f48063db220a4c0f62228f0fcf94f51e2",
       "size_bytes": 662
@@ -556,6 +561,11 @@
       "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v1.schema.json",
       "sha256": "6c299f1c2ed4a9493bd2d5b17958ca59ca1dca20b2195fa2a7fe6aba79d83069",
       "size_bytes": 3587
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-receipt-v1.schema.json",
+      "sha256": "ae904bafaba28385c7804e62ece5a88ed8f5b7897e691b0d015d65c81a1b483c",
+      "size_bytes": 14700
     },
     {
       "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-v1.schema.json",
@@ -808,6 +818,11 @@
       "size_bytes": 7919
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/plane-aware-lut-preregistration-v1.schema.json",
+      "sha256": "5c36a5b2689df5c62ed79b2ad764151772fa7494d376188d95bebfea8e5b04c1",
+      "size_bytes": 12949
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/preexecution-contract-corrections-v1.schema.json",
       "sha256": "fb6c711bb2a3f53dde6d0caf804c896776fb47e8b8a4f38b0b6161223a1fbf7a",
       "size_bytes": 3156
@@ -876,6 +891,11 @@
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
       "sha256": "ad513d49bbd1048669d812fad7d2c8e3e342d95f018c2bffba28c6ae514f00fc",
       "size_bytes": 166080
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_coordinate_anisotropy_diagnostic_receipt.py",
+      "sha256": "933bad6839fb650855c301d44acadd6afafd4d91ef6292e17996629eb1a98f1c",
+      "size_bytes": 13904
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_coordinate_model_contract_v3.py",
@@ -976,6 +996,11 @@
       "relative_path": "validation/calibration_v2/tests/test_p07_production.py",
       "sha256": "e4c49e4260c965df4411976f68c4ab47761cabff0198da65e3a26eb607d4edf2",
       "size_bytes": 77762
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_plane_aware_lut_preregistration_v1.py",
+      "sha256": "1854ed2f5215cf7df82f61df15d2f6464582fd4203a6ffdc1c5ea8b433ebaf9e",
+      "size_bytes": 19685
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_production_cache_reuse.py",
@@ -1463,6 +1488,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "34b4f5f87cd6f14c26834ca4621efac0b97e606cf1ae1de9b2ae7919ede1e2ab",
+  "manifest_sha256": "19e34b998f65ab2381fc7e7e3505559d5a760d8ad6f793b0b449cdc927a5b315",
   "schema_version": "1.0.0"
 }

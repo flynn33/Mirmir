@@ -73,6 +73,20 @@ angle-bracket placeholders fail the strict locked-input schema. The selection
 stage must replace every placeholder, recompute the penalty table, compute the
 canonical self-hash, and validate the result before either compiler may read it.
 
+## Plane-aware LUT preregistration
+
+`contracts/plane-aware-lut-preregistration-v1.json`, validated by
+`schemas/plane-aware-lut-preregistration-v1.schema.json`, is the sole design
+binding for the future plane-aware compiler and spatial LUT format 1.2. It
+freezes sibling V3 version dispatch, plane-major luma/chroma entries, one
+admissible policy per route, one mode and coordinate policy per route-plane,
+plane-local source exactness, exact but inert runtime chroma-confidence
+transport, and spatial-only mirroring of all temporal contexts through G07.
+It selects no policy, mode, coordinate vector, or anisotropy default and makes
+no gate claim. After G07, the complete spatial LUT bytes and SHA-256 are
+immutable; P10 must use a separately preregistered temporal overlay that binds
+the exact spatial LUT SHA-256.
+
 Run both test runners before executing calibration. Some evidence/provider tests
 use pytest-style functions and are intentionally outside unittest discovery.
 
