@@ -1,7 +1,8 @@
-# P06 calibration contracts
+# P05/P06 semantic and calibration contracts
 
-This directory owns the preregistered P06 calibration and LUT contracts. The
-files are inputs to calibration, not calibration results. Their status fields
+This directory owns preregistered P05 spatial semantics and P06 calibration
+and LUT contracts. The files are inputs to calibration, not calibration
+results. Their status fields
 must remain `preregistered_not_executed` or `preregistered_not_measured` until
 the separate calibration runner creates hash-locked outputs.
 
@@ -21,6 +22,40 @@ The contracts establish:
 The P00 conflict record controls platform normalization. No calibration command,
 quality result, holdout result, generated LUT, or pass claim belongs in this
 directory during contract closure.
+
+## P05 spatial-semantics preregistration
+
+`contracts/spatial-semantics-preregistration-v2.json` freezes the unselected
+structural-policy and per-plane anisotropy domains before implementation or
+quality measurement. Its deterministic derived lock is checked in at
+`locks/spatial-policy-admissibility-manifest.json`. The lock is a calibration
+input, not a per-run result or a G05 pass claim; a G05 evidence wrapper must
+copy and bind it separately.
+
+Verify the checked-in lock without writing:
+
+```sh
+/usr/bin/env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" /usr/bin/python3 \
+  validation/calibration_v2/tools/build_spatial_policy_admissibility_v2.py \
+  verify \
+  --repository-root "$PWD" \
+  --manifest \
+    validation/calibration_v2/locks/spatial-policy-admissibility-manifest.json
+```
+
+Prove deterministic regeneration with a fresh exclusive output:
+
+```sh
+temporary_root="$(cd "$(mktemp -d)" && pwd -P)"
+/usr/bin/env PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" /usr/bin/python3 \
+  validation/calibration_v2/tools/build_spatial_policy_admissibility_v2.py \
+  build \
+  --repository-root "$PWD" \
+  --output "$temporary_root/spatial-policy-admissibility-manifest.json"
+cmp \
+  validation/calibration_v2/locks/spatial-policy-admissibility-manifest.json \
+  "$temporary_root/spatial-policy-admissibility-manifest.json"
+```
 
 `locked-compiler-input-v1.template.json` is deliberately non-consumable: its
 angle-bracket placeholders fail the strict locked-input schema. The selection

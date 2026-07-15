@@ -1,6 +1,6 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 272,
+  "file_count": 279,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
@@ -333,6 +333,11 @@
       "size_bytes": 4708
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/spatial-semantics-preregistration-v2.json",
+      "sha256": "0de6461875c189c359e560e9dc357e2d4729b473ad18264974160834b03ceaec",
+      "size_bytes": 6533
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/video-profile-contract-v1.json",
       "sha256": "8c61d53cab158838e559b81a1d0c6b65ecc734a61ade76f84d41c92187214ef3",
       "size_bytes": 493
@@ -366,6 +371,11 @@
       "relative_path": "validation/calibration_v2/live_holdout_preopen.py",
       "sha256": "3b13a8d25ae40dbf7eacecae1684b3aa124f1ea437e18b7110f31b7118078bbd",
       "size_bytes": 41491
+    },
+    {
+      "relative_path": "validation/calibration_v2/locks/spatial-policy-admissibility-manifest.json",
+      "sha256": "a3d506cdc3a191240a0ca2ec244df88f393cc9f13af5e6962841a453b0425b1c",
+      "size_bytes": 49747
     },
     {
       "relative_path": "validation/calibration_v2/macos_code_identity.py",
@@ -456,6 +466,11 @@
       "relative_path": "validation/calibration_v2/reference/lut_oracle.py",
       "sha256": "72b6ff321c6fe79a708a8d3775b6ba2c569825ff3c33f87026d47f72d7ceba64",
       "size_bytes": 71663
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/spatial_policy_admissibility_v2.py",
+      "sha256": "f47408fc61ee54e14a5229e3885990b4fdbbcb74efdbd718ba1f9b263a8856e2",
+      "size_bytes": 35600
     },
     {
       "relative_path": "validation/calibration_v2/release_evidence.py",
@@ -768,6 +783,16 @@
       "size_bytes": 1247
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/spatial-policy-admissibility-manifest-v2.schema.json",
+      "sha256": "141a8eb413ab95a12c7b4b2a2644b36aa370aaad561c34b7c56f7c2ed792af06",
+      "size_bytes": 9442
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/spatial-semantics-preregistration-v2.schema.json",
+      "sha256": "869a69921d2470b504664a5e44f0d50d9cf168a0406a2e133a65cab3743e4f95",
+      "size_bytes": 7527
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/validation-candidate-development-evidence-v1.schema.json",
       "sha256": "1eb191038d0bc9a965aa3015d44544c8ee4c80c5409ae67fb3e02712772956ab",
       "size_bytes": 1966
@@ -963,9 +988,19 @@
       "size_bytes": 25399
     },
     {
+      "relative_path": "validation/calibration_v2/tests/test_spatial_policy_admissibility_v2.py",
+      "sha256": "2b3da2f7531c9c9937e5d92a7c2e720ca45d9b859a0d011d4d2fa6eda4e02694",
+      "size_bytes": 26740
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/test_video_profile_contract.py",
       "sha256": "6ab92d902d0fa8fc6d9a93e24fc032c7388ccba314851719abc68ad92830f904",
       "size_bytes": 3285
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/build_spatial_policy_admissibility_v2.py",
+      "sha256": "1dc276e919c618a79d0a1eae6dbace1d970eb6d85d70f3e4c7beb4241b92be72",
+      "size_bytes": 15158
     },
     {
       "relative_path": "validation/calibration_v2/tools/compile_reference_luts.py",
@@ -1363,6 +1398,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "f16eb2d7869631cfdb723291cb1c35a57e225361ac2003f31d0848335c5a75fa",
+  "manifest_sha256": "1dde1c77a921e8ee50ae1873e8af08f8b5fe45b522883f6ed36ae8c24c9d2a30",
   "schema_version": "1.0.0"
 }
