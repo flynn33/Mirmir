@@ -118,6 +118,23 @@ execution. Versioned runner, compiler/runtime, ledger, cache-budget, selection,
 and release evidence paths plus fresh current-source G04-G06 evidence remain
 mandatory before a consumable schema-2 compiler input can exist.
 
+## Shared-bank configuration identity V2
+
+`contracts/shared-bank-configuration-identity-v2.json`, validated by
+`schemas/shared-bank-configuration-identity-v2.schema.json`, freezes the
+standalone schema-2 bank digest before any V2 cache or evidence writer uses it.
+The SHA-256 preimage is compact canonical JSON containing the exact plan domain
+separator and 23 ordered field-name/value pairs from an exactly materialized
+48-field candidate. Field names enter the digest; the calibration-plan file
+hash does not, because candidate cache identity binds the plan separately.
+Changing a bank field name, order, meaning, structural catalog, or semantic
+authority requires a new identity version and domain separator. This boundary
+also freezes the exact candidate-field set relation to the bound schema-2
+compiler input: 19 shared fields, four bank-only fields, and 15 compiler-only
+fields. Compiler-derived constants remain outside the compiler candidate set.
+The contract does not select or evaluate a candidate and does not alter the
+live V1 run.
+
 ## Plane-aware LUT preregistration
 
 `contracts/plane-aware-lut-preregistration-v1.json`, validated by

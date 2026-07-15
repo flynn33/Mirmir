@@ -58,6 +58,25 @@ EXPECTED_SCALAR_INITIAL_SHA256 = (
 EXPECTED_SCALAR_DOMAINS_SHA256 = (
     "dbcc23f54f846375fff35b31c9933db3285528e082446841ad934a348188b481"
 )
+SHARED_BANK_DOMAIN_SEPARATOR_V2 = (
+    "mirmir-p06-shared-bank-v2/gf16-strength2-complete-structural-v1"
+)
+SHARED_BANK_SERIALIZATION_ORDER_V2 = (
+    ATOMIC_STRUCTURAL_COORDINATE,
+    *STRUCTURAL_FACTOR_ORDER,
+    "analysis_epsilon_q0_30",
+    "risk_laplacian_weight_unorm15",
+    "chroma_edge_confidence_unorm15",
+    "direct_2x_analysis_grid_source_step",
+    "direct_3_over_2_analysis_grid_source_step",
+    "boundary_mode",
+    "minimum_anisotropic_magnitude_unorm15",
+    "minimum_anisotropic_coherence_unorm15",
+    "detail_gain_q12",
+    "relaxed_limiter_alpha_q12",
+    "risk_detail_suppression_unorm15",
+    "low_pass_radius_q8_8",
+)
 _THRESHOLD_MINIMUM_SEPARATION = 3277
 _THRESHOLD_PAIR_CONSTRAINT = "low <= high and high - low >= 3277"
 
@@ -79,6 +98,8 @@ class ParsedCalibrationPlanV2:
     scalar_domains: Tuple[Tuple[str, Tuple[object, ...]], ...]
     structural_factor_order: Tuple[str, ...]
     structural_vectors: Tuple[Tuple[object, ...], ...]
+    shared_bank_domain_separator: str
+    shared_bank_serialization_order: Tuple[str, ...]
 
 
 def _reject_duplicate_pairs(
@@ -274,6 +295,8 @@ def _verify_derived_contract(
     Tuple[str, ...],
     Tuple[str, ...],
     Tuple[Tuple[object, ...], ...],
+    str,
+    Tuple[str, ...],
 ]:
     try:
         base_domains = base_parameter_domains(base_plan)
@@ -388,6 +411,24 @@ def _verify_derived_contract(
         raise CalibrationPlanCodecError("physical candidate order is invalid")
     if search.get("structural_incumbent_before_first_scan") is not None:
         raise CalibrationPlanCodecError("V2 plan contains a structural default")
+    shared_bank_domain_separator = search.get("shared_bank_domain_separator")
+    shared_bank_order_values = _array(
+        search.get("shared_bank_serialization_order"),
+        label="search.shared_bank_serialization_order",
+    )
+    if type(shared_bank_domain_separator) is not str or (
+        shared_bank_domain_separator != SHARED_BANK_DOMAIN_SEPARATOR_V2
+    ):
+        raise CalibrationPlanCodecError("shared-bank domain separator is invalid")
+    if any(type(value) is not str for value in shared_bank_order_values):
+        raise CalibrationPlanCodecError("shared-bank order contains a type alias")
+    shared_bank_order = tuple(shared_bank_order_values)
+    if shared_bank_order != SHARED_BANK_SERIALIZATION_ORDER_V2:
+        raise CalibrationPlanCodecError("shared-bank serialization order is invalid")
+    if any(name not in physical_order for name in shared_bank_order):
+        raise CalibrationPlanCodecError(
+            "shared-bank order is outside the physical candidate order"
+        )
     return (
         scalar_order,
         tuple((name, scalar_initial[name]) for name in scalar_order),
@@ -395,6 +436,8 @@ def _verify_derived_contract(
         logical_order,
         physical_order,
         catalog,
+        shared_bank_domain_separator,
+        shared_bank_order,
     )
 
 
@@ -449,6 +492,8 @@ def parse_calibration_plan_v2(
         logical_order,
         physical_order,
         catalog,
+        shared_bank_domain_separator,
+        shared_bank_order,
     ) = _verify_derived_contract(plan, base_plan)
     return ParsedCalibrationPlanV2(
         plan_file_sha256=plan_file_sha256,
@@ -460,6 +505,8 @@ def parse_calibration_plan_v2(
         scalar_domains=scalar_domains,
         structural_factor_order=tuple(STRUCTURAL_FACTOR_ORDER),
         structural_vectors=catalog,
+        shared_bank_domain_separator=shared_bank_domain_separator,
+        shared_bank_serialization_order=shared_bank_order,
     )
 
 
@@ -499,6 +546,8 @@ def _validate_parsed_plan_model(plan: ParsedCalibrationPlanV2) -> None:
         or type(plan.scalar_domains) is not tuple
         or type(plan.structural_factor_order) is not tuple
         or type(plan.structural_vectors) is not tuple
+        or type(plan.shared_bank_domain_separator) is not str
+        or type(plan.shared_bank_serialization_order) is not tuple
     ):
         raise CalibrationPlanCodecError("parsed V2 plan identity is invalid")
     if any(
@@ -508,12 +557,19 @@ def _validate_parsed_plan_model(plan: ParsedCalibrationPlanV2) -> None:
             plan.physical_candidate_order,
             plan.scalar_parameter_order,
             plan.structural_factor_order,
+            plan.shared_bank_serialization_order,
         )
         for name in order
     ):
         raise CalibrationPlanCodecError("parsed V2 order contains a type alias")
     if plan.structural_factor_order != tuple(STRUCTURAL_FACTOR_ORDER):
         raise CalibrationPlanCodecError("parsed V2 structural order is invalid")
+    if (
+        plan.shared_bank_domain_separator != SHARED_BANK_DOMAIN_SEPARATOR_V2
+        or plan.shared_bank_serialization_order
+        != SHARED_BANK_SERIALIZATION_ORDER_V2
+    ):
+        raise CalibrationPlanCodecError("parsed V2 shared-bank identity is invalid")
     if plan.logical_parameter_order != (
         ATOMIC_STRUCTURAL_COORDINATE,
         *plan.scalar_parameter_order,
@@ -759,4 +815,36 @@ def candidate_vector_sha256_v2(
 
     return hashlib.sha256(
         serialized_candidate_vector_v2(physical_vector, plan)
+    ).hexdigest()
+
+
+def serialized_shared_bank_configuration_v2(
+    physical_vector: Mapping[str, object],
+    plan: ParsedCalibrationPlanV2,
+) -> bytes:
+    """Serialize the standalone V2 shared-bank identity envelope."""
+
+    physical_snapshot = _validated_materialized_candidate_snapshot_v2(
+        physical_vector,
+        plan,
+    )
+    return canonical_json_bytes(
+        {
+            "domain_separator": plan.shared_bank_domain_separator,
+            "ordered_fields": [
+                [name, physical_snapshot[name]]
+                for name in plan.shared_bank_serialization_order
+            ],
+        }
+    )
+
+
+def shared_bank_configuration_sha256_v2(
+    physical_vector: Mapping[str, object],
+    plan: ParsedCalibrationPlanV2,
+) -> str:
+    """Hash the canonical standalone V2 shared-bank identity envelope."""
+
+    return hashlib.sha256(
+        serialized_shared_bank_configuration_v2(physical_vector, plan)
     ).hexdigest()
