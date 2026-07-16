@@ -320,6 +320,137 @@ final class ASHLockedPlaneAwareRuntimeV3Tests: XCTestCase {
         XCTAssertNotEqual(centerResult.sourceCoordinates, leftResult.sourceCoordinates)
     }
 
+    func testFormat12EvaluationParityUsesExactLeftSitingForBothRoutes() throws {
+        let fixtures = try ASHSpatialRouteV2.allCases.map { route -> LoadedFixture in
+            let source = route == .direct2x
+                ? try ASHLUTTestSupportV3.direct2x()
+                : try ASHLUTTestSupportV3.direct3Over2()
+            return LoadedFixture(
+                configuration: source.configuration,
+                compilation: source.compilation,
+                loaded: try ASHLUTBinaryCodecV3.load(
+                    source.artifact.data,
+                    expectedRoute: route,
+                    configuration: source.configuration
+                )
+            )
+        }
+        let codePlanes = try makeCodePlanes(lumaWidth: 4, lumaHeight: 4)
+        let planes: [(ASHRuntimePlaneV3, ASHSpatialPlaneV2, ASHChromaSitingV2?)] = [
+            (.luma, try spatialPlane(codePlanes.luma), nil),
+            (.cb, try spatialPlane(codePlanes.cb), .left),
+            (.cr, try spatialPlane(codePlanes.cr), .left)
+        ]
+
+        for fixture in fixtures {
+            let frame = try ASHLockedRuntimeV3.prepareFrame(
+                lut: fixture.loaded,
+                configuration: fixture.configuration,
+                luma: codePlanes.luma,
+                cb: codePlanes.cb,
+                cr: codePlanes.cr,
+                chromaSiting: .left,
+                analyzerConfiguration: try .makeDisposableP05Reference()
+            )
+            XCTAssertEqual(frame.chromaSiting, .left)
+            XCTAssertEqual(frame.dispatchGrids.luma.route, fixture.loaded.route)
+            XCTAssertEqual(frame.dispatchGrids.chroma.route, fixture.loaded.route)
+
+            for (runtimePlane, plane, siting) in planes {
+                let expectedCoordinates = leftSitingCoordinateOracle(
+                    route: fixture.loaded.route,
+                    runtimePlane: runtimePlane
+                )
+                let framed = try ASHLockedRuntimeV3.evaluateSample(
+                    frame: frame,
+                    runtimePlane: runtimePlane,
+                    plane: plane,
+                    destinationColumn: 2,
+                    destinationRow: 2,
+                    chromaSiting: siting
+                )
+                let direct = try ASHLockedRuntimeV3.evaluateSample(
+                    dispatchGrid: frame.dispatchGrids.grid(for: runtimePlane),
+                    configuration: fixture.configuration,
+                    analysisGrid: frame.analysisGrid,
+                    runtimePlane: runtimePlane,
+                    plane: plane,
+                    destinationColumn: 2,
+                    destinationRow: 2,
+                    chromaSiting: siting
+                )
+                XCTAssertEqual(framed, direct)
+                XCTAssertEqual(framed.runtimePlane, runtimePlane)
+                XCTAssertEqual(framed.sourceCoordinates, expectedCoordinates)
+                XCTAssertEqual(
+                    framed.primaryResult.sample.sourceX,
+                    expectedCoordinates.horizontal
+                )
+                XCTAssertEqual(
+                    framed.primaryResult.sample.sourceY,
+                    expectedCoordinates.vertical
+                )
+                XCTAssertEqual(
+                    framed.dispatch.planeRole,
+                    runtimePlane == .luma ? .luma : .chroma
+                )
+                XCTAssertFalse(framed.numericalFallbackUsed)
+
+                let coordinatePolicy = fixture.configuration
+                    .routeSelection(for: fixture.loaded.route)
+                    .coordinatePolicy(for: runtimePlane.lutPlaneRole)
+                let expectedPrimary = try ASHLockedRuntimeV3.evaluateCandidate(
+                    framed.dispatch.primary,
+                    plane: plane,
+                    destinationColumn: 2,
+                    destinationRow: 2,
+                    route: fixture.loaded.route,
+                    coordinatePolicy: coordinatePolicy,
+                    boundary: fixture.configuration.boundaryMode,
+                    sourceCoordinates: expectedCoordinates
+                )
+                XCTAssertEqual(framed.primaryResult, expectedPrimary)
+
+                let expectedValue: Double
+                if let secondary = framed.dispatch.secondary {
+                    let expectedSecondary = try ASHLockedRuntimeV3.evaluateCandidate(
+                        secondary,
+                        plane: plane,
+                        destinationColumn: 2,
+                        destinationRow: 2,
+                        route: fixture.loaded.route,
+                        coordinatePolicy: coordinatePolicy,
+                        boundary: fixture.configuration.boundaryMode,
+                        sourceCoordinates: expectedCoordinates
+                    )
+                    XCTAssertEqual(framed.secondaryResult, expectedSecondary)
+                    let denominator = Double(UInt16.max)
+                    expectedValue = plane.legalClamp(
+                        (Double(framed.dispatch.primaryWeightUNorm16)
+                            * expectedPrimary.sample.value / denominator)
+                            + (Double(framed.dispatch.secondaryWeightUNorm16)
+                                * expectedSecondary.sample.value / denominator)
+                    )
+                } else {
+                    XCTAssertNil(framed.secondaryResult)
+                    expectedValue = expectedPrimary.sample.value
+                }
+                XCTAssertEqual(framed.value.bitPattern, expectedValue.bitPattern)
+            }
+            let cbPlane = try spatialPlane(codePlanes.cb)
+            XCTAssertThrowsError(try ASHLockedRuntimeV3.evaluateSample(
+                frame: frame,
+                runtimePlane: .cb,
+                plane: cbPlane,
+                destinationColumn: 2,
+                destinationRow: 2,
+                chromaSiting: .center
+            )) { error in
+                XCTAssertEqual(error as? ASHLockedRuntimeV3Error, .invalidChromaSiting)
+            }
+        }
+    }
+
     func testConfidenceTransportIsExactValidatedAndRuntimeInert() throws {
         let zero = try makeSidecar(chromaEdgeConfidence: 0.0)
         let one = try makeSidecar(chromaEdgeConfidence: 1.0)
@@ -380,6 +511,32 @@ final class ASHLockedPlaneAwareRuntimeV3Tests: XCTestCase {
             XCTAssertEqual(result, results[0])
             XCTAssertEqual(result.sample.value.bitPattern, results[0].sample.value.bitPattern)
         }
+    }
+
+    private func leftSitingCoordinateOracle(
+        route: ASHSpatialRouteV2,
+        runtimePlane: ASHRuntimePlaneV3
+    ) -> ASHSpatialSourceCoordinatesV2 {
+        let horizontal: ASHSpatialRationalCoordinateV2
+        let vertical: ASHSpatialRationalCoordinateV2
+        switch (route, runtimePlane) {
+        case (.direct2x, .luma):
+            horizontal = ASHSpatialRationalCoordinateV2(numerator: 8, denominator: 8)
+            vertical = ASHSpatialRationalCoordinateV2(numerator: 8, denominator: 8)
+        case (.direct2x, .cb), (.direct2x, .cr):
+            horizontal = ASHSpatialRationalCoordinateV2(numerator: 112, denominator: 128)
+            vertical = ASHSpatialRationalCoordinateV2(numerator: 96, denominator: 128)
+        case (.direct3Over2, .luma):
+            horizontal = ASHSpatialRationalCoordinateV2(numerator: 14, denominator: 12)
+            vertical = ASHSpatialRationalCoordinateV2(numerator: 14, denominator: 12)
+        case (.direct3Over2, .cb), (.direct3Over2, .cr):
+            horizontal = ASHSpatialRationalCoordinateV2(numerator: 48, denominator: 36)
+            vertical = ASHSpatialRationalCoordinateV2(numerator: 45, denominator: 36)
+        }
+        return ASHSpatialSourceCoordinatesV2(
+            horizontal: horizontal,
+            vertical: vertical
+        )
     }
 
     private func assertDispatchSemanticsEqual(

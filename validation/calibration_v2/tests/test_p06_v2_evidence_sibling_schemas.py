@@ -34,7 +34,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.3",
         "artifact_kind": "p06_candidate_evaluation_v2",
         "file_sha256": (
-            "5bae29dee2d847ef58a8ccfe749ab69ea0f693c96a81c7cea01061fcdfdf4ec7"
+            "f05c6a084a3b994edeb38a0097f052e0dcf6e7c09e3af025cc185a74d1ee772b"
         ),
     },
     "calibration-attempt-record-v2": {
@@ -45,7 +45,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.1",
         "artifact_kind": "p06_calibration_attempt_record_v2",
         "file_sha256": (
-            "7cb1219425a7dee875fe0b04e3877a0dad85ccb7d1a3911c10f7fd1044d1376b"
+            "06e329fbbaedbb73afa5ba9649c2b8748a55b196d9dfa1a8bc709a156a86d51e"
         ),
     },
     "calibration-run-ledger-v2": {
@@ -56,7 +56,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.2",
         "artifact_kind": "p06_calibration_run_ledger_v2",
         "file_sha256": (
-            "3b1a576c1550a3b83be27550e5494182e76a1ff9daa1e10f2e651da36d618cc8"
+            "aedee1f38d0b894353594414949fb33a428d4e9d8d64405b9656f1e62377d29b"
         ),
     },
     "validation-candidate-development-evidence-v2": {
@@ -69,7 +69,7 @@ SCHEMA_IDENTITY_TABLE = {
             "p06_validation_candidate_development_evidence_v2"
         ),
         "file_sha256": (
-            "8ba2c914ba2aa1619a6c6cc7e43f823102c79468b099778447e5e5c9d1981f3f"
+            "88847f184e8b79ea1333baa2125d89691409173bf05256e2bf6cbb75d56ef22f"
         ),
     },
     "calibration-selection-v2": {
@@ -80,7 +80,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.2",
         "artifact_kind": "p06_calibration_selection_v2",
         "file_sha256": (
-            "76dc8a720356a85d2bd2f56d423de3581bff96d2e1f4202ec835a31fef7dadff"
+            "cc4405eb8269304cf8d09bee6da78540c19413f4a0daa5f7eece9a5388bc75e0"
         ),
     },
     "p06-calibration-failure-v2": {
@@ -91,7 +91,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.1",
         "artifact_kind": "p06_calibration_failure_v2",
         "file_sha256": (
-            "070c4c38464a684effd14ca5747da11ac4ce71ef13ce583fe003d45f6a903cd6"
+            "db99e3fef12167c63c271049f6c9ea6abc1834df4289700e27d9653bf12d284b"
         ),
     },
     "p06-evidence-closure-v2": {
@@ -102,7 +102,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "2.0.1",
         "artifact_kind": "p06_evidence_closure_v2",
         "file_sha256": (
-            "f8f29aa6c46f9ca89bfcfe509e6a14b95102445810e1d0c13ecc0cd97eab3611"
+            "02f4f00fea47ec3f165e32d762ed0ea3b17ba2e895735891cce124041c452135"
         ),
     },
     "p06-release-bundle-v3": {
@@ -113,7 +113,7 @@ SCHEMA_IDENTITY_TABLE = {
         "schema_version": "3.0.1",
         "artifact_kind": "p06_release_bundle_v3",
         "file_sha256": (
-            "1ea78e6750fbf062c41aa9bdc101d1ed44a9afca6d4987cc72d6ffebf86c8452"
+            "9a823e1e5dbe90e4d372016583625bcac2e5d169b6be35ce86c74c045de737f7"
         ),
     },
 }
@@ -138,6 +138,11 @@ AUTHORITY_BINDINGS = {
         "file_sha256": "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a",
         "schema_file_sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
         "self_sha256": "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237",
+    },
+    "control_execution_producer_identity_v2": {
+        "file_sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+        "schema_file_sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+        "self_sha256": "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5",
     },
     "shared_bank_configuration_identity_v2": {
         "file_sha256": "48f5eef7cf9f7c513cf8e6568b3eeb4d607845c1e70e6c39b6ca0192a4c297de",
@@ -180,6 +185,17 @@ AUTHORITY_INPUT_BINDINGS = [
         "path": "validation/calibration_v2/contracts/compiler-contract-v2.json",
         "sha256": AUTHORITY_BINDINGS["compiler_contract_v2"]["file_sha256"],
         "size_bytes": 26462,
+    },
+    {
+        "id": "control_execution_producer_identity_v2",
+        "path": (
+            "validation/calibration_v2/contracts/"
+            "control-execution-producer-identity-v2.json"
+        ),
+        "sha256": AUTHORITY_BINDINGS[
+            "control_execution_producer_identity_v2"
+        ]["file_sha256"],
+        "size_bytes": 11958,
     },
     {
         "id": "shared_bank_configuration_identity_v2",
@@ -264,7 +280,7 @@ def _control(identifier: str) -> dict[str, object]:
         ),
         "non_ash_selector": (
             "p06_non_ash_selector_selection_v2",
-            "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+            "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
         ),
     }
     artifact_kind, schema_sha256 = identities[identifier]
@@ -284,7 +300,7 @@ def _control_authorization_bundle(label: str) -> dict[str, object]:
     return {
         "artifact_kind": "p06_control_authorization_bundle_v2",
         "schema_sha256": (
-            "9b6aa34dd923752fa12f4938a948a43665953b34fae23485e99a249ad5ff29a6"
+            "c5d79fa2b6b8b574532d4a83d95a4e543f6a9dde769bc8c3f3969d5167729582"
         ),
         "path": f"controls/{digest}.json",
         "sha256": digest,
@@ -1061,11 +1077,22 @@ class P06V2EvidenceSiblingSchemaTests(unittest.TestCase):
                 ]["file_sha256"] = _sha("tampered-compiler-authority")
                 self._assert_invalid(schema_name, compiler_tampered)
 
-                four_authorities = deepcopy(document)
-                del four_authorities["authority_bindings"][
-                    "compiler_contract_v2"
+                for field in (
+                    "file_sha256",
+                    "schema_file_sha256",
+                    "self_sha256",
+                ):
+                    producer_tampered = deepcopy(document)
+                    producer_tampered["authority_bindings"][
+                        "control_execution_producer_identity_v2"
+                    ][field] = _sha(f"tampered-producer-{field}")
+                    self._assert_invalid(schema_name, producer_tampered)
+
+                old_five_authorities = deepcopy(document)
+                del old_five_authorities["authority_bindings"][
+                    "control_execution_producer_identity_v2"
                 ]
-                self._assert_invalid(schema_name, four_authorities)
+                self._assert_invalid(schema_name, old_five_authorities)
 
                 old_version = deepcopy(document)
                 old_version["schema_version"] = (
@@ -1080,13 +1107,13 @@ class P06V2EvidenceSiblingSchemaTests(unittest.TestCase):
             run_schema["properties"]["input_bindings"]["const"],
             AUTHORITY_INPUT_BINDINGS,
         )
-        four_inputs = deepcopy(self.run_ledger)
-        four_inputs["input_bindings"] = [
+        old_five_inputs = deepcopy(self.run_ledger)
+        old_five_inputs["input_bindings"] = [
             row
-            for row in four_inputs["input_bindings"]
-            if row["id"] != "compiler_contract_v2"
+            for row in old_five_inputs["input_bindings"]
+            if row["id"] != "control_execution_producer_identity_v2"
         ]
-        self._assert_invalid("calibration-run-ledger-v2", four_inputs)
+        self._assert_invalid("calibration-run-ledger-v2", old_five_inputs)
 
         reordered_inputs = deepcopy(self.run_ledger)
         reordered_inputs["input_bindings"][2], reordered_inputs[

@@ -5,7 +5,9 @@ import hashlib
 import json
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
+from validation.calibration_v2 import run_provenance_v2 as provenance
 from validation.calibration_v2.run_provenance_v2 import (
     FAILURE_INTEGRATION_REQUIREMENTS_V2,
     FIXED_EXCLUSIONS,
@@ -494,7 +496,7 @@ class _Harness:
             "run_id": RUN_ID,
             "plan_id": "mirmir-p06-spatial-calibration-v2",
             "input_bundle_sha256": (
-                "ad46b6ec3d3629c3a29f17898c6a9b4eec1bca731276ff626dfe58f87bcadd20"
+                "64faa8aab6a9147ba446e34caef9a5f9a314dd75cd45c8ef862628ca2c2cb468"
             ),
             "input_bindings": inputs,
             "shared_bank_configuration_sha256": _sha("shared-bank"),
@@ -643,7 +645,18 @@ class RunProvenanceV2Tests(unittest.TestCase):
     def test_authorities_receipt_and_manifest_reopen(self) -> None:
         harness = _Harness()
         authenticated = authenticate_authorities_v2(harness.reopen)
-        self.assertEqual(len(authenticated.documents), 5)
+        self.assertEqual(len(authenticated.documents), 6)
+        self.assertEqual(
+            [row["id"] for row in authority_input_bindings_v2()],
+            [
+                "baseline_ablation_budget_v2",
+                "calibration_plan_v2",
+                "candidate_evidence_policy_v2",
+                "compiler_contract_v2",
+                "control_execution_producer_identity_v2",
+                "shared_bank_configuration_identity_v2",
+            ],
+        )
         self.assertEqual(
             [binding.artifact_kind for binding in authority_closure_bindings_v2()[::2]],
             [document["artifact_kind"] for _, document in authenticated.documents],
@@ -685,12 +698,41 @@ class RunProvenanceV2Tests(unittest.TestCase):
             expected_run_id=RUN_ID,
         )
         self.assertEqual(verified_manifest.document, manifest)
-        self.assertEqual(manifest["artifact_count"], 24)
+        self.assertEqual(manifest["artifact_count"], 26)
         self.assertEqual(manifest["fixed_exclusions"], list(FIXED_EXCLUSIONS))
         artifact_ids = {row["id"] for row in manifest["artifacts"]}
         self.assertIn("p06_run_provenance_receipt_v2_schema", artifact_ids)
         self.assertIn("p06_run_input_manifest_v2_schema", artifact_ids)
         self.assertIn("p06_calibration_failure_v2_schema", artifact_ids)
+
+    def test_old_five_and_reordered_authority_inputs_are_rejected(self) -> None:
+        harness = _Harness()
+        old_five = tuple(
+            spec
+            for spec in provenance._AUTHORITY_SPECS
+            if spec["id"] != "control_execution_producer_identity_v2"
+        )
+        with patch.object(
+            provenance,
+            "_AUTHORITY_SPECS",
+            old_five,
+        ), self.assertRaisesRegex(
+            RunProvenanceV2Error,
+            "authority input bundle differs",
+        ):
+            authenticate_authorities_v2(harness.reopen)
+
+        reordered = list(provenance._AUTHORITY_SPECS)
+        reordered[-2], reordered[-1] = reordered[-1], reordered[-2]
+        with patch.object(
+            provenance,
+            "_AUTHORITY_SPECS",
+            tuple(reordered),
+        ), self.assertRaisesRegex(
+            RunProvenanceV2Error,
+            "authority input bundle differs",
+        ):
+            authenticate_authorities_v2(harness.reopen)
 
     def test_failure_cycle_identity_is_schema_valid_and_ledger_derived(self) -> None:
         harness = _Harness()
@@ -938,7 +980,10 @@ class RunProvenanceV2Tests(unittest.TestCase):
 
     def test_authority_tamper_and_wrong_command_semantics_are_rejected(self) -> None:
         harness = _Harness()
-        target = "validation/calibration_v2/contracts/candidate-evidence-policy-v2.json"
+        target = (
+            "validation/calibration_v2/contracts/"
+            "control-execution-producer-identity-v2.json"
+        )
 
         def tampered(binding: dict[str, object]) -> bytes:
             payload = harness.reopen(binding)

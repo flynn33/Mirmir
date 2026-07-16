@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+import ctypes
 from dataclasses import dataclass
+import errno
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
+import secrets
+import stat
 from typing import Dict
 
 import jsonschema
@@ -93,6 +98,31 @@ _AUTHORITY_VALUE = {
         EXPECTED_CONTRACT_SCHEMA_FILE_SHA256
     ),
 }
+
+_PUBLISHED_MAPPING_NAME = "candidate-mapping.json"
+_PUBLISHED_OPERATOR_BANK_NAME = "candidate-operator-bank.json"
+_PUBLISHED_PAIR_NAMES = frozenset(
+    {_PUBLISHED_MAPPING_NAME, _PUBLISHED_OPERATOR_BANK_NAME}
+)
+_STAGING_TOKEN_HEX_LENGTH = 32
+_MAX_STAGING_NAME_ATTEMPTS = 8
+_MAX_RECOGNIZED_STAGING_DIRECTORIES = 16
+_MAX_QUARANTINE_SLOTS = 64
+_LOWERCASE_HEX = frozenset("0123456789abcdef")
+_RENAME_EXCL = 0x00000004
+_RENAME_NOFOLLOW_ANY = 0x00000010
+_RENAME_RESOLVE_BENEATH = 0x00000020
+_LIBC = ctypes.CDLL(None, use_errno=True)
+_RENAMEATX_NP = getattr(_LIBC, "renameatx_np", None)
+if _RENAMEATX_NP is not None:
+    _RENAMEATX_NP.argtypes = (
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    )
+    _RENAMEATX_NP.restype = ctypes.c_int
 
 
 class SharedBankArtifactV2Error(ValueError):
@@ -515,6 +545,628 @@ def _load_authorities(root: Path) -> _AuthoritiesV2:
     )
 
 
+def _require_publication_primitives() -> None:
+    if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+        raise SharedBankArtifactV2Error(
+            "no-follow directory publication primitives are unavailable"
+        )
+    if _RENAMEATX_NP is None:
+        raise SharedBankArtifactV2Error(
+            "exclusive no-follow directory publication is unavailable"
+        )
+
+
+def _directory_open_flags() -> int:
+    return (
+        os.O_RDONLY
+        | os.O_DIRECTORY
+        | os.O_NOFOLLOW
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+
+
+def _publication_target(directory: Path) -> tuple[Path, str]:
+    if not isinstance(directory, Path) or not directory.is_absolute():
+        raise SharedBankArtifactV2Error(
+            "publication directory must be an absolute pathlib.Path"
+        )
+    value = os.fspath(directory)
+    if "\x00" in value or Path(os.path.normpath(value)) != directory:
+        raise SharedBankArtifactV2Error(
+            "publication directory must be lexically normalized"
+        )
+    if any(part in ("", ".", "..") for part in directory.parts[1:]):
+        raise SharedBankArtifactV2Error(
+            "publication directory contains an unsafe component"
+        )
+    name = directory.name
+    if not name or name in (".", "..") or "/" in name:
+        raise SharedBankArtifactV2Error("publication directory name is unsafe")
+    return directory.parent, name
+
+
+def _directory_identity(status: os.stat_result) -> tuple[int, int]:
+    return status.st_dev, status.st_ino
+
+
+def _stable_file_identity(status: os.stat_result) -> tuple[int, ...]:
+    return (
+        status.st_dev,
+        status.st_ino,
+        status.st_mode,
+        status.st_nlink,
+        status.st_size,
+        status.st_mtime_ns,
+        status.st_ctime_ns,
+    )
+
+
+def _open_absolute_directory_nofollow(
+    directory: Path,
+    *,
+    label: str,
+) -> tuple[int, os.stat_result]:
+    descriptor = None
+    try:
+        descriptor = os.open(os.sep, _directory_open_flags())
+        opened = os.fstat(descriptor)
+        if not stat.S_ISDIR(opened.st_mode):
+            raise SharedBankArtifactV2Error(f"{label} root is not a directory")
+        for component in directory.parts[1:]:
+            try:
+                before = os.stat(
+                    component,
+                    dir_fd=descriptor,
+                    follow_symlinks=False,
+                )
+                child = os.open(
+                    component,
+                    _directory_open_flags(),
+                    dir_fd=descriptor,
+                )
+            except OSError as error:
+                raise SharedBankArtifactV2Error(
+                    f"{label} traverses an absent or unsafe component"
+                ) from error
+            try:
+                child_opened = os.fstat(child)
+                after = os.stat(
+                    component,
+                    dir_fd=descriptor,
+                    follow_symlinks=False,
+                )
+            except OSError as error:
+                os.close(child)
+                raise SharedBankArtifactV2Error(
+                    f"{label} component changed while opening"
+                ) from error
+            if (
+                not stat.S_ISDIR(before.st_mode)
+                or not stat.S_ISDIR(child_opened.st_mode)
+                or _directory_identity(before)
+                != _directory_identity(child_opened)
+                or _directory_identity(child_opened)
+                != _directory_identity(after)
+            ):
+                os.close(child)
+                raise SharedBankArtifactV2Error(
+                    f"{label} component identity changed"
+                )
+            os.close(descriptor)
+            descriptor = child
+            opened = child_opened
+        return descriptor, opened
+    except BaseException:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise
+
+
+def _verify_absolute_directory_identity(
+    directory: Path,
+    expected: os.stat_result,
+    *,
+    label: str,
+) -> None:
+    descriptor, reopened = _open_absolute_directory_nofollow(
+        directory,
+        label=label,
+    )
+    try:
+        if _directory_identity(reopened) != _directory_identity(expected):
+            raise SharedBankArtifactV2Error(f"{label} identity changed")
+    finally:
+        os.close(descriptor)
+
+
+def _try_open_directory_at(
+    parent_descriptor: int,
+    name: str,
+    *,
+    label: str,
+) -> tuple[int, os.stat_result] | None:
+    try:
+        before = os.stat(
+            name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+    except FileNotFoundError:
+        return None
+    except OSError as error:
+        raise SharedBankArtifactV2Error(f"{label} cannot be inspected") from error
+    if not stat.S_ISDIR(before.st_mode):
+        raise SharedBankArtifactV2Error(f"{label} is not a safe directory")
+    try:
+        descriptor = os.open(
+            name,
+            _directory_open_flags(),
+            dir_fd=parent_descriptor,
+        )
+    except OSError as error:
+        raise SharedBankArtifactV2Error(f"{label} cannot be opened safely") from error
+    try:
+        opened = os.fstat(descriptor)
+        after = os.stat(
+            name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+    except OSError as error:
+        os.close(descriptor)
+        raise SharedBankArtifactV2Error(
+            f"{label} changed while opening"
+        ) from error
+    if (
+        not stat.S_ISDIR(opened.st_mode)
+        or _directory_identity(before) != _directory_identity(opened)
+        or _directory_identity(opened) != _directory_identity(after)
+    ):
+        os.close(descriptor)
+        raise SharedBankArtifactV2Error(f"{label} identity changed")
+    return descriptor, opened
+
+
+def _directory_entry_names(descriptor: int, *, label: str) -> tuple[str, ...]:
+    try:
+        names = tuple(sorted(os.listdir(descriptor)))
+    except OSError as error:
+        raise SharedBankArtifactV2Error(f"{label} cannot be enumerated") from error
+    if any(
+        not name or name in (".", "..") or "/" in name or "\x00" in name
+        for name in names
+    ):
+        raise SharedBankArtifactV2Error(f"{label} has an unsafe entry name")
+    return names
+
+
+def _open_retained_regular_at(
+    directory_descriptor: int,
+    name: str,
+    *,
+    label: str,
+) -> tuple[int, os.stat_result]:
+    flags = os.O_RDONLY | os.O_NOFOLLOW | getattr(os, "O_CLOEXEC", 0)
+    descriptor = None
+    try:
+        before = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+        descriptor = os.open(name, flags, dir_fd=directory_descriptor)
+        opened = os.fstat(descriptor)
+    except OSError as error:
+        if descriptor is not None:
+            os.close(descriptor)
+        raise SharedBankArtifactV2Error(f"{label} cannot be retained") from error
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or not stat.S_ISREG(opened.st_mode)
+        or before.st_nlink != 1
+        or opened.st_nlink != 1
+        or _directory_identity(before) != _directory_identity(opened)
+    ):
+        os.close(descriptor)
+        raise SharedBankArtifactV2Error(
+            f"{label} is not a private stable regular file"
+        )
+    return descriptor, opened
+
+
+def _read_retained_regular_at(
+    directory_descriptor: int,
+    name: str,
+    descriptor: int,
+    identity: os.stat_result,
+    *,
+    expected_size: int,
+    label: str,
+) -> bytes:
+    if identity.st_size != expected_size:
+        raise SharedBankArtifactV2Error(f"{label} has an unexpected size")
+    try:
+        before_path = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        payload_buffer = bytearray()
+        maximum_read_size = expected_size + 1
+        while len(payload_buffer) < maximum_read_size:
+            chunk = os.read(
+                descriptor,
+                min(1024 * 1024, maximum_read_size - len(payload_buffer)),
+            )
+            if not chunk:
+                break
+            payload_buffer.extend(chunk)
+        payload = bytes(payload_buffer)
+        after = os.fstat(descriptor)
+        after_path = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+    except OSError as error:
+        raise SharedBankArtifactV2Error(f"{label} changed while read") from error
+    expected = _stable_file_identity(identity)
+    if (
+        _stable_file_identity(before_path) != expected
+        or _stable_file_identity(after) != expected
+        or _stable_file_identity(after_path) != expected
+        or len(payload) != expected_size
+    ):
+        raise SharedBankArtifactV2Error(f"{label} changed while read")
+    return payload
+
+
+def _verify_retained_regular_at(
+    directory_descriptor: int,
+    name: str,
+    descriptor: int,
+    identity: os.stat_result,
+    *,
+    label: str,
+) -> None:
+    try:
+        opened = os.fstat(descriptor)
+        named = os.stat(
+            name,
+            dir_fd=directory_descriptor,
+            follow_symlinks=False,
+        )
+    except OSError as error:
+        raise SharedBankArtifactV2Error(
+            f"{label} changed after validation"
+        ) from error
+    expected = _stable_file_identity(identity)
+    if (
+        _stable_file_identity(opened) != expected
+        or _stable_file_identity(named) != expected
+    ):
+        raise SharedBankArtifactV2Error(f"{label} changed after validation")
+
+
+def _write_exact_regular_at(
+    directory_descriptor: int,
+    name: str,
+    payload: bytes,
+    *,
+    label: str,
+) -> None:
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_EXCL
+        | os.O_NOFOLLOW
+        | getattr(os, "O_CLOEXEC", 0)
+    )
+    descriptor = None
+    try:
+        descriptor = os.open(
+            name,
+            flags,
+            0o600,
+            dir_fd=directory_descriptor,
+        )
+        opened = os.fstat(descriptor)
+        if not stat.S_ISREG(opened.st_mode) or opened.st_nlink != 1:
+            raise SharedBankArtifactV2Error(
+                f"{label} is not a private regular file"
+            )
+        offset = 0
+        while offset < len(payload):
+            written = os.write(descriptor, payload[offset:])
+            if written <= 0:
+                raise SharedBankArtifactV2Error(
+                    f"{label} write made no progress"
+                )
+            offset += written
+        os.fsync(descriptor)
+        after = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(after.st_mode)
+            or after.st_nlink != 1
+            or _directory_identity(opened) != _directory_identity(after)
+            or after.st_size != len(payload)
+        ):
+            raise SharedBankArtifactV2Error(f"{label} write is not stable")
+    except SharedBankArtifactV2Error:
+        raise
+    except OSError as error:
+        raise SharedBankArtifactV2Error(f"{label} cannot be written") from error
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _rename_directory_exclusive_at(
+    source_parent_descriptor: int,
+    source_name: str,
+    destination_parent_descriptor: int,
+    destination_name: str,
+) -> None:
+    if any(
+        not name or name in (".", "..") or "/" in name or "\x00" in name
+        for name in (source_name, destination_name)
+    ):
+        raise SharedBankArtifactV2Error(
+            "exclusive publication names are invalid"
+        )
+    if _RENAMEATX_NP is None:
+        raise SharedBankArtifactV2Error(
+            "exclusive no-follow directory publication is unavailable"
+        )
+    ctypes.set_errno(0)
+    result = _RENAMEATX_NP(
+        source_parent_descriptor,
+        os.fsencode(source_name),
+        destination_parent_descriptor,
+        os.fsencode(destination_name),
+        _RENAME_EXCL | _RENAME_NOFOLLOW_ANY | _RENAME_RESOLVE_BENEATH,
+    )
+    if result == 0:
+        return
+    number = ctypes.get_errno() or errno.EIO
+    if number in (errno.EEXIST, errno.ENOTEMPTY):
+        raise FileExistsError(number, os.strerror(number), destination_name)
+    raise OSError(number, os.strerror(number), destination_name)
+
+
+def _publication_namespace_token(target_name: str) -> str:
+    return hashlib.sha256(os.fsencode(target_name)).hexdigest()
+
+
+def _staging_prefix(target_name: str) -> str:
+    return f".shared-bank-pair.{_publication_namespace_token(target_name)}.tmp."
+
+
+def _quarantine_prefix(target_name: str, category: str) -> str:
+    return (
+        f".shared-bank-pair.{_publication_namespace_token(target_name)}."
+        f"quarantine.{category}."
+    )
+
+
+def _recognized_staging_owner(
+    target_name: str,
+    entry_name: str,
+) -> int | None:
+    prefix = _staging_prefix(target_name)
+    if not entry_name.startswith(prefix):
+        return None
+    suffix = entry_name[len(prefix):]
+    pieces = suffix.split(".")
+    if (
+        len(pieces) != 2
+        or not pieces[0].isdigit()
+        or int(pieces[0]) <= 0
+        or len(pieces[1]) != _STAGING_TOKEN_HEX_LENGTH
+        or any(character not in _LOWERCASE_HEX for character in pieces[1])
+    ):
+        raise SharedBankArtifactV2Error(
+            "recognized publication staging name is malformed"
+        )
+    return int(pieces[0])
+
+
+def _pid_is_active(process_id: int) -> bool:
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError as error:
+        if error.errno == errno.ESRCH:
+            return False
+        if error.errno == errno.EPERM:
+            return True
+        raise SharedBankArtifactV2Error(
+            "publication staging owner cannot be inspected"
+        ) from error
+    return True
+
+
+def _quarantine_directory_at(
+    parent_descriptor: int,
+    source_name: str,
+    source_identity: os.stat_result,
+    *,
+    target_name: str,
+    category: str,
+) -> str:
+    try:
+        named = os.stat(
+            source_name,
+            dir_fd=parent_descriptor,
+            follow_symlinks=False,
+        )
+    except OSError as error:
+        raise SharedBankArtifactV2Error(
+            "publication evidence cannot be inspected for quarantine"
+        ) from error
+    if (
+        not stat.S_ISDIR(named.st_mode)
+        or _directory_identity(named) != _directory_identity(source_identity)
+    ):
+        raise SharedBankArtifactV2Error(
+            "publication evidence identity changed before quarantine"
+        )
+    prefix = _quarantine_prefix(target_name, category)
+    for index in range(_MAX_QUARANTINE_SLOTS):
+        destination_name = f"{prefix}{index:02d}"
+        try:
+            _rename_directory_exclusive_at(
+                parent_descriptor,
+                source_name,
+                parent_descriptor,
+                destination_name,
+            )
+        except FileExistsError:
+            continue
+        except OSError as error:
+            raise SharedBankArtifactV2Error(
+                "publication evidence cannot be quarantined"
+            ) from error
+        try:
+            quarantined = os.stat(
+                destination_name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            os.fsync(parent_descriptor)
+        except OSError as error:
+            raise SharedBankArtifactV2Error(
+                "publication evidence quarantine cannot be synchronized"
+            ) from error
+        if (
+            not stat.S_ISDIR(quarantined.st_mode)
+            or _directory_identity(quarantined)
+            != _directory_identity(source_identity)
+        ):
+            raise SharedBankArtifactV2Error(
+                "publication evidence quarantine identity changed"
+            )
+        return destination_name
+    raise SharedBankArtifactV2Error(
+        "publication evidence quarantine slots are exhausted"
+    )
+
+
+def _recover_stale_staging_directories(
+    parent_descriptor: int,
+    *,
+    target_name: str,
+) -> tuple[str, ...]:
+    prefix = _staging_prefix(target_name)
+    names = tuple(
+        name
+        for name in _directory_entry_names(
+            parent_descriptor,
+            label="publication parent",
+        )
+        if name.startswith(prefix)
+    )
+    if len(names) > _MAX_RECOGNIZED_STAGING_DIRECTORIES:
+        raise SharedBankArtifactV2Error(
+            "too many recognized publication staging directories"
+        )
+    quarantined = []
+    for name in names:
+        owner = _recognized_staging_owner(target_name, name)
+        if owner is None:
+            raise AssertionError("staging prefix classification diverged")
+        if _pid_is_active(owner):
+            continue
+        try:
+            identity = os.stat(
+                name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+        except OSError as error:
+            raise SharedBankArtifactV2Error(
+                "stale publication staging directory cannot be inspected"
+            ) from error
+        if not stat.S_ISDIR(identity.st_mode):
+            raise SharedBankArtifactV2Error(
+                "stale publication staging entry is unsafe"
+            )
+        quarantined.append(
+            _quarantine_directory_at(
+                parent_descriptor,
+                name,
+                identity,
+                target_name=target_name,
+                category="stale-temp",
+            )
+        )
+    return tuple(quarantined)
+
+
+def _create_staging_directory(
+    parent_descriptor: int,
+    *,
+    target_name: str,
+) -> tuple[str, int, os.stat_result]:
+    prefix = _staging_prefix(target_name)
+    for _ in range(_MAX_STAGING_NAME_ATTEMPTS):
+        name = (
+            f"{prefix}{os.getpid()}."
+            f"{secrets.token_hex(_STAGING_TOKEN_HEX_LENGTH // 2)}"
+        )
+        try:
+            os.mkdir(name, 0o700, dir_fd=parent_descriptor)
+        except FileExistsError:
+            continue
+        except OSError as error:
+            raise SharedBankArtifactV2Error(
+                "publication staging directory cannot be created"
+            ) from error
+        try:
+            os.fsync(parent_descriptor)
+            opened = _try_open_directory_at(
+                parent_descriptor,
+                name,
+                label="publication staging directory",
+            )
+            if opened is None:
+                raise SharedBankArtifactV2Error(
+                    "publication staging directory disappeared"
+                )
+            descriptor, identity = opened
+            return name, descriptor, identity
+        except BaseException as error:
+            try:
+                identity = os.stat(
+                    name,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                if stat.S_ISDIR(identity.st_mode):
+                    _quarantine_directory_at(
+                        parent_descriptor,
+                        name,
+                        identity,
+                        target_name=target_name,
+                        category="failed-temp",
+                    )
+            except BaseException as quarantine_error:
+                raise SharedBankArtifactV2Error(
+                    "publication staging creation failed and evidence "
+                    "quarantine failed"
+                ) from quarantine_error
+            raise SharedBankArtifactV2Error(
+                "publication staging creation failed; evidence quarantined"
+            ) from error
+    raise SharedBankArtifactV2Error(
+        "publication staging name attempts are exhausted"
+    )
+
+
 class SharedBankArtifactMaterializerV2:
     """Materialize and reopen-validate only the frozen schema-2 artifact family."""
 
@@ -819,6 +1471,323 @@ class SharedBankArtifactMaterializerV2:
             expected_mapping_sha256=mapping_sha256,
             expected_operator_bank_sha256=operator_bank_sha256,
         )
+
+    def _validate_retained_directory_pair(
+        self,
+        directory_descriptor: int,
+        directory_identity: os.stat_result,
+        expected: SharedBankArtifactPairV2,
+        *,
+        label: str,
+    ) -> SharedBankArtifactPairV2:
+        if frozenset(
+            _directory_entry_names(directory_descriptor, label=label)
+        ) != _PUBLISHED_PAIR_NAMES:
+            raise SharedBankArtifactV2Error(
+                f"{label} must contain exactly the mapping and operator bank"
+            )
+        mapping_descriptor = None
+        operator_descriptor = None
+        try:
+            mapping_descriptor, mapping_identity = _open_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_MAPPING_NAME,
+                label="published video mapping",
+            )
+            operator_descriptor, operator_identity = _open_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_OPERATOR_BANK_NAME,
+                label="published operator bank",
+            )
+            mapping_bytes = _read_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_MAPPING_NAME,
+                mapping_descriptor,
+                mapping_identity,
+                expected_size=len(expected.mapping_bytes),
+                label="published video mapping",
+            )
+            operator_bytes = _read_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_OPERATOR_BANK_NAME,
+                operator_descriptor,
+                operator_identity,
+                expected_size=len(expected.operator_bank_bytes),
+                label="published operator bank",
+            )
+            reopened = self.validate(
+                mapping_bytes,
+                operator_bytes,
+                mapping_sha256=expected.mapping_sha256,
+                operator_bank_sha256=expected.operator_bank_sha256,
+            )
+            _verify_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_MAPPING_NAME,
+                mapping_descriptor,
+                mapping_identity,
+                label="published video mapping",
+            )
+            _verify_retained_regular_at(
+                directory_descriptor,
+                _PUBLISHED_OPERATOR_BANK_NAME,
+                operator_descriptor,
+                operator_identity,
+                label="published operator bank",
+            )
+        finally:
+            if operator_descriptor is not None:
+                os.close(operator_descriptor)
+            if mapping_descriptor is not None:
+                os.close(mapping_descriptor)
+        after = os.fstat(directory_descriptor)
+        if (
+            not stat.S_ISDIR(after.st_mode)
+            or _directory_identity(after) != _directory_identity(directory_identity)
+            or frozenset(
+                _directory_entry_names(directory_descriptor, label=label)
+            )
+            != _PUBLISHED_PAIR_NAMES
+        ):
+            raise SharedBankArtifactV2Error(f"{label} changed during validation")
+        if reopened != expected:
+            raise SharedBankArtifactV2Error(
+                f"{label} identity differs from the retained expected pair"
+            )
+        return reopened
+
+    def _reopen_named_pair(
+        self,
+        parent_descriptor: int,
+        target_name: str,
+        expected: SharedBankArtifactPairV2,
+        *,
+        required_identity: os.stat_result | None,
+    ) -> SharedBankArtifactPairV2:
+        opened = _try_open_directory_at(
+            parent_descriptor,
+            target_name,
+            label="published shared-bank pair",
+        )
+        if opened is None:
+            raise SharedBankArtifactV2Error(
+                "published shared-bank pair is absent"
+            )
+        descriptor, identity = opened
+        try:
+            if required_identity is not None and (
+                _directory_identity(identity)
+                != _directory_identity(required_identity)
+            ):
+                raise SharedBankArtifactV2Error(
+                    "published shared-bank pair identity changed"
+                )
+            reopened = self._validate_retained_directory_pair(
+                descriptor,
+                identity,
+                expected,
+                label="published shared-bank pair",
+            )
+            os.fsync(descriptor)
+            named = os.stat(
+                target_name,
+                dir_fd=parent_descriptor,
+                follow_symlinks=False,
+            )
+            if (
+                not stat.S_ISDIR(named.st_mode)
+                or _directory_identity(named) != _directory_identity(identity)
+            ):
+                raise SharedBankArtifactV2Error(
+                    "published shared-bank pair changed after reopen"
+                )
+            os.fsync(parent_descriptor)
+            return reopened
+        except SharedBankArtifactV2Error:
+            raise
+        except OSError as error:
+            raise SharedBankArtifactV2Error(
+                "published shared-bank pair cannot be synchronized"
+            ) from error
+        finally:
+            os.close(descriptor)
+
+    def publish_pair(
+        self,
+        directory: Path,
+        pair: SharedBankArtifactPairV2,
+    ) -> SharedBankArtifactPairV2:
+        """Atomically publish and reopen-validate one exact schema-2 pair."""
+
+        if type(pair) is not SharedBankArtifactPairV2:
+            raise SharedBankArtifactV2Error(
+                "published pair must be an exact SharedBankArtifactPairV2"
+            )
+        retained = self.validate(
+            pair.mapping_bytes,
+            pair.operator_bank_bytes,
+            mapping_sha256=pair.mapping_sha256,
+            operator_bank_sha256=pair.operator_bank_sha256,
+        )
+        if retained != pair:
+            raise SharedBankArtifactV2Error(
+                "published pair fields differ from semantic validation"
+            )
+        _require_publication_primitives()
+        parent_path, target_name = _publication_target(directory)
+        parent_descriptor, parent_identity = _open_absolute_directory_nofollow(
+            parent_path,
+            label="publication parent",
+        )
+        try:
+            _recover_stale_staging_directories(
+                parent_descriptor,
+                target_name=target_name,
+            )
+            existing = _try_open_directory_at(
+                parent_descriptor,
+                target_name,
+                label="published shared-bank pair",
+            )
+            if existing is not None:
+                os.close(existing[0])
+                reopened = self._reopen_named_pair(
+                    parent_descriptor,
+                    target_name,
+                    retained,
+                    required_identity=existing[1],
+                )
+                _verify_absolute_directory_identity(
+                    parent_path,
+                    parent_identity,
+                    label="publication parent",
+                )
+                return reopened
+
+            stage_name, stage_descriptor, stage_identity = (
+                _create_staging_directory(
+                    parent_descriptor,
+                    target_name=target_name,
+                )
+            )
+            published = False
+            preserved_stage = None
+            try:
+                _write_exact_regular_at(
+                    stage_descriptor,
+                    _PUBLISHED_MAPPING_NAME,
+                    retained.mapping_bytes,
+                    label="staged video mapping",
+                )
+                _write_exact_regular_at(
+                    stage_descriptor,
+                    _PUBLISHED_OPERATOR_BANK_NAME,
+                    retained.operator_bank_bytes,
+                    label="staged operator bank",
+                )
+                os.fsync(stage_descriptor)
+                stage_identity = os.fstat(stage_descriptor)
+                self._validate_retained_directory_pair(
+                    stage_descriptor,
+                    stage_identity,
+                    retained,
+                    label="staged shared-bank pair",
+                )
+                os.fsync(stage_descriptor)
+                try:
+                    _rename_directory_exclusive_at(
+                        parent_descriptor,
+                        stage_name,
+                        parent_descriptor,
+                        target_name,
+                    )
+                except FileExistsError:
+                    preserved_stage = _quarantine_directory_at(
+                        parent_descriptor,
+                        stage_name,
+                        stage_identity,
+                        target_name=target_name,
+                        category="race-temp",
+                    )
+                    try:
+                        reopened = self._reopen_named_pair(
+                            parent_descriptor,
+                            target_name,
+                            retained,
+                            required_identity=None,
+                        )
+                        _verify_absolute_directory_identity(
+                            parent_path,
+                            parent_identity,
+                            label="publication parent",
+                        )
+                        return reopened
+                    except BaseException as reopen_error:
+                        raise SharedBankArtifactV2Error(
+                            "concurrent publication differs; staged evidence "
+                            f"preserved as {preserved_stage}"
+                        ) from reopen_error
+                published = True
+                stage_identity = os.fstat(stage_descriptor)
+                os.fsync(parent_descriptor)
+                reopened = self._reopen_named_pair(
+                    parent_descriptor,
+                    target_name,
+                    retained,
+                    required_identity=stage_identity,
+                )
+                _verify_absolute_directory_identity(
+                    parent_path,
+                    parent_identity,
+                    label="publication parent",
+                )
+                final_named = os.stat(
+                    target_name,
+                    dir_fd=parent_descriptor,
+                    follow_symlinks=False,
+                )
+                if (
+                    not stat.S_ISDIR(final_named.st_mode)
+                    or _directory_identity(final_named)
+                    != _directory_identity(stage_identity)
+                ):
+                    raise SharedBankArtifactV2Error(
+                        "published shared-bank pair changed before return"
+                    )
+                return reopened
+            except BaseException as error:
+                if preserved_stage is not None:
+                    if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                        raise
+                    raise SharedBankArtifactV2Error(
+                        "shared-bank pair publication failed; staged evidence "
+                        f"preserved as {preserved_stage}"
+                    ) from error
+                source_name = target_name if published else stage_name
+                category = "failed-published" if published else "failed-temp"
+                try:
+                    quarantine_name = _quarantine_directory_at(
+                        parent_descriptor,
+                        source_name,
+                        stage_identity,
+                        target_name=target_name,
+                        category=category,
+                    )
+                except BaseException as quarantine_error:
+                    raise SharedBankArtifactV2Error(
+                        "shared-bank pair publication failed and evidence "
+                        "quarantine failed"
+                    ) from quarantine_error
+                if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                    raise
+                raise SharedBankArtifactV2Error(
+                    "shared-bank pair publication failed; evidence preserved "
+                    f"as {quarantine_name}"
+                ) from error
+            finally:
+                os.close(stage_descriptor)
+        finally:
+            os.close(parent_descriptor)
 
     def _validate_pair(
         self,

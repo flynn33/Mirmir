@@ -21,11 +21,20 @@ import uuid
 
 import numpy as np
 
+from validation.calibration_v2.calibration_plan_codec import (
+    candidate_vector_sha256_v2,
+    materialize_candidate_vector_v2,
+)
 from validation.calibration_v2.release_lock import locked_compiler_input_document
 from validation.calibration_v2.reference.lut_oracle import (
     ROUTES as ORACLE_ROUTES,
     parse_locked_compiler_input,
     state_conditioning_evidence,
+)
+from validation.calibration_v2.reference.lut_oracle_v2 import (
+    canonical_compiler_input_sha256_v2,
+    parse_locked_compiler_input_v2,
+    validate_lut_v2,
 )
 from validation.calibration_v2.runner import (
     LiveHoldoutPreopenBinding,
@@ -34,6 +43,9 @@ from validation.calibration_v2.runner import (
     candidate_vector_sha256,
     corpus_lock_bundle_sha256,
     shared_bank_configuration_sha256,
+)
+from validation.calibration_v2.shared_bank_artifacts_v2 import (
+    SharedBankArtifactMaterializerV2,
 )
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha256
 from validation.quality.src.mirmir_quality.json_tools import (
@@ -75,6 +87,15 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryValidationSupportV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedLUTManifestRouteV2.swift",
@@ -83,6 +104,9 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlResamplerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedNonASHOutputCacheV2.swift",
@@ -185,6 +209,17 @@ class NativeAdapterError(RuntimeError):
     def __init__(self, message: str, failure_path: Path | None = None) -> None:
         super().__init__(message)
         self.failure_path = failure_path
+
+
+def _plan_schema_version(plan: Mapping[str, object]) -> str:
+    """Read only the version discriminator before any plan-family projection."""
+
+    if not isinstance(plan, Mapping):
+        raise NativeAdapterError("calibration plan is not a mapping")
+    schema_version = plan.get("schema_version")
+    if type(schema_version) is not str or schema_version not in {"1.0.0", "2.0.0"}:
+        raise NativeAdapterError("calibration plan schema version is unsupported")
+    return schema_version
 
 
 _LIBC = ctypes.CDLL(None, use_errno=True)
@@ -1391,6 +1426,288 @@ def _read_regular(path: Path) -> bytes:
         os.close(parent)
 
 
+class _InheritedCorpusBoundView:
+    """Read-only bound-input view exposing one explicitly inherited V1 section."""
+
+    def __init__(self, bound: object, base_plan: Mapping[str, object]) -> None:
+        documents = getattr(bound, "documents", None)
+        if not isinstance(documents, Mapping):
+            raise NativeAdapterError("bound input documents are absent")
+        self.documents = dict(documents)
+        self.documents["calibration_plan"] = dict(base_plan)
+        live = getattr(bound, "live_holdout_preopen_verification", None)
+        if not isinstance(live, Mapping):
+            raise NativeAdapterError("live holdout preopen verification is absent")
+        self.live_holdout_preopen_verification = dict(live)
+        record = getattr(bound, "record", None)
+        if not callable(record):
+            raise NativeAdapterError("bound input record lookup is absent")
+        self._record = record
+
+    def record(self, identifier: str) -> Mapping[str, object]:
+        return self._record(identifier)
+
+
+def _corpus_lock_bundle_sha256_v2(
+    *,
+    bound: object,
+    plan: Mapping[str, object],
+    repository_root: Path,
+) -> str:
+    """Resolve only the V2 plan's hash-bound inherited corpus bundle contract."""
+
+    inheritance = plan.get("inheritance")
+    if not isinstance(inheritance, Mapping) or (
+        inheritance.get("model")
+        != "hash_bound_overlay_without_mutating_calibration_plan_v1"
+        or inheritance.get("base_schema_version") != "1.0.0"
+        or "corpus_lock_bundle_contract"
+        not in inheritance.get("inherited_sections", [])
+    ):
+        raise NativeAdapterError("V2 corpus bundle inheritance is not authorized")
+    bindings = plan.get("input_bindings")
+    if not isinstance(bindings, list):
+        raise NativeAdapterError("V2 calibration-plan input bindings are absent")
+    matches = [
+        binding
+        for binding in bindings
+        if isinstance(binding, Mapping) and binding.get("id") == "calibration_plan_v1"
+    ]
+    if len(matches) != 1:
+        raise NativeAdapterError("V2 base calibration-plan binding is not singular")
+    binding = matches[0]
+    relative = binding.get("path")
+    if type(relative) is not str:
+        raise NativeAdapterError("V2 base calibration-plan path is invalid")
+    path = repository_root.joinpath(*Path(relative).parts)
+    payload = _read_regular(path)
+    if (
+        binding.get("size_bytes") != len(payload)
+        or binding.get("sha256") != _sha256(payload)
+    ):
+        raise NativeAdapterError("V2 base calibration-plan bytes differ from binding")
+    try:
+        base_plan = json.loads(
+            payload,
+            object_pairs_hook=_reject_duplicate_pairs,
+            parse_constant=lambda token: (_ for _ in ()).throw(
+                NativeAdapterError(f"nonfinite base-plan JSON value: {token}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise NativeAdapterError("V2 base calibration plan is malformed") from error
+    if (
+        not isinstance(base_plan, dict)
+        or base_plan.get("schema_version") != "1.0.0"
+        or not isinstance(base_plan.get("corpus_lock_bundle_contract"), dict)
+    ):
+        raise NativeAdapterError("V2 inherited corpus bundle contract is absent")
+    return corpus_lock_bundle_sha256(
+        _InheritedCorpusBoundView(bound, base_plan)  # type: ignore[arg-type]
+    )
+
+
+def _candidate_metric_policy_document(bound: object) -> Mapping[str, object]:
+    """Return the existing candidate metric identity without projecting bank files."""
+
+    record = getattr(bound, "record", None)
+    if not callable(record):
+        raise NativeAdapterError("bound input record lookup is absent")
+    document = {
+        "artifact_kind": "p06_candidate_metric_policy",
+        "metric_policy_seed_sha256": record("metric_policy_seed")["sha256"],
+        "metric_performance_tolerances_sha256": record(
+            "metric_performance_tolerances"
+        )["sha256"],
+        "quality_gate_policy_seed_sha256": record("quality_gate_policy_seed")[
+            "sha256"
+        ],
+    }
+    if any(not _is_sha256(value) for value in document.values() if value != document["artifact_kind"]):
+        raise NativeAdapterError("candidate metric policy binding is invalid")
+    return document
+
+
+def _locked_compiler_input_document_v2(
+    *,
+    physical: Mapping[str, object],
+    configuration_id: str,
+    mapping_sha256: str,
+    operator_bank_sha256: str,
+    metric_policy_sha256: str,
+    calibration_plan_sha256: str,
+    corpus_lock_bundle_sha256_value: str,
+) -> Mapping[str, object]:
+    """Materialize the exact schema-2 compiler-input template and self-hash."""
+
+    denominator = physical["penalty_decay_denominator"]
+    if type(denominator) is not int:
+        raise NativeAdapterError("V2 penalty decay denominator is not integral")
+    penalty_table = [
+        ((65_535 * denominator) + ((denominator + index) // 2))
+        // (denominator + index)
+        for index in range(256)
+    ]
+    document: Dict[str, object] = {
+        "schema_version": "2.0.0",
+        "status": "locked",
+        "configuration_id": configuration_id,
+        "hash_bindings": {
+            "mapping_sha256": mapping_sha256,
+            "operator_bank_sha256": operator_bank_sha256,
+            "metric_policy_sha256": metric_policy_sha256,
+            "compiler_inputs_sha256": "0" * 64,
+            "calibration_plan_sha256": calibration_plan_sha256,
+            "corpus_lock_bundle_sha256": corpus_lock_bundle_sha256_value,
+        },
+        "canonicalization": {
+            "encoding": "UTF-8",
+            "object_key_order": "ascending Unicode scalar value",
+            "array_order": "preserved",
+            "whitespace": "none",
+            "string_escaping": (
+                "JSON quotation, reverse-solidus, and control escapes; "
+                "non-ASCII encoded directly as UTF-8"
+            ),
+            "number_domain": "integers only",
+            "duplicate_keys": "reject",
+            "trailing_newline_in_hash_input": False,
+            "hash_algorithm": "SHA-256",
+            "hash_scope": (
+                "complete canonical document with only "
+                "/hash_bindings/compiler_inputs_sha256 omitted"
+            ),
+        },
+        "boundary_mode": physical["boundary_mode"],
+        "operator_parameters": {
+            "minimum_anisotropic_magnitude_unorm15": physical[
+                "minimum_anisotropic_magnitude_unorm15"
+            ],
+            "minimum_anisotropic_coherence_unorm15": physical[
+                "minimum_anisotropic_coherence_unorm15"
+            ],
+            "detail_gain_q12": physical["detail_gain_q12"],
+            "relaxed_limiter_alpha_q12": physical["relaxed_limiter_alpha_q12"],
+            "risk_detail_suppression_unorm15": physical[
+                "risk_detail_suppression_unorm15"
+            ],
+            "low_pass_radius_q8_8": physical["low_pass_radius_q8_8"],
+            "weight_epsilon_f32_bits": 730_643_660,
+        },
+        "semantic_steps": {
+            "orientation_sector_step": 1,
+            "support_radius_step_q8_8": physical["support_radius_step_q8_8"],
+            "detail_gain_step_q12": physical["detail_gain_step_q12"],
+            "regularization_step_q12": physical["regularization_step_q12"],
+        },
+        "compiler_policy": {
+            "penalty_decay_denominator": denominator,
+            "penalty_to_weight_unorm16": penalty_table,
+            "penalty_orientation_step": physical["penalty_orientation_step"],
+            "penalty_support_step": physical["penalty_support_step"],
+            "penalty_detail_step": physical["penalty_detail_step"],
+            "penalty_regularization_step": physical[
+                "penalty_regularization_step"
+            ],
+            "penalty_unsupported_support_expansion": physical[
+                "penalty_unsupported_support_expansion"
+            ],
+            "penalty_coherent_support_reduction": physical[
+                "penalty_coherent_support_reduction"
+            ],
+            "penalty_unsupported_detail_increase": physical[
+                "penalty_unsupported_detail_increase"
+            ],
+            "penalty_supported_detail_reduction": physical[
+                "penalty_supported_detail_reduction"
+            ],
+            "penalty_relaxation_under_risk": physical[
+                "penalty_relaxation_under_risk"
+            ],
+            "penalty_phase_kernel_mismatch": physical[
+                "penalty_phase_kernel_mismatch"
+            ],
+            "confidence_threshold_unorm16": physical[
+                "confidence_threshold_unorm16"
+            ],
+        },
+        "routes": {
+            "direct_2x": {
+                "route_spatial_policy_id": physical[
+                    "direct_2x_route_spatial_policy_id"
+                ],
+                "luma_anisotropy_mode_ordinal": physical[
+                    "direct_2x_luma_anisotropy_mode_ordinal"
+                ],
+                "chroma_anisotropy_mode_ordinal": physical[
+                    "direct_2x_chroma_anisotropy_mode_ordinal"
+                ],
+                "luma_coordinate_policy": physical[
+                    "direct_2x_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": physical[
+                    "direct_2x_chroma_coordinate_policy"
+                ],
+                "analysis_grid_source_step": physical[
+                    "direct_2x_analysis_grid_source_step"
+                ],
+            },
+            "direct_3_over_2": {
+                "route_spatial_policy_id": physical[
+                    "direct_3_over_2_route_spatial_policy_id"
+                ],
+                "luma_anisotropy_mode_ordinal": physical[
+                    "direct_3_over_2_luma_anisotropy_mode_ordinal"
+                ],
+                "chroma_anisotropy_mode_ordinal": physical[
+                    "direct_3_over_2_chroma_anisotropy_mode_ordinal"
+                ],
+                "luma_coordinate_policy": physical[
+                    "direct_3_over_2_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": physical[
+                    "direct_3_over_2_chroma_coordinate_policy"
+                ],
+                "analysis_grid_source_step": physical[
+                    "direct_3_over_2_analysis_grid_source_step"
+                ],
+            },
+        },
+        "temporal": {
+            "enabled": False,
+            "context_count": 4,
+            "context_aliases_to_spatial": [1, 2, 3],
+            "semantic_state": (
+                "clear payload coordinate 7 and recompute coordinate 9 parity"
+            ),
+            "affine_anchor": "original parity-valid source state",
+        },
+        "source_aligned": {
+            "exact": True,
+            "predicate": (
+                "the current plane coordinate policy is source_aligned_rational "
+                "and horizontal and vertical phase indices are zero"
+            ),
+            "primary_message": 0,
+            "primary_descriptor": 0,
+            "secondary": "inactive",
+            "denoising": False,
+        },
+        "top_two": 2,
+    }
+    bindings = document["hash_bindings"]
+    assert isinstance(bindings, dict)
+    bindings["compiler_inputs_sha256"] = canonical_compiler_input_sha256_v2(
+        document
+    )
+    validate_schema(
+        document,
+        SCHEMAS_ROOT / "locked-compiler-input-v2.schema.json",
+    )
+    parse_locked_compiler_input_v2(document)
+    return document
+
+
 def _write_new(path: Path, payload: bytes, *, executable: bool = False) -> None:
     _write_new_with_durability(
         path,
@@ -1722,6 +2039,20 @@ class NativeConfiguration:
     configuration: Mapping[str, object]
 
 
+@dataclass(frozen=True)
+class NativeCompiledConfigurationV2:
+    """Format-1.2 compilation product without an unauthorized runtime manifest."""
+
+    root: Path
+    artifact_pair_root: Path
+    compiler_input_path: Path
+    mapping_path: Path
+    operator_bank_path: Path
+    route_paths: Mapping[str, Path]
+    compile_summary: Mapping[str, object]
+    configuration: Mapping[str, object]
+
+
 class NativeSwiftBuilder:
     """Content-addressed executable and route-LUT build cache."""
 
@@ -1797,6 +2128,11 @@ class NativeSwiftBuilder:
         plan: Mapping[str, object],
         bound: object,
     ) -> NativeConfiguration:
+        if _plan_schema_version(plan) != "1.0.0":
+            raise NativeAdapterError(
+                "schema-2 native session construction requires an authorized "
+                "candidate runtime-manifest successor"
+            )
         artifacts = candidate_artifact_documents(vector, plan, bound)  # type: ignore[arg-type]
         mapping_bytes = canonical_json_bytes(artifacts["mapping"])
         operator_bytes = canonical_json_bytes(artifacts["operator_bank"])
@@ -1954,6 +2290,214 @@ class NativeSwiftBuilder:
             configuration=configuration,
         )
 
+    def compile_candidate(
+        self,
+        *,
+        vector: Mapping[str, object],
+        plan: Mapping[str, object],
+        bound: object,
+    ) -> NativeConfiguration | NativeCompiledConfigurationV2:
+        """Dispatch by plan schema before entering either artifact family."""
+
+        schema_version = _plan_schema_version(plan)
+        if schema_version == "1.0.0":
+            return self.ensure_configuration(vector=vector, plan=plan, bound=bound)
+        return self._compile_candidate_v2(vector=vector, plan=plan, bound=bound)
+
+    def _compile_candidate_v2(
+        self,
+        *,
+        vector: Mapping[str, object],
+        plan: Mapping[str, object],
+        bound: object,
+    ) -> NativeCompiledConfigurationV2:
+        """Materialize, atomically publish, and compile one exact schema-2 candidate."""
+
+        if _plan_schema_version(plan) != "2.0.0":
+            raise NativeAdapterError("schema-2 compiler received another plan family")
+        materializer = SharedBankArtifactMaterializerV2(self.repository_root)
+        record = getattr(bound, "record", None)
+        if not callable(record):
+            raise NativeAdapterError("bound input record lookup is absent")
+        calibration_plan_record = record("calibration_plan")
+        if (
+            not isinstance(calibration_plan_record, Mapping)
+            or calibration_plan_record.get("sha256")
+            != materializer.plan.plan_file_sha256
+        ):
+            raise NativeAdapterError("bound V2 calibration plan differs from authority")
+        physical = materialize_candidate_vector_v2(vector, materializer.plan)
+        vector_hash = candidate_vector_sha256_v2(physical, materializer.plan)
+        configuration_id = f"ash-p06-{vector_hash[:24]}"
+        mapping_seed_sha256 = record("mapping_seed")["sha256"]
+        operator_seed_sha256 = record("operator_bank_seed")["sha256"]
+        if not _is_sha256(mapping_seed_sha256) or not _is_sha256(
+            operator_seed_sha256
+        ):
+            raise NativeAdapterError("schema-2 shared-bank seed binding is invalid")
+        pair = materializer.materialize(
+            physical,
+            configuration_id=configuration_id,
+            mapping_seed_sha256=str(mapping_seed_sha256),
+            operator_bank_seed_sha256=str(operator_seed_sha256),
+        )
+        if pair.candidate_vector_sha256 != vector_hash:
+            raise NativeAdapterError("schema-2 materialized candidate identity differs")
+        pair_parent = self.cache_root / "candidate-artifact-pairs-v2"
+        _ensure_directory(pair_parent)
+        pair_root = pair_parent / vector_hash
+        published = materializer.publish_pair(pair_root, pair)
+        if published != pair:
+            raise NativeAdapterError("schema-2 published artifact pair differs")
+        mapping_path = pair_root / "candidate-mapping.json"
+        operator_path = pair_root / "candidate-operator-bank.json"
+        if (
+            _read_regular(mapping_path) != pair.mapping_bytes
+            or _read_regular(operator_path) != pair.operator_bank_bytes
+        ):
+            raise NativeAdapterError("schema-2 published artifact bytes differ")
+
+        metric_document = _candidate_metric_policy_document(bound)
+        metric_hash = canonical_sha256(metric_document)
+        corpus_hash = _corpus_lock_bundle_sha256_v2(
+            bound=bound,
+            plan=plan,
+            repository_root=self.repository_root,
+        )
+        compiler_document = _locked_compiler_input_document_v2(
+            physical=physical,
+            configuration_id=configuration_id,
+            mapping_sha256=pair.mapping_sha256,
+            operator_bank_sha256=pair.operator_bank_sha256,
+            metric_policy_sha256=metric_hash,
+            calibration_plan_sha256=materializer.plan.plan_file_sha256,
+            corpus_lock_bundle_sha256_value=corpus_hash,
+        )
+        compiler_bytes = canonical_json_bytes(compiler_document) + b"\n"
+        compiler_file_hash = _sha256(compiler_bytes)
+        compiler_hash = str(
+            compiler_document["hash_bindings"]["compiler_inputs_sha256"]  # type: ignore[index]
+        )
+        root = self.cache_root / "configurations" / compiler_hash
+        _ensure_directory(root)
+        compiler_path = root / "locked-compiler-input-v2.json"
+        _write_or_verify(compiler_path, compiler_bytes)
+        summary_path = root / "native-compile-summary.json"
+        route_paths = {
+            route: root / filename for route, filename in _ROUTE_FILENAMES.items()
+        }
+        if summary_path.exists():
+            compile_summary = _parse_json(
+                _read_regular(summary_path),
+                trailing_newline=False,
+            )
+        else:
+            command = (
+                str(self.executable.path),
+                "compile-candidate",
+                "--compiler-input",
+                str(compiler_path),
+                "--mapping",
+                str(mapping_path),
+                "--operator-bank",
+                str(operator_path),
+                "--output-directory",
+                str(root),
+            )
+            try:
+                result = _run_checked(command, cwd=self.repository_root)
+            except Exception as error:
+                self._preserve_failure(
+                    "compile-candidate-v2",
+                    {"error": str(error), "command": list(command)},
+                )
+                raise
+            compile_summary = _parse_json(result.stdout, trailing_newline=True)
+            _write_new(summary_path, canonical_json_bytes(compile_summary))
+            self.candidate_compile_invocation_count += 1
+        self._validate_compile_summary(
+            compile_summary,
+            configuration_id=configuration_id,
+            compiler_hash=compiler_hash,
+            mapping_hash=pair.mapping_sha256,
+            operator_hash=pair.operator_bank_sha256,
+            route_paths=route_paths,
+            expected_schema_version="2.0.0",
+            expected_compiler_input_v2=compiler_document,
+        )
+        rows = compile_summary["routes"]
+        assert isinstance(rows, list)
+        rows_by_route = {
+            "direct-2x" if row["route"] == "direct_2x" else "direct-3over2": row
+            for row in rows
+        }
+        configuration = {
+            "schema_version": "2.0.0",
+            "implementation_role": "production_swift_format_1_2_compile_only",
+            "runtime_status": (
+                "compiled_not_servable_missing_candidate_runtime_manifest_v2"
+            ),
+            "configuration_id": configuration_id,
+            "serialized_candidate_vector_sha256": vector_hash,
+            "physical_candidate_vector": dict(physical),
+            "mapping_seed_sha256": mapping_seed_sha256,
+            "operator_bank_seed_sha256": operator_seed_sha256,
+            "metric_policy_seed_sha256": record("metric_policy_seed")["sha256"],
+            "mapping_sha256": pair.mapping_sha256,
+            "operator_bank_sha256": pair.operator_bank_sha256,
+            "metric_policy_sha256": metric_hash,
+            "compiler_inputs_sha256": compiler_hash,
+            "compiler_input_file_sha256": compiler_file_hash,
+            "compiler_contract_sha256": record("compiler_contract")["sha256"],
+            "calibration_plan_sha256": materializer.plan.plan_file_sha256,
+            "corpus_lock_bundle_sha256": corpus_hash,
+            "shared_bank_configuration_sha256": (
+                pair.shared_bank_configuration_sha256
+            ),
+            "candidate_artifacts": {
+                "mapping": _parse_json(pair.mapping_bytes, trailing_newline=True),
+                "operator_bank": _parse_json(
+                    pair.operator_bank_bytes,
+                    trailing_newline=True,
+                ),
+                "metric_policy": metric_document,
+            },
+            "compiler_input_document": compiler_document,
+            "boundary_mode": physical["boundary_mode"],
+            "route_luts": {
+                route: {
+                    "whole_file_sha256": rows_by_route[route][
+                        "whole_file_sha256"
+                    ],
+                    "payload_sha256": rows_by_route[route]["payload_sha256"],
+                    "luma_coordinate_policy": rows_by_route[route][
+                        "luma_coordinate_policy"
+                    ],
+                    "chroma_coordinate_policy": rows_by_route[route][
+                        "chroma_coordinate_policy"
+                    ],
+                    "analysis_grid_source_step": rows_by_route[route][
+                        "analysis_grid_source_step"
+                    ],
+                }
+                for route in _ROUTE_FILENAMES
+            },
+            "swift_cli": {
+                "executable_sha256": self.executable.sha256,
+                "source_manifest_sha256": self.executable.source_manifest_sha256,
+            },
+        }
+        return NativeCompiledConfigurationV2(
+            root=root,
+            artifact_pair_root=pair_root,
+            compiler_input_path=compiler_path,
+            mapping_path=mapping_path,
+            operator_bank_path=operator_path,
+            route_paths=route_paths,
+            compile_summary=compile_summary,
+            configuration=configuration,
+        )
+
     def _validate_compile_summary(
         self,
         summary: Mapping[str, object],
@@ -1963,6 +2507,8 @@ class NativeSwiftBuilder:
         mapping_hash: str,
         operator_hash: str,
         route_paths: Mapping[str, Path],
+        expected_schema_version: str = "1.0.0",
+        expected_compiler_input_v2: Mapping[str, object] | None = None,
     ) -> None:
         required = {
             "schema_version", "status", "configuration_id", "compiler_inputs_sha256",
@@ -1970,7 +2516,7 @@ class NativeSwiftBuilder:
             "offline_compile_invocation_count", "runtime_load_count", "native_parity_claimed",
         }
         if set(summary) != required or (
-            summary["schema_version"] != "1.0.0"
+            summary["schema_version"] != expected_schema_version
             or summary["status"] != "compiled"
             or summary["configuration_id"] != configuration_id
             or summary["compiler_inputs_sha256"] != compiler_hash
@@ -1987,13 +2533,71 @@ class NativeSwiftBuilder:
             "direct_3_over_2",
         ]:
             raise NativeAdapterError("native compile route order mismatch")
+        expected_row_fields = {
+            "route", "route_id", "scale_numerator", "scale_denominator",
+            "phase_count", "context_count", "valid_state_count",
+            "luma_coordinate_policy", "chroma_coordinate_policy",
+            "analysis_grid_source_step", "entry_count", "parameter_count",
+            "path", "whole_file_size_bytes", "whole_file_sha256",
+            "payload_sha256", "header_crc32", "payload_crc32",
+        }
+        if expected_schema_version == "2.0.0":
+            if expected_compiler_input_v2 is None:
+                raise NativeAdapterError("schema-2 compiler validation input is absent")
+            parsed_v2 = parse_locked_compiler_input_v2(expected_compiler_input_v2)
+        elif expected_compiler_input_v2 is not None:
+            raise NativeAdapterError("cross-version compiler validation is forbidden")
+        else:
+            parsed_v2 = None
         for route, row in zip(_ROUTE_FILENAMES, rows):
+            if not isinstance(row, Mapping) or set(row) != expected_row_fields:
+                raise NativeAdapterError(f"native compile route fields differ: {route}")
             payload = _read_regular(route_paths[route])
             if (
                 row.get("whole_file_size_bytes") != len(payload)
                 or row.get("whole_file_sha256") != _sha256(payload)
             ):
                 raise NativeAdapterError(f"cached native LUT differs: {route}")
+            if parsed_v2 is not None:
+                oracle_name = (
+                    "direct_2x" if route == "direct-2x" else "direct_3_over_2"
+                )
+                try:
+                    validated = validate_lut_v2(
+                        payload,
+                        expected_configuration=parsed_v2,
+                        expected_route=oracle_name,
+                    )
+                except Exception as error:
+                    raise NativeAdapterError(
+                        f"schema-2 independent binary validation failed: {route}"
+                    ) from error
+                oracle_route = validated.route
+                selection = parsed_v2.routes[oracle_name]
+                expected_row = {
+                    "route": oracle_name,
+                    "route_id": oracle_route.route_id,
+                    "scale_numerator": oracle_route.scale_numerator,
+                    "scale_denominator": oracle_route.scale_denominator,
+                    "phase_count": oracle_route.phase_count,
+                    "context_count": 4,
+                    "valid_state_count": 256,
+                    "luma_coordinate_policy": validated.luma_coordinate_policy,
+                    "chroma_coordinate_policy": validated.chroma_coordinate_policy,
+                    "analysis_grid_source_step": selection.analysis_grid_source_step,
+                    "entry_count": validated.entry_count,
+                    "parameter_count": validated.parameter_count,
+                    "path": _ROUTE_FILENAMES[route],
+                    "whole_file_size_bytes": len(payload),
+                    "whole_file_sha256": validated.whole_file_sha256,
+                    "payload_sha256": validated.payload_sha256,
+                    "header_crc32": f"0x{validated.header_crc32:08X}",
+                    "payload_crc32": f"0x{validated.payload_crc32:08X}",
+                }
+                if dict(row) != expected_row:
+                    raise NativeAdapterError(
+                        f"schema-2 native compile summary differs: {route}"
+                    )
 
     def _candidate_runtime_manifest(
         self,
@@ -6458,6 +7062,30 @@ class NativeCandidateAdapterFactory:
         self.builder = NativeSwiftBuilder(self.repository_root, self.cache_root)
         self.p00_builder = P00NativeBuilder(self.repository_root, self.cache_root)
 
+    def compile_candidate_configuration(
+        self,
+        vector: Mapping[str, object],
+    ) -> NativeConfiguration | NativeCompiledConfigurationV2:
+        """Compile the plan-selected family without claiming a schema-2 session."""
+
+        if self.verify_bound_inputs:
+            self.bound.verify_unchanged()
+        compiled = self.builder.compile_candidate(
+            vector=vector,
+            plan=self.plan,
+            bound=self.bound,
+        )
+        if self.verify_bound_inputs:
+            self.bound.verify_unchanged()
+        return compiled
+
+    def _require_native_session_authority(self) -> None:
+        if _plan_schema_version(self.plan) == "2.0.0":
+            raise NativeAdapterError(
+                "schema-2 candidate is compiled_not_servable because an "
+                "authorized candidate runtime-manifest successor is absent"
+            )
+
     def __call__(
         self,
         vector: Mapping[str, object],
@@ -6465,6 +7093,7 @@ class NativeCandidateAdapterFactory:
     ) -> CandidateAdapter:
         if split not in {"development", "validation"}:
             raise NativeAdapterError("native P06 adapter cannot target holdout")
+        self._require_native_session_authority()
         if self.verify_bound_inputs:
             self.bound.verify_unchanged()
         native = self.builder.ensure_configuration(
@@ -6509,6 +7138,7 @@ class NativeCandidateAdapterFactory:
     ) -> NativeCorrectiveDiagnosticCapability:
         """Build one development-only native corrective session."""
 
+        self._require_native_session_authority()
         if self.verify_bound_inputs:
             self.bound.verify_unchanged()
         native = self.builder.ensure_configuration(
@@ -6542,6 +7172,7 @@ class NativeCandidateAdapterFactory:
     ) -> CandidateAdapter:
         """Build the frozen numeric configuration with P07-only cache identity."""
 
+        self._require_native_session_authority()
         if (
             not _is_sha256(sampling_plan_manifest_sha256)
             or not _is_sha256(p06_release_bundle_manifest_sha256)
@@ -6600,6 +7231,7 @@ class NativeCandidateAdapterFactory:
     ) -> CandidateAdapter:
         """Build a pre-open analytic adapter with an explicit P07 identity."""
 
+        self._require_native_session_authority()
         if (
             not _is_sha256(analytic_fixture_manifest_sha256)
             or not _is_sha256(p06_release_bundle_manifest_sha256)
@@ -6730,6 +7362,7 @@ __all__ = [
     "NativeAdapterError",
     "NativeCandidateAdapterFactory",
     "NativeCandidateCallable",
+    "NativeCompiledConfigurationV2",
     "NativeCorrectiveDiagnosticCapability",
     "make_native_corrective_diagnostic_capability",
     "make_native_candidate_adapter_factory",

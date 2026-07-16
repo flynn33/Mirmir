@@ -231,7 +231,7 @@ candidate, split-aware cache tuple, evaluation semantic hash, and mutually
 exclusive content-addressed evaluation or failure reference.
 
 `calibration_persistence_v2.py` authenticates the candidate, attempt, run, and
-failure schema bytes plus the five authority triples before opening an artifact
+failure schema bytes plus the six authority triples before opening an artifact
 root. It persists canonical one-LF candidate evaluations and typed failures by
 content address, reopens the exact G04-G06 source bytes, recomputes the complete
 candidate-evidence digest, and replays every attempt before accepting a run

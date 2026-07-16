@@ -55,7 +55,12 @@ from validation.calibration_v2.calibration_scheduler_v2 import (
     validation_admission_v2,
 )
 from validation.calibration_v2.control_authorization_v2 import (
+    ControlAuthorizationV2Error,
     TypedArtifactBindingV2,
+    authenticate_control_execution_producer_identity_authority_v2,
+)
+from validation.calibration_v2.production_evaluator import (
+    ControlExecutionProducerIdentityV2,
 )
 
 
@@ -101,11 +106,11 @@ DISPATCH_BUDGET = {
 _SCHEMA_SPECS = {
     "validation-candidate-development-evidence-v2": (
         "schemas/validation-candidate-development-evidence-v2.schema.json",
-        "8ba2c914ba2aa1619a6c6cc7e43f823102c79468b099778447e5e5c9d1981f3f",
+        "88847f184e8b79ea1333baa2125d89691409173bf05256e2bf6cbb75d56ef22f",
     ),
     "calibration-selection-v2": (
         "schemas/calibration-selection-v2.schema.json",
-        "76dc8a720356a85d2bd2f56d423de3581bff96d2e1f4202ec835a31fef7dadff",
+        "cc4405eb8269304cf8d09bee6da78540c19413f4a0daa5f7eece9a5388bc75e0",
     ),
 }
 _ZERO_SHA256 = "0" * 64
@@ -324,13 +329,39 @@ class CalibrationSelectionPersistenceAdapterV2:
         ] = None,
     ) -> None:
         self._schemas = self._authenticate_schemas()
+        authenticated_provider = _control_producer_capability_provider
+        if authenticated_provider is not None:
+            supplied_provider = authenticated_provider
+
+            def authenticated_provider(
+                request: CandidateControlProducerRequestV2,
+            ) -> CandidateControlProducerCapabilitiesV2:
+                capabilities = supplied_provider(request)
+                if (
+                    type(capabilities)
+                    is not CandidateControlProducerCapabilitiesV2
+                    or capabilities.request is not request
+                    or type(capabilities.control_execution_producer_identity)
+                    is not ControlExecutionProducerIdentityV2
+                ):
+                    raise CalibrationSelectionPersistenceV2Error(
+                        "candidate control producer capabilities differ"
+                    )
+                try:
+                    authenticate_control_execution_producer_identity_authority_v2()
+                except ControlAuthorizationV2Error as error:
+                    raise CalibrationSelectionPersistenceV2Error(
+                        "control execution producer identity authority differs"
+                    ) from error
+                return capabilities
+
         self.calibration = CalibrationPersistenceAdapterV2(
             root,
             _control_authorization_verifier=(
                 _control_authorization_verifier
             ),
             _control_producer_capability_provider=(
-                _control_producer_capability_provider
+                authenticated_provider
             ),
             _validation_admission_semantic_verifier=(
                 self._reopen_control_validation_admission

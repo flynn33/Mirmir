@@ -29,10 +29,10 @@ RUN_INPUT_MANIFEST_SCHEMA_PATH = (
     CALIBRATION_ROOT / "schemas/p06-run-input-manifest-v2.schema.json"
 )
 PROVENANCE_SCHEMA_SHA256 = (
-    "1eebdd2608bf4f10b2f62eb926b2974065fb00c74595ef9331c7752da679550c"
+    "5dcfff1aee2f2d89fc6ec2de2a25312cb3eff3a4975f1d31a1c74858e7d201d4"
 )
 RUN_INPUT_MANIFEST_SCHEMA_SHA256 = (
-    "2be79eb0f14e6ebe6e94ee389aef5d6d26ca185d7b792011c6fe104dacf7beb2"
+    "ff4238d7734d47a125d81b8910b65fdd7fbaafd9391e5f72bb84358c00a4f2cc"
 )
 PROVENANCE_PATH = "p06-run-provenance-receipt-v2.json"
 RUN_INPUT_MANIFEST_PATH = "p06-run-input-manifest-v2.json"
@@ -42,7 +42,7 @@ PLAN_FILE_SHA256 = (
     "1977c85b9a3b7001294a04d33e7654ae20ffb4266ac0c8d2dc76880bdec99fef"
 )
 INPUT_BUNDLE_SHA256 = (
-    "ad46b6ec3d3629c3a29f17898c6a9b4eec1bca731276ff626dfe58f87bcadd20"
+    "64faa8aab6a9147ba446e34caef9a5f9a314dd75cd45c8ef862628ca2c2cb468"
 )
 GATE_IDS = ("G04", "G05", "G06")
 PRODUCER_SOURCE_PATH = "validation/calibration_v2/run_provenance_v2.py"
@@ -144,6 +144,24 @@ _AUTHORITY_SPECS = (
         "schema_file_sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
         "self_field": "artifact_sha256",
         "self_sha256": "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237",
+    },
+    {
+        "id": "control_execution_producer_identity_v2",
+        "artifact_kind": "control_execution_producer_identity_preregistration",
+        "path": (
+            "validation/calibration_v2/contracts/"
+            "control-execution-producer-identity-v2.json"
+        ),
+        "size_bytes": 11958,
+        "file_sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+        "schema_path": (
+            "validation/calibration_v2/schemas/"
+            "control-execution-producer-identity-v2.schema.json"
+        ),
+        "schema_size_bytes": 12223,
+        "schema_file_sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+        "self_field": "artifact_sha256",
+        "self_sha256": "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5",
     },
     {
         "id": "shared_bank_configuration_identity_v2",
@@ -633,7 +651,7 @@ def authority_closure_bindings_v2() -> Tuple[TypedArtifactBindingV2, ...]:
 def authenticate_authorities_v2(
     payload_reopener: PayloadReopenerV2,
 ) -> AuthenticatedAuthoritiesV2:
-    """Authenticate exact bytes, schemas, and self hashes for all five authorities."""
+    """Authenticate exact bytes, schemas, and self hashes for all six authorities."""
 
     documents = []
     snapshots = []

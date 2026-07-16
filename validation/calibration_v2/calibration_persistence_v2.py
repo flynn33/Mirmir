@@ -70,6 +70,7 @@ from validation.calibration_v2.control_authorization_v2 import (
     ControlAuthorizationScopeV2,
     ControlAuthorizationV2Error,
     TypedArtifactBindingV2,
+    authenticate_control_execution_producer_identity_authority_v2,
     schema_sha256_for_kind_v2,
     verify_control_authorization_bundle_v2,
 )
@@ -102,19 +103,19 @@ _ATTEMPT_RECORD_DOMAIN = (
 _SCHEMA_SPECS = {
     "candidate-evaluation-v2": (
         "schemas/candidate-evaluation-v2.schema.json",
-        "5bae29dee2d847ef58a8ccfe749ab69ea0f693c96a81c7cea01061fcdfdf4ec7",
+        "f05c6a084a3b994edeb38a0097f052e0dcf6e7c09e3af025cc185a74d1ee772b",
     ),
     "calibration-attempt-record-v2": (
         "schemas/calibration-attempt-record-v2.schema.json",
-        "7cb1219425a7dee875fe0b04e3877a0dad85ccb7d1a3911c10f7fd1044d1376b",
+        "06e329fbbaedbb73afa5ba9649c2b8748a55b196d9dfa1a8bc709a156a86d51e",
     ),
     "calibration-run-ledger-v2": (
         "schemas/calibration-run-ledger-v2.schema.json",
-        "3b1a576c1550a3b83be27550e5494182e76a1ff9daa1e10f2e651da36d618cc8",
+        "aedee1f38d0b894353594414949fb33a428d4e9d8d64405b9656f1e62377d29b",
     ),
     "p06-calibration-failure-v2": (
         "schemas/p06-calibration-failure-v2.schema.json",
-        "070c4c38464a684effd14ca5747da11ac4ce71ef13ce583fe003d45f6a903cd6",
+        "db99e3fef12167c63c271049f6c9ea6abc1834df4289700e27d9653bf12d284b",
     ),
     "fixed-control-selection-v1": (
         "schemas/fixed-control-selection-v1.schema.json",
@@ -126,7 +127,7 @@ _SCHEMA_SPECS = {
     ),
     "non-ash-selector-selection-v2": (
         "schemas/non-ash-selector-selection-v2.schema.json",
-        "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+        "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
     ),
     "evidence-wrapper-artifact-manifest-v2": (
         "schemas/evidence-wrapper-artifact-manifest-v2.schema.json",
@@ -192,6 +193,14 @@ _AUTHORITY_SPECS = {
         "schema_file_sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
         "self_field": "artifact_sha256",
         "self_sha256": "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237",
+    },
+    "control_execution_producer_identity_v2": {
+        "path": "validation/calibration_v2/contracts/control-execution-producer-identity-v2.json",
+        "schema_path": "validation/calibration_v2/schemas/control-execution-producer-identity-v2.schema.json",
+        "file_sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+        "schema_file_sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+        "self_field": "artifact_sha256",
+        "self_sha256": "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5",
     },
     "shared_bank_configuration_identity_v2": {
         "path": "validation/calibration_v2/contracts/shared-bank-configuration-identity-v2.json",
@@ -689,7 +698,7 @@ def _authenticate_schema_v2(identifier: str) -> Mapping[str, object]:
 
 
 def authority_bindings_v2() -> Mapping[str, object]:
-    """Return the exact five authenticated authority triples."""
+    """Return the exact six authenticated authority triples."""
 
     return {
         identifier: {
@@ -702,7 +711,7 @@ def authority_bindings_v2() -> Mapping[str, object]:
 
 
 def authority_input_bindings_v2() -> Tuple[Mapping[str, object], ...]:
-    """Return exact file bindings for the five authority contract payloads."""
+    """Return exact file bindings for the six authority contract payloads."""
 
     result = []
     for identifier in sorted(_AUTHORITY_SPECS):
@@ -2510,6 +2519,7 @@ class CalibrationPersistenceAdapterV2:
                         non_ash_evaluation_scope=evaluation_scope,
                     )
                     capabilities = provider(request)
+                    authenticate_control_execution_producer_identity_authority_v2()
                     if (
                         type(capabilities)
                         is not CandidateControlProducerCapabilitiesV2

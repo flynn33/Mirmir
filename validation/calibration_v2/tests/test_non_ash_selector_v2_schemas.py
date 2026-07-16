@@ -25,10 +25,10 @@ SCHEMA_PATHS = {
     "neighbors": SCHEMA_ROOT / "non-ash-validation-neighbor-manifest-v2.schema.json",
 }
 SCHEMA_FILE_SHA256 = {
-    "failure": "2add191fa95c8b2eca8c4ed3a79b77afa1b311a480b7d205c92d87afa33affb4",
-    "ledger": "3d2937faaeefbd97e17447554146fdfae6a041b328bdf13f4e7004c324d0bfe9",
-    "selection": "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
-    "neighbors": "f1da0ec50e475490cbadb92b949e42f3e8a8e104d36920e4d0cb6cf70fb525d2",
+    "failure": "dd9edd84ca809695e6c0c98438edc9c4b8a5921e513638227e181b99bcb42a16",
+    "ledger": "bcf065f97e4297c283a7607d4aa447e34dfa108c6dcdd229456f69132b46b7ce",
+    "selection": "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
+    "neighbors": "d58d7cd27d3907696c8367f5e0fb79e2011733901f2dff34b996c6c3703bfe45",
 }
 
 SELECTOR_ID = "continuous-linear-bank-selector-q15-v2"
@@ -84,6 +84,11 @@ AUTHORITY_BINDINGS = {
         "self_sha256": "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237",
         "schema_file_sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
     },
+    "control_execution_producer_identity_v2": {
+        "file_sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+        "self_sha256": "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5",
+        "schema_file_sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+    },
     "shared_bank_configuration_identity_v2": {
         "file_sha256": "48f5eef7cf9f7c513cf8e6568b3eeb4d607845c1e70e6c39b6ca0192a4c297de",
         "self_sha256": "e522afa73e8dc01c51303d1d1d99a95fe2ea78f968a2696dc0583f695fce7c37",
@@ -110,6 +115,12 @@ AUTHORITY_FILES = {
     "compiler_contract_v2": (
         CALIBRATION_ROOT / "contracts/compiler-contract-v2.json",
         SCHEMA_ROOT / "compiler-contract-v2.schema.json",
+        "artifact_sha256",
+    ),
+    "control_execution_producer_identity_v2": (
+        CALIBRATION_ROOT
+        / "contracts/control-execution-producer-identity-v2.json",
+        SCHEMA_ROOT / "control-execution-producer-identity-v2.schema.json",
         "artifact_sha256",
     ),
     "shared_bank_configuration_identity_v2": (
@@ -647,7 +658,7 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
                     binding["self_sha256"],
                 )
 
-    def test_compiler_authority_and_old_four_authority_artifacts_are_rejected(
+    def test_producer_authority_and_old_five_authority_artifacts_are_rejected(
         self,
     ) -> None:
         documents = (
@@ -664,11 +675,22 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
                 ]["schema_file_sha256"] = _sha("stale-compiler-schema")
                 self.assertInvalid(schema_name, compiler_tampered)
 
-                four_authorities = deepcopy(document)
-                del four_authorities["authority_bindings"][
-                    "compiler_contract_v2"
+                for field in (
+                    "file_sha256",
+                    "schema_file_sha256",
+                    "self_sha256",
+                ):
+                    producer_tampered = deepcopy(document)
+                    producer_tampered["authority_bindings"][
+                        "control_execution_producer_identity_v2"
+                    ][field] = _sha(f"stale-producer-{field}")
+                    self.assertInvalid(schema_name, producer_tampered)
+
+                old_five_authorities = deepcopy(document)
+                del old_five_authorities["authority_bindings"][
+                    "control_execution_producer_identity_v2"
                 ]
-                self.assertInvalid(schema_name, four_authorities)
+                self.assertInvalid(schema_name, old_five_authorities)
 
     def test_rule_hash_preserves_v1_canonical_object_bytes(self) -> None:
         values = list(self.zero_values)

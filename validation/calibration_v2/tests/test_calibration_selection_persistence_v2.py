@@ -20,12 +20,15 @@ from validation.calibration_v2.calibration_plan_codec import (
 )
 from validation.calibration_v2.calibration_persistence_v2 import (
     ArtifactBindingV2,
+    CandidateControlProducerCapabilitiesV2,
+    CandidateControlProducerRequestV2,
     FileBindingV2,
     authority_bindings_v2,
     authority_input_bindings_v2,
     candidate_evidence_sha256_v2,
     candidate_evaluation_identity_set_sha256_v2,
     candidate_failure_identity_set_sha256_v2,
+    canonical_json_bytes_v2,
     canonical_json_file_bytes_v2,
     evaluation_semantic_sha256_v2,
     finalize_artifact_sha256_v2,
@@ -52,6 +55,7 @@ from validation.calibration_v2.reference.calibration_plan_v2 import (
 )
 from validation.calibration_v2.tests.test_calibration_persistence_v2 import (
     _trusted_unit_control_verifier,
+    _unit_producer_capabilities,
     _write_unit_control_bundle,
     _write_artifact_manifest,
     _write_control_bindings,
@@ -399,6 +403,97 @@ class CalibrationSelectionInitializationV2Tests(unittest.TestCase):
             ):
                 CalibrationSelectionPersistenceAdapterV2(artifact_root)
             self.assertFalse(artifact_root.exists())
+
+    def test_selection_authenticates_identity_before_provider_forwarding(
+        self,
+    ) -> None:
+        physical_items = [
+            [f"selection_forwarded_field_{index:02d}", index]
+            for index in range(48)
+        ]
+        request = CandidateControlProducerRequestV2(
+            evidence_snapshot=object(),
+            bundle_binding=object(),
+            dependency_bindings=(),
+            physical_candidate_items_bytes=canonical_json_bytes_v2(
+                physical_items
+            ),
+            candidate_vector_sha256=hashlib.sha256(
+                canonical_json_bytes_v2(
+                    [item[1] for item in physical_items]
+                )
+            ).hexdigest(),
+            authorization_scope=object(),
+            non_ash_evaluation_scope=object(),
+        )
+
+        def provider(supplied_request):
+            return _unit_producer_capabilities(
+                supplied_request,
+                adapter_configuration_sha256=_sha(
+                    "selection-forwarded-configuration"
+                ),
+            )
+
+        with TemporaryDirectory() as temporary:
+            adapter = CalibrationSelectionPersistenceAdapterV2(
+                Path(temporary),
+                _control_producer_capability_provider=provider,
+            )
+            forwarded = getattr(
+                adapter.calibration,
+                "_CalibrationPersistenceAdapterV2__control_producer_capability_provider",
+            )
+            with patch.object(
+                selection_persistence,
+                "authenticate_control_execution_producer_identity_authority_v2",
+                wraps=(
+                    selection_persistence.authenticate_control_execution_producer_identity_authority_v2
+                ),
+            ) as authenticate:
+                capabilities = forwarded(request)
+            self.assertIsInstance(
+                capabilities,
+                CandidateControlProducerCapabilitiesV2,
+            )
+            authenticate.assert_called_once_with()
+
+            with patch.object(
+                selection_persistence,
+                "authenticate_control_execution_producer_identity_authority_v2",
+                side_effect=selection_persistence.ControlAuthorizationV2Error(
+                    "injected producer authority drift"
+                ),
+            ), self.assertRaisesRegex(
+                CalibrationSelectionPersistenceV2Error,
+                "producer identity authority differs",
+            ):
+                forwarded(request)
+
+        fabricated = object.__new__(CandidateControlProducerCapabilitiesV2)
+        object.__setattr__(fabricated, "request", request)
+        object.__setattr__(
+            fabricated,
+            "control_execution_producer_identity",
+            object(),
+        )
+
+        with TemporaryDirectory() as temporary:
+            adapter = CalibrationSelectionPersistenceAdapterV2(
+                Path(temporary),
+                _control_producer_capability_provider=(
+                    lambda _request: fabricated
+                ),
+            )
+            forwarded = getattr(
+                adapter.calibration,
+                "_CalibrationPersistenceAdapterV2__control_producer_capability_provider",
+            )
+            with self.assertRaisesRegex(
+                CalibrationSelectionPersistenceV2Error,
+                "producer capabilities differ",
+            ):
+                forwarded(request)
 
 
 class CalibrationSelectionPersistenceV2Tests(unittest.TestCase):

@@ -66,19 +66,19 @@ EVALUATION_EVIDENCE_SCHEMA_VERSION = "2.0.2"
 _SCHEMA_SPECS = {
     ATTEMPT_FAILURE_KIND: (
         SCHEMA_ROOT / "non-ash-selector-attempt-failure-v2.schema.json",
-        "2add191fa95c8b2eca8c4ed3a79b77afa1b311a480b7d205c92d87afa33affb4",
+        "dd9edd84ca809695e6c0c98438edc9c4b8a5921e513638227e181b99bcb42a16",
     ),
     ATTEMPT_LEDGER_KIND: (
         SCHEMA_ROOT / "non-ash-selector-attempt-ledger-v2.schema.json",
-        "3d2937faaeefbd97e17447554146fdfae6a041b328bdf13f4e7004c324d0bfe9",
+        "bcf065f97e4297c283a7607d4aa447e34dfa108c6dcdd229456f69132b46b7ce",
     ),
     SELECTION_KIND: (
         SCHEMA_ROOT / "non-ash-selector-selection-v2.schema.json",
-        "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+        "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
     ),
     NEIGHBOR_MANIFEST_KIND: (
         SCHEMA_ROOT / "non-ash-validation-neighbor-manifest-v2.schema.json",
-        "f1da0ec50e475490cbadb92b949e42f3e8a8e104d36920e4d0cb6cf70fb525d2",
+        "d58d7cd27d3907696c8367f5e0fb79e2011733901f2dff34b996c6c3703bfe45",
     ),
 }
 
@@ -101,6 +101,11 @@ _AUTHORITY_SPECS = {
     "compiler_contract_v2": (
         CONTRACT_ROOT / "compiler-contract-v2.json",
         SCHEMA_ROOT / "compiler-contract-v2.schema.json",
+        "artifact_sha256",
+    ),
+    "control_execution_producer_identity_v2": (
+        CONTRACT_ROOT / "control-execution-producer-identity-v2.json",
+        SCHEMA_ROOT / "control-execution-producer-identity-v2.schema.json",
         "artifact_sha256",
     ),
     "shared_bank_configuration_identity_v2": (

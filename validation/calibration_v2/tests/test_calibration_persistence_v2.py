@@ -359,7 +359,7 @@ _CONTROL_SCHEMA_SHA256 = {
     ),
     "non_ash_selector": (
         "p06_non_ash_selector_selection_v2",
-        "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+        "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
     ),
 }
 _CONTROL_OBJECTIVE = {
@@ -2098,6 +2098,50 @@ class CalibrationPersistenceV2Tests(unittest.TestCase):
             ):
                 adapter.verify_candidate_evaluation(second)
 
+    def test_persistence_reauthenticates_before_accepting_provider_identity(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            verifier_calls = []
+
+            def provider(request):
+                return _unit_producer_capabilities(
+                    request,
+                    adapter_configuration_sha256=_sha(
+                        "adapter-configuration-"
+                        f"{request.candidate_vector_sha256}"
+                    ),
+                )
+
+            adapter = CalibrationPersistenceAdapterV2(
+                root,
+                _control_authorization_verifier=(
+                    lambda *args, **kwargs: verifier_calls.append(
+                        (args, kwargs)
+                    )
+                ),
+                _control_producer_capability_provider=provider,
+            )
+            document = _candidate_evaluation_document(
+                adapter,
+                root,
+                _initial_physical(adapter),
+                _development_evaluation(1),
+            )
+            with patch.object(
+                persistence,
+                "authenticate_control_execution_producer_identity_authority_v2",
+                side_effect=ControlAuthorizationV2Error(
+                    "injected producer authority drift"
+                ),
+            ), self.assertRaisesRegex(
+                CalibrationPersistenceV2Error,
+                "control authorization replay failed",
+            ):
+                adapter.verify_candidate_evaluation(document)
+            self.assertEqual(verifier_calls, [])
+
     def test_candidate_source_bindings_are_reopened_from_the_pinned_root(
         self,
     ) -> None:
@@ -2189,7 +2233,7 @@ class CalibrationPersistenceV2Tests(unittest.TestCase):
         ):
             authority_input_bindings_v2()
 
-    def test_compiler_authority_is_fifth_input_and_changes_bundle_identity(
+    def test_producer_authority_is_fifth_of_six_and_changes_bundle_identity(
         self,
     ) -> None:
         inputs = list(authority_input_bindings_v2())
@@ -2200,6 +2244,7 @@ class CalibrationPersistenceV2Tests(unittest.TestCase):
                 "calibration_plan_v2",
                 "candidate_evidence_policy_v2",
                 "compiler_contract_v2",
+                "control_execution_producer_identity_v2",
                 "shared_bank_configuration_identity_v2",
             ],
         )
@@ -2207,75 +2252,138 @@ class CalibrationPersistenceV2Tests(unittest.TestCase):
             list(authority_bindings_v2()),
             [row["id"] for row in inputs],
         )
-        four_inputs = [
-            row for row in inputs if row["id"] != "compiler_contract_v2"
+        self.assertEqual(
+            input_bundle_sha256_v2(inputs),
+            "64faa8aab6a9147ba446e34caef9a5f9a314dd75cd45c8ef862628ca2c2cb468",
+        )
+        old_five_inputs = [
+            row
+            for row in inputs
+            if row["id"] != "control_execution_producer_identity_v2"
         ]
         self.assertNotEqual(
             input_bundle_sha256_v2(inputs),
-            input_bundle_sha256_v2(four_inputs),
+            input_bundle_sha256_v2(old_five_inputs),
         )
 
-    def test_compiler_authority_failure_precedes_artifact_root_creation(
+    def test_producer_authority_failure_precedes_artifact_root_creation(
         self,
     ) -> None:
-        compiler_path = (
-            persistence.REPOSITORY_ROOT
-            / "validation/calibration_v2/contracts/compiler-contract-v2.json"
-        )
+        authority_id = "control_execution_producer_identity_v2"
+        authority_spec = persistence._AUTHORITY_SPECS[authority_id]
         original_reader = persistence._read_regular_file
-        compiler_payload = original_reader(
-            compiler_path,
-            label="compiler_contract_v2 authority",
-        )
-        tampered_payload = (
-            bytes([compiler_payload[0] ^ 1]) + compiler_payload[1:]
-        )
-        self.assertEqual(len(tampered_payload), len(compiler_payload))
+        for target_key in ("path", "schema_path"):
+            target = persistence.REPOSITORY_ROOT / str(
+                authority_spec[target_key]
+            )
+            payload = original_reader(
+                target,
+                label=f"{authority_id} {target_key}",
+            )
+            tampered_payload = bytes([payload[0] ^ 1]) + payload[1:]
 
-        def missing_compiler(path, *, label):
-            if Path(path) == compiler_path:
-                raise CalibrationPersistenceV2Error(
-                    "compiler authority is missing"
-                )
-            return original_reader(path, label=label)
+            def missing(path, *, label, target=target):
+                if Path(path) == target:
+                    raise CalibrationPersistenceV2Error(
+                        "producer identity authority is missing"
+                    )
+                return original_reader(path, label=label)
 
-        def tampered_compiler(path, *, label):
-            if Path(path) == compiler_path:
-                return tampered_payload
-            return original_reader(path, label=label)
+            def tampered(path, *, label, target=target):
+                if Path(path) == target:
+                    return tampered_payload
+                return original_reader(path, label=label)
 
-        for mode, reader in (
-            ("missing", missing_compiler),
-            ("tampered", tampered_compiler),
-        ):
-            with self.subTest(mode=mode), TemporaryDirectory() as temporary:
-                artifact_root = Path(temporary) / "artifacts"
-                with patch.object(
-                    persistence,
-                    "_read_regular_file",
-                    side_effect=reader,
-                ), patch.object(
-                    persistence,
-                    "_AtomicArtifactStoreV2",
-                ) as store, self.assertRaises(CalibrationPersistenceV2Error):
-                    CalibrationPersistenceAdapterV2(artifact_root)
-                store.assert_not_called()
-                self.assertFalse(artifact_root.exists())
+            for mode, reader in (("missing", missing), ("tampered", tampered)):
+                with self.subTest(
+                    target=target_key,
+                    mode=mode,
+                ), TemporaryDirectory() as temporary:
+                    artifact_root = Path(temporary) / "artifacts"
+                    with patch.object(
+                        persistence,
+                        "_read_regular_file",
+                        side_effect=reader,
+                    ), patch.object(
+                        persistence,
+                        "_AtomicArtifactStoreV2",
+                    ) as store, self.assertRaises(
+                        CalibrationPersistenceV2Error
+                    ):
+                        CalibrationPersistenceAdapterV2(artifact_root)
+                    store.assert_not_called()
+                    self.assertFalse(artifact_root.exists())
 
         with TemporaryDirectory() as temporary:
             artifact_root = Path(temporary) / "artifacts"
-            compiler_spec = persistence._AUTHORITY_SPECS[
-                "compiler_contract_v2"
-            ]
             with patch.dict(
-                compiler_spec,
-                {"file_sha256": _sha("stale-compiler-authority")},
+                authority_spec,
+                {"file_sha256": _sha("stale-producer-authority")},
             ), patch.object(
                 persistence,
                 "_AtomicArtifactStoreV2",
             ) as store, self.assertRaisesRegex(
                 CalibrationPersistenceV2Error,
                 "authority triple differs",
+            ):
+                CalibrationPersistenceAdapterV2(artifact_root)
+            store.assert_not_called()
+            self.assertFalse(artifact_root.exists())
+
+        contract_path = persistence.REPOSITORY_ROOT / str(
+            authority_spec["path"]
+        )
+        contract = json.loads(
+            original_reader(
+                contract_path,
+                label=f"{authority_id} authority",
+            )
+        )
+        contract["artifact_sha256"] = _sha("stale-producer-self")
+        self_drift_payload = canonical_json_file_bytes_v2(contract)
+        schema_path = persistence.REPOSITORY_ROOT / str(
+            authority_spec["schema_path"]
+        )
+        self_drift_schema = json.loads(
+            original_reader(
+                schema_path,
+                label=f"{authority_id} authority schema",
+            )
+        )
+        self_drift_schema["const"] = contract
+        self_drift_schema_payload = canonical_json_file_bytes_v2(
+            self_drift_schema
+        )
+
+        def self_drift(path, *, label):
+            if Path(path) == contract_path:
+                return self_drift_payload
+            if Path(path) == schema_path:
+                return self_drift_schema_payload
+            return original_reader(path, label=label)
+
+        with TemporaryDirectory() as temporary:
+            artifact_root = Path(temporary) / "artifacts"
+            with patch.dict(
+                authority_spec,
+                {
+                    "file_sha256": hashlib.sha256(
+                        self_drift_payload
+                    ).hexdigest(),
+                    "schema_file_sha256": hashlib.sha256(
+                        self_drift_schema_payload
+                    ).hexdigest(),
+                },
+            ), patch.object(
+                persistence,
+                "_read_regular_file",
+                side_effect=self_drift,
+            ), patch.object(
+                persistence,
+                "_AtomicArtifactStoreV2",
+            ) as store, self.assertRaisesRegex(
+                CalibrationPersistenceV2Error,
+                "self-hash differs",
             ):
                 CalibrationPersistenceAdapterV2(artifact_root)
             store.assert_not_called()

@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Mapping
 
 import numpy as np
+import pytest
 
 import validation.calibration_v2.control_authorization_v2 as authorization
+import validation.calibration_v2.control_evidence_publisher_v2 as publisher_v2
 from validation.calibration_v2.authenticated_closure_snapshot_v2 import (
     AuthenticatedClosureSnapshotV2,
 )
@@ -307,3 +309,62 @@ def test_uniform_control_publishes_raw_v2_closure_and_replays_without_writer() -
     resolver.finish()
     assert objective == aggregate.objective_means
     assert len(observed_contexts) == 6
+
+
+def test_publisher_reauthenticates_authority_before_identity_acceptance(
+    monkeypatch,
+) -> None:
+    identity = _producer_identity(canonical_sha256({"publisher": "authority"}))
+    calls = []
+
+    def authenticate():
+        calls.append(True)
+        return authorization.authority_bindings_v2()[
+            "control_execution_producer_identity_v2"
+        ]
+
+    monkeypatch.setattr(
+        publisher_v2,
+        "authenticate_control_execution_producer_identity_authority_v2",
+        authenticate,
+    )
+    RawControlAuthorizationArtifactPublisherV2(
+        run_id="publisher-authority-reopen",
+        control_execution_producer_identity=identity,
+    )
+    assert calls == [True]
+
+    def reject_drift():
+        raise authorization.ControlAuthorizationV2Error(
+            "injected producer authority drift"
+        )
+
+    monkeypatch.setattr(
+        publisher_v2,
+        "authenticate_control_execution_producer_identity_authority_v2",
+        reject_drift,
+    )
+    with pytest.raises(
+        publisher_v2.ControlEvidencePublisherV2Error,
+        match="producer identity authority differs",
+    ):
+        RawControlAuthorizationArtifactPublisherV2(
+            run_id="publisher-authority-drift",
+            control_execution_producer_identity=identity,
+        )
+
+    monkeypatch.setattr(
+        publisher_v2,
+        "authenticate_control_execution_producer_identity_authority_v2",
+        authenticate,
+    )
+    fabricated = object.__new__(ControlExecutionProducerIdentityV2)
+    object.__setattr__(fabricated, "authenticated_adapter_identity_bytes", b"{}")
+    with pytest.raises(
+        publisher_v2.ControlEvidencePublisherV2Error,
+        match="adapter identity field set differs",
+    ):
+        RawControlAuthorizationArtifactPublisherV2(
+            run_id="publisher-fabricated-identity",
+            control_execution_producer_identity=fabricated,
+        )

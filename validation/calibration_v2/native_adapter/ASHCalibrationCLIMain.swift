@@ -49,7 +49,33 @@ struct ASHCalibrationCLIMain {
         let values = try ASHCalibrationCLIOptions(arguments).require([
             "--compiler-input", "--mapping", "--operator-bank", "--output-directory"
         ])
-        let inputs = try loadConfigurationInputs(values)
+        let compilerInputData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--compiler-input"]!
+        )
+        switch try compilerInputSchemaVersion(compilerInputData) {
+        case "1.0.0":
+            try compileCandidateV1(
+                values,
+                compilerInputData: compilerInputData
+            )
+        case "2.0.0":
+            try compileCandidateV2(
+                values,
+                compilerInputData: compilerInputData
+            )
+        default:
+            throw ASHCalibrationCLIError.unsupported("compiler-input schema version")
+        }
+    }
+
+    private static func compileCandidateV1(
+        _ values: [String: String],
+        compilerInputData: Data
+    ) throws {
+        let inputs = try loadConfigurationInputsV1(
+            values,
+            compilerInputData: compilerInputData
+        )
         let outputDirectory = values["--output-directory"]!
         try ASHCalibrationCLIFileIO.validateDirectory(outputDirectory)
         var rows: [[String: Any]] = []
@@ -84,12 +110,65 @@ struct ASHCalibrationCLIMain {
         ])
     }
 
+    private static func compileCandidateV2(
+        _ values: [String: String],
+        compilerInputData: Data
+    ) throws {
+        let inputs = try loadConfigurationInputsV2(
+            values,
+            compilerInputData: compilerInputData
+        )
+        let outputDirectory = values["--output-directory"]!
+        try ASHCalibrationCLIFileIO.validateDirectory(outputDirectory)
+        var rows: [[String: Any]] = []
+        for route in ASHSpatialRouteV2.allCases {
+            let compilation = try ASHLUTLeafCompilerV3.compile(
+                route: route,
+                configuration: inputs.configuration
+            )
+            let artifact = try ASHLUTBinaryCodecV3.serialize(compilation)
+            let filename = route == .direct2x ? "direct2x.ashlut" : "direct3over2.ashlut"
+            let path = (outputDirectory as NSString).appendingPathComponent(filename)
+            try ASHCalibrationCLIFileIO.writeNewRegularFile(artifact.data, path: path)
+            let reopened = try ASHCalibrationCLIFileIO.readRegularFile(path)
+            let loaded = try ASHLUTBinaryCodecV3.load(
+                reopened,
+                expectedRoute: route,
+                configuration: inputs.configuration
+            )
+            rows.append(routeRowV3(loaded, path: filename))
+        }
+        try ASHCalibrationCLIJSON.writeLine([
+            "schema_version": "2.0.0",
+            "status": "compiled",
+            "configuration_id": inputs.configuration.configurationID,
+            "compiler_inputs_sha256": inputs.configuration.compilerInputsSHA256.hex,
+            "mapping_sha256": inputs.configuration.mappingSHA256.hex,
+            "operator_bank_sha256": inputs.configuration.operatorBankSHA256.hex,
+            "routes": rows,
+            "offline_compile_invocation_count": 1,
+            "runtime_load_count": 0,
+            "native_parity_claimed": false
+        ])
+    }
+
     private static func serveCandidate(_ arguments: ArraySlice<String>) throws {
         let values = try ASHCalibrationCLIOptions(arguments).require([
             "--compiler-input", "--mapping", "--operator-bank", "--runtime-manifest",
             "--direct2x-lut", "--direct3over2-lut", "--source-manifest"
         ])
-        let inputs = try loadConfigurationInputs(values)
+        let compilerInputData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--compiler-input"]!
+        )
+        guard try compilerInputSchemaVersion(compilerInputData) == "1.0.0" else {
+            throw ASHCalibrationCLIError.unsupported(
+                "schema-2 candidate runtime manifest authority"
+            )
+        }
+        let inputs = try loadConfigurationInputsV1(
+            values,
+            compilerInputData: compilerInputData
+        )
         let manifestData = try ASHCalibrationCLIFileIO.readRegularFile(
             values["--runtime-manifest"]!
         )
@@ -251,19 +330,55 @@ struct ASHCalibrationCLIMain {
         }
     }
 
-    private struct ConfigurationInputs {
+    private struct ConfigurationInputsV1 {
         let compilerInputData: Data
         let configuration: ASHLUTLockedConfigurationV2
         let mapping: ASHLockedVideoMappingV2
         let operatorBank: ASHLockedOperatorBankV2
     }
 
-    private static func loadConfigurationInputs(
-        _ values: [String: String]
-    ) throws -> ConfigurationInputs {
-        let compilerInputData = try ASHCalibrationCLIFileIO.readRegularFile(
-            values["--compiler-input"]!
-        )
+    private struct ConfigurationInputsV2 {
+        let compilerInputData: Data
+        let configuration: ASHLUTLockedConfigurationV3
+        let mappingData: Data
+        let operatorBankData: Data
+    }
+
+    private static func compilerInputSchemaVersion(_ data: Data) throws -> String {
+        var parser = ASHLUTStrictJSONParserV2(data: data)
+        let value = try parser.parse()
+        guard case .object(let root) = value,
+              case .string(let schemaVersion)? = root["schema_version"] else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "compiler-input schema discriminator is absent"
+            )
+        }
+        let canonical = ASHLUTCanonicalJSONV2.encode(value)
+        switch schemaVersion {
+        case "1.0.0":
+            guard data == canonical else {
+                throw ASHCalibrationCLIError.invalidRequest(
+                    "schema-1 compiler input is not canonical"
+                )
+            }
+        case "2.0.0":
+            var canonicalFile = canonical
+            canonicalFile.append(0x0a)
+            guard data == canonicalFile else {
+                throw ASHCalibrationCLIError.invalidRequest(
+                    "schema-2 compiler input is not canonical LF-terminated JSON"
+                )
+            }
+        default:
+            break
+        }
+        return schemaVersion
+    }
+
+    private static func loadConfigurationInputsV1(
+        _ values: [String: String],
+        compilerInputData: Data
+    ) throws -> ConfigurationInputsV1 {
         let configuration = try ASHLUTLockedConfigurationJSONLoaderV2.load(
             compilerInputData
         )
@@ -282,11 +397,40 @@ struct ASHCalibrationCLIMain {
             configuration: configuration
         )
         try operatorBank.validate(mapping: mapping)
-        return ConfigurationInputs(
+        return ConfigurationInputsV1(
             compilerInputData: compilerInputData,
             configuration: configuration,
             mapping: mapping,
             operatorBank: operatorBank
+        )
+    }
+
+    private static func loadConfigurationInputsV2(
+        _ values: [String: String],
+        compilerInputData: Data
+    ) throws -> ConfigurationInputsV2 {
+        let configuration = try ASHLUTLockedConfigurationJSONLoaderV3.load(
+            compilerInputData
+        )
+        let mappingData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--mapping"]!
+        )
+        guard ASHCalibrationCLIHash.hex(mappingData)
+                == configuration.mappingSHA256.hex else {
+            throw ASHCalibrationCLIError.hashMismatch("schema-2 video mapping")
+        }
+        let operatorBankData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--operator-bank"]!
+        )
+        guard ASHCalibrationCLIHash.hex(operatorBankData)
+                == configuration.operatorBankSHA256.hex else {
+            throw ASHCalibrationCLIError.hashMismatch("schema-2 operator bank")
+        }
+        return ConfigurationInputsV2(
+            compilerInputData: compilerInputData,
+            configuration: configuration,
+            mappingData: mappingData,
+            operatorBankData: operatorBankData
         )
     }
 
@@ -320,6 +464,40 @@ struct ASHCalibrationCLIMain {
             "payload_crc32": String(
                 format: "0x%08X",
                 ASHLUTLittleEndianV2.uint32(loaded.immutableBytes, at: 292)
+            )
+        ]
+    }
+
+    private static func routeRowV3(
+        _ loaded: ASHLUTLoadedV3,
+        path: String
+    ) -> [String: Any] {
+        let route = loaded.route
+        let selection = loaded.configuration.routeSelection(for: route)
+        return [
+            "route": route.rawValue,
+            "route_id": route == .direct2x ? 1 : 2,
+            "scale_numerator": route.scaleNumerator,
+            "scale_denominator": route.scaleDenominator,
+            "phase_count": route.phasePairCount,
+            "context_count": 4,
+            "valid_state_count": 256,
+            "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
+            "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
+            "analysis_grid_source_step": Int(selection.analysisGridSourceStep),
+            "entry_count": loaded.entries.count,
+            "parameter_count": loaded.parameters.count,
+            "path": path,
+            "whole_file_size_bytes": loaded.immutableBytes.count,
+            "whole_file_sha256": loaded.wholeFileSHA256.hex,
+            "payload_sha256": loaded.payloadSHA256.hex,
+            "header_crc32": String(
+                format: "0x%08X",
+                ASHLUTLittleEndianV3.uint32(loaded.immutableBytes, at: 288)
+            ),
+            "payload_crc32": String(
+                format: "0x%08X",
+                ASHLUTLittleEndianV3.uint32(loaded.immutableBytes, at: 292)
             )
         ]
     }

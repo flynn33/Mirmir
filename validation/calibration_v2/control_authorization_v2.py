@@ -1,7 +1,7 @@
 """Fail-closed P06 V2 control authorization over immutable snapshot bytes.
 
 This module is intentionally isolated from the scheduler persistence adapters.
-It authenticates the exact five P06 authorities, replays fixed, conventional,
+It authenticates the exact six P06 authorities, replays fixed, conventional,
 and non-ASH control selection, and proves an exact transitive dependency set
 before returning an authorization result.  Run evidence is consumed only from
 an :class:`AuthenticatedClosureSnapshotV2`; no evidence pathname is reopened.
@@ -169,50 +169,50 @@ _SAFE_PATH = re.compile(
 _SCHEMA_SPECS = {
     OBJECTIVE_SUMMARY_KIND: (
         SCHEMA_ROOT / "control-objective-summary-v2.schema.json",
-        "2eaf46f2555cc93eee8d44ea7b2f00a412fc18170059fe8a23dd40cf4e42fe55",
+        "be8f13114ed4b91a86a8d69eee3f97d6f614ea8f57567e69c0d38b302b2807df",
     ),
     OUTPUT_MANIFEST_KIND: (
         SCHEMA_ROOT / "control-output-manifest-v2.schema.json",
-        "a8fb32c27c64bc6ecf837bcd8f5e679cc37c44f7d30086ae1bed966548855865",
+        "61300b90a010a35e979d7798fd74ae59349f83565d46a11dab647725ef124597",
     ),
     FIXED_SELECTION_KIND: (
         SCHEMA_ROOT / "fixed-control-selection-v2.schema.json",
-        "1afc7a9506770dbffa811eca71ef22e016b65cfe834ff7a8585bbadaecc2eae9",
+        "543db7e687bb7bcbdbb987b3c53c575d7a24a9473487098608601e9661fa2db1",
     ),
     CONVENTIONAL_SELECTION_KIND: (
         SCHEMA_ROOT / "conventional-control-selection-v2.schema.json",
-        "e650acfad66e557894ad62555dd8e0a577668ed1495e8f6f5aa046f10cd9fd68",
+        "1c6a87b852dc258f7202c7152f6dfb590da1a83ed88070739e1ce132f1f949df",
     ),
     EVALUATION_EVIDENCE_KIND: (
         SCHEMA_ROOT / "non-ash-selector-evaluation-evidence-v2.schema.json",
-        "4f6828cad18dc1b588b0e292d37f96ceb8769a9dd60de21d73b864931bbd4e3a",
+        "15ac9960c73ead2b810c39d7c4c7f21c7773d74c15f29ea4ee6f128dc657ad43",
     ),
     CONTROL_AUTHORIZATION_BUNDLE_KIND: (
         SCHEMA_ROOT / "p06-control-authorization-bundle-v2.schema.json",
-        "9b6aa34dd923752fa12f4938a948a43665953b34fae23485e99a249ad5ff29a6",
+        "c5d79fa2b6b8b574532d4a83d95a4e543f6a9dde769bc8c3f3969d5167729582",
     ),
 }
 
 _EXISTING_SCHEMA_SPECS = {
     VALIDATION_ADMISSION_KIND: (
         SCHEMA_ROOT / "validation-candidate-development-evidence-v2.schema.json",
-        "8ba2c914ba2aa1619a6c6cc7e43f823102c79468b099778447e5e5c9d1981f3f",
+        "88847f184e8b79ea1333baa2125d89691409173bf05256e2bf6cbb75d56ef22f",
     ),
     ATTEMPT_FAILURE_KIND: (
         SCHEMA_ROOT / "non-ash-selector-attempt-failure-v2.schema.json",
-        "2add191fa95c8b2eca8c4ed3a79b77afa1b311a480b7d205c92d87afa33affb4",
+        "dd9edd84ca809695e6c0c98438edc9c4b8a5921e513638227e181b99bcb42a16",
     ),
     ATTEMPT_LEDGER_KIND: (
         SCHEMA_ROOT / "non-ash-selector-attempt-ledger-v2.schema.json",
-        "3d2937faaeefbd97e17447554146fdfae6a041b328bdf13f4e7004c324d0bfe9",
+        "bcf065f97e4297c283a7607d4aa447e34dfa108c6dcdd229456f69132b46b7ce",
     ),
     SELECTION_KIND: (
         SCHEMA_ROOT / "non-ash-selector-selection-v2.schema.json",
-        "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+        "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
     ),
     NEIGHBOR_MANIFEST_KIND: (
         SCHEMA_ROOT / "non-ash-validation-neighbor-manifest-v2.schema.json",
-        "f1da0ec50e475490cbadb92b949e42f3e8a8e104d36920e4d0cb6cf70fb525d2",
+        "d58d7cd27d3907696c8367f5e0fb79e2011733901f2dff34b996c6c3703bfe45",
     ),
 }
 
@@ -271,6 +271,25 @@ _AUTHORITY_SPECS = {
         "self_field": "artifact_sha256",
         "self_sha256": (
             "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237"
+        ),
+    },
+    "control_execution_producer_identity_v2": {
+        "path": (
+            CONTRACT_ROOT / "control-execution-producer-identity-v2.json"
+        ),
+        "schema_path": (
+            SCHEMA_ROOT
+            / "control-execution-producer-identity-v2.schema.json"
+        ),
+        "file_sha256": (
+            "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363"
+        ),
+        "schema_file_sha256": (
+            "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46"
+        ),
+        "self_field": "artifact_sha256",
+        "self_sha256": (
+            "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5"
         ),
     },
     "shared_bank_configuration_identity_v2": {
@@ -509,7 +528,7 @@ def finalize_artifact_sha256_v2(
 
 
 def authority_bindings_v2() -> Dict[str, object]:
-    """Return the exact five authenticated authority triples."""
+    """Return the exact six authenticated authority triples."""
 
     return {
         identifier: {
@@ -525,7 +544,7 @@ def _authenticate_authorities(bindings: object) -> None:
     expected = authority_bindings_v2()
     if type(bindings) is not dict or bindings != expected:
         raise ControlAuthorizationV2Error(
-            "authority bindings differ from the exact five-authority set"
+            "authority bindings differ from the exact six-authority set"
         )
     for identifier, spec in _AUTHORITY_SPECS.items():
         contract_payload = _read_regular_file(
@@ -555,6 +574,66 @@ def _authenticate_authorities(bindings: object) -> None:
             raise ControlAuthorizationV2Error(
                 f"authority {identifier} self identity differs"
             )
+
+
+def authenticate_control_execution_producer_identity_authority_v2(
+) -> Mapping[str, str]:
+    """Reopen and authenticate the producer-identity authority without caching."""
+
+    identifier = "control_execution_producer_identity_v2"
+    spec = _AUTHORITY_SPECS[identifier]
+    contract_payload = _read_regular_file(
+        spec["path"],
+        label=f"authority {identifier}",
+    )
+    schema_payload = _read_regular_file(
+        spec["schema_path"],
+        label=f"authority schema {identifier}",
+    )
+    if (
+        _sha256(contract_payload) != spec["file_sha256"]
+        or _sha256(schema_payload) != spec["schema_file_sha256"]
+    ):
+        raise ControlAuthorizationV2Error(
+            f"authority {identifier} byte identity differs"
+        )
+    contract = _parse_canonical_file(
+        contract_payload,
+        label=f"authority {identifier}",
+    )
+    schema = _parse_canonical_file(
+        schema_payload,
+        label=f"authority schema {identifier}",
+    )
+    try:
+        Draft202012Validator.check_schema(schema)
+    except Exception as error:
+        raise ControlAuthorizationV2Error(
+            f"authority schema {identifier} is invalid"
+        ) from error
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(contract),
+        key=lambda error: tuple(
+            str(item) for item in error.absolute_path
+        ),
+    )
+    if errors:
+        raise ControlAuthorizationV2Error(
+            f"authority {identifier} schema validation failed"
+        )
+    if (
+        contract.get(spec["self_field"]) != spec["self_sha256"]
+        or _self_sha256(contract, field=spec["self_field"])
+        != spec["self_sha256"]
+    ):
+        raise ControlAuthorizationV2Error(
+            f"authority {identifier} self identity differs"
+        )
+    return {
+        "file_sha256": str(spec["file_sha256"]),
+        "schema_file_sha256": str(spec["schema_file_sha256"]),
+        "self_sha256": str(spec["self_sha256"]),
+    }
 
 
 def _load_schema(kind: str) -> Mapping[str, object]:
@@ -631,7 +710,7 @@ def _verify_new_artifact(
     if authority_files_authenticated:
         if document.get("authority_bindings") != authority_bindings_v2():
             raise ControlAuthorizationV2Error(
-                "authority bindings differ from the exact five-authority set"
+                "authority bindings differ from the exact six-authority set"
             )
     else:
         _authenticate_authorities(document.get("authority_bindings"))
@@ -1053,6 +1132,15 @@ class ControlAuthorizationVerifierV2:
         self._control_writer_semantic_verifier = (
             control_writer_semantic_verifier
         )
+        if control_execution_producer_identity is not None:
+            if (
+                type(control_execution_producer_identity)
+                is not ControlExecutionProducerIdentityV2
+            ):
+                raise ControlAuthorizationV2Error(
+                    "authenticated control execution producer identity is invalid"
+                )
+            authenticate_control_execution_producer_identity_authority_v2()
         self._control_execution_producer_identity = (
             control_execution_producer_identity
         )
@@ -3204,6 +3292,7 @@ __all__ = [
     "TypedArtifactBindingV2",
     "VALIDATION_ADMISSION_KIND",
     "VerifiedControlAuthorizationV2",
+    "authenticate_control_execution_producer_identity_authority_v2",
     "authority_bindings_v2",
     "canonical_json_bytes_v2",
     "canonical_json_file_bytes_v2",

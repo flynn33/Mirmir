@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+import errno
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import stat
 import tempfile
+import threading
 import unittest
+from unittest import mock
+
+import validation.calibration_v2.shared_bank_artifacts_v2 as shared_bank_module
 
 from validation.calibration_v2.calibration_plan_codec import (
     materialize_candidate_vector_v2,
@@ -29,6 +37,7 @@ from validation.calibration_v2.shared_bank_artifacts_v2 import (
     MAPPING_SCHEMA_RELATIVE_PATH,
     OPERATOR_SCHEMA_RELATIVE_PATH,
     SharedBankArtifactMaterializerV2,
+    SharedBankArtifactPairV2,
     SharedBankArtifactV2Error,
 )
 from validation.quality.src.mirmir_quality.json_tools import canonical_json_bytes
@@ -114,6 +123,17 @@ class SharedBankArtifactsV2Tests(unittest.TestCase):
             operator_bytes,
             mapping_sha256=_sha256(mapping_bytes),
             operator_bank_sha256=_sha256(operator_bytes),
+        )
+
+    @staticmethod
+    def write_pair_directory(
+        directory: Path,
+        pair: SharedBankArtifactPairV2,
+    ) -> None:
+        directory.mkdir()
+        (directory / "candidate-mapping.json").write_bytes(pair.mapping_bytes)
+        (directory / "candidate-operator-bank.json").write_bytes(
+            pair.operator_bank_bytes
         )
 
     def test_authorities_are_authenticated_before_materialization(self) -> None:
@@ -456,6 +476,567 @@ class SharedBankArtifactsV2Tests(unittest.TestCase):
             ),
             pair,
         )
+
+    def test_publish_pair_durable_reopen_and_exact_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "published-pair"
+            fsync_kinds: list[int] = []
+            real_fsync = os.fsync
+
+            def record_fsync(descriptor: int) -> None:
+                fsync_kinds.append(stat.S_IFMT(os.fstat(descriptor).st_mode))
+                real_fsync(descriptor)
+
+            with mock.patch.object(
+                shared_bank_module.os,
+                "fsync",
+                side_effect=record_fsync,
+            ), mock.patch.object(
+                self.materializer,
+                "validate",
+                wraps=self.materializer.validate,
+            ) as semantic_validate:
+                first = self.materializer.publish_pair(target, self.pair)
+
+            self.assertEqual(first, self.pair)
+            self.assertEqual(
+                {path.name for path in target.iterdir()},
+                {
+                    "candidate-mapping.json",
+                    "candidate-operator-bank.json",
+                },
+            )
+            self.assertEqual(
+                (target / "candidate-mapping.json").read_bytes(),
+                self.pair.mapping_bytes,
+            )
+            self.assertEqual(
+                (target / "candidate-operator-bank.json").read_bytes(),
+                self.pair.operator_bank_bytes,
+            )
+            self.assertGreaterEqual(semantic_validate.call_count, 3)
+            self.assertGreaterEqual(fsync_kinds.count(stat.S_IFREG), 2)
+            self.assertGreaterEqual(fsync_kinds.count(stat.S_IFDIR), 2)
+            first_identity = (target.stat().st_dev, target.stat().st_ino)
+            first_mapping_identity = (
+                (target / "candidate-mapping.json").stat().st_dev,
+                (target / "candidate-mapping.json").stat().st_ino,
+            )
+
+            second = self.materializer.publish_pair(target, self.pair)
+
+            self.assertEqual(second, self.pair)
+            self.assertEqual(
+                (target.stat().st_dev, target.stat().st_ino),
+                first_identity,
+            )
+            self.assertEqual(
+                (
+                    (target / "candidate-mapping.json").stat().st_dev,
+                    (target / "candidate-mapping.json").stat().st_ino,
+                ),
+                first_mapping_identity,
+            )
+            self.assertFalse(
+                any(
+                    path.name.startswith(
+                        shared_bank_module._staging_prefix(target.name)
+                    )
+                    for path in parent.iterdir()
+                )
+            )
+
+    def test_publish_pair_rejects_unsafe_and_symlink_targets(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            SharedBankArtifactV2Error,
+            "absolute pathlib.Path",
+        ):
+            self.materializer.publish_pair(Path("relative-pair"), self.pair)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(
+                    parent / "absent-parent" / "pair",
+                    self.pair,
+                )
+
+            regular_target = parent / "regular-target"
+            regular_target.write_bytes(b"preexisting")
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(regular_target, self.pair)
+            self.assertEqual(regular_target.read_bytes(), b"preexisting")
+
+            external_directory = parent / "external-directory"
+            external_directory.mkdir()
+            symlink_target = parent / "symlink-target"
+            symlink_target.symlink_to(external_directory, target_is_directory=True)
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(symlink_target, self.pair)
+            self.assertTrue(symlink_target.is_symlink())
+            self.assertEqual(tuple(external_directory.iterdir()), ())
+
+            real_parent = parent / "real-parent"
+            real_parent.mkdir()
+            linked_parent = parent / "linked-parent"
+            linked_parent.symlink_to(real_parent, target_is_directory=True)
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(
+                    linked_parent / "pair",
+                    self.pair,
+                )
+            self.assertFalse((real_parent / "pair").exists())
+
+            external_file = parent / "external.json"
+            external_file.write_bytes(b"external-sentinel")
+            file_symlink_target = parent / "file-symlink-pair"
+            file_symlink_target.mkdir()
+            (file_symlink_target / "candidate-mapping.json").symlink_to(
+                external_file
+            )
+            (file_symlink_target / "candidate-operator-bank.json").write_bytes(
+                self.pair.operator_bank_bytes
+            )
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(file_symlink_target, self.pair)
+            self.assertEqual(external_file.read_bytes(), b"external-sentinel")
+            self.assertTrue(
+                (file_symlink_target / "candidate-mapping.json").is_symlink()
+            )
+
+    def test_publish_pair_preserves_preexisting_divergence(
+        self,
+    ) -> None:
+        divergent = self.materializer.materialize(
+            self.physical_initial,
+            configuration_id="schema-v2-divergent-publish-001",
+            mapping_seed_sha256=MAPPING_SEED_SHA256,
+            operator_bank_seed_sha256=OPERATOR_SEED_SHA256,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+
+            partial = parent / "partial"
+            partial.mkdir()
+            partial_mapping = partial / "candidate-mapping.json"
+            partial_mapping.write_bytes(self.pair.mapping_bytes)
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(partial, self.pair)
+            self.assertEqual(
+                {path.name for path in partial.iterdir()},
+                {"candidate-mapping.json"},
+            )
+            self.assertEqual(partial_mapping.read_bytes(), self.pair.mapping_bytes)
+
+            extra = parent / "extra"
+            self.write_pair_directory(extra, self.pair)
+            (extra / "unexpected.json").write_bytes(b"preserve-me")
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(extra, self.pair)
+            self.assertEqual(
+                (extra / "unexpected.json").read_bytes(),
+                b"preserve-me",
+            )
+
+            divergent_target = parent / "divergent"
+            self.write_pair_directory(divergent_target, divergent)
+            before = {
+                path.name: path.read_bytes()
+                for path in divergent_target.iterdir()
+            }
+            with self.assertRaises(SharedBankArtifactV2Error):
+                self.materializer.publish_pair(divergent_target, self.pair)
+            self.assertEqual(
+                {
+                    path.name: path.read_bytes()
+                    for path in divergent_target.iterdir()
+                },
+                before,
+            )
+
+    def test_publish_pair_rejects_oversized_preexisting_file_before_read(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "oversized-pair"
+            self.write_pair_directory(target, self.pair)
+            mapping_path = target / "candidate-mapping.json"
+            oversized_bytes = self.pair.mapping_bytes + (b"x" * (1024 * 1024))
+            mapping_path.write_bytes(oversized_bytes)
+
+            with mock.patch.object(
+                shared_bank_module.os,
+                "read",
+                side_effect=AssertionError("oversized target must not be read"),
+            ), self.assertRaisesRegex(
+                SharedBankArtifactV2Error,
+                "published video mapping has an unexpected size",
+            ):
+                self.materializer.publish_pair(target, self.pair)
+
+            self.assertEqual(mapping_path.stat().st_size, len(oversized_bytes))
+            self.assertEqual(mapping_path.read_bytes(), oversized_bytes)
+
+    def test_publish_pair_accepts_bounded_short_reads_of_stable_pair(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            target = Path(temporary).resolve() / "short-read-pair"
+            self.write_pair_directory(target, self.pair)
+            real_read = os.read
+            requested_sizes: list[int] = []
+
+            def short_read(descriptor: int, size: int) -> bytes:
+                requested_sizes.append(size)
+                return real_read(descriptor, min(size, 7))
+
+            with mock.patch.object(
+                shared_bank_module.os,
+                "read",
+                side_effect=short_read,
+            ):
+                reopened = self.materializer.publish_pair(target, self.pair)
+
+            self.assertEqual(reopened, self.pair)
+            self.assertGreater(len(requested_sizes), 2)
+            self.assertTrue(
+                all(
+                    size
+                    <= max(
+                        len(self.pair.mapping_bytes),
+                        len(self.pair.operator_bank_bytes),
+                    )
+                    + 1
+                    for size in requested_sizes
+                )
+            )
+
+    def test_publish_pair_interruption_quarantines_then_retries(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "interrupted-pair"
+            real_rename = shared_bank_module._rename_directory_exclusive_at
+            injected = False
+
+            def fail_publication_once(
+                source_parent_descriptor: int,
+                source_name: str,
+                destination_parent_descriptor: int,
+                destination_name: str,
+            ) -> None:
+                nonlocal injected
+                if destination_name == target.name and not injected:
+                    injected = True
+                    raise OSError(errno.EIO, "injected atomic publication failure")
+                real_rename(
+                    source_parent_descriptor,
+                    source_name,
+                    destination_parent_descriptor,
+                    destination_name,
+                )
+
+            with mock.patch.object(
+                shared_bank_module,
+                "_rename_directory_exclusive_at",
+                side_effect=fail_publication_once,
+            ), self.assertRaisesRegex(
+                SharedBankArtifactV2Error,
+                "evidence preserved",
+            ):
+                self.materializer.publish_pair(target, self.pair)
+
+            self.assertFalse(target.exists())
+            quarantine_prefix = shared_bank_module._quarantine_prefix(
+                target.name,
+                "failed-temp",
+            )
+            quarantines = [
+                path
+                for path in parent.iterdir()
+                if path.name.startswith(quarantine_prefix)
+            ]
+            self.assertEqual(len(quarantines), 1)
+            self.assertEqual(
+                {path.name for path in quarantines[0].iterdir()},
+                {
+                    "candidate-mapping.json",
+                    "candidate-operator-bank.json",
+                },
+            )
+            self.assertEqual(
+                (quarantines[0] / "candidate-mapping.json").read_bytes(),
+                self.pair.mapping_bytes,
+            )
+
+            published = self.materializer.publish_pair(target, self.pair)
+            retried = self.materializer.publish_pair(target, self.pair)
+            self.assertEqual(published, self.pair)
+            self.assertEqual(retried, self.pair)
+
+    def test_publish_pair_bounds_dead_owner_staging_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "stale-recovery-pair"
+            staging_prefix = shared_bank_module._staging_prefix(target.name)
+            stale = parent / f"{staging_prefix}999999.{('a' * 32)}"
+            stale.mkdir()
+            (stale / "interrupted-evidence.bin").write_bytes(b"preserve-stale")
+
+            with mock.patch.object(
+                shared_bank_module,
+                "_pid_is_active",
+                return_value=False,
+            ):
+                result = self.materializer.publish_pair(target, self.pair)
+
+            self.assertEqual(result, self.pair)
+            stale_quarantine_prefix = shared_bank_module._quarantine_prefix(
+                target.name,
+                "stale-temp",
+            )
+            quarantines = [
+                path
+                for path in parent.iterdir()
+                if path.name.startswith(stale_quarantine_prefix)
+            ]
+            self.assertEqual(len(quarantines), 1)
+            self.assertEqual(
+                (quarantines[0] / "interrupted-evidence.bin").read_bytes(),
+                b"preserve-stale",
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "bounded-stale-pair"
+            staging_prefix = shared_bank_module._staging_prefix(target.name)
+            stale_names = []
+            for index in range(
+                shared_bank_module._MAX_RECOGNIZED_STAGING_DIRECTORIES + 1
+            ):
+                name = f"{staging_prefix}{900000 + index}.{index:032x}"
+                (parent / name).mkdir()
+                stale_names.append(name)
+            with mock.patch.object(
+                shared_bank_module,
+                "_pid_is_active",
+                return_value=False,
+            ), self.assertRaisesRegex(
+                SharedBankArtifactV2Error,
+                "too many recognized",
+            ):
+                self.materializer.publish_pair(target, self.pair)
+            self.assertFalse(target.exists())
+            self.assertTrue(all((parent / name).is_dir() for name in stale_names))
+
+    def test_publish_pair_rejects_same_size_reopen_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "mutated-pair"
+            real_rename = shared_bank_module._rename_directory_exclusive_at
+            mutated = False
+
+            def mutate_after_publish(
+                source_parent_descriptor: int,
+                source_name: str,
+                destination_parent_descriptor: int,
+                destination_name: str,
+            ) -> None:
+                nonlocal mutated
+                real_rename(
+                    source_parent_descriptor,
+                    source_name,
+                    destination_parent_descriptor,
+                    destination_name,
+                )
+                if destination_name != target.name or mutated:
+                    return
+                mutated = True
+                directory_descriptor = os.open(
+                    destination_name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=destination_parent_descriptor,
+                )
+                try:
+                    descriptor = os.open(
+                        "candidate-mapping.json",
+                        os.O_WRONLY | os.O_NOFOLLOW,
+                        dir_fd=directory_descriptor,
+                    )
+                    try:
+                        os.write(descriptor, b"[")
+                        os.fsync(descriptor)
+                    finally:
+                        os.close(descriptor)
+                    os.fsync(directory_descriptor)
+                finally:
+                    os.close(directory_descriptor)
+
+            with mock.patch.object(
+                shared_bank_module,
+                "_rename_directory_exclusive_at",
+                side_effect=mutate_after_publish,
+            ), self.assertRaisesRegex(
+                SharedBankArtifactV2Error,
+                "evidence preserved",
+            ):
+                self.materializer.publish_pair(target, self.pair)
+
+            self.assertFalse(target.exists())
+            quarantine_prefix = shared_bank_module._quarantine_prefix(
+                target.name,
+                "failed-published",
+            )
+            quarantines = [
+                path
+                for path in parent.iterdir()
+                if path.name.startswith(quarantine_prefix)
+            ]
+            self.assertEqual(len(quarantines), 1)
+            mutated_bytes = (
+                quarantines[0] / "candidate-mapping.json"
+            ).read_bytes()
+            self.assertEqual(len(mutated_bytes), len(self.pair.mapping_bytes))
+            self.assertNotEqual(mutated_bytes, self.pair.mapping_bytes)
+
+    def test_publish_pair_rejects_reopen_symlink_swap(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "symlink-swap-pair"
+            external = parent / "external-sentinel.json"
+            external.write_bytes(b"external-sentinel")
+            displaced_name = "displaced-candidate-mapping.json"
+            real_rename = shared_bank_module._rename_directory_exclusive_at
+            swapped = False
+
+            def swap_after_publish(
+                source_parent_descriptor: int,
+                source_name: str,
+                destination_parent_descriptor: int,
+                destination_name: str,
+            ) -> None:
+                nonlocal swapped
+                real_rename(
+                    source_parent_descriptor,
+                    source_name,
+                    destination_parent_descriptor,
+                    destination_name,
+                )
+                if destination_name != target.name or swapped:
+                    return
+                swapped = True
+                directory_descriptor = os.open(
+                    destination_name,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=destination_parent_descriptor,
+                )
+                try:
+                    os.rename(
+                        "candidate-mapping.json",
+                        displaced_name,
+                        src_dir_fd=directory_descriptor,
+                        dst_dir_fd=destination_parent_descriptor,
+                    )
+                    os.symlink(
+                        os.fspath(external),
+                        "candidate-mapping.json",
+                        dir_fd=directory_descriptor,
+                    )
+                    os.fsync(directory_descriptor)
+                    os.fsync(destination_parent_descriptor)
+                finally:
+                    os.close(directory_descriptor)
+
+            with mock.patch.object(
+                shared_bank_module,
+                "_rename_directory_exclusive_at",
+                side_effect=swap_after_publish,
+            ), self.assertRaisesRegex(
+                SharedBankArtifactV2Error,
+                "evidence preserved",
+            ):
+                self.materializer.publish_pair(target, self.pair)
+
+            self.assertFalse(target.exists())
+            self.assertEqual(external.read_bytes(), b"external-sentinel")
+            self.assertEqual(
+                (parent / displaced_name).read_bytes(),
+                self.pair.mapping_bytes,
+            )
+            quarantine_prefix = shared_bank_module._quarantine_prefix(
+                target.name,
+                "failed-published",
+            )
+            quarantines = [
+                path
+                for path in parent.iterdir()
+                if path.name.startswith(quarantine_prefix)
+            ]
+            self.assertEqual(len(quarantines), 1)
+            quarantined_link = quarantines[0] / "candidate-mapping.json"
+            self.assertTrue(quarantined_link.is_symlink())
+            self.assertEqual(os.readlink(quarantined_link), os.fspath(external))
+
+    def test_publish_pair_concurrent_exact_publishers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            parent = Path(temporary).resolve()
+            target = parent / "concurrent-pair"
+            publisher_count = 4
+            barrier = threading.Barrier(publisher_count)
+            real_rename = shared_bank_module._rename_directory_exclusive_at
+
+            def synchronized_rename(
+                source_parent_descriptor: int,
+                source_name: str,
+                destination_parent_descriptor: int,
+                destination_name: str,
+            ) -> None:
+                if destination_name == target.name:
+                    barrier.wait(timeout=20)
+                real_rename(
+                    source_parent_descriptor,
+                    source_name,
+                    destination_parent_descriptor,
+                    destination_name,
+                )
+
+            with mock.patch.object(
+                shared_bank_module,
+                "_rename_directory_exclusive_at",
+                side_effect=synchronized_rename,
+            ), ThreadPoolExecutor(max_workers=publisher_count) as executor:
+                results = list(
+                    executor.map(
+                        lambda _: self.materializer.publish_pair(
+                            target,
+                            self.pair,
+                        ),
+                        range(publisher_count),
+                    )
+                )
+
+            self.assertEqual(results, [self.pair] * publisher_count)
+            self.assertEqual(
+                {path.name for path in target.iterdir()},
+                {
+                    "candidate-mapping.json",
+                    "candidate-operator-bank.json",
+                },
+            )
+            self.assertFalse(
+                any(
+                    path.name.startswith(
+                        shared_bank_module._staging_prefix(target.name)
+                    )
+                    for path in parent.iterdir()
+                )
+            )
 
     def test_v1_source_schemas_and_fixture_bytes_are_immutable(self) -> None:
         self.assertEqual(

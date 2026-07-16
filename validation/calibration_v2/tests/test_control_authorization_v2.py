@@ -93,22 +93,22 @@ NEW_SCHEMA_NAMES = (
 )
 EXPECTED_SCHEMA_DIGESTS = {
     "control-objective-summary-v2.schema.json": (
-        "2eaf46f2555cc93eee8d44ea7b2f00a412fc18170059fe8a23dd40cf4e42fe55"
+        "be8f13114ed4b91a86a8d69eee3f97d6f614ea8f57567e69c0d38b302b2807df"
     ),
     "control-output-manifest-v2.schema.json": (
-        "a8fb32c27c64bc6ecf837bcd8f5e679cc37c44f7d30086ae1bed966548855865"
+        "61300b90a010a35e979d7798fd74ae59349f83565d46a11dab647725ef124597"
     ),
     "fixed-control-selection-v2.schema.json": (
-        "1afc7a9506770dbffa811eca71ef22e016b65cfe834ff7a8585bbadaecc2eae9"
+        "543db7e687bb7bcbdbb987b3c53c575d7a24a9473487098608601e9661fa2db1"
     ),
     "conventional-control-selection-v2.schema.json": (
-        "e650acfad66e557894ad62555dd8e0a577668ed1495e8f6f5aa046f10cd9fd68"
+        "1c6a87b852dc258f7202c7152f6dfb590da1a83ed88070739e1ce132f1f949df"
     ),
     "non-ash-selector-evaluation-evidence-v2.schema.json": (
-        "4f6828cad18dc1b588b0e292d37f96ceb8769a9dd60de21d73b864931bbd4e3a"
+        "15ac9960c73ead2b810c39d7c4c7f21c7773d74c15f29ea4ee6f128dc657ad43"
     ),
     "p06-control-authorization-bundle-v2.schema.json": (
-        "9b6aa34dd923752fa12f4938a948a43665953b34fae23485e99a249ad5ff29a6"
+        "c5d79fa2b6b8b574532d4a83d95a4e543f6a9dde769bc8c3f3969d5167729582"
     ),
 }
 
@@ -1211,7 +1211,7 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
         if cls.fixed.matrix_sha256 != cls.conventional.matrix_sha256:
             raise AssertionError("ranked fixture matrix identities differ")
 
-    def test_schemas_are_canonical_valid_and_bound_to_exact_five_authorities(
+    def test_schemas_are_canonical_valid_and_bound_to_exact_six_authorities(
         self,
     ) -> None:
         expected_authorities = authority_bindings_v2()
@@ -1222,6 +1222,7 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
                 "calibration_plan_v2",
                 "candidate_evidence_policy_v2",
                 "compiler_contract_v2",
+                "control_execution_producer_identity_v2",
                 "shared_bank_configuration_identity_v2",
             ),
         )
@@ -1253,6 +1254,20 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
                 ),
             },
         )
+        self.assertEqual(
+            expected_authorities["control_execution_producer_identity_v2"],
+            {
+                "file_sha256": (
+                    "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363"
+                ),
+                "schema_file_sha256": (
+                    "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46"
+                ),
+                "self_sha256": (
+                    "dc76d231d0b90a663153678b5651da9eead185eee622897c89e30951603f40f5"
+                ),
+            },
+        )
         for name in NEW_SCHEMA_NAMES:
             with self.subTest(schema=name):
                 path = SCHEMA_ROOT / name
@@ -1272,6 +1287,84 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
                         schema["$defs"]["authorityBindings"]["const"],
                         expected_authorities,
                     )
+
+    def test_producer_identity_authority_reopens_contract_schema_and_self(
+        self,
+    ) -> None:
+        identity = _execution_producer_identity()
+        ControlAuthorizationVerifierV2(
+            control_execution_producer_identity=identity,
+        )
+        authority_id = "control_execution_producer_identity_v2"
+        spec = control._AUTHORITY_SPECS[authority_id]
+        original_reader = control._read_regular_file
+
+        for target_key in ("path", "schema_path"):
+            target = Path(spec[target_key])
+
+            def drift_reader(path, *, label, target=target):
+                payload = original_reader(path, label=label)
+                if Path(path) == target:
+                    return bytes([payload[0] ^ 1]) + payload[1:]
+                return payload
+
+            with self.subTest(target=target_key), patch.object(
+                control,
+                "_read_regular_file",
+                side_effect=drift_reader,
+            ), self.assertRaisesRegex(
+                ControlAuthorizationV2Error,
+                "byte identity differs",
+            ):
+                ControlAuthorizationVerifierV2(
+                    control_execution_producer_identity=identity,
+                )
+
+        contract_payload = original_reader(
+            spec["path"],
+            label=f"authority {authority_id}",
+        )
+        self_drift = json.loads(contract_payload)
+        self_drift["artifact_sha256"] = _digest("producer-self-drift")
+        self_drift_payload = canonical_json_file_bytes_v2(self_drift)
+        schema_payload = original_reader(
+            spec["schema_path"],
+            label=f"authority schema {authority_id}",
+        )
+        self_drift_schema = json.loads(schema_payload)
+        self_drift_schema["const"] = self_drift
+        self_drift_schema_payload = canonical_json_file_bytes_v2(
+            self_drift_schema
+        )
+
+        def self_drift_reader(path, *, label):
+            if Path(path) == Path(spec["path"]):
+                return self_drift_payload
+            if Path(path) == Path(spec["schema_path"]):
+                return self_drift_schema_payload
+            return original_reader(path, label=label)
+
+        with patch.dict(
+            spec,
+            {
+                "file_sha256": hashlib.sha256(
+                    self_drift_payload
+                ).hexdigest(),
+                "schema_file_sha256": hashlib.sha256(
+                    self_drift_schema_payload
+                ).hexdigest(),
+            },
+        ), patch.object(
+            control,
+            "_read_regular_file",
+            side_effect=self_drift_reader,
+        ), self.assertRaisesRegex(
+            ControlAuthorizationV2Error,
+            "self identity differs",
+        ):
+            ControlAuthorizationVerifierV2(
+                control_execution_producer_identity=identity,
+            )
 
     def test_typed_binding_and_dependency_set_reject_aliases_and_reordering(
         self,
@@ -2599,7 +2692,7 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
             [FIXED_SELECTION_KIND, CONVENTIONAL_SELECTION_KIND, SELECTION_KIND],
         )
 
-    def test_bundle_rejects_extra_omitted_swapped_and_four_authority_inputs(
+    def test_bundle_rejects_extra_omitted_swapped_and_old_five_authorities(
         self,
     ) -> None:
         builder, binding, *_ = self._bundle_fixture(extra_dependency=True)
@@ -2681,15 +2774,17 @@ class ControlAuthorizationV2Tests(unittest.TestCase):
                 validation_admission_semantic_verifier=lambda binding, document: document,
             )
 
-        def remove_compiler(bundle):
-            del bundle["authority_bindings"]["compiler_contract_v2"]
+        def remove_producer_identity_authority(bundle):
+            del bundle["authority_bindings"][
+                "control_execution_producer_identity_v2"
+            ]
 
         builder, binding, *_ = self._bundle_fixture(
-            mutate_bundle=remove_compiler
+            mutate_bundle=remove_producer_identity_authority
         )
         with self.assertRaisesRegex(
             ControlAuthorizationV2Error,
-            "schema validation failed|five-authority",
+            "schema validation failed|six-authority",
         ):
             ControlAuthorizationVerifierV2().verify_bundle(
                 binding,

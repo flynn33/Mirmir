@@ -32,7 +32,9 @@ from validation.calibration_v2.control_authorization_v2 import (
     OUTPUT_MANIFEST_KIND,
     SCHEMA_VERSION_V2,
     SELECTION_TUPLE_DESCRIPTION,
+    ControlAuthorizationV2Error,
     TypedArtifactBindingV2,
+    authenticate_control_execution_producer_identity_authority_v2,
     authority_bindings_v2,
     canonical_json_bytes_v2,
     canonical_json_file_bytes_v2,
@@ -219,6 +221,12 @@ class RawControlAuthorizationArtifactPublisherV2:
             raise ControlEvidencePublisherV2Error(
                 "control execution producer identity is absent"
             )
+        try:
+            authenticate_control_execution_producer_identity_authority_v2()
+        except ControlAuthorizationV2Error as error:
+            raise ControlEvidencePublisherV2Error(
+                "control execution producer identity authority differs"
+            ) from error
         try:
             adapter_identity = json.loads(
                 control_execution_producer_identity.authenticated_adapter_identity_bytes

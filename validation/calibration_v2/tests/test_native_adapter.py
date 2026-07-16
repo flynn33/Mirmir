@@ -15,11 +15,16 @@ import numpy as np
 from validation.calibration_v2.native_adapter.factory import (
     NativeAdapterError,
     NativeCandidateCallable,
+    NativeCompiledConfigurationV2,
     NativeSwiftSession,
     _ensure_directory,
     _normalize_p00_compatibility_output,
     _write_new_deferred,
     make_native_candidate_adapter_factory,
+)
+from validation.calibration_v2.reference.lut_oracle_v2 import (
+    compile_all_route_bytes_v2,
+    parse_locked_compiler_input_v2,
 )
 from validation.calibration_v2.production_evaluator import (
     MemoryEvidenceStore,
@@ -36,6 +41,9 @@ from validation.calibration_v2.runner import (
     _TrackedCandidateCallable,
     _validate_output_cache_evidence,
     _validate_runtime_adapter,
+)
+from validation.calibration_v2.shared_bank_artifacts_v2 import (
+    SharedBankArtifactMaterializerV2,
 )
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha256
 from validation.quality.src.mirmir_quality.production_dry_run import (
@@ -106,6 +114,18 @@ class _BoundStub:
 
     def verify_unchanged(self) -> None:
         return None
+
+
+class _BoundV2Stub(_BoundStub):
+    _PATHS = {
+        **_BoundStub._PATHS,
+        "calibration_plan": (
+            "validation/calibration_v2/contracts/calibration-plan-v2.json"
+        ),
+        "compiler_contract": (
+            "validation/calibration_v2/contracts/compiler-contract-v2.json"
+        ),
+    }
 
 
 def _fixture() -> PlanarFrame:
@@ -194,6 +214,180 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
             self.assertEqual(
                 manifest["compile_flags"][-2:], ["-sdk", str(expected_sdk_path)]
             )
+
+    def test_native_source_manifest_covers_every_v3_source_and_v1_bytes_remain_frozen(self) -> None:
+        manifest = json.loads(
+            self.factory.builder.executable.source_manifest_path.read_bytes()
+        )
+        manifested = {row["path"] for row in manifest["sources"]}
+        v3_sources = {
+            path.relative_to(REPOSITORY_ROOT).as_posix()
+            for path in (
+                REPOSITORY_ROOT / "Mirmir/Modules/UpscalerEngine/ASH"
+            ).glob("*V3.swift")
+        }
+        self.assertEqual(v3_sources - manifested, set())
+
+        native = self.factory.builder.compile_candidate(
+            vector=self.vector,
+            plan=self.factory.plan,
+            bound=self.bound,
+        )
+        mapping = native.configuration["candidate_artifacts"]["mapping"]
+        operator = native.configuration["candidate_artifacts"]["operator_bank"]
+        self.assertEqual(
+            native.mapping_path.read_bytes(),
+            canonical_json_bytes(mapping),
+        )
+        self.assertEqual(
+            native.operator_bank_path.read_bytes(),
+            canonical_json_bytes(operator),
+        )
+        self.assertFalse(native.mapping_path.read_bytes().endswith(b"\n"))
+        self.assertFalse(native.operator_bank_path.read_bytes().endswith(b"\n"))
+        self.assertEqual(
+            json.loads((native.root / "native-compile-summary.json").read_bytes())[
+                "schema_version"
+            ],
+            "1.0.0",
+        )
+        for route_path in native.route_paths.values():
+            payload = route_path.read_bytes()
+            self.assertEqual(int.from_bytes(payload[8:10], "little"), 1)
+            self.assertEqual(int.from_bytes(payload[10:12], "little"), 1)
+
+    def test_format12_factory_compile_is_full_file_bound_and_oracle_byte_exact(self) -> None:
+        bound = _BoundV2Stub()
+        factory = make_native_candidate_adapter_factory(
+            REPOSITORY_ROOT,
+            cache_root=self.cache,
+            timeout_seconds=300,
+            bound_inputs=bound,
+        )
+        parsed_plan = SharedBankArtifactMaterializerV2(REPOSITORY_ROOT).plan
+        vector = {
+            "spatial_structural_vector_ordinal": 0,
+            **dict(parsed_plan.scalar_initial_values),
+        }
+        compiled = factory.compile_candidate_configuration(vector)
+        self.assertIsInstance(compiled, NativeCompiledConfigurationV2)
+        assert isinstance(compiled, NativeCompiledConfigurationV2)
+
+        compiler_file = compiled.compiler_input_path.read_bytes()
+        self.assertEqual(compiled.compiler_input_path.name, "locked-compiler-input-v2.json")
+        self.assertTrue(compiler_file.endswith(b"\n"))
+        self.assertFalse(compiler_file.endswith(b"\n\n"))
+        compiler_document = json.loads(compiler_file)
+        self.assertEqual(
+            compiler_file,
+            canonical_json_bytes(compiler_document) + b"\n",
+        )
+        self.assertEqual(
+            hashlib.sha256(compiler_file).hexdigest(),
+            compiled.configuration["compiler_input_file_sha256"],
+        )
+        configuration = parse_locked_compiler_input_v2(compiler_document)
+        self.assertEqual(
+            configuration.hash_bindings["compiler_inputs_sha256"],
+            compiled.configuration["compiler_inputs_sha256"],
+        )
+
+        self.assertEqual(
+            sorted(path.name for path in compiled.artifact_pair_root.iterdir()),
+            ["candidate-mapping.json", "candidate-operator-bank.json"],
+        )
+        for path, field in (
+            (compiled.mapping_path, "mapping_sha256"),
+            (compiled.operator_bank_path, "operator_bank_sha256"),
+        ):
+            payload = path.read_bytes()
+            self.assertTrue(payload.endswith(b"\n"))
+            self.assertFalse(payload.endswith(b"\n\n"))
+            self.assertEqual(
+                payload,
+                canonical_json_bytes(json.loads(payload)) + b"\n",
+            )
+            self.assertEqual(
+                hashlib.sha256(payload).hexdigest(),
+                compiled.configuration[field],
+            )
+
+        self.assertEqual(compiled.compile_summary["schema_version"], "2.0.0")
+        self.assertEqual(
+            [row["route"] for row in compiled.compile_summary["routes"]],
+            ["direct_2x", "direct_3_over_2"],
+        )
+        self.assertEqual(
+            [row["entry_count"] for row in compiled.compile_summary["routes"]],
+            [8_192, 18_432],
+        )
+        independent = compile_all_route_bytes_v2(configuration)
+        self.assertEqual(
+            compiled.route_paths["direct-2x"].read_bytes(),
+            independent["direct_2x"],
+        )
+        self.assertEqual(
+            compiled.route_paths["direct-3over2"].read_bytes(),
+            independent["direct_3_over_2"],
+        )
+
+        summary_mutation = json.loads(canonical_json_bytes(compiled.compile_summary))
+        summary_mutation["routes"][0]["payload_sha256"] = "f" * 64
+        with self.assertRaisesRegex(
+            NativeAdapterError,
+            "schema-2 native compile summary differs",
+        ):
+            factory.builder._validate_compile_summary(
+                summary_mutation,
+                configuration_id=compiled.configuration["configuration_id"],
+                compiler_hash=compiled.configuration["compiler_inputs_sha256"],
+                mapping_hash=compiled.configuration["mapping_sha256"],
+                operator_hash=compiled.configuration["operator_bank_sha256"],
+                route_paths=compiled.route_paths,
+                expected_schema_version="2.0.0",
+                expected_compiler_input_v2=compiler_document,
+            )
+
+        with tempfile.TemporaryDirectory(dir="/private/tmp") as mutation_root:
+            mutated_paths = {
+                route: Path(mutation_root) / path.name
+                for route, path in compiled.route_paths.items()
+            }
+            for route, path in compiled.route_paths.items():
+                mutated_paths[route].write_bytes(path.read_bytes())
+            mutated_payload = bytearray(mutated_paths["direct-2x"].read_bytes())
+            mutated_payload[-1] ^= 0x01
+            mutated_paths["direct-2x"].write_bytes(mutated_payload)
+            file_mutation = json.loads(canonical_json_bytes(compiled.compile_summary))
+            file_mutation["routes"][0]["whole_file_sha256"] = hashlib.sha256(
+                mutated_payload
+            ).hexdigest()
+            with self.assertRaisesRegex(
+                NativeAdapterError,
+                "schema-2 independent binary validation failed",
+            ):
+                factory.builder._validate_compile_summary(
+                    file_mutation,
+                    configuration_id=compiled.configuration["configuration_id"],
+                    compiler_hash=compiled.configuration["compiler_inputs_sha256"],
+                    mapping_hash=compiled.configuration["mapping_sha256"],
+                    operator_hash=compiled.configuration["operator_bank_sha256"],
+                    route_paths=mutated_paths,
+                    expected_schema_version="2.0.0",
+                    expected_compiler_input_v2=compiler_document,
+                )
+
+        with mock.patch.object(
+            factory.builder,
+            "ensure_configuration",
+            side_effect=AssertionError("V1 family projection reached"),
+        ) as ensure_v1:
+            with self.assertRaisesRegex(
+                NativeAdapterError,
+                "compiled_not_servable",
+            ):
+                factory(vector, "development")
+            ensure_v1.assert_not_called()
 
     def test_locked_runtime_summary_enforces_route_phase_cardinality(self) -> None:
         for route, phase_pair_count in (
