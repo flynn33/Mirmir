@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -35,7 +36,15 @@ final class ASHCorrectiveCLITests: XCTestCase {
     var contractPath: String!
 
     override func setUpWithError() throws {
-        let base = FileManager.default.temporaryDirectory.resolvingSymlinksInPath()
+        let temporaryPath = FileManager.default.temporaryDirectory.path
+        guard let resolvedPath = realpath(temporaryPath, nil) else {
+            throw ASHCalibrationCLIError.unsafePath(temporaryPath)
+        }
+        defer { free(resolvedPath) }
+        let base = URL(
+            fileURLWithPath: String(cString: resolvedPath),
+            isDirectory: true
+        )
         temporaryRoot = base.appendingPathComponent(
             "mirmir-corrective-cli-\(UUID().uuidString)",
             isDirectory: true

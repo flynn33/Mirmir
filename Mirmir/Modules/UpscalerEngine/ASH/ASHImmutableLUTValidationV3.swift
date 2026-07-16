@@ -1,5 +1,8 @@
 import Foundation
 
+// Keep binary-field validation explicit and adjacent for cross-language audit.
+// swiftlint:disable file_length
+
 private struct ASHLUTDecodedSecondaryV3 {
     let affineState: ASHState?
     let descriptorID: UInt8?
@@ -113,6 +116,7 @@ extension ASHLUTBinaryCodecV3 {
         )
     }
 
+    // swiftlint:disable:next function_parameter_count
     private static func validateCandidateSemantics(
         anchor: ASHState,
         planeRole: ASHLUTPlaneRoleV3,

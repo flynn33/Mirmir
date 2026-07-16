@@ -1,6 +1,7 @@
 import Foundation
 
 // P06 deterministic offline leaf compiler.
+// Its parameter sequence mirrors the locked compiler contract field order.
 
 enum ASHLUTLeafCompilerV3 {
     struct ResolvedSemantics {
@@ -153,6 +154,7 @@ enum ASHLUTLeafCompilerV3 {
         )
     }
 
+    // swiftlint:disable:next function_parameter_count
     private static func compileCell(
         logicalIndex: Int,
         planeRole: ASHLUTPlaneRoleV3,
@@ -201,6 +203,7 @@ enum ASHLUTLeafCompilerV3 {
 }
 
 extension ASHLUTLeafCompilerV3 {
+    // swiftlint:disable:next function_parameter_count
     static func compileGenericCell(
         logicalIndex: Int,
         planeRole: ASHLUTPlaneRoleV3,

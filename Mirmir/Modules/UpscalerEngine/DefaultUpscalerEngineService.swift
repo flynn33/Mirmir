@@ -9,18 +9,19 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
     typealias TelemetryFactory = @Sendable () -> any ASHTelemetryRecording
 
     private let media: MediaPipelineService
-    private let metal: MetalRenderingService
+    private let backendFactory: any ASHUpscaleBackendFactory
     private let telemetryFactory: TelemetryFactory
     private let jobIsActive = OSAllocatedUnfairLock(initialState: false)
 
     init(
         media: MediaPipelineService,
-        metal: MetalRenderingService,
+        metal _: MetalRenderingService,
         modelAssets _: ModelAssetsService,
+        backendFactory: any ASHUpscaleBackendFactory,
         telemetryFactory: @escaping TelemetryFactory = { ASHNoopTelemetryRecorder.shared }
     ) {
         self.media = media
-        self.metal = metal
+        self.backendFactory = backendFactory
         self.telemetryFactory = telemetryFactory
     }
 
@@ -45,7 +46,7 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
         let handle = DefaultUpscalerJobHandle(
             job: job,
             media: scopedMedia,
-            metal: metal,
+            backendFactory: backendFactory,
             telemetry: telemetry,
             onTerminal: { [weak self] in
                 self?.jobIsActive.withLock { $0 = false }
@@ -64,7 +65,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
     private let job: UpscaleJob
     private let media: MediaPipelineService
-    private let metal: MetalRenderingService
+    private let backendFactory: any ASHUpscaleBackendFactory
     private let telemetry: any ASHTelemetryRecording
     private let onTerminal: @Sendable () -> Void
 
@@ -73,13 +74,13 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     init(
         job: UpscaleJob,
         media: MediaPipelineService,
-        metal: MetalRenderingService,
+        backendFactory: any ASHUpscaleBackendFactory,
         telemetry: any ASHTelemetryRecording,
         onTerminal: @escaping @Sendable () -> Void
     ) {
         self.job = job
         self.media = media
-        self.metal = metal
+        self.backendFactory = backendFactory
         self.telemetry = telemetry
         self.onTerminal = onTerminal
         var continuation: AsyncStream<UpscaleProgress>.Continuation!
@@ -94,7 +95,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         telemetry.beginRun(id: runID)
         task = Task.detached(
             priority: .userInitiated
-        ) { [progressContinuation, job, media, metal, telemetry, onTerminal] in
+        ) { [progressContinuation, job, media, backendFactory, telemetry, onTerminal] in
             defer {
                 progressContinuation.finish()
                 onTerminal()
@@ -104,7 +105,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
                 let output = try await Self.runJob(
                     job: job,
                     media: media,
-                    metal: metal,
+                    backendFactory: backendFactory,
                     telemetry: telemetry,
                     progressContinuation: progressContinuation
                 )
@@ -147,7 +148,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     private static func runJob(
         job: UpscaleJob,
         media: MediaPipelineService,
-        metal: MetalRenderingService,
+        backendFactory: any ASHUpscaleBackendFactory,
         telemetry: any ASHTelemetryRecording,
         progressContinuation: AsyncStream<UpscaleProgress>.Continuation
     ) async throws -> URL {
@@ -171,16 +172,15 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
             codec: job.codec,
             preserveAudio: job.preserveAudio
         )
+        let backend = try await backendFactory.makeBackend(
+            route: strategy.spatialRoute,
+            telemetry: telemetry
+        )
+        backend.reset()
         let session = try await media.beginSession(source: source, output: output)
 
         do {
             return try await withTaskCancellationHandler {
-                let backend = ASHDeterministicUpscaleBackend(
-                    route: strategy.spatialRoute,
-                    telemetry: telemetry
-                )
-                backend.reset()
-
                 let estimatedTotalFrames = max(source.estimatedFrameCount, 0)
                 var processed = 0
                 let startedAt = Date()
@@ -243,7 +243,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
     private static func processFrame(
         _ record: FrameRecord,
-        backend: ASHDeterministicUpscaleBackend,
+        backend: any ASHUpscaleBackend,
         outputPool: CVPixelBufferPool,
         session: MediaSession,
         telemetry: any ASHTelemetryRecording

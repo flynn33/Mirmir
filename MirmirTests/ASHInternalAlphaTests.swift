@@ -1,8 +1,11 @@
 import CoreVideo
+import CryptoKit
 import Metal
 @testable import Mirmir
 import XCTest
 
+// The backend byte-identity fixture shares the established NV12 test helpers.
+// swiftlint:disable type_body_length
 final class ASHInternalAlphaTests: XCTestCase {
     func test_startupValidatorLoadsASHAssetsFromBuiltApplicationBundle() {
         let applicationBundle = Bundle(for: AVFoundationMediaPipeline.self)
@@ -146,6 +149,33 @@ final class ASHInternalAlphaTests: XCTestCase {
         XCTAssertEqual(readPlane(firstDestination, plane: 1), readPlane(secondDestination, plane: 1))
         XCTAssertGreaterThan(Set(readPlane(firstDestination, plane: 0)).count, 8)
         XCTAssertGreaterThan(Set(readPlane(firstDestination, plane: 1)).count, 2)
+    }
+
+    func test_backendMatchesPreCodecExtractionByteIdentityFixture() async throws {
+        let source = try makeNV12PixelBuffer(width: 16, height: 8) { row, col in
+            UInt8((row * 9 + col * 5) % 255)
+        } chroma: { row, col in
+            (UInt8(80 + (row + col) % 24), UInt8(176 - (row * 3 + col) % 24))
+        }
+        let destination = try makeNV12PixelBuffer(width: 32, height: 16)
+
+        try await ASHDeterministicUpscaleBackend(route: .direct2x).process(
+            source: source,
+            into: destination
+        )
+
+        let lumaHash = SHA256.hash(data: Data(readPlane(destination, plane: 0)))
+        let chromaHash = SHA256.hash(data: Data(readPlane(destination, plane: 1)))
+        let lumaHex = lumaHash.map { String(format: "%02x", $0) }.joined()
+        let chromaHex = chromaHash.map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(
+            lumaHex,
+            "730583684098628c0f0023793e473481d2400b1de9300f31b32f33890d366222"
+        )
+        XCTAssertEqual(
+            chromaHex,
+            "0df5a01b69bcb42582395ac8b0f813383eeac0310af74d2d56b7d8fba1cc0704"
+        )
     }
 
     func test_backendRunsDirect3Over2WithLegalDirectChromaOutput() async throws {
@@ -402,3 +432,4 @@ final class ASHInternalAlphaTests: XCTestCase {
         return bytes
     }
 }
+// swiftlint:enable type_body_length

@@ -80,11 +80,17 @@ final class ArchitectureGuardrailTests: XCTestCase {
         }
     }
 
-    func test_v2ProductionUpscalePathHasNoLegacyExpansionOrPostResize() throws {
+    func test_v3ProductionUpscalePathUsesLockedFactoryWithoutDevelopmentFallback() throws {
         let root = repoRootURL()
-        let backend = try String(
+        let developmentBackend = try String(
             contentsOf: root.appendingPathComponent(
                 "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift"
+            ),
+            encoding: .utf8
+        )
+        let lockedBackend = try String(
+            contentsOf: root.appendingPathComponent(
+                "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedUpscaleBackendV3.swift"
             ),
             encoding: .utf8
         )
@@ -100,12 +106,24 @@ final class ArchitectureGuardrailTests: XCTestCase {
             ),
             encoding: .utf8
         )
+        let bootstrap = try String(
+            contentsOf: root.appendingPathComponent(
+                "Mirmir/App/MirmirForsettiBootstrap.swift"
+            ),
+            encoding: .utf8
+        )
 
-        XCTAssertFalse(backend.contains("ASHTileProcessor"))
-        XCTAssertFalse(backend.contains("nearestUpsample"))
+        XCTAssertFalse(developmentBackend.contains("ASHTileProcessor"))
+        XCTAssertFalse(developmentBackend.contains("nearestUpsample"))
+        XCTAssertFalse(lockedBackend.contains("ASHLUTLeafCompilerV3"))
+        XCTAssertFalse(lockedBackend.contains("ASHLUTStrictJSONParserV3"))
+        XCTAssertFalse(lockedBackend.contains("makeDisposableP05Reference"))
         XCTAssertFalse(service.contains("LanczosPolishPass"))
         XCTAssertFalse(service.contains("twoXThenLanczosDownsample"))
-        XCTAssertTrue(service.contains("ASHDeterministicUpscaleBackend"))
+        XCTAssertFalse(service.contains("ASHDeterministicUpscaleBackend"))
+        XCTAssertTrue(service.contains("backendFactory.makeBackend"))
+        XCTAssertTrue(bootstrap.contains("ASHLockedUpscaleBackendFactoryV3"))
+        XCTAssertFalse(bootstrap.contains("ASHDevelopmentUpscaleBackendFactory"))
         XCTAssertTrue(strategy.contains("case direct3Over2"))
     }
 

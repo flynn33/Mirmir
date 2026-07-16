@@ -2,7 +2,7 @@
 
 Date: 2026-07-16
 
-Status: proposed, not implemented
+Status: wiring implemented locally; release activation remains gated
 
 Source baseline: `108dbc5` (`Add authenticated format 1.2 calibration foundations`)
 
@@ -94,29 +94,34 @@ Introduce an immutable `ASHLockedArtifactSetV3` value containing:
 
 - the exact locked-configuration JSON bytes;
 - the parsed `ASHLUTLockedConfigurationV3`;
+- the exact locked-mapping JSON bytes and parsed analyzer configuration;
 - one manifest-declared format-1.2 LUT for `.direct2x`;
 - one manifest-declared format-1.2 LUT for `.direct3Over2`;
 - the immutable bytes retained by each `ASHLUTLoadedV3`;
 - the release-manifest bytes and verified manifest hash;
+- the native-parity manifest bytes and verified file binding;
 - the configuration ID and all six configuration hash bindings.
 
 Introduce `ASHLockedArtifactStoreV3` as the only application-facing loader.
 It must perform an atomic load before publishing the set:
 
-1. Read the release manifest, locked-configuration JSON, and both route LUTs
-   from one bundled resource root.
+1. Read the release manifest, locked-configuration JSON, locked mapping,
+   native-parity manifest, and both route LUTs from one bundled resource root.
 2. Validate the manifest schema, self-hash, status, configuration identity,
    route identities, filenames, sizes, and whole-file SHA-256 bindings.
 3. Parse the configuration with
    `ASHLUTLockedConfigurationJSONLoaderV3.load`. The loader already requires
    schema `2.0.0`, status `locked`, an exact field set, and a valid self-hash.
-4. Load each LUT with `ASHLUTBinaryCodecV3.load`, passing its declared route and
+4. Parse the locked mapping against the configuration's mapping SHA-256 and
+   require `locked_before_p07`, the same configuration ID, boundary mode, and
+   route analysis-grid steps.
+5. Load each LUT with `ASHLUTBinaryCodecV3.load`, passing its declared route and
    the same parsed configuration. The loader already verifies format version,
    route, dimensions, CRCs, payload SHA-256, configuration hashes, entry
    provenance, parameter indices, and spatial-context mirrors.
-5. Require exactly one artifact for each supported route. Duplicate, missing,
+6. Require exactly one artifact for each supported route. Duplicate, missing,
    unknown, or route-swapped artifacts reject the complete set.
-6. Publish only after both routes pass. Retain the exact validated bytes for the
+7. Publish only after both routes pass. Retain the exact validated bytes for the
    lifetime of the set.
 
 Loading is once per artifact set, not once per frame. A failed load remains a
@@ -186,6 +191,13 @@ Format 1.2 mirrors all temporal contexts to spatial behavior. This integration
 must request only the spatial context and must expose no temporal-quality claim.
 Temporal history remains a separate P10 overlay bound to the final spatial LUT
 hash.
+
+The currently implemented locked-mapping schema fixes its input contract to
+BT.709, 8-bit 420v video range, left chroma siting, and 4:2:0 subsampling.
+Until a separately calibrated and hash-bound mapping expands that contract, the
+V3 backend must reject 420f and every non-left chroma location before writing
+the destination. The broader profile-contract enumeration is not release
+authorization for those inputs.
 
 ## Service Activation and Failure Policy
 

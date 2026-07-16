@@ -76,6 +76,7 @@ find . \
   -path './.git' -prune -o \
   -path './.build' -prune -o \
   -path './.swiftpm' -prune -o \
+  -path './Artifacts' -prune -o \
   -path './build' -prune -o \
   -name '*.json' -print0 |
   xargs -0 -n1 python3 -m json.tool >/dev/null
@@ -86,6 +87,7 @@ if rg -n "$scan_pattern" --hidden \
   --glob '!.git/**' \
   --glob '!.build/**' \
   --glob '!.swiftpm/**' \
+  --glob '!Artifacts/**' \
   --glob '!build/**' .; then
   echo "Repository text contains prohibited attribution." >&2
   exit 1
@@ -107,6 +109,7 @@ while IFS= read -r term; do
     -path './.git' -prune -o \
     -path './.build' -prune -o \
     -path './.swiftpm' -prune -o \
+    -path './Artifacts' -prune -o \
     -path './build' -prune -o \
     -type f -print | grep -iqF "$term"; then
     echo "Repository paths contain prohibited attribution." >&2
