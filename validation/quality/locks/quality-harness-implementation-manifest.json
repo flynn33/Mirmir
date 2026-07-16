@@ -4,8 +4,8 @@
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
-      "sha256": "daa8bc16748a3a046021dd1cfc0a48eb11332853ac5036a24a4c5c931ba5d21d",
-      "size_bytes": 109203
+      "sha256": "6f4f908d2eacbc877b7f5d8c8bf2d58080cf31a49bf550f2775d49bb17de888a",
+      "size_bytes": 116091
     },
     {
       "relative_path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
@@ -64,8 +64,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
-      "sha256": "5a93ba96e00193cf03dce7ba942b78b003113779691d8e8598babb286bf59b4f",
-      "size_bytes": 12023
+      "sha256": "f5a51aa2481b66faf605e5aeafb478e7ee0ed259551706bca6b288af0ccb6eaf",
+      "size_bytes": 2492
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
@@ -194,8 +194,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
-      "sha256": "a7df69f4fc87be5390da1400ccac4542506aa21419431655917b9b50e190394c",
-      "size_bytes": 15704
+      "sha256": "388532879fd29a4829d0d8ad7afbba37e8e5aba32447b03e25db7151122f9653",
+      "size_bytes": 15204
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
@@ -214,8 +214,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
-      "sha256": "464cfd7b743cf166efb4a394b799f6a1e1818c61aa8504349b786692a13fc6c1",
-      "size_bytes": 33858
+      "sha256": "ccbc75fc9d597c51ed492ff63aee9d44ef9f00cc42f6b9cfc29a4045ccd3f479",
+      "size_bytes": 32852
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
@@ -244,8 +244,8 @@
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
-      "sha256": "3308537268ae52ba1da11508901e299733d92f47ab9024566f756fdba4196aa9",
-      "size_bytes": 9690
+      "sha256": "ae14d43605aa97820ada184b2788dcdb7d6a6b2ea2b8f43dc1f42458918f4d35",
+      "size_bytes": 9847
     },
     {
       "relative_path": "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift",
@@ -1903,6 +1903,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "4fb97673b67d12028b9d393d4b866fac650cb88449056c7741a081ea708504e6",
+  "manifest_sha256": "06b375129ff90497dda0b033e7fff8920c018018380c94933ab65f2c1cdbce57",
   "schema_version": "1.0.0"
 }
