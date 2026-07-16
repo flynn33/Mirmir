@@ -4,6 +4,12 @@ Date: 2026-07-09
 
 Starting commit: `c97468a784be256a132268bea297a6cd1a867d46`
 
+Historical status: this log records the 2026-07-09 development-backend state.
+The current product composition was superseded by the locked V3 wiring merged
+through PR #7. See
+`project-notes/ash-v3-production-wiring-design.md` for the current call graph,
+artifact contract, fail-closed behavior, and remaining release gates.
+
 ## Scope
 
 - Added a deterministic ASH Swift core for 9-bit state handling, strict codeword recovery, feature extraction, branch generation, CPU reconstruction, and candidate pruning.
