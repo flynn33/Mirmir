@@ -2,7 +2,11 @@
 
 Baseline commit: `20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a`
 
-Remote boundary: local implementation and local commits only. No fetch, push, pull request, tag, release, history rewrite, remote edit, or Forsetti source edit.
+Original remote boundary at plan creation: local implementation and local commits only; no fetch, push, pull request, tag, release, history rewrite, remote edit, or Forsetti source edit.
+
+Publication status update (2026-07-16): the operator explicitly superseded the fetch/push/pull-request restriction for the approved ASH V3 wiring. Implementation commit `47e9cef9d574ab03e7729c5f7125ec32e1484f6e` merged to `main` through PR #7 as merge commit `85b5d4637797ca84ab2ca2721a3165f7a2f21e0c`. This authorization did not authorize a tag, release, history rewrite, Forsetti source edit, fabricated artifact, or release-gate claim.
+
+V3 wiring status: implementation slices 1-5 are merged, but no `Mirmir/Resources/ASH/LockedV3` release set is present and none of the P04-P12 phase states below is advanced by fixture-level wiring tests. Fresh evidence remains bound to its exact committed source and artifact bytes.
 
 ## Phase checklist
 
