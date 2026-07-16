@@ -24,6 +24,12 @@ SCHEMA_PATHS = {
     "selection": SCHEMA_ROOT / "non-ash-selector-selection-v2.schema.json",
     "neighbors": SCHEMA_ROOT / "non-ash-validation-neighbor-manifest-v2.schema.json",
 }
+SCHEMA_FILE_SHA256 = {
+    "failure": "2add191fa95c8b2eca8c4ed3a79b77afa1b311a480b7d205c92d87afa33affb4",
+    "ledger": "3d2937faaeefbd97e17447554146fdfae6a041b328bdf13f4e7004c324d0bfe9",
+    "selection": "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+    "neighbors": "f1da0ec50e475490cbadb92b949e42f3e8a8e104d36920e4d0cb6cf70fb525d2",
+}
 
 SELECTOR_ID = "continuous-linear-bank-selector-q15-v2"
 VALUE_ORDER = (-384, -256, -128, 0, 128, 256, 384)
@@ -63,15 +69,20 @@ AUTHORITY_BINDINGS = {
         "self_sha256": "405d9ca4413e7e291315257682f206d951a081f052d5ecee6f3a36ac72cd22be",
         "schema_file_sha256": "080cc48a86569d68aecb0ca9384c89300df57dbeaa995e0651cf6082c969416b",
     },
-    "candidate_evidence_policy_v2": {
-        "file_sha256": "2e7d281ca1959d0eafe42aa6bbf57e34cf48d7dde39c4767a1b83f413fb5fb9c",
-        "self_sha256": "aa1770aa05761ef22e2bc174c43bcefa23a9743d2ccbfe9c6dc7876229a3798d",
-        "schema_file_sha256": "1bbe2402851fe584eb86b589553b9fb2f3ddb3c809a5ef37ba18a5ce34cf2129",
-    },
     "calibration_plan_v2": {
         "file_sha256": "1977c85b9a3b7001294a04d33e7654ae20ffb4266ac0c8d2dc76880bdec99fef",
         "self_sha256": "e6070a7cdd8f3b53231635027055669c8319d311af1790d672723d6e7e048d0f",
         "schema_file_sha256": "09a21861104bd1b03667d1207a79d523386ad4431e710ba44e4d298180753c09",
+    },
+    "candidate_evidence_policy_v2": {
+        "file_sha256": "d6df835467485f59b253e12d8e80cb8c8fa21dd308566ab3634495ccc8604433",
+        "self_sha256": "70860c19f36efe41401e16381c80d6102b37f683056b2e3210a67e9d0b66dc75",
+        "schema_file_sha256": "581a3bb6ba0ec3ea288076685124a9e7fd332aa883ee2165f18a27a4fb1c249e",
+    },
+    "compiler_contract_v2": {
+        "file_sha256": "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a",
+        "self_sha256": "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237",
+        "schema_file_sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
     },
     "shared_bank_configuration_identity_v2": {
         "file_sha256": "48f5eef7cf9f7c513cf8e6568b3eeb4d607845c1e70e6c39b6ca0192a4c297de",
@@ -86,15 +97,20 @@ AUTHORITY_FILES = {
         SCHEMA_ROOT / "baseline-ablation-budget-v2.schema.json",
         "artifact_sha256",
     ),
+    "calibration_plan_v2": (
+        CALIBRATION_ROOT / "contracts/calibration-plan-v2.json",
+        SCHEMA_ROOT / "calibration-plan-v2.schema.json",
+        "plan_sha256",
+    ),
     "candidate_evidence_policy_v2": (
         CALIBRATION_ROOT / "contracts/candidate-evidence-policy-v2.json",
         SCHEMA_ROOT / "candidate-evidence-policy-v2.schema.json",
         "artifact_sha256",
     ),
-    "calibration_plan_v2": (
-        CALIBRATION_ROOT / "contracts/calibration-plan-v2.json",
-        SCHEMA_ROOT / "calibration-plan-v2.schema.json",
-        "plan_sha256",
+    "compiler_contract_v2": (
+        CALIBRATION_ROOT / "contracts/compiler-contract-v2.json",
+        SCHEMA_ROOT / "compiler-contract-v2.schema.json",
+        "artifact_sha256",
     ),
     "shared_bank_configuration_identity_v2": (
         CALIBRATION_ROOT / "contracts/shared-bank-configuration-identity-v2.json",
@@ -208,8 +224,14 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
 
     @classmethod
     def _base(cls, artifact_kind: str) -> dict[str, object]:
+        schema_version = {
+            "p06_non_ash_selector_attempt_failure_v2": "2.0.2",
+            "p06_non_ash_selector_attempt_ledger_v2": "2.0.1",
+            "p06_non_ash_selector_selection_v2": "2.0.2",
+            "p06_non_ash_validation_neighbor_manifest_v2": "2.0.1",
+        }[artifact_kind]
         return {
-            "schema_version": "2.0.0",
+            "schema_version": schema_version,
             "artifact_kind": artifact_kind,
             "selector_id": SELECTOR_ID,
             "authority_bindings": deepcopy(AUTHORITY_BINDINGS),
@@ -220,6 +242,49 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
                 "cached-16-operator-output-manifest"
             ),
         }
+
+    def test_all_migrated_schema_surfaces_require_current_patch_version(self) -> None:
+        for schema_name, artifact_kind, current_version, old_version in (
+            (
+                "failure",
+                "p06_non_ash_selector_attempt_failure_v2",
+                "2.0.2",
+                "2.0.1",
+            ),
+            (
+                "ledger",
+                "p06_non_ash_selector_attempt_ledger_v2",
+                "2.0.1",
+                "2.0.0",
+            ),
+            (
+                "selection",
+                "p06_non_ash_selector_selection_v2",
+                "2.0.2",
+                "2.0.1",
+            ),
+            (
+                "neighbors",
+                "p06_non_ash_validation_neighbor_manifest_v2",
+                "2.0.1",
+                "2.0.0",
+            ),
+        ):
+            with self.subTest(schema=schema_name):
+                document = self._base(artifact_kind)
+                self.assertEqual(document["schema_version"], current_version)
+                self.assertEqual(
+                    self.schemas[schema_name]["properties"]["schema_version"][
+                        "const"
+                    ],
+                    current_version,
+                )
+                document["schema_version"] = old_version
+                paths = {
+                    tuple(error.absolute_path)
+                    for error in self.validators[schema_name].iter_errors(document)
+                }
+                self.assertIn(("schema_version",), paths)
 
     @classmethod
     def _make_ledger(cls) -> dict[str, object]:
@@ -483,6 +548,9 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
             else:
                 outcome = {
                     "outcome_type": "scored",
+                    "evaluation_sha256": _sha(
+                        f"validation-evaluation:{ordinal}"
+                    ),
                     "objective_summary_sha256": _sha(
                         f"validation-objective:{ordinal}"
                     ),
@@ -563,6 +631,7 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
                     SCHEMA_PATHS[name].read_bytes(),
                     canonical_json_bytes(schema) + b"\n",
                 )
+                self.assertEqual(_file_sha256(SCHEMA_PATHS[name]), SCHEMA_FILE_SHA256[name])
 
         for authority_id, (contract_path, schema_path, self_hash_field) in (
             AUTHORITY_FILES.items()
@@ -577,6 +646,29 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
                     manifest_sha256(contract, field=self_hash_field),
                     binding["self_sha256"],
                 )
+
+    def test_compiler_authority_and_old_four_authority_artifacts_are_rejected(
+        self,
+    ) -> None:
+        documents = (
+            ("ledger", self.ledger),
+            ("neighbors", self.neighbors),
+            ("selection", self.development_selection),
+            ("selection", self.validation_selection),
+        )
+        for schema_name, document in documents:
+            with self.subTest(schema=schema_name):
+                compiler_tampered = deepcopy(document)
+                compiler_tampered["authority_bindings"][
+                    "compiler_contract_v2"
+                ]["schema_file_sha256"] = _sha("stale-compiler-schema")
+                self.assertInvalid(schema_name, compiler_tampered)
+
+                four_authorities = deepcopy(document)
+                del four_authorities["authority_bindings"][
+                    "compiler_contract_v2"
+                ]
+                self.assertInvalid(schema_name, four_authorities)
 
     def test_rule_hash_preserves_v1_canonical_object_bytes(self) -> None:
         values = list(self.zero_values)
@@ -669,6 +761,19 @@ class NonAshSelectorV2SchemaTests(unittest.TestCase):
         stale_degradation = deepcopy(document)
         stale_degradation["degradation_policy_sha256"] = "0" * 64
         self.assertInvalid("failure", stale_degradation)
+        bound_failure = deepcopy(document)
+        bound_failure["evidence_bindings"] = [
+            {
+                "id": "fixture_log",
+                "path": "logs/fixture.log",
+                "sha256": _sha("fixture-log"),
+                "size_bytes": 12,
+            }
+        ]
+        self.assertValid("failure", bound_failure)
+        trailing_separator = deepcopy(bound_failure)
+        trailing_separator["evidence_bindings"][0]["path"] = "logs/"
+        self.assertInvalid("failure", trailing_separator)
 
     def test_ledger_freezes_schedule_cache_reopen_chain_and_terminal_state(self) -> None:
         self.assertValid("ledger", self.ledger)

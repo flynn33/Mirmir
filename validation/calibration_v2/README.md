@@ -170,7 +170,11 @@ candidate identity, 23-field shared-bank identity, split-aware cache tuple,
 3,288-attempt development ceiling, 374-candidate validation neighborhood,
 typed failure coverage, Pareto dimensions, and final canonical-byte tie-break.
 It also names every versioned evidence sibling and the non-colliding release
-schema required before execution.
+schema required before execution. Policy version 2.0.1 authenticates the V2
+compiler contract as a fifth evidence authority. The frozen V1 route counts
+4,096 and 9,216 remain format-1.1 historical per-plane values only; current
+format-1.2 evidence binds two planes and exact serialized route totals of 8,192
+and 18,432, with 663,552 and 1,492,992 offline leaf evaluations respectively.
 
 The policy binds `contracts/baseline-ablation-budget-v2.json` and
 `schemas/baseline-ablation-budget-v2.schema.json`. That overlay preserves the
@@ -201,9 +205,63 @@ the attempt failure, development ledger, neighbor manifest, and two-stage
 selection artifact surfaces. Schema validation is only the structural layer:
 publication and reopening must also invoke semantic replay to prove ordinal
 arithmetic, the previous-record hash chain, rule hashes, exact neighbor order,
-one-coordinate differences, and complete validation outcome coverage. This
-isolated core and schema layer does not authorize production execution or
-claim that a persisted P06 V2 evidence family exists.
+one-coordinate differences, and complete validation outcome coverage.
+`non_ash_selector_artifacts_v2.py` is that persistence boundary. It
+authenticates the four schemas and their authority files, snapshots caller
+state before callbacks, requires content-addressed predecessor references,
+reopens every development cache hit and scored validation evaluation, follows
+typed-failure and external-sibling byte references, and replays the complete
+dependency chain before publication.
+
+The attempt-failure and selection schema surfaces are patch version `2.0.2`;
+the attempt ledger and validation-neighbor manifest are patch version `2.0.1`.
+Their V2 artifact and selector identities are unchanged. The migration records
+the compiler-contract authority in addition to the earlier portable-path and
+validation-evaluation content-address repairs. Producers using an earlier
+surface or the former four-authority map are rejected.
+
+The eight full-ASH V2 evidence schemas named by the candidate policy now bind
+candidate evaluations, immutable attempts, the run ledger, validation
+admission, final selection, typed run failure, evidence closure, and the
+non-colliding P06 release bundle V3. The seven V2 surfaces are patch version
+`2.0.1`, and the release-bundle V3 surface is patch version `3.0.1`. Their
+attempt surface mirrors the pure V2
+scheduler, including its all-zero genesis predecessor, exact 48-field physical
+candidate, split-aware cache tuple, evaluation semantic hash, and mutually
+exclusive content-addressed evaluation or failure reference.
+
+`calibration_persistence_v2.py` authenticates the candidate, attempt, run, and
+failure schema bytes plus the five authority triples before opening an artifact
+root. It persists canonical one-LF candidate evaluations and typed failures by
+content address, reopens the exact G04-G06 source bytes, recomputes the complete
+candidate-evidence digest, and replays every attempt before accepting a run
+ledger. A run ledger accounts separately for scored evaluations and typed
+evaluator failures, requires those outcome identities to be disjoint, and
+reopens its manifest, validation admission, controls, candidate artifacts, and
+terminal failure. Relative evidence reads are confined to the pinned artifact
+root and reject symlinks, traversal, control characters, replacement, and
+binding mismatch.
+
+`calibration_selection_persistence_v2.py` derives the validation admission by
+replaying the exact development chain, deriving the 374-candidate terminal
+neighborhood, and reopening evidence for every constraint-valid member. It
+publishes validation evidence only
+after the immutable admission and its dependency closure reopen, requires one
+scored result or one candidate-bound typed failure for every admitted identity,
+and replays the declared Pareto dimensions and canonical tie-break. A selected
+artifact is success-only. The separate terminal path requires complete
+infeasible-or-failed validation coverage and exact attempt-ledger, run-trace,
+and artifact-manifest bindings.
+
+The authenticated candidate policies do not enumerate persisted `check_id`
+strings. The schema and persistence boundary therefore enforces nonempty,
+unique checks, exact feasible/infeasible status relations, and no failed check
+on a feasible result without inventing an additional authority. The production
+evaluator remains responsible for independently recomputing every policy
+predicate and publishing the compiler, LUT, runtime, control, and source
+evidence that those checks identify. These schema and persistence layers do not
+authorize production execution or claim that a persisted P06 V2 evidence
+family exists.
 
 ## Preserved V1 terminal failure analysis
 

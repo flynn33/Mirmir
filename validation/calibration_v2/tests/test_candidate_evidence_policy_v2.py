@@ -53,6 +53,10 @@ SHARED_BANK_PATH = (
     CALIBRATION_ROOT
     / "contracts/shared-bank-configuration-identity-v2.json"
 )
+COMPILER_V2_PATH = CALIBRATION_ROOT / "contracts/compiler-contract-v2.json"
+COMPILER_V2_SCHEMA_PATH = (
+    CALIBRATION_ROOT / "schemas/compiler-contract-v2.schema.json"
+)
 BASELINE_PATH = CALIBRATION_ROOT / "contracts/baseline-ablation-contract-v1.json"
 BASELINE_BUDGET_PATH = (
     CALIBRATION_ROOT / "contracts/baseline-ablation-budget-v2.json"
@@ -62,19 +66,28 @@ BASELINE_BUDGET_SCHEMA_PATH = (
 )
 
 EXPECTED_CONTRACT_SELF_SHA256 = (
-    "aa1770aa05761ef22e2bc174c43bcefa23a9743d2ccbfe9c6dc7876229a3798d"
+    "70860c19f36efe41401e16381c80d6102b37f683056b2e3210a67e9d0b66dc75"
 )
 EXPECTED_CONTRACT_FILE_SHA256 = (
-    "2e7d281ca1959d0eafe42aa6bbf57e34cf48d7dde39c4767a1b83f413fb5fb9c"
+    "d6df835467485f59b253e12d8e80cb8c8fa21dd308566ab3634495ccc8604433"
 )
 EXPECTED_SCHEMA_FILE_SHA256 = (
-    "1bbe2402851fe584eb86b589553b9fb2f3ddb3c809a5ef37ba18a5ce34cf2129"
+    "581a3bb6ba0ec3ea288076685124a9e7fd332aa883ee2165f18a27a4fb1c249e"
 )
 EXPECTED_V1_POLICY_FILE_SHA256 = (
     "97c6d898b247cc960535ad393b053d723782c398df18d6dd9472d6226d933190"
 )
 EXPECTED_V1_POLICY_SCHEMA_FILE_SHA256 = (
     "2e59187816340fe9d7c88495a5bdd6e26fd33258df6ed521814900464cca024a"
+)
+EXPECTED_COMPILER_V2_FILE_SHA256 = (
+    "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a"
+)
+EXPECTED_COMPILER_V2_SELF_SHA256 = (
+    "797d6fda359a6bfaca9487a31b0078a5eba8e41fdb6fd0985390e20c25df8237"
+)
+EXPECTED_COMPILER_V2_SCHEMA_FILE_SHA256 = (
+    "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897"
 )
 EXPECTED_PLAN_FILE_SHA256 = (
     "1977c85b9a3b7001294a04d33e7654ae20ffb4266ac0c8d2dc76880bdec99fef"
@@ -123,6 +136,7 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
         cls.schema = _load_object(SCHEMA_PATH)
         cls.plan_document = _load_object(PLAN_PATH)
         cls.v1_policy = _load_object(V1_POLICY_PATH)
+        cls.compiler_v2 = _load_object(COMPILER_V2_PATH)
         cls.shared_bank_contract = _load_object(SHARED_BANK_PATH)
         cls.baseline_contract = _load_object(BASELINE_PATH)
         cls.baseline_budget_contract = _load_object(BASELINE_BUDGET_PATH)
@@ -178,6 +192,8 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
             "candidate_evidence_policy_v1_schema",
             "calibration_plan_v2",
             "calibration_plan_v2_schema",
+            "compiler_contract_v2",
+            "compiler_contract_v2_schema",
             "shared_bank_configuration_identity_v2",
             "shared_bank_configuration_identity_v2_schema",
             "baseline_ablation_contract_v1",
@@ -233,6 +249,18 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
             EXPECTED_PLAN_SCHEMA_FILE_SHA256,
         )
         self.assertEqual(
+            bindings["compiler_contract_v2"]["sha256"],
+            EXPECTED_COMPILER_V2_FILE_SHA256,
+        )
+        self.assertEqual(
+            bindings["compiler_contract_v2"]["self_hash"]["sha256"],
+            EXPECTED_COMPILER_V2_SELF_SHA256,
+        )
+        self.assertEqual(
+            bindings["compiler_contract_v2_schema"]["sha256"],
+            EXPECTED_COMPILER_V2_SCHEMA_FILE_SHA256,
+        )
+        self.assertEqual(
             bindings["shared_bank_configuration_identity_v2"]["sha256"],
             EXPECTED_SHARED_BANK_FILE_SHA256,
         )
@@ -280,6 +308,136 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
         self.assertTrue(inheritance["frozen_v1_byte_identity_required"])
         self.assertFalse(inheritance["v1_field_mutation_allowed"])
 
+    def test_v1_route_totals_are_historical_per_plane_only_and_v2_is_exact(
+        self,
+    ) -> None:
+        route_pointer = "/candidate_checks/compiler_invariants/routes"
+        checks = self.contract["candidate_checks"]
+        self.assertNotIn(route_pointer, checks["inherited_v1_json_pointers"])
+        self.assertIn(route_pointer, checks["v1_scoped_not_current_v2_proof"])
+        self.assertEqual(
+            checks["v1_scoped_not_current_v2_proof_scopes"][route_pointer],
+            (
+                "format-1.1 historical per-plane route counts only; not "
+                "current format-1.2 serialized-route proof"
+            ),
+        )
+
+        invariants = checks["compiler_invariants"]
+        self.assertEqual(
+            invariants["compiler_contract_v2_binding_id"],
+            "compiler_contract_v2",
+        )
+        self.assertEqual(
+            invariants["compiler_contract_v2_schema_binding_id"],
+            "compiler_contract_v2_schema",
+        )
+        for field in (
+            "compiler_contract_v2_file_sha256",
+            "compiler_contract_v2_self_sha256",
+            "compiler_contract_v2_schema_file_sha256",
+        ):
+            self.assertIn(field, checks["evidence_binding_fields"])
+        self.assertNotIn("entry_count", invariants["routes"][0])
+        self.assertIn("not interchangeable", invariants[
+            "route_count_compatibility_statement"
+        ])
+
+        v1_routes = self.v1_policy["candidate_checks"][
+            "compiler_invariants"
+        ]["routes"]
+        compiler_index = self.compiler_v2["plane_aware_extension"][
+            "index_domain"
+        ]
+        compiler_format = self.compiler_v2["binary_format_boundary"][
+            "format_1_2"
+        ]
+        self.assertEqual(compiler_index["plane_count"], 2)
+        self.assertEqual(compiler_format["plane_count"], 2)
+        self.assertEqual(
+            invariants["route_count_formulas"],
+            {
+                "entry_count_per_plane": (
+                    "phase_count * context_count * valid_state_count"
+                ),
+                "offline_leaf_evaluation_count": (
+                    "serialized_route_entry_count * canonical_leaf_count_per_cell"
+                ),
+                "serialized_route_entry_count": (
+                    "plane_count * phase_count * context_count * valid_state_count"
+                ),
+            },
+        )
+
+        for v1, v2, index_route, format_route in zip(
+            v1_routes,
+            invariants["routes"],
+            compiler_index["routes"],
+            compiler_format["routes"],
+        ):
+            with self.subTest(route=v2["target_route"]):
+                self.assertEqual(v1["entry_count"], v2["entry_count_per_plane"])
+                self.assertEqual(v2["plane_count"], 2)
+                self.assertEqual(
+                    v2["entry_count_per_plane"],
+                    v2["phase_count"]
+                    * v2["context_count"]
+                    * v2["valid_state_count"],
+                )
+                self.assertEqual(
+                    v2["serialized_route_entry_count"],
+                    v2["plane_count"] * v2["entry_count_per_plane"],
+                )
+                self.assertEqual(
+                    v2["offline_leaf_evaluation_count"],
+                    v2["serialized_route_entry_count"]
+                    * index_route["canonical_leaf_count_per_cell"],
+                )
+                self.assertEqual(
+                    v2["serialized_route_entry_count"],
+                    index_route["entry_count"],
+                )
+                self.assertEqual(
+                    v2["offline_leaf_evaluation_count"],
+                    index_route["offline_leaf_evaluation_count"],
+                )
+                self.assertEqual(
+                    v2["serialized_route_entry_count"],
+                    format_route["entry_count"],
+                )
+
+    def test_schema_rejects_ambiguous_or_inconsistent_v2_route_counts(
+        self,
+    ) -> None:
+        invalid_documents = []
+        ambiguous = deepcopy(self.contract)
+        row = ambiguous["candidate_checks"]["compiler_invariants"]["routes"][0]
+        row["entry_count"] = row.pop("serialized_route_entry_count")
+        invalid_documents.append(ambiguous)
+
+        wrong_plane_count = deepcopy(self.contract)
+        wrong_plane_count["candidate_checks"]["compiler_invariants"][
+            "routes"
+        ][0]["plane_count"] = 1
+        invalid_documents.append(wrong_plane_count)
+
+        swapped_totals = deepcopy(self.contract)
+        routes = swapped_totals["candidate_checks"]["compiler_invariants"][
+            "routes"
+        ]
+        routes[0]["serialized_route_entry_count"], routes[1][
+            "serialized_route_entry_count"
+        ] = (
+            routes[1]["serialized_route_entry_count"],
+            routes[0]["serialized_route_entry_count"],
+        )
+        invalid_documents.append(swapped_totals)
+
+        validator = Draft202012Validator(self.schema)
+        for index, invalid in enumerate(invalid_documents):
+            with self.subTest(index=index):
+                self.assertNotEqual(list(validator.iter_errors(invalid)), [])
+
     def test_schema_rejects_root_nested_identity_budget_and_boundary_mutations(
         self,
     ) -> None:
@@ -287,6 +445,10 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
 
         invalid = deepcopy(self.contract)
         invalid["unexpected"] = True
+        invalid_documents.append(invalid)
+
+        invalid = deepcopy(self.contract)
+        invalid["schema_version"] = "2.0.0"
         invalid_documents.append(invalid)
 
         invalid = deepcopy(self.contract)
@@ -581,6 +743,14 @@ class CandidateEvidencePolicyV2Tests(unittest.TestCase):
                 "baseline-ablation-budget-v2.json",
                 "baseline-ablation-budget-v2.schema.json",
                 "p06-evidence-closure-v2.schema.json",
+                "control-objective-summary-v2.schema.json",
+                "control-output-manifest-v2.schema.json",
+                "fixed-control-selection-v2.schema.json",
+                "conventional-control-selection-v2.schema.json",
+                "non-ash-selector-evaluation-evidence-v2.schema.json",
+                "p06-control-authorization-bundle-v2.schema.json",
+                "p06-run-provenance-receipt-v2.schema.json",
+                "p06-run-input-manifest-v2.schema.json",
                 "p06-release-bundle-v3.schema.json",
                 "P07 authorized-execution, result, gate, failure, and publication schemas accepting the V2 identity triple",
             ],

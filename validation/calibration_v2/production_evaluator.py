@@ -13,6 +13,7 @@ import hashlib
 import json
 import math
 from pathlib import Path
+import struct
 from typing import Callable, Dict, Mapping, MutableMapping, Optional, Protocol, Sequence, Tuple
 
 import numpy as np
@@ -47,6 +48,13 @@ CONVENTIONAL_ALGORITHM_IDS = (
     "lanczos3-separable-v1",
 )
 NON_ASH_SELECTOR_ID = "continuous-linear-bank-selector-q15-v1"
+NON_ASH_SELECTOR_ID_V2 = "continuous-linear-bank-selector-q15-v2"
+CONTROL_MEASUREMENT_FRAME_ENCODING_V2 = (
+    "mirmir-control-measurement-f64be-v2"
+)
+_CONTROL_MEASUREMENT_FRAME_MAGIC_V2 = (
+    b"MIRMIR-CONTROL-MEASUREMENT-F64BE-V2\0"
+)
 NON_ASH_VALUES = (-384, -256, -128, 0, 128, 256, 384)
 FULL_ASH_MAXIMUM_CANDIDATE_EVALUATION_BUDGET = 1345
 NON_ASH_COORDINATES = tuple(
@@ -145,6 +153,200 @@ class WriterRoundTrip:
     reopened_and_verified: bool
 
 
+@dataclass(frozen=True)
+class ControlExecutionProducerIdentityV2:
+    """Authenticated producer identity supplied outside artifact evidence."""
+
+    physical_candidate_items_bytes: bytes
+    candidate_vector_sha256: str
+    adapter_configuration_sha256: str
+    authenticated_adapter_identity_bytes: bytes
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.physical_candidate_items_bytes) is not bytes
+            or not self.physical_candidate_items_bytes
+            or type(self.authenticated_adapter_identity_bytes) is not bytes
+            or not self.authenticated_adapter_identity_bytes
+        ):
+            raise ProductionEvaluatorError(
+                "control execution producer identity bytes are invalid"
+            )
+        _require_sha256(
+            self.candidate_vector_sha256,
+            "control producer candidate-vector hash",
+        )
+        _require_sha256(
+            self.adapter_configuration_sha256,
+            "control producer adapter-configuration hash",
+        )
+        try:
+            physical_items = json.loads(self.physical_candidate_items_bytes)
+            adapter_identity = json.loads(
+                self.authenticated_adapter_identity_bytes
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ProductionEvaluatorError(
+                "control execution producer identity JSON is invalid"
+            ) from exc
+        if (
+            canonical_json_bytes(physical_items)
+            != self.physical_candidate_items_bytes
+            or not isinstance(physical_items, list)
+            or len(physical_items) != 48
+            or any(
+                not isinstance(item, list)
+                or len(item) != 2
+                or not isinstance(item[0], str)
+                or not item[0]
+                for item in physical_items
+            )
+            or len({item[0] for item in physical_items}) != 48
+            or canonical_sha256([item[1] for item in physical_items])
+            != self.candidate_vector_sha256
+            or canonical_json_bytes(adapter_identity)
+            != self.authenticated_adapter_identity_bytes
+            or not isinstance(adapter_identity, dict)
+            or adapter_identity.get("adapter_configuration_sha256")
+            != self.adapter_configuration_sha256
+        ):
+            raise ProductionEvaluatorError(
+                "control execution producer identity is inconsistent"
+            )
+
+
+@dataclass(frozen=True)
+class ControlWriterProducerIdentityV2:
+    """Authenticated writer identity supplied outside artifact evidence."""
+
+    writer_settings_bytes: bytes
+    writer_settings_sha256: str
+    authenticated_writer_identity_bytes: bytes
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.writer_settings_bytes) is not bytes
+            or not self.writer_settings_bytes
+            or type(self.authenticated_writer_identity_bytes) is not bytes
+            or not self.authenticated_writer_identity_bytes
+        ):
+            raise ProductionEvaluatorError(
+                "control writer producer identity bytes are invalid"
+            )
+        _require_sha256(
+            self.writer_settings_sha256,
+            "control producer writer-settings hash",
+        )
+        try:
+            writer_settings = json.loads(self.writer_settings_bytes)
+            writer_identity = json.loads(
+                self.authenticated_writer_identity_bytes
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ProductionEvaluatorError(
+                "control writer producer identity JSON is invalid"
+            ) from exc
+        if (
+            canonical_json_bytes(writer_settings) != self.writer_settings_bytes
+            or not isinstance(writer_settings, dict)
+            or not writer_settings
+            or canonical_sha256(writer_settings) != self.writer_settings_sha256
+            or canonical_json_bytes(writer_identity)
+            != self.authenticated_writer_identity_bytes
+            or not isinstance(writer_identity, dict)
+        ):
+            raise ProductionEvaluatorError(
+                "control writer producer identity is inconsistent"
+            )
+
+
+@dataclass(frozen=True)
+class ControlExecutionSemanticContextV2:
+    """Immutable snapshot bytes required for restart-safe control replay."""
+
+    expected_scope_bytes: bytes
+    expected_control_request_bytes: bytes
+    source_profile_identity_bytes: bytes
+    source_target_provenance_bytes: bytes
+    source_target_frame_bytes: bytes
+    degradation_profile_bytes: bytes
+    low_resolution_input_frame_bytes: bytes
+    raw_output_frame_bytes: bytes
+    physical_candidate_items_bytes: bytes
+    candidate_vector_sha256: str
+    adapter_configuration_sha256: str
+    authenticated_adapter_identity_bytes: bytes
+
+    def __post_init__(self) -> None:
+        byte_fields = (
+            self.expected_scope_bytes,
+            self.expected_control_request_bytes,
+            self.source_profile_identity_bytes,
+            self.source_target_provenance_bytes,
+            self.source_target_frame_bytes,
+            self.degradation_profile_bytes,
+            self.low_resolution_input_frame_bytes,
+            self.raw_output_frame_bytes,
+            self.physical_candidate_items_bytes,
+            self.authenticated_adapter_identity_bytes,
+        )
+        if any(type(value) is not bytes or not value for value in byte_fields):
+            raise ProductionEvaluatorError(
+                "control execution semantic context bytes are invalid"
+            )
+        _require_sha256(
+            self.candidate_vector_sha256,
+            "control semantic candidate-vector hash",
+        )
+        _require_sha256(
+            self.adapter_configuration_sha256,
+            "control semantic adapter-configuration hash",
+        )
+
+
+@dataclass(frozen=True)
+class ControlWriterSemanticContextV2:
+    """Immutable snapshot bytes required for restart-safe writer replay."""
+
+    expected_scope_bytes: bytes
+    expected_control_request_bytes: bytes
+    source_profile_identity_bytes: bytes
+    degradation_profile_bytes: bytes
+    raw_output_frame_bytes: bytes
+    decoded_output_frame_bytes: bytes
+    decoded_payload_bytes: bytes
+    encoded_container_bytes: bytes
+    writer_report_bytes: bytes
+    writer_provenance_bytes: bytes
+    writer_settings_bytes: bytes
+    writer_settings_sha256: str
+    authenticated_writer_identity_bytes: bytes
+
+    def __post_init__(self) -> None:
+        byte_fields = (
+            self.expected_scope_bytes,
+            self.expected_control_request_bytes,
+            self.source_profile_identity_bytes,
+            self.degradation_profile_bytes,
+            self.raw_output_frame_bytes,
+            self.decoded_output_frame_bytes,
+            self.decoded_payload_bytes,
+            self.encoded_container_bytes,
+            self.writer_report_bytes,
+            self.writer_provenance_bytes,
+            self.writer_settings_bytes,
+            self.authenticated_writer_identity_bytes,
+        )
+        if any(type(value) is not bytes or not value for value in byte_fields):
+            raise ProductionEvaluatorError(
+                "control writer semantic context bytes are invalid"
+            )
+        _require_sha256(
+            self.writer_settings_sha256,
+            "control semantic writer-settings hash",
+        )
+
+
 class WriterCapability(Protocol):
     settings_sha256: str
 
@@ -158,6 +360,37 @@ class WriterCapability(Protocol):
         ...
 
     def reopen_evidence(self, evidence_sha256: str) -> Mapping[str, object]:
+        ...
+
+
+@dataclass(frozen=True)
+class RawControlMeasurementPublicationV2:
+    """Exact producer inputs for one raw V2 control measurement row."""
+
+    metadata: Mapping[str, object]
+    profile: Mapping[str, object]
+    target: PlanarFrame
+    low_resolution: PlanarFrame
+    raw_output: PlanarFrame
+    native_execution_record: Mapping[str, object]
+
+
+class ControlAuthorizationArtifactPublisherV2(Protocol):
+    run_id: str
+
+    def publish_raw_control_aggregate_v2(
+        self,
+        *,
+        adapter: CandidateAdapter,
+        run_id: str,
+        split: str,
+        control_family: str,
+        stable_id: object,
+        shared_bank_configuration_sha256: str,
+        degradation_policy_sha256: str,
+        control_request: Mapping[str, object],
+        rows: Sequence[RawControlMeasurementPublicationV2],
+    ) -> Mapping[str, object]:
         ...
 
 
@@ -820,6 +1053,7 @@ class ControlAggregateEvidence:
     objective_means: Tuple[float, float, float, float, float]
     objective_summary_sha256: str
     output_manifest_sha256: str
+    authorization_v2: Optional[Mapping[str, object]] = None
 
 
 @dataclass(frozen=True)
@@ -960,6 +1194,171 @@ def corpus_metric_bundle(
     }
 
 
+def _validated_control_measurement_frame_v2(
+    frame: object,
+    *,
+    label: str,
+) -> PlanarFrame:
+    if not isinstance(frame, PlanarFrame):
+        raise ProductionEvaluatorError(f"{label} is not a PlanarFrame")
+    if not all(
+        np.all(np.isfinite(plane))
+        for plane in (frame.y, frame.cb, frame.cr)
+    ):
+        raise ProductionEvaluatorError(f"{label} contains nonfinite pixels")
+    if (
+        np.any(frame.y < 0.0)
+        or np.any(frame.y > 1.0)
+        or np.any(frame.cb < -0.5)
+        or np.any(frame.cb > 0.5)
+        or np.any(frame.cr < -0.5)
+        or np.any(frame.cr > 0.5)
+    ):
+        raise ProductionEvaluatorError(
+            f"{label} is outside normalized legal ranges"
+        )
+    return frame
+
+
+def canonical_control_measurement_frame_bytes_v2(
+    frame: PlanarFrame,
+) -> bytes:
+    """Serialize one exact metric frame as canonical big-endian float64 bytes."""
+
+    validated = _validated_control_measurement_frame_v2(
+        frame,
+        label="control measurement frame",
+    )
+    payload = bytearray(_CONTROL_MEASUREMENT_FRAME_MAGIC_V2)
+    for tag, plane in (
+        (b"Y\0", validated.y),
+        (b"CB", validated.cb),
+        (b"CR", validated.cr),
+    ):
+        values = np.array(plane, dtype=np.float64, order="C", copy=True)
+        values[values == 0.0] = 0.0
+        payload.extend(tag)
+        payload.extend(struct.pack(">II", values.shape[0], values.shape[1]))
+        payload.extend(values.astype(">f8", copy=False).tobytes(order="C"))
+    return bytes(payload)
+
+
+def decode_control_measurement_frame_bytes_v2(payload: bytes) -> PlanarFrame:
+    """Decode and canonicality-check exact control metric frame bytes."""
+
+    if type(payload) is not bytes or not payload.startswith(
+        _CONTROL_MEASUREMENT_FRAME_MAGIC_V2
+    ):
+        raise ProductionEvaluatorError(
+            "control measurement frame bytes have the wrong encoding"
+        )
+    offset = len(_CONTROL_MEASUREMENT_FRAME_MAGIC_V2)
+    planes = []
+    try:
+        for expected_tag in (b"Y\0", b"CB", b"CR"):
+            if payload[offset : offset + 2] != expected_tag:
+                raise ProductionEvaluatorError(
+                    "control measurement frame plane order differs"
+                )
+            offset += 2
+            height, width = struct.unpack_from(">II", payload, offset)
+            offset += 8
+            if height == 0 or width == 0:
+                raise ProductionEvaluatorError(
+                    "control measurement frame contains an empty plane"
+                )
+            value_count = height * width
+            byte_count = value_count * 8
+            if byte_count > len(payload) - offset:
+                raise ProductionEvaluatorError(
+                    "control measurement frame payload is truncated"
+                )
+            plane = np.frombuffer(
+                payload,
+                dtype=">f8",
+                count=value_count,
+                offset=offset,
+            ).astype(np.float64)
+            planes.append(plane.reshape((height, width)))
+            offset += byte_count
+    except (struct.error, ValueError) as exc:
+        raise ProductionEvaluatorError(
+            "control measurement frame bytes are malformed"
+        ) from exc
+    if offset != len(payload):
+        raise ProductionEvaluatorError(
+            "control measurement frame bytes contain trailing data"
+        )
+    try:
+        frame = PlanarFrame(y=planes[0], cb=planes[1], cr=planes[2])
+    except (IndexError, ValueError) as exc:
+        raise ProductionEvaluatorError(
+            "control measurement frame geometry is invalid"
+        ) from exc
+    _validated_control_measurement_frame_v2(
+        frame,
+        label="decoded control measurement frame",
+    )
+    if canonical_control_measurement_frame_bytes_v2(frame) != payload:
+        raise ProductionEvaluatorError(
+            "control measurement frame bytes are not canonical"
+        )
+    return frame
+
+
+def hierarchical_control_objective_v2(
+    raw_rows: Sequence[Mapping[str, object]],
+    source_order: Sequence[str],
+) -> Tuple[Tuple[Mapping[str, object], ...], Tuple[float, ...]]:
+    """Compute the locked two-level control objective with one algorithm."""
+
+    per_source = []
+    values_by_source: Dict[str, Tuple[float, ...]] = {}
+    for source_id in source_order:
+        source_rows = [
+            row for row in raw_rows if row.get("source_asset_id") == source_id
+        ]
+        if not source_rows:
+            raise ProductionEvaluatorError(
+                "control objective source has no degradation rows"
+            )
+        means = []
+        for metric in SELECTION_METRICS:
+            values = []
+            for row in source_rows:
+                metrics = row.get("metrics")
+                if not isinstance(metrics, Mapping):
+                    raise ProductionEvaluatorError(
+                        "control objective row metrics are not an object"
+                    )
+                values.append(
+                    _require_finite(
+                        metrics.get(metric),
+                        f"control objective {source_id}/{metric}",
+                    )
+                )
+            means.append(math.fsum(values) / len(values))
+        source_means = tuple(means)
+        values_by_source[source_id] = source_means
+        per_source.append(
+            {
+                "source_asset_id": source_id,
+                "engine_raw_profile_mean_tuple": list(source_means),
+            }
+        )
+    if not per_source:
+        raise ProductionEvaluatorError("control objective source order is empty")
+    objective = tuple(
+        math.fsum(
+            values_by_source[source_id][metric_index]
+            for source_id in source_order
+        )
+        / len(source_order)
+        for metric_index in range(len(SELECTION_METRICS))
+    )
+    return tuple(per_source), objective
+
+
 def degradation_native_input(
     target: PlanarFrame,
     profile: Mapping[str, object],
@@ -994,18 +1393,78 @@ def _control_request(
     return request
 
 
+def fixed_control_configuration_sha256_v2(
+    descriptor_id: int,
+    shared_bank_configuration_sha256: str,
+) -> str:
+    """Derive the exact fixed-control configuration identity."""
+
+    if type(descriptor_id) is not int or descriptor_id not in FIXED_DESCRIPTOR_IDS:
+        raise ProductionEvaluatorError("fixed descriptor ID is outside 0...15")
+    _require_sha256(shared_bank_configuration_sha256, "shared-bank hash")
+    return canonical_sha256(
+        {
+            "control_id": "fixed-descriptor-uniform-v1",
+            "descriptor_id": descriptor_id,
+            "shared_bank_configuration_sha256": (
+                shared_bank_configuration_sha256
+            ),
+        }
+    )
+
+
+def conventional_control_configuration_sha256_v2(
+    algorithm_id: str,
+    shared_bank_configuration_sha256: str,
+) -> str:
+    """Derive the exact conventional-control configuration identity."""
+
+    if type(algorithm_id) is not str or algorithm_id not in CONVENTIONAL_ALGORITHM_IDS:
+        raise ProductionEvaluatorError(
+            "conventional algorithm ID is not preregistered"
+        )
+    _require_sha256(shared_bank_configuration_sha256, "shared-bank hash")
+    return canonical_sha256(
+        {
+            "control_id": "uniform-conventional-selection-v1",
+            "algorithm_id": algorithm_id,
+            "shared_bank_configuration_sha256": (
+                shared_bank_configuration_sha256
+            ),
+        }
+    )
+
+
+def non_ash_control_configuration_sha256_v2(
+    *,
+    selector_id: str,
+    rule_sha256: str,
+    shared_bank_configuration_sha256: str,
+) -> str:
+    """Derive a non-ASH configuration identity from selector, rule, and bank."""
+
+    if selector_id not in {NON_ASH_SELECTOR_ID, NON_ASH_SELECTOR_ID_V2}:
+        raise ProductionEvaluatorError("non-ASH selector ID is not preregistered")
+    _require_sha256(rule_sha256, "non-ASH rule hash")
+    _require_sha256(shared_bank_configuration_sha256, "shared-bank hash")
+    return canonical_sha256(
+        {
+            "selector_id": selector_id,
+            "rule_sha256": rule_sha256,
+            "shared_bank_configuration_sha256": (
+                shared_bank_configuration_sha256
+            ),
+        }
+    )
+
+
 def fixed_control_request(
     descriptor_id: int,
     shared_bank_configuration_sha256: str,
 ) -> Mapping[str, object]:
-    if descriptor_id not in FIXED_DESCRIPTOR_IDS:
-        raise ProductionEvaluatorError("fixed descriptor ID is outside 0...15")
-    configuration_sha256 = canonical_sha256(
-        {
-            "control_id": "fixed-descriptor-uniform-v1",
-            "descriptor_id": descriptor_id,
-            "shared_bank_configuration_sha256": shared_bank_configuration_sha256,
-        }
+    configuration_sha256 = fixed_control_configuration_sha256_v2(
+        descriptor_id,
+        shared_bank_configuration_sha256,
     )
     return _control_request(
         control_key=f"fixed_descriptor_{descriptor_id:02d}",
@@ -1020,14 +1479,9 @@ def conventional_control_request(
     algorithm_id: str,
     shared_bank_configuration_sha256: str,
 ) -> Mapping[str, object]:
-    if algorithm_id not in CONVENTIONAL_ALGORITHM_IDS:
-        raise ProductionEvaluatorError("conventional algorithm ID is not preregistered")
-    configuration_sha256 = canonical_sha256(
-        {
-            "control_id": "uniform-conventional-selection-v1",
-            "algorithm_id": algorithm_id,
-            "shared_bank_configuration_sha256": shared_bank_configuration_sha256,
-        }
+    configuration_sha256 = conventional_control_configuration_sha256_v2(
+        algorithm_id,
+        shared_bank_configuration_sha256,
     )
     return _control_request(
         control_key=f"conventional_{CONVENTIONAL_ALGORITHM_IDS.index(algorithm_id)}",
@@ -1038,9 +1492,11 @@ def conventional_control_request(
     )
 
 
-def non_ash_control_request(
+def non_ash_control_request_for_selector_v2(
     rule: Mapping[str, object],
     shared_bank_configuration_sha256: str,
+    *,
+    selector_id: str,
 ) -> Mapping[str, object]:
     if set(rule) != set(NON_ASH_COORDINATES) or any(
         not isinstance(rule[name], int) or rule[name] not in NON_ASH_VALUES
@@ -1049,12 +1505,10 @@ def non_ash_control_request(
         raise ProductionEvaluatorError("non-ASH rule is outside its preregistered domain")
     ordered_rule = {name: int(rule[name]) for name in NON_ASH_COORDINATES}
     rule_sha256 = canonical_sha256(ordered_rule)
-    configuration_sha256 = canonical_sha256(
-        {
-            "selector_id": NON_ASH_SELECTOR_ID,
-            "rule_sha256": rule_sha256,
-            "shared_bank_configuration_sha256": shared_bank_configuration_sha256,
-        }
+    configuration_sha256 = non_ash_control_configuration_sha256_v2(
+        selector_id=selector_id,
+        rule_sha256=rule_sha256,
+        shared_bank_configuration_sha256=shared_bank_configuration_sha256,
     )
     return _control_request(
         control_key="non_ash_selector",
@@ -1062,10 +1516,21 @@ def non_ash_control_request(
         configuration_sha256=configuration_sha256,
         shared_bank_configuration_sha256=shared_bank_configuration_sha256,
         parameters={
-            "selector_id": NON_ASH_SELECTOR_ID,
+            "selector_id": selector_id,
             "selected_rule_sha256": rule_sha256,
             "selected_rule_configuration": ordered_rule,
         },
+    )
+
+
+def non_ash_control_request(
+    rule: Mapping[str, object],
+    shared_bank_configuration_sha256: str,
+) -> Mapping[str, object]:
+    return non_ash_control_request_for_selector_v2(
+        rule,
+        shared_bank_configuration_sha256,
+        selector_id=NON_ASH_SELECTOR_ID,
     )
 
 
@@ -1370,24 +1835,10 @@ def make_control_aggregate(
                 )
     source_order = list(dict.fromkeys(pair[0] for pair in raw_pairs))
     source_profile_matrix_sha256 = canonical_sha256(expected_identities)
-    objective_values = []
-    for metric in SELECTION_METRICS:
-        per_source = []
-        for source_id in source_order:
-            degradation_values = [
-                float(row["metrics"][metric])
-                for row in by_domain["engine_raw"]
-                if row["source_asset_id"] == source_id
-            ]
-            if not degradation_values:
-                raise ProductionEvaluatorError(
-                    "control objective source has no degradation rows"
-                )
-            per_source.append(
-                float(np.mean(degradation_values, dtype=np.float64))
-            )
-        objective_values.append(float(np.mean(per_source, dtype=np.float64)))
-    objective_means = tuple(objective_values)
+    _, objective_means = hierarchical_control_objective_v2(
+        by_domain["engine_raw"],
+        source_order,
+    )
     objective_summary = {
         "schema_version": "1.0.0",
         "artifact_kind": "p06_control_objective_summary",
@@ -4776,9 +5227,29 @@ class ProductionCandidateEvaluator:
         self.analytic_fixtures = analytic_fixtures
         self.evidence_store = evidence_store
         self.evaluation_evidence_provider = evaluation_evidence_provider
+        self._control_authorization_artifact_publisher_v2: Optional[
+            ControlAuthorizationArtifactPublisherV2
+        ] = None
         self._development_control_selection_cache: Optional[
             DevelopmentControlSelectionCache
         ] = None
+
+    def configure_control_authorization_artifact_publisher_v2(
+        self,
+        publisher: ControlAuthorizationArtifactPublisherV2,
+    ) -> None:
+        """Install one producer-owned V2 control artifact publisher."""
+
+        if (
+            self._control_authorization_artifact_publisher_v2 is not None
+            or not callable(
+                getattr(publisher, "publish_raw_control_aggregate_v2", None)
+            )
+        ):
+            raise ProductionEvaluatorError(
+                "control authorization artifact publisher is invalid"
+            )
+        self._control_authorization_artifact_publisher_v2 = publisher
 
     def configure_development_control_selection_cache(
         self,
@@ -4982,6 +5453,7 @@ class ProductionCandidateEvaluator:
         stable_id: object,
     ) -> ControlAggregateEvidence:
         raw_rows: list[Mapping[str, object]] = []
+        publication_rows: list[RawControlMeasurementPublicationV2] = []
         for item in prepared:
             output, record = _invoke_native_control(
                 adapter=adapter,
@@ -5026,6 +5498,16 @@ class ProductionCandidateEvaluator:
                 raise ProductionEvaluatorError(
                     "selection control runtime configuration differs"
                 )
+            publication_rows.append(
+                RawControlMeasurementPublicationV2(
+                    metadata=dict(item.metadata),
+                    profile=dict(item.profile),
+                    target=item.target,
+                    low_resolution=item.low_resolution,
+                    raw_output=output,
+                    native_execution_record=dict(record),
+                )
+            )
         expected_matrix = tuple(
             {
                 "source_asset_id": item.metadata["source_asset_id"],
@@ -5037,7 +5519,7 @@ class ProductionCandidateEvaluator:
             }
             for item in prepared
         )
-        return make_control_aggregate(
+        aggregate = make_control_aggregate(
             split=split,
             stable_id=stable_id,
             shared_bank_configuration_sha256=str(
@@ -5051,6 +5533,54 @@ class ProductionCandidateEvaluator:
             rows=raw_rows,
             evidence_store=self.evidence_store,
             require_decoded_evidence=False,
+        )
+        publisher = self._control_authorization_artifact_publisher_v2
+        if publisher is None:
+            return aggregate
+        run_id = getattr(publisher, "run_id", None)
+        if type(run_id) is not str or not run_id:
+            raise ProductionEvaluatorError(
+                "control authorization artifact publisher run ID is absent"
+            )
+        authorization_v2 = publisher.publish_raw_control_aggregate_v2(
+            adapter=adapter,
+            run_id=run_id,
+            split=split,
+            control_family=(
+                "best_fixed"
+                if type(stable_id) is int
+                else (
+                    "conventional"
+                    if stable_id in CONVENTIONAL_ALGORITHM_IDS
+                    else "non_ash_selector"
+                )
+            ),
+            stable_id=stable_id,
+            shared_bank_configuration_sha256=str(
+                request["shared_bank_configuration_sha256"]
+            ),
+            degradation_policy_sha256=str(
+                self.degradation_policy["policy_sha256"]
+            ),
+            control_request=request,
+            rows=tuple(publication_rows),
+        )
+        if not isinstance(authorization_v2, dict):
+            raise ProductionEvaluatorError(
+                "control authorization artifact publication is invalid"
+            )
+        return ControlAggregateEvidence(
+            split=aggregate.split,
+            stable_id=aggregate.stable_id,
+            shared_bank_configuration_sha256=(
+                aggregate.shared_bank_configuration_sha256
+            ),
+            degradation_policy_sha256=aggregate.degradation_policy_sha256,
+            rows=aggregate.rows,
+            objective_means=aggregate.objective_means,
+            objective_summary_sha256=aggregate.objective_summary_sha256,
+            output_manifest_sha256=aggregate.output_manifest_sha256,
+            authorization_v2=json.loads(canonical_json_bytes(authorization_v2)),
         )
 
     @staticmethod

@@ -1,11 +1,11 @@
 {
   "artifact_kind": "quality_harness_implementation_manifest",
-  "file_count": 333,
+  "file_count": 380,
   "files": [
     {
       "relative_path": "Mirmir.xcodeproj/project.pbxproj",
-      "sha256": "8b01bc3999bd4b00bf30d88e82543bf05ef93b2030195cd4913977f1d83f9963",
-      "size_bytes": 101619
+      "sha256": "daa8bc16748a3a046021dd1cfc0a48eb11332853ac5036a24a4c5c931ba5d21d",
+      "size_bytes": 109203
     },
     {
       "relative_path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
@@ -273,9 +273,19 @@
       "size_bytes": 2458
     },
     {
+      "relative_path": "validation/calibration_v2/authenticated_closure_snapshot_v2.py",
+      "sha256": "c2910e427e409b6d5d09d3dc891bc980777b7f0524c83226a2b6667918b60978",
+      "size_bytes": 34469
+    },
+    {
       "relative_path": "validation/calibration_v2/baseline_ablation_budget_v2.py",
       "sha256": "dc9734ce544a7306bb12cffed2471045f29c9024bd48b91d6100340781fe2c53",
       "size_bytes": 28590
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_persistence_v2.py",
+      "sha256": "928364651f4fbacaec0984b637d9c5ea2803c34b66d432e7adcc2aee41a75ea0",
+      "size_bytes": 176481
     },
     {
       "relative_path": "validation/calibration_v2/calibration_plan_codec.py",
@@ -284,8 +294,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/calibration_scheduler_v2.py",
-      "sha256": "ec1018006173abd96ec6259f9f2f3cfb332ee9ae9cd951d34aced7fb517a5f79",
-      "size_bytes": 67597
+      "sha256": "92f4988ba2323d80daffc03d5526ac6c8a48fe10298a7672631735e2d1d041e9",
+      "size_bytes": 73055
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_selection_persistence_v2.py",
+      "sha256": "a17914f82ed330548e6875f5639d609481477b16125c9130f7e4ab9ba9de617f",
+      "size_bytes": 76963
     },
     {
       "relative_path": "validation/calibration_v2/contracts/baseline-ablation-budget-v2.json",
@@ -314,8 +329,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v2.json",
-      "sha256": "2e7d281ca1959d0eafe42aa6bbf57e34cf48d7dde39c4767a1b83f413fb5fb9c",
-      "size_bytes": 21616
+      "sha256": "d6df835467485f59b253e12d8e80cb8c8fa21dd308566ab3634495ccc8604433",
+      "size_bytes": 23800
     },
     {
       "relative_path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
@@ -326,6 +341,11 @@
       "relative_path": "validation/calibration_v2/contracts/compiler-contract-v2.json",
       "sha256": "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a",
       "size_bytes": 26462
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/control-execution-producer-identity-v2.json",
+      "sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+      "size_bytes": 11958
     },
     {
       "relative_path": "validation/calibration_v2/contracts/coordinate-model-contract-v3.json",
@@ -383,6 +403,11 @@
       "size_bytes": 4708
     },
     {
+      "relative_path": "validation/calibration_v2/contracts/shared-bank-artifact-materialization-v2.json",
+      "sha256": "478e35dcbd6217659680a401cfb2c7a7babc0127d8a0ef37c20b755dfbc80112",
+      "size_bytes": 15440
+    },
+    {
       "relative_path": "validation/calibration_v2/contracts/shared-bank-configuration-identity-v2.json",
       "sha256": "48f5eef7cf9f7c513cf8e6568b3eeb4d607845c1e70e6c39b6ca0192a4c297de",
       "size_bytes": 13164
@@ -396,6 +421,16 @@
       "relative_path": "validation/calibration_v2/contracts/video-profile-contract-v1.json",
       "sha256": "8c61d53cab158838e559b81a1d0c6b65ecc734a61ade76f84d41c92187214ef3",
       "size_bytes": 493
+    },
+    {
+      "relative_path": "validation/calibration_v2/control_authorization_v2.py",
+      "sha256": "688f346571a8ca52f8d007d3a8807b8865e0156c56f72c6d0e6e95bc7ff9bd45",
+      "size_bytes": 128703
+    },
+    {
+      "relative_path": "validation/calibration_v2/control_evidence_publisher_v2.py",
+      "sha256": "d7649c48a39738865b43c19327959d370e350e01b00a926e4067a50f3ffafe77",
+      "size_bytes": 28251
     },
     {
       "relative_path": "validation/calibration_v2/corrective_diagnostic_executor.py",
@@ -478,6 +513,11 @@
       "size_bytes": 279703
     },
     {
+      "relative_path": "validation/calibration_v2/non_ash_selector_artifacts_v2.py",
+      "sha256": "f8a6d2b73f4779cb680517a64ce424a3ae4c8037ff1d080fa0e0aa4a6d07a006",
+      "size_bytes": 81061
+    },
+    {
       "relative_path": "validation/calibration_v2/non_ash_selector_v2.py",
       "sha256": "febd3bde240c885f700866649c9e2726a8d16c67a4007bf185f1d863cab5c25a",
       "size_bytes": 44484
@@ -509,8 +549,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/production_evaluator.py",
-      "sha256": "9c3f5e52ee7a56caea9fd0252d83ac2fbcdecca959df256904ddaceac4ea3f3b",
-      "size_bytes": 240348
+      "sha256": "eee20d505ef9e80fcbac84973c9c8d80f2779762e0aca8cee54c27907725b8a9",
+      "size_bytes": 259493
     },
     {
       "relative_path": "validation/calibration_v2/production_evidence.py",
@@ -524,8 +564,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/production_providers.py",
-      "sha256": "6f926c7e55a0b3474ed606293ae2a489ae07be2803183be2b7db54a9c3a3889f",
-      "size_bytes": 68078
+      "sha256": "b9927be24992d4bcf85c55bd0e9a134ef8bbacec13863aac1a47f5e495478bbd",
+      "size_bytes": 81910
     },
     {
       "relative_path": "validation/calibration_v2/reference/__init__.py",
@@ -541,6 +581,11 @@
       "relative_path": "validation/calibration_v2/reference/lut_oracle.py",
       "sha256": "72b6ff321c6fe79a708a8d3775b6ba2c569825ff3c33f87026d47f72d7ceba64",
       "size_bytes": 71663
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/lut_oracle_v2.py",
+      "sha256": "414d444b7bd8cfafc1852c07af4c8fda7fe4a83918ccbec193489ce0ad654fba",
+      "size_bytes": 69777
     },
     {
       "relative_path": "validation/calibration_v2/reference/spatial_policy_admissibility_v2.py",
@@ -563,6 +608,11 @@
       "size_bytes": 195296
     },
     {
+      "relative_path": "validation/calibration_v2/run_provenance_v2.py",
+      "sha256": "54dbe6a9cefb17016f0b841a4d55ea0e6179e800ce90ef59a6ed6447b8b9fe0f",
+      "size_bytes": 89874
+    },
+    {
       "relative_path": "validation/calibration_v2/runner.py",
       "sha256": "09fa3d0f4baa6d5befce18eb998ed60e3c99b58cbf46664bb7c553bd6c337c7a",
       "size_bytes": 370159
@@ -576,6 +626,11 @@
       "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
       "sha256": "7da980490d90cab2bfdc9933fffa56cddc2327f8703014c896aa9e9b712c79d5",
       "size_bytes": 10908
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-attempt-record-v2.schema.json",
+      "sha256": "7cb1219425a7dee875fe0b04e3877a0dad85ccb7d1a3911c10f7fd1044d1376b",
+      "size_bytes": 16932
     },
     {
       "relative_path": "validation/calibration_v2/schemas/calibration-plan-v1.schema.json",
@@ -593,14 +648,29 @@
       "size_bytes": 8651
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/calibration-run-ledger-v2.schema.json",
+      "sha256": "3b1a576c1550a3b83be27550e5494182e76a1ff9daa1e10f2e651da36d618cc8",
+      "size_bytes": 11422
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/calibration-selection-v1.schema.json",
       "sha256": "a421d38f3fd751ab7a73a1e99593e98d7105d083264bb60d55498a2afacd7882",
       "size_bytes": 13965
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/calibration-selection-v2.schema.json",
+      "sha256": "76dc8a720356a85d2bd2f56d423de3581bff96d2e1f4202ec835a31fef7dadff",
+      "size_bytes": 10174
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/candidate-evaluation-v1.schema.json",
       "sha256": "f6323cb0a25c5abf0d95ad5e5274b2f0f17acf743e12381564391d3990fad403",
       "size_bytes": 62146
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evaluation-v2.schema.json",
+      "sha256": "5bae29dee2d847ef58a8ccfe749ab69ea0f693c96a81c7cea01061fcdfdf4ec7",
+      "size_bytes": 18301
     },
     {
       "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v1.schema.json",
@@ -609,8 +679,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v2.schema.json",
-      "sha256": "1bbe2402851fe584eb86b589553b9fb2f3ddb3c809a5ef37ba18a5ce34cf2129",
-      "size_bytes": 22856
+      "sha256": "581a3bb6ba0ec3ea288076685124a9e7fd332aa883ee2165f18a27a4fb1c249e",
+      "size_bytes": 25040
     },
     {
       "relative_path": "validation/calibration_v2/schemas/candidate-lut-runtime-manifest-v1.schema.json",
@@ -633,9 +703,29 @@
       "size_bytes": 48403
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/control-execution-producer-identity-v2.schema.json",
+      "sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+      "size_bytes": 12223
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-objective-summary-v2.schema.json",
+      "sha256": "2eaf46f2555cc93eee8d44ea7b2f00a412fc18170059fe8a23dd40cf4e42fe55",
+      "size_bytes": 3716
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-output-manifest-v2.schema.json",
+      "sha256": "a8fb32c27c64bc6ecf837bcd8f5e679cc37c44f7d30086ae1bed966548855865",
+      "size_bytes": 10460
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v1.schema.json",
       "sha256": "6c299f1c2ed4a9493bd2d5b17958ca59ca1dca20b2195fa2a7fe6aba79d83069",
       "size_bytes": 3587
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v2.schema.json",
+      "sha256": "e650acfad66e557894ad62555dd8e0a577668ed1495e8f6f5aa046f10cd9fd68",
+      "size_bytes": 6908
     },
     {
       "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-receipt-v1.schema.json",
@@ -686,6 +776,11 @@
       "relative_path": "validation/calibration_v2/schemas/fixed-control-selection-v1.schema.json",
       "sha256": "646919f448ffd335e3fa168a392944c41e9c9a9403a3b523273f0fceb01439ba",
       "size_bytes": 3501
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/fixed-control-selection-v2.schema.json",
+      "sha256": "1afc7a9506770dbffa811eca71ef22e016b65cfe834ff7a8585bbadaecc2eae9",
+      "size_bytes": 6754
     },
     {
       "relative_path": "validation/calibration_v2/schemas/g05-command-plan-v1.schema.json",
@@ -799,13 +894,18 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-selector-attempt-failure-v2.schema.json",
-      "sha256": "00de43a87bc05731f1b9eecdf6fd56596b758ef004fc58220f819e6e674f8df7",
-      "size_bytes": 7417
+      "sha256": "2add191fa95c8b2eca8c4ed3a79b77afa1b311a480b7d205c92d87afa33affb4",
+      "size_bytes": 7871
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-selector-attempt-ledger-v2.schema.json",
-      "sha256": "7879606cf0c609ae34566ea2ae8ebf93645b405632518993cf1ad82043a2a360",
-      "size_bytes": 13377
+      "sha256": "3d2937faaeefbd97e17447554146fdfae6a041b328bdf13f4e7004c324d0bfe9",
+      "size_bytes": 13652
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-evaluation-evidence-v2.schema.json",
+      "sha256": "4f6828cad18dc1b588b0e292d37f96ceb8769a9dd60de21d73b864931bbd4e3a",
+      "size_bytes": 3058
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-selector-selection-v1.schema.json",
@@ -814,13 +914,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-selector-selection-v2.schema.json",
-      "sha256": "b50bf23820fb651a0672b60685a8d350e7c0df0b3456210f3e86aa221f728c7a",
-      "size_bytes": 10906
+      "sha256": "2c978578e6b7e27c285fe827c9519d4262a79da7040988021158a171ab82c1b8",
+      "size_bytes": 11247
     },
     {
       "relative_path": "validation/calibration_v2/schemas/non-ash-validation-neighbor-manifest-v2.schema.json",
-      "sha256": "2e48cd20b71e5a465b5abb8498efbe905d2451eafcd2491be19e2709929e485f",
-      "size_bytes": 10384
+      "sha256": "f1da0ec50e475490cbadb92b949e42f3e8a8e104d36920e4d0cb6cf70fb525d2",
+      "size_bytes": 10659
     },
     {
       "relative_path": "validation/calibration_v2/schemas/operator-bank-v1.schema.json",
@@ -828,9 +928,29 @@
       "size_bytes": 4992
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/operator-bank-v2.schema.json",
+      "sha256": "5d7d14e912bfa29d90959f9d368f50a784b40e4f603fc8b8146da216eac3c8fd",
+      "size_bytes": 16834
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-calibration-failure-v2.schema.json",
+      "sha256": "070c4c38464a684effd14ca5747da11ac4ce71ef13ce583fe003d45f6a903cd6",
+      "size_bytes": 9718
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-control-authorization-bundle-v2.schema.json",
+      "sha256": "9b6aa34dd923752fa12f4938a948a43665953b34fae23485e99a249ad5ff29a6",
+      "size_bytes": 6327
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/p06-evidence-closure-v1.schema.json",
       "sha256": "9467f5596b6d3cad73474881e3f1789ba8f6c4ec881f3307241781e775817fe5",
       "size_bytes": 9901
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-evidence-closure-v2.schema.json",
+      "sha256": "f8f29aa6c46f9ca89bfcfe509e6a14b95102445810e1d0c13ecc0cd97eab3611",
+      "size_bytes": 7268
     },
     {
       "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v1.schema.json",
@@ -841,6 +961,21 @@
       "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v2.schema.json",
       "sha256": "4ea77661e3590668c451672cb3363d98627850aceade1c395bac85227ed84cfd",
       "size_bytes": 7771
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v3.schema.json",
+      "sha256": "1ea78e6750fbf062c41aa9bdc101d1ed44a9afca6d4987cc72d6ffebf86c8452",
+      "size_bytes": 10039
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-run-input-manifest-v2.schema.json",
+      "sha256": "2be79eb0f14e6ebe6e94ee389aef5d6d26ca185d7b792011c6fe104dacf7beb2",
+      "size_bytes": 6746
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-run-provenance-receipt-v2.schema.json",
+      "sha256": "1eebdd2608bf4f10b2f62eb926b2974065fb00c74595ef9331c7752da679550c",
+      "size_bytes": 10247
     },
     {
       "relative_path": "validation/calibration_v2/schemas/p06-runtime-correction-artifact-manifest-v1.schema.json",
@@ -948,6 +1083,11 @@
       "size_bytes": 1247
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/shared-bank-artifact-materialization-v2.schema.json",
+      "sha256": "8cfbf68bedcf70afa71f73cbc00526b31e3bf53c857c734f7e9b1a6b0b29267c",
+      "size_bytes": 16678
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/shared-bank-configuration-identity-v2.schema.json",
       "sha256": "0cee4c9ed9083d734491d90eaa3f02265b07295d7873733c006cce9df317147c",
       "size_bytes": 13946
@@ -968,9 +1108,19 @@
       "size_bytes": 1966
     },
     {
+      "relative_path": "validation/calibration_v2/schemas/validation-candidate-development-evidence-v2.schema.json",
+      "sha256": "8ba2c914ba2aa1619a6c6cc7e43f823102c79468b099778447e5e5c9d1981f3f",
+      "size_bytes": 6319
+    },
+    {
       "relative_path": "validation/calibration_v2/schemas/video-mapping-v1.schema.json",
       "sha256": "307a61418e2cf4441c86167e4af48c59ce149a65b186455fe3194d9b18841b28",
       "size_bytes": 5126
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/video-mapping-v2.schema.json",
+      "sha256": "af5302bb26bee4c7ba0944749657a96865c0ce0fbacfe8f2175fbd2c4d499e28",
+      "size_bytes": 15226
     },
     {
       "relative_path": "validation/calibration_v2/schemas/video-profile-contract-v1.schema.json",
@@ -978,14 +1128,39 @@
       "size_bytes": 898
     },
     {
+      "relative_path": "validation/calibration_v2/shared_bank_artifacts_v2.py",
+      "sha256": "899da1355f0ae40e145ba9474cb1644dd01874d66f0371c5037b9c3a4c93997a",
+      "size_bytes": 34991
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/control_aggregate_cache_native_benchmark_fixture_v1.json",
       "sha256": "8eaa0f1a8a4054f5030b4e8fc0c9d8890aa5c43ef47cc90414675e615266e4f6",
       "size_bytes": 190104
     },
     {
+      "relative_path": "validation/calibration_v2/tests/fixtures/format-1.2-python-parity-manifest-v2.json",
+      "sha256": "39c01cd6fce21c052cd39181c689c161b0501936b980dcb5f3a441db337a13c7",
+      "size_bytes": 3537
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/fixtures/locked-compiler-input-format-1.2-parity-v2.json",
+      "sha256": "1c6f1076c994a257c25e8583cd12a3ce853b7cfb659734ba3e74020b53c13610",
+      "size_bytes": 4373
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/format_1_2_parity_fixture.py",
+      "sha256": "d5fbf2f131833d1d54b0db29a029b833cf8562371448c82f23c48cde8ed206ec",
+      "size_bytes": 3528
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/native_benchmark_fixture.py",
       "sha256": "992d7d5f89ac4b236e013c414841616766c5f34d6eef90d022a66b1f0d7e8b46",
       "size_bytes": 7199
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_authenticated_closure_snapshot_v2.py",
+      "sha256": "b226d6de9e0b41399e5df56ae0a231236d5e4de8c43130e75d6ce8fe0ac18f3f",
+      "size_bytes": 19015
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_baseline_ablation_budget_v2.py",
@@ -996,6 +1171,11 @@
       "relative_path": "validation/calibration_v2/tests/test_baseline_ablation_budget_v2_codec.py",
       "sha256": "9a4172d9ce347048ef334a062dfaeeee423db56f923192118660b77402736e0c",
       "size_bytes": 15480
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_persistence_v2.py",
+      "sha256": "9b3cbeca6d0c9e586d881e86b5ee2c61d5fb54204382984c9a546e420ce17e6e",
+      "size_bytes": 153298
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_calibration_plan_codec.py",
@@ -1009,8 +1189,13 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_calibration_scheduler_v2.py",
-      "sha256": "5af12bbba4cf2ac102720774cca7a70c480e1a92f17a905cca66a34092cbd9dc",
-      "size_bytes": 20581
+      "sha256": "d472a4b22d9b0dce2f4d783ada01e486a730c555f95efe0aa358a508c50d7ffc",
+      "size_bytes": 26118
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_selection_persistence_v2.py",
+      "sha256": "0daa8a8c5778494fb8ce3cf569fe8fbbaa47b67f52337c4c8f2d10e8e1cf5f12",
+      "size_bytes": 71610
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_calibration_validation_v2.py",
@@ -1019,8 +1204,8 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_candidate_evidence_policy_v2.py",
-      "sha256": "303cff3681638f64525808a603ba5f947a9d90f465677510ed29084b4bb300d1",
-      "size_bytes": 24972
+      "sha256": "3474bb58c24db343e5af0cc0f1bbbf06d7b2e4eeab7061abbc1522b9eebb779c",
+      "size_bytes": 31896
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_compiler_contract_v2.py",
@@ -1041,6 +1226,26 @@
       "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
       "sha256": "ad513d49bbd1048669d812fad7d2c8e3e342d95f018c2bffba28c6ae514f00fc",
       "size_bytes": 166080
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_authorization_split_scope_v2.py",
+      "sha256": "bdc82c42ea2be2962d72725071cc2cd2ec9e831279744df8dd9e62b2cd4902b1",
+      "size_bytes": 9908
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_authorization_v2.py",
+      "sha256": "7c39e5b7e108b9fd5100f7047ff58f0b9eea67f66347acc4ccb9f2682a7e096d",
+      "size_bytes": 124501
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_evidence_publisher_v2.py",
+      "sha256": "70e5ca620a7ba1ff2fce9a26a0d80dbcc50723843535cc8dd8d6d0e30c076bd9",
+      "size_bytes": 11118
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_execution_producer_identity_v2.py",
+      "sha256": "0b89beccf4dd096ed0ccd4a373b50800796665f3e9f3f1e128f3ef11596a3421",
+      "size_bytes": 25028
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_coordinate_anisotropy_diagnostic_receipt.py",
@@ -1133,14 +1338,19 @@
       "size_bytes": 92831
     },
     {
+      "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_artifacts_v2.py",
+      "sha256": "d13c77d51247e45145f2bbeb0d44d1391859d96985721e3ad36aa9896f232e4a",
+      "size_bytes": 86838
+    },
+    {
       "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_v2.py",
       "sha256": "7d7c80cf3fa1e55f03b9fa7ba4f0b49dca627195365f7cce41c2a100c6a90a0e",
       "size_bytes": 41004
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_v2_schemas.py",
-      "sha256": "ebad3ff01c02dfe91c26cd17c093a446bc643720056d18e97dfd08583f3e8272",
-      "size_bytes": 40154
+      "sha256": "5c1efbb84148eab8c18e5d492d9b14a3d935ff93124440dc466f74936622be09",
+      "size_bytes": 44567
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_p06_runtime_correction_artifacts.py",
@@ -1151,6 +1361,11 @@
       "relative_path": "validation/calibration_v2/tests/test_p06_v1_terminal_failure_analysis_receipt.py",
       "sha256": "6cfd4a03e7251d19507347e671ce865179eeb60034681f0724c3836e40c8e9a9",
       "size_bytes": 9773
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p06_v2_evidence_sibling_schemas.py",
+      "sha256": "10b1563fd3a568deba1eef6415b953559eddcd1682cbda8526a50bdf21993f85",
+      "size_bytes": 70028
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_p07_execution.py",
@@ -1199,13 +1414,18 @@
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_production_providers.py",
-      "sha256": "19cf4acad94dbc04b90768ce2f936848eb4f1057f8d33eb4fba1879cb08f2dce",
-      "size_bytes": 8367
+      "sha256": "84b3989d93060c4f9d78e2fd307d5a07d4afa6b8a062c6ed6ec612b2f3b5b6e4",
+      "size_bytes": 20694
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_reference_oracle.py",
       "sha256": "74a4bb930c8c18b6d4b2be3bdf83cd84ed9415d9cb739663199d5884c27d4295",
       "size_bytes": 21022
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_reference_oracle_v2.py",
+      "sha256": "00d87c17d1bf56901204f47926c2f6f2e2cc02bbeb012b145a2b00fa7d588107",
+      "size_bytes": 29948
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_release_lock.py",
@@ -1221,6 +1441,11 @@
       "relative_path": "validation/calibration_v2/tests/test_run_p07_locked_holdout.py",
       "sha256": "a5d3cea74039b2cf904fcea0a9e4358675db583c34e9d878632ca641ecda8be1",
       "size_bytes": 18278
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_run_provenance_v2.py",
+      "sha256": "c2e6554a97b6dc9be6e7162dadb2203997b5b6bf8c049bbe164465c51a43f629",
+      "size_bytes": 62087
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_runner_evidence.py",
@@ -1241,6 +1466,16 @@
       "relative_path": "validation/calibration_v2/tests/test_runner_stage_context.py",
       "sha256": "318240dc92f01360d1ca1e3242556dec7069932b5183370ec6a98948d6482b60",
       "size_bytes": 25399
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_shared_bank_artifact_materialization_v2.py",
+      "sha256": "d8052f68354b15dd6749c9fab6c1a7b40b344d5095e8e50b9922226f31d3b031",
+      "size_bytes": 26694
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_shared_bank_artifacts_v2.py",
+      "sha256": "42f5c064adb05e0fce1c789ba2c570fdfce6650577bafd0a8975af6e125a6787",
+      "size_bytes": 19676
     },
     {
       "relative_path": "validation/calibration_v2/tests/test_shared_bank_configuration_identity_v2.py",
@@ -1668,6 +1903,6 @@
       "size_bytes": 778
     }
   ],
-  "manifest_sha256": "6e970e33fe840e1259e5c348d290150bef5bf940282c64781f159691d73aa4e1",
+  "manifest_sha256": "69eb49d0a2892bfa85aad467de91b18d8f57f47547597e766bf0329ec951c1b4",
   "schema_version": "1.0.0"
 }

@@ -9,15 +9,20 @@ import os
 from pathlib import Path
 import secrets
 import stat
+import tempfile
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
 from validation.calibration_v2.production_evaluator import (
+    ControlWriterProducerIdentityV2,
+    ControlWriterSemanticContextV2,
     ControlSelectionBundle,
     FIXED_DESCRIPTOR_IDS,
     ProductionEvaluatorError,
     WriterRoundTrip,
+    canonical_control_measurement_frame_bytes_v2,
+    decode_control_measurement_frame_bytes_v2,
     _freeze_frame,
     _invoke_cached_fixed,
     _invoke_native_control,
@@ -26,10 +31,14 @@ from validation.calibration_v2.production_evaluator import (
     _validate_evidence_dependency_commit_result,
     _validate_writer_round_trip,
 )
+from validation.quality.src.mirmir_quality import common_writer as common_writer_module
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha256
 from validation.quality.src.mirmir_quality.common_writer import (
     CommonWriterInputFrame,
+    COMMON_WRITER_SWIFT_ROOT,
+    FIXTURE_SWIFT_ROOT,
     PRODUCT_MEDIA_TYPES_PATH,
+    PRODUCTION_WRITER_SWIFT_ROOT,
     ProductionWriterAuthorizedExecution,
     RationalTime,
     compile_production_writer,
@@ -1228,6 +1237,332 @@ class NativeProductionWriterCapability:
             raise ProductionEvaluatorError(
                 "locked production-writer settings identity differs"
             )
+
+    @staticmethod
+    def _writer_source_manifest() -> Mapping[str, object]:
+        repository_root = common_writer_module.QUALITY_ROOT.parents[1]
+        sources = (
+            FIXTURE_SWIFT_ROOT / "ActualCodecFixtureTypes.swift",
+            FIXTURE_SWIFT_ROOT / "ActualCodecFixtureMedia.swift",
+            FIXTURE_SWIFT_ROOT / "ActualCodecFixturePixelIO.swift",
+            FIXTURE_SWIFT_ROOT / "ActualCodecFixtureProductRoute.swift",
+            COMMON_WRITER_SWIFT_ROOT / "CommonWriterTypes.swift",
+            PRODUCT_MEDIA_TYPES_PATH,
+            PRODUCTION_WRITER_SWIFT_ROOT / "ProductionWriterTypes.swift",
+            PRODUCTION_WRITER_SWIFT_ROOT / "ProductionWriterMain.swift",
+            Path(common_writer_module.__file__).resolve(),
+            Path(__file__).resolve(),
+        )
+        return {
+            "schema_version": "1.0.0",
+            "artifact_kind": "p06_control_writer_source_manifest_v2",
+            "sources": [
+                {
+                    "relative_path": path.resolve()
+                    .relative_to(repository_root)
+                    .as_posix(),
+                    "sha256": _sha256_file(path),
+                }
+                for path in sources
+            ],
+        }
+
+    def _control_writer_identity_document_v2(self) -> Mapping[str, object]:
+        source_manifest = self._writer_source_manifest()
+        return {
+            "writer_executable_sha256": self._settings[
+                "executable_sha256"
+            ],
+            "writer_settings_source_sha256": self._settings[
+                "product_settings_source_sha256"
+            ],
+            "writer_source_manifest_sha256": canonical_sha256(
+                source_manifest
+            ),
+            "writer_implementation_source_sha256": _sha256_file(
+                Path(__file__).resolve()
+            ),
+        }
+
+    def control_writer_producer_identity_v2(
+        self,
+    ) -> ControlWriterProducerIdentityV2:
+        """Return the authenticated identity needed by decoded control replay."""
+
+        if self._authorized_execution is None:
+            raise ProductionEvaluatorError(
+                "secure production-writer execution capability is absent"
+            )
+        return ControlWriterProducerIdentityV2(
+            writer_settings_bytes=canonical_json_bytes(self._settings),
+            writer_settings_sha256=self.settings_sha256,
+            authenticated_writer_identity_bytes=canonical_json_bytes(
+                self._control_writer_identity_document_v2()
+            ),
+        )
+
+    @staticmethod
+    def _canonical_context_document(
+        payload: bytes,
+        *,
+        label: str,
+    ) -> Mapping[str, object]:
+        try:
+            document = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ProductionEvaluatorError(
+                f"{label} is not canonical JSON"
+            ) from exc
+        if (
+            not isinstance(document, dict)
+            or canonical_json_bytes(document) != payload
+        ):
+            raise ProductionEvaluatorError(
+                f"{label} is not a canonical object"
+            )
+        return document
+
+    def control_writer_semantic_verifier(
+        self,
+        binding: object,
+        document: Mapping[str, object],
+        context: ControlWriterSemanticContextV2,
+    ) -> Mapping[str, object]:
+        """Deterministically replay one writer envelope from snapshot bytes."""
+
+        if (
+            self._authorized_execution is None
+            or type(context) is not ControlWriterSemanticContextV2
+            or not isinstance(document, dict)
+        ):
+            raise ProductionEvaluatorError(
+                "secure control-writer semantic replay inputs are absent"
+            )
+        payload = canonical_json_bytes(document)
+        if (
+            getattr(binding, "artifact_kind", None)
+            != "p06_control_writer_evidence_bytes_v2"
+            or getattr(binding, "sha256", None)
+            != hashlib.sha256(payload).hexdigest()
+            or getattr(binding, "size_bytes", None) != len(payload)
+            or context.writer_provenance_bytes != payload
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer provenance binding differs"
+            )
+        scope = self._canonical_context_document(
+            context.expected_scope_bytes,
+            label="control-writer expected scope",
+        )
+        request = self._canonical_context_document(
+            context.expected_control_request_bytes,
+            label="control-writer expected request",
+        )
+        source_profile = self._canonical_context_document(
+            context.source_profile_identity_bytes,
+            label="control-writer source/profile identity",
+        )
+        self._canonical_context_document(
+            context.degradation_profile_bytes,
+            label="control-writer degradation profile",
+        )
+        producer_identity = self.control_writer_producer_identity_v2()
+        expected_writer_identity = self._canonical_context_document(
+            producer_identity.authenticated_writer_identity_bytes,
+            label="control-writer producer identity",
+        )
+        if (
+            context.writer_settings_bytes
+            != producer_identity.writer_settings_bytes
+            or context.writer_settings_sha256 != self.settings_sha256
+            or context.authenticated_writer_identity_bytes
+            != producer_identity.authenticated_writer_identity_bytes
+            or document.get("writer_settings") != self._settings
+            or document.get("writer_settings_sha256")
+            != self.settings_sha256
+            or document.get("authenticated_writer_identity")
+            != expected_writer_identity
+            or document.get("source_profile_identity_sha256")
+            != canonical_sha256(source_profile)
+            or document.get("target_route")
+            != source_profile.get("target_route")
+            or document.get("target_route") not in {
+                "direct-2x",
+                "direct-3over2",
+            }
+            or document.get("control_key") != request.get("control_key")
+            or scope.get("control_configuration_sha256")
+            != request.get("configuration_sha256")
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer producer or scope identity differs"
+            )
+        raw = decode_control_measurement_frame_bytes_v2(
+            context.raw_output_frame_bytes
+        )
+        decoded = decode_control_measurement_frame_bytes_v2(
+            context.decoded_output_frame_bytes
+        )
+        candidate_context = CandidateContext(
+            y_shape=raw.y.shape,
+            cb_shape=raw.cb.shape,
+            cr_shape=raw.cr.shape,
+            target_route=str(document["target_route"]),
+        )
+        if (
+            raw.y.shape != decoded.y.shape
+            or raw.cb.shape != decoded.cb.shape
+            or raw.cr.shape != decoded.cr.shape
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer decoded geometry differs"
+            )
+        native_record = document.get("native_writer_round_trip_record")
+        if not isinstance(native_record, dict):
+            raise ProductionEvaluatorError(
+                "control-writer native record is absent"
+            )
+        native_record_sha256 = canonical_sha256(native_record)
+        try:
+            trusted_native_record = self.reopen_evidence(
+                native_record_sha256
+            )
+        except Exception as exc:
+            raise ProductionEvaluatorError(
+                "control-writer producer receipt is absent or differs"
+            ) from exc
+        if (
+            document.get("native_writer_round_trip_record_sha256")
+            != native_record_sha256
+            or trusted_native_record != native_record
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer producer receipt is absent or differs"
+            )
+        encoded_sha256 = hashlib.sha256(
+            context.encoded_container_bytes
+        ).hexdigest()
+        report_sha256 = hashlib.sha256(
+            context.writer_report_bytes
+        ).hexdigest()
+        decoded_payload_sha256 = hashlib.sha256(
+            context.decoded_payload_bytes
+        ).hexdigest()
+        try:
+            report = json.loads(context.writer_report_bytes)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ProductionEvaluatorError(
+                "control-writer supplied report is invalid"
+            ) from exc
+        decoder = report.get("decoder") if isinstance(report, dict) else None
+        decoded_frames = (
+            decoder.get("frames") if isinstance(decoder, dict) else None
+        )
+        encoder = report.get("encoder") if isinstance(report, dict) else None
+        encoded_record = (
+            report.get("encoded") if isinstance(report, dict) else None
+        )
+        normalized_payload, normalization = (
+            _normalize_decoded_video_range_nv12(
+                context.decoded_payload_bytes,
+                width=raw.y.shape[1],
+                height=raw.y.shape[0],
+            )
+        )
+        decoded_from_payload = _video_range_nv12_to_planar(
+            normalized_payload,
+            width=raw.y.shape[1],
+            height=raw.y.shape[0],
+        )
+        if (
+            document.get("encoded_container_sha256") != encoded_sha256
+            or document.get("writer_report_sha256") != report_sha256
+            or document.get("decoded_payload_sha256")
+            != decoded_payload_sha256
+            or native_record.get("encoded_sha256") != encoded_sha256
+            or native_record.get("report_sha256") != report_sha256
+            or native_record.get("decoded_payload_sha256")
+            != decoded_payload_sha256
+            or report.get("artifact_kind")
+            != "production_writer_actual_codec"
+            or not isinstance(encoder, dict)
+            or encoder.get("product_settings_source", {}).get("sha256")
+            != self._settings["product_settings_source_sha256"]
+            or not isinstance(encoded_record, dict)
+            or encoded_record.get("sha256") != encoded_sha256
+            or not isinstance(decoded_frames, list)
+            or len(decoded_frames) != 1
+            or not isinstance(decoded_frames[0], dict)
+            or decoded_frames[0].get("payload_sha256")
+            != decoded_payload_sha256
+            or decoded_frames[0].get("payload_size_bytes")
+            != len(context.decoded_payload_bytes)
+            or native_record.get("raw_decoded_payload_sha256")
+            != decoded_payload_sha256
+            or native_record.get("raw_decoded_payload_size_bytes")
+            != len(context.decoded_payload_bytes)
+            or native_record.get("normalized_decoded_payload_sha256")
+            != hashlib.sha256(normalized_payload).hexdigest()
+            or native_record.get("normalized_decoded_payload_size_bytes")
+            != len(normalized_payload)
+            or native_record.get("decoded_pixel_normalization")
+            != self._settings["decoded_pixel_normalization"]
+            or native_record.get("decoder_legal_range_normalization")
+            != normalization
+            or canonical_control_measurement_frame_bytes_v2(
+                decoded_from_payload
+            )
+            != context.decoded_output_frame_bytes
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer supplied container/report/decode differs"
+            )
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-control-writer-replay-"
+        ) as directory:
+            replay = NativeProductionWriterCapability(
+                Path(directory),
+                locked_executable=self._executable,
+                expected_executable_sha256=str(
+                    self._settings["executable_sha256"]
+                ),
+                expected_product_settings_source_sha256=str(
+                    self._settings["product_settings_source_sha256"]
+                ),
+                expected_settings_sha256=self.settings_sha256,
+                authorized_execution=self._authorized_execution,
+            )
+            result = replay.round_trip(
+                control_key=str(document["control_key"]),
+                frame=raw,
+                context=candidate_context,
+            )
+            if (
+                canonical_control_measurement_frame_bytes_v2(
+                    result.decoded_frame
+                )
+                != context.decoded_output_frame_bytes
+            ):
+                raise ProductionEvaluatorError(
+                    "control-writer replay decoded pixels differ"
+                )
+            replay_record = replay.reopen_evidence(
+                result.evidence_sha256
+            )
+        normalized_replay_record = dict(replay_record)
+        normalized_replay_record["encoded_sha256"] = native_record.get(
+            "encoded_sha256"
+        )
+        normalized_replay_record["report_sha256"] = native_record.get(
+            "report_sha256"
+        )
+        if (
+            normalized_replay_record != native_record
+        ):
+            raise ProductionEvaluatorError(
+                "control-writer replay artifact or record differs"
+            )
+        return json.loads(payload)
 
     def _paths(self, run_key: str) -> Mapping[str, Path]:
         root = self._runs / run_key / "case-000000"

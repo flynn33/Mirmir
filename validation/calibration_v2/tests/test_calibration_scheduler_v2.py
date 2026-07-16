@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import replace
+import hashlib
 import json
 from pathlib import Path
 import unittest
@@ -30,7 +31,10 @@ from validation.calibration_v2.calibration_scheduler_v2 import (
     STATUS_TERMINATED_FEASIBLE,
     STRUCTURAL_ATTEMPTS_PER_SWEEP,
     VALIDATION_SPLIT,
+    ArtifactBindingV2,
     AttemptRecordV2,
+    AuthenticatedDevelopmentEvaluationFailureV2,
+    AuthenticatedDevelopmentEvaluationV2,
     CalibrationSchedulerV2Error,
     DevelopmentEvaluationV2,
     EvaluationCacheIdentityV2,
@@ -102,6 +106,29 @@ class PreferredInitialEvaluator:
             1_000 * int(logical[ATOMIC_STRUCTURAL_COORDINATE]) + deviations
         )
         return evaluation(score)
+
+
+def artifact_binding(label: str, *, directory: str = "evaluations") -> ArtifactBindingV2:
+    digest = hashlib.sha256(label.encode("utf-8")).hexdigest()
+    return ArtifactBindingV2(
+        path=f"{directory}/{digest}.json",
+        sha256=digest,
+        size_bytes=123,
+    )
+
+
+class AuthenticatedPreferredInitialEvaluator(PreferredInitialEvaluator):
+    def __call__(
+        self,
+        logical: dict[str, object],
+        physical: dict[str, object],
+        identity: EvaluationCacheIdentityV2,
+    ) -> AuthenticatedDevelopmentEvaluationV2:
+        result = super().__call__(logical, physical, identity)
+        return AuthenticatedDevelopmentEvaluationV2(
+            evaluation=result,
+            artifact=artifact_binding(identity.candidate_vector_sha256),
+        )
 
 
 class WaveEvaluator:
@@ -230,6 +257,120 @@ class CalibrationSchedulerV2Tests(unittest.TestCase):
         )
         self.assertEqual(after_scan.status, STATUS_IN_PROGRESS)
         self.assertIsNotNone(after_scan.incumbent_candidate_sha256)
+
+    def test_authenticated_artifacts_are_hashed_and_reused_on_cache_hits(self) -> None:
+        evaluator = AuthenticatedPreferredInitialEvaluator(self.plan)
+        result = run_development_search_v2(self.plan, evaluator)
+        evaluated = [
+            record
+            for record in result.attempt_records
+            if record.evaluation is not None
+        ]
+        self.assertTrue(evaluated)
+        self.assertTrue(
+            all(record.evaluation_artifact is not None for record in evaluated)
+        )
+        self.assertTrue(
+            all(record.failure_artifact is None for record in evaluated)
+        )
+        first_by_candidate: dict[str, ArtifactBindingV2] = {}
+        cache_hit = None
+        for record in evaluated:
+            binding = record.evaluation_artifact
+            self.assertIsNotNone(binding)
+            previous = first_by_candidate.setdefault(
+                record.candidate_vector_sha256,
+                binding,
+            )
+            self.assertEqual(binding, previous)
+            if record.cache_hit and cache_hit is None:
+                cache_hit = record
+        self.assertIsNotNone(cache_hit)
+
+        replacement = artifact_binding("different-evaluation")
+        tampered = tuple(
+            replace(record, evaluation_artifact=replacement)
+            if record.sequence == cache_hit.sequence
+            else record
+            for record in result.attempt_records
+        )
+        rechained = rechain(tampered)
+        with self.assertRaisesRegex(
+            CalibrationSchedulerV2Error,
+            "cache-hit semantics are invalid",
+        ):
+            replay_development_attempts_v2(self.plan, rechained)
+
+    def test_authenticated_failure_and_constraint_bindings_are_disjoint(self) -> None:
+        failure = AuthenticatedDevelopmentEvaluationFailureV2(
+            failure_reasons=("native evaluator failed",),
+            artifact=artifact_binding("native evaluator failed", directory="failures"),
+        )
+        result = run_development_search_v2(
+            self.plan,
+            lambda logical, physical, identity: failure,
+        )
+        failed = next(
+            record
+            for record in result.attempt_records
+            if record.status == ATTEMPT_STATUS_EVALUATION_FAILURE
+        )
+        self.assertIsNone(failed.evaluation)
+        self.assertIsNone(failed.evaluation_artifact)
+        self.assertEqual(failed.failure_artifact, failure.artifact)
+
+        preferred, _ = self.run_preferred()
+        constraint = next(
+            record
+            for record in preferred.attempt_records
+            if record.status == ATTEMPT_STATUS_CONSTRAINT_FAILURE
+        )
+        tampered = tuple(
+            replace(record, failure_artifact=failure.artifact)
+            if record.sequence == constraint.sequence
+            else record
+            for record in preferred.attempt_records
+        )
+        with self.assertRaisesRegex(
+            CalibrationSchedulerV2Error,
+            "constraint-failure attempt semantics are invalid",
+        ):
+            replay_development_attempts_v2(self.plan, rechain(tampered))
+
+    def test_artifact_binding_rejects_ambiguous_paths_and_sizes(self) -> None:
+        digest = hashlib.sha256(b"artifact").hexdigest()
+        for path, sha256, size_bytes in (
+            (f"/evaluations/{digest}.json", digest, 1),
+            (f"evaluations/../{digest}.json", digest, 1),
+            (f"evaluations/{'f' * 64}.json", digest, 1),
+            (f"evaluations/{'0' * 64}.json", "0" * 64, 1),
+            (f"evaluations/{digest}.json", digest, True),
+            (f"evaluations/{digest}.json", digest, 0),
+        ):
+            with self.subTest(path=path, size_bytes=size_bytes):
+                with self.assertRaises(CalibrationSchedulerV2Error):
+                    ArtifactBindingV2(
+                        path=path,
+                        sha256=sha256,
+                        size_bytes=size_bytes,
+                    )
+
+        with self.assertRaisesRegex(
+            CalibrationSchedulerV2Error,
+            "not in evaluations",
+        ):
+            AuthenticatedDevelopmentEvaluationV2(
+                evaluation=evaluation(1),
+                artifact=artifact_binding("wrong-directory", directory="failures"),
+            )
+        with self.assertRaisesRegex(
+            CalibrationSchedulerV2Error,
+            "not in failures",
+        ):
+            AuthenticatedDevelopmentEvaluationFailureV2(
+                failure_reasons=("typed failure",),
+                artifact=artifact_binding("wrong-directory", directory="evaluations"),
+            )
 
     def test_first_incumbent_forces_second_complete_sweep(self) -> None:
         result, _ = self.run_preferred()

@@ -3,20 +3,39 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from copy import deepcopy
 
 import numpy as np
 import pytest
 
 from validation.calibration_v2.production_evaluator import (
+    ControlWriterSemanticContextV2,
     ProductionEvaluatorError,
+    WriterRoundTrip,
+    canonical_control_measurement_frame_bytes_v2,
     _validate_writer_round_trip,
+)
+from validation.calibration_v2.control_authorization_v2 import (
+    CONTROL_WRITER_EVIDENCE_BYTES_KIND,
+    OUTPUT_MANIFEST_KIND,
+    TypedArtifactBindingV2,
+    canonical_json_bytes_v2,
+    schema_sha256_for_kind_v2,
 )
 from validation.calibration_v2.production_providers import (
     NativeProductionWriterCapability,
     _normalize_decoded_video_range_nv12,
+    _video_range_nv12_to_planar,
+    production_writer_settings_document,
 )
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha256
-from validation.quality.src.mirmir_quality.json_tools import canonical_sha256
+from validation.quality.src.mirmir_quality.common_writer import (
+    PRODUCT_MEDIA_TYPES_PATH,
+)
+from validation.quality.src.mirmir_quality.json_tools import (
+    canonical_json_bytes,
+    canonical_sha256,
+)
 from validation.quality.src.mirmir_quality.production_dry_run import (
     CandidateContext,
     _planar_to_video_range_nv12,
@@ -262,3 +281,300 @@ def test_writer_normalization_evidence_propagates_to_candidate_boundary(
     ]
     assert evidence["decoded_pixel_normalization"]["engine_raw_affected"] is False
     assert result.evidence_sha256 == canonical_sha256(evidence)
+
+
+def test_control_writer_restart_reopens_receipt_and_rejects_forged_substitution(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executable = tmp_path / "locked-production-writer"
+    executable.write_bytes(b"locked-production-writer-test-binary")
+    executable_sha256 = hashlib.sha256(executable.read_bytes()).hexdigest()
+    settings_source_sha256 = hashlib.sha256(
+        PRODUCT_MEDIA_TYPES_PATH.read_bytes()
+    ).hexdigest()
+    settings = production_writer_settings_document(
+        executable_sha256=executable_sha256,
+        product_settings_source_sha256=settings_source_sha256,
+    )
+    settings_sha256 = canonical_sha256(settings)
+    evidence_root = tmp_path / "writer-evidence"
+
+    def restarted_writer() -> NativeProductionWriterCapability:
+        writer = object.__new__(NativeProductionWriterCapability)
+        writer._root = evidence_root
+        writer._runs = evidence_root / "runs"
+        writer._evidence = evidence_root / "evidence"
+        writer._runs.mkdir(parents=True, exist_ok=True)
+        writer._evidence.mkdir(parents=True, exist_ok=True)
+        writer._executable = executable
+        writer._authorized_execution = object()
+        writer._settings = settings
+        writer.settings_sha256 = settings_sha256
+        return writer
+
+    producer = restarted_writer()
+    raw = PlanarFrame(
+        y=np.full((4, 4), (100.0 - 16.0) / 219.0),
+        cb=np.full((2, 2), (128.0 - 16.0) / 224.0 - 0.5),
+        cr=np.full((2, 2), (128.0 - 16.0) / 224.0 - 0.5),
+    )
+    decoded_payload = _planar_to_video_range_nv12(raw)
+    normalized_payload, normalization = _normalize_decoded_video_range_nv12(
+        decoded_payload,
+        width=4,
+        height=4,
+    )
+    decoded = _video_range_nv12_to_planar(
+        normalized_payload,
+        width=4,
+        height=4,
+    )
+    encoded_payload = b"nondeterministic-original-container"
+    encoded_sha256 = hashlib.sha256(encoded_payload).hexdigest()
+    decoded_payload_sha256 = hashlib.sha256(decoded_payload).hexdigest()
+    report = {
+        "artifact_kind": "production_writer_actual_codec",
+        "encoder": {
+            "product_settings_source": {
+                "sha256": settings_source_sha256,
+            }
+        },
+        "encoded": {"sha256": encoded_sha256},
+        "decoder": {
+            "frames": [
+                {
+                    "payload_sha256": decoded_payload_sha256,
+                    "payload_size_bytes": len(decoded_payload),
+                }
+            ]
+        },
+    }
+    report_payload = canonical_json_bytes(report)
+    report_sha256 = hashlib.sha256(report_payload).hexdigest()
+    native_record = {
+        "schema_version": "1.0.0",
+        "artifact_kind": "p06_isolated_production_writer_evidence",
+        "control_key": "restart-control",
+        "input_frame_sha256": frame_sha256(raw),
+        "decoded_frame_sha256": frame_sha256(decoded),
+        "settings_sha256": settings_sha256,
+        "encoded_sha256": encoded_sha256,
+        "report_sha256": report_sha256,
+        "source_payload_sha256": "5" * 64,
+        "source_lock_sha256": "6" * 64,
+        "decoded_payload_sha256": decoded_payload_sha256,
+        "raw_decoded_payload_sha256": decoded_payload_sha256,
+        "raw_decoded_payload_size_bytes": len(decoded_payload),
+        "normalized_decoded_payload_sha256": hashlib.sha256(
+            normalized_payload
+        ).hexdigest(),
+        "normalized_decoded_payload_size_bytes": len(normalized_payload),
+        "decoded_pixel_normalization": settings[
+            "decoded_pixel_normalization"
+        ],
+        "decoder_legal_range_normalization": normalization,
+        "comparison_domain": "container_decoded",
+        "target_route": "direct-2x",
+        "reopened_and_verified": True,
+    }
+    native_record_sha256 = canonical_sha256(native_record)
+    (producer._evidence / f"{native_record_sha256}.json").write_bytes(
+        canonical_json_bytes(native_record)
+    )
+
+    restarted = restarted_writer()
+    producer_identity = restarted.control_writer_producer_identity_v2()
+    output_schema = schema_sha256_for_kind_v2(OUTPUT_MANIFEST_KIND)
+
+    def binding(kind: str, payload: bytes, path: str) -> dict[str, object]:
+        return TypedArtifactBindingV2(
+            artifact_kind=kind,
+            schema_sha256=output_schema,
+            path=path,
+            sha256=hashlib.sha256(payload).hexdigest(),
+            size_bytes=len(payload),
+        ).as_document()
+
+    raw_payload = canonical_control_measurement_frame_bytes_v2(raw)
+    decoded_frame_payload = canonical_control_measurement_frame_bytes_v2(decoded)
+    writer_identity = json.loads(
+        producer_identity.authenticated_writer_identity_bytes
+    )
+    source_profile = {
+        "source_asset_id": "restart-source",
+        "source_family_id": "restart-family",
+        "categories": ["natural"],
+        "target_route": "direct-2x",
+        "degradation_profile_id": "restart-profile",
+        "degradation_profile_sha256": "7" * 64,
+        "source_target_provenance": binding(
+            "p06_control_source_target_provenance_v2",
+            b"source-provenance",
+            "source/provenance.json",
+        ),
+        "degradation_profile": binding(
+            "p06_control_degradation_profile_v2",
+            b"profile",
+            "profiles/profile.json",
+        ),
+    }
+    document = {
+        "schema_version": "2.0.0",
+        "artifact_kind": CONTROL_WRITER_EVIDENCE_BYTES_KIND,
+        "source_profile_identity_sha256": canonical_sha256(source_profile),
+        "target_route": "direct-2x",
+        "control_key": "restart-control",
+        "raw_output": binding(
+            "p06_control_output_bytes_v2",
+            raw_payload,
+            "outputs/raw.bin",
+        ),
+        "raw_output_frame_sha256": frame_sha256(raw),
+        "decoded_output": binding(
+            "p06_control_output_bytes_v2",
+            decoded_frame_payload,
+            "outputs/decoded.bin",
+        ),
+        "decoded_output_frame_sha256": frame_sha256(decoded),
+        "writer_settings": settings,
+        "writer_settings_sha256": settings_sha256,
+        "authenticated_writer_identity": writer_identity,
+        "encoded_container": binding(
+            "p06_control_writer_encoded_container_bytes_v2",
+            encoded_payload,
+            "writer/encoded.bin",
+        ),
+        "encoded_container_sha256": encoded_sha256,
+        "writer_report": binding(
+            "p06_control_writer_report_bytes_v2",
+            report_payload,
+            "writer/report.json",
+        ),
+        "writer_report_sha256": report_sha256,
+        "decoded_payload": binding(
+            "p06_control_writer_decoded_payload_bytes_v2",
+            decoded_payload,
+            "writer/decoded.nv12",
+        ),
+        "decoded_payload_sha256": decoded_payload_sha256,
+        "native_writer_round_trip_record": native_record,
+        "native_writer_round_trip_record_sha256": native_record_sha256,
+    }
+    document_payload = canonical_json_bytes_v2(document)
+    document_binding = TypedArtifactBindingV2(
+        artifact_kind=CONTROL_WRITER_EVIDENCE_BYTES_KIND,
+        schema_sha256=output_schema,
+        path="writer/provenance.json",
+        sha256=hashlib.sha256(document_payload).hexdigest(),
+        size_bytes=len(document_payload),
+    )
+    request = {
+        "control_key": "restart-control",
+        "configuration_sha256": "8" * 64,
+    }
+    scope = {"control_configuration_sha256": "8" * 64}
+    degradation_profile = {
+        "schema_version": "2.0.0",
+        "artifact_kind": "p06_control_degradation_profile_v2",
+        "degradation_policy_sha256": "9" * 64,
+        "degradation_profile_id": "restart-profile",
+        "profile_definition": {
+            "id": "restart-profile",
+            "target_route": "direct-2x",
+        },
+    }
+    context = ControlWriterSemanticContextV2(
+        expected_scope_bytes=canonical_json_bytes_v2(scope),
+        expected_control_request_bytes=canonical_json_bytes_v2(request),
+        source_profile_identity_bytes=canonical_json_bytes_v2(source_profile),
+        degradation_profile_bytes=canonical_json_bytes_v2(degradation_profile),
+        raw_output_frame_bytes=raw_payload,
+        decoded_output_frame_bytes=decoded_frame_payload,
+        decoded_payload_bytes=decoded_payload,
+        encoded_container_bytes=encoded_payload,
+        writer_report_bytes=report_payload,
+        writer_provenance_bytes=document_payload,
+        writer_settings_bytes=producer_identity.writer_settings_bytes,
+        writer_settings_sha256=producer_identity.writer_settings_sha256,
+        authenticated_writer_identity_bytes=(
+            producer_identity.authenticated_writer_identity_bytes
+        ),
+    )
+
+    replay_record = dict(native_record)
+    replay_record["encoded_sha256"] = "a" * 64
+    replay_record["report_sha256"] = "b" * 64
+    original_reopen = NativeProductionWriterCapability.reopen_evidence
+
+    def replay_round_trip(self, **kwargs):
+        return WriterRoundTrip(
+            decoded_frame=decoded,
+            input_frame_sha256=frame_sha256(raw),
+            decoded_frame_sha256=frame_sha256(decoded),
+            settings_sha256=settings_sha256,
+            encoded_sha256="a" * 64,
+            report_sha256="b" * 64,
+            evidence_sha256=canonical_sha256(replay_record),
+            reopened_and_verified=True,
+        )
+
+    def reopen_evidence(self, evidence_sha256: str):
+        if self is restarted:
+            return original_reopen(self, evidence_sha256)
+        return deepcopy(replay_record)
+
+    monkeypatch.setattr(
+        NativeProductionWriterCapability,
+        "round_trip",
+        replay_round_trip,
+    )
+    monkeypatch.setattr(
+        NativeProductionWriterCapability,
+        "reopen_evidence",
+        reopen_evidence,
+    )
+    assert restarted.control_writer_semantic_verifier(
+        document_binding,
+        document,
+        context,
+    ) == document
+
+    forged = deepcopy(document)
+    forged_record = deepcopy(native_record)
+    forged_record["encoded_sha256"] = "c" * 64
+    forged["native_writer_round_trip_record"] = forged_record
+    forged["native_writer_round_trip_record_sha256"] = canonical_sha256(
+        forged_record
+    )
+    forged_payload = canonical_json_bytes_v2(forged)
+    forged_binding = TypedArtifactBindingV2(
+        artifact_kind=CONTROL_WRITER_EVIDENCE_BYTES_KIND,
+        schema_sha256=output_schema,
+        path="writer/forged-provenance.json",
+        sha256=hashlib.sha256(forged_payload).hexdigest(),
+        size_bytes=len(forged_payload),
+    )
+    forged_context = ControlWriterSemanticContextV2(
+        expected_scope_bytes=context.expected_scope_bytes,
+        expected_control_request_bytes=context.expected_control_request_bytes,
+        source_profile_identity_bytes=context.source_profile_identity_bytes,
+        degradation_profile_bytes=context.degradation_profile_bytes,
+        raw_output_frame_bytes=context.raw_output_frame_bytes,
+        decoded_output_frame_bytes=context.decoded_output_frame_bytes,
+        decoded_payload_bytes=context.decoded_payload_bytes,
+        encoded_container_bytes=context.encoded_container_bytes,
+        writer_report_bytes=context.writer_report_bytes,
+        writer_provenance_bytes=forged_payload,
+        writer_settings_bytes=context.writer_settings_bytes,
+        writer_settings_sha256=context.writer_settings_sha256,
+        authenticated_writer_identity_bytes=(
+            context.authenticated_writer_identity_bytes
+        ),
+    )
+    with pytest.raises(ProductionEvaluatorError, match="producer receipt"):
+        restarted.control_writer_semantic_verifier(
+            forged_binding,
+            forged,
+            forged_context,
+        )

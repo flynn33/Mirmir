@@ -1,8 +1,9 @@
 """Pure development-search scheduler for the authenticated calibration plan V2.
 
-This module deliberately emits only immutable in-memory semantic records.  The
-persisted V2 ledger schema, terminal siblings, and shared-bank hash framing are
-separate preregistration work and are not invented here.
+This module emits immutable semantic records and can carry exact
+content-addressed evaluation or typed-failure bindings.  Byte publication,
+schema validation, artifact reopening, and shared-bank authority verification
+remain the responsibility of the persistence adapter.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 import math
 import re
-from typing import Callable, Dict, Mapping, Sequence, Tuple
+from typing import Callable, Dict, Mapping, Sequence, Tuple, Union
 
 from validation.calibration_v2.calibration_plan_codec import (
     CalibrationPlanCodecError,
@@ -101,6 +102,31 @@ class EvaluationCacheIdentityV2:
 
 
 @dataclass(frozen=True)
+class ArtifactBindingV2:
+    """One content-addressed immutable artifact referenced by a semantic record."""
+
+    path: str
+    sha256: str
+    size_bytes: int
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.path) is not str
+            or not self.path
+            or self.path.startswith("/")
+            or "\\" in self.path
+            or "//" in self.path
+            or any(part in {"", ".", ".."} for part in self.path.split("/"))
+            or not _is_sha256(self.sha256)
+            or self.sha256 == _ZERO_SHA256
+            or self.path.split("/")[-1] != f"{self.sha256}.json"
+            or type(self.size_bytes) is not int
+            or self.size_bytes < 1
+        ):
+            raise CalibrationSchedulerV2Error("artifact binding is invalid")
+
+
+@dataclass(frozen=True)
 class DevelopmentEvaluationV2:
     """The inherited development-ranking fields for one successful evaluation."""
 
@@ -115,6 +141,38 @@ class DevelopmentEvaluationV2:
 
     def __post_init__(self) -> None:
         _validate_development_evaluation(self)
+
+
+@dataclass(frozen=True)
+class AuthenticatedDevelopmentEvaluationV2:
+    """A successful ranking result plus its immutable evaluation artifact."""
+
+    evaluation: DevelopmentEvaluationV2
+    artifact: ArtifactBindingV2
+
+    def __post_init__(self) -> None:
+        _validate_development_evaluation(self.evaluation)
+        _validate_artifact_binding(self.artifact, expected_directory="evaluations")
+
+
+@dataclass(frozen=True)
+class AuthenticatedDevelopmentEvaluationFailureV2:
+    """A typed evaluator failure plus its immutable failure artifact."""
+
+    failure_reasons: Tuple[str, ...]
+    artifact: ArtifactBindingV2
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.failure_reasons) is not tuple
+            or len(self.failure_reasons) != 1
+            or type(self.failure_reasons[0]) is not str
+            or not self.failure_reasons[0]
+        ):
+            raise CalibrationSchedulerV2Error(
+                "authenticated evaluation failure reason is invalid"
+            )
+        _validate_artifact_binding(self.artifact, expected_directory="failures")
 
 
 def _validate_development_evaluation(
@@ -156,7 +214,7 @@ def _validate_development_evaluation(
 
 @dataclass(frozen=True)
 class AttemptRecordV2:
-    """One immutable semantic attempt record for deterministic replay tests."""
+    """One immutable semantic attempt, including optional artifact provenance."""
 
     sequence: int
     previous_record_sha256: str
@@ -174,6 +232,8 @@ class AttemptRecordV2:
     failure_reasons: Tuple[str, ...]
     canonical_failure_reasons: Tuple[str, ...]
     evaluation: DevelopmentEvaluationV2 | None
+    evaluation_artifact: ArtifactBindingV2 | None = None
+    failure_artifact: ArtifactBindingV2 | None = None
 
 
 def _validate_cache_identity(identity: EvaluationCacheIdentityV2) -> None:
@@ -186,6 +246,36 @@ def _validate_cache_identity(identity: EvaluationCacheIdentityV2) -> None:
         or not _is_sha256(identity.calibration_plan_file_sha256)
     ):
         raise CalibrationSchedulerV2Error("cache identity fields are invalid")
+
+
+def _validate_artifact_binding(
+    binding: ArtifactBindingV2,
+    *,
+    expected_directory: str | None = None,
+) -> None:
+    if type(binding) is not ArtifactBindingV2:
+        raise CalibrationSchedulerV2Error("artifact binding has the wrong type")
+    binding.__post_init__()
+    if (
+        expected_directory is not None
+        and binding.path != f"{expected_directory}/{binding.sha256}.json"
+    ):
+        raise CalibrationSchedulerV2Error(
+            f"artifact binding is not in {expected_directory}"
+        )
+
+
+def _artifact_binding_payload(
+    binding: ArtifactBindingV2 | None,
+) -> Mapping[str, object] | None:
+    if binding is None:
+        return None
+    _validate_artifact_binding(binding)
+    return {
+        "path": binding.path,
+        "sha256": binding.sha256,
+        "size_bytes": binding.size_bytes,
+    }
 
 
 def _validate_attempt_record_shape(record: AttemptRecordV2) -> None:
@@ -239,6 +329,20 @@ def _validate_attempt_record_shape(record: AttemptRecordV2) -> None:
     _validate_cache_identity(record.cache_identity)
     if record.evaluation is not None:
         _validate_development_evaluation(record.evaluation)
+    if record.evaluation_artifact is not None:
+        _validate_artifact_binding(
+            record.evaluation_artifact,
+            expected_directory="evaluations",
+        )
+    if record.failure_artifact is not None:
+        _validate_artifact_binding(
+            record.failure_artifact,
+            expected_directory="failures",
+        )
+    if record.evaluation_artifact is not None and record.failure_artifact is not None:
+        raise CalibrationSchedulerV2Error(
+            "attempt record cannot bind evaluation and failure artifacts together"
+        )
 
 
 def _physical_items_equal(
@@ -290,7 +394,11 @@ class DevelopmentSearchResultV2:
 
 DevelopmentEvaluatorV2 = Callable[
     [Mapping[str, object], Mapping[str, object], EvaluationCacheIdentityV2],
-    DevelopmentEvaluationV2,
+    Union[
+        DevelopmentEvaluationV2,
+        AuthenticatedDevelopmentEvaluationV2,
+        AuthenticatedDevelopmentEvaluationFailureV2,
+    ],
 ]
 
 
@@ -336,9 +444,11 @@ def _attempt_record_payload(record: AttemptRecordV2) -> Mapping[str, object]:
         "canonical_failure_reasons": list(record.canonical_failure_reasons),
         "coordinate": record.coordinate,
         "domain": _ATTEMPT_RECORD_DOMAIN,
+        "evaluation_artifact": _artifact_binding_payload(record.evaluation_artifact),
         "evaluation": (
             None if record.evaluation is None else _evaluation_payload(record.evaluation)
         ),
+        "failure_artifact": _artifact_binding_payload(record.failure_artifact),
         "failure_reasons": list(record.failure_reasons),
         "phase": record.phase,
         "physical_candidate_items": [
@@ -439,6 +549,7 @@ class _EligibleCandidate:
 class _CachedEvaluation:
     physical_items: Tuple[Tuple[str, object], ...]
     evaluation: DevelopmentEvaluationV2
+    evaluation_artifact: ArtifactBindingV2 | None
 
 
 class _SearchState:
@@ -627,6 +738,8 @@ class _SearchState:
                 or record.failure_reasons != (str(error),)
                 or record.canonical_failure_reasons
                 or record.evaluation is not None
+                or record.evaluation_artifact is not None
+                or record.failure_artifact is not None
             ):
                 raise CalibrationSchedulerV2Error(
                     "constraint-failure attempt semantics are invalid"
@@ -647,6 +760,8 @@ class _SearchState:
                     or record.evaluation is None
                     or _evaluation_semantic_sha256(record.evaluation)
                     != _evaluation_semantic_sha256(cached.evaluation)
+                    or record.evaluation_artifact != cached.evaluation_artifact
+                    or record.failure_artifact is not None
                     or not _physical_items_equal(
                         record.physical_candidate_items,
                         cached.physical_items,
@@ -663,6 +778,7 @@ class _SearchState:
                     or not record.failure_reasons[0]
                     or record.canonical_failure_reasons
                     or record.evaluation is not None
+                    or record.evaluation_artifact is not None
                 ):
                     raise CalibrationSchedulerV2Error(
                         "evaluation-failure attempt semantics are invalid"
@@ -688,11 +804,16 @@ class _SearchState:
                     or record.status != expected_status
                     or record.failure_reasons != evaluation.failure_reasons
                     or record.canonical_failure_reasons != expected_canonical
+                    or record.failure_artifact is not None
                 ):
                     raise CalibrationSchedulerV2Error(
                         "evaluation attempt semantics are invalid"
                     )
-                cache_addition = _CachedEvaluation(physical_items, evaluation)
+                cache_addition = _CachedEvaluation(
+                    physical_items,
+                    evaluation,
+                    record.evaluation_artifact,
+                )
 
             if evaluation is not None:
                 expected_canonical = canonical_development_failure_reasons_v2(
@@ -765,6 +886,8 @@ def _new_attempt_record(
     failure_reasons: Tuple[str, ...],
     canonical_failure_reasons: Tuple[str, ...],
     evaluation: DevelopmentEvaluationV2 | None,
+    evaluation_artifact: ArtifactBindingV2 | None = None,
+    failure_artifact: ArtifactBindingV2 | None = None,
 ) -> AttemptRecordV2:
     record = AttemptRecordV2(
         sequence=len(state.records),
@@ -785,6 +908,8 @@ def _new_attempt_record(
         failure_reasons=failure_reasons,
         canonical_failure_reasons=canonical_failure_reasons,
         evaluation=evaluation,
+        evaluation_artifact=evaluation_artifact,
+        failure_artifact=failure_artifact,
     )
     return replace(record, record_sha256=attempt_record_sha256_v2(record))
 
@@ -834,11 +959,33 @@ def _evaluate_next_attempt(
                 evaluation.failure_reasons
             ),
             evaluation=evaluation,
+            evaluation_artifact=cached.evaluation_artifact,
         )
 
     try:
-        evaluation = evaluator(dict(logical), dict(physical), identity)
-        if type(evaluation) is not DevelopmentEvaluationV2:
+        outcome = evaluator(dict(logical), dict(physical), identity)
+        if type(outcome) is AuthenticatedDevelopmentEvaluationFailureV2:
+            return _new_attempt_record(
+                state,
+                physical=physical,
+                identity=identity,
+                phase=phase,
+                coordinate=coordinate,
+                value=value,
+                status=ATTEMPT_STATUS_EVALUATION_FAILURE,
+                cache_hit=False,
+                failure_reasons=outcome.failure_reasons,
+                canonical_failure_reasons=(),
+                evaluation=None,
+                failure_artifact=outcome.artifact,
+            )
+        if type(outcome) is AuthenticatedDevelopmentEvaluationV2:
+            evaluation = outcome.evaluation
+            evaluation_artifact = outcome.artifact
+        elif type(outcome) is DevelopmentEvaluationV2:
+            evaluation = outcome
+            evaluation_artifact = None
+        else:
             raise CalibrationSchedulerV2Error(
                 "evaluator returned the wrong result type"
             )
@@ -876,6 +1023,7 @@ def _evaluate_next_attempt(
             evaluation.failure_reasons
         ),
         evaluation=evaluation,
+        evaluation_artifact=evaluation_artifact,
     )
 
 
