@@ -11,7 +11,8 @@ final class ASHBackendIntegrationTests: XCTestCase {
         let service = DefaultUpscalerEngineService(
             media: NoopMediaPipelineService(),
             metal: NoopMetalRenderingService(),
-            modelAssets: NoopModelAssetsService()
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory()
         )
         let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
         let job = UpscaleJob(
@@ -35,7 +36,8 @@ final class ASHBackendIntegrationTests: XCTestCase {
         let service = DefaultUpscalerEngineService(
             media: NoopMediaPipelineService(),
             metal: NoopMetalRenderingService(),
-            modelAssets: modelAssets
+            modelAssets: modelAssets,
+            backendFactory: ASHDevelopmentUpscaleBackendFactory()
         )
         let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("mirmir-ash-backend-test.mp4")
@@ -60,7 +62,8 @@ final class ASHBackendIntegrationTests: XCTestCase {
         let service = DefaultUpscalerEngineService(
             media: RecordingMediaPipelineService(session: session),
             metal: NoopMetalRenderingService(),
-            modelAssets: NoopModelAssetsService()
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory()
         )
         let handle = try service.submit(makeRecordingJob())
 
@@ -77,12 +80,42 @@ final class ASHBackendIntegrationTests: XCTestCase {
     }
 
     @available(macOS 15.4, *)
+    func test_lockedArtifactFailureRejectsBeforeMediaSessionCreation() async throws {
+        let session = try RecordingMediaSession(behavior: .fail)
+        let media = RecordingMediaPipelineService(session: session)
+        let missingRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mirmir-missing-v3-\(UUID().uuidString)")
+        let service = DefaultUpscalerEngineService(
+            media: media,
+            metal: NoopMetalRenderingService(),
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHLockedUpscaleBackendFactoryV3(
+                resourceRoot: missingRoot
+            )
+        )
+        let handle = try service.submit(makeRecordingJob())
+
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("Expected locked artifact loading to fail")
+        } catch let error as ASHLockedArtifactStoreErrorV3 {
+            XCTAssertEqual(error, .invalidResourceRoot)
+        }
+
+        XCTAssertFalse(media.didBeginSession)
+        XCTAssertFalse(session.didRequestFrame)
+        XCTAssertFalse(session.didCancel)
+        XCTAssertFalse(session.didFinish)
+    }
+
+    @available(macOS 15.4, *)
     func test_jobCancellationUnblocksAndTearsDownTheMediaSession() async throws {
         let session = try RecordingMediaSession(behavior: .suspend)
         let service = DefaultUpscalerEngineService(
             media: RecordingMediaPipelineService(session: session),
             metal: NoopMetalRenderingService(),
-            modelAssets: NoopModelAssetsService()
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory()
         )
         let handle = try service.submit(makeRecordingJob())
 
@@ -111,7 +144,8 @@ final class ASHBackendIntegrationTests: XCTestCase {
         let service = DefaultUpscalerEngineService(
             media: RecordingMediaPipelineService(session: session),
             metal: NoopMetalRenderingService(),
-            modelAssets: NoopModelAssetsService()
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory()
         )
         let handle = try service.submit(makeRecordingJob())
 
@@ -143,6 +177,7 @@ final class ASHBackendIntegrationTests: XCTestCase {
             media: RecordingMediaPipelineService(session: session),
             metal: NoopMetalRenderingService(),
             modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory(),
             telemetryFactory: { telemetry }
         )
         let first = try service.submit(makeRecordingJob())
@@ -217,6 +252,7 @@ final class ASHBackendIntegrationTests: XCTestCase {
 
 private final class RecordingMediaPipelineService: MediaPipelineService, @unchecked Sendable {
     private let session: RecordingMediaSession
+    private let beganSession = OSAllocatedUnfairLock(initialState: false)
 
     init(session: RecordingMediaSession) {
         self.session = session
@@ -227,7 +263,12 @@ private final class RecordingMediaPipelineService: MediaPipelineService, @unchec
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
-        session
+        beganSession.withLock { $0 = true }
+        return session
+    }
+
+    var didBeginSession: Bool {
+        beganSession.withLock { $0 }
     }
 
     func start() {}

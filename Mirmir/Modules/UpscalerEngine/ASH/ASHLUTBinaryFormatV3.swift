@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 
 // MARK: - P06 LUT format 1.2 binary serialization and immutable loading
+// Keep the fixed header layout in one auditable serialization routine.
 
 enum ASHLUTBinaryContractV3 {
     static let magic = Array("ASHV2LUT".utf8)
@@ -168,6 +169,7 @@ extension ASHLUTBinaryCodecV3 {
         let full: Data
     }
 
+    // swiftlint:disable:next function_body_length
     static func serialize(_ compilation: ASHLUTCompilationV3) throws -> ASHLUTBinaryArtifactV3 {
         let expectedEntryCount = compilation.route.phasePairCount
             * ASHLUTBinaryContractV3.planeCount

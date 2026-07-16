@@ -12,6 +12,7 @@ final class ASHTelemetryTests: XCTestCase {
             media: media,
             metal: NoopMetalRenderingService(),
             modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory(),
             telemetryFactory: { capture.makeRecorder() }
         )
 
@@ -58,6 +59,7 @@ final class ASHTelemetryTests: XCTestCase {
             media: media,
             metal: metal,
             modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHDevelopmentUpscaleBackendFactory(),
             telemetryFactory: { telemetry }
         )
         let handle = try service.submit(UpscaleJob(

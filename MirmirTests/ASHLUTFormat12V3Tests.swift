@@ -2,6 +2,8 @@ import CryptoKit
 import XCTest
 @testable import Mirmir
 
+// The format contract is kept in one suite so every byte-level mutation is visible.
+// swiftlint:disable:next type_body_length
 final class ASHLUTFormat12V3Tests: XCTestCase {
     func testStrictSchema2LoaderAndSelfHashFailClosed() throws {
         let data = try ASHLUTTestSupportV3.sharedLockedInputData()

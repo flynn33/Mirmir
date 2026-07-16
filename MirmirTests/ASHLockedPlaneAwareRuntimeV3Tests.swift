@@ -1,6 +1,9 @@
 import XCTest
 @testable import Mirmir
 
+// The route/plane matrix remains together so parity coverage is auditable as one unit.
+// swiftlint:disable file_length
+// swiftlint:disable:next type_body_length
 final class ASHLockedPlaneAwareRuntimeV3Tests: XCTestCase {
     private struct LoadedFixture {
         let configuration: ASHLUTLockedConfigurationV3
@@ -320,6 +323,7 @@ final class ASHLockedPlaneAwareRuntimeV3Tests: XCTestCase {
         XCTAssertNotEqual(centerResult.sourceCoordinates, leftResult.sourceCoordinates)
     }
 
+    // swiftlint:disable:next function_body_length
     func testFormat12EvaluationParityUsesExactLeftSitingForBothRoutes() throws {
         let fixtures = try ASHSpatialRouteV2.allCases.map { route -> LoadedFixture in
             let source = route == .direct2x
@@ -336,6 +340,7 @@ final class ASHLockedPlaneAwareRuntimeV3Tests: XCTestCase {
             )
         }
         let codePlanes = try makeCodePlanes(lumaWidth: 4, lumaHeight: 4)
+        // swiftlint:disable:next large_tuple
         let planes: [(ASHRuntimePlaneV3, ASHSpatialPlaneV2, ASHChromaSitingV2?)] = [
             (.luma, try spatialPlane(codePlanes.luma), nil),
             (.cb, try spatialPlane(codePlanes.cb), .left),

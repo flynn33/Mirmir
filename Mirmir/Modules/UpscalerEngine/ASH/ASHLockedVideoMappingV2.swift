@@ -27,6 +27,7 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
     let calibrationSelectionSHA256: ASHLUTHashV2?
     let selectedEvaluationSHA256: ASHLUTHashV2?
     let analyzerConfiguration: ASHVideoAnalyzerV2DevelopmentConfiguration
+    let codeRange: ASHVideoCodeRange8Bit
     let chromaSiting: ASHChromaSitingV2
     let boundaryMode: ASHSpatialBoundaryModeV2
     let direct2xAnalysisGridSourceStep: UInt8
@@ -43,6 +44,7 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
         calibrationSelectionSHA256: ASHLUTHashV2?,
         selectedEvaluationSHA256: ASHLUTHashV2?,
         analyzerConfiguration: ASHVideoAnalyzerV2DevelopmentConfiguration,
+        codeRange: ASHVideoCodeRange8Bit,
         chromaSiting: ASHChromaSitingV2,
         boundaryMode: ASHSpatialBoundaryModeV2,
         direct2xAnalysisGridSourceStep: UInt8,
@@ -58,25 +60,12 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
         self.calibrationSelectionSHA256 = calibrationSelectionSHA256
         self.selectedEvaluationSHA256 = selectedEvaluationSHA256
         self.analyzerConfiguration = analyzerConfiguration
+        self.codeRange = codeRange
         self.chromaSiting = chromaSiting
         self.boundaryMode = boundaryMode
         self.direct2xAnalysisGridSourceStep = direct2xAnalysisGridSourceStep
         self.direct3Over2AnalysisGridSourceStep = direct3Over2AnalysisGridSourceStep
         self.immutableBytes = immutableBytes
-    }
-
-    func validate(configuration: ASHLUTLockedConfigurationV2) throws {
-        guard sha256 == configuration.mappingSHA256 else {
-            throw ASHLockedVideoMappingV2Error.hashMismatch
-        }
-        guard configurationID == configuration.configurationID,
-              boundaryMode == configuration.boundaryMode,
-              direct2xAnalysisGridSourceStep
-                == configuration.routes.direct2x.analysisGridSourceStep,
-              direct3Over2AnalysisGridSourceStep
-                == configuration.routes.direct3Over2.analysisGridSourceStep else {
-            throw ASHLockedVideoMappingV2Error.invalidValue
-        }
     }
 
     static func load(
@@ -151,6 +140,7 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
             calibrationSelectionSHA256: selection.calibrationSelection,
             selectedEvaluationSHA256: selection.selectedEvaluation,
             analyzerConfiguration: analyzer,
+            codeRange: .video,
             chromaSiting: .left,
             boundaryMode: boundaryMode,
             direct2xAnalysisGridSourceStep: direct2xStep,

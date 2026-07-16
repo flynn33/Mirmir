@@ -98,9 +98,9 @@ enum ASHSpatialReferencePipelineV2 {
         }
         telemetry.increment(.fullFrameCPULoops, by: 3)
 
-        let lumaPlane = try makeOperatorPlane(input.luma, channel: .luma)
-        let cbPlane = try makeOperatorPlane(input.cb, channel: .chroma)
-        let crPlane = try makeOperatorPlane(input.cr, channel: .chroma)
+        let lumaPlane = try ASHNV12FrameCodec.normalizedPlane(input.luma, channel: .luma)
+        let cbPlane = try ASHNV12FrameCodec.normalizedPlane(input.cb, channel: .chroma)
+        let crPlane = try ASHNV12FrameCodec.normalizedPlane(input.cr, channel: .chroma)
         var summary = telemetry.measure(.telemetryReduce) {
             recordAnalysisTelemetry(analyses, telemetry: telemetry)
             return makeAnalysisSummary(analyses)
@@ -190,11 +190,6 @@ enum ASHSpatialReferencePipelineV2 {
             cr: cr,
             summary: summary
         )
-    }
-
-    private enum Channel {
-        case luma
-        case chroma
     }
 
     private static func makeOutput(
@@ -412,34 +407,6 @@ enum ASHSpatialReferencePipelineV2 {
                 "chroma_phase_count": String(chromaCount / analysisCount)
             ]
         ))
-    }
-
-    private static func makeOperatorPlane(
-        _ plane: ASHVideoAnalyzerV2CodePlane,
-        channel: Channel
-    ) throws -> ASHSpatialPlaneV2 {
-        var samples: [Double] = []
-        samples.reserveCapacity(plane.width * plane.height)
-        for row in 0..<plane.height {
-            let rowOffset = row * plane.bytesPerRow
-            for column in 0..<plane.width {
-                let code = plane.codes[rowOffset + column]
-                let normalized: Double
-                switch channel {
-                case .luma:
-                    normalized = plane.range.normalizeLuma(code)
-                case .chroma:
-                    normalized = plane.range.normalizeChroma(code) + 0.5
-                }
-                samples.append(unit(normalized))
-            }
-        }
-        return try ASHSpatialPlaneV2(
-            width: plane.width,
-            height: plane.height,
-            samples: samples,
-            legalRange: 0.0...1.0
-        )
     }
 
     private static func makeDispatches(
