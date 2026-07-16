@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "artifact_kind": "metric_analytic_fixture_manifest",
+  "alias_masks": [
+    {
+      "id": "near-nyquist-single-bin-v1",
+      "dimensions": [32, 32],
+      "source_pattern": "(-1)^(row+column)",
+      "encoding": "true-coordinate-pairs-row-column",
+      "true_coordinates": [[16, 16]],
+      "packed_encoding": "row-major numpy-packbits-big",
+      "packed_mask_sha256": "70d8ddb64f50e15e1b0cac374e484de012d32d0d67e3ca997302024ae8b39329"
+    }
+  ],
+  "chroma_edge_fixtures": [
+    {
+      "id": "centered-cb-cr-step-v1",
+      "dimensions": [32, 32],
+      "edge_column": 16,
+      "low_value": -0.5,
+      "high_value": 0.5,
+      "neutral_value": 0.0
+    }
+  ],
+  "manifest_sha256": "ad538b284b1ec6cad4433757471c2f9de43b74f828ec793b8b7107054adbf336"
+}

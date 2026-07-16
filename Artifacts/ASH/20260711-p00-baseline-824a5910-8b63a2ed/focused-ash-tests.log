@@ -1,0 +1,847 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /tmp/mirmir-p00-deriveddata -onlyUsePackageVersionsFromResolvedFile -skipPackageUpdates -enableCodeCoverage YES "-only-testing:MirmirTests/ASHAssetConformanceTests" "-only-testing:MirmirTests/ASHBackendIntegrationTests" "-only-testing:MirmirTests/ASHBitwiseCoreTests" "-only-testing:MirmirTests/ASHFeatureBranchReconstructionTests" "-only-testing:MirmirTests/ASHInternalAlphaTests" -resultBundlePath Artifacts/ASH/.20260711-p00-baseline-824a5910-8b63a2ed.partial/focused-ash-tests.xcresult
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  ForsettiFramework: https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git @ 43eef7a
+
+2026-07-11 07:08:06.812 xcodebuild[31995:96091] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/Users/jimdaley/GitHub/Mirmir/Artifacts/ASH/.20260711-p00-baseline-824a5910-8b63a2ed.partial/focused-ash-tests.xcresult
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (8 targets)
+    Target 'MirmirTests' in project 'Mirmir'
+        ➜ Explicit dependency on target 'Mirmir' in project 'Mirmir'
+    Target 'Mirmir' in project 'Mirmir'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiPlatform' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiHostTemplate' in project 'ForsettiFramework'
+    Target 'ForsettiHostTemplate' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiHostTemplate' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiPlatform' in project 'ForsettiFramework'
+    Target 'ForsettiHostTemplate' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiPlatform' in project 'ForsettiFramework'
+    Target 'ForsettiPlatform' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiPlatform' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+    Target 'ForsettiPlatform' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+    Target 'ForsettiCore' in project 'ForsettiFramework'
+        ➜ Explicit dependency on target 'ForsettiCore' in project 'ForsettiFramework'
+    Target 'ForsettiCore' in project 'ForsettiFramework' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: 71bf1da0a6780a7f8b28813261f03301
+Build description path: /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/XCBuildData/71bf1da0a6780a7f8b28813261f03301.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk /tmp/mirmir-p00-deriveddata/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache
+    cd /Users/jimdaley/GitHub/Mirmir/Mirmir.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -o /tmp/mirmir-p00-deriveddata/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/empty-MirmirTests.plist (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/empty-MirmirTests.plist
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-non-framework-target-headers.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-non-framework-target-headers.hmap
+
+MkDir /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /bin/mkdir -p /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-target-headers.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.hmap
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-project-headers.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-project-headers.hmap
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-own-target-headers.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-own-target-headers.hmap
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-generated-files.hmap (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-generated-files.hmap
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-OutputFileMap.json (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-OutputFileMap.json
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_const_extract_protocols.json (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_const_extract_protocols.json
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftConstValuesFileList (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftConstValuesFileList
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.LinkFileList (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.LinkFileList
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyStaticMetadataFileList (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyStaticMetadataFileList
+
+WriteAuxiliaryFile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyMetadataFileList (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    write-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyMetadataFileList
+
+MkDir /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /bin/mkdir -p /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS
+
+MkDir /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /bin/mkdir -p /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents
+
+MkDir /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /bin/mkdir -p /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest
+
+MkDir /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /bin/mkdir -p /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+ProcessProductPackaging /Users/jimdaley/GitHub/Mirmir/Mirmir/Mirmir.entitlements /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Entitlements:
+    
+    {
+    "com.apple.security.app-sandbox" = 1;
+    "com.apple.security.files.bookmarks.app-scope" = 1;
+    "com.apple.security.files.user-selected.read-write" = 1;
+    "com.apple.security.get-task-allow" = 1;
+}
+    
+    builtin-productPackagingUtility /Users/jimdaley/GitHub/Mirmir/Mirmir/Mirmir.entitlements -entitlements -format xml -o /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent
+
+ProcessProductPackagingDER /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent.der (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /usr/bin/derq query -f xml -i /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent -o /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent.der --raw
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestSwiftSupport.dylib /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUnit.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCUnit.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCUnit.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUIAutomation.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCUIAutomation.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCUIAutomation.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestSupport.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTestSupport.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTest.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestCore.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTestCore.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTAutomationSupport.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/Testing.framework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -exclude Headers -exclude PrivateHeaders -exclude Modules -exclude \*.tbd -resolve-src-symlinks /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/Testing.framework /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks
+
+CopySwiftLibs /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir.debug.dylib --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Library/SystemExtensions --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Extensions --platform macosx --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.0cc49G/Metal.xctoolchain --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks --strip-bitcode --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+warning: /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUIAutomation.framework/Versions/A/XCUIAutomation: Failed to parse executable: Attempting to read past the size of the binary data. startingAt: 2326528, typeSize: 4 (UInt32), dataSize: 393216
+warning: /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestCore.framework/Versions/A/XCTestCore: Failed to parse executable: Attempting to read past the size of the binary data. startingAt: 1818624, typeSize: 4 (UInt32), dataSize: 983040
+warning: /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/Testing.framework/Versions/A/Testing: Failed to parse executable: Attempting to read past the size of the binary data. startingAt: 3342336, typeSize: 4 (UInt32), dataSize: 1441792
+
+ProcessInfoPlistFile /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Info.plist /Users/jimdaley/GitHub/Mirmir/Mirmir/Info.plist (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-infoPlistUtility /Users/jimdaley/GitHub/Mirmir/Mirmir/Info.plist -producttype com.apple.product-type.application -genpkginfo /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PkgInfo -expandbuildsettings -platform macosx -additionalcontentfile /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/assetcatalog_generated_info.plist -o /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Info.plist
+
+SwiftDriver MirmirTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MirmirTests -Onone -enforce-exclusivity\=checked @/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature StrictConcurrency -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-macos15.4 -g -module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /tmp/mirmir-p00-deriveddata/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /tmp/mirmir-p00-deriveddata/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j14 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/mirmir-p00-deriveddata/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache -output-file-map /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -sdk-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/mirmir-p00-deriveddata/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-generated-files.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-own-target-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir-ea6daffd6420c7e31db2a21d93bf3e5c-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-project-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Products/Debug/include -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-Swift.h -working-directory /Users/jimdaley/GitHub/Mirmir -experimental-emit-module-separately -disable-cmo
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestSwiftSupport.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestSwiftSupport.dylib
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestSwiftSupport.dylib: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestSupport.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestSupport.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestSupport.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTest.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTest.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTest.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUnit.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUnit.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUnit.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTAutomationSupport.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTAutomationSupport.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTAutomationSupport.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUIAutomation.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUIAutomation.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCUIAutomation.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestCore.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestCore.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/XCTestCore.framework: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/Testing.framework (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --preserve-metadata\=identifier,entitlements,flags --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/Testing.framework
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/Testing.framework: replacing existing signature
+
+ProcessInfoPlistFile /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Info.plist /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/empty-MirmirTests.plist (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-infoPlistUtility /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/empty-MirmirTests.plist -producttype com.apple.product-type.bundle.unit-test -expandbuildsettings -platform macosx -o /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Info.plist
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCUIAutomation-B3WPLH2PRI6230J36PHSWX4TE.pcm
+
+SwiftExplicitDependencyGeneratePcm arm64 /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCTest-B0GKKMTYW9FXGRCNHZLMQ4YG.pcm
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCUIAutomation-EVEOR4JM2RZ5.swiftmodule
+
+SwiftExplicitDependencyCompileModuleFromInterface arm64 /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules/XCTest-2PMAFRHH7Z26L.swiftmodule
+
+SwiftCompile normal arm64 Compiling\ NoopServices.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/NoopServices.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/NoopServices.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ MirmirTests (in target 'MirmirTests' from project 'Mirmir')
+EmitSwiftModule normal arm64 (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ManifestRegistryAlignmentTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ManifestRegistryAlignmentTests.swift (in target 'MirmirTests' from project 'Mirmir')
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ManifestRegistryAlignmentTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ StrategySelectorTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/StrategySelectorTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/StrategySelectorTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ MirmirUIWorkflowTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/MirmirUIWorkflowTests.swift (in target 'MirmirTests' from project 'Mirmir')
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/MirmirUIWorkflowTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ArchitectureGuardrailTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ArchitectureGuardrailTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ArchitectureGuardrailTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ASHInternalAlphaTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHInternalAlphaTests.swift (in target 'MirmirTests' from project 'Mirmir')
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHInternalAlphaTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ASHFeatureBranchReconstructionTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHFeatureBranchReconstructionTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHFeatureBranchReconstructionTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ASHBackendIntegrationTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHBackendIntegrationTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHBackendIntegrationTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ASHBitwiseCoreTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHBitwiseCoreTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHBitwiseCoreTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftCompile normal arm64 Compiling\ ASHAssetConformanceTests.swift /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHAssetConformanceTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftCompile normal arm64 /Users/jimdaley/GitHub/Mirmir/MirmirTests/ASHAssetConformanceTests.swift (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+
+SwiftDriverJobDiscovery normal arm64 Compiling NoopServices.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Emitting module for MirmirTests (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriver\ Compilation\ Requirements MirmirTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-Swift-Compilation-Requirements -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MirmirTests -Onone -enforce-exclusivity\=checked @/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature StrictConcurrency -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-macos15.4 -g -module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /tmp/mirmir-p00-deriveddata/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /tmp/mirmir-p00-deriveddata/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j14 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/mirmir-p00-deriveddata/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache -output-file-map /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -sdk-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/mirmir-p00-deriveddata/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-generated-files.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-own-target-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir-ea6daffd6420c7e31db2a21d93bf3e5c-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-project-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Products/Debug/include -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-Swift.h -working-directory /Users/jimdaley/GitHub/Mirmir -experimental-emit-module-separately -disable-cmo
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.swiftdoc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftdoc (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftdoc /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.swiftdoc
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.abi.json /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.abi.json (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.abi.json /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.abi.json
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.swiftmodule /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/arm64-apple-macos.swiftmodule
+
+SwiftMergeGeneratedHeaders /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources/MirmirTests-Swift.h /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-Swift.h (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-swiftHeaderTool -arch arm64 /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-Swift.h -o /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources/MirmirTests-Swift.h
+
+Copy /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftsourceinfo (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-copy -exclude .DS_Store -exclude CVS -exclude .svn -exclude .git -exclude .hg -resolve-src-symlinks -rename /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftsourceinfo /tmp/mirmir-p00-deriveddata/Build/Products/Debug/MirmirTests.swiftmodule/Project/arm64-apple-macos.swiftsourceinfo
+
+SwiftDriverJobDiscovery normal arm64 Compiling StrategySelectorTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ASHBitwiseCoreTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ASHAssetConformanceTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ArchitectureGuardrailTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ManifestRegistryAlignmentTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ASHBackendIntegrationTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling MirmirUIWorkflowTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ASHFeatureBranchReconstructionTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriverJobDiscovery normal arm64 Compiling ASHInternalAlphaTests.swift (in target 'MirmirTests' from project 'Mirmir')
+
+SwiftDriver\ Compilation MirmirTests normal arm64 com.apple.xcode.tools.swift.compiler (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-Swift-Compilation -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name MirmirTests -Onone -enforce-exclusivity\=checked @/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList -DDEBUG -plugin-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing -enable-upcoming-feature StrictConcurrency -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -target arm64-apple-macos15.4 -g -module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -Xfrontend -serialize-debugging-options -profile-coverage-mapping -profile-generate -enable-testing -index-store-path /tmp/mirmir-p00-deriveddata/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /tmp/mirmir-p00-deriveddata/Build/Products/Debug -Isystem /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F /tmp/mirmir-p00-deriveddata/Build/Products/Debug -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -c -j14 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /tmp/mirmir-p00-deriveddata/SDKStatCaches.noindex/macosx26.2-25C57-dc75598d0054f22ec865fa860f139d7200fa09913b459cbbc988d1f6730289ae.sdkstatcache -output-file-map /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -sdk-module-cache-path /tmp/mirmir-p00-deriveddata/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule -validate-clang-modules-once -clang-build-session-file /tmp/mirmir-p00-deriveddata/ModuleCache.noindex/Session.modulevalidation -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_const_extract_protocols.json -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-generated-files.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-own-target-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-all-non-framework-target-headers.hmap -Xcc -ivfsoverlay -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir-ea6daffd6420c7e31db2a21d93bf3e5c-VFS/all-product-headers.yaml -Xcc -iquote -Xcc /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests-project-headers.hmap -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Products/Debug/include -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources-normal/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources/arm64 -Xcc -I/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-Swift.h -working-directory /Users/jimdaley/GitHub/Mirmir -experimental-emit-module-separately -disable-cmo
+
+Ld /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests normal (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -Xlinker -reproducible -target arm64-apple-macos15.4 -bundle -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk -O0 -L/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -L/tmp/mirmir-p00-deriveddata/Build/Products/Debug -L/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib -F/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/EagerLinkingTBDs/Debug -F/tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F/tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F/tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -F/tmp/mirmir-p00-deriveddata/Build/Products/Debug -iframework /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks -filelist /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.LinkFileList -Xlinker -rpath -Xlinker /usr/lib/swift -Xlinker -rpath -Xlinker /tmp/mirmir-p00-deriveddata/Build/Products/Debug/PackageFrameworks -Xlinker -rpath -Xlinker @loader_path/../Frameworks -Xlinker -rpath -Xlinker @executable_path/../Frameworks -dead_strip -bundle_loader /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir -Xlinker -object_path_lto -Xlinker /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_lto.o -rdynamic -Xlinker -no_deduplicate -Xlinker -debug_variant -Xlinker -dependency_info -Xlinker /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_dependency_info.dat -fobjc-link-runtime -fprofile-instr-generate -L/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/macosx -L/usr/lib/swift -Xlinker -add_ast_path -Xlinker /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.swiftmodule @/tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests-linker-args.resp -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -Wl,-no_warn_duplicate_libraries -Xlinker -needed_framework -Xlinker XCTest -framework XCTest -Xlinker -needed-lXCTestSwiftSupport -lXCTestSwiftSupport /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir.debug.dylib -Xlinker -no_adhoc_codesign -o /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests
+
+CopySwiftLibs /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-swiftStdLibTool --copy --verbose --sign - --scan-executable /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Frameworks --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/PlugIns --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Library/SystemExtensions --scan-folder /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Extensions --platform macosx --toolchain /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.0cc49G/Metal.xctoolchain --toolchain /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain --destination /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Frameworks --strip-bitcode --scan-executable /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestSwiftSupport.dylib --strip-bitcode-tool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/bitcode_strip --emit-dependency-info /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/SwiftStdLibToolInputDependencies.dep --filter-for-swift-os --back-deploy-swift-span
+
+ExtractAppIntentsMetadata (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor --toolchain-dir /var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v17.3.7003.10.0cc49G/Metal.xctoolchain --module-name MirmirTests --sdk-root /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.2.sdk --xcode-version 17C52 --platform-family macOS --deployment-target 15.4 --bundle-identifier com.mirmir.app.tests --output /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/Resources --target-triple arm64-apple-macos15.4 --binary-file /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests --dependency-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests_dependency_info.dat --stringsdata-file /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/ExtractedAppShortcutsMetadata.stringsdata --source-file-list /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftFileList --metadata-file-list /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyMetadataFileList --static-metadata-file-list /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/MirmirTests.DependencyStaticMetadataFileList --swift-const-vals-list /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/MirmirTests.build/Objects-normal/arm64/MirmirTests.SwiftConstValuesFileList --compile-time-extraction --deployment-aware-processing --validate-assistant-intents --no-app-shortcuts-localization
+2026-07-11 07:08:09.589 appintentsmetadataprocessor[32206:96615] Starting appintentsmetadataprocessor export
+2026-07-11 07:08:09.590 appintentsmetadataprocessor[32206:96615] warning: Metadata extraction skipped. No AppIntents.framework dependency found.
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest
+
+RegisterExecutionPolicyException /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-RegisterExecutionPolicyException /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest
+
+Touch /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest (in target 'MirmirTests' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /usr/bin/touch -c /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/PlugIns/MirmirTests.xctest
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir.debug.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir.debug.dylib
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir.debug.dylib: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/__preview.dylib (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --timestamp\=none --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/__preview.dylib
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/__preview.dylib: replacing existing signature
+
+CodeSign /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    
+    Signing Identity:     "Sign to Run Locally"
+    
+    /usr/bin/codesign --force --sign - --entitlements /tmp/mirmir-p00-deriveddata/Build/Intermediates.noindex/Mirmir.build/Debug/Mirmir.build/Mirmir.app.xcent --timestamp\=none --generate-entitlement-der /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app
+/tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app: replacing existing signature
+
+Validate /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    builtin-validationUtility /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app -no-validate-extension -infoplist-subpath Contents/Info.plist
+
+RegisterWithLaunchServices /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app (in target 'Mirmir' from project 'Mirmir')
+    cd /Users/jimdaley/GitHub/Mirmir
+    /System/Library/Frameworks/CoreServices.framework/Versions/Current/Frameworks/LaunchServices.framework/Versions/Current/Support/lsregister -f -R -trusted /tmp/mirmir-p00-deriveddata/Build/Products/Debug/Mirmir.app
+
+note: Disabling hardened runtime with ad-hoc codesigning. (in target 'Mirmir' from project 'Mirmir')
+2026-07-11 07:08:10.558152-0500 Mirmir[32256:96809] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.558319-0500 Mirmir[32256:96809] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.558410-0500 Mirmir[32256:96798] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.558422-0500 Mirmir[32256:96798] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.558961-0500 Mirmir[32256:96807] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.558982-0500 Mirmir[32256:96807] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.559256-0500 Mirmir[32256:96807] [Connection] Will NOT re-try to establish the connection
+2026-07-11 07:08:10.559282-0500 Mirmir[32256:96809] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.559293-0500 Mirmir[32256:96809] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-11 07:08:10.584473-0500 Mirmir[32256:96716] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/com.mirmir.app.savedState
+2026-07-11 07:08:10.597810-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.597845-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2946483333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.665954-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.665990-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2946550000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.675979-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.676012-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946566666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.676031-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.676053-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946566666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.679299-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.679427-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946566666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.679432-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.679450-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946566666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.683908-0500 Mirmir[32256:96716] [Forsetti] Discovered 5 module manifests
+2026-07-11 07:08:10.684239-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.684261-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2946566666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.684729-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.media-pipeline] Media pipeline started
+2026-07-11 07:08:10.684950-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.media-pipeline] Activated module
+2026-07-11 07:08:10.685266-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.metal] Metal rendering ready
+2026-07-11 07:08:10.685379-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.metal] Activated module
+2026-07-11 07:08:10.685661-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.model-assets] Model assets service started
+2026-07-11 07:08:10.685740-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.model-assets] Activated module
+2026-07-11 07:08:10.686032-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.ui] Mirmir UI module activated
+2026-07-11 07:08:10.686205-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.ui] Activated module
+2026-07-11 07:08:10.686513-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.upscaler-engine] Upscaler engine started
+2026-07-11 07:08:10.686629-0500 Mirmir[32256:96716] [Forsetti] [module=com.mirmir.app.upscaler-engine] Activated module
+2026-07-11 07:08:10.689301-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.689333-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946583333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.689342-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.689355-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946583333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.695972-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.696006-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946583333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.696015-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.696032-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946583333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.705965-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.705999-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946600000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.706004-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.706019-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946600000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.712637-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.712706-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946600000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.712712-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.712726-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946600000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.722635-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.722669-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946616666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.722675-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.722687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946616666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.729315-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.729362-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946616666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.729368-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.729383-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946616666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.739300-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.739338-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946633333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.739350-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.739372-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946633333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.745978-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.746013-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946633333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.746020-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.746035-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946633333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.755966-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.755998-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946650000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.756002-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.756018-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946650000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.762632-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.762666-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946650000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.762677-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.762693-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946650000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.772631-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.772669-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946666666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.772674-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.772690-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946666666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.779296-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.779329-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946666666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.779334-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.779354-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946666666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.785754-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.785779-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2946666666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.789300-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.789341-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946683333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.789348-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.789363-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946683333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.795966-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.796011-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946683333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.796015-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.796030-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946683333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.805980-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.806031-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946700000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.806039-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.806060-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946700000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.812634-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.812662-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946700000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.812674-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.812693-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946700000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.822633-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.822665-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946716666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.822670-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.822687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946716666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.829297-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.829325-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946716666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.829330-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.829342-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946716666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.838581-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.838621-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2946733333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.839299-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.839330-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946733333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.839336-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.839350-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946733333333  0x00000004. AppKit will assert if these are also invalid
+Test Suite 'Selected tests' started at 2026-07-11 07:08:10.845.
+Test Suite 'MirmirTests.xctest' started at 2026-07-11 07:08:10.845.
+Test Suite 'ASHAssetConformanceTests' started at 2026-07-11 07:08:10.845.
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_assetManifestListsEveryRequiredASHAsset]' started.
+2026-07-11 07:08:10.845962-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.845994-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946733333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.846001-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.846017-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946733333333  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_assetManifestListsEveryRequiredASHAsset]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_requiredASHAssetsMatchSourceHashes]' started.
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_requiredASHAssetsMatchSourceHashes]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_runtimeAssetResolverAcceptsFlattenedResourceLayout]' started.
+2026-07-11 07:08:10.855971-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.856006-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946750000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.856010-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.856023-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946750000000  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHAssetConformanceTests test_runtimeAssetResolverAcceptsFlattenedResourceLayout]' passed (0.009 seconds).
+Test Suite 'ASHAssetConformanceTests' passed at 2026-07-11 07:08:10.857.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.011 (0.012) seconds
+Test Suite 'ASHBackendIntegrationTests' started at 2026-07-11 07:08:10.858.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_atomicMediaOutputCommitsWithoutDestroyingExistingFileEarly]' started.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_atomicMediaOutputCommitsWithoutDestroyingExistingFileEarly]' passed (0.002 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_atomicMediaOutputDiscardPreservesExistingDestination]' started.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_atomicMediaOutputDiscardPreservesExistingDestination]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_defaultUpscalerRejectsInputOutputCollision]' started.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_defaultUpscalerRejectsInputOutputCollision]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets]' started.
+2026-07-11 07:08:10.862639-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.862677-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946750000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.862685-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.862707-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946750000000  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_jobCancellationUnblocksAndTearsDownTheMediaSession]' started.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_jobCancellationUnblocksAndTearsDownTheMediaSession]' passed (0.002 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_pipelineFailureCancelsTheActiveMediaSession]' started.
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_pipelineFailureCancelsTheActiveMediaSession]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_viewModelCanStartASHUpscaleWithoutModelReadiness]' started.
+2026-07-11 07:08:10.872634-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.872665-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946766666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.872672-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.872686-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946766666666  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHBackendIntegrationTests test_viewModelCanStartASHUpscaleWithoutModelReadiness]' passed (0.011 seconds).
+Test Suite 'ASHBackendIntegrationTests' passed at 2026-07-11 07:08:10.878.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.019 (0.020) seconds
+Test Suite 'ASHBitwiseCoreTests' started at 2026-07-11 07:08:10.878.
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_generatorRowsMatchCanonicalCodewords]' started.
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_generatorRowsMatchCanonicalCodewords]' passed (0.000 seconds).
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_stateSerializesCoordinateOneAsMostSignificantBitAndCoordinateNineAsLeastSignificantBit]' started.
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_stateSerializesCoordinateOneAsMostSignificantBitAndCoordinateNineAsLeastSignificantBit]' passed (0.000 seconds).
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_strictDecoderCorrectsOneBitAndRejectsDistanceTwo]' started.
+2026-07-11 07:08:10.879293-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.879328-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946766666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.879340-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.879354-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946766666666  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHBitwiseCoreTests test_strictDecoderCorrectsOneBitAndRejectsDistanceTwo]' passed (0.000 seconds).
+Test Suite 'ASHBitwiseCoreTests' passed at 2026-07-11 07:08:10.880.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.001 (0.002) seconds
+Test Suite 'ASHFeatureBranchReconstructionTests' started at 2026-07-11 07:08:10.880.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_affineDecoderCorrectsOneBitAndRejectsTwoBitBranchDamage]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_affineDecoderCorrectsOneBitAndRejectsTwoBitBranchDamage]' passed (0.003 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_affineLeafStatesAreDecodedBeforeOperatorsAreChosen]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_affineLeafStatesAreDecodedBeforeOperatorsAreChosen]' passed (0.002 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_blackAndWhitePatchesHaveExpectedLuminanceFeatures]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_blackAndWhitePatchesHaveExpectedLuminanceFeatures]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_boundedCandidateRetentionMatchesFullSelectionForBothScoringPolicies]' started.
+2026-07-11 07:08:10.889299-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.889333-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946783333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.889342-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.889362-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946783333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.895966-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.895987-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946783333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.895995-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.896009-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946783333333  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_boundedCandidateRetentionMatchesFullSelectionForBothScoringPolicies]' passed (0.014 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_branchTreeCountsWeightsAndStateSemantics]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_branchTreeCountsWeightsAndStateSemantics]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_featureBinarizationUsesTieRuleHysteresisAndParity]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_featureBinarizationUsesTieRuleHysteresisAndParity]' passed (0.000 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_reconstructionBaselineAndCandidatePruningAreDeterministic]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_reconstructionBaselineAndCandidatePruningAreDeterministic]' passed (0.002 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_sceneCutAndInvalidStateResetTileHistory]' started.
+2026-07-11 07:08:10.905969-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.905997-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946800000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.906002-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.906019-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946800000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.912632-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.912655-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946800000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.912664-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.912681-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946800000000  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_sceneCutAndInvalidStateResetTileHistory]' passed (0.017 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_scoringMatchesASHModelGoldenVectorWithoutFeaturePrior]' started.
+2026-07-11 07:08:10.922636-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.922671-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946816666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.922675-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.922687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946816666666  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_scoringMatchesASHModelGoldenVectorWithoutFeaturePrior]' passed (0.002 seconds).
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_tileProcessorPublishesVersionedConfigurationAndBoundedCost]' started.
+Test Case '-[MirmirTests.ASHFeatureBranchReconstructionTests test_tileProcessorPublishesVersionedConfigurationAndBoundedCost]' passed (0.004 seconds).
+Test Suite 'ASHFeatureBranchReconstructionTests' passed at 2026-07-11 07:08:10.927.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 0.046 (0.048) seconds
+Test Suite 'ASHInternalAlphaTests' started at 2026-07-11 07:08:10.927.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendDebugSummaryReportsTilesAndChroma]' started.
+2026-07-11 07:08:10.929297-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.929320-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946816666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.929327-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.929341-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946816666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.939305-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.939351-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946833333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.939360-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.939373-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946833333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.945979-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.946034-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946833333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.946041-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.946060-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946833333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.955985-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.956045-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946850000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.956051-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.956066-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946850000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.962636-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.962667-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946850000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.962673-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.962689-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946850000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.972638-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.972671-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946866666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.972676-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.972687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946866666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.979294-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.979327-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946866666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.979334-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.979356-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946866666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.989306-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.989352-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946883333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.989359-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.989374-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946883333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.995971-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.996010-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946883333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:10.996020-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:10.996040-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946883333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.005980-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.006019-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946900000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.006025-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.006039-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946900000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.012642-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.012687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946900000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.012692-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.012705-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946900000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.022633-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.022666-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946916666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.022671-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.022683-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946916666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.029299-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.029329-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946916666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.029336-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.029351-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946916666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.039300-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.039329-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946933333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.039334-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.039346-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946933333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.045971-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.046005-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946933333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.046012-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.046033-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946933333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.055973-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.056016-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946950000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.056022-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.056035-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946950000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.062639-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.062682-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946950000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.062688-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.062705-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946950000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.072635-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.072670-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946966666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.072677-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.072690-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946966666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.079295-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.079320-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946966666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.079327-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.079342-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946966666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.089301-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.089345-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946983333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.089353-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.089369-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946983333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.095968-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.096004-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946983333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.096010-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.096028-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2946983333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.105969-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.106004-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947000000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.106010-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.106024-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947000000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.112631-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.112657-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947000000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.112662-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.112673-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947000000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.122635-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.122679-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947016666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.122686-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.122701-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947016666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.129301-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.129332-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947016666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.129337-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.129350-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947016666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.139302-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.139333-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947033333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.139339-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.139353-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947033333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.145962-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.145991-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947033333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.145997-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.146013-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947033333333  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.155974-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.156007-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947050000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.156013-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.156030-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947050000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.162630-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.162652-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947050000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.162657-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.162670-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947050000000  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.172639-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.172669-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947066666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.172674-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.172687-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947066666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.179299-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.179329-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947066666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.179334-0500 Mirmir[32256:96809] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.179347-0500 Mirmir[32256:96809] [default] Received delta: 10000000 prev: 2947066666666  0x00000004. AppKit will assert if these are also invalid
+2026-07-11 07:08:11.179512-0500 Mirmir[32256:96716] [default] Invalid new timing data reported for display 0x00000004.
+2026-07-11 07:08:11.179535-0500 Mirmir[32256:96716] [default] Received delta: 10000000 prev: 2947066666666  0x00000004. AppKit will assert if these are also invalid
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendDebugSummaryReportsTilesAndChroma]' passed (0.366 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendProcessesNV12BufferAndWritesDeterministicOutput]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendProcessesNV12BufferAndWritesDeterministicOutput]' passed (0.737 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendStatusDoesNotClaimReadyBeforeValidation]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_backendStatusDoesNotClaimReadyBeforeValidation]' passed (0.000 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_branchFixtureSuiteSelectsAtLeastFourNonNeutralMessages]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_branchFixtureSuiteSelectsAtLeastFourNonNeutralMessages]' passed (1.459 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_metalLumaOperatorMatchesCPUReference]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_metalLumaOperatorMatchesCPUReference]' passed (0.033 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_nv12ChromaEnergyChangesFeatureVector]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_nv12ChromaEnergyChangesFeatureVector]' passed (0.001 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_runtimeConformanceRejectsMutatedMappingThreshold]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_runtimeConformanceRejectsMutatedMappingThreshold]' passed (0.010 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_runtimeConformanceReportValidatesAllBundledASHAssets]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_runtimeConformanceReportValidatesAllBundledASHAssets]' passed (0.009 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_startupValidatorLoadsASHAssetsFromBuiltApplicationBundle]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_startupValidatorLoadsASHAssetsFromBuiltApplicationBundle]' passed (0.010 seconds).
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_tileProcessorSelectsMultipleMessagesForStructuredFrame]' started.
+Test Case '-[MirmirTests.ASHInternalAlphaTests test_tileProcessorSelectsMultipleMessagesForStructuredFrame]' passed (0.362 seconds).
+Test Suite 'ASHInternalAlphaTests' passed at 2026-07-11 07:08:13.918.
+	 Executed 10 tests, with 0 failures (0 unexpected) in 2.988 (2.990) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-07-11 07:08:13.918.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 3.065 (3.072) seconds
+Test Suite 'Selected tests' passed at 2026-07-11 07:08:13.918.
+	 Executed 33 tests, with 0 failures (0 unexpected) in 3.065 (3.073) seconds
+2026-07-11 07:08:14.197 xcodebuild[31995:96091] [MT] IDETestOperationsObserverDebug: 4.512 elapsed -- Testing started completed.
+2026-07-11 07:08:14.197 xcodebuild[31995:96091] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-07-11 07:08:14.197 xcodebuild[31995:96091] [MT] IDETestOperationsObserverDebug: 4.512 sec, +4.512 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/jimdaley/GitHub/Mirmir/Artifacts/ASH/.20260711-p00-baseline-824a5910-8b63a2ed.partial/focused-ash-tests.xcresult
+
+** TEST SUCCEEDED **
+
+Testing started

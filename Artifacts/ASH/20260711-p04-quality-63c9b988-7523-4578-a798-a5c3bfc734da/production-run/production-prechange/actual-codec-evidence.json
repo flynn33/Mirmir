@@ -1,0 +1,727 @@
+{
+  "artifact_kind": "actual_codec_fixture",
+  "decoder_routes": [
+    {
+      "identity": {
+        "codec": "avc1",
+        "framework": "VideoToolbox",
+        "hardware_accelerated": false,
+        "hardware_acceleration_control": "explicitly disabled; acceleration property unsupported for at least one run",
+        "hardware_acceleration_property_available": false,
+        "public_decoder_identifier": "not_exposed_by_public_API",
+        "session_type": "VTDecompressionSession"
+      },
+      "route": "videotoolbox_software_nv12",
+      "runs": [
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 0
+        },
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 1
+        },
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 2
+        }
+      ]
+    },
+    {
+      "identity": {
+        "codec": "avc1",
+        "framework": "AVFoundation",
+        "hardware_acceleration_control": "not exposed by AVAssetReaderTrackOutput",
+        "public_decoder_identifier": "not_exposed_by_public_API",
+        "session_type": "AVAssetReaderTrackOutput"
+      },
+      "route": "avassetreader_product_nv12",
+      "runs": [
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 0
+        },
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 1
+        },
+        {
+          "frames": [
+            {
+              "active_row_sha256": {
+                "Cb": "db460b88df3bb868788c6626f4ef8384f8d133eacfa70bb2fc4548b154fa0d41",
+                "Cr": "a18351491b29e6700c16c819e877306583040fa5ac6fdbc6a7036ac3361f2bc7",
+                "Y": "cd44e19a2bc7dfc26368a7cff52768efe1718bda775d5794bedd2bf4545c0169"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 0,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 0
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "e0e2cf75a2a3d4295cc842e5f09509e7254d04c62e02368461ee86dca6680a2c",
+                "Cr": "bc3dd7bb8254ff481538baf18c3488d163f122151f3f29033804575b11f38be7",
+                "Y": "34e27278cc5ada5f91a98595534376160e4061ba3e09a993af44ad57ed151982"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 1,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "width": 160
+            },
+            {
+              "active_row_sha256": {
+                "Cb": "cde229fd1638ada3f7203f117337cec66d45a4b67550e48c835530c5d1294323",
+                "Cr": "a35e0487bd34f384d22209dbda5ebcdc57777b72087c9dc093078e796b4474db",
+                "Y": "4f9352bd67e2adb1f6b1e6ea6459f47951658b1ec37a0827d7c48b865f748759"
+              },
+              "attachments": {
+                "chroma_location_bottom_field": "Left",
+                "chroma_location_top_field": "Left",
+                "color_primaries": "ITU_R_709_2",
+                "range": "video",
+                "transfer_function": "ITU_R_709_2",
+                "ycbcr_matrix": "ITU_R_709_2"
+              },
+              "duration": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 20
+              },
+              "height": 90,
+              "index": 2,
+              "pixel_format": "420v",
+              "presentation_time": {
+                "epoch": 0,
+                "flags": 1,
+                "timescale": 600,
+                "value": 40
+              },
+              "width": 160
+            }
+          ],
+          "run_index": 2
+        }
+      ]
+    }
+  ],
+  "encoder": {
+    "all_frames_sync": true,
+    "allow_frame_reordering": false,
+    "allow_temporal_compression": false,
+    "average_bit_rate": 250000,
+    "chroma_location": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "data_rate_limit_bytes": 31250,
+    "data_rate_limit_seconds": 1,
+    "display_name": "Apple H.264 (SW)",
+    "encoder_id": "com.apple.videotoolbox.videoencoder.h264",
+    "encoder_name": "Apple H.264 (SW)",
+    "expected_frame_rate": 30,
+    "framework": "VideoToolbox",
+    "hardware_accelerated": false,
+    "hardware_acceleration_property_available": false,
+    "hardware_acceleration_verification": "explicit hardware disable and exact software encoder ID; acceleration property unsupported",
+    "max_key_frame_interval": 1,
+    "pixel_format": "420v",
+    "profile_level": "H264_Baseline_3_0",
+    "real_time": false,
+    "session_type": "VTCompressionSession",
+    "transfer_function": "ITU_R_709_2",
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "environment": {
+    "architecture": "arm64",
+    "hardware_model": "Mac16,7",
+    "macos": "ProductName:\t\tmacOS\nProductVersion:\t\t26.5.1\nBuildVersion:\t\t25F80",
+    "processor": "Apple M4 Pro",
+    "swift": "swift-driver version: 1.127.14.1 Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)\nTarget: arm64-apple-macosx26.0",
+    "xcode": "Xcode 26.2\nBuild version 17C52"
+  },
+  "fixture": {
+    "codec": "avc1",
+    "container": "mp4",
+    "duration": {
+      "epoch": 0,
+      "flags": 1,
+      "timescale": 600,
+      "value": 60
+    },
+    "format_attachments": {
+      "chroma_location_bottom_field": "Left",
+      "chroma_location_top_field": "Left",
+      "color_primaries": "ITU_R_709_2",
+      "range": "video",
+      "transfer_function": "ITU_R_709_2",
+      "ycbcr_matrix": "ITU_R_709_2"
+    },
+    "frame_count": 3,
+    "height": 90,
+    "path": "actual-h264-software-nv12-v1.mp4",
+    "sha256": "120d7378c184bce42baf1fac8bdf0d56d2ff21c316a8a3a2a6067ed78dafd35f",
+    "size_bytes": 10389,
+    "width": 160
+  },
+  "fixture_id": "actual-h264-software-nv12-v1",
+  "integration": {
+    "benchmark_dry_run_fields": {
+      "actual_codec_fixture_id": "actual-h264-software-nv12-v1",
+      "actual_codec_fixture_used": true,
+      "comparison_domains_executed": [
+        "container_decoded"
+      ],
+      "container_decoded_frame_count": 3,
+      "holdout_accessed": false
+    },
+    "degradation_lock_profile": {
+      "deterministic_decoded_pixels_on_recorded_environment": true,
+      "evidence_path": "actual-codec-fixture-lock.json",
+      "fixture_path": "actual-h264-software-nv12-v1.mp4",
+      "fixture_sha256": "120d7378c184bce42baf1fac8bdf0d56d2ff21c316a8a3a2a6067ed78dafd35f",
+      "id": "actual-h264-software-nv12-v1",
+      "kind": "actual_codec",
+      "source_profile_id": "hq-binomial7-decimate-2x-v1",
+      "version": "1.0.0"
+    }
+  },
+  "limitations": {
+    "bitstream_scope": "the committed MP4 alone is hash-locked; regeneration byte identity is not asserted on the same or a different environment",
+    "cross_os_bitstream_stability_claimed": false,
+    "product_reader_acceleration_visibility": "AVAssetReaderTrackOutput does not expose decoder selection or acceleration state",
+    "regeneration_bitstream_stability_claimed": false
+  },
+  "schema_version": "1.0.0",
+  "source": {
+    "degradation_policy_sha256": "fb902e34fa28f827288715a6b7cb2b78e9994989dd3c9d8d9c64c5ed7bd706b0",
+    "degradation_profile_id": "hq-binomial7-decimate-2x-v1",
+    "payload_path": "source.nv12",
+    "payload_sha256": "05d1aa8b114e361b14f8ae9242412d3279fc63c6849aec4b4d69c47c26e4e5fe",
+    "payload_size_bytes": 64800,
+    "source_lock_path": "source-lock.json",
+    "source_lock_sha256": "0911bf5c3e1e27be21b9f3d7c0fa0d7c555a7ed1af39c206b1446f17e439db13"
+  },
+  "status": "pass",
+  "verification": {
+    "attachments_recorded": true,
+    "cross_route_pixel_identical": true,
+    "dimensions_preserved": true,
+    "exact_timing_preserved": true,
+    "pixel_format_preserved": true,
+    "product_reader_run_count": 3,
+    "product_reader_runs_pixel_identical": true,
+    "row_padding_excluded": true,
+    "software_decode_run_count": 3,
+    "software_runs_pixel_identical": true
+  }
+}

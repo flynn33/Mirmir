@@ -4,9 +4,18 @@ import AudioToolbox
 import CoreMedia
 import CoreVideo
 
-final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable {
+protocol ASHTelemetryMediaPipelineScoping: AnyObject, Sendable {
+    func scoped(to telemetry: any ASHTelemetryRecording) -> any MediaPipelineService
+}
+
+final class AVFoundationMediaPipeline:
+    MediaPipelineService,
+    ASHTelemetryMediaPipelineScoping,
+    @unchecked Sendable {
 
     private let metal: MetalRenderingService
+    private let telemetry: any ASHTelemetryRecording
+    private let outputVerifier: any OutputMediaVerifying
     private static let expectedColorMetadata = [
         ExpectedColorMetadata(
             key: kCMFormatDescriptionExtension_ColorPrimaries as String,
@@ -25,14 +34,30 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         )
     ]
 
-    init(metal: MetalRenderingService) {
+    init(
+        metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared,
+        outputVerifier: any OutputMediaVerifying = OutputMediaVerifier()
+    ) {
         self.metal = metal
+        self.telemetry = telemetry
+        self.outputVerifier = outputVerifier
     }
 
     func start() {}
     func stop() {}
 
+    func scoped(to telemetry: any ASHTelemetryRecording) -> any MediaPipelineService {
+        AVFoundationMediaPipeline(
+            metal: metal,
+            telemetry: telemetry,
+            outputVerifier: outputVerifier
+        )
+    }
+
     func probe(url: URL) async throws -> SourceProfile {
+        let stage = telemetry.beginStage(.mediaProbe)
+        defer { telemetry.endStage(stage) }
         let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
@@ -58,7 +83,7 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
         let durationSeconds = CMTimeGetSeconds(durationCM).isFinite ? CMTimeGetSeconds(durationCM) : 0
         let estimatedFrameCount = Int((durationSeconds * fps).rounded())
 
-        return SourceProfile(
+        let profile = SourceProfile(
             url: url,
             resolution: resolution,
             frameRate: fps,
@@ -67,10 +92,27 @@ final class AVFoundationMediaPipeline: MediaPipelineService, @unchecked Sendable
             codecHint: codecHint,
             hasAudio: hasAudio
         )
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "media_probe",
+            details: [
+                "encoded_dimensions": "\(resolution.width)x\(resolution.height)",
+                "estimated_frame_count": String(profile.estimatedFrameCount),
+                "has_audio": String(profile.hasAudio)
+            ]
+        ))
+        return profile
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
-        try await AVFoundationMediaSession.make(metal: metal, source: source, output: output)
+        try await telemetry.measure(.readerSetup) {
+            try await AVFoundationMediaSession.make(
+                metal: metal,
+                telemetry: telemetry,
+                outputVerifier: outputVerifier,
+                source: source,
+                output: output
+            )
+        }
     }
 
     private static func fourCCString(_ value: FourCharCode) -> String {
@@ -121,9 +163,10 @@ private struct ExpectedColorMetadata: Sendable {
 }
 
 final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
-    private enum LifecycleState {
+    enum LifecycleState {
         case active
         case cancelled
+        case failed
         case committed
     }
 
@@ -132,22 +175,37 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     let outputPixelBufferPool: CVPixelBufferPool
 
     private let asset: AVURLAsset
-    private let reader: AVAssetReader
+    private let sourceVideoEndTime: CMTime
+    let reader: AVAssetReader
     private let videoOutput: AVAssetReaderTrackOutput
-    private let audioOutput: AVAssetReaderTrackOutput?
+    let audioOutput: AVAssetReaderTrackOutput?
 
-    private let writer: AVAssetWriter
-    private let videoInput: AVAssetWriterInput
+    let writer: AVAssetWriter
+    let videoInput: AVAssetWriterInput
     private let videoAdaptor: AVAssetWriterInputPixelBufferAdaptor
-    private let audioInput: AVAssetWriterInput?
-    private let outputTransaction: AtomicMediaOutput
-    private let lifecycleLock = NSLock()
+    let audioInput: AVAssetWriterInput?
+    let outputTransaction: AtomicMediaOutput
+    let outputVerifier: any OutputMediaVerifying
+    let telemetry: any ASHTelemetryRecording
+    let lifecycleLock = NSLock()
+    let timingLock = NSLock()
 
     private var frameIndex = 0
-    private var lifecycleState = LifecycleState.active
+    private var pendingVideoSample: CMSampleBuffer?
+    var lifecycleState = LifecycleState.active
+    var timingLedger = FrameTimingLedger()
+    var storedTerminalCleanupError: MediaPipelineError?
+
+    var terminalCleanupError: MediaPipelineError? {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        return storedTerminalCleanupError
+    }
 
     static func make(
         metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
+        outputVerifier: any OutputMediaVerifying,
         source: SourceProfile,
         output: OutputProfile
     ) async throws -> AVFoundationMediaSession {
@@ -158,6 +216,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         }
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
+        let videoTimeRange = try await videoTrack.load(.timeRange)
         try await AVFoundationMediaPipeline.validateSupportedColorProfile(
             track: videoTrack,
             formats: videoFormats
@@ -184,10 +243,13 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
         return try AVFoundationMediaSession(
             metal: metal,
+            telemetry: telemetry,
+            outputVerifier: outputVerifier,
             source: source,
             output: output,
             asset: asset,
             videoTrack: videoTrack,
+            sourceVideoEndTime: CMTimeRangeGetEnd(videoTimeRange),
             videoTransform: videoTransform,
             audioTrack: audioTrack,
             audioFormatDescription: audioFormatDescription
@@ -196,10 +258,13 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     private init(
         metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
+        outputVerifier: any OutputMediaVerifying,
         source: SourceProfile,
         output: OutputProfile,
         asset: AVURLAsset,
         videoTrack: AVAssetTrack,
+        sourceVideoEndTime: CMTime,
         videoTransform: CGAffineTransform,
         audioTrack: AVAssetTrack?,
         audioFormatDescription: CMFormatDescription?
@@ -216,6 +281,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             preserveAudio: output.preserveAudio
         )
         let outputTransaction = try Self.makeOutputTransaction(outputURL: output.url)
+        outputTransaction.attachTelemetry(telemetry)
         let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
         writer.metadata = Self.makeASHMetadataItems()
         let writerInputs = try Self.configureWriterInputs(
@@ -237,6 +303,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.outputProfile = output
         self.outputPixelBufferPool = outputPixelBufferPool
         self.asset = asset
+        self.sourceVideoEndTime = sourceVideoEndTime
         self.reader = reader
         self.videoOutput = readerOutputs.video
         self.audioOutput = readerOutputs.audio
@@ -245,138 +312,128 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.videoAdaptor = writerInputs.adaptor
         self.audioInput = writerInputs.audio
         self.outputTransaction = outputTransaction
+        self.outputVerifier = outputVerifier
+        self.telemetry = telemetry
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "reader_writer_started",
+            details: [
+                "input_pixel_format": "420v",
+                "output_pixel_format": "420v",
+                "output_dimensions": "\(output.resolution.width)x\(output.resolution.height)"
+            ]
+        ))
     }
 
     func nextSourceFrame() async throws -> FrameRecord? {
-        // Loop (not recurse) over marker / metadata sample buffers without
-        // image buffers — recursion would risk stack overflow on long
-        // sequences.
-        while !sessionIsCancelled() {
-            try Task.checkCancellation()
-            guard let sample = videoOutput.copyNextSampleBuffer() else {
-                if let error = reader.error {
-                    throw MediaPipelineError.readerFailed(error)
-                }
-                return nil
-            }
-            guard let buffer = CMSampleBufferGetImageBuffer(sample) else {
-                continue
-            }
-            let pts = CMSampleBufferGetPresentationTimeStamp(sample)
-            let record = FrameRecord(pixelBuffer: buffer, presentationTime: pts, frameIndex: frameIndex)
-            frameIndex += 1
-            return record
+        let stage = telemetry.beginStage(.frameRead, frameIndex: frameIndex)
+        defer { telemetry.endStage(stage) }
+        try Task.checkCancellation()
+        if sessionIsCancelled() { return nil }
+        let currentSample: CMSampleBuffer
+        if let pendingVideoSample {
+            currentSample = pendingVideoSample
+        } else if let firstSample = try copyNextVideoImageSample() {
+            currentSample = firstSample
+        } else {
+            return nil
+        }
+        let nextSample = try copyNextVideoImageSample()
+        pendingVideoSample = nextSample
+
+        guard let buffer = CMSampleBufferGetImageBuffer(currentSample) else {
+            throw failureAfterCleanup(
+                MediaPipelineError.readerFailed(reader.error)
+            )
+        }
+        let pts = CMSampleBufferGetPresentationTimeStamp(currentSample)
+        let nextPTS = nextSample.map(CMSampleBufferGetPresentationTimeStamp)
+        let duration = FrameTiming.resolveDuration(
+            sampleDuration: CMSampleBufferGetDuration(currentSample),
+            presentationTime: pts,
+            nextPresentationTime: nextPTS,
+            timelineEnd: sourceVideoEndTime
+        )
+        let timing = FrameTiming(
+            frameIndex: frameIndex,
+            presentationTime: pts,
+            duration: duration
+        )
+        let record = FrameRecord(pixelBuffer: buffer, timing: timing)
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "frame_read",
+            frameIndex: frameIndex,
+            presentationTimestampValue: pts.value,
+            presentationTimestampTimescale: pts.timescale,
+            details: [
+                "pixel_format": String(CVPixelBufferGetPixelFormatType(buffer)),
+                "plane_count": String(CVPixelBufferGetPlaneCount(buffer)),
+                "duration_value": String(duration.value),
+                "duration_timescale": String(duration.timescale)
+            ]
+        ))
+        frameIndex += 1
+        return record
+    }
+
+    private func copyNextVideoImageSample() throws -> CMSampleBuffer? {
+        while let sample = videoOutput.copyNextSampleBuffer() {
+            if CMSampleBufferGetImageBuffer(sample) != nil { return sample }
+        }
+        if let error = reader.error {
+            throw failureAfterCleanup(MediaPipelineError.readerFailed(error))
         }
         return nil
     }
 
-    func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws {
-        while !videoInput.isReadyForMoreMediaData {
-            try await Task.sleep(nanoseconds: 1_000_000)
-            if sessionIsCancelled() { throw CancellationError() }
+    func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws {
+        let backpressure = telemetry.beginStage(.writerBackpressure)
+        do {
+            while !videoInput.isReadyForMoreMediaData {
+                try await Task.sleep(nanoseconds: 1_000_000)
+                if sessionIsCancelled() { throw CancellationError() }
+            }
+        } catch {
+            telemetry.endStage(backpressure)
+            throw error
         }
+        telemetry.endStage(backpressure)
+        let append = telemetry.beginStage(.writerAppend)
+        defer { telemetry.endStage(append) }
         try Task.checkCancellation()
         if sessionIsCancelled() { throw CancellationError() }
-        if !videoAdaptor.append(pixelBuffer, withPresentationTime: presentationTime) {
-            throw MediaPipelineError.writerFailed(writer.error)
-        }
-    }
-
-    func finish() async throws {
-        try Task.checkCancellation()
-        if sessionIsCancelled() { throw CancellationError() }
-        // Drain audio (passthrough) before finalizing. .cancelled is treated
-        // separately from .failed (see post-finish check below).
-        if let audioOutput, let audioInput {
-            do {
-                while let sample = audioOutput.copyNextSampleBuffer() {
-                    while !audioInput.isReadyForMoreMediaData {
-                        try await Task.sleep(nanoseconds: 1_000_000)
-                        if sessionIsCancelled() { throw CancellationError() }
-                    }
-                    try Task.checkCancellation()
-                    if !audioInput.append(sample) {
-                        throw MediaPipelineError.audioBridgeFailed(writer.error ?? NSError(domain: "Audio", code: -1))
-                    }
+        do {
+            try timingLock.withLock {
+                var candidateLedger = timingLedger
+                try candidateLedger.append(timing)
+                guard videoAdaptor.append(
+                    pixelBuffer,
+                    withPresentationTime: timing.presentationTime
+                ) else {
+                    throw MediaPipelineError.writerFailed(writer.error)
                 }
-                audioInput.markAsFinished()
-            } catch let error as MediaPipelineError {
-                throw error
-            } catch {
-                throw MediaPipelineError.audioBridgeFailed(error)
+                timingLedger = candidateLedger
             }
+        } catch let error as FrameTimingLedgerError {
+            throw failureAfterCleanup(
+                MediaPipelineError.invalidFrameTiming(String(describing: error))
+            )
+        } catch {
+            throw failureAfterCleanup(error)
         }
-        videoInput.markAsFinished()
-        await writer.finishWriting()
-        switch writer.status {
-        case .completed:
-            do {
-                try commitOutput()
-                return
-            } catch {
-                discardWorkingOutput()
-                throw MediaPipelineError.outputPreparationFailed(outputProfile.url, error)
-            }
-        case .cancelled:
-            discardWorkingOutput()
-            throw CancellationError()
-        case .failed, .unknown, .writing:
-            throw MediaPipelineError.writerFailed(writer.error)
-        @unknown default:
-            throw MediaPipelineError.writerFailed(writer.error)
-        }
-    }
-
-    func cancel() {
-        var shouldCancelResources = false
-        var shouldDiscardOutput = false
-
-        lifecycleLock.lock()
-        switch lifecycleState {
-        case .active:
-            lifecycleState = .cancelled
-            shouldCancelResources = true
-            shouldDiscardOutput = true
-        case .cancelled:
-            shouldDiscardOutput = true
-        case .committed:
-            break
-        }
-        lifecycleLock.unlock()
-
-        if shouldCancelResources {
-            if reader.status == .reading { reader.cancelReading() }
-            if writer.status == .writing { writer.cancelWriting() }
-        }
-        if shouldDiscardOutput {
-            discardWorkingOutput()
-        }
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "frame_appended",
+            frameIndex: timing.frameIndex,
+            presentationTimestampValue: timing.presentationTime.value,
+            presentationTimestampTimescale: timing.presentationTime.timescale,
+            details: [
+                "duration_value": String(timing.duration.value),
+                "duration_timescale": String(timing.duration.timescale)
+            ]
+        ))
     }
 
     deinit {
-        discardWorkingOutput()
+        let cleanup = outputTransaction.fail()
+        retainCleanupError(cleanup)
     }
-
-    private func commitOutput() throws {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-
-        guard case .active = lifecycleState else {
-            throw CancellationError()
-        }
-        try outputTransaction.commit()
-        lifecycleState = .committed
-    }
-
-    private func discardWorkingOutput() {
-        outputTransaction.discard()
-    }
-
-    private func sessionIsCancelled() -> Bool {
-        lifecycleLock.lock()
-        defer { lifecycleLock.unlock() }
-        guard case .cancelled = lifecycleState else { return false }
-        return true
-    }
-
 }

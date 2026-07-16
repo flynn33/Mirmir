@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/holdout-sampling-plan-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "corpus_manifest_sha256",
+    "sample_selection",
+    "decode_contract",
+    "crop_contract",
+    "assets",
+    "target_pixel_hashes_known_before_p07",
+    "holdout_accessed",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_holdout_sampling_plan"},
+    "status": {"const": "preregistered_before_p06_no_pixel_access"},
+    "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "sample_selection": {
+      "type": "object",
+      "required": ["split", "asset_count", "samples_per_asset", "track_rule", "timestamp_rule", "comparison_rule", "tie_rule"],
+      "properties": {
+        "split": {"const": "holdout"},
+        "asset_count": {"const": 3},
+        "samples_per_asset": {"const": 1},
+        "track_rule": {"const": "require exactly one enabled video track; reject zero or multiple enabled video tracks"},
+        "timestamp_rule": {"const": "first decoded sample whose presentation timestamp is at or after the exact midpoint of the locked frame range"},
+        "comparison_rule": {"const": "CMTimeCompare(CMTimeMultiplyByRatio(pts - range_start, multiplier: 2, divisor: 1), range_duration) >= 0"},
+        "tie_rule": {"const": "decode in presentation order; retain the first satisfying sample and stop"}
+      },
+      "additionalProperties": false
+    },
+    "decode_contract": {
+      "type": "object",
+      "required": ["api", "pixel_format", "range", "matrix", "primaries", "transfer", "chroma_location", "orientation", "failure_rule"],
+      "properties": {
+        "api": {"const": "AVAssetReaderTrackOutput"},
+        "pixel_format": {"const": "420v"},
+        "range": {"const": "video"},
+        "matrix": {"const": "ITU_R_709_2"},
+        "primaries": {"const": "ITU_R_709_2"},
+        "transfer": {"const": "ITU_R_709_2"},
+        "chroma_location": {"const": "left"},
+        "orientation": {"const": "apply locked preferred transform into presentation space before crop"},
+        "failure_rule": {"const": "reject missing or conflicting production metadata, decode failure, non-420v output, or absent midpoint sample"}
+      },
+      "additionalProperties": false
+    },
+    "crop_contract": {
+      "type": "object",
+      "required": ["presentation_width", "presentation_height", "width", "height", "x", "y", "chroma_width", "chroma_height", "boundary_rule"],
+      "properties": {
+        "presentation_width": {"const": "locked per asset"},
+        "presentation_height": {"const": "locked per asset"},
+        "width": {"const": 324},
+        "height": {"const": 192},
+        "x": {"const": "2 * floor((presentation_width - 324) / 4)"},
+        "y": {"const": "2 * floor((presentation_height - 192) / 4)"},
+        "chroma_width": {"const": 162},
+        "chroma_height": {"const": 96},
+        "boundary_rule": {"const": "reject if presentation dimensions are smaller than the crop or crop coordinates are not nonnegative even integers"}
+      },
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/asset"}
+    },
+    "target_pixel_hashes_known_before_p07": {"const": false},
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "asset": {
+      "type": "object",
+      "required": ["ordinal", "asset_id", "source_asset_id", "source_family_id", "source_sha256", "source_size_bytes", "presentation_dimensions", "frame_count", "frame_range", "target_route", "crop", "expected_metadata"],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 2},
+        "asset_id": {"type": "string", "minLength": 1},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_size_bytes": {"type": "integer", "minimum": 1},
+        "presentation_dimensions": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {"width": {"type": "integer", "minimum": 324}, "height": {"type": "integer", "minimum": 192}},
+          "additionalProperties": false
+        },
+        "frame_count": {"type": "integer", "minimum": 1},
+        "frame_range": {
+          "type": "object",
+          "required": ["start", "duration", "timescale"],
+          "properties": {"start": {"type": "integer", "minimum": 0}, "duration": {"type": "integer", "minimum": 1}, "timescale": {"type": "integer", "minimum": 1}},
+          "additionalProperties": false
+        },
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "crop": {
+          "type": "object",
+          "required": ["x", "y", "width", "height"],
+          "properties": {"x": {"type": "integer", "minimum": 0, "multipleOf": 2}, "y": {"type": "integer", "minimum": 0, "multipleOf": 2}, "width": {"const": 324}, "height": {"const": 192}},
+          "additionalProperties": false
+        },
+        "expected_metadata": {
+          "type": "object",
+          "required": ["pixel_format", "range", "color_primaries", "transfer_function", "ycbcr_matrix", "chroma_location"],
+          "properties": {
+            "pixel_format": {"const": "420v"},
+            "range": {"const": "video"},
+            "color_primaries": {"const": "ITU_R_709_2"},
+            "transfer_function": {"const": "ITU_R_709_2"},
+            "ycbcr_matrix": {"const": "ITU_R_709_2"},
+            "chroma_location": {"const": "left"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

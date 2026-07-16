@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "contract_id": "mirmir-p06-candidate-evidence-policy-v1",
+  "status": "preregistered_not_executed",
+  "declaration_rule": "Every formula and pass predicate in this document is immutable before the first development candidate is evaluated.",
+  "source_evidence": {
+    "p00_baseline_reproduction": {
+      "path": "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/baseline-reproduction.json",
+      "file_sha256": "989d2ea494a37fa29443b0fd68f0be06bad1508b9f5fca2f15328607dca514d4",
+      "one_frame_seconds": 20.162,
+      "throughput_frames_per_second": 0.0491
+    },
+    "p05_cpu_reference": {
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/cpu-reference-results.json",
+      "file_sha256": "4b8a4834cea10128be529f66388da067bc2a67bbc7e968388632c4d030c4aede"
+    },
+    "p05_operator_discrimination": {
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/operator-discrimination.json",
+      "file_sha256": "45c43242f180ecf9053bc38071c60730244c81f1083e35690c6bb6a955eba013",
+      "descriptor_count": 16,
+      "unordered_pair_count": 120
+    },
+    "p05_state_causality": {
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/state-causality-results.json",
+      "file_sha256": "8f1a071e9727462bc529f23b7787a7651086d48fe53603db9ca31df194a38fec"
+    },
+    "p05_state_fixtures": {
+      "path": "Artifacts/ASH/20260713-p05-current-source-aa82b1cc-24a1-4a57-8c36-f7183d743455/evidence/run-a/state-fixtures.json",
+      "file_sha256": "7d151df2f048bc5a399360f7a9180465b3262e9b48b58208e087757f169f3fb3"
+    }
+  },
+  "candidate_checks": {
+    "evidence_rule": "The evaluator publishes the complete canonical evidence object and sets evidence_sha256 to SHA-256 of sorted-key compact UTF-8 JSON for that object; the runner independently recomputes every predicate.",
+    "compiler_invariants": {
+      "routes": [
+        {
+          "target_route": "direct-2x",
+          "entry_count": 4096,
+          "phase_count": 4,
+          "context_count": 4,
+          "valid_state_count": 256
+        },
+        {
+          "target_route": "direct-3over2",
+          "entry_count": 9216,
+          "phase_count": 9,
+          "context_count": 4,
+          "valid_state_count": 256
+        }
+      ],
+      "required_oracle_result": "both native-emitted route LUTs reopen by whole-file hash and pass the independent Python binary validator against the exact compiler input",
+      "runtime_leaf_tree_generations": 0,
+      "runtime_path_generations": 0,
+      "per_frame_lut_load_count": 0,
+      "loaded_lut_instance_count_per_route": 1,
+      "maximum_operator_evaluations": 2
+    },
+    "operator_distinctness": {
+      "descriptor_ids": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+      "unordered_pair_count": 120,
+      "witness_scope": "all locked natural source/profile rows plus all fourteen locked analytic route fixtures in the engine_raw domain",
+      "witness_rule": "For each unordered descriptor pair, at least one identical-input fixed-descriptor output has a different reopened common-420v frame SHA-256.",
+      "constant_patch_exception": "One fixture may produce equality; universal equality across the complete witness scope fails."
+    },
+    "state_causality": {
+      "active_spatial_coordinates": [1, 2, 3, 4, 5, 6, 8],
+      "inactive_spatial_coordinate": 7,
+      "integrity_coordinate": 9,
+      "observed_state_rule": "For each route, the union of native full-ASH natural and analytic state histograms contains both zero and one for every active spatial coordinate; coordinate 7 is always zero and every raw state has valid coordinate-9 parity.",
+      "compiled_dispatch_rule": "For each route and active coordinate, at least one context-zero non-source-exact phase has a parity-valid state pair differing only in that coordinate and coordinate 9 whose validated dispatch entry signature differs.",
+      "output_ablation_rule": "For each route, at least one locked analytic fixture has different reopened engine_raw full-ASH and state-only output SHA-256 values.",
+      "state_disabled_rule": "The state-only control retains the exact route, phase, analysis grid, coordinate policy, boundary mode, operator bank, and input bytes while disabling branch-message deltas and confidence blending."
+    },
+    "analysis_grid": {
+      "occupancy_rule": "For every natural and analytic full-ASH native invocation, analysis_cell_count is positive, occupied_analysis_cell_count is the number of distinct luma analysis cells reached by exact target-to-source assignment, occupied_analysis_cell_count equals analysis_cell_count, and dispatch_record_count equals analysis_cell_count multiplied by the route phase-pair count (4 for direct-2x and 9 for direct-3over2). Route occupied_cells and total_cells are the respective sums of occupied_analysis_cell_count and analysis_cell_count; each route must have occupied_cells equal to total_cells.",
+      "route_quality_rule": "Each route must contain natural rows in both comparison domains and analytic rows in both comparison domains; every per-source engine_raw Y-PSNR delta versus the selected conventional control is at least the severe-regression floor; route analytic ringing, alias, and chroma limits use the unchanged locked tolerances.",
+      "coordinate_assignment_rule": "All occupancy counts use the locked source-lattice cell geometry and exact target-to-source assignment from calibration-plan-v1.json."
+    }
+  },
+  "performance_estimate": {
+    "estimate_kind": "preregistered_production_estimate",
+    "estimate_method": "p00-p05-anchored-architectural-floor-and-exact-dispatch-work-v1",
+    "estimate_model": "mirmir-p06-preregistered-production-estimate-v1",
+    "comparison_scope": "Compute the model independently for the current split's exact locked natural source/profile matrix; never read validation inputs while evaluating development.",
+    "baseline_frames_per_second": 0.0491,
+    "same_machine_speedup": 20.0,
+    "production_frames_per_second": 0.982,
+    "full_ash_dispatch_work": "For each natural invocation: (analysis_cell_count + maximum_operator_evaluations * target_luma_pixel_count) / target_luma_pixel_count. estimated_dispatch_cost is the binary64 arithmetic mean in locked row order.",
+    "h07_dispatch_work": "For each direct-3over2 natural invocation: (direct2_analysis_cell_count + 2 * direct2_intermediate_luma_pixel_count + 12 * target_luma_pixel_count) / target_luma_pixel_count, where the direct2 intermediate is exactly twice the low-resolution luma extent and 12 is the declared six-tap horizontal plus six-tap vertical separable Lanczos3 work. h07_control_estimate_dispatch_cost is the binary64 arithmetic mean in locked row order.",
+    "h07_frames_per_second": "production_frames_per_second * estimated_dispatch_cost / h07_control_estimate_dispatch_cost",
+    "full_frame_cpu_reconstruction_loops": 0,
+    "runtime_leaf_tree_generations_per_frame": 0,
+    "candidate_evaluations_per_output_cell": 2,
+    "production_wait_until_completed_calls": 0,
+    "avoidable_full_frame_gpu_readbacks_per_frame": 0,
+    "default_in_flight_frames": 3,
+    "calibration_estimate_relative_error_bound": 0.2,
+    "interpretation": "The 20x and 0.982 fps values are a preregistered architectural feasibility floor, not a measured P06 CPU-reference throughput claim. G08 must measure the production Metal path and fail if the locked estimate error exceeds 0.2."
+  },
+  "failure_behavior": "A missing field, stale hash, nonfinite value, formula mismatch, incomplete witness set, failed predicate, validation access during development, or provider absence makes the candidate infeasible or aborts on an evidence-integrity error; no default pass value exists."
+}

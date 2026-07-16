@@ -1,0 +1,15 @@
+1080p/IMG_9200.MOV: OK
+720p/_users_4ef8fd92-6a31-40cc-8b12-3b6eb7047e0e_generated_026d4390-84f1-402e-9c5b-5f46f8296f09_generated_video.mp4: OK
+720p/_users_4ef8fd92-6a31-40cc-8b12-3b6eb7047e0e_generated_6225b1af-ad2f-4950-aa9d-1fdb9f26eb48_generated_video.mp4: OK
+720p/_users_4ef8fd92-6a31-40cc-8b12-3b6eb7047e0e_generated_7cb8cd4e-bb09-49eb-a9c9-47415e0eccc6_generated_video.mp4: OK
+720p/raven-forge-spp-splash.mp4: OK
+720p/v12044gd0000d8gbmvfog65tvhaff2ig.mp4: OK
+evaluation/fixtures/img9200_1080p_100ms.mov: OK
+evaluation/fixtures/img9200_1080p_clean_100ms.mov: OK
+evaluation/fixtures/img9200_1080p_clean_oneframe.mov: OK
+evaluation/fixtures/img9200_1080p_oneframe.mov: OK
+evaluation/fixtures/img9200_720p_100ms.mov: OK
+evaluation/fixtures/img9200_720p_oneframe.mov: OK
+evaluation/fixtures/img9200_exact_1080p_1f.mp4: OK
+evaluation/fixtures/img9200_exact_1080p_3f.mp4: OK
+evaluation/fixtures/img9200_exact_720p_1f.mp4: OK

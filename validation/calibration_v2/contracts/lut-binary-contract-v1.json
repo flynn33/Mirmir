@@ -1,0 +1,252 @@
+{
+  "schema_version": "1.0.0",
+  "contract_id": "mirmir-ash-route-lut-v1",
+  "status": "preregistered_not_executed",
+  "endianness": "little",
+  "magic_ascii": "ASHV2LUT",
+  "format_version": {"major": 1, "minor": 1},
+  "header": {
+    "size_bytes": 320,
+    "fields": [
+      {"name": "magic", "offset": 0, "size": 8, "encoding": "ASCII", "value": "ASHV2LUT"},
+      {"name": "format_major", "offset": 8, "size": 2, "encoding": "UInt16LE", "value": 1},
+      {"name": "format_minor", "offset": 10, "size": 2, "encoding": "UInt16LE", "value": 1},
+      {"name": "header_size", "offset": 12, "size": 2, "encoding": "UInt16LE", "value": 320},
+      {"name": "endianness_tag", "offset": 14, "size": 2, "encoding": "UInt16LE", "value": 19525},
+      {"name": "route_id", "offset": 16, "size": 2, "encoding": "UInt16LE"},
+      {"name": "header_flags", "offset": 18, "size": 2, "encoding": "UInt16LE", "value": 15},
+      {"name": "phase_count", "offset": 20, "size": 2, "encoding": "UInt16LE"},
+      {"name": "context_count", "offset": 22, "size": 2, "encoding": "UInt16LE", "value": 4},
+      {"name": "valid_state_count", "offset": 24, "size": 2, "encoding": "UInt16LE", "value": 256},
+      {"name": "entry_stride", "offset": 26, "size": 2, "encoding": "UInt16LE", "value": 24},
+      {"name": "parameter_stride", "offset": 28, "size": 2, "encoding": "UInt16LE", "value": 64},
+      {"name": "reserved0", "offset": 30, "size": 2, "encoding": "zero"},
+      {"name": "entry_count", "offset": 32, "size": 4, "encoding": "UInt32LE"},
+      {"name": "parameter_count", "offset": 36, "size": 4, "encoding": "UInt32LE"},
+      {"name": "parameter_offset", "offset": 40, "size": 4, "encoding": "UInt32LE", "value": 320},
+      {"name": "entry_offset", "offset": 44, "size": 4, "encoding": "UInt32LE"},
+      {"name": "parameter_bytes", "offset": 48, "size": 4, "encoding": "UInt32LE"},
+      {"name": "entry_bytes", "offset": 52, "size": 4, "encoding": "UInt32LE"},
+      {"name": "payload_offset", "offset": 56, "size": 4, "encoding": "UInt32LE", "value": 320},
+      {"name": "payload_bytes", "offset": 60, "size": 4, "encoding": "UInt32LE"},
+      {"name": "mapping_sha256", "offset": 64, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "operator_bank_sha256", "offset": 96, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "metric_policy_sha256", "offset": 128, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "compiler_inputs_sha256", "offset": 160, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "calibration_plan_sha256", "offset": 192, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "corpus_lock_bundle_sha256", "offset": 224, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "payload_sha256", "offset": 256, "size": 32, "encoding": "raw_SHA256_digest"},
+      {"name": "header_crc32", "offset": 288, "size": 4, "encoding": "UInt32LE"},
+      {"name": "payload_crc32", "offset": 292, "size": 4, "encoding": "UInt32LE"},
+      {"name": "file_size", "offset": 296, "size": 4, "encoding": "UInt32LE"},
+      {"name": "reserved_tail", "offset": 300, "size": 20, "encoding": "zero"}
+    ],
+    "flags": [
+      {"bit": 0, "name": "parameter_table_present", "required": 1},
+      {"bit": 1, "name": "payload_sha256_present", "required": 1},
+      {"bit": 2, "name": "payload_crc32_present", "required": 1},
+      {"bit": 3, "name": "source_aligned_preservation_contract", "required": 1},
+      {"bit": 4, "name": "temporal_enabled", "required": 0}
+    ],
+    "reserved_flag_bits": [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  },
+  "routes": [
+    {
+      "name": "direct_2x",
+      "route_id": 1,
+      "scale_numerator": 2,
+      "scale_denominator": 1,
+      "phase_count": 4,
+      "entry_count": 4096,
+      "filename": "direct2x.ashlut"
+    },
+    {
+      "name": "direct_3_over_2",
+      "route_id": 2,
+      "scale_numerator": 3,
+      "scale_denominator": 2,
+      "phase_count": 9,
+      "entry_count": 9216,
+      "filename": "direct3over2.ashlut"
+    }
+  ],
+  "derived_sizes": {
+    "parameter_offset": "320",
+    "parameter_bytes": "parameter_count * 64",
+    "entry_offset": "320 + parameter_bytes",
+    "entry_bytes": "entry_count * 24",
+    "payload_bytes": "parameter_bytes + entry_bytes",
+    "file_size": "320 + payload_bytes",
+    "overflow_rule": "every multiplication and addition must be checked in UInt64 and the final value must fit UInt32"
+  },
+  "entry_record": {
+    "size_bytes": 24,
+    "fields": [
+      {"name": "primary_affine_state", "offset": 0, "size": 2, "encoding": "UInt16LE"},
+      {"name": "secondary_affine_state", "offset": 2, "size": 2, "encoding": "UInt16LE"},
+      {"name": "primary_descriptor", "offset": 4, "size": 1, "encoding": "UInt8"},
+      {"name": "secondary_descriptor", "offset": 5, "size": 1, "encoding": "UInt8"},
+      {"name": "primary_message", "offset": 6, "size": 1, "encoding": "UInt8"},
+      {"name": "secondary_message", "offset": 7, "size": 1, "encoding": "UInt8"},
+      {"name": "primary_weight_unorm16", "offset": 8, "size": 2, "encoding": "UInt16LE"},
+      {"name": "secondary_weight_unorm16", "offset": 10, "size": 2, "encoding": "UInt16LE"},
+      {"name": "margin_unorm16", "offset": 12, "size": 2, "encoding": "UInt16LE"},
+      {"name": "entry_flags", "offset": 14, "size": 2, "encoding": "UInt16LE"},
+      {"name": "parameter_index", "offset": 16, "size": 4, "encoding": "UInt32LE"},
+      {"name": "provenance_crc32", "offset": 20, "size": 4, "encoding": "UInt32LE"}
+    ],
+    "flags": [
+      {"bit": 0, "name": "has_secondary"},
+      {"bit": 1, "name": "source_aligned_exact"},
+      {"bit": 2, "name": "temporal_forced_spatial"},
+      {"bit": 3, "name": "primary_exact_verified", "required": 1},
+      {"bit": 4, "name": "secondary_exact_verified", "conditional": "equal to has_secondary"},
+      {"bit": 5, "name": "compiler_fallback", "required": 0}
+    ],
+    "reserved_flag_bits": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    "active_secondary": {
+      "primary_affine_range": [0, 511],
+      "secondary_affine_range": [0, 511],
+      "descriptor_range": [0, 15],
+      "message_range": [0, 15],
+      "weight_sum": 65535,
+      "margin": "primary_weight_unorm16 - secondary_weight_unorm16"
+    },
+    "inactive_secondary": {
+      "secondary_affine_state": 65535,
+      "secondary_descriptor": 255,
+      "secondary_message": 255,
+      "primary_weight_unorm16": 65535,
+      "secondary_weight_unorm16": 0,
+      "secondary_parameter_slot": "24 zero bytes at parameter-record offsets 24...47",
+      "ordinary_margin": "retain provisional top-two margin and require it to be at least confidence_threshold_unorm16",
+      "source_exact_margin": 65535
+    }
+  },
+  "parameter_record": {
+    "size_bytes": 64,
+    "candidate_slot_size_bytes": 24,
+    "primary_slot_offset": 0,
+    "secondary_slot_offset": 24,
+    "candidate_slot_fields": [
+      {"name": "anisotropy_strength_q12", "offset": 0, "size": 2, "encoding": "UInt16LE"},
+      {"name": "minimum_anisotropic_magnitude_unorm15", "offset": 2, "size": 2, "encoding": "UInt16LE"},
+      {"name": "minimum_anisotropic_coherence_unorm15", "offset": 4, "size": 2, "encoding": "UInt16LE"},
+      {"name": "detail_gain_q12", "offset": 6, "size": 2, "encoding": "UInt16LE"},
+      {"name": "relaxed_limiter_alpha_q12", "offset": 8, "size": 2, "encoding": "UInt16LE"},
+      {"name": "risk_detail_suppression_unorm15", "offset": 10, "size": 2, "encoding": "UInt16LE"},
+      {"name": "support_radius_q8_8", "offset": 12, "size": 2, "encoding": "UInt16LE"},
+      {"name": "weight_epsilon_f32_bits", "offset": 14, "size": 4, "encoding": "UInt32LE containing finite positive IEEE-754 binary32 bits"},
+      {"name": "orientation_delta", "offset": 18, "size": 1, "encoding": "Int8", "range": [-1, 1]},
+      {"name": "support_delta", "offset": 19, "size": 1, "encoding": "Int8", "range": [-1, 1]},
+      {"name": "detail_delta", "offset": 20, "size": 1, "encoding": "Int8", "range": [-1, 1]},
+      {"name": "regularization_delta", "offset": 21, "size": 1, "encoding": "Int8", "range": [-1, 1]},
+      {"name": "candidate_flags", "offset": 22, "size": 2, "encoding": "UInt16LE"}
+    ],
+    "candidate_flags": [
+      {"bit": 0, "name": "active"},
+      {"bit": 1, "name": "positive_detail_enabled"},
+      {"bit": 2, "name": "relaxed_limiter_enabled"},
+      {"bit": 3, "name": "temporal_contribution_enabled", "required": 0},
+      {"bit": 4, "name": "source_aligned_preservation"},
+      {"bit": 5, "name": "denoising_enabled", "required": 0}
+    ],
+    "reserved_candidate_flag_bits": [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+    "tail_fields": [
+      {"name": "confidence_threshold_unorm16", "offset": 48, "size": 2, "encoding": "UInt16LE"},
+      {"name": "luma_coordinate_policy", "offset": 50, "size": 1, "encoding": "UInt8", "values": {"half_pixel_center": 0, "source_aligned_rational": 1}},
+      {"name": "boundary_mode", "offset": 51, "size": 1, "encoding": "UInt8", "values": {"clamp": 0, "mirror_reflect101": 1}},
+      {"name": "source_aligned_policy", "offset": 52, "size": 1, "encoding": "UInt8", "value": 1},
+      {"name": "temporal_mode", "offset": 53, "size": 1, "encoding": "UInt8", "value": 0},
+      {"name": "chroma_coordinate_policy", "offset": 54, "size": 1, "encoding": "UInt8", "values": {"half_pixel_center": 0, "source_aligned_rational": 1}},
+      {"name": "reserved_tail", "offset": 55, "size": 5, "encoding": "zero"},
+      {"name": "record_crc32", "offset": 60, "size": 4, "encoding": "UInt32LE"}
+    ],
+    "deduplication": "deduplicate exact bytes 0...59, then sort by unsigned bytewise lexicographic order",
+    "record_crc_scope": "bytes 0...59"
+  },
+  "cross_field_invariants": [
+    "parameter_count is at least one and every parameter_index is less than parameter_count",
+    "primary_affine_state is at most 511, primary descriptor and message are at most 15, and strict affine recovery returns exact primary_message",
+    "has_secondary equals one if and only if all active-secondary fields and the secondary parameter slot are active; otherwise every inactive-secondary sentinel and zero-slot rule holds",
+    "primary_weight_unorm16 plus secondary_weight_unorm16 equals 65535; margin equals their difference only when has_secondary is one",
+    "an ordinary confidence-pruned entry has inactive secondary, stored weights 65535 and zero, and retains the provisional top-two margin at or above confidence threshold; source-aligned exact instead forces margin 65535",
+    "the primary candidate active flag is one; the secondary candidate active flag equals has_secondary",
+    "positive_detail_enabled and descriptor bit 2 both equal one exactly when final detail_gain_q12 is positive",
+    "relaxed_limiter_enabled and descriptor bit 3 both equal one exactly when final relaxed_limiter_alpha_q12 is positive",
+    "source_aligned_exact equals one only when both luma_coordinate_policy and chroma_coordinate_policy are source_aligned_rational and phase indices horizontal zero and vertical zero",
+    "a source_aligned_exact entry has primary message and descriptor zero, primary affine equal to the original anchor, primary weight and margin 65535, inactive secondary, zero semantic deltas, support radius 512, zero detail gain, zero relaxed alpha, and source-preservation candidate flag one",
+    "source_aligned_exact is zero when either luma_coordinate_policy or chroma_coordinate_policy is half_pixel_center",
+    "candidate support_radius_q8_8 is clamp(kernel base support plus signed support delta times the locked support step, 256, 768), where Keys base is 512 and Lanczos3 base is 768; locked low_pass_radius_q8_8 is not serialized into this field",
+    "temporal_forced_spatial equals one exactly for context ids 1, 2, and 3",
+    "compiler_fallback, temporal contribution, denoising, and every reserved bit are zero in a locked LUT",
+    "all six header input digests and the payload digest contain at least one nonzero byte"
+  ],
+  "ordering": {
+    "phase": "vertical-major with horizontal index fastest: vertical * scale_numerator + horizontal",
+    "context_ids": {"spatial_only": 0, "temporal_previous": 1, "temporal_next": 2, "temporal_bidirectional": 3},
+    "valid_state_ordinal": "ascending raw parity-valid state among 0...511",
+    "logical_index": "(((phase_index * 4) + context_id) * 256) + valid_state_ordinal",
+    "entry_order": "strictly increasing logical_index"
+  },
+  "integrity": {
+    "crc": {
+      "name": "CRC-32/ISO-HDLC",
+      "polynomial": "0x04C11DB7",
+      "initial": "0xFFFFFFFF",
+      "reflect_input": true,
+      "reflect_output": true,
+      "xor_output": "0xFFFFFFFF",
+      "check_123456789": "0xCBF43926"
+    },
+    "header_crc_scope": "all 320 header bytes after final header population with bytes 288...291 replaced by zero",
+    "payload_scope": "bytes at payload_offset for exactly payload_bytes; this is the parameter table followed by the entry table",
+    "payload_sha256_encoding": "raw 32-byte digest in the header and lowercase hexadecimal in the external manifest",
+    "entry_crc_scope": "route_id UInt16LE concatenated with logical_index UInt32LE, entry bytes 0...19, and referenced parameter bytes 0...63",
+    "whole_file_sha256": "external native parity manifest only to avoid self-reference"
+  },
+  "hash_bindings": {
+    "mapping_sha256": "entire locked mapping file",
+    "operator_bank_sha256": "entire locked operator-bank file",
+    "metric_policy_sha256": "entire locked metric-policy file",
+    "compiler_inputs_sha256": "self-hash from locked-compiler-input.json, computed over its canonical JSON with only /hash_bindings/compiler_inputs_sha256 omitted",
+    "calibration_plan_sha256": "entire preregistered calibration plan file",
+    "corpus_lock_bundle_sha256": "canonical sorted-key compact UTF-8 JSON map from corpus-related input id to lowercase SHA-256; media payload bytes are not part of this bundle",
+    "zero_digest_allowed": false
+  },
+  "validation_order": [
+    "minimum length for fixed header",
+    "magic, version, endianness, route, flags, and reserved bytes",
+    "checked dimensions, offsets, section sizes, and exact file size",
+    "header CRC",
+    "payload CRC",
+    "payload SHA-256",
+    "expected input hashes",
+    "parameter-record CRC values and reserved bits",
+    "entry flags, sentinels, parameter indices, and entry CRC values",
+    "strict affine recovery and descriptor/message ranges"
+  ],
+  "error_taxonomy": [
+    "truncated_file",
+    "bad_magic",
+    "unsupported_version",
+    "bad_endianness",
+    "reserved_nonzero",
+    "invalid_route",
+    "dimension_mismatch",
+    "offset_or_size_overflow",
+    "file_size_mismatch",
+    "header_crc_mismatch",
+    "payload_crc_mismatch",
+    "payload_sha256_mismatch",
+    "input_hash_mismatch",
+    "parameter_crc_mismatch",
+    "parameter_index_out_of_bounds",
+    "entry_crc_mismatch",
+    "invalid_entry_flags",
+    "invalid_sentinel",
+    "invalid_affine_state",
+    "affine_decode_rejected",
+    "decoded_message_mismatch"
+  ]
+}

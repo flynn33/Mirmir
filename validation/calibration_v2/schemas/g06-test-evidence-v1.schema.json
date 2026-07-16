@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/g06-test-evidence-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "evidence_id", "evidence_ordinal",
+    "status", "started_utc", "finished_utc", "commands", "artifacts",
+    "summary", "failure_reason", "holdout_accessed", "verifier_source",
+    "evidence_schema", "evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.2.0"},
+    "artifact_kind": {"const": "p06_g06_test_evidence"},
+    "evidence_id": {
+      "enum": [
+        "python_calibration_full_suite",
+        "xcode_native_integration",
+        "xcode_release_runtime",
+        "swiftlint",
+        "release_lock_unit_suite"
+      ]
+    },
+    "evidence_ordinal": {"type": "integer", "minimum": 1, "maximum": 5},
+    "status": {"enum": ["passed", "failed", "not_run"]},
+    "started_utc": {"type": "string", "minLength": 1},
+    "finished_utc": {"type": "string", "minLength": 1},
+    "commands": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/command"}
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/artifactBinding"}
+    },
+    "summary": {"type": "object"},
+    "failure_reason": {"type": ["string", "null"], "minLength": 1},
+    "holdout_accessed": {"const": false},
+    "verifier_source": {"$ref": "#/$defs/sourceBinding"},
+    "evidence_schema": {"$ref": "#/$defs/sourceBinding"},
+    "evidence_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "passed"}}},
+      "then": {"properties": {"failure_reason": {"type": "null"}}},
+      "else": {"properties": {"failure_reason": {"type": "string", "minLength": 1}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sourceBinding": {
+      "type": "object",
+      "required": ["repository_path", "sha256", "size_bytes"],
+      "properties": {
+        "repository_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "artifactBinding": {
+      "type": "object",
+      "required": [
+        "artifact_id", "artifact_kind", "digest_mode", "sha256",
+        "size_bytes", "file_count"
+      ],
+      "properties": {
+        "artifact_id": {"type": "string", "minLength": 1},
+        "artifact_kind": {
+          "enum": [
+            "command_log", "native_runtime_evidence_input",
+            "xcresult", "xcresult_summary",
+            "release_product", "internal_error"
+          ]
+        },
+        "digest_mode": {
+          "enum": ["file_sha256", "canonical_tree_manifest_sha256"]
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0},
+        "file_count": {"type": "integer", "minimum": 1},
+        "executable_mode_bits": {
+          "type": "integer",
+          "enum": [0, 1, 8, 9, 64, 65, 72, 73]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"digest_mode": {"const": "file_sha256"}},
+            "required": ["digest_mode"]
+          },
+          "then": {"required": ["executable_mode_bits"]},
+          "else": {"not": {"required": ["executable_mode_bits"]}}
+        }
+      ],
+      "additionalProperties": false
+    },
+    "command": {
+      "type": "object",
+      "required": [
+        "command_index", "argv", "command_text", "working_directory",
+        "exit_code", "timed_out", "duration_seconds", "status", "log_binding"
+      ],
+      "properties": {
+        "command_index": {"type": "integer", "minimum": 1},
+        "argv": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "command_text": {"type": "string", "minLength": 1},
+        "working_directory": {"const": "."},
+        "exit_code": {"type": "integer"},
+        "timed_out": {"type": "boolean"},
+        "duration_seconds": {"type": "number", "minimum": 0},
+        "status": {"enum": ["passed", "failed"]},
+        "log_binding": {"$ref": "#/$defs/artifactBinding"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,17 @@
+Starting recording with the Logging template. Attaching to: Mirmir (51165). Time limit: 90.0 s
+Ctrl-C to stop the recording
+Target app exited, ending recording...
+Timeline modification failed -- dylibs overlap by 0x836ec:
+    0x187951000-0x1879806ec [0x2f6ec] (233921129918-9223372036854775807) /usr/lib/system/libsystem_info.dylib
+    0x1878fd000-0x187971000 [0x74000] (233921130024-9223372036854775807) /usr/lib/system/libsystem_kernel.dylib
+Timeline modification failed -- dylibs overlap by 0x386ec:
+    0x187951000-0x1879806ec [0x2f6ec] (233921129918-9223372036854775807) /usr/lib/system/libsystem_info.dylib
+    0x187948000-0x187978000 [0x30000] (233921130038-9223372036854775807) /usr/lib/system/libsystem_platform.dylib
+Timeline modification failed -- dylibs overlap by 0x4c000:
+    0x187951000-0x1879806ec [0x2f6ec] (233921129918-9223372036854775807) /usr/lib/system/libsystem_info.dylib
+    0x18793b000-0x187987000 [0x4c000] (233921130050-9223372036854775807) /usr/lib/system/libsystem_pthread.dylib
+Run issues were detected (trace is still ready to be viewed):
+* [Warning] Data stream: Signpost intervals with backdated timestamps were emitted that are not visualized on the timeline until immediate mode recording is stopped.
+
+Recording completed. Saving output file...
+Output file saved as: production-signposts.trace

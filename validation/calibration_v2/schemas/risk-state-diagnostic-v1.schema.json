@@ -1,0 +1,310 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/risk-state-diagnostic-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "split",
+    "validation_accessed",
+    "holdout_accessed",
+    "selected_winner",
+    "input_bindings",
+    "dimension_contract",
+    "native_records",
+    "frame_route_records",
+    "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_open_development_risk_state_diagnostic"},
+    "status": {"const": "development_diagnostic_no_selection"},
+    "split": {"const": "development"},
+    "validation_accessed": {"const": false},
+    "holdout_accessed": {"const": false},
+    "selected_winner": {"type": "null"},
+    "input_bindings": {"$ref": "#/$defs/inputBindings"},
+    "dimension_contract": {"$ref": "#/$defs/dimensionContract"},
+    "native_records": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {"$ref": "#/$defs/nativeExecutionRecord"}
+    },
+    "frame_route_records": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {"$ref": "#/$defs/frameRouteRecord"}
+    },
+    "artifact_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "route": {
+      "enum": ["direct_2x", "direct_3_over_2"]
+    },
+    "inputBindings": {
+      "type": "object",
+      "required": [
+        "base_candidate_vector_sha256",
+        "base_adapter_configuration_sha256",
+        "compiler_inputs_sha256",
+        "native_configuration_provenance",
+        "mapping_sha256",
+        "risk_state_diagnostic_source_sha256",
+        "coordinate_model_contract_file_sha256",
+        "coordinate_oracle_matrix_sha256",
+        "coordinate_experiment_dimensions_sha256",
+        "video_profile_contract_file_sha256",
+        "video_profile_contract_sha256",
+        "quality_harness_implementation_manifest_file_sha256",
+        "quality_harness_implementation_manifest_sha256",
+        "g04_lock_file_sha256",
+        "g05_lock_file_sha256",
+        "corrective_preregistration_file_sha256",
+        "corrective_preregistration_sha256",
+        "native_executable_sha256",
+        "native_source_manifest_sha256",
+        "development_sample_lock_file_sha256",
+        "development_sample_lock_manifest_sha256",
+        "expected_observation_count_by_route",
+        "development_sample_dimension_sha256",
+        "degradation_profile_dimension_sha256",
+        "corpus_lock_bundle_sha256",
+        "live_holdout_preopen_verification",
+        "live_holdout_preopen_verification_sha256",
+        "degradation_policy_sha256",
+        "analysis_grid_hash_contract"
+        ,"completed_execution_evidence"
+      ],
+      "properties": {
+        "base_candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "base_adapter_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "native_configuration_provenance": {
+          "type": "object",
+          "required": [
+            "candidate_vector_sha256",
+            "shared_bank_configuration_sha256",
+            "mapping_sha256",
+            "operator_bank_sha256",
+            "metric_policy_sha256",
+            "calibration_plan_sha256",
+            "corpus_lock_bundle_sha256",
+            "candidate_lut_runtime_manifest_sha256"
+          ],
+          "properties": {
+            "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+            "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+            "mapping_sha256": {"$ref": "#/$defs/sha256"},
+            "operator_bank_sha256": {"$ref": "#/$defs/sha256"},
+            "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+            "calibration_plan_sha256": {"$ref": "#/$defs/sha256"},
+            "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+            "candidate_lut_runtime_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "mapping_sha256": {"$ref": "#/$defs/sha256"},
+        "risk_state_diagnostic_source_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_model_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_oracle_matrix_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_experiment_dimensions_sha256": {"$ref": "#/$defs/sha256"},
+        "video_profile_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "video_profile_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "quality_harness_implementation_manifest_file_sha256": {"$ref": "#/$defs/sha256"},
+        "quality_harness_implementation_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "g04_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "g05_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corrective_preregistration_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corrective_preregistration_sha256": {"$ref": "#/$defs/sha256"},
+        "native_executable_sha256": {"$ref": "#/$defs/sha256"},
+        "native_source_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_lock_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_observation_count_by_route": {
+          "type": "object",
+          "required": ["direct_2x", "direct_3_over_2"],
+          "properties": {
+            "direct_2x": {"const": 12},
+            "direct_3_over_2": {"const": 6}
+          },
+          "additionalProperties": false
+        },
+        "development_sample_dimension_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_profile_dimension_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "live_holdout_preopen_verification": {
+          "type": "object",
+          "required": [
+            "verification_status",
+            "access_status",
+            "access_count",
+            "open_intent_anchor_present",
+            "pixel_content_included"
+          ],
+          "properties": {
+            "verification_status": {"const": "pass"},
+            "access_status": {"const": "unopened"},
+            "access_count": {"const": 0},
+            "open_intent_anchor_present": {"const": false},
+            "pixel_content_included": {"const": false}
+          }
+        },
+        "live_holdout_preopen_verification_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "analysis_grid_hash_contract": {"const": "mirmir-ash-analysis-grid-v3-be-v1"},
+        "completed_execution_evidence": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "riskWeightPair": {
+      "type": "object",
+      "required": ["laplacian_unorm15", "alternating_difference_unorm15"],
+      "properties": {
+        "laplacian_unorm15": {"enum": [8192, 16384, 24575]},
+        "alternating_difference_unorm15": {"enum": [8192, 16383, 24575]}
+      },
+      "additionalProperties": false
+    },
+    "riskThresholdBand": {
+      "type": "object",
+      "required": ["low_unorm15", "high_unorm15"],
+      "properties": {
+        "low_unorm15": {"type": "integer", "minimum": 0, "maximum": 32767},
+        "high_unorm15": {"type": "integer", "minimum": 0, "maximum": 32767}
+      },
+      "additionalProperties": false
+    },
+    "dimensionContract": {
+      "type": "object",
+      "required": ["routes", "risk_weight_pairs", "risk_threshold_bands"],
+      "properties": {
+        "routes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/route"}
+        },
+        "risk_weight_pairs": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/riskWeightPair"}
+        },
+        "risk_threshold_bands": {
+          "type": "array",
+          "minItems": 10,
+          "maxItems": 10,
+          "items": {"$ref": "#/$defs/riskThresholdBand"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "nativeExecutionRecord": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "source_asset_id",
+        "degradation_profile_id",
+        "target_route",
+        "input_frame_sha256",
+        "input_nv12_sha256",
+        "request",
+        "response",
+        "request_sha256",
+        "response_sha256",
+        "native_diagnostic_sha256",
+        "native_record_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "target_route": {"$ref": "#/$defs/route"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "input_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "request": {"type": "object"},
+        "response": {"type": "object"},
+        "request_sha256": {"$ref": "#/$defs/sha256"},
+        "response_sha256": {"$ref": "#/$defs/sha256"},
+        "native_diagnostic_sha256": {"$ref": "#/$defs/sha256"},
+        "native_record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "riskCell": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "cell_id",
+        "risk_weight_pair",
+        "risk_threshold_band",
+        "risk_zero_count",
+        "risk_one_count",
+        "risk_proxy_minimum_unorm15",
+        "risk_proxy_maximum_unorm15",
+        "risk_proxy_value_count",
+        "risk_proxy_vector_sha256",
+        "cell_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 29},
+        "cell_id": {"type": "string", "pattern": "^weight-0[0-2]-band-0[0-9]$"},
+        "risk_weight_pair": {"$ref": "#/$defs/riskWeightPair"},
+        "risk_threshold_band": {"$ref": "#/$defs/riskThresholdBand"},
+        "risk_zero_count": {"type": "integer", "minimum": 0},
+        "risk_one_count": {"type": "integer", "minimum": 0},
+        "risk_proxy_minimum_unorm15": {"type": "integer", "minimum": 0, "maximum": 32767},
+        "risk_proxy_maximum_unorm15": {"type": "integer", "minimum": 0, "maximum": 32767},
+        "risk_proxy_value_count": {"type": "integer", "minimum": 1},
+        "risk_proxy_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "cell_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "frameRouteRecord": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "source_asset_id",
+        "degradation_profile_id",
+        "degradation_profile_sha256",
+        "target_route",
+        "input_frame_sha256",
+        "analysis_grid_source_step",
+        "analysis_cell_count",
+        "baseline_analysis_grid_sha256",
+        "native_execution_sha256",
+        "cells",
+        "frame_route_record_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "target_route": {"$ref": "#/$defs/route"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "analysis_grid_source_step": {"enum": [1, 2, 4]},
+        "analysis_cell_count": {"type": "integer", "minimum": 1},
+        "baseline_analysis_grid_sha256": {"$ref": "#/$defs/sha256"},
+        "native_execution_sha256": {"$ref": "#/$defs/sha256"},
+        "cells": {
+          "type": "array",
+          "minItems": 30,
+          "maxItems": 30,
+          "items": {"$ref": "#/$defs/riskCell"}
+        },
+        "frame_route_record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

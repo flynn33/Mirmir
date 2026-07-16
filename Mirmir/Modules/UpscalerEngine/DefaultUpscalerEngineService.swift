@@ -1,16 +1,27 @@
 import Foundation
 import CoreMedia
 import CoreVideo
+import os.lock
 
 @available(macOS 15.4, *)
 final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Sendable {
 
+    typealias TelemetryFactory = @Sendable () -> any ASHTelemetryRecording
+
     private let media: MediaPipelineService
     private let metal: MetalRenderingService
+    private let telemetryFactory: TelemetryFactory
+    private let jobIsActive = OSAllocatedUnfairLock(initialState: false)
 
-    init(media: MediaPipelineService, metal: MetalRenderingService, modelAssets _: ModelAssetsService) {
+    init(
+        media: MediaPipelineService,
+        metal: MetalRenderingService,
+        modelAssets _: ModelAssetsService,
+        telemetryFactory: @escaping TelemetryFactory = { ASHNoopTelemetryRecorder.shared }
+    ) {
         self.media = media
         self.metal = metal
+        self.telemetryFactory = telemetryFactory
     }
 
     func start() {}
@@ -20,10 +31,25 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
         guard !FileURLIdentity.refersToSameFile(job.inputURL, job.outputURL) else {
             throw UpscalerEngineError.inputOutputCollision
         }
+        let reserved = jobIsActive.withLock { active in
+            guard !active else { return false }
+            active = true
+            return true
+        }
+        guard reserved else {
+            throw UpscalerEngineError.jobAlreadyRunning
+        }
+        let telemetry = telemetryFactory()
+        let scopedMedia = (media as? any ASHTelemetryMediaPipelineScoping)?
+            .scoped(to: telemetry) ?? media
         let handle = DefaultUpscalerJobHandle(
             job: job,
-            media: media,
-            metal: metal
+            media: scopedMedia,
+            metal: metal,
+            telemetry: telemetry,
+            onTerminal: { [weak self] in
+                self?.jobIsActive.withLock { $0 = false }
+            }
         )
         handle.start()
         return handle
@@ -39,13 +65,23 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     private let job: UpscaleJob
     private let media: MediaPipelineService
     private let metal: MetalRenderingService
+    private let telemetry: any ASHTelemetryRecording
+    private let onTerminal: @Sendable () -> Void
 
     private var task: Task<URL, Error>?
 
-    init(job: UpscaleJob, media: MediaPipelineService, metal: MetalRenderingService) {
+    init(
+        job: UpscaleJob,
+        media: MediaPipelineService,
+        metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
+        onTerminal: @escaping @Sendable () -> Void
+    ) {
         self.job = job
         self.media = media
         self.metal = metal
+        self.telemetry = telemetry
+        self.onTerminal = onTerminal
         var continuation: AsyncStream<UpscaleProgress>.Continuation!
         self.progressStream = AsyncStream(bufferingPolicy: .bufferingNewest(1)) {
             continuation = $0
@@ -54,17 +90,45 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
     }
 
     func start() {
-        task = Task.detached(priority: .userInitiated) { [progressContinuation, job, media, metal] in
-            defer { progressContinuation.finish() }
+        let runID = UUID().uuidString
+        telemetry.beginRun(id: runID)
+        task = Task.detached(
+            priority: .userInitiated
+        ) { [progressContinuation, job, media, metal, telemetry, onTerminal] in
+            defer {
+                progressContinuation.finish()
+                onTerminal()
+            }
+            let jobToken = telemetry.beginStage(.jobTotal)
             do {
-                return try await Self.runJob(
+                let output = try await Self.runJob(
                     job: job,
                     media: media,
                     metal: metal,
+                    telemetry: telemetry,
                     progressContinuation: progressContinuation
                 )
+                telemetry.endStage(jobToken)
+                telemetry.finish(status: .success, message: nil)
+                return output
             } catch is CancellationError {
+                telemetry.endStage(jobToken)
+                telemetry.finish(status: .cancelled, message: "Task cancellation")
                 throw UpscalerEngineError.cancelled
+            } catch let error as UpscalerEngineError {
+                telemetry.recordError(error)
+                telemetry.endStage(jobToken)
+                if case .cancelled = error {
+                    telemetry.finish(status: .cancelled, message: String(describing: error))
+                } else {
+                    telemetry.finish(status: .failure, message: String(describing: error))
+                }
+                throw error
+            } catch {
+                telemetry.recordError(error)
+                telemetry.endStage(jobToken)
+                telemetry.finish(status: .failure, message: String(describing: error))
+                throw error
             }
         }
     }
@@ -84,6 +148,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         job: UpscaleJob,
         media: MediaPipelineService,
         metal: MetalRenderingService,
+        telemetry: any ASHTelemetryRecording,
         progressContinuation: AsyncStream<UpscaleProgress>.Continuation
     ) async throws -> URL {
         let isAccessingInput = job.inputURL.startAccessingSecurityScopedResource()
@@ -110,23 +175,11 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
         do {
             return try await withTaskCancellationHandler {
-                let backend = ASHDeterministicUpscaleBackend(scale: 2)
+                let backend = ASHDeterministicUpscaleBackend(
+                    route: strategy.spatialRoute,
+                    telemetry: telemetry
+                )
                 backend.reset()
-
-                let lanczos: LanczosPolishPass?
-                let srPool: CVPixelBufferPool
-                switch strategy {
-                case .direct2x:
-                    lanczos = nil
-                    srPool = session.outputPixelBufferPool
-                case .twoXThenLanczosDownsample(let intermediate):
-                    lanczos = LanczosPolishPass(metal: metal)
-                    srPool = try PixelBufferBridge.makePool(
-                        width: intermediate.width,
-                        height: intermediate.height,
-                        capacity: 6
-                    )
-                }
 
                 let estimatedTotalFrames = max(source.estimatedFrameCount, 0)
                 var processed = 0
@@ -134,21 +187,13 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
                 while let record = try await session.nextSourceFrame() {
                     try Task.checkCancellation()
-
-                    let srBuffer = try PixelBufferBridge.dequeue(from: srPool)
-                    try await backend.process(source: record.pixelBuffer, into: srBuffer)
-                    try Task.checkCancellation()
-
-                    let outputBuffer: CVPixelBuffer
-                    if let lanczos {
-                        let polished = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
-                        try await lanczos.encode(from: srBuffer, to: polished)
-                        try Task.checkCancellation()
-                        outputBuffer = polished
-                    } else {
-                        outputBuffer = srBuffer
-                    }
-                    try await session.appendOutput(pixelBuffer: outputBuffer, at: record.presentationTime)
+                    try await processFrame(
+                        record,
+                        backend: backend,
+                        outputPool: session.outputPixelBufferPool,
+                        session: session,
+                        telemetry: telemetry
+                    )
 
                     processed += 1
                     let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
@@ -169,6 +214,10 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
                 try Task.checkCancellation()
 
                 try await session.finish()
+                try Task.checkCancellation()
+                if let cleanupError = session.terminalCleanupError {
+                    throw cleanupError
+                }
                 let elapsed = max(Date().timeIntervalSince(startedAt), 0.001)
                 progressContinuation.yield(UpscaleProgress(
                     framesProcessed: processed,
@@ -182,9 +231,35 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
             }
         } catch {
             session.cancel()
+            if let cleanupError = session.terminalCleanupError {
+                throw cleanupError
+            }
             if error is CancellationError || Task.isCancelled {
                 throw UpscalerEngineError.cancelled
             }
+            throw error
+        }
+    }
+
+    private static func processFrame(
+        _ record: FrameRecord,
+        backend: ASHDeterministicUpscaleBackend,
+        outputPool: CVPixelBufferPool,
+        session: MediaSession,
+        telemetry: any ASHTelemetryRecording
+    ) async throws {
+        let frameToken = telemetry.beginStage(.frameTotal, frameIndex: record.frameIndex)
+        do {
+            let outputBuffer = try PixelBufferBridge.dequeue(from: outputPool)
+            try await backend.process(source: record.pixelBuffer, into: outputBuffer)
+            try Task.checkCancellation()
+            try await session.appendOutput(
+                pixelBuffer: outputBuffer,
+                timing: record.timing
+            )
+            telemetry.endStage(frameToken)
+        } catch {
+            telemetry.endStage(frameToken)
             throw error
         }
     }

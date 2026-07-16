@@ -1,0 +1,2888 @@
+{
+  "schema_version": "1.0.0",
+  "created_utc": "2026-07-11T12:18:18Z",
+  "project_commit": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+  "working_tree_clean": false,
+  "artifacts": [
+    {
+      "path": "app-launch-verify.log",
+      "sha256": "39dd369c0e177355257a91c6789353c722bd1c101aba70587f005abf3e9130cf",
+      "size_bytes": 38829,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "app-process.txt",
+      "sha256": "b09fe7fc5c5cc3869b3a39b0bb6fda6c6b02074bb7ff736e5f0a092150e1c588",
+      "size_bytes": 136,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "app-window.txt",
+      "sha256": "f37edeff9d9005e7a46c999e43c3a618c82915c2a52e1b954e541e484df1cd8a",
+      "size_bytes": 346,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "attribution-scan-preflight.json",
+      "sha256": "ba1f0de20890a2a8b80dedf551500f1ba3f9613928e037fe38a584f606904781",
+      "size_bytes": 371,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "attribution-scan.json",
+      "sha256": "4a4cc7fd84eec848de28dc1b6f147a3039c3568936254a38da15a48eef4024cf",
+      "size_bytes": 124,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "baseline-commit.txt",
+      "sha256": "c4ff953e9b1a7be609424ad6401eba5a25ba450534068c63558a2993d3974588",
+      "size_bytes": 41,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "baseline-known-failures.json",
+      "sha256": "79d97af9f2410bac2496feceb7a19f5ea72d51af0b4ddac4948dbcbb45f43bec",
+      "size_bytes": 1140,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "baseline-reproduction.json",
+      "sha256": "989d2ea494a37fa29443b0fd68f0be06bad1508b9f5fca2f15328607dca514d4",
+      "size_bytes": 2503,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "baseline-source.sha256",
+      "sha256": "c0665b427b578c9842e41647a18de2ab76f5013e35228c6abad3faf45c79d5f4",
+      "size_bytes": 11963,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "commands.log",
+      "sha256": "a3413f287f3e59660a3553f39bea3af0bfefcd6df74e256a5248cbe12eafa953",
+      "size_bytes": 2012,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "conflict-resolution.md",
+      "sha256": "4918422719b15720b455c3c7116288706252b883940e42c54399b24f1f650341",
+      "size_bytes": 2215,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build-summary.json",
+      "sha256": "55a2e0e7301de37f89ce4c090b702bb3be69f9f4ac9d0a7b3116d4b78048e3c9",
+      "size_bytes": 523,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.log",
+      "sha256": "6b1f7f27f84c4e8d17f4f121ea5faad80f266618162faae0a68c9635196479c9",
+      "size_bytes": 197846,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/data.0~2Iipb3G2FOYoxbGsAvRzB20oFx5YJjIi9eERf8z6WLz5VYDQwcyAbZh3HAOSKM0exv2Gax6KfuiQEtaXC5bPWA==",
+      "sha256": "4ab624febfd7b5e37abbc2aaf49c97b39986579e5d0a47baccdbae77dd0b4261",
+      "size_bytes": 561,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/data.0~AUX6_avjHDM7onrKVDlf7c1Kdaot99oP6K5lrd1VoMhYy7Io3NZsy86Itx2B4fwnQPlR5kkr3HUwFR4pUCb1NA==",
+      "sha256": "5ac49e125f5351faf685f6d6ca3f6e6de13accd43aa089b173df75ec5297d7a7",
+      "size_bytes": 1391,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/data.0~USPGOlkn-ywRWoMwZxUnbar3qQADtthwIiHFkbLY0dyDInmZJf9E1D-4mxMmtZdWexd49MtDv2jOHL5NL_3diw==",
+      "sha256": "2915f3e0d48da5dfc87f96981fb4e8e523fcfdf281f1707aa071a3bc9ea92136",
+      "size_bytes": 287,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/data.0~UnVyjySbq7jJGYgtMt7EUZwxo5K5TBNlXDuD__JAMOROHJSjyAYbcn0nS6bMqK7Sz99gZIfWgU1iuebzgM4YKA==",
+      "sha256": "956dad793f7f9720927c7eba82bb88bdf441dc72b878e20ac6e61797adc2c481",
+      "size_bytes": 41347,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/refs.0~2Iipb3G2FOYoxbGsAvRzB20oFx5YJjIi9eERf8z6WLz5VYDQwcyAbZh3HAOSKM0exv2Gax6KfuiQEtaXC5bPWA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/refs.0~AUX6_avjHDM7onrKVDlf7c1Kdaot99oP6K5lrd1VoMhYy7Io3NZsy86Itx2B4fwnQPlR5kkr3HUwFR4pUCb1NA==",
+      "sha256": "745817a6ed1010c0a2f61bdf87a0fe2f515ce7e04f1be4a23c2b1f0187787baa",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/refs.0~USPGOlkn-ywRWoMwZxUnbar3qQADtthwIiHFkbLY0dyDInmZJf9E1D-4mxMmtZdWexd49MtDv2jOHL5NL_3diw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Data/refs.0~UnVyjySbq7jJGYgtMt7EUZwxo5K5TBNlXDuD__JAMOROHJSjyAYbcn0nS6bMqK7Sz99gZIfWgU1iuebzgM4YKA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "debug-build.xcresult/Info.plist",
+      "sha256": "51e3b495b7ae46a39e030dae9f087edf15991589a1c53efe811f26dd61cb92ec",
+      "size_bytes": 715,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "environment.json",
+      "sha256": "4a93df3b60faf4266387027189f1a85e195395e5b1c6de3ba502c7726622053e",
+      "size_bytes": 2232,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-coverage.json",
+      "sha256": "624b39fcd8e4799f2460f98f57dce3a36d6e0023cf7cef78c03fc10107d8f337",
+      "size_bytes": 369650,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests-summary.json",
+      "sha256": "695cb4bec59efbec16ace1ba114a82645351a52ddc5cf788b6a20c857eb1ba4c",
+      "size_bytes": 1131,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.log",
+      "sha256": "2f691a028e156f8b4c55f272b3312795f2959128da29df9bee778079d56665cd",
+      "size_bytes": 113712,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~-b-tBzzC25px5O6oNqmShKpBD0IPef8geirEqXLk_a6m8b_ZUyLsVlPJWASX_2eMJ4JkOo_ZmVzHCRAkXiazFg==",
+      "sha256": "78cbb0a1c049e2b1033d72dfab5577c8fcf1e0be66c3e9c090346b2f2acc89c4",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~2B6nE7xW556oFlXWkWkNLViq_vJ1enCQ-zPOfWHdcY1i6V1LoN73iaqsc7OKDHBmxR2LxOuCr-ZwqaFgJco6BA==",
+      "sha256": "4e198b9bbc80fed0dab6fe6a7b51a1f362de2302cfd61467005d3d04a2bce935",
+      "size_bytes": 286,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~4FefouNX6vjzYLAqoWyCnc0oT0kF9bqBo8ejtSRpf2UXT_1SUGShLx0FRel-8mq1v9o5WIH_bVt9J6e2AZ23tg==",
+      "sha256": "ff70993d7567d2245c2cfea772b1cc85c545ce23af67cbd9e881f9e3a8db1922",
+      "size_bytes": 4279,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~4YSWg7iZLyO2c8JSq4ZbW7_ETyJE4CZZY96rVKjeJ5uk3h2kYOZggslOHccbbBPhggR2bWkp7F4JDxC6zr_ANg==",
+      "sha256": "c801e9857232311adcba8f97ef4f380bb25f43c3e2fb52646dd10c10dc246647",
+      "size_bytes": 300,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~5NNTd0KH_aZXqbmCF_wvgiI0rTlftHZPYriZwQoXUmPQ3xpN_Cwl3MVl21mbppv22vHZzzNQhOWQfhKBsO4o0A==",
+      "sha256": "bc856505eaee779a32729fd0af5cd20c098bf86b3a1edef7af8a7e89c03b37fe",
+      "size_bytes": 18009,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~7UreSnONBaWviCl7Qq62XBQKF8EUlo6tjxsE7pJoRTlWTatM0GjWc1XRO4IZkeLRa2OSuohKo4DzjQdcsI3QRA==",
+      "sha256": "5b6ff9cd7cac08483465639a282ff63664e60985915ab21ea66ec18407dcecc3",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~86lHGcZ3XWJNp4mUFNqtB7J59_HwqqvvqpRu2LXq4b5-8x9PRdixsk2ozMBFyV_N5stkrg-cVV-TFgUsglCu2Q==",
+      "sha256": "79a9d2565fc733460eaad0f51fb36e9d4d67456c5f4d4c23332b0a6589712637",
+      "size_bytes": 750,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~99MXlIjw3WR-5TqLKu7aknzQ50Q_QZSGWWcsEcplsHIgIYTsAO1mukbsIif0-bWR1sPlaXvpj_BHKbkhj4vcOw==",
+      "sha256": "75c0f752d5027194e0fc03a36d2269c7aaa93d45b60e0be882506b5c7299b1fb",
+      "size_bytes": 305,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~GzhzAKmSgaYQlkjVuXiCna4U_1ZuYsYg3gBsW-A5uf3-2BKFow7kFlwQ70No0xOUFIHH6OsfuFuR_sXcz2jn7g==",
+      "sha256": "254a48943d13ec7d48ca3797c55f790a9e47ea2da942f1a50111a4b18fa22c88",
+      "size_bytes": 308,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~HNbNlDddzZ1pgBuEoX7y2uqciSKo1_X_YphKY-2kYsw262YOKb2jT3eLzlkSy7fCRPgJGfz2y6_1zAjNofOSsQ==",
+      "sha256": "85f2df02e56df7246cc29174a5d2a7875bbcdc7239dd71aa6449e7d3e6a52935",
+      "size_bytes": 275,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~HgzqBez6FqogEZYbTW5jpa-2wCrlDBhksrggCsATP829uYeScUECxuC6X0YUwv7_sndG-686Z1rCce12LA9Rxg==",
+      "sha256": "f87043a53aec5c08588fe36a758d9807d7474fe7f14299c324c2fcd3c15a415b",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~JLBJhGEWgO8VpcG870bZfQIaQd-sTpCTARCnuv7cXJFNGzAHmz8Etpp-Bat3RZP_YV1ygxWsSzNCQ9mB8NFPAA==",
+      "sha256": "d7775409c8caf874a0549ce329fe56ccaad4e9dcd687574de3119723ab749b12",
+      "size_bytes": 303,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~K1OkQXz0Bw5FcdzXmHmWhpwUbk7cGQCIg0R0szDEa3izfnC6g1G-nFZVKp7wmmkSLKCmqonsFlVICwaOhkRi2g==",
+      "sha256": "5265eb8566b820eba33db3f72d8150f46cb559869cea04cf991b7a49d015ddc7",
+      "size_bytes": 2092,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~KceRrFYVFloxBegl-czZULyD1zVEfZGqBTexmydwtE0JW4UI9_3C8QzOIY0ZwfVgPd1s2T38DmPs8YN8Osn4cQ==",
+      "sha256": "1b69b94b4dddde011296ad64f19eed0f57c0123c95bec08d2230f7a492a773e0",
+      "size_bytes": 311,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~LanwzpFlWXrAd_cOX6SpHwHihmrcZedsmfrgVofObKo7eSkrv5z9YH6n4Kn0IhHS0Rf-b5tDr27k-qWi-xYN8w==",
+      "sha256": "87758178cb978ea8930b982b96d3486d36757ddf90f44a4b4c1ba2e299b63b83",
+      "size_bytes": 287,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~Lt9k97BRgRVjPQ_Y9HGvgfolATSdgLpbnnU5b4jegEbR5cKGKLoCR6l193lBKa42ih2x7bGtZY2prmiffAeU_w==",
+      "sha256": "dd416fc46c084a6cd3dfcc6846439efa7e82f892e0f9a6bc836ef17484380829",
+      "size_bytes": 288,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~Nrf5vZcVAEHiKABm1LmwoSWzfiLrZec_aeWDJ8lRB0aTiIHrxecKoehL-FhRxTvyi6wf8dJJ79jW5_08-gfc-w==",
+      "sha256": "1d5a7d69c77fc2e16d64475dbd1884a725e5b343d95245cb7032ff65bedc20c3",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~Owb2eS0LB6BmEKSyYZkezP8BpvNh9FLNBJrFIY1bhVvxxnr3JuBJ7151hVkrZ5NXV8zScXMg7Rn39Csr3hTsng==",
+      "sha256": "011b5997b87a0b631dddafc7887f7c3dfe763150381fbab67dd2ab13c08a884c",
+      "size_bytes": 145,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~PouHZFHC2j65KAmANqlSgqCBt1O04CkOvcPQAgrpTJFhVrQZiQV2Bwxwgt3jOsqLqd7_uVrmHQnTs9-lgVmd1g==",
+      "sha256": "8cc862191c445cf3b37d3773b77ab86dc4206c69295f4c3ecc15de74dca27f25",
+      "size_bytes": 12188,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~Qu0A_gQyRqJidFeFqQnDd8yt5tcGgHICwm1GkvRDYdeNFuqwy2FHJbsBapqtQafPHqOP8BOO14T5uj-dRyv5PQ==",
+      "sha256": "0f4ec4677af8fcd5fa4ec3d9eca8bc0a2fe5758bf0eea6b9d1104140003b040f",
+      "size_bytes": 304,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~W29-YtqVUE6FEQ9U4CwTWNOwIYkexyZrw8hF0f27bd5HELTQJe6NRVlWm53Qs3ovzAARvN07UoBgMOGhPe8TXg==",
+      "sha256": "7701b47079a56374d3ec1279b2fdf7045198887485b135f1e6eb5e79b224a463",
+      "size_bytes": 290,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~W9HKwEig_DdPf_gH9Qzv-9XRwsjL-fpySVE_qRYkaooSdjaC5gWKSWi8bjyjH7O2v99QEx1YpOT9FL_M9shvrQ==",
+      "sha256": "0a3e38a7ee2f4a7971fb4853eb1fdbd6acbeae91d43fcf4a6e70f65e3371434d",
+      "size_bytes": 38,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~X9vTYozj5A9LqDf1mA3AEFGqLNjwiIl0FSgmu5h78Vc8ibEUS37TU0gEd4aMZt2L9FeEpipOiJIlM9blUP8VSA==",
+      "sha256": "9266bb0aa0876f06b548c29edf86e00b261903cf73feb1b9a57b898a11e77385",
+      "size_bytes": 295,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~YdhI4KjV8lgurwhj0YYj0iRXyMpLJuBI9IMV6yubV6S3R71632Fz9-uu8w2HANTmdgCmwCJOClj31yML1tNdLQ==",
+      "sha256": "e04d18887e6fa7360c8863f044a3dfaca38bfeace200c7404bba64b75556451e",
+      "size_bytes": 299,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~aR5rN4ISYqHbQ6596gmPkhAZ99nssIUJONEV2FzjSKTVrKFvQJ8hcOnFO_1XihFmWEcT5gSLPsdfWJk4RY-EaA==",
+      "sha256": "faa5ea2ab2b194bb4bd3abada887f6b06f37f1878bf082a46a853fe94fde96c4",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~c0KT3ZPaLrVSh9_WgrdkM_KKzaTAJvaQJ4qnzK8wenvhRzfaJ1Oaw5UYBZbaWOoJnR5I81hFFE0SZI4-rj5nfQ==",
+      "sha256": "0cc7ba9b5a1deb3ae5b4fa57e8d411f5b8791db3a23fa7b7e086fae5725ebd1e",
+      "size_bytes": 306,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~dDEtJQ89dwQCQW3G3P7-NkfZJf31pJbltyWFlP23DuJqgHpk77v1c6pUG15pJ9P-7IKQzYPXVI9cLsGBVaxLbg==",
+      "sha256": "acc9073732e754d5b613260dc3febeadd4c09ae26eab759195d998e717619bf8",
+      "size_bytes": 15133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~eWiShe2OCqa-ZUuWsX6oR5saxD6xes3PVKiH_5miMTYCS2d3oUAdsV0kXojskE5N1yyg2DbeA12Puyg-jTIzSg==",
+      "sha256": "385ca4b718291d65683b91bc8e57b3309ece592e40f75cf44269200ea2276d14",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~gAuar4fxYzlkorNBx8-hXOXsEaeo-E0DoXSZhNO7F-YnYy1Iofvgr4vEhd6kQmoj7zF0KF9cChSQUO5M4IfL1Q==",
+      "sha256": "1e30eaa75064e9fcf96d4c74dd169ad1361ef746fafcacd5e6ad99e47aab4ff8",
+      "size_bytes": 113,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~hPSj124GpszkLcEt1Xk-pPCLtDxmk_vUMCCDepYSxk4YMmn-XU7UwbZamPnj_5sFcKdls9_ycK7_DB8j7y41UA==",
+      "sha256": "5d56aa1d5010cb11423a9a6dc2ebf8152356ca8cfc27fc4aea86fb214506e339",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~hPkFyKINE1n5IB4xeCe5bbpsw7F8zrTcVWPS_sRLIzeqABr7UI-k7hpnx0WFS5QQ28zX3EC1P5Zv1t9maQUMcg==",
+      "sha256": "d8b69e70ef17a758db5de5c0e0aac86b8defa404b6aa3c368037b2bb1d06e7f7",
+      "size_bytes": 38641,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~hpWQFho9vz7hiwkCrGyBH3bNwlx8Lgl2u48TQlsIxurudEOqEP0BRRnw3mRmZFn3hk1b1vYw_tK4l9EvxoJmhg==",
+      "sha256": "13a2a45659139641adbe52c4dc9d63fc81107cb3e102ce07a040845110d072c9",
+      "size_bytes": 303,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~kBso-QuT9U_NtGhEItQd8hq4EowuifuaM8hzgIdx129Jw94Ll5wreqVOJC8lZEc40w_8kYB-un3223ZFxTLOSw==",
+      "sha256": "b2a372711e4815e2a285034a40555972f6c4f33545f29e1525110617a319d2af",
+      "size_bytes": 302,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~kqmYI6e5UxHhdOcwwPFvJm5v381vbnAde_fjh1Y3J4u5msP-6HYYi9xXQs5eYApiNCyzXlOSGlU6_U8rQjLaDg==",
+      "sha256": "af5c6bfb85224f05f1a7eac46abea0b08b00fcf405a61fd95c64c9925c1e9309",
+      "size_bytes": 287,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~l_9iRzCt583SBoRXN79z0UGOOdGMq3On_jqOg-4uO-OPFa_-IHjD7dyLpxFQEdhmmIeIGBZ3T_EPzDpukxV_iA==",
+      "sha256": "eda1c944b01340348ba33c68e2132b630dd8d5665574a32ecd6853397f444201",
+      "size_bytes": 5503,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~m6hT25RXNx-FkXkCmEEKuHzgyjSt8RwXxoGjTuZmWh_n60Yr9T-eqb3BUwu30tYmq3yWEQDx2Rsr2NEYOyaPmA==",
+      "sha256": "c198399891385002ce7c2354e7f1cd6dac0764952207dbec9c72b951f8f17309",
+      "size_bytes": 299,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~mm9Aa5FzGv5mC3XoMf3ISPvC5BziZvMAmQuVqy7cZ3o9Tm2trOLosDmvcyhDBScBRvtboO1XwgAsgTKwsbsP9w==",
+      "sha256": "4a887d279556d2c89688819dc6188b6d4b6bc823e83222aac883fe50440f26eb",
+      "size_bytes": 300,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~oRMi0sbQLktfDDDGUS-SqBKpdDiD6HCztVES_ShfGr0KVcYENoIq7y9oUSDWL5B_P2gkdtWG8JEsJLxPbdWOZA==",
+      "sha256": "75fb7c443d41c504b005c3117dbf9a0162852456d3601744b4d1c95c5a246e9c",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~q4GzBeXeFdRaAkrYPo7kZrqL7f-kSIUHh2PyAnfJYk-K7IYpHQ1Caec4ah4BYDJvzxaZxIPJWapkvyghOGkBZQ==",
+      "sha256": "f068ec58fdb7563168bbe81d02845cb8b6f73cde92f8b0bd52186aa41399902b",
+      "size_bytes": 71,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~r3cDC1wqs2qQRPCXAVLQCGr_SAB7_WfRtQl6EfN2LsEl0CiBVwmWIugQZB06O4oAro5TalPRfSCiTxNa_VD8DA==",
+      "sha256": "75832765cb92a9674bfeeecedaba72fd168fcc44dbf916a9aa5767535c65223c",
+      "size_bytes": 306,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~rgQN7QtZ__PvpTDJ8ZF874z_l697Jb6NIg9NLcTBkCaPVaQMX1xe8d3qkkgP3mVElH7lRrBtNTd8Ke3bpv7lJA==",
+      "sha256": "542e315797d5d3b72b6797a54e9d7b4d3de23b383f7ab0116ca6795651821d8b",
+      "size_bytes": 11483,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~sAhJaVvHKj7_owgkt8la1Ya8Li1B5C4SSG7QPlpH9gEah_Oea0IGnFhPYqKPRfrIVlwEU7wAX7IkeJv_ZQSZxA==",
+      "sha256": "e493d97dce524bea846b3ba843666afb61c5ace92583978a22c45919c0b929f2",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~sc91CiaW4-xFXCZTIlB7o43FAJJkjk9B_Ek4Ox_rLIhumfnXD3xa1WV_TVUsJ_wyIAihJHCaAF7QD0u6T3ChSQ==",
+      "sha256": "79064a3a71fba7f5378f77d18c1272b647217cdd9cdc87dcec144a96926257a6",
+      "size_bytes": 299,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~v5vUfVT18LX1uaDhJp99MxPNUaMDinHrvx9JRzgLVxQ1vWncXHH716MC7EYuKNP7UfhYuMKlbxDLm4gabPu22g==",
+      "sha256": "2583369ebd942612d8c745bde933f4445551caf02672db07f84587f401b2466b",
+      "size_bytes": 300,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~vj4zq_lGpchDU3snoxEtrIl-odkwgarBhhk5YlRlrmeyLTEZ9JXa2oLcEGLBd2r1V5lXxCrtKv7x0G5kijGubw==",
+      "sha256": "fbe2531d32421c890e5f1e4b38b9b63904b6a924123f618ab9bf7c6de1151fb0",
+      "size_bytes": 296,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~vu51ph4hjEyMYLPeqH5giIoUwQGalDGCYlf8u5aqV-cN1W4BCSRGRX2IWdbRFngOvtlKACETiwV2AuHfa1E9Ug==",
+      "sha256": "7994d8710f3e042d3a36fa23f35e3167721521358e252d5e2dc90608ca8611d4",
+      "size_bytes": 105,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~wAM9ZWMsV7PPMEGxK5AMXn_4zJFAd28eklT__5fy1Yj9JBJy8O9hZc_4_UVZzu1AJjO6JRtWZkJUF8BD0SWTJg==",
+      "sha256": "dba0719bbbde323927899f6baaf568d825bc7e0885f2a0dd23fac7a22a3188ab",
+      "size_bytes": 309,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~wlgjm6qx4WQoIACpbl_E1WTy-w1S5Zt3V7nCoOU43KfIIR4M0VzAEq5TzpQsnk9nPgl_ZBHgyGh-nfXYoCj-xQ==",
+      "sha256": "ad9b21f234cad31773459006b62ed465a5e52ed20f6e261a74b8e218a231b8ba",
+      "size_bytes": 2165,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~x3ImA5TZcakyDIEg6QcfWPlKZaVn2vB6ZtO63u5AepqvC8OwR-ytTwfBeMdibnKCIZS8Rj-gQ3e93A10QU-zyQ==",
+      "sha256": "a9b1aaee0444f1ed89ea0c6d5f0f2970696dcfbb3ab96d1f72433c2b56ef9880",
+      "size_bytes": 312,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~xAr1rRZvwVQFz_gTsoqxAuVq5pZ7AH3-moAHMBAnC_BEjQXRRQwPABhAsT7CzcI4SN_jhzvcaC3ECp7G6wlfZg==",
+      "sha256": "28c02ab280d6ff932099d0e29b764429267962287832135d1d1cf0ef2f91c458",
+      "size_bytes": 304,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/data.0~z0wtlMRywEgBNgvPpGK8n8fgLYV22ErFr8fomLkS0mKuTKCSta4nSh96_J1LlzpnHVmWFMT2-XicMQPOcmsqfQ==",
+      "sha256": "60249bc36610d8c810962b21a3a52801268c44e09abb9f87b7835527c3fb368d",
+      "size_bytes": 308,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~-b-tBzzC25px5O6oNqmShKpBD0IPef8geirEqXLk_a6m8b_ZUyLsVlPJWASX_2eMJ4JkOo_ZmVzHCRAkXiazFg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~2B6nE7xW556oFlXWkWkNLViq_vJ1enCQ-zPOfWHdcY1i6V1LoN73iaqsc7OKDHBmxR2LxOuCr-ZwqaFgJco6BA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~4FefouNX6vjzYLAqoWyCnc0oT0kF9bqBo8ejtSRpf2UXT_1SUGShLx0FRel-8mq1v9o5WIH_bVt9J6e2AZ23tg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~4YSWg7iZLyO2c8JSq4ZbW7_ETyJE4CZZY96rVKjeJ5uk3h2kYOZggslOHccbbBPhggR2bWkp7F4JDxC6zr_ANg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~5NNTd0KH_aZXqbmCF_wvgiI0rTlftHZPYriZwQoXUmPQ3xpN_Cwl3MVl21mbppv22vHZzzNQhOWQfhKBsO4o0A==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~7UreSnONBaWviCl7Qq62XBQKF8EUlo6tjxsE7pJoRTlWTatM0GjWc1XRO4IZkeLRa2OSuohKo4DzjQdcsI3QRA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~86lHGcZ3XWJNp4mUFNqtB7J59_HwqqvvqpRu2LXq4b5-8x9PRdixsk2ozMBFyV_N5stkrg-cVV-TFgUsglCu2Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~99MXlIjw3WR-5TqLKu7aknzQ50Q_QZSGWWcsEcplsHIgIYTsAO1mukbsIif0-bWR1sPlaXvpj_BHKbkhj4vcOw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~GzhzAKmSgaYQlkjVuXiCna4U_1ZuYsYg3gBsW-A5uf3-2BKFow7kFlwQ70No0xOUFIHH6OsfuFuR_sXcz2jn7g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~HNbNlDddzZ1pgBuEoX7y2uqciSKo1_X_YphKY-2kYsw262YOKb2jT3eLzlkSy7fCRPgJGfz2y6_1zAjNofOSsQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~HgzqBez6FqogEZYbTW5jpa-2wCrlDBhksrggCsATP829uYeScUECxuC6X0YUwv7_sndG-686Z1rCce12LA9Rxg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~JLBJhGEWgO8VpcG870bZfQIaQd-sTpCTARCnuv7cXJFNGzAHmz8Etpp-Bat3RZP_YV1ygxWsSzNCQ9mB8NFPAA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~K1OkQXz0Bw5FcdzXmHmWhpwUbk7cGQCIg0R0szDEa3izfnC6g1G-nFZVKp7wmmkSLKCmqonsFlVICwaOhkRi2g==",
+      "sha256": "8882a8e863b22f2cec49de41c2147812863b93688ff00465bd67c8664545c507",
+      "size_bytes": 463,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~KceRrFYVFloxBegl-czZULyD1zVEfZGqBTexmydwtE0JW4UI9_3C8QzOIY0ZwfVgPd1s2T38DmPs8YN8Osn4cQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~LanwzpFlWXrAd_cOX6SpHwHihmrcZedsmfrgVofObKo7eSkrv5z9YH6n4Kn0IhHS0Rf-b5tDr27k-qWi-xYN8w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~Lt9k97BRgRVjPQ_Y9HGvgfolATSdgLpbnnU5b4jegEbR5cKGKLoCR6l193lBKa42ih2x7bGtZY2prmiffAeU_w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~Nrf5vZcVAEHiKABm1LmwoSWzfiLrZec_aeWDJ8lRB0aTiIHrxecKoehL-FhRxTvyi6wf8dJJ79jW5_08-gfc-w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~Owb2eS0LB6BmEKSyYZkezP8BpvNh9FLNBJrFIY1bhVvxxnr3JuBJ7151hVkrZ5NXV8zScXMg7Rn39Csr3hTsng==",
+      "sha256": "3a0ee4d718f1761fa6c323eb40d7b83a2cb704a64be73b6e4745d1483a3a3b51",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~PouHZFHC2j65KAmANqlSgqCBt1O04CkOvcPQAgrpTJFhVrQZiQV2Bwxwgt3jOsqLqd7_uVrmHQnTs9-lgVmd1g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~Qu0A_gQyRqJidFeFqQnDd8yt5tcGgHICwm1GkvRDYdeNFuqwy2FHJbsBapqtQafPHqOP8BOO14T5uj-dRyv5PQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~W29-YtqVUE6FEQ9U4CwTWNOwIYkexyZrw8hF0f27bd5HELTQJe6NRVlWm53Qs3ovzAARvN07UoBgMOGhPe8TXg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~W9HKwEig_DdPf_gH9Qzv-9XRwsjL-fpySVE_qRYkaooSdjaC5gWKSWi8bjyjH7O2v99QEx1YpOT9FL_M9shvrQ==",
+      "sha256": "1d6f8052ecb249dad796e033366be96c81c42fe8356c40af5659217bb5922039",
+      "size_bytes": 67,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~X9vTYozj5A9LqDf1mA3AEFGqLNjwiIl0FSgmu5h78Vc8ibEUS37TU0gEd4aMZt2L9FeEpipOiJIlM9blUP8VSA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~YdhI4KjV8lgurwhj0YYj0iRXyMpLJuBI9IMV6yubV6S3R71632Fz9-uu8w2HANTmdgCmwCJOClj31yML1tNdLQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~aR5rN4ISYqHbQ6596gmPkhAZ99nssIUJONEV2FzjSKTVrKFvQJ8hcOnFO_1XihFmWEcT5gSLPsdfWJk4RY-EaA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~c0KT3ZPaLrVSh9_WgrdkM_KKzaTAJvaQJ4qnzK8wenvhRzfaJ1Oaw5UYBZbaWOoJnR5I81hFFE0SZI4-rj5nfQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~dDEtJQ89dwQCQW3G3P7-NkfZJf31pJbltyWFlP23DuJqgHpk77v1c6pUG15pJ9P-7IKQzYPXVI9cLsGBVaxLbg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~eWiShe2OCqa-ZUuWsX6oR5saxD6xes3PVKiH_5miMTYCS2d3oUAdsV0kXojskE5N1yyg2DbeA12Puyg-jTIzSg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~gAuar4fxYzlkorNBx8-hXOXsEaeo-E0DoXSZhNO7F-YnYy1Iofvgr4vEhd6kQmoj7zF0KF9cChSQUO5M4IfL1Q==",
+      "sha256": "6d8ab4d4310f207fd3a99df92979f3351b967568f9ecdf87f0d995bfd752ef08",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~hPSj124GpszkLcEt1Xk-pPCLtDxmk_vUMCCDepYSxk4YMmn-XU7UwbZamPnj_5sFcKdls9_ycK7_DB8j7y41UA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~hPkFyKINE1n5IB4xeCe5bbpsw7F8zrTcVWPS_sRLIzeqABr7UI-k7hpnx0WFS5QQ28zX3EC1P5Zv1t9maQUMcg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~hpWQFho9vz7hiwkCrGyBH3bNwlx8Lgl2u48TQlsIxurudEOqEP0BRRnw3mRmZFn3hk1b1vYw_tK4l9EvxoJmhg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~kBso-QuT9U_NtGhEItQd8hq4EowuifuaM8hzgIdx129Jw94Ll5wreqVOJC8lZEc40w_8kYB-un3223ZFxTLOSw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~kqmYI6e5UxHhdOcwwPFvJm5v381vbnAde_fjh1Y3J4u5msP-6HYYi9xXQs5eYApiNCyzXlOSGlU6_U8rQjLaDg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~l_9iRzCt583SBoRXN79z0UGOOdGMq3On_jqOg-4uO-OPFa_-IHjD7dyLpxFQEdhmmIeIGBZ3T_EPzDpukxV_iA==",
+      "sha256": "89a600c9d2d0083df51bb8c7ecca51c9ee065bb3d61ee87a40865df7547e04e7",
+      "size_bytes": 2179,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~m6hT25RXNx-FkXkCmEEKuHzgyjSt8RwXxoGjTuZmWh_n60Yr9T-eqb3BUwu30tYmq3yWEQDx2Rsr2NEYOyaPmA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~mm9Aa5FzGv5mC3XoMf3ISPvC5BziZvMAmQuVqy7cZ3o9Tm2trOLosDmvcyhDBScBRvtboO1XwgAsgTKwsbsP9w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~oRMi0sbQLktfDDDGUS-SqBKpdDiD6HCztVES_ShfGr0KVcYENoIq7y9oUSDWL5B_P2gkdtWG8JEsJLxPbdWOZA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~q4GzBeXeFdRaAkrYPo7kZrqL7f-kSIUHh2PyAnfJYk-K7IYpHQ1Caec4ah4BYDJvzxaZxIPJWapkvyghOGkBZQ==",
+      "sha256": "8506aaacc9f9ddaf4e6bf43db38870a28cbd718a9a36ad90953ca546a32f34b9",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~r3cDC1wqs2qQRPCXAVLQCGr_SAB7_WfRtQl6EfN2LsEl0CiBVwmWIugQZB06O4oAro5TalPRfSCiTxNa_VD8DA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~rgQN7QtZ__PvpTDJ8ZF874z_l697Jb6NIg9NLcTBkCaPVaQMX1xe8d3qkkgP3mVElH7lRrBtNTd8Ke3bpv7lJA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~sAhJaVvHKj7_owgkt8la1Ya8Li1B5C4SSG7QPlpH9gEah_Oea0IGnFhPYqKPRfrIVlwEU7wAX7IkeJv_ZQSZxA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~sc91CiaW4-xFXCZTIlB7o43FAJJkjk9B_Ek4Ox_rLIhumfnXD3xa1WV_TVUsJ_wyIAihJHCaAF7QD0u6T3ChSQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~v5vUfVT18LX1uaDhJp99MxPNUaMDinHrvx9JRzgLVxQ1vWncXHH716MC7EYuKNP7UfhYuMKlbxDLm4gabPu22g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~vj4zq_lGpchDU3snoxEtrIl-odkwgarBhhk5YlRlrmeyLTEZ9JXa2oLcEGLBd2r1V5lXxCrtKv7x0G5kijGubw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~vu51ph4hjEyMYLPeqH5giIoUwQGalDGCYlf8u5aqV-cN1W4BCSRGRX2IWdbRFngOvtlKACETiwV2AuHfa1E9Ug==",
+      "sha256": "89697d6d63ba3cb7e02d3bec6eee0ce5b88f8ccb977ac8399db0a47a9f4b84ed",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~wAM9ZWMsV7PPMEGxK5AMXn_4zJFAd28eklT__5fy1Yj9JBJy8O9hZc_4_UVZzu1AJjO6JRtWZkJUF8BD0SWTJg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~wlgjm6qx4WQoIACpbl_E1WTy-w1S5Zt3V7nCoOU43KfIIR4M0VzAEq5TzpQsnk9nPgl_ZBHgyGh-nfXYoCj-xQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~x3ImA5TZcakyDIEg6QcfWPlKZaVn2vB6ZtO63u5AepqvC8OwR-ytTwfBeMdibnKCIZS8Rj-gQ3e93A10QU-zyQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~xAr1rRZvwVQFz_gTsoqxAuVq5pZ7AH3-moAHMBAnC_BEjQXRRQwPABhAsT7CzcI4SN_jhzvcaC3ECp7G6wlfZg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Data/refs.0~z0wtlMRywEgBNgvPpGK8n8fgLYV22ErFr8fomLkS0mKuTKCSta4nSh96_J1LlzpnHVmWFMT2-XicMQPOcmsqfQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/Info.plist",
+      "sha256": "453c7e79c869ae9f9a0808d9d2a0704ff68e607487832a3983228a38568b89b1",
+      "size_bytes": 715,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "focused-ash-tests.xcresult/database.sqlite3",
+      "sha256": "75c7bcc6bb08db37a82fb7fcae63b424907757b601d309a789aeb684929eb39a",
+      "size_bytes": 258048,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-coverage.json",
+      "sha256": "f3921161def1ea5b6a433f11056f150d39947d6f53e998d15d28552058a53c04",
+      "size_bytes": 345649,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests-summary.json",
+      "sha256": "ac9c455f0e4c16553a2fd6e67b941c315014829fe36dcfcec0e38292d05b42e3",
+      "size_bytes": 1132,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.log",
+      "sha256": "1ae7ce22268cad2cd7d2b610575a95ca21a6f87df376526abf68c9ebf774667f",
+      "size_bytes": 66461,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~-D5dIABU1ArBLfU-ulveM9ganv5G9boDkGE1P9BIUDITcP8ofTS4O-egPgXQszxx0g0bDV6hvYuhhdbV3x50YQ==",
+      "sha256": "dfaa967343826dd967426762840e52ec6c1ec204128224c5f577789df8fbdaca",
+      "size_bytes": 276,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~-FgprCW5rbJX0Kv230laDJT8SsCQ-TVUBh3uySORaJoBYKy_yDpTjnRvzNNMJYqkyl1PQ5AOBJ5BslZKS-DpbA==",
+      "sha256": "c1e65cd61cd590b1272f4fcac9e1ee014af4c68211b720d52b01a69589c127ec",
+      "size_bytes": 310,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~-LoC5uhNfSqSa8RF066QQ6zBRP7PO5D9aLDQ7hv8Z0BY-IJvozDn4i5M4GPWgqiGhhNeaJXUxsBnep8aSexouA==",
+      "sha256": "d3cfdc099cce194a6bbf0193b636a4f32cd955439e2aea0be052c282eebf4170",
+      "size_bytes": 301,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~0Sv0ZK_OVrWwgT2CxNXA4A7pcVCvmABGN-F_9sG7qZlNYsmmsi4wGettvy53iuzjXM52eLWAf9iWEMQDpYl17w==",
+      "sha256": "e08e56587eebba75472d982cf60a11d2f2e84b16a4b768a7a8fe46481348722c",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~0csPcMJue95toLvUkF9JmW9A2IK9rACYoner-rxNCZKAvEbrKvIzdUzxxRw5UVld5Fqwu0DlmbFs2Rjiir9Wbg==",
+      "sha256": "d4883d2f9b85e6613f222bd368e1c68402d02a03dda2743e01abe53120b6ca18",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~1uUTtDb8PbQwZ2FjKaTsBkwPqh5nNIsF7vKwIsrqTFpOY0HMZxlEbyqgxNLjZs3-v2Q0Eh5H0SsR9MLx68ka7w==",
+      "sha256": "951df04b85df03e761b6d18d201fb1a0f20f612fa56250905cf4319b76efcb31",
+      "size_bytes": 295,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~2MmYSfcGIrq2WdNcSSFFZO_efjXg9J-8Bc3cKRqXnMVytPNknYq_i8w1-sjvGDMHOE4QHlO-bWoc0sw_hERWtA==",
+      "sha256": "9f805af010f1491d8db73261154a43c830bd45f7b7037c76a07dec632f552df4",
+      "size_bytes": 302,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~3UBtn7xVfoZCkQKDKZL8leRz1g05SYJCl7sWpLBSRQc_Ew09aE8dAfc5W93c6NdTFRPK6WX2OUuZATgJYZuwpA==",
+      "sha256": "52056bf4125c4a8f767d35be65104b9aafd6292a89227d72e4b5b5e806083c4e",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~4M-iyowhQOrz5luO25SewzhOmrPf3iZ8dCf65RKZbzwOW1t0jf9wkjOT3J9ipirwgEjgS7JRbZCnv0XZaaNB2Q==",
+      "sha256": "2ae09ada87369038527654967051d20dd2ffd218800f70c7957d6f08c27a0df9",
+      "size_bytes": 284,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~4y-m9cgDJ6k2TI7sWxMcmjBx-dh5ZgpvZW89Dp9R2sc_lcnYpynEXhzVy7zdHzxQPawNg4Cde38su_J1Kxhaig==",
+      "sha256": "ee43414455c547ceb2d49f7485c20536b7b38d539e3d67f858a28c24dacf246c",
+      "size_bytes": 308,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~51UYJpYCjrisqyytd0J2Kw_MiBPIHZnNO8oFT-ndnF6XJXZ9lgvM4O_6Q0NVbf7aSn3ep9ZuLgHwBHlVueTnvQ==",
+      "sha256": "08ba22cf2a2470a88e28c6ffe417cc585a26c9a6caffb73135ff283b93eabfb1",
+      "size_bytes": 2098,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~5OiXUNDz9ce9uDTNhuTU_0OZDQGr2Ut4KkEQMCLQihU1B6Abro2ls0quN92ImU2OoH8nqmVtr1yCnP3ca6dFJQ==",
+      "sha256": "2813a6e15e4fb74a5c05fb6112f64e92efc7fc38db7135964ab56d021d054b95",
+      "size_bytes": 761,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~6KbX2nkUVOc8jdzjCP-Kz9qo2TmhnteGUNW7PS3p1hKfQ8TOsoCZQ2q51gfUiUmnFCAAYp-3I9eS6D1kquy7BQ==",
+      "sha256": "43990b2eefd2eb4d6e3f01cc54059fbe071a7376ad9428ef5cabd6f80c554b80",
+      "size_bytes": 298,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~6y62gMclleXFLN3hUKcdbqF2383eCczHDvloK2TxRYve_DFABVNP-k-KDz2IHvn9fb5Br8BZFHCoqxss6EnG2Q==",
+      "sha256": "ca470834f6bb7e8a45832437cc3e3473810d0c45e0306f09d3e85b2f37d4fbe2",
+      "size_bytes": 36358,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~73rtsh8bDMBuFWE5jA7VPeszd2fdsC4vkOBU0SHlXJDXXMzDXXEcXFXIbpIywvO60biiuNGlyAVuXplVITQUzw==",
+      "sha256": "7e390dfb9411ba2511aa9aeefe7682bbcaac29081ca14b8c42518346def6a621",
+      "size_bytes": 305,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~7R-B7REeeXd453tolUQ0SzNk6fX4Vq9_uro_N5AjzKDXXRPDOIGeBv_uz_cayg5xYYWkjJrWSjk_Xq8bF_lWCQ==",
+      "sha256": "8bd41702d670102f360e4e95c0ed0b62f47d66fd3708b6a1895b8a6acbd93b6f",
+      "size_bytes": 313,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~Clx4J-bJfxe_2QSfYJCckQJj0wHdZp2FFk0j4AKrvuZdtlUutF1T5G71aYbYTIme06RWdYA4LQWSEmdu1oHtZg==",
+      "sha256": "f0dfdc0f8b1cd4ccd2ef368ed3cc393b465d382620e523bb9b93c70a1e3cdebc",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~CzlKwA0Mn6toDAH-KP0wbH3dmh9w1QiBeuxMfxvioPQpU_Et93pLo3Xs-N5iCFrbknNYX5UOpq5ch8bbPbee6g==",
+      "sha256": "435f451ff20d42370838cba4370e0c9bdcf53066510f3bb9d332a85d5c50b170",
+      "size_bytes": 293,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~DK99OUIzVraJNCalZ1pXH-wp9OCFuog9wTp40ULuXFtfXEJkE6ALg1knHRoZjw5a_ps7rMZS1iEyRv8hUcItwA==",
+      "sha256": "ba8de9904386da233b369078d41221b3e2f1bfd5a92f49f2a26fd65a3aa704dd",
+      "size_bytes": 298,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~DtesalpIItMipTPKCsdB3hrI4MC-lm0Bklj4yPgzvL-ayo_tcQp3kJ7c0njf4WAL6T_oIco7F_YaRgPU9X4FIQ==",
+      "sha256": "af94cb403c197f623656a540796e6f3bd6563ff769384b4782f5e48f416b704f",
+      "size_bytes": 295,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~EFt3wSKL6drscIMdEdvdFdsXMjVnVu60-COVUCmMV3yDILr-WkO6IbjWluok3mvJDk6xIDuTPs-MlD4Ej5iyhA==",
+      "sha256": "f068ec58fdb7563168bbe81d02845cb8b6f73cde92f8b0bd52186aa41399902b",
+      "size_bytes": 71,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~E_UZOFz_EQlJwqtMUx0NNto7oa91pukuhkDt6B3tDzcHr7d8RWVLauZrXHY5hqs_0BEp3G3Safz54u1IU3pCSA==",
+      "sha256": "6773fbebad9d6fa3d37a01f1295801662a881c95f79d58687aa22deb6cb6d0ae",
+      "size_bytes": 296,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~GbSfrOTNnPIkqdUm_h1BU13Oq7wAXLZo2ibZCOcq-Cg1cZNklC3eEotNR63w8wXRyUzAucsM9EcDMQuyFYKdkQ==",
+      "sha256": "eab69caba609a5e198b7925dcd4679d6958ed74cebd449ab16b85df67cf7bf19",
+      "size_bytes": 309,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~HX0EKx8ad08K9KpBDOZ32eO6HWLez70VYmIcuxx-emCprx-cj6PgR8SqA5RAzwHjtJ_Sw8Owzoq9OSxz19UE8w==",
+      "sha256": "b1d9a4c52e4f52171abddd5381eeb39eb96c3732c581768e0368402a5dfeb7be",
+      "size_bytes": 5610,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~Hi73TMSbAGABNX4i2d_2alNtwV1r6u2iKYy0n28WxvYXV8ZN9nORoWn6TS-8m8j_lZNlkBwBFMXGTctUbXgOgg==",
+      "sha256": "0308e1c5888b8a8ba1b60bf5b1e730ec3b39d0f7bf63f288b958e37d69e0562c",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~I2I6P7hKFEGWGc-KWt8WsWeY2mg7014uXPJXJ2-8aATkw2V0o8zZmfp1jRnmRRFd0NUl__UsuOLeSz3-RJutlQ==",
+      "sha256": "3db651109aba463e4c84463839d437e88f6370e4f5763ff3d805addaddf4b251",
+      "size_bytes": 105,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~Icycw_Ctrn7ZOdWguWIKot5bePyBGh8Ykcxl5TDoWpE63RAXDM4ct7yz2O6Eqd9UjBtjM9wPUXqpbgBbOSTw0Q==",
+      "sha256": "e8a55307a53b6005252d2fa9b2663453f55202bddcedf527e1f4fe7f1a8c0261",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~JhOMgMpsVliGBnAG3qczzU5fEVV6XZjxFgHoecdAa4AzNGjQhV7F2pMGoOmWz-H1vqFZy6e9CqBbl0qc_bHT8w==",
+      "sha256": "d0e14b7792ab3d01d90bc0ee0e1d9b3f6eabee85321d587e237446a8f8c814ee",
+      "size_bytes": 298,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~L9EFj-7oxvU98wbQYmN1T0aPr-6hwf9qJKRhhUv4lUUTiHSkHb3A1_EsfF6l6ZUck6GPk1K33ILz7UpXIpZKwA==",
+      "sha256": "3886eb61fd6480876e3e3947e83a4289bd54797c59aca4af03ed2753ebaac615",
+      "size_bytes": 280,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~LzV2oogi-lF03m3p0qMQ6sizNH1K43KENAIe-gNVWBYVEnp6o1hrrb3Ca36WhtxloXQMiULpyBffOlzWxjukmQ==",
+      "sha256": "7e5c0b8ad855ca47a21d1bcc50c009b2ce5b33f2c67cb3e27db7a933782f94f8",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~MhSNXDXdfdn87hvX22jUPoIH2qDl0VdGyns95xZbMvErkSqutkd4hX1jWpVBc5zmd2B4152IBadkKTRAg788cQ==",
+      "sha256": "732446c5ca4df633358f8305806f0d5d5664229e38f4de66154eba06ded8bd05",
+      "size_bytes": 287,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~NoqIIu3YQGZGhZLdKLaVOx5D2-Dd_hG-hVixpYptcufEt4O22VIYyYlLNLSkx5GCyR8Ai_Gm5GIVQ0WAzwwgEA==",
+      "sha256": "51f73047c7346c268afb6a44f842f73405e36a87a4e816790a16ed4ba4d61ab8",
+      "size_bytes": 145,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~OQDag0aDXGxip9HaxVm6834PFq5eNmWfmyOMejBYbpQgjux1vqVvatEj7U5-XXqxRT_08N0U2oHvLc_6q0CKXQ==",
+      "sha256": "b2f21fc6066dfaf705d275b12c95eae74946f2768705bedae95970a352fbd733",
+      "size_bytes": 301,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~PPzjtjun7l1Q_tNg4kInzgu3TOnSOMHa9u0OeV3m75kp6RZkm7GPS74DEwJ7_Q8oA9ghoCyedEvj3dMKIkQaSg==",
+      "sha256": "ab9fbb6895ab8bb7a4bcccd28f6ea5868ceef605244a20f25a338a2527f7a168",
+      "size_bytes": 296,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~PdXemHIZKMBpVVQFG_YF1IkWuLEKV1bdIbzokM-bREi9SfwSzgJxy1hPOlE5hWTeQb0hjHK74nY703_tjxiyBw==",
+      "sha256": "6ea052349dbe56f376880d6d67f274be32db214eb361a1050de9960c46596a07",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~Q4djN_sop6DV5F-UCdDOaesCMsy_EWTxJknvgh2Xyd2U0euCE_e8YscaOXaYtIoDXjizwCWlX5k17WS3VksWyg==",
+      "sha256": "3acfb9945ee3ef1f1750e949bbbbae9bc5da823ad4e50b307b4fbdd055fb1675",
+      "size_bytes": 299,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~SQgoinxhs3daPKRC6JtZAcucMXLwOYSXJNlEUs0NBgx8qYhrFJoUjfcAqDG7s8jMTFJat0GQKbe75SBeMoTW0g==",
+      "sha256": "93b67c03bf8f1a2640c317edf5ae7f701d7856210f833b26576f940f644e7128",
+      "size_bytes": 310,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~TDOyiWLvoegqLXjVZTUIwRtcrGxwMbc-CnDLAuTjDADvTzNoXKRDkROuNas95BwVbYuZEbiC89TbpNeVxc02jA==",
+      "sha256": "dbded9e041229844c5ec381e7d153dbf5e8f7c5bfb452a078622da4fc1ab5adb",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~UH6uf9q31qvhxiX-VJc4qARSnaMXz0yfm5e0esOtrfZzcUTSpCmuon4N5868SeeTaVXCcgpAbqXgjSW7vtKpfQ==",
+      "sha256": "cfff6eb1ebd1548b2862d80447ac72e588634795e4cc358f84d67d0e8e5fad9a",
+      "size_bytes": 301,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~XPMxLn3pMubAbmrAQgkBqTVgUYxmmRk5BVGnnNKdVxSQF4Nir0rQYiOERiHfDyNTOLI8Ft0x8As3XnPUtO425Q==",
+      "sha256": "dabb3584cea2178467ae25a956c6daa02247dbf9967f8b29ece9f4bb8a539c40",
+      "size_bytes": 286,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~Xv0T5imD--kTirml_cTCzkbp9k9EG02ksuJIakr8xQszqy4JpePLaRZynSh_RhK0izvnSl-S9heRuye89_9lXQ==",
+      "sha256": "c69b00f08265530a3730e139df77acacc4530b950fe6e6254d2edad87259bf94",
+      "size_bytes": 114,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~YNi85qXZNgIqjWuIUuAkTq0Mk38Exukp9QwdC2pM-ySRp3VWZTPVIgQEt3cL7Z6gD8XXoWXdHZoKzYYTTcUybA==",
+      "sha256": "98234da41c3ed40cb11b9da815da9f29f864555fc27ab09453333a1e8f7ec55d",
+      "size_bytes": 9862,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~ZJAooy8uQ10Eq6nM0TxLSlkMwIcfrWLGOlILpuYPy4O0zJv3yOhcbllz64BR-pvSbCTK4VcDBgBGp8cOPl9QTQ==",
+      "sha256": "6d7c4fb54644343b3a8fa7a5c66c532be91e3cd1d2708c2b8b108f6d0b5be87a",
+      "size_bytes": 308,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~ZJVv0AN5JWMokIfzsbFDOA69GW3Qz0IpNgUHwuku9yMsBhDxFUFhu8QycwtFyAPkDcqBdGECDS3lFZx98Y990Q==",
+      "sha256": "9686b177cbb5ced626ad85fd1d2f77eaf451f65aea0926d2b7d3c2c9e5393c5a",
+      "size_bytes": 15321,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~a4cYmrXXiRZuM5jr8WVV0JgQBWAB91CqTygiki3S5rMcBsfPdd_Zq_js5ZJek9EUOCnsikLlopPnyg4v-gI4iA==",
+      "sha256": "5a501b4e7a7108a3f721fad58787f4e13277b21a605d20649ec40858107b1200",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~aXnPUs20uliuJA5XT6Gc0kRzLECbISA9uwm168StVmbkb0L7P9UXN7C8t7QQYkOnbP9WDKwJ13mvvi1alJZreA==",
+      "sha256": "b90d1f8ac31ea6f125d7385ec75a345539678fd1c65a39c219f5c47014401aea",
+      "size_bytes": 309,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~b0aoRj6pCKXJYC8gyRj01uyDR1ORED1x3f2BL891DsUkmbEip962RymekSi8p7HDc81G1-7o_Yram-U1GJ-yLw==",
+      "sha256": "cf5546fcda32d6c93ba27483707fbf89b46bf0334c776287a83fde931f1bd6d2",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~dzl_N4BxUQwd15Tsn79a0NUajwOVN2AN5yVB7TPo8ZOKiohN0ubNEdqxRIELovdAl0Xjxe1TdtIFpyrNLXr_mg==",
+      "sha256": "50575488fcd6e958a48956a990fde82e05cdead7fb1df11e0c9f21d91df99823",
+      "size_bytes": 307,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~eaHD-Yh3ouX-AXr0dC2fqomsxWyZd8jTRL1CTWt17zNCOFOnQ6gGKJTWZ6y9A1yRtF3Mms-TmmccQyZDdHx0XQ==",
+      "sha256": "9457df4ad77acf28886bb4eb7516e672c07330b12ffffba92f2c0d036dee3abf",
+      "size_bytes": 303,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~fJJ438uJo4-DN6qXL0BKTfM_j2KJf856XNXfovdUgGfmN1ydbpfIf96hJaOsWdlRf4lZtlh3mer_lxcsMTeFJQ==",
+      "sha256": "1ee49757bb3a171082003da388a27c9de4afea25895694ecfa4393211d0ea342",
+      "size_bytes": 302,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~g5kLwL3L5Lt9czv40Yr3XtzayYJzXvKg_feHOohHJ9p5mt9osiA25rybLsEhGlhLWhiQz9gV1Cg05Z0XKa8hdQ==",
+      "sha256": "944c2c7bb77bec668129033198f5bcf7b0434c455cd596c29699b47a330fb791",
+      "size_bytes": 298,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~gaDxk8KTpf2ctsuH2e0JP2A5UqRsj7zrQMCWgzYMKNkVQottmDwT0V7TfW82Bzv91tRWTibtZcDqXXfzxl43KA==",
+      "sha256": "6149f3a8359de6019b636efa1c034ec6d7e2ce9c28e0e1040fd7eddccf022a80",
+      "size_bytes": 274,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~hMChaC9S7rzIfwKF22ermUHmEugORAV1N7LNxtRBrRDhVylsGOGyEhsrQBOEG0tUNvXHRk00zxckP3ka6nRWjA==",
+      "sha256": "02557eada350e65bd74b7a8417c0d2863561bd1c3b91b3f6cfda449a6cdd953f",
+      "size_bytes": 12679,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~iAm0Sz0kherlhHxlMeoj0Ssxo_C9i0QSbY09JB30_NXOYU-sZaamSI93w3G4VRb3attjbn_swVINDX4wg0LOVw==",
+      "sha256": "a9db1008503cbba717f2735e4c41a956ec205f0ecf3ff083fcb68381742b8ed4",
+      "size_bytes": 295,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~k-X-GQ7nu9qDpo2Z01qLZx3OKfwTPn-JoPOig9_nsraOkmplUfCbLSXTnFEGktOSPgvO8DGY7uUoZZm1O5Eeqg==",
+      "sha256": "c6734c8f2e683db7e43e46b1d0c7df5b7da705bb15c83ff1b119482849034e55",
+      "size_bytes": 38,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~kX6Tw_s1whjhwzT6x7D2KnqcQlwGGz7ffqKkYogazMnV29iQn0wEUXWgXa4UgvyrGUif1tpgkMVUr_PqsgL8Uw==",
+      "sha256": "f670947cd54b1d98755ac17c0681088680c61f0e5c734523c629288bfbb13a7d",
+      "size_bytes": 300,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~ktsmmxHF3SuiZ7_hQ2UBeQPRSvgKsaxCk5TgTKqjWaDYkWZn2K1lx7r_oBs-fyD6_D2OPeY_-8Ko2H0sS2dy9A==",
+      "sha256": "40614d6c429c6e7cb95e073fd52586e41229900bcf65273e56f99115646f6b75",
+      "size_bytes": 304,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~liFjjj7RyvcGKSsEb4o52EVqyBe6KGaf4f64ayvbOGvAJlMuBH4z4UhDrBgrDZxI5YJmDwgwfwg3mZLuH4FRcA==",
+      "sha256": "b0e8b9751bcc61c73d76dd2595ada6e805d820ec35cae7fa76ab0b9874747a58",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~m1SAN3795J5n244tQK0TKu23mc_TGH8e5CDEZhDd0ubSyUuncoqqDKBAEzx6xVQfR_S0cUBv1-mpcOHNDzI7lg==",
+      "sha256": "582d1992f7ecc0f1b062633b6bba231afeed2aa0ab22a9801eac035bcbb894d5",
+      "size_bytes": 12542,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~mMymh5JoLT_pvqZk78s740y8osEoZH6P2JuAOzBfu56ol4G5Tr8EMGoUnAPV4_05LDrnATlDdQs5HqwAAKfwFw==",
+      "sha256": "25fae7cbb379a82c940c1d9b3dc7bbf077f838f87bbc6212386ecd561d10bba2",
+      "size_bytes": 311,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~mX73M-Tzz8iFV-F0RaJMZjqh19SjntR4REG2rMnqMLa-F5nLQ940Vht7s3J8NajDEUrCzu0_qC1zWDuAJTvHBg==",
+      "sha256": "20c4f3b7178b0c179f6cf8b0a5c5928c823a495581952b5da7980dc2fb7bdb66",
+      "size_bytes": 285,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~mlklybjeXDwiTOhO36zcgJPIA16FLj3nBiznxCMciHqCuazqdHLblr8hJLECIl9Ro6Ztv0bYT3Vaa1GbwFj5ZA==",
+      "sha256": "609c32c70aa62d87ab559a3cd46b257de23cb90079f6215d02d84d6e9478af20",
+      "size_bytes": 302,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~mtbOrG-W3d1r0JvaFHswzzfogGzwJTcbgdWawm-0EA92arAFm9m-YEwn4fumZ8RFNRmODKiPY5mfm0rLdEmUew==",
+      "sha256": "2cebdf4e3d1c5c46671881a236613225bc1bb15d98ba23c75e3c83a143047f40",
+      "size_bytes": 283,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~n7F0jgjPTLg7E68rd1bgxklUGm-XE-NLYxNDSipkZZYp8MYoMi77gxUTyMftsspcQTJHBlVSWwY2NXMjVNBlew==",
+      "sha256": "e16452da60381f46b08dd5f3e9bdb763bc90b2b28b2f77b2f1333632c529fe8a",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~nlz3WuqhGhEJw3UCgNEOaFgpA9q-f9r9Jb5Jx_dJ0vbNUQ4HF0B2FayqHa5OiUOEuyx_x5-PIve86Sat8xrk4g==",
+      "sha256": "07ff045f3d98d723fb71172900cfa3869d0621030233a6a2856c6b78b24814aa",
+      "size_bytes": 307,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~oRMi0sbQLktfDDDGUS-SqBKpdDiD6HCztVES_ShfGr0KVcYENoIq7y9oUSDWL5B_P2gkdtWG8JEsJLxPbdWOZA==",
+      "sha256": "75fb7c443d41c504b005c3117dbf9a0162852456d3601744b4d1c95c5a246e9c",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~ob6moOCkmR6stN_ylo9fta677EoualT6WtlA_mkBV0eoIFVprHPooD7nBtmzrDu8RFmIbqizi9JGG8HwSw7AeA==",
+      "sha256": "b976c27468a413617876769c5cdac7802f048f72f4c6d420a274298a0c05c430",
+      "size_bytes": 1978,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~q73p7SHr8nrxxedW6Q_K3DfMZiL1VSZwtpisLtRRTx4LGCs4B9p4H3GqTT87Rc8ZXIAnkdn7l9zw3yeWdOyLQg==",
+      "sha256": "22a90b92664358eeed7f658678f56916182f80a3289fe942c2e113dccc2cb5ab",
+      "size_bytes": 310,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~qTk6ijFTCbCZJGRuhREVmNhfT449QEnM9AZwmP0EGyG39D35FvcuOa8nzFE4azTROFX1RD2PCO8hEn0x2oQd_w==",
+      "sha256": "989b424a498eefdcbf34ea3df821cbb99c733b499fa7325f60edcc918c7e9fad",
+      "size_bytes": 308,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~rjoqOXy8M7nBHj02MSYpe7QRkB_aeN33_Wdk_-4Ps-itZiNPfzTyCFISAdyKW_kltTi_Dh3kN6fHf7YpFWJEWA==",
+      "sha256": "b0b5d243522a9380be0f38c6401ef2ab6ba14801ee804689a57c6c2306f92fc9",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~s5pPpQvrSpls1JQyt6rb1-TRyEmuEGwoHD3Wk-T9zN5eoFgNM1j7qg2eNcLQB_V6tuVa0z58Wzq6uddKD3LJNQ==",
+      "sha256": "0e0ac972c0272a7c4bc540c160296fa377eee97e515852ab9f5ba4820cd237db",
+      "size_bytes": 297,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~sV2Se0pRZXWU_nICY8PSLO3VbVgSBJnti4-K43drLsVnib1XsJIqVJ6s3WIHMmuGeZurEehIdSMbh0Hi4aNNoQ==",
+      "sha256": "e2b33ad6acd32929f31915eb4c2e3139404839fc086feb6e4ba6d44961f0d1fe",
+      "size_bytes": 303,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~spVjPKSDn05-UXMRUIxmtACguDDbJ2_OpbJaIwAHdVdSQxmf_14ZICMyRwpfNbOBSHjSW4cGy9IKiOn77XNMNQ==",
+      "sha256": "f1024f8989aea3d00fb3620f6feb290dea6ace8363099fe9af59da92b65f2456",
+      "size_bytes": 295,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~t6wDC7Wsqs7XagtlL13O8G0uaqi8sHKiqyFevsZgPaicXtL5zle8uH46HD-Kh4Ek7lkwAmU95gaYqw4EzKsKZQ==",
+      "sha256": "2eab95dd6890c742d77d2a6c7c540e8e6cc6e9e34ef70f5e06b029a14c4ae64b",
+      "size_bytes": 292,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~tAUd24P41f6igTwjo7kPcT6L0FttRnr42Rqtc3YM2yElUUFPPYid5uynu4nNYvgjAiQnJHi75X-ZHv8h_DutgA==",
+      "sha256": "ee7b31ec15a40a8c1795ffed0eee0595348ff98aaac45c43fb1b0f652fff422b",
+      "size_bytes": 288,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~u9zKjfYPq63SGafQQprJV63OnXL_6wlWcIPGsvoo1T1b_PyRIiruwlOpZhkYsJnn1ZCA-BmFpsNwq67gQIC-Iw==",
+      "sha256": "53a9eff3bddc1c35b93962e75f546ae2c98ad864f40ef6450bc8cc665e8bf2c6",
+      "size_bytes": 21858,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~uo-JSzAwQg1t4y9usbn_QQJH05q2Nhh7PggWaQnnLPPoBd3JFSq67CKN4BVjqTmQQDFfaSq5h1n2fDAv-iR3XA==",
+      "sha256": "3355405c7a94712f7658f7224ff75632ff876939531f833805f45d8121592177",
+      "size_bytes": 301,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~wGQnXNY5FkUYMuVkAcu2G2Pdwm9BNf8b_ojmwedbP7ctsa0GXKFSADYdKqkhYE_a6glIvsL8Te6QOkhLsInhpg==",
+      "sha256": "1e63d619aa9889adec2f6fe35bfa9b9172aeb9c7206f0f132f850b205a961237",
+      "size_bytes": 286,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~xzfpAd4BLrwSiDLwMo0CVjJDzIyW9bJtxgvFVA1KE-BH2vbl_FH5QS5hWN9W_Yc_n5t9d7ulf_l22xSyoiyFbg==",
+      "sha256": "6d673bcf981641afc2d489fd48d3c3156da5ecdcb5049b56f1c9be013fdb67d0",
+      "size_bytes": 302,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~ycTZeafppU6Dghx65YwLIUXemf3ncfx4Q1bsGcyvMzR78n4o3zlLFFFIKiXyzF8jU63bGSxxkKsINwRv_-NcnQ==",
+      "sha256": "61a1db99bc750c4867a8419593fce35e584bc345287da365c0438463eca99f2d",
+      "size_bytes": 300,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~zB9HMsICL_pex53asLfkQzOmaIdebWZDGHOMdcu63AYbcEmd3FYz6Iuc0iUd2FQ3jVx9fgAwiwXm7yjB9dBUzA==",
+      "sha256": "8a1607a09312fb5e0127b59937430cc661dd7b8bda5274d6890bb8a227bf457b",
+      "size_bytes": 294,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/data.0~zKUUHm51o1e6D-AeIRht_EZ7Dt49hoyUdnQuVp1RAS7fxBBCMXd7Lqq-qguvPfRDrawEHqzW4-QxNiGNxYIQZA==",
+      "sha256": "8c0d554cec9494d8c23a89e85b5c0fe3e77aea0139b6defff0d45c75a10db935",
+      "size_bytes": 307,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~-D5dIABU1ArBLfU-ulveM9ganv5G9boDkGE1P9BIUDITcP8ofTS4O-egPgXQszxx0g0bDV6hvYuhhdbV3x50YQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~-FgprCW5rbJX0Kv230laDJT8SsCQ-TVUBh3uySORaJoBYKy_yDpTjnRvzNNMJYqkyl1PQ5AOBJ5BslZKS-DpbA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~-LoC5uhNfSqSa8RF066QQ6zBRP7PO5D9aLDQ7hv8Z0BY-IJvozDn4i5M4GPWgqiGhhNeaJXUxsBnep8aSexouA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~0Sv0ZK_OVrWwgT2CxNXA4A7pcVCvmABGN-F_9sG7qZlNYsmmsi4wGettvy53iuzjXM52eLWAf9iWEMQDpYl17w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~0csPcMJue95toLvUkF9JmW9A2IK9rACYoner-rxNCZKAvEbrKvIzdUzxxRw5UVld5Fqwu0DlmbFs2Rjiir9Wbg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~1uUTtDb8PbQwZ2FjKaTsBkwPqh5nNIsF7vKwIsrqTFpOY0HMZxlEbyqgxNLjZs3-v2Q0Eh5H0SsR9MLx68ka7w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~2MmYSfcGIrq2WdNcSSFFZO_efjXg9J-8Bc3cKRqXnMVytPNknYq_i8w1-sjvGDMHOE4QHlO-bWoc0sw_hERWtA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~3UBtn7xVfoZCkQKDKZL8leRz1g05SYJCl7sWpLBSRQc_Ew09aE8dAfc5W93c6NdTFRPK6WX2OUuZATgJYZuwpA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~4M-iyowhQOrz5luO25SewzhOmrPf3iZ8dCf65RKZbzwOW1t0jf9wkjOT3J9ipirwgEjgS7JRbZCnv0XZaaNB2Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~4y-m9cgDJ6k2TI7sWxMcmjBx-dh5ZgpvZW89Dp9R2sc_lcnYpynEXhzVy7zdHzxQPawNg4Cde38su_J1Kxhaig==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~51UYJpYCjrisqyytd0J2Kw_MiBPIHZnNO8oFT-ndnF6XJXZ9lgvM4O_6Q0NVbf7aSn3ep9ZuLgHwBHlVueTnvQ==",
+      "sha256": "746036b7e5f73dd744796fe56a8774af02c4de2e791681a2a5b596a7431fe8dd",
+      "size_bytes": 463,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~5OiXUNDz9ce9uDTNhuTU_0OZDQGr2Ut4KkEQMCLQihU1B6Abro2ls0quN92ImU2OoH8nqmVtr1yCnP3ca6dFJQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~6KbX2nkUVOc8jdzjCP-Kz9qo2TmhnteGUNW7PS3p1hKfQ8TOsoCZQ2q51gfUiUmnFCAAYp-3I9eS6D1kquy7BQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~6y62gMclleXFLN3hUKcdbqF2383eCczHDvloK2TxRYve_DFABVNP-k-KDz2IHvn9fb5Br8BZFHCoqxss6EnG2Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~73rtsh8bDMBuFWE5jA7VPeszd2fdsC4vkOBU0SHlXJDXXMzDXXEcXFXIbpIywvO60biiuNGlyAVuXplVITQUzw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~7R-B7REeeXd453tolUQ0SzNk6fX4Vq9_uro_N5AjzKDXXRPDOIGeBv_uz_cayg5xYYWkjJrWSjk_Xq8bF_lWCQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~Clx4J-bJfxe_2QSfYJCckQJj0wHdZp2FFk0j4AKrvuZdtlUutF1T5G71aYbYTIme06RWdYA4LQWSEmdu1oHtZg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~CzlKwA0Mn6toDAH-KP0wbH3dmh9w1QiBeuxMfxvioPQpU_Et93pLo3Xs-N5iCFrbknNYX5UOpq5ch8bbPbee6g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~DK99OUIzVraJNCalZ1pXH-wp9OCFuog9wTp40ULuXFtfXEJkE6ALg1knHRoZjw5a_ps7rMZS1iEyRv8hUcItwA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~DtesalpIItMipTPKCsdB3hrI4MC-lm0Bklj4yPgzvL-ayo_tcQp3kJ7c0njf4WAL6T_oIco7F_YaRgPU9X4FIQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~EFt3wSKL6drscIMdEdvdFdsXMjVnVu60-COVUCmMV3yDILr-WkO6IbjWluok3mvJDk6xIDuTPs-MlD4Ej5iyhA==",
+      "sha256": "1d1a83f616a91ce2ac523866543cd4313ee3a9208227009935142c9b0e44f69d",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~E_UZOFz_EQlJwqtMUx0NNto7oa91pukuhkDt6B3tDzcHr7d8RWVLauZrXHY5hqs_0BEp3G3Safz54u1IU3pCSA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~GbSfrOTNnPIkqdUm_h1BU13Oq7wAXLZo2ibZCOcq-Cg1cZNklC3eEotNR63w8wXRyUzAucsM9EcDMQuyFYKdkQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~HX0EKx8ad08K9KpBDOZ32eO6HWLez70VYmIcuxx-emCprx-cj6PgR8SqA5RAzwHjtJ_Sw8Owzoq9OSxz19UE8w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~Hi73TMSbAGABNX4i2d_2alNtwV1r6u2iKYy0n28WxvYXV8ZN9nORoWn6TS-8m8j_lZNlkBwBFMXGTctUbXgOgg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~I2I6P7hKFEGWGc-KWt8WsWeY2mg7014uXPJXJ2-8aATkw2V0o8zZmfp1jRnmRRFd0NUl__UsuOLeSz3-RJutlQ==",
+      "sha256": "4f1c17acf29055bb450d88098c519fc2baf78b3a9d4d2fc26bafb23133ffd8ee",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~Icycw_Ctrn7ZOdWguWIKot5bePyBGh8Ykcxl5TDoWpE63RAXDM4ct7yz2O6Eqd9UjBtjM9wPUXqpbgBbOSTw0Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~JhOMgMpsVliGBnAG3qczzU5fEVV6XZjxFgHoecdAa4AzNGjQhV7F2pMGoOmWz-H1vqFZy6e9CqBbl0qc_bHT8w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~L9EFj-7oxvU98wbQYmN1T0aPr-6hwf9qJKRhhUv4lUUTiHSkHb3A1_EsfF6l6ZUck6GPk1K33ILz7UpXIpZKwA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~LzV2oogi-lF03m3p0qMQ6sizNH1K43KENAIe-gNVWBYVEnp6o1hrrb3Ca36WhtxloXQMiULpyBffOlzWxjukmQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~MhSNXDXdfdn87hvX22jUPoIH2qDl0VdGyns95xZbMvErkSqutkd4hX1jWpVBc5zmd2B4152IBadkKTRAg788cQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~NoqIIu3YQGZGhZLdKLaVOx5D2-Dd_hG-hVixpYptcufEt4O22VIYyYlLNLSkx5GCyR8Ai_Gm5GIVQ0WAzwwgEA==",
+      "sha256": "7a647607238640b297102f2b0c62de10e0510d4a61fbc16a48a73b6423083640",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~OQDag0aDXGxip9HaxVm6834PFq5eNmWfmyOMejBYbpQgjux1vqVvatEj7U5-XXqxRT_08N0U2oHvLc_6q0CKXQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~PPzjtjun7l1Q_tNg4kInzgu3TOnSOMHa9u0OeV3m75kp6RZkm7GPS74DEwJ7_Q8oA9ghoCyedEvj3dMKIkQaSg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~PdXemHIZKMBpVVQFG_YF1IkWuLEKV1bdIbzokM-bREi9SfwSzgJxy1hPOlE5hWTeQb0hjHK74nY703_tjxiyBw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~Q4djN_sop6DV5F-UCdDOaesCMsy_EWTxJknvgh2Xyd2U0euCE_e8YscaOXaYtIoDXjizwCWlX5k17WS3VksWyg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~SQgoinxhs3daPKRC6JtZAcucMXLwOYSXJNlEUs0NBgx8qYhrFJoUjfcAqDG7s8jMTFJat0GQKbe75SBeMoTW0g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~TDOyiWLvoegqLXjVZTUIwRtcrGxwMbc-CnDLAuTjDADvTzNoXKRDkROuNas95BwVbYuZEbiC89TbpNeVxc02jA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~UH6uf9q31qvhxiX-VJc4qARSnaMXz0yfm5e0esOtrfZzcUTSpCmuon4N5868SeeTaVXCcgpAbqXgjSW7vtKpfQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~XPMxLn3pMubAbmrAQgkBqTVgUYxmmRk5BVGnnNKdVxSQF4Nir0rQYiOERiHfDyNTOLI8Ft0x8As3XnPUtO425Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~Xv0T5imD--kTirml_cTCzkbp9k9EG02ksuJIakr8xQszqy4JpePLaRZynSh_RhK0izvnSl-S9heRuye89_9lXQ==",
+      "sha256": "f1fc0eca26d61f32a587ca70edb3556ecb9dc6d8b99e10dba46c9ca3d11c7703",
+      "size_bytes": 133,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~YNi85qXZNgIqjWuIUuAkTq0Mk38Exukp9QwdC2pM-ySRp3VWZTPVIgQEt3cL7Z6gD8XXoWXdHZoKzYYTTcUybA==",
+      "sha256": "48499cd7176d897e1ea6904e277f41ca71ae64d1d17922e4994bc376bfc74008",
+      "size_bytes": 4225,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~ZJAooy8uQ10Eq6nM0TxLSlkMwIcfrWLGOlILpuYPy4O0zJv3yOhcbllz64BR-pvSbCTK4VcDBgBGp8cOPl9QTQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~ZJVv0AN5JWMokIfzsbFDOA69GW3Qz0IpNgUHwuku9yMsBhDxFUFhu8QycwtFyAPkDcqBdGECDS3lFZx98Y990Q==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~a4cYmrXXiRZuM5jr8WVV0JgQBWAB91CqTygiki3S5rMcBsfPdd_Zq_js5ZJek9EUOCnsikLlopPnyg4v-gI4iA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~aXnPUs20uliuJA5XT6Gc0kRzLECbISA9uwm168StVmbkb0L7P9UXN7C8t7QQYkOnbP9WDKwJ13mvvi1alJZreA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~b0aoRj6pCKXJYC8gyRj01uyDR1ORED1x3f2BL891DsUkmbEip962RymekSi8p7HDc81G1-7o_Yram-U1GJ-yLw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~dzl_N4BxUQwd15Tsn79a0NUajwOVN2AN5yVB7TPo8ZOKiohN0ubNEdqxRIELovdAl0Xjxe1TdtIFpyrNLXr_mg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~eaHD-Yh3ouX-AXr0dC2fqomsxWyZd8jTRL1CTWt17zNCOFOnQ6gGKJTWZ6y9A1yRtF3Mms-TmmccQyZDdHx0XQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~fJJ438uJo4-DN6qXL0BKTfM_j2KJf856XNXfovdUgGfmN1ydbpfIf96hJaOsWdlRf4lZtlh3mer_lxcsMTeFJQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~g5kLwL3L5Lt9czv40Yr3XtzayYJzXvKg_feHOohHJ9p5mt9osiA25rybLsEhGlhLWhiQz9gV1Cg05Z0XKa8hdQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~gaDxk8KTpf2ctsuH2e0JP2A5UqRsj7zrQMCWgzYMKNkVQottmDwT0V7TfW82Bzv91tRWTibtZcDqXXfzxl43KA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~hMChaC9S7rzIfwKF22ermUHmEugORAV1N7LNxtRBrRDhVylsGOGyEhsrQBOEG0tUNvXHRk00zxckP3ka6nRWjA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~iAm0Sz0kherlhHxlMeoj0Ssxo_C9i0QSbY09JB30_NXOYU-sZaamSI93w3G4VRb3attjbn_swVINDX4wg0LOVw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~k-X-GQ7nu9qDpo2Z01qLZx3OKfwTPn-JoPOig9_nsraOkmplUfCbLSXTnFEGktOSPgvO8DGY7uUoZZm1O5Eeqg==",
+      "sha256": "44d22b51cb4ba9cd348f6a97939f54b688d1bc54dd444b5b8ea55d50f524c029",
+      "size_bytes": 67,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~kX6Tw_s1whjhwzT6x7D2KnqcQlwGGz7ffqKkYogazMnV29iQn0wEUXWgXa4UgvyrGUif1tpgkMVUr_PqsgL8Uw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~ktsmmxHF3SuiZ7_hQ2UBeQPRSvgKsaxCk5TgTKqjWaDYkWZn2K1lx7r_oBs-fyD6_D2OPeY_-8Ko2H0sS2dy9A==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~liFjjj7RyvcGKSsEb4o52EVqyBe6KGaf4f64ayvbOGvAJlMuBH4z4UhDrBgrDZxI5YJmDwgwfwg3mZLuH4FRcA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~m1SAN3795J5n244tQK0TKu23mc_TGH8e5CDEZhDd0ubSyUuncoqqDKBAEzx6xVQfR_S0cUBv1-mpcOHNDzI7lg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~mMymh5JoLT_pvqZk78s740y8osEoZH6P2JuAOzBfu56ol4G5Tr8EMGoUnAPV4_05LDrnATlDdQs5HqwAAKfwFw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~mX73M-Tzz8iFV-F0RaJMZjqh19SjntR4REG2rMnqMLa-F5nLQ940Vht7s3J8NajDEUrCzu0_qC1zWDuAJTvHBg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~mlklybjeXDwiTOhO36zcgJPIA16FLj3nBiznxCMciHqCuazqdHLblr8hJLECIl9Ro6Ztv0bYT3Vaa1GbwFj5ZA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~mtbOrG-W3d1r0JvaFHswzzfogGzwJTcbgdWawm-0EA92arAFm9m-YEwn4fumZ8RFNRmODKiPY5mfm0rLdEmUew==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~n7F0jgjPTLg7E68rd1bgxklUGm-XE-NLYxNDSipkZZYp8MYoMi77gxUTyMftsspcQTJHBlVSWwY2NXMjVNBlew==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~nlz3WuqhGhEJw3UCgNEOaFgpA9q-f9r9Jb5Jx_dJ0vbNUQ4HF0B2FayqHa5OiUOEuyx_x5-PIve86Sat8xrk4g==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~oRMi0sbQLktfDDDGUS-SqBKpdDiD6HCztVES_ShfGr0KVcYENoIq7y9oUSDWL5B_P2gkdtWG8JEsJLxPbdWOZA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~ob6moOCkmR6stN_ylo9fta677EoualT6WtlA_mkBV0eoIFVprHPooD7nBtmzrDu8RFmIbqizi9JGG8HwSw7AeA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~q73p7SHr8nrxxedW6Q_K3DfMZiL1VSZwtpisLtRRTx4LGCs4B9p4H3GqTT87Rc8ZXIAnkdn7l9zw3yeWdOyLQg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~qTk6ijFTCbCZJGRuhREVmNhfT449QEnM9AZwmP0EGyG39D35FvcuOa8nzFE4azTROFX1RD2PCO8hEn0x2oQd_w==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~rjoqOXy8M7nBHj02MSYpe7QRkB_aeN33_Wdk_-4Ps-itZiNPfzTyCFISAdyKW_kltTi_Dh3kN6fHf7YpFWJEWA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~s5pPpQvrSpls1JQyt6rb1-TRyEmuEGwoHD3Wk-T9zN5eoFgNM1j7qg2eNcLQB_V6tuVa0z58Wzq6uddKD3LJNQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~sV2Se0pRZXWU_nICY8PSLO3VbVgSBJnti4-K43drLsVnib1XsJIqVJ6s3WIHMmuGeZurEehIdSMbh0Hi4aNNoQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~spVjPKSDn05-UXMRUIxmtACguDDbJ2_OpbJaIwAHdVdSQxmf_14ZICMyRwpfNbOBSHjSW4cGy9IKiOn77XNMNQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~t6wDC7Wsqs7XagtlL13O8G0uaqi8sHKiqyFevsZgPaicXtL5zle8uH46HD-Kh4Ek7lkwAmU95gaYqw4EzKsKZQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~tAUd24P41f6igTwjo7kPcT6L0FttRnr42Rqtc3YM2yElUUFPPYid5uynu4nNYvgjAiQnJHi75X-ZHv8h_DutgA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~u9zKjfYPq63SGafQQprJV63OnXL_6wlWcIPGsvoo1T1b_PyRIiruwlOpZhkYsJnn1ZCA-BmFpsNwq67gQIC-Iw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~uo-JSzAwQg1t4y9usbn_QQJH05q2Nhh7PggWaQnnLPPoBd3JFSq67CKN4BVjqTmQQDFfaSq5h1n2fDAv-iR3XA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~wGQnXNY5FkUYMuVkAcu2G2Pdwm9BNf8b_ojmwedbP7ctsa0GXKFSADYdKqkhYE_a6glIvsL8Te6QOkhLsInhpg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~xzfpAd4BLrwSiDLwMo0CVjJDzIyW9bJtxgvFVA1KE-BH2vbl_FH5QS5hWN9W_Yc_n5t9d7ulf_l22xSyoiyFbg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~ycTZeafppU6Dghx65YwLIUXemf3ncfx4Q1bsGcyvMzR78n4o3zlLFFFIKiXyzF8jU63bGSxxkKsINwRv_-NcnQ==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~zB9HMsICL_pex53asLfkQzOmaIdebWZDGHOMdcu63AYbcEmd3FYz6Iuc0iUd2FQ3jVx9fgAwiwXm7yjB9dBUzA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Data/refs.0~zKUUHm51o1e6D-AeIRht_EZ7Dt49hoyUdnQuVp1RAS7fxBBCMXd7Lqq-qguvPfRDrawEHqzW4-QxNiGNxYIQZA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/Info.plist",
+      "sha256": "a634b456c06b27fe2e1d4e93260df90785998ffed6cf0e5e3537c4e0e9ff8340",
+      "size_bytes": 715,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "full-debug-tests.xcresult/database.sqlite3",
+      "sha256": "4f069d5f8edbd5dc611f92a615506137b8cab87dc59312b98c2e2f13548399c0",
+      "size_bytes": 266240,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "git-state.txt",
+      "sha256": "f2a24577718b8a0d4f3d0d8ef26ed9523478b363ab1cb95b444fe69d12fb2749",
+      "size_bytes": 539,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "input-media-verification.log",
+      "sha256": "2081f55b9c0309c9449e2d0ba03b444c500b1a5c9780e938cadd2adf38f8b3fd",
+      "size_bytes": 924,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "input-media.sha256",
+      "sha256": "f4d94c912e9d08be478d47f7c816aeeb2ef32ea250075985e8a9267b5b85ee84",
+      "size_bytes": 1854,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "instruction-package.sha256",
+      "sha256": "26ede21ee449d91161843d1899387a921b28918dae0072ab6624f9c2105bbaf7",
+      "size_bytes": 245,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "package-checksums.log",
+      "sha256": "efa22238b6d1d02dc9e41d9f5bade88a926c97230f24b204871aeb76638dc9bf",
+      "size_bytes": 3615,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "package-validation.log",
+      "sha256": "7a5df720e083ad7ec1b2257b326e33d5dd64217b3720b4e1607d7df6914fe958",
+      "size_bytes": 8296,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "reference-audit-reproduced.json",
+      "sha256": "4eb0e4d46e3aace192c1d19c91e02f6301c2b3568a727135bac3d4f4254e40f8",
+      "size_bytes": 2538,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "reference-audit-reproduced.md",
+      "sha256": "7c0163e2930892a14ac1b14624d9edb7360c3e6ae28dfc2ae2fd572f653ac6b9",
+      "size_bytes": 2178,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build-summary.json",
+      "sha256": "46b17ab9a5c02fe8238bc0816f39229b4466c8f72eb65fb2c269328a7f5e3d5e",
+      "size_bytes": 523,
+      "producer": "xcresulttool",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.log",
+      "sha256": "216696b56600b59bc426696a41f97c7f86ad60b50d52d66a34c9cb1ddf53cdae",
+      "size_bytes": 215941,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/data.0~6DHw1xPwXAzNMkpf1ilWyhanSTQL_Xx-BQ1DPIx_evkVVvorixft6XlNOlIx5BoEnzcbaKOe7E3PbBVmcXyNlw==",
+      "sha256": "f29f06faff77d18af40c47028c939ac08832252d9d5fae051a25d4be2f495547",
+      "size_bytes": 289,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/data.0~MXk9m6-bYfJfKEu8hpkT20Dtlw4Atv8VmhY5gkYupr-bnZ4HRGBIPPu51Y4xXSNvjLY5jwXJRG17DDPOygLDaA==",
+      "sha256": "d28b1c4161d7440f5d950dc0c9b7ecce9d1cbbfdc92558f507c2e6d57c425113",
+      "size_bytes": 34688,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/data.0~OKLjUcg-RULGtpKJjus6Ff29XYhlLuRcwZVkLZSVxZrT1uPXe6xgiCLdONObLENZw_FGVQ9VN7NTDWEm1-M9Kg==",
+      "sha256": "ba85ba8fa1b23867309dd0f440b4995711179315c4d697651b92f28a3e402be0",
+      "size_bytes": 558,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/data.0~R5InOMhXTtLTBJ6Xzn4KCf3f_CEkToydM0GJXPWhqFlJb6JwdgeqwT8Cr1-IqS5x5cx1y9mIdd4Fwoc1G3O1gw==",
+      "sha256": "a84852332993e5873c9f02df8da54dd4120fb0e6be085fcbe5d1cc7b46406cad",
+      "size_bytes": 1389,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/refs.0~6DHw1xPwXAzNMkpf1ilWyhanSTQL_Xx-BQ1DPIx_evkVVvorixft6XlNOlIx5BoEnzcbaKOe7E3PbBVmcXyNlw==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/refs.0~MXk9m6-bYfJfKEu8hpkT20Dtlw4Atv8VmhY5gkYupr-bnZ4HRGBIPPu51Y4xXSNvjLY5jwXJRG17DDPOygLDaA==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/refs.0~OKLjUcg-RULGtpKJjus6Ff29XYhlLuRcwZVkLZSVxZrT1uPXe6xgiCLdONObLENZw_FGVQ9VN7NTDWEm1-M9Kg==",
+      "sha256": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+      "size_bytes": 1,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Data/refs.0~R5InOMhXTtLTBJ6Xzn4KCf3f_CEkToydM0GJXPWhqFlJb6JwdgeqwT8Cr1-IqS5x5cx1y9mIdd4Fwoc1G3O1gw==",
+      "sha256": "6290ca2dd16a2ab9217eb03700829caff44217f801530d5852134b8030c71203",
+      "size_bytes": 199,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "release-build.xcresult/Info.plist",
+      "sha256": "881e1921c61d39926a81f95a5fc726b1c33858d55822229f374246dff640d7b4",
+      "size_bytes": 715,
+      "producer": "xcodebuild result bundle",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "source-integrity-verification.log",
+      "sha256": "13cac567492bdaaee2639bea54c44e959748f0cbd97f5e0a35da16d833ad160c",
+      "size_bytes": 5515,
+      "producer": "P00 command capture",
+      "gate_ids": [
+        "G00"
+      ]
+    },
+    {
+      "path": "test-results.json",
+      "sha256": "2e061b31d87a7ecd6eeeb0f2adb64a877f0a3abd0d9f2d1fd21a47eaf1f1106f",
+      "size_bytes": 1665,
+      "producer": "P00 baseline capture",
+      "gate_ids": [
+        "G00"
+      ]
+    }
+  ]
+}

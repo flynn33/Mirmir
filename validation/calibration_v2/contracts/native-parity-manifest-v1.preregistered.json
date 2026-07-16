@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0.0",
+  "manifest_id": "mirmir-native-lut-parity-v1",
+  "status": "preregistered_not_executed",
+  "conflict_record": "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/conflict-resolution.md",
+  "output_filename": "native-lut-parity-manifest.json",
+  "output_schema": "validation/calibration_v2/schemas/native-parity-manifest-v1.schema.json",
+  "implementations": [
+    {
+      "role": "production_swift",
+      "platform": "native_macos",
+      "independence": "project compiler implementation"
+    },
+    {
+      "role": "independent_test_python",
+      "platform": "native_macos_test_only",
+      "independence": "independent algorithm reading the same JSON contracts; it may not call, link, import, or consume expected output from production_swift"
+    }
+  ],
+  "routes": [
+    {
+      "route": "direct_2x",
+      "route_id": 1,
+      "entry_count": 4096,
+      "filename": "direct2x.ashlut"
+    },
+    {
+      "route": "direct_3_over_2",
+      "route_id": 2,
+      "entry_count": 9216,
+      "filename": "direct3over2.ashlut"
+    }
+  ],
+  "required_input_hashes": [
+    "mapping_sha256",
+    "operator_bank_sha256",
+    "metric_policy_sha256",
+    "compiler_inputs_sha256",
+    "calibration_plan_sha256",
+    "corpus_lock_bundle_sha256"
+  ],
+  "required_comparisons_per_route": [
+    "whole_file_size_bytes",
+    "whole_file_sha256",
+    "payload_sha256",
+    "header_crc32",
+    "payload_crc32",
+    "entry_count",
+    "parameter_count"
+  ],
+  "pass_rule": "both routes require byte-for-byte equality and equality of every required comparison after each implementation has independently written and closed its file",
+  "failure_rule": "preserve both unequal files and record the first differing byte offset; do not relabel a mismatch as a pass",
+  "canonicalization": "sorted-key compact UTF-8 JSON with a trailing newline",
+  "execution_results_present": false
+}

@@ -1,0 +1,12 @@
+xcodegen generate
+xcodebuild clean build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS
+xcodebuild clean build -project Mirmir.xcodeproj -scheme Mirmir -configuration Release -destination platform=macOS
+xcodebuild test-without-building -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS -only-testing:P02-focused-tests
+xcodebuild test-without-building -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS
+xcodebuild test-without-building -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS -only-testing:production-route-direct
+xcodebuild test-without-building -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS -only-testing:production-route-lanczos
+avmediainfo raw/routes/direct/output-2160p-hevc.mp4
+avmediainfo raw/routes/lanczos/output-1080p-hevc.mp4
+jq -n --slurpfile direct raw/routes/direct/telemetry.json --slurpfile lanczos raw/routes/lanczos/telemetry.json -f analysis/validate_routes.jq
+swiftlint lint --strict
+git diff --check

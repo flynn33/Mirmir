@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/g05-run-identity-v1.schema.json",
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1},
+    "binding": {
+      "type": "object",
+      "required": ["kind", "sha256"],
+      "properties": {
+        "kind": {"$ref": "#/$defs/nonempty"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "tool": {
+      "type": "object",
+      "required": ["executable", "version", "version_sha256"],
+      "properties": {
+        "executable": {"$ref": "#/$defs/nonempty"},
+        "version": {"$ref": "#/$defs/nonempty"},
+        "version_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "run_id",
+    "started_utc",
+    "ended_utc",
+    "outcome",
+    "source_commit",
+    "p00_baseline",
+    "working_tree",
+    "route",
+    "routes_exercised",
+    "mode",
+    "configuration_sha256",
+    "configuration_components",
+    "coordinate_policies",
+    "analysis_granularity",
+    "temporal_mode",
+    "comparison_domain",
+    "evidence_context",
+    "synthetic_input",
+    "synthetic_target",
+    "instruction_package",
+    "toolchain",
+    "platform",
+    "holdout_accessed",
+    "holdout_access_status",
+    "assessor_pixel_accessed",
+    "identity_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "g05_current_source_run_identity"},
+    "run_id": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "started_utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "ended_utc": {"type": "string", "format": "date-time", "pattern": "Z$"},
+    "outcome": {"enum": ["pass", "fail"]},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "p00_baseline": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "baseline_commit",
+        "source_commit",
+        "ancestry",
+        "tracked_records",
+        "binding_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "status": {"const": "pass"},
+        "baseline_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "ancestry": {"const": "baseline_is_ancestor_of_source"},
+        "tracked_records": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256", "size_bytes"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "size_bytes": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false
+          }
+        },
+        "binding_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "working_tree": {
+      "type": "object",
+      "required": ["clean", "dirty_state_sha256"],
+      "properties": {
+        "clean": {"const": true},
+        "dirty_state_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "route": {"const": "direct-both"},
+    "routes_exercised": {
+      "const": ["direct_2x", "direct_3_over_2"]
+    },
+    "mode": {"const": "synthetic-p05-current-source"},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "configuration_components": {
+      "type": "object",
+      "required": ["mapping", "operator_bank", "branch_lut", "metric_policy", "media_policy"],
+      "properties": {
+        "mapping": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "ash_video_mapping_v2_seed"}}}
+          ]
+        },
+        "operator_bank": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "operator_bank_v2_seed"}}}
+          ]
+        },
+        "branch_lut": {
+          "type": "object",
+          "required": ["status", "sha256"],
+          "properties": {
+            "status": {"const": "not_applicable_pre_g06"},
+            "sha256": {"const": null}
+          },
+          "additionalProperties": false
+        },
+        "metric_policy": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "development_metric_policy"}}}
+          ]
+        },
+        "media_policy": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "instruction_geometry_color_audio_policy"}}}
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "coordinate_policies": {
+      "const": ["half_pixel_center", "source_aligned_rational"]
+    },
+    "analysis_granularity": {"const": "synthetic_fixture_cell"},
+    "temporal_mode": {
+      "const": "spatial_reference_with_state_causality_controls_no_temporal_reconstruction"
+    },
+    "comparison_domain": {
+      "const": "raw_engine_synthetic_cpu_reference_no_container_decode"
+    },
+    "evidence_context": {
+      "type": "object",
+      "required": ["quality_harness_manifest", "spatial_preregistration", "upstream_bindings"],
+      "properties": {
+        "quality_harness_manifest": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "quality_harness_implementation_manifest"}}}
+          ]
+        },
+        "spatial_preregistration": {
+          "allOf": [
+            {"$ref": "#/$defs/binding"},
+            {"properties": {"kind": {"const": "p05_spatial_semantics_preregistration"}}}
+          ]
+        },
+        "upstream_bindings": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["status", "sha256"],
+              "properties": {
+                "status": {"const": "bound_in_wrapper"},
+                "sha256": {"$ref": "#/$defs/sha256"}
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["status", "sha256"],
+              "properties": {
+                "status": {"const": "not_available_gate_failed_before_binding"},
+                "sha256": {"const": null}
+              },
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "synthetic_input": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"kind": {"const": "p05_synthetic_harness_manifest"}}}
+      ]
+    },
+    "synthetic_target": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"kind": {"const": "p05_reference_evidence_closure"}}}
+      ]
+    },
+    "instruction_package": {
+      "type": "object",
+      "required": ["root", "package_manifest_sha256", "checksum_index_sha256", "p00_baseline_commit"],
+      "properties": {
+        "root": {"const": "{instruction-package-root}"},
+        "package_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "checksum_index_sha256": {"$ref": "#/$defs/sha256"},
+        "p00_baseline_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      },
+      "additionalProperties": false
+    },
+    "toolchain": {
+      "type": "object",
+      "required": ["python", "xcode", "swift", "macos_sdk", "swiftlint", "metal_device"],
+      "properties": {
+        "python": {"$ref": "#/$defs/tool"},
+        "xcode": {"$ref": "#/$defs/tool"},
+        "swift": {"$ref": "#/$defs/tool"},
+        "macos_sdk": {"$ref": "#/$defs/tool"},
+        "swiftlint": {"$ref": "#/$defs/tool"},
+        "metal_device": {
+          "type": "object",
+          "required": ["applicable", "reason"],
+          "properties": {
+            "applicable": {"const": false},
+            "reason": {"const": "not_used_by_g05_synthetic_cpu_reference"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "platform": {
+      "type": "object",
+      "required": ["os", "release", "machine", "node"],
+      "properties": {
+        "os": {"$ref": "#/$defs/nonempty"},
+        "release": {"$ref": "#/$defs/nonempty"},
+        "machine": {"$ref": "#/$defs/nonempty"},
+        "node": {"$ref": "#/$defs/nonempty"}
+      },
+      "additionalProperties": false
+    },
+    "holdout_accessed": {
+      "oneOf": [
+        {"const": false},
+        {"const": null}
+      ]
+    },
+    "holdout_access_status": {
+      "enum": ["proven_unopened", "unknown_not_proven_unopened"]
+    },
+    "assessor_pixel_accessed": {"const": false},
+    "identity_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "holdout_access_status": {"const": "proven_unopened"}
+        },
+        "required": ["holdout_access_status"]
+      },
+      "then": {"properties": {"holdout_accessed": {"const": false}}},
+      "else": {"properties": {"holdout_accessed": {"const": null}}}
+    }
+  ],
+  "additionalProperties": false
+}

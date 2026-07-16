@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/common-writer-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "source",
+    "encoded",
+    "encoder",
+    "decoder",
+    "verification",
+    "environment",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "common_writer_actual_codec"},
+    "status": {"const": "pass"},
+    "source": {"$ref": "#/$defs/source"},
+    "encoded": {"$ref": "#/$defs/encoded"},
+    "encoder": {"$ref": "#/$defs/encoder"},
+    "decoder": {"$ref": "#/$defs/decoder"},
+    "verification": {"$ref": "#/$defs/verification"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "limitations": {"$ref": "#/$defs/limitations"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1},
+    "sourceTime": {
+      "type": "object",
+      "required": ["value", "timescale"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 0},
+        "timescale": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "sourceDuration": {
+      "type": "object",
+      "required": ["value", "timescale"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 1},
+        "timescale": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "exactTime": {
+      "type": "object",
+      "required": ["value", "timescale", "flags", "epoch"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 0},
+        "timescale": {"type": "integer", "minimum": 1},
+        "flags": {"const": 1},
+        "epoch": {"const": 0}
+      },
+      "additionalProperties": false
+    },
+    "exactDuration": {
+      "type": "object",
+      "required": ["value", "timescale", "flags", "epoch"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 1},
+        "timescale": {"type": "integer", "minimum": 1},
+        "flags": {"const": 1},
+        "epoch": {"const": 0}
+      },
+      "additionalProperties": false
+    },
+    "planeHashes": {
+      "type": "object",
+      "required": ["Y", "Cb", "Cr"],
+      "properties": {
+        "Y": {"$ref": "#/$defs/sha256"},
+        "Cb": {"$ref": "#/$defs/sha256"},
+        "Cr": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "pixelLayout": {
+      "type": "object",
+      "required": [
+        "pixel_format",
+        "range",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location_top_field",
+        "chroma_location_bottom_field",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "pixel_format": {"const": "420v"},
+        "range": {"const": "video"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location_top_field": {"const": "Left"},
+        "chroma_location_bottom_field": {"const": "Left"},
+        "width": {"type": "integer", "minimum": 2, "multipleOf": 2},
+        "height": {"type": "integer", "minimum": 2, "multipleOf": 2}
+      },
+      "additionalProperties": false
+    },
+    "attachments": {
+      "type": "object",
+      "required": [
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location_top_field",
+        "chroma_location_bottom_field",
+        "range"
+      ],
+      "properties": {
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location_top_field": {"const": "Left"},
+        "chroma_location_bottom_field": {"const": "Left"},
+        "range": {"const": "video"}
+      },
+      "additionalProperties": false
+    },
+    "sourceFrame": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "index",
+        "presentation_time",
+        "duration",
+        "active_row_sha256",
+        "frame_nv12_sha256"
+      ],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/nonempty"},
+        "index": {"type": "integer", "minimum": 0},
+        "presentation_time": {"$ref": "#/$defs/sourceTime"},
+        "duration": {"$ref": "#/$defs/sourceDuration"},
+        "active_row_sha256": {"$ref": "#/$defs/planeHashes"},
+        "frame_nv12_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_id",
+        "payload_path",
+        "payload_sha256",
+        "payload_size_bytes",
+        "source_lock_path",
+        "source_lock_sha256",
+        "source_lock_size_bytes",
+        "pixel_layout",
+        "frame_count",
+        "frames"
+      ],
+      "properties": {
+        "source_id": {"$ref": "#/$defs/nonempty"},
+        "payload_path": {"type": "string", "pattern": "^[^/]+\\.nv12$"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "payload_size_bytes": {"type": "integer", "minimum": 1},
+        "source_lock_path": {"type": "string", "pattern": "^[^/]+\\.json$"},
+        "source_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "source_lock_size_bytes": {"type": "integer", "minimum": 1},
+        "pixel_layout": {"$ref": "#/$defs/pixelLayout"},
+        "frame_count": {"type": "integer", "minimum": 1},
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/sourceFrame"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "encoded": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "container",
+        "codec",
+        "width",
+        "height",
+        "frame_count",
+        "duration",
+        "format_attachments"
+      ],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[^/]+\\.mp4$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "container": {"const": "mp4"},
+        "codec": {"const": "avc1"},
+        "width": {"type": "integer", "minimum": 2, "multipleOf": 2},
+        "height": {"type": "integer", "minimum": 2, "multipleOf": 2},
+        "frame_count": {"type": "integer", "minimum": 1},
+        "duration": {"$ref": "#/$defs/exactDuration"},
+        "format_attachments": {"$ref": "#/$defs/attachments"}
+      },
+      "additionalProperties": false
+    },
+    "encoder": {
+      "type": "object",
+      "required": [
+        "framework",
+        "session_type",
+        "encoder_id",
+        "encoder_name",
+        "display_name",
+        "hardware_accelerated",
+        "hardware_acceleration_property_available",
+        "hardware_acceleration_verification",
+        "real_time",
+        "allow_frame_reordering",
+        "allow_temporal_compression",
+        "max_key_frame_interval",
+        "all_frames_sync",
+        "profile_level",
+        "average_bit_rate",
+        "data_rate_limit_bytes",
+        "data_rate_limit_seconds",
+        "expected_frame_rate",
+        "pixel_format",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location"
+      ],
+      "properties": {
+        "framework": {"const": "VideoToolbox"},
+        "session_type": {"const": "VTCompressionSession"},
+        "encoder_id": {"const": "com.apple.videotoolbox.videoencoder.h264"},
+        "encoder_name": {"const": "Apple H.264 (SW)"},
+        "display_name": {"const": "Apple H.264 (SW)"},
+        "hardware_accelerated": {"const": false},
+        "hardware_acceleration_property_available": {"type": "boolean"},
+        "hardware_acceleration_verification": {"$ref": "#/$defs/nonempty"},
+        "real_time": {"const": false},
+        "allow_frame_reordering": {"const": false},
+        "allow_temporal_compression": {"const": false},
+        "max_key_frame_interval": {"const": 1},
+        "all_frames_sync": {"const": true},
+        "profile_level": {"const": "H264_Baseline_3_0"},
+        "average_bit_rate": {"const": 250000},
+        "data_rate_limit_bytes": {"const": 31250},
+        "data_rate_limit_seconds": {"const": 1},
+        "expected_frame_rate": {"const": 30},
+        "pixel_format": {"const": "420v"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location": {"const": "Left"}
+      },
+      "additionalProperties": false
+    },
+    "decodedFrame": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "index",
+        "presentation_time",
+        "duration",
+        "width",
+        "height",
+        "pixel_format",
+        "payload_path",
+        "payload_size_bytes",
+        "payload_sha256",
+        "active_row_sha256",
+        "attachments"
+      ],
+      "properties": {
+        "case_id": {"$ref": "#/$defs/nonempty"},
+        "index": {"type": "integer", "minimum": 0},
+        "presentation_time": {"$ref": "#/$defs/exactTime"},
+        "duration": {"$ref": "#/$defs/exactDuration"},
+        "width": {"type": "integer", "minimum": 2, "multipleOf": 2},
+        "height": {"type": "integer", "minimum": 2, "multipleOf": 2},
+        "pixel_format": {"const": "420v"},
+        "payload_path": {"type": "string", "pattern": "^frame-[0-9]{6}\\.nv12$"},
+        "payload_size_bytes": {"type": "integer", "minimum": 1},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "active_row_sha256": {"$ref": "#/$defs/planeHashes"},
+        "attachments": {"$ref": "#/$defs/attachments"}
+      },
+      "additionalProperties": false
+    },
+    "decoder": {
+      "type": "object",
+      "required": [
+        "framework",
+        "session_type",
+        "codec",
+        "pixel_format",
+        "payload_layout",
+        "frame_count",
+        "frames"
+      ],
+      "properties": {
+        "framework": {"const": "AVFoundation"},
+        "session_type": {"const": "AVAssetReaderTrackOutput"},
+        "codec": {"const": "avc1"},
+        "pixel_format": {"const": "420v"},
+        "payload_layout": {"const": "active_row_nv12_without_padding"},
+        "frame_count": {"type": "integer", "minimum": 1},
+        "frames": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/decodedFrame"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "source_lock_valid",
+        "source_bytes_match_lock",
+        "encoded_container_reopened",
+        "actual_codec_container_used",
+        "exact_case_order_preserved",
+        "exact_timing_preserved",
+        "dimensions_preserved",
+        "pixel_format_preserved",
+        "attachments_recorded",
+        "row_padding_excluded",
+        "decoded_payloads_byte_bound",
+        "frame_count_preserved"
+      ],
+      "properties": {
+        "source_lock_valid": {"const": true},
+        "source_bytes_match_lock": {"const": true},
+        "encoded_container_reopened": {"const": true},
+        "actual_codec_container_used": {"const": true},
+        "exact_case_order_preserved": {"const": true},
+        "exact_timing_preserved": {"const": true},
+        "dimensions_preserved": {"const": true},
+        "pixel_format_preserved": {"const": true},
+        "attachments_recorded": {"const": true},
+        "row_padding_excluded": {"const": true},
+        "decoded_payloads_byte_bound": {"const": true},
+        "frame_count_preserved": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "required": ["macos", "xcode", "swift", "architecture", "hardware_model", "processor"],
+      "properties": {
+        "macos": {"$ref": "#/$defs/nonempty"},
+        "xcode": {"$ref": "#/$defs/nonempty"},
+        "swift": {"$ref": "#/$defs/nonempty"},
+        "architecture": {"$ref": "#/$defs/nonempty"},
+        "hardware_model": {"$ref": "#/$defs/nonempty"},
+        "processor": {"$ref": "#/$defs/nonempty"}
+      },
+      "additionalProperties": false
+    },
+    "limitations": {
+      "type": "object",
+      "required": [
+        "mp4_byte_identity_across_runs_claimed",
+        "decoded_pixel_repeatability_scope",
+        "decoder_acceleration_visibility"
+      ],
+      "properties": {
+        "mp4_byte_identity_across_runs_claimed": {"const": false},
+        "decoded_pixel_repeatability_scope": {"$ref": "#/$defs/nonempty"},
+        "decoder_acceleration_visibility": {"$ref": "#/$defs/nonempty"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

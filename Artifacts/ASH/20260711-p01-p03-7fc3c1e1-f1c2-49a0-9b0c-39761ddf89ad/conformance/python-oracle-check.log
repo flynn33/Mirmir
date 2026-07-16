@@ -1,0 +1,3 @@
+PASS bytes=3016832 sha256=19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776
+records raw=512 codewords=16 exact=4096 one_bit=36864 two_bit=147456
+contract_mutations generator_row=rejected decoder_radius=rejected

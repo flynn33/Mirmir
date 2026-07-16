@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-gate-evidence-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_sha256",
+    "measurement_sha256",
+    "locked_metric_policy_sha256",
+    "holdout_accessed",
+    "configuration_files_modified_after_holdout",
+    "evidence",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {
+      "enum": [
+        "p07_spatial_holdout_results",
+        "p07_paired_bootstrap_results",
+        "p07_ablation_results",
+        "p07_gate_decision",
+        "p07_failed_version_archive"
+      ]
+    },
+    "status": {"enum": ["pass", "fail", "complete", "preserved_failure"]},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "measurement_sha256": {"$ref": "#/$defs/sha256"},
+    "locked_metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+    "holdout_accessed": {"const": true},
+    "configuration_files_modified_after_holdout": {"const": false},
+    "evidence": {"type": "object"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"artifact_kind": {"const": "p07_spatial_holdout_results"}}},
+      "then": {"properties": {"status": {"enum": ["pass", "fail"]}, "evidence": {"$ref": "#/$defs/spatialEvidence"}}}
+    },
+    {
+      "if": {"properties": {"artifact_kind": {"const": "p07_paired_bootstrap_results"}}},
+      "then": {"properties": {"status": {"enum": ["pass", "fail"]}, "evidence": {"$ref": "#/$defs/bootstrapEvidence"}}}
+    },
+    {
+      "if": {"properties": {"artifact_kind": {"const": "p07_ablation_results"}}},
+      "then": {"properties": {"status": {"enum": ["pass", "fail"]}, "evidence": {"$ref": "#/$defs/ablationEvidence"}}}
+    },
+    {
+      "if": {"properties": {"artifact_kind": {"const": "p07_gate_decision"}}},
+      "then": {"properties": {"status": {"enum": ["pass", "fail"]}, "evidence": {"$ref": "#/$defs/decisionEvidence"}}}
+    },
+    {
+      "if": {"properties": {"artifact_kind": {"const": "p07_failed_version_archive"}}},
+      "then": {"properties": {"status": {"const": "preserved_failure"}, "evidence": {"$ref": "#/$defs/failureEvidence"}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "domainPair": {
+      "type": "object", "required": ["engine_raw", "container_decoded"],
+      "properties": {"engine_raw": {"type": "object"}, "container_decoded": {"type": "object"}},
+      "additionalProperties": false
+    },
+    "spatialEvidence": {
+      "type": "object",
+      "required": ["domain_aggregation_performed", "domains", "cross_domain_writer_delta_point_estimates"],
+      "properties": {
+        "domain_aggregation_performed": {"const": false},
+        "domains": {"$ref": "#/$defs/domainPair"},
+        "cross_domain_writer_delta_point_estimates": {"type": "object", "minProperties": 28, "maxProperties": 28}
+      },
+      "additionalProperties": false
+    },
+    "bootstrapEvidence": {
+      "type": "object",
+      "required": ["resampling_unit", "replicates", "seed", "domains", "cross_domain_writer_deltas"],
+      "properties": {
+        "resampling_unit": {"const": "source_asset"},
+        "replicates": {"const": 10000},
+        "seed": {"const": 20260710},
+        "domains": {"$ref": "#/$defs/domainPair"},
+        "cross_domain_writer_deltas": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "ablationEvidence": {
+      "type": "object",
+      "required": ["required_control_order", "fixed_operator_count", "conventional_control_count", "selected_aliases", "locked_p06_performance_evidence", "domains", "raw_output_hash_coverage", "container_writer_hash_coverage"],
+      "properties": {
+        "required_control_order": {"type": "array", "minItems": 28, "maxItems": 28, "uniqueItems": true},
+        "fixed_operator_count": {"const": 16},
+        "conventional_control_count": {"const": 3},
+        "selected_aliases": {"type": "object"},
+        "locked_p06_performance_evidence": {"type": "object"},
+        "domains": {"$ref": "#/$defs/domainPair"},
+        "raw_output_hash_coverage": {"type": "integer", "minimum": 1},
+        "container_writer_hash_coverage": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "decisionEvidence": {
+      "type": "object",
+      "required": ["gate_id", "pass", "failures", "same_version_reuse_permitted", "failure_rule"],
+      "properties": {
+        "gate_id": {"const": "G07"},
+        "pass": {"type": "boolean"},
+        "failures": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "same_version_reuse_permitted": {"const": false},
+        "failure_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "failureEvidence": {
+      "type": "object",
+      "required": ["gate_id", "failures", "measurement_sha256", "same_version_reuse_permitted"],
+      "properties": {
+        "gate_id": {"const": "G07"},
+        "failures": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "measurement_sha256": {"$ref": "#/$defs/sha256"},
+        "same_version_reuse_permitted": {"const": false}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

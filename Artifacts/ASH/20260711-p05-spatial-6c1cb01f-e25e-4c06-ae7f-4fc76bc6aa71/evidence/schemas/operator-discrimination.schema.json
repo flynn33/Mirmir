@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/schemas/operator-discrimination.schema.json",
+  "allOf": [
+    {"$ref": "p05-common.schema.json#/$defs/artifact"},
+    {
+      "properties": {
+        "artifact_type": {"const": "operator-discrimination"},
+        "data": {
+          "required": ["descriptor_count", "expected_pair_count", "passing_pair_count", "fixture_case_count", "pair_witnesses"],
+          "properties": {
+            "descriptor_count": {"const": 16},
+            "expected_pair_count": {"const": 120},
+            "passing_pair_count": {"const": 120},
+            "fixture_case_count": {"type": "integer", "minimum": 1},
+            "pair_witnesses": {"type": "array", "minItems": 120, "maxItems": 120}
+          }
+        }
+      }
+    }
+  ]
+}
+

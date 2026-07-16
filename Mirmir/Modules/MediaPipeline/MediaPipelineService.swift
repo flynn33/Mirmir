@@ -13,6 +13,9 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case unsupportedAudioFormat(String)
     case unsupportedColorProfile(String)
     case outputPreparationFailed(URL, Error)
+    case outputVerificationFailed(URL, String)
+    case invalidFrameTiming(String)
+    case partialCleanupFailed(URL, String)
     case readerStartFailed
     case writerStartFailed
     case unsupportedAssetDimensions(VideoResolution)
@@ -42,6 +45,12 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "The source uses unsupported HDR or wide-color metadata (\(profile)); this build supports 8-bit SDR Rec.709."
         case .outputPreparationFailed(let url, let error):
             return "The output file could not be prepared safely at \(url.lastPathComponent): \(error)."
+        case .outputVerificationFailed(let url, let reason):
+            return "The output file failed reopen verification at \(url.lastPathComponent): \(reason)."
+        case .invalidFrameTiming(let reason):
+            return "The output frame timing ledger rejected a frame: \(reason)"
+        case .partialCleanupFailed(let url, let reason):
+            return "Temporary output cleanup failed for \(url.lastPathComponent): \(reason)"
         case .readerStartFailed:
             return "AVAssetReader.startReading() returned false."
         case .writerStartFailed:
@@ -66,12 +75,13 @@ public protocol MediaSession: AnyObject, Sendable {
     var sourceProfile: SourceProfile { get }
     var outputProfile: OutputProfile { get }
     var outputPixelBufferPool: CVPixelBufferPool { get }
+    var terminalCleanupError: MediaPipelineError? { get }
 
     /// Pulls the next decoded source frame, or `nil` at end-of-stream.
     func nextSourceFrame() async throws -> FrameRecord?
 
-    /// Appends an upscaled output frame at the source frame's presentation time.
-    func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws
+    /// Appends an upscaled output frame with its exact source timing record.
+    func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws
 
     /// Flushes the writer and finishes the file.
     func finish() async throws

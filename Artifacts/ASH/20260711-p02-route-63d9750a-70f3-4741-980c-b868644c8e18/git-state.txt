@@ -1,0 +1,29 @@
+# branch.oid cc608c7ecbbf9fac3b48e80d4251a6d0703cd64c
+# branch.head main
+# branch.upstream origin/main
+# branch.ab +2 -0
+1 .M N... 100644 100644 100644 10348977a75e74914dc9a052a3c290a3f5c9eb7b 10348977a75e74914dc9a052a3c290a3f5c9eb7b Mirmir.xcodeproj/project.pbxproj
+1 .M N... 100644 100644 100644 dd3e7a44ff3c4ed058bd5fa5908cdeff0dbbef72 dd3e7a44ff3c4ed058bd5fa5908cdeff0dbbef72 Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift
+1 .M N... 100644 100644 100644 96540dcc146ca5961f020eed01f97cd9198a3c90 96540dcc146ca5961f020eed01f97cd9198a3c90 Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift
+1 .M N... 100644 100644 100644 2c1cb61b36a9d37012959d8dcdf8ee4ca4796861 2c1cb61b36a9d37012959d8dcdf8ee4ca4796861 Mirmir/Modules/MediaPipeline/AtomicMediaOutput.swift
+1 .M N... 100644 100644 100644 7a02b10c2db9638925ff97e4d6582d2fa2d38f98 7a02b10c2db9638925ff97e4d6582d2fa2d38f98 Mirmir/Modules/MediaPipeline/MediaPipelineService.swift
+1 .M N... 100644 100644 100644 457ded6b1db09b6e94e9c34cd2a9f8230a55f023 457ded6b1db09b6e94e9c34cd2a9f8230a55f023 Mirmir/Modules/MediaPipeline/MediaTypes.swift
+1 .M N... 100644 100644 100644 21c2bc08139c6a0623e8e8da540f1307920458bd 21c2bc08139c6a0623e8e8da540f1307920458bd Mirmir/Modules/MediaPipeline/PixelBufferBridge.swift
+1 .M N... 100644 100644 100644 094d01279f14bbb4af9c086ca3bed349b59584d1 094d01279f14bbb4af9c086ca3bed349b59584d1 Mirmir/Modules/Telemetry/ASHTelemetryModels.swift
+1 .M N... 100644 100644 100644 343a95de9f5d0b7f130d3456800be06dc11d9e6e 343a95de9f5d0b7f130d3456800be06dc11d9e6e Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift
+1 .M N... 100644 100644 100644 15c3e5558462cb348f1afcbf86086e4923d644a5 15c3e5558462cb348f1afcbf86086e4923d644a5 Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift
+1 .M N... 100644 100644 100644 7192e73203d9fb63a13b2386accc5c86dab022be 7192e73203d9fb63a13b2386accc5c86dab022be MirmirTests/ASHBackendIntegrationTests.swift
+1 .M N... 100644 100644 100644 281266bdea633399af0731b0fc754480ad88b989 281266bdea633399af0731b0fc754480ad88b989 MirmirTests/ASHTelemetryTests.swift
+1 .M N... 100644 100644 100644 4b1dbf49b8e9ec9920db2deab87bcce491ff1686 4b1dbf49b8e9ec9920db2deab87bcce491ff1686 MirmirTests/ArchitectureGuardrailTests.swift
+1 .M N... 100644 100644 100644 136b8f5743efe58a8bb716a796e83da807855226 136b8f5743efe58a8bb716a796e83da807855226 MirmirTests/NoopServices.swift
+? Artifacts/ASH/.20260711-p02-route-63d9750a-70f3-4741-980c-b868644c8e18.tmp/
+? Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift
+? Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift
+? Mirmir/Modules/MetalRendering/MetalCommandBufferCompletionBridge.swift
+? MirmirTests/AtomicMediaOutputTests.swift
+? MirmirTests/Fixtures/
+? MirmirTests/FrameTimingLedgerTests.swift
+? MirmirTests/LanczosCPUReference.swift
+? MirmirTests/LanczosPolishPassTests.swift
+? MirmirTests/OutputMediaVerifierTests.swift
+? validation/quality/

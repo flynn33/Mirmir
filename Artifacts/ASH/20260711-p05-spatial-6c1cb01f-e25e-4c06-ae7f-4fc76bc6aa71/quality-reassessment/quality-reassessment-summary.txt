@@ -1,0 +1,17 @@
+phase=P05
+reassessment_gate=G04
+status=pass
+holdout_accessed=false
+product_or_spatial_sources_modified=false
+required_file_count=34
+manifest_file_count=86
+manifest_sha256=6862702ddf2bbb2398599e10ba3903b384e0f53b91ea938d14de2d2d7d3b112c
+manifest_file_sha256=be9e7360be51a1703103f47905d6729150d9d42883e3535a8010c19a41e77a03
+lock_candidates_byte_identical=true
+lock_candidates_match_installed=true
+python_test_count=81
+python_passed_count=81
+python_skipped_count=0
+python_failed_or_error_count=0
+git_diff_check=pass
+attribution_scan_match_count=0

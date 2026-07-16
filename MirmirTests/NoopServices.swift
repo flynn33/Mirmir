@@ -64,13 +64,14 @@ final class StubMediaSession: MediaSession, @unchecked Sendable {
     let sourceProfile: SourceProfile
     let outputProfile: OutputProfile
     let outputPixelBufferPool: CVPixelBufferPool
+    var terminalCleanupError: MediaPipelineError? { nil }
     init(sourceProfile: SourceProfile, outputProfile: OutputProfile, outputPixelBufferPool: CVPixelBufferPool) {
         self.sourceProfile = sourceProfile
         self.outputProfile = outputProfile
         self.outputPixelBufferPool = outputPixelBufferPool
     }
     func nextSourceFrame() async throws -> FrameRecord? { nil }
-    func appendOutput(pixelBuffer: CVPixelBuffer, at presentationTime: CMTime) async throws {}
+    func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws {}
     func finish() async throws {}
     func cancel() {}
 }

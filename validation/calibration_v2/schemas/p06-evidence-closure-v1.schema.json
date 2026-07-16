@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p06-evidence-closure-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_id",
+    "input_bundle_sha256",
+    "corpus_lock_bundle_sha256",
+    "configuration_bindings",
+    "implementation_artifacts",
+    "macos_code_identities",
+    "selected_control_artifacts",
+    "support_evidence_trees",
+    "test_evidence",
+    "preserved_failures",
+    "calibration_run_tree",
+    "holdout_accessed",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_release_evidence_closure"},
+    "status": {"const": "locked_before_p07"},
+    "configuration_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+    "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "configuration_bindings": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/mapping"},
+        {"$ref": "#/$defs/operatorBank"},
+        {"$ref": "#/$defs/qualityPolicy"},
+        {"$ref": "#/$defs/metricPolicy"},
+        {"$ref": "#/$defs/metricImplementation"},
+        {"$ref": "#/$defs/metricConformance"},
+        {"$ref": "#/$defs/degradationPolicy"},
+        {"$ref": "#/$defs/actualCodecFixture"},
+        {"$ref": "#/$defs/actualCodecEvidence"},
+        {"$ref": "#/$defs/qualityHarnessManifest"},
+        {"$ref": "#/$defs/compilerInputs"},
+        {"$ref": "#/$defs/routeLUTs"},
+        {"$ref": "#/$defs/corpusManifest"}
+      ],
+      "items": false
+    },
+    "implementation_artifacts": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/evidenceBinding"}
+    },
+    "macos_code_identities": {
+      "type": "object",
+      "required": ["production_swift_executable", "production_writer_executable", "p00_native_executable"],
+      "properties": {
+        "production_swift_executable": {"$ref": "#/$defs/macosCodeIdentity"},
+        "production_writer_executable": {"$ref": "#/$defs/macosCodeIdentity"},
+        "p00_native_executable": {"$ref": "#/$defs/macosCodeIdentity"}
+      },
+      "additionalProperties": false
+    },
+    "selected_control_artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {"$ref": "#/$defs/evidenceBinding"}
+    },
+    "support_evidence_trees": {
+      "type": "array",
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "open_split_tree"}, "root_id": {"const": "open_split"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "calibration_evidence_tree"}, "root_id": {"const": "calibration_evidence"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "native_cache_tree"}, "root_id": {"const": "native_cache"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "production_writer_tree"}, "root_id": {"const": "production_writer"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "dispatch_measurement_tree"}, "root_id": {"const": "dispatch_measurement"}, "kind": {"const": "directory_tree"}}}]}
+      ],
+      "items": false
+    },
+    "test_evidence": {
+      "type": "array",
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "python_calibration_full_suite"}, "root_id": {"const": "release"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "xcode_native_integration"}, "root_id": {"const": "release"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "xcode_release_runtime"}, "root_id": {"const": "release"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "swiftlint"}, "root_id": {"const": "release"}, "kind": {"const": "directory_tree"}}}]},
+        {"allOf": [{"$ref": "#/$defs/evidenceBinding"}, {"properties": {"id": {"const": "release_lock_unit_suite"}, "root_id": {"const": "release"}, "kind": {"const": "directory_tree"}}}]}
+      ],
+      "items": false
+    },
+    "preserved_failures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/evidenceBinding"}
+    },
+    "calibration_run_tree": {
+      "allOf": [
+        {"$ref": "#/$defs/evidenceBinding"},
+        {
+          "properties": {
+            "id": {"const": "complete_calibration_run_tree"},
+            "root_id": {"const": "calibration_run"},
+            "kind": {"const": "directory_tree"},
+            "path": {
+              "type": "string",
+              "pattern": "^[^/]+$"
+            }
+          }
+        }
+      ]
+    },
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+    },
+    "rootID": {"enum": ["repository", "release", "p04_quality", "calibration_run", "open_split", "calibration_evidence", "native_cache", "production_writer", "dispatch_measurement"]},
+    "fileBinding": {
+      "type": "object",
+      "required": ["id", "root_id", "path", "file_sha256", "size_bytes", "digest_mode", "manifest_hash_field", "digest_sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "root_id": {"$ref": "#/$defs/rootID"},
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "digest_mode": {"enum": ["file_sha256", "manifest_sha256", "quality_harness_manifest"]},
+        "manifest_hash_field": {"type": ["string", "null"]},
+        "digest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "evidenceBinding": {
+      "type": "object",
+      "required": ["id", "root_id", "path", "kind", "sha256", "size_bytes", "file_count"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "root_id": {"$ref": "#/$defs/rootID"},
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "kind": {"enum": ["file", "directory_tree"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "file_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "macosCodeIdentity": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "architecture", "file_sha256",
+        "unique_cdhash", "all_cdhashes", "digest_algorithms",
+        "static_code_flags", "signing_kind", "identifier"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "macos_code_identity_v1"},
+        "architecture": {"type": "string", "minLength": 1},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "unique_cdhash": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"},
+        "all_cdhashes": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"}
+        },
+        "digest_algorithms": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 1}
+        },
+        "static_code_flags": {"type": "integer", "minimum": 0},
+        "signing_kind": {"enum": ["ad_hoc", "cms"]},
+        "identifier": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "mapping": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "mapping_sha256"}}}]},
+    "operatorBank": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "operator_bank_sha256"}}}]},
+    "qualityPolicy": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "quality_policy_sha256"}}}]},
+    "metricPolicy": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "metric_policy_sha256"}}}]},
+    "metricImplementation": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "metric_implementation_sha256"}}}]},
+    "metricConformance": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "metric_conformance_sha256"}}}]},
+    "degradationPolicy": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "degradation_policy_sha256"}}}]},
+    "actualCodecFixture": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "actual_codec_fixture_sha256"}}}]},
+    "actualCodecEvidence": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "actual_codec_evidence_sha256"}}}]},
+    "qualityHarnessManifest": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "quality_harness_implementation_manifest_sha256"}}}]},
+    "compilerInputs": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "compiler_inputs_sha256"}}}]},
+    "routeLUTs": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "route_luts_sha256"}}}]},
+    "corpusManifest": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"id": {"const": "corpus_manifest_sha256"}}}]}
+  }
+}

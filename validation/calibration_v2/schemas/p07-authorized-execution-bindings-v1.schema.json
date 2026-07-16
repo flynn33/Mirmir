@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-authorized-execution-bindings-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "authorized_environment",
+    "authorized_spawn_policy_version",
+    "direct_mount_template_sha256",
+    "direct_mount_template_digest_contract",
+    "unavailable_reason",
+    "loader",
+    "sampling_plan",
+    "mount_script",
+    "unmount_script",
+    "key_helper",
+    "mount_table",
+    "hdiutil",
+    "production_execution_binding_fragment",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_authorized_execution_bindings"},
+    "status": {"enum": ["bound", "unavailable"]},
+    "authorized_environment": {
+      "type": "object",
+      "required": ["LANG", "LC_ALL", "PATH", "TMPDIR"],
+      "properties": {
+        "LANG": {"const": "C"},
+        "LC_ALL": {"const": "C"},
+        "PATH": {"const": "/usr/bin:/bin:/usr/sbin:/sbin"},
+        "TMPDIR": {"const": "/private/tmp"}
+      },
+      "additionalProperties": false
+    },
+    "authorized_spawn_policy_version": {"const": "p07-mandatory-suspended-runtime-identity-v1"},
+    "direct_mount_template_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+    "direct_mount_template_digest_contract": {"const": "SHA-256 of b'mount\\0' + mount-script bytes + b'\\0unmount\\0' + unmount-script bytes"},
+    "unavailable_reason": {"type": ["string", "null"], "minLength": 1},
+    "loader": {"anyOf": [{"$ref": "#/$defs/codeBinding"}, {"type": "null"}]},
+    "sampling_plan": {"anyOf": [{"$ref": "#/$defs/fileBinding"}, {"type": "null"}]},
+    "mount_script": {"anyOf": [{"$ref": "#/$defs/scriptBinding"}, {"type": "null"}]},
+    "unmount_script": {"anyOf": [{"$ref": "#/$defs/scriptBinding"}, {"type": "null"}]},
+    "key_helper": {"anyOf": [{"$ref": "#/$defs/codeBinding"}, {"type": "null"}]},
+    "mount_table": {"anyOf": [{"$ref": "#/$defs/codeBinding"}, {"type": "null"}]},
+    "hdiutil": {"anyOf": [{"$ref": "#/$defs/codeBinding"}, {"type": "null"}]},
+    "production_execution_binding_fragment": {"type": ["object", "null"]},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "codeIdentity": {
+      "type": "object",
+      "required": ["schema_version", "artifact_kind", "architecture", "file_sha256", "unique_cdhash", "all_cdhashes", "digest_algorithms", "static_code_flags", "signing_kind", "identifier"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "macos_code_identity_v1"},
+        "architecture": {"type": "string", "minLength": 1},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "unique_cdhash": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"},
+        "all_cdhashes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9a-f]{40,128}$"}},
+        "digest_algorithms": {"type": "array", "minItems": 1, "items": {"type": "integer", "minimum": 1}},
+        "static_code_flags": {"type": "integer", "minimum": 0},
+        "signing_kind": {"enum": ["ad_hoc", "cms"]},
+        "identifier": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "codeBinding": {
+      "type": "object",
+      "required": ["path", "file_sha256", "code_identity"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "code_identity": {"$ref": "#/$defs/codeIdentity"}
+      },
+      "additionalProperties": false
+    },
+    "fileBinding": {
+      "type": "object",
+      "required": ["path", "file_sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "file_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "scriptBinding": {
+      "type": "object",
+      "required": ["path", "file_sha256", "interpreter"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "interpreter": {"$ref": "#/$defs/codeBinding"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "bound"}}},
+      "then": {
+        "properties": {
+          "direct_mount_template_sha256": {"$ref": "#/$defs/sha256"},
+          "unavailable_reason": {"const": null}
+        },
+        "required": ["loader", "sampling_plan", "mount_script", "unmount_script", "key_helper", "mount_table", "hdiutil", "production_execution_binding_fragment"],
+        "not": {
+          "anyOf": [
+            {"properties": {"loader": {"type": "null"}}},
+            {"properties": {"sampling_plan": {"type": "null"}}},
+            {"properties": {"mount_script": {"type": "null"}}},
+            {"properties": {"unmount_script": {"type": "null"}}},
+            {"properties": {"key_helper": {"type": "null"}}},
+            {"properties": {"mount_table": {"type": "null"}}},
+            {"properties": {"hdiutil": {"type": "null"}}},
+            {"properties": {"production_execution_binding_fragment": {"type": "null"}}}
+          ]
+        }
+      }
+    },
+    {
+      "if": {"properties": {"status": {"const": "unavailable"}}},
+      "then": {
+        "properties": {
+          "direct_mount_template_sha256": {"const": null},
+          "unavailable_reason": {"const": "authorized execution closure was not completed before pre-guard failure"},
+          "loader": {"const": null},
+          "sampling_plan": {"const": null},
+          "mount_script": {"const": null},
+          "unmount_script": {"const": null},
+          "key_helper": {"const": null},
+          "mount_table": {"const": null},
+          "hdiutil": {"const": null},
+          "production_execution_binding_fragment": {"const": null}
+        }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

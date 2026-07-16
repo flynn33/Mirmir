@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/locked-compiler-input-v1.schema.json",
+  "title": "Locked inputs shared by both P06 LUT compilers",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "configuration_id",
+    "hash_bindings",
+    "canonicalization",
+    "boundary_mode",
+    "operator_parameters",
+    "semantic_steps",
+    "compiler_policy",
+    "routes",
+    "temporal",
+    "source_aligned",
+    "top_two"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "status": {"const": "locked"},
+    "configuration_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+    "hash_bindings": {
+      "type": "object",
+      "required": [
+        "mapping_sha256",
+        "operator_bank_sha256",
+        "metric_policy_sha256",
+        "compiler_inputs_sha256",
+        "calibration_plan_sha256",
+        "corpus_lock_bundle_sha256"
+      ],
+      "properties": {
+        "mapping_sha256": {"$ref": "#/$defs/sha256"},
+        "operator_bank_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "calibration_plan_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "canonicalization": {
+      "const": {
+        "encoding": "UTF-8",
+        "object_key_order": "ascending Unicode scalar value",
+        "array_order": "preserved",
+        "whitespace": "none",
+        "string_escaping": "JSON quotation, reverse-solidus, and control escapes; non-ASCII encoded directly as UTF-8",
+        "number_domain": "integers only",
+        "duplicate_keys": "reject",
+        "trailing_newline_in_hash_input": false,
+        "hash_algorithm": "SHA-256",
+        "hash_scope": "complete canonical document with only /hash_bindings/compiler_inputs_sha256 omitted"
+      }
+    },
+    "boundary_mode": {"enum": ["mirror_reflect101", "clamp"]},
+    "operator_parameters": {
+      "type": "object",
+      "required": [
+        "anisotropy_strength_q12",
+        "minimum_anisotropic_magnitude_unorm15",
+        "minimum_anisotropic_coherence_unorm15",
+        "detail_gain_q12",
+        "relaxed_limiter_alpha_q12",
+        "risk_detail_suppression_unorm15",
+        "low_pass_radius_q8_8",
+        "weight_epsilon_f32_bits"
+      ],
+      "properties": {
+        "anisotropy_strength_q12": {"enum": [0, 1024, 2048, 3072, 4096]},
+        "minimum_anisotropic_magnitude_unorm15": {"enum": [819, 1638, 3277, 4915]},
+        "minimum_anisotropic_coherence_unorm15": {"enum": [3277, 4915, 8192, 12288]},
+        "detail_gain_q12": {"enum": [0, 384, 768, 1152, 1536]},
+        "relaxed_limiter_alpha_q12": {"enum": [0, 128, 256, 384, 512]},
+        "risk_detail_suppression_unorm15": {"enum": [16384, 21299, 26214]},
+        "low_pass_radius_q8_8": {"enum": [384, 512, 640]},
+        "weight_epsilon_f32_bits": {"const": 730643660}
+      },
+      "additionalProperties": false
+    },
+    "semantic_steps": {
+      "type": "object",
+      "required": [
+        "orientation_sector_step",
+        "support_radius_step_q8_8",
+        "detail_gain_step_q12",
+        "regularization_step_q12"
+      ],
+      "properties": {
+        "orientation_sector_step": {"const": 1},
+        "support_radius_step_q8_8": {"enum": [32, 64, 96]},
+        "detail_gain_step_q12": {"enum": [64, 128, 256]},
+        "regularization_step_q12": {"enum": [32, 64, 128]}
+      },
+      "additionalProperties": false
+    },
+    "compiler_policy": {
+      "type": "object",
+      "required": [
+        "penalty_decay_denominator",
+        "penalty_to_weight_unorm16",
+        "penalty_orientation_step",
+        "penalty_support_step",
+        "penalty_detail_step",
+        "penalty_regularization_step",
+        "penalty_unsupported_support_expansion",
+        "penalty_coherent_support_reduction",
+        "penalty_unsupported_detail_increase",
+        "penalty_supported_detail_reduction",
+        "penalty_relaxation_under_risk",
+        "penalty_phase_kernel_mismatch",
+        "confidence_threshold_unorm16"
+      ],
+      "properties": {
+        "penalty_decay_denominator": {"enum": [16, 32, 64, 128]},
+        "penalty_to_weight_unorm16": {
+          "type": "array",
+          "minItems": 256,
+          "maxItems": 256,
+          "items": {"type": "integer", "minimum": 1, "maximum": 65535}
+        },
+        "penalty_orientation_step": {"enum": [0, 2, 4, 8]},
+        "penalty_support_step": {"enum": [0, 4, 8, 16]},
+        "penalty_detail_step": {"enum": [0, 4, 8, 16]},
+        "penalty_regularization_step": {"enum": [0, 4, 8, 16]},
+        "penalty_unsupported_support_expansion": {"enum": [16, 32, 64, 96]},
+        "penalty_coherent_support_reduction": {"enum": [8, 16, 32, 64]},
+        "penalty_unsupported_detail_increase": {"enum": [16, 32, 64, 96]},
+        "penalty_supported_detail_reduction": {"enum": [8, 16, 32, 64]},
+        "penalty_relaxation_under_risk": {"enum": [32, 64, 96, 128]},
+        "penalty_phase_kernel_mismatch": {"enum": [0, 4, 8, 16]},
+        "confidence_threshold_unorm16": {"enum": [16384, 24576, 32768, 36044, 40959, 49151]}
+      },
+      "additionalProperties": false
+    },
+    "routes": {
+      "type": "object",
+      "required": ["direct_2x", "direct_3_over_2"],
+      "properties": {
+        "direct_2x": {"$ref": "#/$defs/routeSelection"},
+        "direct_3_over_2": {"$ref": "#/$defs/routeSelection"}
+      },
+      "additionalProperties": false
+    },
+    "temporal": {
+      "const": {
+        "enabled": false,
+        "context_count": 4,
+        "context_aliases_to_spatial": [1, 2, 3],
+        "semantic_state": "clear payload coordinate 7 and recompute coordinate 9 parity",
+        "affine_anchor": "original parity-valid source state"
+      }
+    },
+    "source_aligned": {
+      "const": {
+        "exact": true,
+        "predicate": "both luma and chroma coordinate policies are source_aligned_rational with horizontal phase zero and vertical phase zero",
+        "primary_message": 0,
+        "primary_descriptor": 0,
+        "secondary": "inactive",
+        "denoising": false
+      }
+    },
+    "top_two": {"const": 2}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "routeSelection": {
+      "type": "object",
+      "required": [
+        "luma_coordinate_policy",
+        "chroma_coordinate_policy",
+        "analysis_grid_source_step"
+      ],
+      "properties": {
+        "luma_coordinate_policy": {"enum": ["source_aligned_rational", "half_pixel_center"]},
+        "chroma_coordinate_policy": {"enum": ["source_aligned_rational", "half_pixel_center"]},
+        "analysis_grid_source_step": {"enum": [1, 2, 4]}
+      },
+      "additionalProperties": false
+    }
+  }
+}

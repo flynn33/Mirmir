@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/baseline-ablation-contract-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "status",
+    "stage_order",
+    "uniform_application_rule",
+    "control_selection_objective",
+    "shared_bank_binding",
+    "quality_policy_seed",
+    "best_fixed",
+    "conventional",
+    "mandatory_auxiliary_controls",
+    "non_ash_selector",
+    "state_branch_ablations",
+    "h07_direct_3_over_2",
+    "spatial_temporal_threshold_policy",
+    "locked_quality_policy_output"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"const": "mirmir-p06-baselines-ablations-v1"},
+    "status": {"const": "preregistered_not_executed"},
+    "stage_order": {"$ref": "#/$defs/nonemptyStrings"},
+    "uniform_application_rule": {"type": "string", "minLength": 1},
+    "control_selection_objective": {
+      "type": "object",
+      "required": ["split", "comparison_domain", "row_scope", "per_source_aggregation", "aggregation", "direction", "metric_order", "tie_break", "container_decoded_role", "analytic_fixture_role"],
+      "properties": {
+        "split": {"const": "validation"},
+        "comparison_domain": {"const": "engine_raw"},
+        "row_scope": {"const": "natural corpus asset rows only"},
+        "per_source_aggregation": {"const": "unweighted arithmetic mean across that source's locked degradation-profile rows"},
+        "aggregation": {"const": "unweighted arithmetic mean across validation source assets after per-source aggregation"},
+        "direction": {"const": "lexicographically maximize"},
+        "metric_order": {"const": ["y_psnr_db", "y_ms_ssim", "y_ssim", "cb_psnr_db", "cr_psnr_db"]},
+        "tie_break": {"const": "lexicographically ascending declared stable candidate ID"},
+        "container_decoded_role": {"const": "feasibility and evidence only; never aggregate into the control-selection tuple"},
+        "analytic_fixture_role": {"const": "artifact feasibility and evidence only; never aggregate into the control-selection tuple"}
+      },
+      "additionalProperties": false
+    },
+    "shared_bank_binding": {
+      "type": "object",
+      "required": ["hash", "candidate_rule", "cache_rule", "final_rule"],
+      "properties": {
+        "hash": {"type": "string", "minLength": 1},
+        "candidate_rule": {"type": "string", "minLength": 1},
+        "cache_rule": {"type": "string", "minLength": 1},
+        "final_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "quality_policy_seed": {
+      "type": "object",
+      "required": ["path", "sha256", "provenance_path"],
+      "properties": {
+        "path": {"const": "validation/calibration_v2/contracts/quality-gate-policy-v1.seed.json"},
+        "sha256": {"const": "38336d27e0ceba9020b05a62038c6c822ea20daca32f45a8f8891459ea82fff2"},
+        "provenance_path": {"const": "validation/calibration_v2/contracts/quality-gate-policy-v1.provenance.json"}
+      },
+      "additionalProperties": false
+    },
+    "best_fixed": {
+      "type": "object",
+      "required": ["control_id", "eligible_descriptor_ids", "evaluation", "selection", "application", "forbidden"],
+      "properties": {
+        "control_id": {"const": "fixed-descriptor-uniform-v1"},
+        "eligible_descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        "evaluation": {"type": "string", "minLength": 1},
+        "selection": {"type": "string", "minLength": 1},
+        "application": {"type": "string", "minLength": 1},
+        "forbidden": {"type": "string", "pattern": "No row"}
+      },
+      "additionalProperties": false
+    },
+    "conventional": {
+      "type": "object",
+      "required": ["control_id", "eligible_algorithm_ids", "shared_coordinate_and_boundary", "algorithms", "selection", "excluded_controls", "forbidden"],
+      "properties": {
+        "control_id": {"const": "uniform-conventional-selection-v1"},
+        "eligible_algorithm_ids": {"const": ["bilinear-separable-v1", "keys-cubic-a-minus-0.5-separable-v1", "lanczos3-separable-v1"]},
+        "shared_coordinate_and_boundary": {"type": "string", "minLength": 1},
+        "algorithms": {
+          "type": "object",
+          "required": ["bilinear-separable-v1", "keys-cubic-a-minus-0.5-separable-v1", "lanczos3-separable-v1"],
+          "properties": {
+            "bilinear-separable-v1": {"type": "string", "minLength": 1},
+            "keys-cubic-a-minus-0.5-separable-v1": {"type": "string", "minLength": 1},
+            "lanczos3-separable-v1": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "selection": {"type": "string", "minLength": 1},
+        "excluded_controls": {"const": ["nearest same-writer control", "current production ASH baseline"]},
+        "forbidden": {"type": "string", "pattern": "No per-row"}
+      },
+      "additionalProperties": false
+    },
+    "mandatory_auxiliary_controls": {
+      "type": "object",
+      "required": ["nearest_same_writer", "current_production_ash", "freeze_rule"],
+      "properties": {
+        "nearest_same_writer": {
+          "type": "object",
+          "required": ["control_id", "math", "selection_eligible_as_best_conventional"],
+          "properties": {
+            "control_id": {"const": "nearest-same-writer-420v-v1"},
+            "math": {"type": "string", "minLength": 1},
+            "selection_eligible_as_best_conventional": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "current_production_ash": {
+          "type": "object",
+          "required": ["control_id", "math", "selection_eligible_as_best_conventional"],
+          "properties": {
+            "control_id": {"const": "p00-current-production-ash-baseline-v1"},
+            "math": {"type": "string", "minLength": 1},
+            "selection_eligible_as_best_conventional": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "freeze_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "non_ash_selector": {
+      "type": "object",
+      "required": ["selector_id", "bank_descriptor_ids", "inputs", "input_contract", "forbidden_inputs_and_operations", "score", "coordinates", "candidate_evaluation_budget", "full_ash_maximum_candidate_evaluation_budget", "budget_formula", "data_separation", "output_cache"],
+      "properties": {
+        "selector_id": {"const": "continuous-linear-bank-selector-q15-v1"},
+        "bank_descriptor_ids": {"const": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]},
+        "inputs": {"type": "array", "minItems": 11, "maxItems": 11, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "input_contract": {"type": "string", "minLength": 1},
+        "forbidden_inputs_and_operations": {"$ref": "#/$defs/nonemptyStrings"},
+        "score": {"type": "string", "minLength": 1},
+        "coordinates": {
+          "type": "object",
+          "required": ["order", "values", "initial_value", "candidate_order", "sweep_rule", "termination", "maximum_sweeps", "tie_break"],
+          "properties": {
+            "order": {"type": "array", "minItems": 27, "maxItems": 27, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+            "values": {"const": [-384, -256, -128, 0, 128, 256, 384]},
+            "initial_value": {"const": 0},
+            "candidate_order": {"type": "string", "minLength": 1},
+            "sweep_rule": {"type": "string", "minLength": 1},
+            "termination": {"type": "string", "minLength": 1},
+            "maximum_sweeps": {"const": 8},
+            "tie_break": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        "candidate_evaluation_budget": {"const": 1513},
+        "full_ash_maximum_candidate_evaluation_budget": {"const": 1345},
+        "budget_formula": {"type": "string", "minLength": 1},
+        "data_separation": {"type": "string", "minLength": 1},
+        "output_cache": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "state_branch_ablations": {
+      "type": "object",
+      "required": ["state_only_id", "state_only", "state_plus_branch_id", "state_plus_branch", "comparison"],
+      "properties": {
+        "state_only_id": {"const": "ash-state-only-base-descriptor-v1"},
+        "state_only": {"type": "string", "minLength": 1},
+        "state_plus_branch_id": {"const": "ash-state-plus-branch-compiler-v1"},
+        "state_plus_branch": {"type": "string", "minLength": 1},
+        "comparison": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "h07_direct_3_over_2": {
+      "type": "object",
+      "required": ["experiment_id", "direct_id", "control_id", "control_math", "scope", "lock_gate", "evidence"],
+      "properties": {
+        "experiment_id": {"const": "H07"},
+        "direct_id": {"const": "direct3over2-locked-route-v1"},
+        "control_id": {"const": "direct2x-then-lanczos3-control-v1"},
+        "control_math": {"type": "string", "minLength": 1},
+        "scope": {"type": "string", "minLength": 1},
+        "lock_gate": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "spatial_temporal_threshold_policy": {
+      "type": "object",
+      "required": ["field", "p06_status", "locked_low_unorm15", "locked_high_unorm15", "sentinel_semantics", "release_rule", "future_rule"],
+      "properties": {
+        "field": {"const": "temporal_support_valid"},
+        "p06_status": {"const": "inactive_spatial_p06_forced_zero_not_calibrated"},
+        "locked_low_unorm15": {"const": 32767},
+        "locked_high_unorm15": {"const": 32767},
+        "sentinel_semantics": {"type": "string", "minLength": 1},
+        "release_rule": {"type": "string", "minLength": 1},
+        "future_rule": {"type": "string", "pattern": "P10"}
+      },
+      "additionalProperties": false
+    },
+    "locked_quality_policy_output": {
+      "type": "object",
+      "required": ["schema", "required_selected_controls", "holdout_rule"],
+      "properties": {
+        "schema": {"const": "validation/calibration_v2/schemas/locked-quality-policy-v1.schema.json"},
+        "required_selected_controls": {"const": ["best_fixed", "conventional", "non_ash_selector", "state_only", "state_plus_branch", "h07_direct_3_over_2", "nearest_same_writer", "current_production_ash"]},
+        "holdout_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "nonemptyStrings": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+  },
+  "additionalProperties": false
+}

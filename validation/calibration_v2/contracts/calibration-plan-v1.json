@@ -1,0 +1,440 @@
+{
+  "schema_version": "1.0.0",
+  "plan_id": "mirmir-p06-spatial-calibration-v1",
+  "status": "preregistered_not_executed",
+  "phase": "P06",
+  "scope": "spatial_only",
+  "execution_state": {
+    "calibration_performed": false,
+    "validation_selection_performed": false,
+    "holdout_accessed": false,
+    "generated_luts_present": false
+  },
+  "authority": {
+    "conflict_record": "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/conflict-resolution.md",
+    "product_implementation_role": "production_swift",
+    "independent_implementation_role": "independent_test_python",
+    "product_platform": "native_macos",
+    "parity_rule": "whole LUT bytes and payload SHA-256 must match exactly"
+  },
+  "input_bindings": [
+    {
+      "id": "mapping_seed",
+      "path": "Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "operator_bank_seed",
+      "path": "Mirmir/Resources/ASH/operator_bank_v2.seed.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "metric_policy_seed",
+      "path": "validation/quality/policies/metric-policy.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "analytic_fixture_manifest",
+      "path": "validation/quality/reference/analytic-fixtures-v2.json",
+      "binding": "sha256_entire_file_and_validate_complete_artifact_supports_before_first_candidate"
+    },
+    {
+      "id": "corpus_lock",
+      "path": "validation/quality/locks/corpus-lock.json",
+      "binding": "sha256_entire_file_before_first_candidate_without_opening_media_payloads"
+    },
+    {
+      "id": "holdout_sampling_plan",
+      "path": "validation/calibration_v2/contracts/holdout-sampling-plan-v1.json",
+      "binding": "sha256_entire_file_and_validate_against_holdout_corpus_metadata_without_opening_media_payloads"
+    },
+    {
+      "id": "validation_sample_lock",
+      "path": "validation/quality/locks/validation-sample-lock.json",
+      "binding": "sha256_entire_file_before_first_validation_candidate_and_required_to_exist_before_search"
+    },
+    {
+      "id": "degradation_policy",
+      "path": "validation/quality/policies/degradation-policy.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "canonical_core",
+      "path": "validation/reference/ash-core-v1.contract.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "lut_binary_contract",
+      "path": "validation/calibration_v2/contracts/lut-binary-contract-v1.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "compiler_contract",
+      "path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "metric_performance_tolerances",
+      "path": "validation/calibration_v2/contracts/metric-performance-tolerances-v1.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "development_sample_lock",
+      "path": "validation/quality/locks/development-sample-lock.json",
+      "binding": "sha256_entire_file_before_first_candidate_and_required_to_exist_before_search"
+    },
+    {
+      "id": "quality_harness_implementation_manifest",
+      "path": "validation/quality/locks/quality-harness-implementation-manifest.json",
+      "binding": "sha256_entire_file_and_recursively_validate_every_listed_source_before_first_candidate"
+    },
+    {
+      "id": "quality_gate_policy_seed",
+      "path": "validation/calibration_v2/contracts/quality-gate-policy-v1.seed.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "quality_gate_policy_provenance",
+      "path": "validation/calibration_v2/contracts/quality-gate-policy-v1.provenance.json",
+      "binding": "sha256_entire_file_and_verify_repository_copy_hash_before_first_candidate"
+    },
+    {
+      "id": "baseline_ablation_contract",
+      "path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
+      "binding": "sha256_entire_file_before_first_candidate"
+    },
+    {
+      "id": "candidate_evidence_policy",
+      "path": "validation/calibration_v2/contracts/candidate-evidence-policy-v1.json",
+      "binding": "sha256_entire_file_and_verify_every_source_evidence_binding_before_first_candidate"
+    },
+    {
+      "id": "holdout_access_ledger_sealed_copy",
+      "path": "validation/quality/locks/holdout-access-ledger.sealed-copy.json",
+      "binding": "sha256_metadata_only_without_resolving_holdout_media_before_first_candidate"
+    },
+    {
+      "id": "holdout_preopen_anchor",
+      "path": "validation/quality/locks/holdout-seal-attestation.no-pixel.json",
+      "binding": "sha256_metadata_only_without_resolving_holdout_media_before_first_candidate"
+    }
+  ],
+  "data_separation": {
+    "tuning_split": "development",
+    "selection_split": "validation",
+    "holdout_split": "sealed",
+    "split_unit": "source_asset",
+    "holdout_may_be_opened_in_p06": false,
+    "media_payload_read_policy": "read development during tuning and validation during selection only"
+  },
+  "baseline_and_ablation_contract": {
+    "contract_id": "mirmir-p06-baselines-ablations-v1",
+    "path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
+    "schema": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
+    "candidate_rule": "every full-ASH candidate must carry uniform comparison identities selected for the exact same shared-bank hash",
+    "final_rule": "freeze only the finally selected bank's control identities in locked-quality-policy.json before P07"
+  },
+  "corpus_lock_bundle_contract": {
+    "canonicalization": "sorted-key compact UTF-8 JSON with no trailing newline",
+    "hash_algorithm": "SHA-256",
+    "ordered_fields": [
+      "corpus_lock_file_sha256",
+      "corpus_manifest_sha256",
+      "holdout_sampling_plan_file_sha256",
+      "holdout_sampling_plan_manifest_sha256",
+      "holdout_sampling_target_pixel_hashes_known_before_p07",
+      "development_sample_lock_file_sha256",
+      "development_sample_lock_manifest_sha256",
+      "validation_sample_lock_file_sha256",
+      "validation_sample_lock_manifest_sha256",
+      "holdout_access_ledger_file_sha256",
+      "holdout_access_ledger_status",
+      "holdout_access_count",
+      "holdout_preopen_anchor_file_sha256",
+      "holdout_preopen_anchor_pixel_content_included",
+      "holdout_preopen_anchor_evaluation_status",
+      "live_holdout_verification_receipt_sha256",
+      "live_holdout_access_status",
+      "live_holdout_access_count",
+      "live_holdout_open_intent_anchor_present",
+      "live_holdout_pixel_content_included"
+    ],
+    "media_policy": "hash only already-open metadata files; never resolve or open a media payload",
+    "compiler_binding": "corpus_lock_bundle_sha256 is the SHA-256 of that canonical object and is not the general calibration input bundle hash"
+  },
+  "spatial_temporal_threshold_policy": {
+    "field": "temporal_support_valid",
+    "status": "inactive_spatial_p06_forced_zero_not_calibrated",
+    "low_unorm15": 32767,
+    "high_unorm15": 32767,
+    "release_mapping_null_allowed": false,
+    "payload_bit_6_required": 0,
+    "future_temporal_phase": "P10 creates a new mapping version and calibrates temporal thresholds without changing P07 spatial semantics"
+  },
+  "analysis_grid_contract": {
+    "contract_id": "source_lattice_symmetric_cell_center_v1",
+    "step_domain": [1, 2, 4],
+    "coordinate_space": "continuous luma source-lattice coordinates",
+    "cell_geometry": {
+      "origin": "origin_x = cell_x * s and origin_y = cell_y * s",
+      "partial_high_edge_cells": true,
+      "actual_extent": "actual_width = min(s, source_width - origin_x) and actual_height = min(s, source_height - origin_y)",
+      "center": "center_x = origin_x + (actual_width - 1) / 2 and center_y = origin_y + (actual_height - 1) / 2",
+      "cell_count": "cell_count_x = ceil(source_width / s), cell_count_y = ceil(source_height / s), total = cell_count_x * cell_count_y",
+      "integer_count_formula": "cell_count_x = (source_width + s - 1) / s and cell_count_y = (source_height + s - 1) / s using integer division"
+    },
+    "feature_analysis": {
+      "evaluation_location": "continuous cell center",
+      "sampling": "sample every integer-offset tap of the locked Scharr, tensor, texture, and risk stencils bilinearly at center plus tap offset",
+      "boundary": "resolve each bilinear integer source tap with the selected locked boundary mode before weighted combination",
+      "features": ["Scharr", "structure_tensor", "texture", "risk"],
+      "step_one_reduction": "for s = 1 every center is an integer source site and bilinear fractions are zero, yielding exactly the P05 integer-site feature math",
+      "cell_output": "one packed state and one continuous sidecar are computed per cell and remain constant for every target sample assigned to that cell"
+    },
+    "dispatch_assignment": {
+      "per_axis": "cell_index = clamp(floor((exact_source_coordinate + 0.5) / s), 0, last_cell)",
+      "coordinate_input": "use the exact continuous target-to-source coordinate expressed in luma source-lattice coordinates",
+      "state_and_sidecar": "select the cell-constant packed state and sidecar without interpolation",
+      "target_phase": "derive and retain the exact route target phase from the unrounded exact source coordinate; cell assignment never changes phase"
+    },
+    "chroma_siting": {
+      "analysis": "map each continuous luma cell center through the locked exact chroma-siting correction before bilinear Cb and Cr sampling",
+      "dispatch": "convert the exact chroma source coordinate through the locked siting correction into luma source-lattice coordinates before cell assignment",
+      "rounding": "perform no intermediate rounding; retain exact rational siting and route phase semantics until the declared cell-index floor"
+    }
+  },
+  "search": {
+    "protocol_version": "1.2.0",
+    "algorithm": "deterministic_coordinate_search",
+    "candidate_order": "the parameter_order list below; each candidate vector is visited in ascending serialized integer or listed categorical order",
+    "initial_vector": "use initial_vector_values exactly; every value is a declared candidate and no runtime or corpus observation may alter initialization",
+    "initial_vector_values": {
+      "edge_present_low_unorm15": 3277,
+      "edge_present_high_unorm15": 11468,
+      "coherent_structure_low_unorm15": 9830,
+      "coherent_structure_high_unorm15": 16384,
+      "texture_high_frequency_low_unorm15": 3277,
+      "texture_high_frequency_high_unorm15": 9830,
+      "alias_or_ringing_risk_low_unorm15": 0,
+      "alias_or_ringing_risk_high_unorm15": 3277,
+      "chroma_luma_structure_aligned_low_unorm15": 3277,
+      "chroma_luma_structure_aligned_high_unorm15": 9830,
+      "analysis_epsilon_q0_30": 1,
+      "risk_laplacian_weight_unorm15": 8192,
+      "chroma_edge_confidence_unorm15": 1638,
+      "direct_2x_analysis_grid_source_step": 1,
+      "direct_3_over_2_analysis_grid_source_step": 1,
+      "direct_2x_luma_coordinate_policy": "half_pixel_center",
+      "direct_2x_chroma_coordinate_policy": "half_pixel_center",
+      "direct_3_over_2_luma_coordinate_policy": "source_aligned_rational",
+      "direct_3_over_2_chroma_coordinate_policy": "source_aligned_rational",
+      "boundary_mode": "mirror_reflect101",
+      "anisotropy_strength_q12": 0,
+      "minimum_anisotropic_magnitude_unorm15": 1638,
+      "minimum_anisotropic_coherence_unorm15": 8192,
+      "detail_gain_q12": 768,
+      "relaxed_limiter_alpha_q12": 384,
+      "risk_detail_suppression_unorm15": 21299,
+      "low_pass_radius_q8_8": 512,
+      "support_radius_step_q8_8": 64,
+      "detail_gain_step_q12": 128,
+      "regularization_step_q12": 64,
+      "confidence_threshold_unorm16": 36044,
+      "penalty_decay_denominator": 32,
+      "penalty_orientation_step": 4,
+      "penalty_support_step": 8,
+      "penalty_detail_step": 8,
+      "penalty_regularization_step": 8,
+      "penalty_unsupported_support_expansion": 32,
+      "penalty_coherent_support_reduction": 16,
+      "penalty_unsupported_detail_increase": 32,
+      "penalty_supported_detail_reduction": 16,
+      "penalty_relaxation_under_risk": 64,
+      "penalty_phase_kernel_mismatch": 8
+    },
+    "sweep_rule": "visit every parameter exactly once per sweep and evaluate every constraint-valid declared value, including the current value; if one or more values are development-feasible, retain the minimum existing development objective tuple among feasible values only; otherwise retain the minimum canonical development-feasibility failure count followed by the existing development objective tuple; constraint failures and evaluation failures are never eligible; restoration ranking changes no feasibility predicate, tolerance, validation-admission rule, or terminal requirement",
+    "infeasible_retention_rule": "global checks and performance predicates count once per candidate; quality predicates count independently for engine_raw and container_decoded; the included current value guarantees that once current is feasible all subsequent coordinate choices remain feasible-only",
+    "termination": "stop after a complete sweep changes no coordinate",
+    "maximum_sweeps": 8,
+    "tie_break": "objective tuple, then lexicographically smallest complete serialized candidate vector",
+    "record_rule": "append every attempted candidate, including failures, to an immutable run ledger",
+    "parameter_order": [
+      "edge_present_low_unorm15",
+      "edge_present_high_unorm15",
+      "coherent_structure_low_unorm15",
+      "coherent_structure_high_unorm15",
+      "texture_high_frequency_low_unorm15",
+      "texture_high_frequency_high_unorm15",
+      "alias_or_ringing_risk_low_unorm15",
+      "alias_or_ringing_risk_high_unorm15",
+      "chroma_luma_structure_aligned_low_unorm15",
+      "chroma_luma_structure_aligned_high_unorm15",
+      "analysis_epsilon_q0_30",
+      "risk_laplacian_weight_unorm15",
+      "chroma_edge_confidence_unorm15",
+      "direct_2x_analysis_grid_source_step",
+      "direct_3_over_2_analysis_grid_source_step",
+      "direct_2x_luma_coordinate_policy",
+      "direct_2x_chroma_coordinate_policy",
+      "direct_3_over_2_luma_coordinate_policy",
+      "direct_3_over_2_chroma_coordinate_policy",
+      "boundary_mode",
+      "anisotropy_strength_q12",
+      "minimum_anisotropic_magnitude_unorm15",
+      "minimum_anisotropic_coherence_unorm15",
+      "detail_gain_q12",
+      "relaxed_limiter_alpha_q12",
+      "risk_detail_suppression_unorm15",
+      "low_pass_radius_q8_8",
+      "support_radius_step_q8_8",
+      "detail_gain_step_q12",
+      "regularization_step_q12",
+      "confidence_threshold_unorm16",
+      "penalty_decay_denominator",
+      "penalty_orientation_step",
+      "penalty_support_step",
+      "penalty_detail_step",
+      "penalty_regularization_step",
+      "penalty_unsupported_support_expansion",
+      "penalty_coherent_support_reduction",
+      "penalty_unsupported_detail_increase",
+      "penalty_supported_detail_reduction",
+      "penalty_relaxation_under_risk",
+      "penalty_phase_kernel_mismatch"
+    ]
+  },
+  "objective": {
+    "comparison_domain_rule": "engine_raw and container_decoded are computed and gated separately; both must be feasible, while the declared search and selection tuples use engine_raw values and never aggregate the two domains",
+      "feasibility_first": [
+        "all fixed quality and numeric tolerances pass",
+        "all compiler invariants pass",
+        "all operator distinctness and state causality checks pass",
+        "each route-specific analysis-grid choice passes its route quality and occupancy checks",
+        "estimated candidate count is at most two",
+      "estimated performance satisfies every preregistered blocking floor"
+    ],
+    "development_tuple": [
+      "descending mean Y PSNR delta versus best fixed same-bank operator",
+      "descending mean Y PSNR delta versus non-ASH same-bank selector",
+      "descending MS-SSIM delta versus best conventional baseline",
+      "ascending maximum ringing excursion",
+      "ascending alias forbidden-band energy",
+      "ascending estimated dispatch cost",
+      "ascending serialized candidate vector"
+    ],
+    "validation_selection": "select only among development-feasible terminal vectors and their one-coordinate neighbors",
+    "validation_tuple": [
+      "descending lower 95-percent paired-bootstrap bound for Y PSNR versus best fixed same-bank operator",
+      "descending lower 95-percent paired-bootstrap bound for Y PSNR versus non-ASH same-bank selector",
+      "descending lower 95-percent paired-bootstrap bound for Y PSNR versus best conventional baseline",
+      "descending MS-SSIM delta",
+      "ascending maximum ringing excursion",
+      "ascending alias forbidden-band energy",
+      "ascending estimated dispatch cost",
+      "ascending serialized candidate vector"
+    ],
+    "pareto_rule": "discard a vector only when another feasible vector is no worse in every listed quality and cost dimension and strictly better in at least one; apply the tuple only to the remaining frontier"
+  },
+  "ranges": {
+    "mapping": {
+      "spatial_threshold_bands": [
+        "edge_present",
+        "coherent_structure",
+        "texture_high_frequency",
+        "alias_or_ringing_risk",
+        "chroma_luma_structure_aligned"
+      ],
+      "low_unorm15": [3277, 4915, 6553, 8192, 9830],
+      "high_unorm15": [9830, 11468, 13107, 14745, 16384],
+      "alias_or_ringing_risk_low_unorm15": [0, 3277, 4915, 6553, 8192, 9830],
+      "alias_or_ringing_risk_high_unorm15": [3277, 9830, 11468, 13107, 14745, 16384],
+      "pair_constraint": "low <= high and high - low >= 3277",
+      "analysis_epsilon_q0_30": [1, 2, 4, 8, 16],
+      "risk_laplacian_weight_unorm15": [8192, 16384, 24575],
+      "risk_alternating_weight_rule": "32767 - risk_laplacian_weight_unorm15",
+      "chroma_edge_confidence_unorm15": [1638, 3277, 4915, 6553],
+      "direct_2x_analysis_grid_source_step": [1, 2, 4],
+      "direct_3_over_2_analysis_grid_source_step": [1, 2, 4]
+    },
+    "operator": {
+      "coordinate_policy_by_route": [
+        "source_aligned_rational",
+        "half_pixel_center"
+      ],
+      "boundary_mode": [
+        "mirror_reflect101",
+        "clamp"
+      ],
+      "anisotropy_strength_q12": [0, 1024, 2048, 3072, 4096],
+      "minimum_anisotropic_magnitude_unorm15": [819, 1638, 3277, 4915],
+      "minimum_anisotropic_coherence_unorm15": [3277, 4915, 8192, 12288],
+      "detail_gain_q12": [0, 384, 768, 1152, 1536],
+      "relaxed_limiter_alpha_q12": [0, 128, 256, 384, 512],
+      "risk_detail_suppression_unorm15": [16384, 21299, 26214],
+      "low_pass_radius_q8_8": [384, 512, 640]
+    },
+    "compiler": {
+      "support_radius_step_q8_8": [32, 64, 96],
+      "detail_gain_step_q12": [64, 128, 256],
+      "regularization_step_q12": [32, 64, 128],
+      "confidence_threshold_unorm16": [16384, 24576, 32768, 36044, 40959, 49151],
+      "penalty_decay_denominator": [16, 32, 64, 128],
+      "penalty_orientation_step": [0, 2, 4, 8],
+      "penalty_support_step": [0, 4, 8, 16],
+      "penalty_detail_step": [0, 4, 8, 16],
+      "penalty_regularization_step": [0, 4, 8, 16],
+      "penalty_unsupported_support_expansion": [16, 32, 64, 96],
+      "penalty_coherent_support_reduction": [8, 16, 32, 64],
+      "penalty_unsupported_detail_increase": [16, 32, 64, 96],
+      "penalty_supported_detail_reduction": [8, 16, 32, 64],
+      "penalty_relaxation_under_risk": [32, 64, 96, 128],
+      "penalty_phase_kernel_mismatch": [0, 4, 8, 16]
+    }
+  },
+  "fixed_choices": {
+    "branch_depth": 4,
+    "branch_actions": ["0", "+", "-"],
+    "branch_action_mass_numerators_over_4": [2, 1, 1],
+    "orientation_sector_step": 1,
+    "weight_epsilon_f32_bits": 730643660,
+    "temporal_mode": "disabled",
+    "temporal_payload_semantics": "clear coordinate 7 for semantic decisions and recompute coordinate 9 parity",
+    "temporal_context_semantics": "compile contexts 1 through 3 as spatial context aliases",
+    "source_aligned_denoising": "disabled",
+    "p00_compatibility_legal_range_normalization": {
+      "scope": "reopened P00 helper NV12 output before PlanarFrame conversion, control-output caching, engine-raw metrics, and container encoding",
+      "method": "p00_compatibility_nominal_video_range_clip_v1",
+      "nominal_y_code_range": [16, 235],
+      "nominal_chroma_code_range": [16, 240],
+      "evidence": "bind raw and normalized payload SHA-256 values and sizes, raw and normalized per-plane code ranges, and exact six-direction clip counts in every P00 native control record",
+      "already_legal_payload_no_op_required": true,
+      "direct_2x_postprocess_behavior": "unchanged exact 2x; compatibility normalization only clips nominal-range excursions",
+      "uniform_application": "apply identically to every P00 control invocation before any comparison domain is derived"
+    },
+    "container_decoded_legal_range_normalization": {
+      "scope": "reopened isolated production HEVC writer 420v bytes before PlanarFrame conversion and container-decoded metrics only",
+      "method": "nominal_video_range_clip_v1",
+      "nominal_y_code_range": [16, 235],
+      "nominal_chroma_code_range": [16, 240],
+      "evidence": "bind raw and normalized payload SHA-256 values and sizes, raw and normalized per-plane code ranges, and exact six-direction clip counts",
+      "engine_raw_affected": false,
+      "uniform_application": "apply identically to every candidate, baseline, fixed operator, and ablation container-decoded output"
+    },
+    "maximum_candidates_per_cell": 2,
+    "runtime_learning": false
+  },
+  "required_outputs_after_execution": [
+    "locked-mapping.json",
+    "locked-operator-bank.json",
+    "locked-quality-policy.json",
+    "locked-metric-policy.json",
+    "locked-compiler-input.json",
+    "route-analysis-grid-selection.json",
+    "direct2x.ashlut",
+    "direct3over2.ashlut",
+    "native-lut-parity-manifest.json",
+    "lut-manifest.json",
+    "configuration-lock.json",
+    "calibration-run-ledger.json"
+  ]
+}

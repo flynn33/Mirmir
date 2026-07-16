@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-spatial-holdout-measurements-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_sha256",
+    "locked_metric_policy_sha256",
+    "sampling_plan_manifest_sha256",
+    "frame_extraction_manifest_sha256",
+    "analytic_fixture_manifest_sha256",
+    "runtime_evidence_manifest_sha256",
+    "comparison_domains",
+    "source_order",
+    "degradation_kind_order",
+    "locked_degradation_profiles",
+    "locked_analytic_fixtures",
+    "selected_aliases",
+    "control_configuration_sha256_by_control",
+    "locked_p06_performance_evidence",
+    "corpus_rows",
+    "analytic_fixture_rows",
+    "holdout_accessed",
+    "configuration_files_modified_after_holdout",
+    "measurement_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_spatial_holdout_measurements"},
+    "status": {"const": "complete"},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "locked_metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "frame_extraction_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "analytic_fixture_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "runtime_evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "comparison_domains": {"const": ["engine_raw", "container_decoded"]},
+    "source_order": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "uniqueItems": true, "items": {"type": "string", "minLength": 1}
+    },
+    "degradation_kind_order": {
+      "const": ["lowpass_decimate", "camera_blur_decimate", "codec_quantized_proxy"]
+    },
+    "locked_degradation_profiles": {
+      "type": "array", "minItems": 6, "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["target_route", "kind", "profile_id", "profile_sha256"],
+        "properties": {
+          "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+          "kind": {"enum": ["lowpass_decimate", "camera_blur_decimate", "codec_quantized_proxy"]},
+          "profile_id": {"type": "string", "minLength": 1},
+          "profile_sha256": {"$ref": "#/$defs/sha256"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "locked_analytic_fixtures": {
+      "type": "array", "minItems": 14, "maxItems": 14,
+      "items": {
+        "type": "object",
+        "required": ["fixture_id", "fixture_kind", "target_route", "fixture_definition_sha256"],
+        "properties": {
+          "fixture_id": {"type": "string", "minLength": 1},
+          "fixture_kind": {"enum": ["edge_profile", "ringing", "thin_line", "alias", "chroma_displacement"]},
+          "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+          "fixture_definition_sha256": {"$ref": "#/$defs/sha256"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "selected_aliases": {
+      "type": "object",
+      "required": ["best_fixed", "conventional"],
+      "properties": {
+        "best_fixed": {"type": "string", "pattern": "^fixed_descriptor_(0[0-9]|1[0-5])$"},
+        "conventional": {"enum": ["conventional_bilinear_separable_v1", "conventional_keys_cubic_a_minus_0_5_separable_v1", "conventional_lanczos3_separable_v1"]}
+      },
+      "additionalProperties": false
+    },
+    "control_configuration_sha256_by_control": {"$ref": "#/$defs/controlHashMap"},
+    "locked_p06_performance_evidence": {
+      "type": "object",
+      "required": [
+        "selected_evaluation_sha256",
+        "full_frames_per_second",
+        "h07_control_frames_per_second",
+        "full_dispatch_cost",
+        "h07_control_dispatch_cost",
+        "no_worse_frames_per_second",
+        "no_worse_dispatch_cost"
+      ],
+      "properties": {
+        "selected_evaluation_sha256": {"$ref": "#/$defs/sha256"},
+        "full_frames_per_second": {"type": "number"},
+        "h07_control_frames_per_second": {"type": "number"},
+        "full_dispatch_cost": {"type": "number"},
+        "h07_control_dispatch_cost": {"type": "number"},
+        "no_worse_frames_per_second": {"const": true},
+        "no_worse_dispatch_cost": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "corpus_rows": {"type": "array", "minItems": 18, "maxItems": 18, "items": {"$ref": "#/$defs/corpusRow"}},
+    "analytic_fixture_rows": {"type": "array", "minItems": 28, "maxItems": 28, "items": {"$ref": "#/$defs/analyticRow"}},
+    "holdout_accessed": {"const": true},
+    "configuration_files_modified_after_holdout": {"const": false},
+    "measurement_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "controlName": {
+      "enum": [
+        "fixed_descriptor_00", "fixed_descriptor_01", "fixed_descriptor_02", "fixed_descriptor_03",
+        "fixed_descriptor_04", "fixed_descriptor_05", "fixed_descriptor_06", "fixed_descriptor_07",
+        "fixed_descriptor_08", "fixed_descriptor_09", "fixed_descriptor_10", "fixed_descriptor_11",
+        "fixed_descriptor_12", "fixed_descriptor_13", "fixed_descriptor_14", "fixed_descriptor_15",
+        "conventional_bilinear_separable_v1", "conventional_keys_cubic_a_minus_0_5_separable_v1", "conventional_lanczos3_separable_v1",
+        "nearest_same_writer", "current_production_ash", "best_fixed", "conventional",
+        "non_ash_selector", "state_only", "full_ash", "state_plus_branch", "h07_direct_3_over_2"
+      ]
+    },
+    "controlHashMap": {
+      "type": "object", "minProperties": 28, "maxProperties": 28,
+      "propertyNames": {"$ref": "#/$defs/controlName"},
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "controlNullableHashMap": {
+      "type": "object", "minProperties": 28, "maxProperties": 28,
+      "propertyNames": {"$ref": "#/$defs/controlName"},
+      "additionalProperties": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+    },
+    "psnrMeasurement": {
+      "type": "object",
+      "required": ["value", "mse", "exact_match"],
+      "properties": {
+        "value": {"type": ["number", "null"]},
+        "mse": {"type": "number", "minimum": 0},
+        "exact_match": {"type": "boolean"}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "value": {"type": "number"},
+            "mse": {"exclusiveMinimum": 0},
+            "exact_match": {"const": false}
+          }
+        },
+        {
+          "properties": {
+            "value": {"const": null},
+            "mse": {"const": 0},
+            "exact_match": {"const": true}
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "corpusMetricBundle": {
+      "type": "object",
+      "required": [
+        "y_psnr_db", "cb_psnr_db", "cr_psnr_db",
+        "y_ssim", "cb_ssim", "cr_ssim",
+        "y_ms_ssim", "cb_ms_ssim", "cr_ms_ssim",
+        "writer_y_psnr_contribution_db"
+      ],
+      "properties": {
+        "y_psnr_db": {"$ref": "#/$defs/psnrMeasurement"},
+        "cb_psnr_db": {"$ref": "#/$defs/psnrMeasurement"},
+        "cr_psnr_db": {"$ref": "#/$defs/psnrMeasurement"},
+        "y_ssim": {"type": "number"},
+        "cb_ssim": {"type": "number"},
+        "cr_ssim": {"type": "number"},
+        "y_ms_ssim": {"type": "number"},
+        "cb_ms_ssim": {"type": "number"},
+        "cr_ms_ssim": {"type": "number"},
+        "writer_y_psnr_contribution_db": {"type": ["number", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "analyticMetricBundle": {
+      "type": "object",
+      "required": [
+        "edge_location_error_pixels", "ringing_overshoot", "ringing_undershoot",
+        "alias_forbidden_band_ratio", "thin_line_retention_ratio",
+        "thin_line_false_side_lobe_energy", "chroma_displacement_pixels"
+      ],
+      "properties": {
+        "edge_location_error_pixels": {"type": ["number", "null"], "minimum": 0},
+        "ringing_overshoot": {"type": ["number", "null"], "minimum": 0},
+        "ringing_undershoot": {"type": ["number", "null"], "minimum": 0},
+        "alias_forbidden_band_ratio": {"type": ["number", "null"], "minimum": 0},
+        "thin_line_retention_ratio": {"type": ["number", "null"], "minimum": 0},
+        "thin_line_false_side_lobe_energy": {"type": ["number", "null"], "minimum": 0},
+        "chroma_displacement_pixels": {"type": ["number", "null"], "minimum": 0}
+      },
+      "additionalProperties": false
+    },
+    "controlCorpusMetricMap": {
+      "type": "object", "minProperties": 28, "maxProperties": 28,
+      "propertyNames": {"$ref": "#/$defs/controlName"},
+      "additionalProperties": {"anyOf": [{"$ref": "#/$defs/corpusMetricBundle"}, {"type": "null"}]}
+    },
+    "controlAnalyticMetricMap": {
+      "type": "object", "minProperties": 28, "maxProperties": 28,
+      "propertyNames": {"$ref": "#/$defs/controlName"},
+      "additionalProperties": {"anyOf": [{"$ref": "#/$defs/analyticMetricBundle"}, {"type": "null"}]}
+    },
+    "corpusRow": {
+      "type": "object",
+      "required": [
+        "asset_id", "sampling_ordinal", "selected_presentation_time",
+        "source_asset_id", "source_family_id", "categories", "target_route",
+        "degradation_kind", "degradation_profile_id", "degradation_profile_sha256",
+        "source_crop_nv12_sha256", "degraded_input_frame_sha256", "comparison_domain",
+        "configuration_sha256_by_control", "output_sha256_by_control",
+        "writer_evidence_sha256_by_control", "metrics_by_control"
+      ],
+      "properties": {
+        "asset_id": {"type": "string", "minLength": 1},
+        "sampling_ordinal": {"type": "integer", "minimum": 0},
+        "selected_presentation_time": {
+          "type": "object",
+          "required": ["value", "timescale"],
+          "properties": {
+            "value": {"type": "integer", "minimum": 0},
+            "timescale": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        },
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "categories": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "degradation_kind": {"enum": ["lowpass_decimate", "camera_blur_decimate", "codec_quantized_proxy"]},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "source_crop_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "degraded_input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "comparison_domain": {"enum": ["engine_raw", "container_decoded"]},
+        "configuration_sha256_by_control": {"$ref": "#/$defs/controlHashMap"},
+        "output_sha256_by_control": {"$ref": "#/$defs/controlNullableHashMap"},
+        "writer_evidence_sha256_by_control": {"$ref": "#/$defs/controlNullableHashMap"},
+        "metrics_by_control": {"$ref": "#/$defs/controlCorpusMetricMap"}
+      },
+      "additionalProperties": false
+    },
+    "analyticRow": {
+      "type": "object",
+      "required": [
+        "fixture_id", "fixture_kind", "fixture_definition_sha256", "target_route",
+        "comparison_domain", "configuration_sha256_by_control", "output_sha256_by_control",
+        "writer_evidence_sha256_by_control", "metrics_by_control"
+      ],
+      "properties": {
+        "fixture_id": {"type": "string", "minLength": 1},
+        "fixture_kind": {"enum": ["edge_profile", "ringing", "thin_line", "alias", "chroma_displacement"]},
+        "fixture_definition_sha256": {"$ref": "#/$defs/sha256"},
+        "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+        "comparison_domain": {"enum": ["engine_raw", "container_decoded"]},
+        "configuration_sha256_by_control": {"$ref": "#/$defs/controlHashMap"},
+        "output_sha256_by_control": {"$ref": "#/$defs/controlNullableHashMap"},
+        "writer_evidence_sha256_by_control": {"$ref": "#/$defs/controlNullableHashMap"},
+        "metrics_by_control": {"$ref": "#/$defs/controlAnalyticMetricMap"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

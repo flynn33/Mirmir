@@ -1,0 +1,667 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/coordinate-anisotropy-diagnostic-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "split",
+    "validation_accessed",
+    "holdout_accessed",
+    "selected_winner",
+    "input_bindings",
+    "dimension_contract",
+    "native_records",
+    "production_v2_reference",
+    "route_cell_blocks",
+    "full_corpus_compositions",
+    "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_open_development_coordinate_anisotropy_diagnostic"},
+    "status": {"const": "development_diagnostic_no_selection"},
+    "split": {"const": "development"},
+    "validation_accessed": {"const": false},
+    "holdout_accessed": {"const": false},
+    "selected_winner": {"type": "null"},
+    "input_bindings": {"$ref": "#/$defs/inputBindings"},
+    "dimension_contract": {"$ref": "#/$defs/dimensionContract"},
+    "native_records": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {"$ref": "#/$defs/nativeExecutionRecord"}
+    },
+    "production_v2_reference": {"$ref": "#/$defs/productionReference"},
+    "route_cell_blocks": {
+      "type": "array",
+      "minItems": 32,
+      "maxItems": 32,
+      "items": {"$ref": "#/$defs/routeCellBlock"}
+    },
+    "full_corpus_compositions": {
+      "type": "array",
+      "minItems": 31,
+      "maxItems": 31,
+      "items": {"$ref": "#/$defs/composition"}
+    },
+    "artifact_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "route": {
+      "enum": ["direct_2x", "direct_3_over_2"]
+    },
+    "coordinatePolicy": {
+      "enum": ["half_pixel_center", "source_aligned_rational"]
+    },
+    "genericRouteLUT": {
+      "type": "object",
+      "required": ["route", "whole_file_sha256", "payload_sha256", "entry_count"],
+      "properties": {
+        "route": {"$ref": "#/$defs/route"},
+        "whole_file_sha256": {"$ref": "#/$defs/sha256"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "entry_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "diagnosticGenericRouteLUT": {
+      "type": "object",
+      "required": [
+        "route",
+        "whole_file_sha256",
+        "payload_sha256",
+        "entry_count",
+        "serialization_rebind_contract",
+        "serialization_rebind_applied",
+        "serialization_rebind_sha256"
+      ],
+      "properties": {
+        "route": {"$ref": "#/$defs/route"},
+        "whole_file_sha256": {"$ref": "#/$defs/sha256"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "entry_count": {"type": "integer", "minimum": 1},
+        "serialization_rebind_contract": {"const": "mirmir-ash-generic-v3-diagnostic-coordinate-policy-rebind-v1"},
+        "original_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "serialized_coordinate_policy": {"const": "half_pixel_center"},
+        "original_luma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "original_chroma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "serialized_luma_coordinate_policy": {"const": "half_pixel_center"},
+        "serialized_chroma_coordinate_policy": {"const": "half_pixel_center"},
+        "serialization_rebind_applied": {"type": "boolean"},
+        "serialization_rebind_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "oneOf": [
+        {
+          "required": [
+            "original_coordinate_policy",
+            "serialized_coordinate_policy"
+          ],
+          "not": {
+            "anyOf": [
+              {"required": ["original_luma_coordinate_policy"]},
+              {"required": ["original_chroma_coordinate_policy"]},
+              {"required": ["serialized_luma_coordinate_policy"]},
+              {"required": ["serialized_chroma_coordinate_policy"]}
+            ]
+          }
+        },
+        {
+          "required": [
+            "original_luma_coordinate_policy",
+            "original_chroma_coordinate_policy",
+            "serialized_luma_coordinate_policy",
+            "serialized_chroma_coordinate_policy"
+          ],
+          "not": {
+            "anyOf": [
+              {"required": ["original_coordinate_policy"]},
+              {"required": ["serialized_coordinate_policy"]}
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "inputBindings": {
+      "type": "object",
+      "required": [
+        "base_candidate_vector_sha256",
+        "base_adapter_configuration_sha256",
+        "compiler_inputs_sha256",
+        "native_configuration_provenance",
+        "mapping_sha256",
+        "coordinate_model_contract_file_sha256",
+        "coordinate_oracle_matrix_sha256",
+        "coordinate_experiment_dimensions_sha256",
+        "video_profile_contract_file_sha256",
+        "video_profile_contract_sha256",
+        "quality_harness_implementation_manifest_file_sha256",
+        "quality_harness_implementation_manifest_sha256",
+        "g04_lock_file_sha256",
+        "g05_lock_file_sha256",
+        "corrective_preregistration_file_sha256",
+        "corrective_preregistration_sha256",
+        "generic_phase_compiler_source_sha256",
+        "generic_phase_compilation_manifest_sha256",
+        "native_executable_sha256",
+        "native_source_manifest_sha256",
+        "development_sample_lock_file_sha256",
+        "development_sample_lock_manifest_sha256",
+        "expected_observation_count_by_route",
+        "development_sample_dimension_sha256",
+        "degradation_profile_dimension_sha256",
+        "corpus_lock_bundle_sha256",
+        "live_holdout_preopen_verification",
+        "live_holdout_preopen_verification_sha256",
+        "degradation_policy_sha256",
+        "metric_policy_sha256",
+        "writer_settings_sha256",
+        "output_plane_hash_contract",
+        "normalized_plane_hash_contract",
+        "analysis_grid_hash_contract",
+        "generic_route_luts"
+        ,"completed_execution_evidence"
+      ],
+      "properties": {
+        "base_candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "base_adapter_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "native_configuration_provenance": {
+          "type": "object",
+          "required": [
+            "candidate_vector_sha256",
+            "shared_bank_configuration_sha256",
+            "mapping_sha256",
+            "operator_bank_sha256",
+            "metric_policy_sha256",
+            "calibration_plan_sha256",
+            "corpus_lock_bundle_sha256",
+            "candidate_lut_runtime_manifest_sha256"
+          ],
+          "properties": {
+            "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+            "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+            "mapping_sha256": {"$ref": "#/$defs/sha256"},
+            "operator_bank_sha256": {"$ref": "#/$defs/sha256"},
+            "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+            "calibration_plan_sha256": {"$ref": "#/$defs/sha256"},
+            "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+            "candidate_lut_runtime_manifest_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "mapping_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_model_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_oracle_matrix_sha256": {"$ref": "#/$defs/sha256"},
+        "coordinate_experiment_dimensions_sha256": {"$ref": "#/$defs/sha256"},
+        "video_profile_contract_file_sha256": {"$ref": "#/$defs/sha256"},
+        "video_profile_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "quality_harness_implementation_manifest_file_sha256": {"$ref": "#/$defs/sha256"},
+        "quality_harness_implementation_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "g04_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "g05_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corrective_preregistration_file_sha256": {"$ref": "#/$defs/sha256"},
+        "corrective_preregistration_sha256": {"$ref": "#/$defs/sha256"},
+        "generic_phase_compiler_source_sha256": {"$ref": "#/$defs/sha256"},
+        "generic_phase_compilation_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "native_executable_sha256": {"$ref": "#/$defs/sha256"},
+        "native_source_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_lock_file_sha256": {"$ref": "#/$defs/sha256"},
+        "development_sample_lock_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "expected_observation_count_by_route": {
+          "type": "object",
+          "required": ["direct_2x", "direct_3_over_2"],
+          "properties": {
+            "direct_2x": {"const": 12},
+            "direct_3_over_2": {"const": 6}
+          },
+          "additionalProperties": false
+        },
+        "development_sample_dimension_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_profile_dimension_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "live_holdout_preopen_verification": {
+          "type": "object",
+          "required": [
+            "verification_status",
+            "access_status",
+            "access_count",
+            "open_intent_anchor_present",
+            "pixel_content_included"
+          ],
+          "properties": {
+            "verification_status": {"const": "pass"},
+            "access_status": {"const": "unopened"},
+            "access_count": {"const": 0},
+            "open_intent_anchor_present": {"const": false},
+            "pixel_content_included": {"const": false}
+          }
+        },
+        "live_holdout_preopen_verification_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "writer_settings_sha256": {"$ref": "#/$defs/sha256"},
+        "output_plane_hash_contract": {"const": "active-nv12-code-bytes-sha256-v1"},
+        "normalized_plane_hash_contract": {"const": "mirmir-ash-normalized-plane-f64-be-v1"},
+        "analysis_grid_hash_contract": {"const": "mirmir-ash-analysis-grid-v3-be-v1"},
+        "generic_route_luts": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/diagnosticGenericRouteLUT"}
+        },
+        "completed_execution_evidence": {"type": "object"}
+      },
+      "additionalProperties": false
+    },
+    "coordinateCell": {
+      "type": "object",
+      "required": ["cell_id", "luma_coordinate_policy", "chroma_coordinate_policy"],
+      "properties": {
+        "cell_id": {"enum": ["HH", "HS", "SH", "SS"]},
+        "luma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "chroma_coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"}
+      },
+      "additionalProperties": false
+    },
+    "anisotropyCell": {
+      "type": "object",
+      "required": [
+        "cell_id",
+        "luma_anisotropy_strength_q12",
+        "chroma_anisotropy_strength_q12"
+      ],
+      "properties": {
+        "cell_id": {"enum": ["00", "03", "30", "33"]},
+        "luma_anisotropy_strength_q12": {"enum": [0, 3072]},
+        "chroma_anisotropy_strength_q12": {"enum": [0, 3072]}
+      },
+      "additionalProperties": false
+    },
+    "dimensionContract": {
+      "type": "object",
+      "required": ["routes", "coordinate_cells", "anisotropy_cells", "generic_baseline"],
+      "properties": {
+        "routes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/route"}
+        },
+        "coordinate_cells": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/coordinateCell"}
+        },
+        "anisotropy_cells": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/anisotropyCell"}
+        },
+        "generic_baseline": {
+          "type": "object",
+          "required": ["direct_2x_block_id", "direct_3_over_2_block_id"],
+          "properties": {
+            "direct_2x_block_id": {"const": "direct_2x-SS-33"},
+            "direct_3_over_2_block_id": {"const": "direct_3_over_2-SS-33"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "nativeExecutionRecord": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "source_asset_id",
+        "degradation_profile_id",
+        "target_route",
+        "input_frame_sha256",
+        "input_nv12_sha256",
+        "request",
+        "response",
+        "request_sha256",
+        "response_sha256",
+        "native_diagnostic_sha256",
+        "native_record_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "target_route": {"$ref": "#/$defs/route"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "input_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "request": {"type": "object"},
+        "response": {"type": "object"},
+        "request_sha256": {"$ref": "#/$defs/sha256"},
+        "response_sha256": {"$ref": "#/$defs/sha256"},
+        "native_diagnostic_sha256": {"$ref": "#/$defs/sha256"},
+        "native_record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "productionReference": {
+      "type": "object",
+      "required": [
+        "reference_manifest_sha256",
+        "candidate_vector_sha256",
+        "adapter_configuration_sha256",
+        "compiler_inputs_sha256",
+        "reference_evaluation_sha256",
+        "reference_output_manifest_sha256",
+        "route_luts",
+        "observations"
+      ],
+      "properties": {
+        "reference_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "adapter_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "reference_evaluation_sha256": {"$ref": "#/$defs/sha256"},
+        "reference_output_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "route_luts": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/genericRouteLUT"}
+        },
+        "observations": {
+          "type": "array",
+          "minItems": 18,
+          "maxItems": 18,
+          "items": {"$ref": "#/$defs/productionReferenceObservation"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "planeEvidence": {
+      "type": "object",
+      "required": [
+        "coordinate_policy",
+        "anisotropy_strength_q12",
+        "sample_count",
+        "output_plane_sha256",
+        "normalized_plane_sha256",
+        "source_aligned_entry_flag_sample_count",
+        "source_aligned_sample_preservation_count",
+        "numerical_fallback_count",
+        "plane_evidence_sha256"
+      ],
+      "properties": {
+        "coordinate_policy": {"$ref": "#/$defs/coordinatePolicy"},
+        "anisotropy_strength_q12": {"enum": [0, 3072]},
+        "sample_count": {"type": "integer", "minimum": 1},
+        "output_plane_sha256": {"$ref": "#/$defs/sha256"},
+        "normalized_plane_sha256": {"$ref": "#/$defs/sha256"},
+        "source_aligned_entry_flag_sample_count": {"type": "integer", "minimum": 0},
+        "source_aligned_sample_preservation_count": {"type": "integer", "minimum": 0},
+        "numerical_fallback_count": {"type": "integer", "minimum": 0},
+        "plane_evidence_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "planes": {
+      "type": "object",
+      "required": ["y", "cb", "cr"],
+      "properties": {
+        "y": {"$ref": "#/$defs/planeEvidence"},
+        "cb": {"$ref": "#/$defs/planeEvidence"},
+        "cr": {"$ref": "#/$defs/planeEvidence"}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "y_psnr_db",
+        "cb_psnr_db",
+        "cr_psnr_db",
+        "y_ssim",
+        "cb_ssim",
+        "cr_ssim",
+        "y_ms_ssim",
+        "cb_ms_ssim",
+        "cr_ms_ssim",
+        "writer_y_psnr_contribution_db"
+      ],
+      "properties": {
+        "y_psnr_db": {"type": "number"},
+        "cb_psnr_db": {"type": "number"},
+        "cr_psnr_db": {"type": "number"},
+        "y_ssim": {"type": "number"},
+        "cb_ssim": {"type": "number"},
+        "cr_ssim": {"type": "number"},
+        "y_ms_ssim": {"type": "number"},
+        "cb_ms_ssim": {"type": "number"},
+        "cr_ms_ssim": {"type": "number"},
+        "writer_y_psnr_contribution_db": {"type": ["number", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "metricRow": {
+      "type": "object",
+      "required": [
+        "block_id",
+        "target_route",
+        "input_frame_sha256",
+        "comparison_domain",
+        "candidate_output_frame_sha256",
+        "writer_evidence_sha256",
+        "metrics",
+        "metric_row_sha256"
+      ],
+      "properties": {
+        "block_id": {"type": "string", "pattern": "^(direct_2x|direct_3_over_2)-(HH|HS|SH|SS)-(00|03|30|33)$"},
+        "target_route": {"$ref": "#/$defs/route"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "comparison_domain": {"enum": ["engine_raw", "container_decoded"]},
+        "candidate_output_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "writer_evidence_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        },
+        "metrics": {"$ref": "#/$defs/metrics"},
+        "metric_row_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "productionPlaneHash": {
+      "type": "object",
+      "required": ["output_plane_sha256", "normalized_plane_sha256"],
+      "properties": {
+        "output_plane_sha256": {"$ref": "#/$defs/sha256"},
+        "normalized_plane_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "productionPlanes": {
+      "type": "object",
+      "required": ["y", "cb", "cr"],
+      "properties": {
+        "y": {"$ref": "#/$defs/productionPlaneHash"},
+        "cb": {"$ref": "#/$defs/productionPlaneHash"},
+        "cr": {"$ref": "#/$defs/productionPlaneHash"}
+      },
+      "additionalProperties": false
+    },
+    "productionReferenceMetricRow": {
+      "type": "object",
+      "required": [
+        "target_route",
+        "input_frame_sha256",
+        "comparison_domain",
+        "candidate_output_frame_sha256",
+        "writer_evidence_sha256",
+        "metrics",
+        "metric_row_sha256"
+      ],
+      "properties": {
+        "target_route": {"$ref": "#/$defs/route"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "comparison_domain": {"enum": ["engine_raw", "container_decoded"]},
+        "candidate_output_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "writer_evidence_sha256": {
+          "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+        },
+        "metrics": {"$ref": "#/$defs/metrics"},
+        "metric_row_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "productionReferenceObservation": {
+      "type": "object",
+      "required": [
+        "target_route",
+        "source_asset_id",
+        "source_family_id",
+        "categories",
+        "degradation_profile_id",
+        "degradation_profile_sha256",
+        "input_frame_sha256",
+        "candidate_output_nv12_sha256",
+        "candidate_output_frame_sha256",
+        "planes",
+        "metric_rows",
+        "native_record_sha256",
+        "observation_sha256"
+      ],
+      "properties": {
+        "target_route": {"$ref": "#/$defs/route"},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_output_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_output_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "planes": {"$ref": "#/$defs/productionPlanes"},
+        "metric_rows": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/productionReferenceMetricRow"}
+        },
+        "native_record_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "observation": {
+      "type": "object",
+      "required": [
+        "block_id",
+        "target_route",
+        "source_asset_id",
+        "source_family_id",
+        "categories",
+        "degradation_profile_id",
+        "degradation_profile_sha256",
+        "input_frame_sha256",
+        "candidate_output_nv12_sha256",
+        "candidate_output_frame_sha256",
+        "planes",
+        "metric_rows",
+        "native_record_sha256",
+        "observation_sha256"
+      ],
+      "properties": {
+        "block_id": {"type": "string", "pattern": "^(direct_2x|direct_3_over_2)-(HH|HS|SH|SS)-(00|03|30|33)$"},
+        "target_route": {"$ref": "#/$defs/route"},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "degradation_profile_id": {"type": "string", "minLength": 1},
+        "degradation_profile_sha256": {"$ref": "#/$defs/sha256"},
+        "input_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_output_nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_output_frame_sha256": {"$ref": "#/$defs/sha256"},
+        "planes": {"$ref": "#/$defs/planes"},
+        "metric_rows": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/metricRow"}
+        },
+        "native_record_sha256": {"$ref": "#/$defs/sha256"},
+        "observation_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "routeCellBlock": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "block_id",
+        "target_route",
+        "coordinate_cell_id",
+        "anisotropy_cell_id",
+        "generic_lut_whole_file_sha256",
+        "generic_lut_payload_sha256",
+        "native_execution_sha256",
+        "observations",
+        "block_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 31},
+        "block_id": {"type": "string", "pattern": "^(direct_2x|direct_3_over_2)-(HH|HS|SH|SS)-(00|03|30|33)$"},
+        "target_route": {"$ref": "#/$defs/route"},
+        "coordinate_cell_id": {"enum": ["HH", "HS", "SH", "SS"]},
+        "anisotropy_cell_id": {"enum": ["00", "03", "30", "33"]},
+        "generic_lut_whole_file_sha256": {"$ref": "#/$defs/sha256"},
+        "generic_lut_payload_sha256": {"$ref": "#/$defs/sha256"},
+        "native_execution_sha256": {"$ref": "#/$defs/sha256"},
+        "observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/observation"}
+        },
+        "block_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "composition": {
+      "type": "object",
+      "required": [
+        "ordinal",
+        "composition_id",
+        "direct_2x_block_id",
+        "direct_2x_block_sha256",
+        "direct_3_over_2_block_id",
+        "direct_3_over_2_block_sha256",
+        "composition_sha256"
+      ],
+      "properties": {
+        "ordinal": {"type": "integer", "minimum": 0, "maximum": 30},
+        "composition_id": {"type": "string", "minLength": 1},
+        "direct_2x_block_id": {"type": "string", "pattern": "^direct_2x-(HH|HS|SH|SS)-(00|03|30|33)$"},
+        "direct_2x_block_sha256": {"$ref": "#/$defs/sha256"},
+        "direct_3_over_2_block_id": {"type": "string", "pattern": "^direct_3_over_2-(HH|HS|SH|SS)-(00|03|30|33)$"},
+        "direct_3_over_2_block_sha256": {"$ref": "#/$defs/sha256"},
+        "composition_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

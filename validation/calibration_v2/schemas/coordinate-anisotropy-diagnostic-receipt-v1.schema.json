@@ -1,0 +1,433 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/coordinate-anisotropy-diagnostic-receipt-v1.schema.json",
+  "title": "Mirmir coordinate and anisotropy diagnostic receipt",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "receipt_id",
+    "status",
+    "source_scope",
+    "source_artifacts",
+    "evidence_counts",
+    "reference_bindings",
+    "measurement_contract",
+    "measured_deltas",
+    "current_source_comparison",
+    "claims",
+    "hash_scope",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "coordinate_anisotropy_diagnostic_receipt"},
+    "receipt_id": {"const": "mirmir-ash-coordinate-anisotropy-diagnostic-receipt-v1"},
+    "status": {"const": "authenticated_development_diagnostic_receipt"},
+    "source_scope": {
+      "type": "object",
+      "required": [
+        "source_status",
+        "split",
+        "selected_winner",
+        "validation_accessed",
+        "holdout_accessed"
+      ],
+      "properties": {
+        "source_status": {"const": "development_diagnostic_no_selection"},
+        "split": {"const": "development"},
+        "selected_winner": {"const": null},
+        "validation_accessed": {"const": false},
+        "holdout_accessed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "source_artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/artifactBinding"},
+            {
+              "properties": {
+                "role": {"const": "coordinate_anisotropy_diagnostic"},
+                "path": {
+                  "const": "Artifacts/ASH/20260713-p06-corrective-5c6ace2c-6501-40e4-b393-0db03f200c47/published/coordinate-anisotropy-diagnostic.json"
+                },
+                "self_hash_field": {"const": "artifact_sha256"},
+                "self_sha256": {
+                  "const": "bf070a0727c21f0d755c513ab6277e55beeb776ddf9f5b4174e6746eaca85551"
+                },
+                "file_sha256": {
+                  "const": "10423973fd469e09e3e8bf148545d846ef509bb2334d5ff65b5c4e15c0397b0c"
+                },
+                "size_bytes": {"const": 2390065}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/artifactBinding"},
+            {
+              "properties": {
+                "role": {"const": "risk_state_diagnostic"},
+                "path": {
+                  "const": "Artifacts/ASH/20260713-p06-corrective-5c6ace2c-6501-40e4-b393-0db03f200c47/published/risk-state-diagnostic.json"
+                },
+                "self_hash_field": {"const": "artifact_sha256"},
+                "self_sha256": {
+                  "const": "3e47dd3e3698e420e94fb87b49f997c68e49d4dc8f682ad628793517f6f40463"
+                },
+                "file_sha256": {
+                  "const": "38e08f6c8d00d640a82829111bb2fa231555b2eb11b0fdaec65f6985a764f31c"
+                },
+                "size_bytes": {"const": 1419825}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/artifactBinding"},
+            {
+              "properties": {
+                "role": {"const": "corrective_diagnostic_envelope"},
+                "path": {
+                  "const": "Artifacts/ASH/20260713-p06-corrective-5c6ace2c-6501-40e4-b393-0db03f200c47/published/corrective-diagnostic-envelope.json"
+                },
+                "self_hash_field": {"const": "envelope_sha256"},
+                "self_sha256": {
+                  "const": "871582a430905dc86ef68a4fcc6f1964037f49689a91ec70d52df5846905ffae"
+                },
+                "file_sha256": {
+                  "const": "064e2c4b6aa596c4a2e4ddfb860f41365c32508cbafc6d5c9940b226a12147bc"
+                },
+                "size_bytes": {"const": 760}
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "evidence_counts": {
+      "type": "object",
+      "required": [
+        "route_cell_block_count",
+        "full_corpus_composition_count",
+        "native_record_count",
+        "production_reference_observation_count",
+        "plane_record_count",
+        "numerical_fallback_count"
+      ],
+      "properties": {
+        "route_cell_block_count": {"const": 32},
+        "full_corpus_composition_count": {"const": 31},
+        "native_record_count": {"const": 18},
+        "production_reference_observation_count": {"const": 18},
+        "plane_record_count": {"const": 864},
+        "numerical_fallback_count": {"const": 0}
+      },
+      "additionalProperties": false
+    },
+    "reference_bindings": {
+      "type": "object",
+      "required": ["production_v2_exact_output_matches", "comparison_baseline"],
+      "properties": {
+        "production_v2_exact_output_matches": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {
+              "allOf": [
+                {"$ref": "#/$defs/routeBlockReference"},
+                {
+                  "properties": {
+                    "route": {"const": "direct_2x"},
+                    "block_id": {"const": "direct_2x-HH-00"},
+                    "json_pointer": {"const": "/route_cell_blocks/0"}
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                {"$ref": "#/$defs/routeBlockReference"},
+                {
+                  "properties": {
+                    "route": {"const": "direct_3_over_2"},
+                    "block_id": {"const": "direct_3_over_2-SS-00"},
+                    "json_pointer": {"const": "/route_cell_blocks/28"}
+                  }
+                }
+              ]
+            }
+          ],
+          "items": false
+        },
+        "comparison_baseline": {
+          "type": "object",
+          "required": [
+            "composition_id",
+            "json_pointer",
+            "direct_2x_block_id",
+            "direct_3_over_2_block_id",
+            "selected_winner"
+          ],
+          "properties": {
+            "composition_id": {"const": "baseline"},
+            "json_pointer": {"const": "/full_corpus_compositions/0"},
+            "direct_2x_block_id": {"const": "direct_2x-SS-33"},
+            "direct_3_over_2_block_id": {"const": "direct_3_over_2-SS-33"},
+            "selected_winner": {"const": false}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "measurement_contract": {
+      "type": "object",
+      "required": [
+        "comparison_domain",
+        "aggregation",
+        "rounding_decimal_places",
+        "delta_direction",
+        "higher_metric_value_is_better"
+      ],
+      "properties": {
+        "comparison_domain": {"const": "engine_raw"},
+        "aggregation": {
+          "const": "arithmetic_mean_of_paired_per_observation_metric_deltas"
+        },
+        "rounding_decimal_places": {"const": 12},
+        "delta_direction": {"const": "left_block_minus_right_block"},
+        "higher_metric_value_is_better": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "measured_deltas": {
+      "type": "object",
+      "required": [
+        "direct_2x_coordinate_source_aligned_minus_half_pixel_at_zero_anisotropy",
+        "direct_2x_anisotropy_3072_minus_zero_at_source_aligned",
+        "direct_3_over_2_luma_half_pixel_minus_source_aligned_at_zero_anisotropy",
+        "direct_3_over_2_luma_anisotropy_3072_minus_zero_at_source_aligned",
+        "direct_3_over_2_chroma_source_aligned_minus_half_pixel_at_zero_anisotropy",
+        "direct_3_over_2_chroma_anisotropy_3072_minus_zero_at_half_pixel",
+        "direct_3_over_2_chroma_anisotropy_3072_minus_zero_at_source_aligned"
+      ],
+      "properties": {
+        "direct_2x_coordinate_source_aligned_minus_half_pixel_at_zero_anisotropy": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_2x_anisotropy_3072_minus_zero_at_source_aligned": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_3_over_2_luma_half_pixel_minus_source_aligned_at_zero_anisotropy": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_3_over_2_luma_anisotropy_3072_minus_zero_at_source_aligned": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_3_over_2_chroma_source_aligned_minus_half_pixel_at_zero_anisotropy": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_3_over_2_chroma_anisotropy_3072_minus_zero_at_half_pixel": {
+          "$ref": "#/$defs/comparison"
+        },
+        "direct_3_over_2_chroma_anisotropy_3072_minus_zero_at_source_aligned": {
+          "$ref": "#/$defs/comparison"
+        }
+      },
+      "additionalProperties": false
+    },
+    "current_source_comparison": {
+      "type": "object",
+      "required": [
+        "comparison_head_commit",
+        "native_source_manifest",
+        "current_source_equivalence_established"
+      ],
+      "properties": {
+        "comparison_head_commit": {
+          "const": "30d9456b4464965bf38c624b89a234bd07f303fc"
+        },
+        "native_source_manifest": {
+          "type": "object",
+          "required": [
+            "path",
+            "file_sha256",
+            "source_file_count",
+            "matching_current_source_file_count",
+            "mismatching_current_source_file_count",
+            "source_commit_binding_present"
+          ],
+          "properties": {
+            "path": {
+              "const": "Artifacts/ASH/20260713-p06-corrective-5c6ace2c-6501-40e4-b393-0db03f200c47/native-cache/executables/8d42b85ee4d9a13adf929f3e1376ad04f8b5d870a6c4fe90dbc49633bb0de04b/source-manifest.json"
+            },
+            "file_sha256": {
+              "const": "8d42b85ee4d9a13adf929f3e1376ad04f8b5d870a6c4fe90dbc49633bb0de04b"
+            },
+            "source_file_count": {"const": 39},
+            "matching_current_source_file_count": {"const": 23},
+            "mismatching_current_source_file_count": {"const": 16},
+            "source_commit_binding_present": {"const": false}
+          },
+          "additionalProperties": false
+        },
+        "current_source_equivalence_established": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "claims": {
+      "type": "object",
+      "required": [
+        "route_and_plane_coordinate_policy_effect_evidenced",
+        "fixed_anisotropy_strength_q12_3072_authorized",
+        "formal_gate_result_established",
+        "winner_selected",
+        "current_source_equivalence_established",
+        "required_next_evidence"
+      ],
+      "properties": {
+        "route_and_plane_coordinate_policy_effect_evidenced": {"const": true},
+        "fixed_anisotropy_strength_q12_3072_authorized": {"const": false},
+        "formal_gate_result_established": {"const": false},
+        "winner_selected": {"const": false},
+        "current_source_equivalence_established": {"const": false},
+        "required_next_evidence": {
+          "const": "fresh_current_source_formal_gate_evaluation"
+        }
+      },
+      "additionalProperties": false
+    },
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /receipt_sha256"
+    },
+    "receipt_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "artifactBinding": {
+      "type": "object",
+      "required": [
+        "role",
+        "path",
+        "self_hash_field",
+        "self_sha256",
+        "file_sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "coordinate_anisotropy_diagnostic",
+            "risk_state_diagnostic",
+            "corrective_diagnostic_envelope"
+          ]
+        },
+        "path": {"$ref": "#/$defs/relativePath"},
+        "self_hash_field": {"enum": ["artifact_sha256", "envelope_sha256"]},
+        "self_sha256": {"$ref": "#/$defs/sha256"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "blockReference": {
+      "type": "object",
+      "required": ["block_id", "json_pointer"],
+      "properties": {
+        "block_id": {
+          "type": "string",
+          "pattern": "^direct_(2x|3_over_2)-(HH|HS|SH|SS)-(00|03|30|33)$"
+        },
+        "json_pointer": {
+          "type": "string",
+          "pattern": "^/route_cell_blocks/(0|[1-9][0-9]*)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "routeBlockReference": {
+      "type": "object",
+      "required": ["route", "block_id", "json_pointer"],
+      "properties": {
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "block_id": {"type": "string", "minLength": 1},
+        "json_pointer": {
+          "type": "string",
+          "pattern": "^/route_cell_blocks/(0|[1-9][0-9]*)$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metricMap": {
+      "type": "object",
+      "minProperties": 3,
+      "maxProperties": 9,
+      "propertyNames": {
+        "enum": [
+          "y_psnr_db",
+          "y_ssim",
+          "y_ms_ssim",
+          "cb_psnr_db",
+          "cb_ssim",
+          "cb_ms_ssim",
+          "cr_psnr_db",
+          "cr_ssim",
+          "cr_ms_ssim"
+        ]
+      },
+      "additionalProperties": {"type": "number"}
+    },
+    "improvedCountMap": {
+      "type": "object",
+      "minProperties": 3,
+      "maxProperties": 9,
+      "propertyNames": {
+        "enum": [
+          "y_psnr_db",
+          "y_ssim",
+          "y_ms_ssim",
+          "cb_psnr_db",
+          "cb_ssim",
+          "cb_ms_ssim",
+          "cr_psnr_db",
+          "cr_ssim",
+          "cr_ms_ssim"
+        ]
+      },
+      "additionalProperties": {"type": "integer", "minimum": 0, "maximum": 12}
+    },
+    "comparison": {
+      "type": "object",
+      "required": ["left_block", "right_block", "observation_count", "metrics"],
+      "properties": {
+        "left_block": {"$ref": "#/$defs/blockReference"},
+        "right_block": {"$ref": "#/$defs/blockReference"},
+        "observation_count": {"enum": [6, 12]},
+        "metrics": {"$ref": "#/$defs/metricMap"},
+        "improved_observation_count_by_metric": {
+          "$ref": "#/$defs/improvedCountMap"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

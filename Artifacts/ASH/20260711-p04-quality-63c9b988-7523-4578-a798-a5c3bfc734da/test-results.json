@@ -1,0 +1,76 @@
+{
+  "actual_codec_cli": {
+    "evidence_sha256": "c1168291d8c15433223347c38d0e52d385d3920f67256e4e45a98997b1863914",
+    "log": "tests/actual-codec-cli.log",
+    "status": "pass"
+  },
+  "attribution_scan": {
+    "findings": 0,
+    "path": "attribution-scan.json",
+    "status": "pass"
+  },
+  "instruction_package": {
+    "log": "tests/instruction-package-validation.log",
+    "status": "pass"
+  },
+  "metric_oracle": {
+    "log": "tests/metric-oracle.log",
+    "status": "pass"
+  },
+  "production_dry_run": {
+    "case_count": 24,
+    "holdout_accessed": false,
+    "injected_failure_preserved": true,
+    "resume_recomputed": true,
+    "status": "pass",
+    "verification": "analysis/production-run-verification.json",
+    "writer_run_count": 26
+  },
+  "python": {
+    "elapsed_seconds": 124.801,
+    "failures": 0,
+    "log": "tests/python-unittest.log",
+    "skips": 0,
+    "status": "pass",
+    "test_count": 80
+  },
+  "release_build": {
+    "analyzer_warnings": 0,
+    "errors": 0,
+    "result_bundle": "xcode/release-build.xcresult",
+    "status": "succeeded",
+    "summary": "xcode/release-build-summary.json",
+    "warnings": 0
+  },
+  "schema_version": "1.0.0",
+  "static_validation": {
+    "log": "tests/static-validation.log",
+    "status": "pass"
+  },
+  "status": "pass",
+  "swiftlint": {
+    "log": "tests/swiftlint-strict.log",
+    "status": "pass",
+    "violations": 0
+  },
+  "xcode_focused": {
+    "failed": 0,
+    "passed": 7,
+    "result_bundle": "xcode/focused-tests.xcresult",
+    "skipped": 0,
+    "status": "passed",
+    "summary": "xcode/focused-tests-summary.json",
+    "total": 7
+  },
+  "xcode_full": {
+    "coverage": "xcode/full-coverage.json",
+    "expected_skip": "ASHTelemetryTests.test_productionTraceFixtureWhenExplicitlyConfigured; G01 evidence-only fixture",
+    "failed": 0,
+    "passed": 112,
+    "result_bundle": "xcode/full-tests.xcresult",
+    "skipped": 1,
+    "status": "passed",
+    "summary": "xcode/full-tests-summary.json",
+    "total": 113
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "artifact_kind": "common_writer_source_lock",
+  "frame_count": 1,
+  "frames": [
+    {
+      "active_row_sha256": {
+        "Cb": "e4ac36a8164f4ea2b148f6837978d57969ec81055fcfc1924dc4f466e9bb63ac",
+        "Cr": "825b2572c0fed25ff58d911a24770a687ad74c9aa191688391ab5ae167c48306",
+        "Y": "518b3749e8daa06fc7dd7d4a5bf3b961793fcf20247b19d1707e7ad75016de7c"
+      },
+      "case_id": "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::codec-quantized-proxy-v1",
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "66f07807f6ed9eb6ca16bc913d3b3f03042763ba1783f7310a6a7b7a5d3ec9ce",
+      "index": 0,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 0
+      }
+    }
+  ],
+  "payload_path": "case-000006-source.nv12",
+  "payload_sha256": "66f07807f6ed9eb6ca16bc913d3b3f03042763ba1783f7310a6a7b7a5d3ec9ce",
+  "payload_size_bytes": 93312,
+  "pixel_layout": {
+    "chroma_location_bottom_field": "Left",
+    "chroma_location_top_field": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "height": 192,
+    "pixel_format": "420v",
+    "range": "video",
+    "transfer_function": "ITU_R_709_2",
+    "width": 324,
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "schema_version": "1.0.0",
+  "source_id": "production-prechange-candidate-postencode-isolated-case-000006"
+}

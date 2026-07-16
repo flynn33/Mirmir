@@ -1,0 +1,217 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/calibration-run-ledger-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "run_id",
+    "plan_id",
+    "input_bundle_sha256",
+    "input_bindings",
+    "live_holdout_preopen_verification",
+    "attempt_count",
+    "attempt_ledger",
+    "maximum_sweeps",
+    "completed_sweeps",
+    "termination",
+    "development_terminal_vector_sha256",
+    "validation_candidate_count",
+    "validation_feasible_count",
+    "validation_candidate_development_evidence",
+    "data_separation_evidence",
+    "holdout_accessed",
+    "release_locks_written",
+    "resume_source",
+    "degradation_cache",
+    "candidate_evaluations",
+    "control_selection_artifacts",
+    "status",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_calibration_run_ledger"},
+    "run_id": {"type": "string", "minLength": 1},
+    "plan_id": {"const": "mirmir-p06-spatial-calibration-v1"},
+    "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "input_bindings": {
+      "type": "array",
+      "minItems": 13,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/fileBindingWithID"}
+    },
+    "live_holdout_preopen_verification": {
+      "$ref": "#/$defs/liveHoldoutPreopenVerification"
+    },
+    "attempt_count": {"type": "integer", "minimum": 1},
+    "attempt_ledger": {
+      "type": "object",
+      "required": ["path", "sha256", "last_record_sha256"],
+      "properties": {
+        "path": {"const": "attempts.ndjson"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "last_record_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "maximum_sweeps": {"const": 8},
+    "completed_sweeps": {"type": "integer", "minimum": 1, "maximum": 8},
+    "termination": {"const": "complete_sweep_changed_no_coordinate"},
+    "development_terminal_vector_sha256": {"$ref": "#/$defs/sha256"},
+    "validation_candidate_count": {"type": "integer", "minimum": 1},
+    "validation_feasible_count": {"type": "integer", "minimum": 1},
+    "validation_candidate_development_evidence": {
+      "type": "object",
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"const": "validation-candidate-evidence.json"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "data_separation_evidence": {
+      "type": "object",
+      "required": ["development_attempt_count", "validation_attempt_count", "last_development_attempt_sequence", "first_validation_attempt_sequence", "all_development_attempts_precede_validation", "development_validation_measurement_binding_count", "holdout_accessed"],
+      "properties": {
+        "development_attempt_count": {"type": "integer", "minimum": 1},
+        "validation_attempt_count": {"type": "integer", "minimum": 1},
+        "last_development_attempt_sequence": {"type": "integer", "minimum": 0},
+        "first_validation_attempt_sequence": {"type": "integer", "minimum": 1},
+        "all_development_attempts_precede_validation": {"const": true},
+        "development_validation_measurement_binding_count": {"const": 0},
+        "holdout_accessed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "holdout_accessed": {"const": false},
+    "release_locks_written": {"const": false},
+    "resume_source": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["path", "input_bundle_sha256", "attempt_ledger_sha256", "attempt_count"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+            "attempt_ledger_sha256": {"$ref": "#/$defs/sha256"},
+            "attempt_count": {"type": "integer", "minimum": 0}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "degradation_cache": {
+      "type": "object",
+      "required": ["degradation_policy_sha256", "entries", "cache_manifest_sha256"],
+      "properties": {
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "source_asset_id",
+              "target_frame_sha256",
+              "profile_id",
+              "degradation_policy_sha256",
+              "degraded_frame_sha256"
+            ],
+            "properties": {
+              "source_asset_id": {"type": "string", "minLength": 1},
+              "target_frame_sha256": {"$ref": "#/$defs/sha256"},
+              "profile_id": {"type": "string", "minLength": 1},
+              "degradation_policy_sha256": {"$ref": "#/$defs/sha256"},
+              "degraded_frame_sha256": {"$ref": "#/$defs/sha256"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "cache_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "candidate_evaluations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["split", "candidate_vector_sha256", "path", "sha256", "size_bytes"],
+        "properties": {
+          "split": {"enum": ["development", "validation"]},
+          "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+          "path": {"type": "string", "pattern": "^evaluations/[0-9a-f]{64}\\.json$"},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "size_bytes": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "control_selection_artifacts": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["split", "candidate_vector_sha256", "control", "path", "sha256", "size_bytes"],
+        "properties": {
+          "split": {"enum": ["development", "validation"]},
+          "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+          "control": {"enum": ["best_fixed", "conventional", "non_ash_selector"]},
+          "path": {"type": "string", "pattern": "^control-selections/[0-9a-f]{64}\\.json$"},
+          "sha256": {"$ref": "#/$defs/sha256"},
+          "size_bytes": {"type": "integer", "minimum": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "status": {"const": "selection_ready_not_release_locked"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fileBindingWithID": {
+      "type": "object",
+      "required": ["id", "path", "sha256", "size_bytes"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "liveHoldoutPreopenVerification": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "verification_status",
+        "access_status", "access_count", "open_intent_anchor_present",
+        "pixel_content_included", "live_ledger_sha256",
+        "live_ledger_root_identity_sha256", "live_anchor_root_identity_sha256",
+        "live_preopen_receipt_sha256", "repository_sealed_copy_sha256",
+        "repository_attestation_sha256", "corpus_binding_sha256",
+        "verification_receipt_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "live_holdout_preopen_verification"},
+        "verification_status": {"const": "pass"},
+        "access_status": {"const": "unopened"},
+        "access_count": {"const": 0},
+        "open_intent_anchor_present": {"const": false},
+        "pixel_content_included": {"const": false},
+        "live_ledger_sha256": {"$ref": "#/$defs/sha256"},
+        "live_ledger_root_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "live_anchor_root_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "live_preopen_receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "repository_sealed_copy_sha256": {"$ref": "#/$defs/sha256"},
+        "repository_attestation_sha256": {"$ref": "#/$defs/sha256"},
+        "corpus_binding_sha256": {"$ref": "#/$defs/sha256"},
+        "verification_receipt_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

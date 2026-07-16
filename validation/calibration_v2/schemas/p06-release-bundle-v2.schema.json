@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p06-release-bundle-v2.schema.json",
+  "title": "Atomic P06 release lock bundle with exact filesystem closure",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bundle_id",
+    "status",
+    "configuration_id",
+    "locked_utc",
+    "input_bundle_sha256",
+    "corpus_lock_bundle_sha256",
+    "release_fields_complete",
+    "configuration_files_modified_after_lock",
+    "holdout_accessed",
+    "holdout_access_count",
+    "artifacts",
+    "filesystem_closure_rule",
+    "filesystem_closure",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "bundle_id": {"const": "mirmir-p06-spatial-release-lock-v2"},
+    "status": {"const": "locked_before_p07"},
+    "configuration_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "locked_utc": {"type": "string", "format": "date-time"},
+    "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "release_fields_complete": {"const": true},
+    "configuration_files_modified_after_lock": {"const": false},
+    "holdout_accessed": {"const": false},
+    "holdout_access_count": {"const": 0},
+    "artifacts": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/calibrationSelection"},
+        {"$ref": "#/$defs/selectedEvaluation"},
+        {"$ref": "#/$defs/calibrationRunLedger"},
+        {"$ref": "#/$defs/liveHoldoutPreopenVerification"},
+        {"$ref": "#/$defs/dispatchMeasurement"},
+        {"$ref": "#/$defs/lockedMapping"},
+        {"$ref": "#/$defs/lockedOperatorBank"},
+        {"$ref": "#/$defs/lockedQualityPolicy"},
+        {"$ref": "#/$defs/lockedMetricPolicy"},
+        {"$ref": "#/$defs/lockedCompilerInput"},
+        {"$ref": "#/$defs/routeAnalysisGridSelection"},
+        {"$ref": "#/$defs/direct2xLUT"},
+        {"$ref": "#/$defs/direct3Over2LUT"},
+        {"$ref": "#/$defs/nativeParityManifest"},
+        {"$ref": "#/$defs/lutManifest"},
+        {"$ref": "#/$defs/configurationLock"},
+        {"$ref": "#/$defs/evidenceClosure"}
+      ],
+      "items": false
+    },
+    "filesystem_closure_rule": {
+      "const": "all_entries_except_self_manifest_v1"
+    },
+    "filesystem_closure": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/filesystemEntry"}
+    },
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+    },
+    "binding": {
+      "type": "object",
+      "required": ["id", "path", "sha256", "size_bytes"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "filesystemEntry": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["path", "entry_kind"],
+          "properties": {
+            "path": {"$ref": "#/$defs/safeRelativePath"},
+            "entry_kind": {"const": "directory"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "path",
+            "entry_kind",
+            "sha256",
+            "size_bytes",
+            "executable_mode_bits"
+          ],
+          "properties": {
+            "path": {"$ref": "#/$defs/safeRelativePath"},
+            "entry_kind": {"const": "regular_file"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "size_bytes": {"type": "integer", "minimum": 0},
+            "executable_mode_bits": {
+              "type": "integer",
+              "enum": [0, 1, 8, 9, 64, 65, 72, 73]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "calibrationSelection": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "calibration_selection"}, "path": {"const": "calibration-selection.json"}}}
+      ]
+    },
+    "selectedEvaluation": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "selected_evaluation"}, "path": {"pattern": "^evaluations/[0-9a-f]{64}\\.json$"}}}
+      ]
+    },
+    "calibrationRunLedger": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "calibration_run_ledger"}, "path": {"const": "calibration-run-ledger.json"}}}
+      ]
+    },
+    "liveHoldoutPreopenVerification": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "live_holdout_preopen_verification"}, "path": {"const": "live-holdout-preopen-verification.json"}}}
+      ]
+    },
+    "dispatchMeasurement": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "dispatch_measurement"}, "path": {"const": "dispatch-measurement.json"}}}
+      ]
+    },
+    "lockedMapping": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "locked_mapping"}, "path": {"const": "locked-mapping.json"}}}
+      ]
+    },
+    "lockedOperatorBank": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "locked_operator_bank"}, "path": {"const": "locked-operator-bank.json"}}}
+      ]
+    },
+    "lockedQualityPolicy": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "locked_quality_policy"}, "path": {"const": "locked-quality-policy.json"}}}
+      ]
+    },
+    "lockedMetricPolicy": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "locked_metric_policy"}, "path": {"const": "locked-metric-policy.json"}}}
+      ]
+    },
+    "lockedCompilerInput": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "locked_compiler_input"}, "path": {"const": "locked-compiler-input.json"}}}
+      ]
+    },
+    "routeAnalysisGridSelection": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "route_analysis_grid_selection"}, "path": {"const": "route-analysis-grid-selection.json"}}}
+      ]
+    },
+    "direct2xLUT": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "direct2x_lut"}, "path": {"const": "direct2x.ashlut"}}}
+      ]
+    },
+    "direct3Over2LUT": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "direct3over2_lut"}, "path": {"const": "direct3over2.ashlut"}}}
+      ]
+    },
+    "nativeParityManifest": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "native_parity_manifest"}, "path": {"const": "native-lut-parity-manifest.json"}}}
+      ]
+    },
+    "lutManifest": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "lut_manifest"}, "path": {"const": "lut-manifest.json"}}}
+      ]
+    },
+    "configurationLock": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "configuration_lock"}, "path": {"const": "configuration-lock.json"}}}
+      ]
+    },
+    "evidenceClosure": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"id": {"const": "evidence_closure"}, "path": {"const": "p06-evidence-closure.json"}}}
+      ]
+    }
+  }
+}

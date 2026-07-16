@@ -1,0 +1,3 @@
+command: swiftlint lint --strict --quiet
+exit_code: 0
+status: pass

@@ -1,0 +1,117 @@
+{
+  "schema_version": "1.1.0",
+  "program": "Native-HR ground-truth and ablation program",
+  "corpus": {
+    "source": "Native high-resolution images and videos with sufficient rights for project testing.",
+    "split_unit": "source asset, never individual frames",
+    "splits": {
+      "development": "50%",
+      "validation": "25%",
+      "holdout": "25%"
+    },
+    "lock": "Create a manifest containing relative path, source SHA-256, license/provenance, scene category, dimensions, frame range, and split. Hash-lock before calibration.",
+    "minimum_categories": [
+      "flat gradients",
+      "horizontal/vertical/diagonal edges",
+      "corners/junctions",
+      "thin lines/text",
+      "near-Nyquist patterns",
+      "foliage/hair/fabric",
+      "skin",
+      "saturated chroma edges",
+      "noise/compression",
+      "camera/object motion",
+      "occlusion",
+      "scene cuts"
+    ]
+  },
+  "degradation_profiles": [
+    "documented high-quality low-pass plus decimation",
+    "camera-like blur plus decimation",
+    "codec-compressed low-resolution input",
+    "known synthetic translation/rotation sequences for temporal ground truth"
+  ],
+  "no_leakage": [
+    "Do not tune thresholds, branch penalties, operator gains, or coordinate policy on holdout metrics.",
+    "After any holdout result is viewed, a subsequent algorithm version must use a newly hash-locked holdout for a fresh claim.",
+    "Record every calibration run and configuration hash."
+  ],
+  "baselines_and_ablations": [
+    "nearest same-writer control",
+    "bilinear",
+    "high-quality bicubic",
+    "vImage or equivalent high-quality Lanczos",
+    "current production ASH baseline",
+    "each of the 16 fixed operators",
+    "best single fixed operator from the bank",
+    "non-ASH deterministic rule selector over the same bank",
+    "ASH state dispatch with branch compiler disabled",
+    "ASH state plus branch compiler",
+    "ASH state plus branch compiler plus temporal support"
+  ],
+  "metrics": {
+    "spatial": [
+      "Y PSNR",
+      "Cb PSNR",
+      "Cr PSNR",
+      "SSIM",
+      "MS-SSIM",
+      "edge-location error",
+      "ringing overshoot and undershoot",
+      "alias energy",
+      "thin-line retention",
+      "chroma-edge displacement"
+    ],
+    "temporal": [
+      "motion-warped reconstruction error",
+      "static-region flicker",
+      "operator/state churn",
+      "ghosting around occlusion",
+      "scene-cut reset latency"
+    ],
+    "performance": [
+      "compute-only fps",
+      "end-to-end fps",
+      "frame latency p50/p95/p99",
+      "CPU time",
+      "GPU time",
+      "RSS/footprint",
+      "allocated bytes",
+      "GPU readbacks/copies",
+      "candidate count"
+    ]
+  },
+  "statistics": {
+    "paired_bootstrap_replicates": 10000,
+    "fixed_seed": 20260710,
+    "confidence": 0.95,
+    "report": [
+      "mean",
+      "median",
+      "5th percentile",
+      "95th percentile",
+      "paired delta confidence interval",
+      "per-category deltas"
+    ],
+    "resampling_unit": "source asset"
+  },
+  "prelock_required_fields": [
+    "MS-SSIM noninferiority tolerance",
+    "ringing tolerance",
+    "alias tolerance",
+    "severe-regression definition",
+    "minimum category sample counts",
+    "temporal ghosting tolerance"
+  ],
+  "blocking_pass": [
+    "Full spatial ASH vs best fixed operator: Y PSNR paired-delta lower confidence bound > 0.",
+    "Full spatial ASH vs non-ASH selector over the same bank: Y PSNR paired-delta lower confidence bound > 0.",
+    "Full spatial ASH vs best conventional deterministic baseline: Y PSNR paired-delta lower confidence bound > 0 and MS-SSIM passes the prelocked noninferiority test.",
+    "Ringing, alias, severe-regression, and chroma displacement limits pass.",
+    "Temporal ASH vs spatial ASH: motion-warped error and flicker improve with positive paired evidence while ghosting and scene-cut limits pass."
+  ],
+  "failure_behavior": "A failed holdout gate is an engine failure, not a documentation issue. Create a new mapping/operator version, preserve the failed evidence, move the exposed holdout to validation, lock a new holdout, and repeat.",
+  "metric_contract": "config/quality_metric_contract.json",
+  "non_ash_selector_definition": "A deterministic selector over the identical 16-operator bank using the same continuous features but no ASH state bits, codewords, affine recovery, ternary branch messages, or ASH priors. Its rule family and calibration budget must be predeclared and no smaller than the ASH selector budget.",
+  "best_fixed_definition": "Select one operator ID using development/validation only; apply it to every eligible output cell on holdout. Do not use holdout to choose the fixed operator."
+}

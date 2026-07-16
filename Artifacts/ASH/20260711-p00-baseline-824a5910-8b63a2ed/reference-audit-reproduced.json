@@ -1,0 +1,70 @@
+{
+  "audit_target": {
+    "commit": "8782886a8cca9fa63f7d44b529add6eac80a50f8",
+    "repository": "flynn33/ASH-Model",
+    "source_file_sha256": {
+      "__init__.py": "abc786d11cc89f479135fb2935343647b3e53a93834f87623b65e6f8354e5320",
+      "bits.py": "cdcc9027da11b4dcae5d6bd53dda404d021dee10b01bbf0f86dd9be1c9d481cb",
+      "branching.py": "7c6378e1a3f03e7d277bca04651eaf3d24b5e4cb15799c106c99a76d2f2c3ef3",
+      "code.py": "272a91ad1af3e51d6b9fe2545212448cefb404e0818d55c5623441ae636ba992",
+      "features.py": "47f31bde543768caee3e325edffb60770c2a93428a32479dfbfeeccfda77de30",
+      "pipeline.py": "8bd106051a922721836df78584ce478c3ecda2072264970b477a104a0fbecc77",
+      "reconstruction.py": "89dc2de96f75d0ccedc1be7d48c4f558071270650806daaf58ae4c3ed313fc1f"
+    }
+  },
+  "branch_geometry": {
+    "aggregate_priors_unchanged_when_geometry_parameters_change": true
+  },
+  "first_frame_selection": {
+    "highest_nonzero_message_prior": 0.09375,
+    "maximum_candidate_consistency_score_observed": 1.0,
+    "message_0000_prior": 0.1328125,
+    "message_0000_strictly_dominates_without_previous_candidate": true,
+    "nearest_baseline_source_consistency_score": 1.0,
+    "random_patches_checked": 1000,
+    "top_four_order_counts": {
+      "0000,0100,1000,0001": 7,
+      "0000,0100,1000,0010": 507,
+      "0000,1000,0100,0001": 10,
+      "0000,1000,0100,0010": 476
+    },
+    "top_one_message_counts": {
+      "0000": 1000
+    }
+  },
+  "operator_basis": {
+    "distinct_outputs_for_test_patch_after_1e-14_grouping": 12,
+    "equal_and_opposite_isotropic_pairs_max_abs_difference": {
+      "0000~0011": 1.1102230246251565e-16,
+      "0100~0111": 1.1102230246251565e-16,
+      "1000~1011": 1.1102230246251565e-16,
+      "1100~1111": 1.1102230246251565e-16
+    },
+    "nominal_message_count": 16
+  },
+  "source_state_enumeration": {
+    "aggregate_prior_map": {
+      "0000": 0.1328125,
+      "0001": 0.09375,
+      "0010": 0.09375,
+      "0011": 0.0546875,
+      "0100": 0.09375,
+      "0101": 0.0703125,
+      "0110": 0.0546875,
+      "0111": 0.03125,
+      "1000": 0.09375,
+      "1001": 0.0546875,
+      "1010": 0.0703125,
+      "1011": 0.03125,
+      "1100": 0.0546875,
+      "1101": 0.03125,
+      "1110": 0.03125,
+      "1111": 0.0078125
+    },
+    "all_aggregate_prior_maps_identical": true,
+    "all_candidate_sets_and_rankings_identical_for_fixed_source": true,
+    "branch_messages_and_weights_remain_equal": true,
+    "branch_node_states_do_change_with_source_state": true,
+    "integrity_valid_states_checked": 256
+  }
+}

@@ -1,0 +1,1908 @@
+{
+  "artifact_kind": "quality_harness_implementation_manifest",
+  "file_count": 380,
+  "files": [
+    {
+      "relative_path": "Mirmir.xcodeproj/project.pbxproj",
+      "sha256": "daa8bc16748a3a046021dd1cfc0a48eb11332853ac5036a24a4c5c931ba5d21d",
+      "size_bytes": 109203
+    },
+    {
+      "relative_path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
+      "sha256": "858607dad6af0f51b4739523cf826a2b745f4c6b109769bab98e3ea499cf6163",
+      "size_bytes": 8087
+    },
+    {
+      "relative_path": "Mirmir/Modules/MediaPipeline/MediaTypes.swift",
+      "sha256": "e0133d5892df190e6d2489f234214d91df693fbda9bf2d10b93965973312154b",
+      "size_bytes": 8475
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryCatalog.swift",
+      "sha256": "4817da1c4ab6d9f0fe84627f39363ac21a7e60d6a96789c318dd15d76cef6b5f",
+      "size_bytes": 3427
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryModels.swift",
+      "sha256": "210fda0f7371098d4dd174f78ec05ac857eaab7ba56e32a1294e7730e943e5fe",
+      "size_bytes": 6674
+    },
+    {
+      "relative_path": "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift",
+      "sha256": "41335fa8306a9e79f865657e8daf5ab8a582e86f878789a320776f2cdeb33c09",
+      "size_bytes": 24272
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
+      "sha256": "a096811f092647e3ed93583c3898aea48770506098a141a6819dae144e2fe3b4",
+      "size_bytes": 8484
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHAssets.swift",
+      "sha256": "a02dc1d6dfe363106664fa231368b53f98372a85b7525e6ae7b915e79f91c6c3",
+      "size_bytes": 18672
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
+      "sha256": "2aa6db9b62723184536d19c1d629c341d94d39aad299834d778b90f8ad335b54",
+      "size_bytes": 4286
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+      "sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc",
+      "size_bytes": 3389
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateDiagnosticRuntimeV3.swift",
+      "sha256": "2eaf038cc322e5af1e0fe000c4ae344a0f77f6fa04c383c35f683d42e3240ec3",
+      "size_bytes": 7843
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateModelContractV3.swift",
+      "sha256": "0f39e357ee4c520fe389bc9123ea979fb8d9198175bcaf481717e9ed6a452c44",
+      "size_bytes": 14682
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",
+      "sha256": "5a93ba96e00193cf03dce7ba942b78b003113779691d8e8598babb286bf59b4f",
+      "size_bytes": 12023
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHDevelopmentAssetTypes.swift",
+      "sha256": "889e0aadf6b25cf17459e72293acc3a4b3a6c62906adac7bdac2fca04b66fbd4",
+      "size_bytes": 847
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHGenericPhaseCompilerDiagnosticV3.swift",
+      "sha256": "0420d9b1c3f4b3b97a385d211b0e670d1563d4318e7fbb77d78e47065608b588",
+      "size_bytes": 2841
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV2.swift",
+      "sha256": "fd8e0525a963347c5c76fba0078afb79f19dd1be5a2983fe1225f109db6fd06d",
+      "size_bytes": 13308
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV2.swift",
+      "sha256": "98bbd99e0e8c3ca4aeef15503f5fc542be379e9c0711991dc918c42668e7ba29",
+      "size_bytes": 22318
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV2.swift",
+      "sha256": "1218942b2cfd4e1f02d422b4d95d750cb0e06343aa63d6d24965857f43781b65",
+      "size_bytes": 17489
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryValidationSupportV2.swift",
+      "sha256": "8a629944845b4d71cbc94092e76abe7af1b8b93e2f00e036f68c09a23bde1030",
+      "size_bytes": 1181
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerSemanticsV2.swift",
+      "sha256": "cf54a2d2a8ad9f15b2c1d57ee19a6bd42703a98e35924f9e93f05b4809997719",
+      "size_bytes": 10918
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV2.swift",
+      "sha256": "95cfa229dd640d7599d62e1801930fe72ed35c80844f1e3340f5a35ae65530c3",
+      "size_bytes": 16174
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV2.swift",
+      "sha256": "673a8aac7a5f75d107998d33bbeb278b239827296ca5ad8e206ba3cecf57d73f",
+      "size_bytes": 15593
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTTypesV2.swift",
+      "sha256": "cf6f3007a8647a93ae6756f0101e590c7f7cabe914482710b8369acee28d8a64",
+      "size_bytes": 16793
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedCandidateLUTManifestV1.swift",
+      "sha256": "c584280593f96df99511460f59f717af0006434e00fe3251ed1c23b8374e14ed",
+      "size_bytes": 2685
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlResamplerV2.swift",
+      "sha256": "cfca0d37e1aa367dbad27215e303beae289ca41c99b6f6b2627be6d1ed64098a",
+      "size_bytes": 12548
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift",
+      "sha256": "1fc9f8a1d4062be9a437002419ecaa14a5ee9e06951772ba870b4c4c699a19be",
+      "size_bytes": 18917
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedLUTManifestRouteV2.swift",
+      "sha256": "e56cc92b0244da6e4c860f980f72e4239c85ec0d43513d2e14bfa080e0a5d179",
+      "size_bytes": 12062
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedNonASHOutputCacheV2.swift",
+      "sha256": "9aab7124d1e0cc8ff3283f35e073bd41981a03b783446d4d18d959ad7aaca9aa",
+      "size_bytes": 25455
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedOperatorBankV2.swift",
+      "sha256": "095237fddbfc2afed8d07c0bd336fdad7e0ffaa6ffe9f2a566252c58e8bebd8f",
+      "size_bytes": 11542
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedPlanePolicyDiagnosticV3.swift",
+      "sha256": "6e9a2d30410679d664df1f1fa4f346ecc6ad768e43fc742eebc82097e5badb97",
+      "size_bytes": 8676
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+DispatchProjection.swift",
+      "sha256": "5c0719030633b09b23d519c4735b754930f2afe22e0c9eb6c2d0089b5b3468b9",
+      "size_bytes": 5241
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2+NonASHCache.swift",
+      "sha256": "8c9f66150fc64a704d11630fbbc786e0d3adc4faaee7ae8a56e9611edabbf15d",
+      "size_bytes": 9257
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferencePipelineV2.swift",
+      "sha256": "1a1e8d0475ecd0a71d0bfd6414570968b4a9965270c1e76b3b8018120a8240ff",
+      "size_bytes": 18852
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferenceTypesV2.swift",
+      "sha256": "10e44d507c2791c53e51efd5af35012c45f40fc03677dd3cc1ff5f931b31e7d4",
+      "size_bytes": 4570
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV2.swift",
+      "sha256": "2791437fb2b6aa63026eee8ea147b575e099d98029dcd326c8f72db38d2b98bc",
+      "size_bytes": 4182
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV2.swift",
+      "sha256": "cfdcb6d0ae06c670697d7a1c064d801c718ecb64434de9a2953f21e5390feeea",
+      "size_bytes": 6097
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV2.swift",
+      "sha256": "1e786cf623a3a469a20f7b840470655abad83845e56b79b498096ad3bece35c9",
+      "size_bytes": 13565
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift",
+      "sha256": "bc571b4363fbaf9851277d402802b8f373200136dab3820b68217e1aa59d25f8",
+      "size_bytes": 22099
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
+      "sha256": "a7df69f4fc87be5390da1400ccac4542506aa21419431655917b9b50e190394c",
+      "size_bytes": 15704
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
+      "sha256": "3dc736d52d4c80646cad6876926048e605634536de3088ca4f212549908956a9",
+      "size_bytes": 10686
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
+      "sha256": "9729893251817cb97cb6b60cd5b4ae828fc4599b0e49dd79ab865733b7f8f935",
+      "size_bytes": 7763
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+      "sha256": "b9811a932d05b1b54a8ea91ac0f650bcb0522e27b2a46da1852282d7b5eeeb32",
+      "size_bytes": 28776
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",
+      "sha256": "464cfd7b743cf166efb4a394b799f6a1e1818c61aa8504349b786692a13fc6c1",
+      "size_bytes": 33858
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
+      "sha256": "737fb7a602e7bfa1508f734d0b6bc01a08308ec47c09cea7696d0d892c0eb49e",
+      "size_bytes": 1842
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+      "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+      "size_bytes": 6556
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift",
+      "sha256": "9500e2dd12a03752e429b54b9f7af629b8665c4debe488db5a50d405b4e5fb77",
+      "size_bytes": 9297
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+      "sha256": "979caeef41bd281ceb60471b725654a6cc72a32d07371244349a5a3969134197",
+      "size_bytes": 36222
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
+      "sha256": "25722af98467d2ccad589aaef245bfbf7bc5cbe272bc2c8e783687b1e792c0d3",
+      "size_bytes": 14003
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
+      "sha256": "3308537268ae52ba1da11508901e299733d92f47ab9024566f756fdba4196aa9",
+      "size_bytes": 9690
+    },
+    {
+      "relative_path": "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift",
+      "sha256": "64bfe172f701c0f7f18faecc71003c8b5f552d506dbaec0c35235fcc12ee0640",
+      "size_bytes": 2154
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/ash-asset-manifest.json",
+      "sha256": "64a725bd9118d97ae4f3d7f27cf21eb1676fd394a464d09429daa6d8eee0e6e5",
+      "size_bytes": 1600
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/ash_video_mapping_v2.seed.json",
+      "sha256": "2ebdffa39909012e3284888fd23ede66a68a8a2e270fdfc278b287d109a60e88",
+      "size_bytes": 7078
+    },
+    {
+      "relative_path": "Mirmir/Resources/ASH/operator_bank_v2.seed.json",
+      "sha256": "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137",
+      "size_bytes": 4299
+    },
+    {
+      "relative_path": "project.yml",
+      "sha256": "fe0c37266d21bde9e871c58c956400255732f93c6ab19dea03b07a470383579d",
+      "size_bytes": 2458
+    },
+    {
+      "relative_path": "validation/calibration_v2/authenticated_closure_snapshot_v2.py",
+      "sha256": "c2910e427e409b6d5d09d3dc891bc980777b7f0524c83226a2b6667918b60978",
+      "size_bytes": 34469
+    },
+    {
+      "relative_path": "validation/calibration_v2/baseline_ablation_budget_v2.py",
+      "sha256": "dc9734ce544a7306bb12cffed2471045f29c9024bd48b91d6100340781fe2c53",
+      "size_bytes": 28590
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_persistence_v2.py",
+      "sha256": "57fa251af1a700f419c424df712be216ea3ca827773d45e84a8c5bec31ad9b7c",
+      "size_bytes": 177216
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_plan_codec.py",
+      "sha256": "f369b0af1ba1361323e488bf86d970e6cf86481fa1b7ddc6ecc5764a7516c783",
+      "size_bytes": 31632
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_scheduler_v2.py",
+      "sha256": "92f4988ba2323d80daffc03d5526ac6c8a48fe10298a7672631735e2d1d041e9",
+      "size_bytes": 73055
+    },
+    {
+      "relative_path": "validation/calibration_v2/calibration_selection_persistence_v2.py",
+      "sha256": "43c4a046147a1e322ef81c1a48f5387ecfdda3d5cf15969cd4e42899c0818145",
+      "size_bytes": 78427
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/baseline-ablation-budget-v2.json",
+      "sha256": "1885aa30b46f72ed1de0570a3de5f615cf788ec0d494ed5396731279763da4c8",
+      "size_bytes": 8475
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json",
+      "sha256": "23e3972b4c91ae01a05a8c82d16616fdc1765de4942d2f36e4432454adfe8535",
+      "size_bytes": 13488
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/calibration-plan-v1.json",
+      "sha256": "128244e8fb1450b74e8c81141af40c5188bac8fc151bf272a348c9faa6f1549e",
+      "size_bytes": 22339
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/calibration-plan-v2.json",
+      "sha256": "1977c85b9a3b7001294a04d33e7654ae20ffb4266ac0c8d2dc76880bdec99fef",
+      "size_bytes": 21234
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v1.json",
+      "sha256": "97c6d898b247cc960535ad393b053d723782c398df18d6dd9472d6226d933190",
+      "size_bytes": 7879
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/candidate-evidence-policy-v2.json",
+      "sha256": "d6df835467485f59b253e12d8e80cb8c8fa21dd308566ab3634495ccc8604433",
+      "size_bytes": 23800
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/compiler-contract-v1.json",
+      "sha256": "3e55885471aacd3e1468ab6d8d967d8335d5d322c77859b94a5321391cabf798",
+      "size_bytes": 12600
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/compiler-contract-v2.json",
+      "sha256": "8c2f532ff126fd5517040a05c9f8669d2a83d1d7220f61fed5933d5fa470470a",
+      "size_bytes": 26462
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/control-execution-producer-identity-v2.json",
+      "sha256": "9de7970c089e3ef6627a81c5e8a23c29e3ca7567b8d868058de52108b53a5363",
+      "size_bytes": 11958
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/coordinate-model-contract-v3.json",
+      "sha256": "283704ffcd267be7d85eb74c3791d466f94ba6aaa5430e7443a37683db0faced",
+      "size_bytes": 4865
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/holdout-sampling-plan-v1.json",
+      "sha256": "60f10ec4da68a2c215bc800b17a94be0fce525fa6874f3d274088ce93b52afd2",
+      "size_bytes": 4426
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/instruction-conflict-normalization-v1.json",
+      "sha256": "94f99533ad454a7d4fe33a810636b49ed040a81127ced232ac84de5dda482632",
+      "size_bytes": 5981
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/locked-compiler-input-v1.template.json",
+      "sha256": "7d753b7a2043114cc5ed04115d69954f7c44fc4ba5b8eb75b2942d289554dd14",
+      "size_bytes": 3768
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/locked-compiler-input-v2.template.json",
+      "sha256": "30e171551361972fc83a038d56b163e7e202fe321ff7b1e38703cc9b3a3c0f02",
+      "size_bytes": 4223
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/lut-binary-contract-v1.json",
+      "sha256": "8deddf58ba06a4eece17c34afc37ac464b2e618679c6217904dc67fa4439a56d",
+      "size_bytes": 15041
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/metric-performance-tolerances-v1.json",
+      "sha256": "45f6c4fe193510ef046826f98ea8ffba8541f64284758c59317e4a6de09cd91a",
+      "size_bytes": 4337
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/native-parity-manifest-v1.preregistered.json",
+      "sha256": "c0acca550a06ecaf85ae58018538415b6b765cc2f4f1218d97daf77dd62511e4",
+      "size_bytes": 1899
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/plane-aware-lut-preregistration-v1.json",
+      "sha256": "4f2c5aa2ef510e46f51080863056d3aff4b142825318ff20f4a3443197db04f3",
+      "size_bytes": 12112
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/quality-gate-policy-v1.provenance.json",
+      "sha256": "3bfa0bcba46611a2f33a7b040fd21f1f48063db220a4c0f62228f0fcf94f51e2",
+      "size_bytes": 662
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/quality-gate-policy-v1.seed.json",
+      "sha256": "38336d27e0ceba9020b05a62038c6c822ea20daca32f45a8f8891459ea82fff2",
+      "size_bytes": 4708
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/shared-bank-artifact-materialization-v2.json",
+      "sha256": "478e35dcbd6217659680a401cfb2c7a7babc0127d8a0ef37c20b755dfbc80112",
+      "size_bytes": 15440
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/shared-bank-configuration-identity-v2.json",
+      "sha256": "48f5eef7cf9f7c513cf8e6568b3eeb4d607845c1e70e6c39b6ca0192a4c297de",
+      "size_bytes": 13164
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/spatial-semantics-preregistration-v2.json",
+      "sha256": "0de6461875c189c359e560e9dc357e2d4729b473ad18264974160834b03ceaec",
+      "size_bytes": 6533
+    },
+    {
+      "relative_path": "validation/calibration_v2/contracts/video-profile-contract-v1.json",
+      "sha256": "8c61d53cab158838e559b81a1d0c6b65ecc734a61ade76f84d41c92187214ef3",
+      "size_bytes": 493
+    },
+    {
+      "relative_path": "validation/calibration_v2/control_authorization_v2.py",
+      "sha256": "83bb3a10b055ce1bc89d0a17b8255db90d236f8996cefaef6d6ad45f399b299a",
+      "size_bytes": 131859
+    },
+    {
+      "relative_path": "validation/calibration_v2/control_evidence_publisher_v2.py",
+      "sha256": "4b820a61e7141078664805bc104c77f4fe481ee1b70794b60d20cb3f43c4393f",
+      "size_bytes": 28641
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_diagnostic_executor.py",
+      "sha256": "baafa928b5d5470f57dfca15ddefabe5e0e6db23067f997a353a50c887113582",
+      "size_bytes": 133448
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_diagnostics.py",
+      "sha256": "10e5ea5c939541f661c455f752520a0cf81b5eb1293cb241c933980fa1438072",
+      "size_bytes": 84108
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_native.py",
+      "sha256": "8675e4bfd6920284b36e00c057280b206b1c52430282e1f81e5c3b98f45593bd",
+      "size_bytes": 61361
+    },
+    {
+      "relative_path": "validation/calibration_v2/corrective_preregistration.py",
+      "sha256": "9520974ac72454e4cb5d2923d4125a3cefe71badf10ace59ce96a0fd9473f010",
+      "size_bytes": 18309
+    },
+    {
+      "relative_path": "validation/calibration_v2/fixtures/locked-compiler-input-shared-v1.json",
+      "sha256": "ba5438b47365c92175a6601aa757138648251004f0e4ddeba13969fdaa0428bb",
+      "size_bytes": 6488
+    },
+    {
+      "relative_path": "validation/calibration_v2/g05/__init__.py",
+      "sha256": "78e776094d6dfe559ec9a177d8df98c14cc68e568478b64abc6dbcaddff12a97",
+      "size_bytes": 664
+    },
+    {
+      "relative_path": "validation/calibration_v2/g05/gate.py",
+      "sha256": "9e8f1ba3562a2cf67e60377b3e349c9f725fb70a08da40eaadac24b3fa313912",
+      "size_bytes": 142481
+    },
+    {
+      "relative_path": "validation/calibration_v2/live_holdout_preopen.py",
+      "sha256": "3b13a8d25ae40dbf7eacecae1684b3aa124f1ea437e18b7110f31b7118078bbd",
+      "size_bytes": 41491
+    },
+    {
+      "relative_path": "validation/calibration_v2/locks/spatial-policy-admissibility-manifest.json",
+      "sha256": "a3d506cdc3a191240a0ca2ec244df88f393cc9f13af5e6962841a453b0425b1c",
+      "size_bytes": 49747
+    },
+    {
+      "relative_path": "validation/calibration_v2/macos_code_identity.py",
+      "sha256": "3cc281934f03ab02f29e1bef1a6ed915467b36984bfe29e522ddd153efbc17bb",
+      "size_bytes": 30076
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIMain.swift",
+      "sha256": "d009d4c76dcf405c369e6cc55b8bdf895eced953b9f3ad79dfdf39563bc2811c",
+      "size_bytes": 21316
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift",
+      "sha256": "43914ea887c0b77fd55e603b300f05e61a08c6c7ec526aa87415c0c0d7a68086",
+      "size_bytes": 127918
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift",
+      "sha256": "b81e5d5ff42f66817f5125c5308ab0d84c89d9a10c292cd6dfbd9dc7e0ea25db",
+      "size_bytes": 10614
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/ASHCalibrationP00Main.swift",
+      "sha256": "64dfb658f6549c15c68cacdce75e0765a93f8a9e673968b6aa72b026082840c3",
+      "size_bytes": 23487
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/__init__.py",
+      "sha256": "27e671b2cd7c20ef471303fdb5dbe0d850afb10433f838ba175c6a6155bec517",
+      "size_bytes": 549
+    },
+    {
+      "relative_path": "validation/calibration_v2/native_adapter/factory.py",
+      "sha256": "e51960909acf496cb2457bc8189f08d885e5713d71ea52a25e80d4b7f08eedf7",
+      "size_bytes": 307382
+    },
+    {
+      "relative_path": "validation/calibration_v2/non_ash_selector_artifacts_v2.py",
+      "sha256": "90b27ce615a5a214304b88a0a1d9fe4fa3f69b3ea419dec9b37e47fa4c8eeb55",
+      "size_bytes": 81290
+    },
+    {
+      "relative_path": "validation/calibration_v2/non_ash_selector_v2.py",
+      "sha256": "febd3bde240c885f700866649c9e2726a8d16c67a4007bf185f1d863cab5c25a",
+      "size_bytes": 44484
+    },
+    {
+      "relative_path": "validation/calibration_v2/p07/P07HoldoutFrameLoader.swift",
+      "sha256": "9bdde8739044d9959fa9e7235629f2232a403331845f94475945e9968610b1c5",
+      "size_bytes": 40284
+    },
+    {
+      "relative_path": "validation/calibration_v2/p07/__init__.py",
+      "sha256": "c8db5529df9817e1e694f7ba5111b0785f3a2cdab72509423b7ff5d028c2cded",
+      "size_bytes": 425
+    },
+    {
+      "relative_path": "validation/calibration_v2/p07/execution.py",
+      "sha256": "86e5164c4b897791515ed7b1ad942449c968cea499de50e69ac0f4f323c5e138",
+      "size_bytes": 311545
+    },
+    {
+      "relative_path": "validation/calibration_v2/p07/gate.py",
+      "sha256": "3ff6130bfaa5a182bf64eb9c9c17c273cdd0ec3386df666230c1eafacbb61d18",
+      "size_bytes": 46250
+    },
+    {
+      "relative_path": "validation/calibration_v2/p07/production.py",
+      "sha256": "f74092b30c085757b0aa03fc939da231b9dddbf505f026761eae4d7f0fec6f6f",
+      "size_bytes": 236768
+    },
+    {
+      "relative_path": "validation/calibration_v2/production_evaluator.py",
+      "sha256": "eee20d505ef9e80fcbac84973c9c8d80f2779762e0aca8cee54c27907725b8a9",
+      "size_bytes": 259493
+    },
+    {
+      "relative_path": "validation/calibration_v2/production_evidence.py",
+      "sha256": "6572328c44c4d92bd9733bda7f87d82523554bce4629faa47c12475ca44fb016",
+      "size_bytes": 51722
+    },
+    {
+      "relative_path": "validation/calibration_v2/production_factory.py",
+      "sha256": "81dcc73d769bc2914cb0824e7eecb807503c155fd24276580bee8ff10022e5e5",
+      "size_bytes": 7425
+    },
+    {
+      "relative_path": "validation/calibration_v2/production_providers.py",
+      "sha256": "b9927be24992d4bcf85c55bd0e9a134ef8bbacec13863aac1a47f5e495478bbd",
+      "size_bytes": 81910
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/__init__.py",
+      "sha256": "808f121456db394a004c33b0fddba826b66aa663b7945602d6b80f2188aa67fe",
+      "size_bytes": 58
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/calibration_plan_v2.py",
+      "sha256": "a8f6172fdd1ad5ef15beeae06ff78f3bdd075bb59582228dc48d38a0dfb91729",
+      "size_bytes": 10207
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/lut_oracle.py",
+      "sha256": "72b6ff321c6fe79a708a8d3775b6ba2c569825ff3c33f87026d47f72d7ceba64",
+      "size_bytes": 71663
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/lut_oracle_v2.py",
+      "sha256": "414d444b7bd8cfafc1852c07af4c8fda7fe4a83918ccbec193489ce0ad654fba",
+      "size_bytes": 69777
+    },
+    {
+      "relative_path": "validation/calibration_v2/reference/spatial_policy_admissibility_v2.py",
+      "sha256": "f47408fc61ee54e14a5229e3885990b4fdbbcb74efdbd718ba1f9b263a8856e2",
+      "size_bytes": 35600
+    },
+    {
+      "relative_path": "validation/calibration_v2/release_evidence.py",
+      "sha256": "15ee65300cae7a7bf8b8ef4d55cf5695b697370ed9ab997289144823f68f9ecb",
+      "size_bytes": 14088
+    },
+    {
+      "relative_path": "validation/calibration_v2/release_lock.py",
+      "sha256": "339b2a40688023fabdae5378bf578f57622465b7de840d5c620023d6b91cbb40",
+      "size_bytes": 117640
+    },
+    {
+      "relative_path": "validation/calibration_v2/release_orchestrator.py",
+      "sha256": "0871ab8f672cc7ad7a3875402caca7496f53fee2a94c29821ff236f761d39942",
+      "size_bytes": 195296
+    },
+    {
+      "relative_path": "validation/calibration_v2/run_provenance_v2.py",
+      "sha256": "217bff9191fda4c2f72c9e4f1149dacc6dcdf9382bad87d281e5537dffb9e28f",
+      "size_bytes": 90696
+    },
+    {
+      "relative_path": "validation/calibration_v2/runner.py",
+      "sha256": "09fa3d0f4baa6d5befce18eb998ed60e3c99b58cbf46664bb7c553bd6c337c7a",
+      "size_bytes": 370159
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/baseline-ablation-budget-v2.schema.json",
+      "sha256": "080cc48a86569d68aecb0ca9384c89300df57dbeaa995e0651cf6082c969416b",
+      "size_bytes": 8722
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json",
+      "sha256": "7da980490d90cab2bfdc9933fffa56cddc2327f8703014c896aa9e9b712c79d5",
+      "size_bytes": 10908
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-attempt-record-v2.schema.json",
+      "sha256": "06e329fbbaedbb73afa5ba9649c2b8748a55b196d9dfa1a8bc709a156a86d51e",
+      "size_bytes": 17225
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-plan-v1.schema.json",
+      "sha256": "051a804b32121a99241270c0199e5f3a90034f717ab05e67019b3d8384a7854a",
+      "size_bytes": 16897
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-plan-v2.schema.json",
+      "sha256": "09a21861104bd1b03667d1207a79d523386ad4431e710ba44e4d298180753c09",
+      "size_bytes": 32022
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-run-ledger-v1.schema.json",
+      "sha256": "882f913f72a66333ddf57fe4cb0d5e953dd35163e331eff493c8c4e6e66d392e",
+      "size_bytes": 8651
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-run-ledger-v2.schema.json",
+      "sha256": "aedee1f38d0b894353594414949fb33a428d4e9d8d64405b9656f1e62377d29b",
+      "size_bytes": 11947
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-selection-v1.schema.json",
+      "sha256": "a421d38f3fd751ab7a73a1e99593e98d7105d083264bb60d55498a2afacd7882",
+      "size_bytes": 13965
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/calibration-selection-v2.schema.json",
+      "sha256": "cc4405eb8269304cf8d09bee6da78540c19413f4a0daa5f7eece9a5388bc75e0",
+      "size_bytes": 10467
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evaluation-v1.schema.json",
+      "sha256": "f6323cb0a25c5abf0d95ad5e5274b2f0f17acf743e12381564391d3990fad403",
+      "size_bytes": 62146
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evaluation-v2.schema.json",
+      "sha256": "f05c6a084a3b994edeb38a0097f052e0dcf6e7c09e3af025cc185a74d1ee772b",
+      "size_bytes": 18594
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v1.schema.json",
+      "sha256": "2e59187816340fe9d7c88495a5bdd6e26fd33258df6ed521814900464cca024a",
+      "size_bytes": 7898
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-evidence-policy-v2.schema.json",
+      "sha256": "581a3bb6ba0ec3ea288076685124a9e7fd332aa883ee2165f18a27a4fb1c249e",
+      "size_bytes": 25040
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/candidate-lut-runtime-manifest-v1.schema.json",
+      "sha256": "c57e083785722dfc2d76f45fc2d3864979ba025b85e3409a1dc513cbe67306f6",
+      "size_bytes": 5363
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/compiler-contract-v1.schema.json",
+      "sha256": "46e55413adde5f0195a20c9a1ddb73d33684cd36ccae59139157f2165f9fe379",
+      "size_bytes": 7072
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/compiler-contract-v2.schema.json",
+      "sha256": "5f7a49e1f585e4f0e108e733ae3c6f28b47869b3cc2909419688714e76f57897",
+      "size_bytes": 27445
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-aggregate-cache-native-benchmark-v1.schema.json",
+      "sha256": "60e95199469b71758f26d8ef62914ad82cbde2b9ad8108b47abea82b4339163c",
+      "size_bytes": 48403
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-execution-producer-identity-v2.schema.json",
+      "sha256": "99032fc9490d5b41f2e9793ab99fb8d9cda2b5d6cd0ff7f9b367c6f4b2d96c46",
+      "size_bytes": 12223
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-objective-summary-v2.schema.json",
+      "sha256": "be8f13114ed4b91a86a8d69eee3f97d6f614ea8f57567e69c0d38b302b2807df",
+      "size_bytes": 4009
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/control-output-manifest-v2.schema.json",
+      "sha256": "61300b90a010a35e979d7798fd74ae59349f83565d46a11dab647725ef124597",
+      "size_bytes": 10753
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v1.schema.json",
+      "sha256": "6c299f1c2ed4a9493bd2d5b17958ca59ca1dca20b2195fa2a7fe6aba79d83069",
+      "size_bytes": 3587
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/conventional-control-selection-v2.schema.json",
+      "sha256": "1c6a87b852dc258f7202c7152f6dfb590da1a83ed88070739e1ce132f1f949df",
+      "size_bytes": 7201
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-receipt-v1.schema.json",
+      "sha256": "ae904bafaba28385c7804e62ece5a88ed8f5b7897e691b0d015d65c81a1b483c",
+      "size_bytes": 14700
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-anisotropy-diagnostic-v1.schema.json",
+      "sha256": "0cf95f1bce7a698e8ff710f19348e2ca8fd3e3223363789f3c8deeaa2be5cb5d",
+      "size_bytes": 24955
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/coordinate-model-contract-v3.schema.json",
+      "sha256": "93b217e5b51759481ee246e45acff75465770740ed786075e7d4c2c661677c7f",
+      "size_bytes": 13861
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/corrective-diagnostic-envelope-v1.schema.json",
+      "sha256": "67d45cc8d2d18faf4b595eac9923d7bde2b2c45ea85f22c1e9d8d3ca44526c63",
+      "size_bytes": 1497
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/corrective-diagnostic-preregistration-v1.schema.json",
+      "sha256": "b0fb2eb2e9dead5d2a6d31ee9fd9e56d4cf10eb7621026a12770e6424b479f9f",
+      "size_bytes": 16716
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/development-control-selection-cache-v1.schema.json",
+      "sha256": "8c8bca3f3e9a6ed7c2db3750a04cee3fea6c53ec3ea204a505ab446f6ee4b917",
+      "size_bytes": 12540
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/dispatch-measurement-v1.schema.json",
+      "sha256": "c56d998a258bbba74d5be7de8b4d241a95f9d6629bd862952a7c5ec6d5ecf489",
+      "size_bytes": 7921
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/evidence-wrapper-artifact-manifest-v1.schema.json",
+      "sha256": "0f07bafe6ba2e6d6e1d3358600d0f88e20b7427064297f8641ef03a1558304f9",
+      "size_bytes": 1897
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/evidence-wrapper-artifact-manifest-v2.schema.json",
+      "sha256": "5f269b4df8c0872f5ab4132478feb5464d56348929df55cc27fabe3e4520af5f",
+      "size_bytes": 2122
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/fixed-control-selection-v1.schema.json",
+      "sha256": "646919f448ffd335e3fa168a392944c41e9c9a9403a3b523273f0fceb01439ba",
+      "size_bytes": 3501
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/fixed-control-selection-v2.schema.json",
+      "sha256": "543db7e687bb7bcbdbb987b3c53c575d7a24a9473487098608601e9661fa2db1",
+      "size_bytes": 7047
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-command-plan-v1.schema.json",
+      "sha256": "ed5c8e5f87a0942a3ad3067f2144ab58ebd0f5e009e114e018344fcd3c64d6cd",
+      "size_bytes": 1724
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-current-source-receipt-v1.schema.json",
+      "sha256": "5827b768f61fb43890347586dc5b86eecadc28403e3ce546da35a950478be5b5",
+      "size_bytes": 4167
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-gate-assessment-v2.schema.json",
+      "sha256": "cda7e794ac31954b1d0362a631426e60425c175ead440902fd91145822059af2",
+      "size_bytes": 5857
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-run-identity-v1.schema.json",
+      "sha256": "9872750806a928325f90554dcc8d9a41857b809275426ac07f891fe6babe04c9",
+      "size_bytes": 9364
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g05-scoped-finding-register-v2.schema.json",
+      "sha256": "5abcafe871899222dfbfcea61157163f10dc61516d60a41be8b0f7beda50257f",
+      "size_bytes": 1646
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g06-outer-wrapper-manifest-binding-v1.schema.json",
+      "sha256": "a50df34b8aa13793d7ffc8e1da56bc34b876154a14fe085150661186bcc0ed83",
+      "size_bytes": 2395
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/g06-test-evidence-v1.schema.json",
+      "sha256": "b3fabc346af99c095d84cef04b4a6f3e3ca6454c1bfc2af0b052095ffac27626",
+      "size_bytes": 4398
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/holdout-sampling-plan-v1.schema.json",
+      "sha256": "a175e8d374edd62f6ed7022e4c0c8288674d80e0b5f5a81e8031d8935aeaa5f2",
+      "size_bytes": 6022
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/holdout-seal-attestation-no-pixel-v1.schema.json",
+      "sha256": "13cb50757724afc872dedfa45425c3a7b3adc8ec353299f6ed8bb10ce0b71249",
+      "size_bytes": 10520
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/instruction-conflict-normalization-v1.schema.json",
+      "sha256": "08863255ae74575a7579403b7ff7ebb8b0462e264616bdd429679958554f5a96",
+      "size_bytes": 7984
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/live-holdout-preopen-receipt-v1.schema.json",
+      "sha256": "e8f40936c6270aa5ccfe9bd3ac3d659b11a5a90e50c3817b67c9e92ece3eea5d",
+      "size_bytes": 2006
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/live-holdout-preopen-verification-v1.schema.json",
+      "sha256": "3ddfaea51bc88e9196db55afd945a8c0c0fc5a2b34acccb4a2eb39141f529335",
+      "size_bytes": 1639
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/locked-compiler-input-v1.schema.json",
+      "sha256": "d54b4051fb360d9d04fcf85a5c3ab3d73e13144cc14985aec387e591aa1b2444",
+      "size_bytes": 6952
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/locked-compiler-input-v2.schema.json",
+      "sha256": "1e01fad80f6948e3c0a4ed3970e1193d8b930e16afa08421052e9f7a5030799f",
+      "size_bytes": 8046
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/locked-metric-policy-v2.schema.json",
+      "sha256": "e996daca6ad0568b76ed971348265a150336280d6f075d4d1d67f37561725959",
+      "size_bytes": 10122
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/locked-quality-policy-v1.schema.json",
+      "sha256": "57427ddb11669b02b3334dc3c56a6a2a148176cf72bb143deca99e5a93b46563",
+      "size_bytes": 6612
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/lut-binary-contract-v1.schema.json",
+      "sha256": "5c213f302916923eea0c3789bf10b65cb7cb34a436aa7ab351512a2eaf2cf348",
+      "size_bytes": 5639
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/lut-manifest-v2.schema.json",
+      "sha256": "f5fa39b81367b441e9ab55cb632182dc18b8cf26c72d91c4f1d3f52c740d58f3",
+      "size_bytes": 6467
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/metric-performance-tolerances-v1.schema.json",
+      "sha256": "efd61106293bdbad29b95714d1b5368aa6b17ce9a29a6b6d0a6c7788e9be7771",
+      "size_bytes": 7101
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/native-parity-failure-v1.schema.json",
+      "sha256": "a4ca216e25cc3cb5f383dd819704380618faf44765f58d9e490f84c3dfdab4c1",
+      "size_bytes": 2472
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/native-parity-manifest-v1.schema.json",
+      "sha256": "700418456555906dfc9a897e1a995c3c0513a20885ab3353d6d04bf58d76c51c",
+      "size_bytes": 6366
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/native-parity-preregistration-v1.schema.json",
+      "sha256": "dba5e69c7b34b58d6053c6e69f79dfeca5a44b28ee900840ec181ab87357a2f3",
+      "size_bytes": 2870
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-attempt-failure-v2.schema.json",
+      "sha256": "dd9edd84ca809695e6c0c98438edc9c4b8a5921e513638227e181b99bcb42a16",
+      "size_bytes": 8164
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-attempt-ledger-v2.schema.json",
+      "sha256": "bcf065f97e4297c283a7607d4aa447e34dfa108c6dcdd229456f69132b46b7ce",
+      "size_bytes": 13945
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-evaluation-evidence-v2.schema.json",
+      "sha256": "15ac9960c73ead2b810c39d7c4c7f21c7773d74c15f29ea4ee6f128dc657ad43",
+      "size_bytes": 3351
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-selection-v1.schema.json",
+      "sha256": "a5b41ddcd39d26a257f88f752b873d5264ae491fd35275d1f19f1297e4af49ac",
+      "size_bytes": 7867
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-selector-selection-v2.schema.json",
+      "sha256": "d5cfa23e51a440887c2cc50ef2816eff1e228c1fab6eb86e66ee73a849a85fa9",
+      "size_bytes": 11540
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/non-ash-validation-neighbor-manifest-v2.schema.json",
+      "sha256": "d58d7cd27d3907696c8367f5e0fb79e2011733901f2dff34b996c6c3703bfe45",
+      "size_bytes": 10952
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/operator-bank-v1.schema.json",
+      "sha256": "157f4d3fa02af88e50a1daba3664aa442aae76b6378566a485b9c4d8a5c6ef07",
+      "size_bytes": 4992
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/operator-bank-v2.schema.json",
+      "sha256": "5d7d14e912bfa29d90959f9d368f50a784b40e4f603fc8b8146da216eac3c8fd",
+      "size_bytes": 16834
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-calibration-failure-v2.schema.json",
+      "sha256": "db99e3fef12167c63c271049f6c9ea6abc1834df4289700e27d9653bf12d284b",
+      "size_bytes": 10011
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-control-authorization-bundle-v2.schema.json",
+      "sha256": "c5d79fa2b6b8b574532d4a83d95a4e543f6a9dde769bc8c3f3969d5167729582",
+      "size_bytes": 6620
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-evidence-closure-v1.schema.json",
+      "sha256": "9467f5596b6d3cad73474881e3f1789ba8f6c4ec881f3307241781e775817fe5",
+      "size_bytes": 9901
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-evidence-closure-v2.schema.json",
+      "sha256": "02f4f00fea47ec3f165e32d762ed0ea3b17ba2e895735891cce124041c452135",
+      "size_bytes": 7561
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v1.schema.json",
+      "sha256": "c46682957d38eb7611b307d766fb9f75bff00e73e115e5cff6d5c0aa41caa05f",
+      "size_bytes": 6472
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v2.schema.json",
+      "sha256": "4ea77661e3590668c451672cb3363d98627850aceade1c395bac85227ed84cfd",
+      "size_bytes": 7771
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-release-bundle-v3.schema.json",
+      "sha256": "9a823e1e5dbe90e4d372016583625bcac2e5d169b6be35ce86c74c045de737f7",
+      "size_bytes": 10332
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-run-input-manifest-v2.schema.json",
+      "sha256": "ff4238d7734d47a125d81b8910b65fdd7fbaafd9391e5f72bb84358c00a4f2cc",
+      "size_bytes": 7094
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-run-provenance-receipt-v2.schema.json",
+      "sha256": "5dcfff1aee2f2d89fc6ec2de2a25312cb3eff3a4975f1d31a1c74858e7d201d4",
+      "size_bytes": 10893
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-runtime-correction-artifact-manifest-v1.schema.json",
+      "sha256": "1f350c9dd4522f355a74551d28b8b7c925eab3f1d5a06211e0e5284e5e1bcc55",
+      "size_bytes": 4969
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p06-v1-terminal-failure-analysis-receipt-v1.schema.json",
+      "sha256": "9dd99472e8a288830fe30ab0c849b544bcedd83b2d909b5eec8e68888fcc0e65",
+      "size_bytes": 19975
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-artifact-manifest-v1.schema.json",
+      "sha256": "98129eb7712fcdfa6b9ddbad68f42b19f25a989a0f37ac83fc8662db0591ca49",
+      "size_bytes": 3774
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-authorized-execution-bindings-v1.schema.json",
+      "sha256": "a2cb5b61024a6704035a96012d9e0616c5e1900284d8498803fa958f3364a716",
+      "size_bytes": 6081
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-execution-failure-v1.schema.json",
+      "sha256": "fcc75287382404b70a05210c65317e6ff08b73149ee5fc599d02f33f18cd30be",
+      "size_bytes": 9901
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-execution-result-v1.schema.json",
+      "sha256": "4033fcda336b224acbbee1c14c2aba5a3ae33be5621e37e8899b399fd15c0587",
+      "size_bytes": 4697
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-failure-log-v1.schema.json",
+      "sha256": "2239fe4e1611638af77cf7ca8d78873bf643fd68889dd468d1f4521012c2e4b6",
+      "size_bytes": 5524
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-frame-extraction-v1.schema.json",
+      "sha256": "fb7b150cbc2c2111c7ac53d933f85a6e2a54b74ac9d5dd5012e454fd1fc299a8",
+      "size_bytes": 5121
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-g07-publication-v1.schema.json",
+      "sha256": "d8452e240ca64834a7ba4abbcfed3ad0c6de4c5887e42abda85d40d3dc6fdf00",
+      "size_bytes": 1828
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-gate-evidence-v1.schema.json",
+      "sha256": "428c31a44d7882a0c892edc453f2b24266be9ef588e21c11cb5adc7e05abde95",
+      "size_bytes": 5455
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-inner-inventory-v1.schema.json",
+      "sha256": "c494983b00820904f57201e1d41e72e3b1c3c3d04d6af9d9da5772f0830b5a5f",
+      "size_bytes": 2028
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-preopen-production-verification-v1.schema.json",
+      "sha256": "81a75b855476e3b4b5a2272827221490889093f19207c8f2bc40f4cc21ba0f33",
+      "size_bytes": 2114
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-production-authorized-execution-binding-fragment-v1.schema.json",
+      "sha256": "53f86afc52b6523bc3acd7e136873374cae81e088792b4e4870e87006bea45d3",
+      "size_bytes": 6041
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-runtime-evidence-v1.schema.json",
+      "sha256": "e66e4e8729e5cbfa6253d9d9e437faf33b5d4fbc403180fbb61c3eec220ebf0f",
+      "size_bytes": 11516
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-spatial-holdout-measurements-v1.schema.json",
+      "sha256": "a6831fea4a232cd874fe3c526d2500a745fec67170e6722b9e562e4b54563b92",
+      "size_bytes": 12266
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/p07-transaction-intent-v1.schema.json",
+      "sha256": "13d3111cae750c11a17130e97418282e4fb3c11d28932d6336221e780f361fe1",
+      "size_bytes": 7919
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/plane-aware-lut-preregistration-v1.schema.json",
+      "sha256": "5c36a5b2689df5c62ed79b2ad764151772fa7494d376188d95bebfea8e5b04c1",
+      "size_bytes": 12949
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/preexecution-contract-corrections-v1.schema.json",
+      "sha256": "fb6c711bb2a3f53dde6d0caf804c896776fb47e8b8a4f38b0b6161223a1fbf7a",
+      "size_bytes": 3156
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/risk-state-diagnostic-v1.schema.json",
+      "sha256": "260a0d4c45cf57e6cb1e0e8fef16fe1d25b8830b6821df1e1e550f567f03dc8e",
+      "size_bytes": 11998
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/route-analysis-grid-selection-v1.schema.json",
+      "sha256": "f1612c31a718321270bfcbd25fb63e193ed820bb747eb184b37e7f61d452f267",
+      "size_bytes": 3203
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/sealed-evaluation-access-ledger-v1.schema.json",
+      "sha256": "a42c1ed7973254996ae81a9b01e2db4b778e64ee4754fa92803c444babb89cd1",
+      "size_bytes": 1247
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/shared-bank-artifact-materialization-v2.schema.json",
+      "sha256": "8cfbf68bedcf70afa71f73cbc00526b31e3bf53c857c734f7e9b1a6b0b29267c",
+      "size_bytes": 16678
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/shared-bank-configuration-identity-v2.schema.json",
+      "sha256": "0cee4c9ed9083d734491d90eaa3f02265b07295d7873733c006cce9df317147c",
+      "size_bytes": 13946
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/spatial-policy-admissibility-manifest-v2.schema.json",
+      "sha256": "141a8eb413ab95a12c7b4b2a2644b36aa370aaad561c34b7c56f7c2ed792af06",
+      "size_bytes": 9442
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/spatial-semantics-preregistration-v2.schema.json",
+      "sha256": "869a69921d2470b504664a5e44f0d50d9cf168a0406a2e133a65cab3743e4f95",
+      "size_bytes": 7527
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/validation-candidate-development-evidence-v1.schema.json",
+      "sha256": "1eb191038d0bc9a965aa3015d44544c8ee4c80c5409ae67fb3e02712772956ab",
+      "size_bytes": 1966
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/validation-candidate-development-evidence-v2.schema.json",
+      "sha256": "88847f184e8b79ea1333baa2125d89691409173bf05256e2bf6cbb75d56ef22f",
+      "size_bytes": 6612
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/video-mapping-v1.schema.json",
+      "sha256": "307a61418e2cf4441c86167e4af48c59ce149a65b186455fe3194d9b18841b28",
+      "size_bytes": 5126
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/video-mapping-v2.schema.json",
+      "sha256": "af5302bb26bee4c7ba0944749657a96865c0ce0fbacfe8f2175fbd2c4d499e28",
+      "size_bytes": 15226
+    },
+    {
+      "relative_path": "validation/calibration_v2/schemas/video-profile-contract-v1.schema.json",
+      "sha256": "31038f725a3465a30c2aa73716cac6a3a7bfd6409fcd0f63a65ab1a9d61e0e07",
+      "size_bytes": 898
+    },
+    {
+      "relative_path": "validation/calibration_v2/shared_bank_artifacts_v2.py",
+      "sha256": "7000a075e2dee55e38354399b8444147855305c61a8bb0f18e236ac13040592b",
+      "size_bytes": 68078
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/control_aggregate_cache_native_benchmark_fixture_v1.json",
+      "sha256": "8eaa0f1a8a4054f5030b4e8fc0c9d8890aa5c43ef47cc90414675e615266e4f6",
+      "size_bytes": 190104
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/fixtures/format-1.2-python-parity-manifest-v2.json",
+      "sha256": "39c01cd6fce21c052cd39181c689c161b0501936b980dcb5f3a441db337a13c7",
+      "size_bytes": 3537
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/fixtures/locked-compiler-input-format-1.2-parity-v2.json",
+      "sha256": "1c6f1076c994a257c25e8583cd12a3ce853b7cfb659734ba3e74020b53c13610",
+      "size_bytes": 4373
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/format_1_2_parity_fixture.py",
+      "sha256": "d5fbf2f131833d1d54b0db29a029b833cf8562371448c82f23c48cde8ed206ec",
+      "size_bytes": 3528
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/native_benchmark_fixture.py",
+      "sha256": "992d7d5f89ac4b236e013c414841616766c5f34d6eef90d022a66b1f0d7e8b46",
+      "size_bytes": 7199
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_authenticated_closure_snapshot_v2.py",
+      "sha256": "b226d6de9e0b41399e5df56ae0a231236d5e4de8c43130e75d6ce8fe0ac18f3f",
+      "size_bytes": 19015
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_baseline_ablation_budget_v2.py",
+      "sha256": "4f2c45e42bdd650876566f50a9406f42e634c73b2e92fb292ff5739c539e646f",
+      "size_bytes": 11911
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_baseline_ablation_budget_v2_codec.py",
+      "sha256": "9a4172d9ce347048ef334a062dfaeeee423db56f923192118660b77402736e0c",
+      "size_bytes": 15480
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_persistence_v2.py",
+      "sha256": "0adc4073cd7483ab7fef41388600fca9652ee7ada4b55c0ab11f3ca68b41e9e7",
+      "size_bytes": 157436
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_plan_codec.py",
+      "sha256": "e46bb58a55cee88c325cf7e99ef3b118c37205480d8392748ca78bb127c0fea2",
+      "size_bytes": 21318
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_plan_v2_contract.py",
+      "sha256": "4311c411d1b44df66215528f7815db3230c91656cf79ca4342e508e14a262255",
+      "size_bytes": 23467
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_scheduler_v2.py",
+      "sha256": "d472a4b22d9b0dce2f4d783ada01e486a730c555f95efe0aa358a508c50d7ffc",
+      "size_bytes": 26118
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_selection_persistence_v2.py",
+      "sha256": "89209a698158c33419a6b4c83aecf069c6fd34a9a6d668437ac4ca07483c1863",
+      "size_bytes": 75222
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_calibration_validation_v2.py",
+      "sha256": "b079082ac3a7031103fc0d6024bc54c88eb9fa2836ebb7ac3e94861487dc8f3f",
+      "size_bytes": 27551
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_candidate_evidence_policy_v2.py",
+      "sha256": "3474bb58c24db343e5af0cc0f1bbbf06d7b2e4eeab7061abbc1522b9eebb779c",
+      "size_bytes": 31896
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_compiler_contract_v2.py",
+      "sha256": "c3b23b19815d96630d2dcb876651edf7f330274eacdde22fe745b9aa8d930c75",
+      "size_bytes": 31552
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_contracts.py",
+      "sha256": "aef54e299bf7fd3e8f33e45d3123825bf028c2fbfda98309bf01925bcbd0e4c6",
+      "size_bytes": 55627
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_aggregate_cache.py",
+      "sha256": "2534a47d5c65f1d9f8137075fb85b2b276ee56f4b625536ca76945521b24a575",
+      "size_bytes": 67991
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_aggregate_native_benchmark.py",
+      "sha256": "ad513d49bbd1048669d812fad7d2c8e3e342d95f018c2bffba28c6ae514f00fc",
+      "size_bytes": 166080
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_authorization_split_scope_v2.py",
+      "sha256": "3235e75028d1751013405c2427a2adf4ccc2d2dbc2149f615b4ee4657ba50a5b",
+      "size_bytes": 9908
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_authorization_v2.py",
+      "sha256": "ad0a316154d8e82e77041c01411f0adb885c7e0f4dbe9ba0692f9399114f602c",
+      "size_bytes": 128092
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_evidence_publisher_v2.py",
+      "sha256": "09900590b3224b27138fc589d53ca5bced98e1db3f97f1e5a2fcfbe408b780e4",
+      "size_bytes": 13112
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_control_execution_producer_identity_v2.py",
+      "sha256": "0b89beccf4dd096ed0ccd4a373b50800796665f3e9f3f1e128f3ef11596a3421",
+      "size_bytes": 25028
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_coordinate_anisotropy_diagnostic_receipt.py",
+      "sha256": "933bad6839fb650855c301d44acadd6afafd4d91ef6292e17996629eb1a98f1c",
+      "size_bytes": 13904
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_coordinate_model_contract_v3.py",
+      "sha256": "694264838a8cbe5cd5e8806b75c13f21c4b50fa164903c04b1e6a811590414c9",
+      "size_bytes": 9951
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_cli.py",
+      "sha256": "efa64231ff09c22e8bba4c6d13b78235c429731e77f5deda85911c696f7bc332",
+      "size_bytes": 34575
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostic_executor.py",
+      "sha256": "5069c9726f3c123c02fab4965f5771a5f58a34df21a3216413a91cd4c9aed126",
+      "size_bytes": 38661
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_diagnostics.py",
+      "sha256": "b8a233b9101e8561371f05d922918d1f004691a3be22d3557026c55a37ec594f",
+      "size_bytes": 79166
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_native.py",
+      "sha256": "81c1316caa605c537fac08d68d83893ea6f0696bdb1d929d628c25b85116c71a",
+      "size_bytes": 31672
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_corrective_preregistration.py",
+      "sha256": "d6fc74d2d13625c66007494ec6aeb88fe9fe96a6bb8896680f94c5c43b4c10f3",
+      "size_bytes": 14975
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_development_control_selection_cache.py",
+      "sha256": "03f84dcf413b734fc8727abc5dc264e1a5ee83ed0f7697d124b2eee5c5f7dcab",
+      "size_bytes": 53779
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_evidence_wrapper_finalizer.py",
+      "sha256": "5fc5a36255cd134e499737eba6c40c4cfd08e7f8e3659428575f58729b02d4ae",
+      "size_bytes": 53149
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g05_current_source.py",
+      "sha256": "28c8eff6737c052e94399fdbab80fbe315cade0956029117e45c6594a0403156",
+      "size_bytes": 89806
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g05_gate.py",
+      "sha256": "67c97ed1cb799a3d836d610e0ddb26677502cb8d76fe5be1502c1faf66614de9",
+      "size_bytes": 85501
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g06_release_evidence_handoff.py",
+      "sha256": "d8f095732ddf77eee418a11248e1e5be0e668dd90f6bb1093075636fbfa4dded",
+      "size_bytes": 91461
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_g06_verification_runner.py",
+      "sha256": "e6d297ab1d08d2472ee5e9abdf2dad1352e115385b1c6f8e3ef0be3a7f6ee570",
+      "size_bytes": 98631
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_instruction_conflict_normalization.py",
+      "sha256": "3b9d76319e6215851b9c27239d1515ee04a5ec6192a81d14804747de9121c9d4",
+      "size_bytes": 8526
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_live_holdout_preopen.py",
+      "sha256": "b757d7a4be4a67a10194284d4ef0ae525b2284251144b2db002ea82fc54df4f8",
+      "size_bytes": 20807
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_locked_compiler_input_v2_contract.py",
+      "sha256": "026c488676b78c75c0a272586d84624505482432599a882378b586302f8fa4ec",
+      "size_bytes": 15864
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_macos_code_identity.py",
+      "sha256": "dab797eed3c05aad77f41d23e39992165e7b499be59a076c16bb7bd55399f1c6",
+      "size_bytes": 21562
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_native_adapter.py",
+      "sha256": "3c1943af0f297188e73cecd79df3806b22791c90f152a3b8604be46eda59df38",
+      "size_bytes": 101060
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_artifacts_v2.py",
+      "sha256": "d13c77d51247e45145f2bbeb0d44d1391859d96985721e3ad36aa9896f232e4a",
+      "size_bytes": 86838
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_v2.py",
+      "sha256": "7d7c80cf3fa1e55f03b9fa7ba4f0b49dca627195365f7cce41c2a100c6a90a0e",
+      "size_bytes": 41004
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_non_ash_selector_v2_schemas.py",
+      "sha256": "30d1306b5358e9ff294bd4707a0758e419344ed937f29efb49be3aca3654a6b8",
+      "size_bytes": 45664
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p06_runtime_correction_artifacts.py",
+      "sha256": "75bc139d7b55cf42e0b87929ab556a133ccbce73a9f1f9595d6cdd2a42b2bd83",
+      "size_bytes": 44588
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p06_v1_terminal_failure_analysis_receipt.py",
+      "sha256": "6cfd4a03e7251d19507347e671ce865179eeb60034681f0724c3836e40c8e9a9",
+      "size_bytes": 9773
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p06_v2_evidence_sibling_schemas.py",
+      "sha256": "195eb6351cd1d87bc1db1f85d50f30ae74db27cf0d0034bd2318fe7545f0f7f6",
+      "size_bytes": 71267
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p07_execution.py",
+      "sha256": "253c674cf1de8ad4835b4f83d661bbf0a6c4734d07c8ef9123da2ba0d29cb574",
+      "size_bytes": 160437
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p07_gate.py",
+      "sha256": "44c918371c96c4e5b18986d2fb627c7bca8ff37c4e4bef067e9b5dd3f2b2d856",
+      "size_bytes": 26204
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_p07_production.py",
+      "sha256": "e4c49e4260c965df4411976f68c4ab47761cabff0198da65e3a26eb607d4edf2",
+      "size_bytes": 77762
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_plane_aware_lut_preregistration_v1.py",
+      "sha256": "1854ed2f5215cf7df82f61df15d2f6464582fd4203a6ffdc1c5ea8b433ebaf9e",
+      "size_bytes": 19685
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_cache_reuse.py",
+      "sha256": "f6bac4714d36f80bbae0f2cf5c63d984b547d3e22da8972810aac43f9b214a2b",
+      "size_bytes": 3207
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_calibration_cli.py",
+      "sha256": "97fb75021f1c77201a3b8e1c51a0132b3309f83369c07feb16e31cce6981aeef",
+      "size_bytes": 7257
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_evaluator.py",
+      "sha256": "ba0101fad03bd27d128035213f5e57fe448039d8bcb8efac6a5d2d8252f27697",
+      "size_bytes": 24889
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_evidence.py",
+      "sha256": "4e6d295279cc21ff79a3de86a1b68d54880adaf7c89938b46c169cd2e1dbaf41",
+      "size_bytes": 21047
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_factory.py",
+      "sha256": "c44cc460b90ab9e73cc82f0e944e0ef28cc4c19bdf945c37d1277ae432aad7e3",
+      "size_bytes": 3539
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_production_providers.py",
+      "sha256": "84b3989d93060c4f9d78e2fd307d5a07d4afa6b8a062c6ed6ec612b2f3b5b6e4",
+      "size_bytes": 20694
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_reference_oracle.py",
+      "sha256": "74a4bb930c8c18b6d4b2be3bdf83cd84ed9415d9cb739663199d5884c27d4295",
+      "size_bytes": 21022
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_reference_oracle_v2.py",
+      "sha256": "00d87c17d1bf56901204f47926c2f6f2e2cc02bbeb012b145a2b00fa7d588107",
+      "size_bytes": 29948
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_release_lock.py",
+      "sha256": "1d60a7337316a69b0ec9d8c4f58286f3a0344a457a6fa05c43b0a06405ac0e75",
+      "size_bytes": 44994
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_release_orchestrator.py",
+      "sha256": "d22b1ffef88aec8797ecd7e43023109005379825d82464e6c361ce83c5a83ea3",
+      "size_bytes": 98580
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_run_p07_locked_holdout.py",
+      "sha256": "a5d3cea74039b2cf904fcea0a9e4358675db583c34e9d878632ca641ecda8be1",
+      "size_bytes": 18278
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_run_provenance_v2.py",
+      "sha256": "104084d8505814b12588acb54af8a45b7149353e57ed217d37b7a3217ac8f5ca",
+      "size_bytes": 63649
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_runner_evidence.py",
+      "sha256": "55b6ad03677343367120eb0e2f6f113dfe796f9760447c13c82ef6ba3e167ee4",
+      "size_bytes": 49464
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_runner_interrupt_preservation.py",
+      "sha256": "45a16653ef620d04f8ea5d2f027ed171d0601e7cee1db8b7df533e853a84056e",
+      "size_bytes": 78225
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_runner_search_ranking.py",
+      "sha256": "e59b2005e1874a5fcf658e38fa99981479284e4e843e2857229084d38d6431b3",
+      "size_bytes": 6615
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_runner_stage_context.py",
+      "sha256": "318240dc92f01360d1ca1e3242556dec7069932b5183370ec6a98948d6482b60",
+      "size_bytes": 25399
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_shared_bank_artifact_materialization_v2.py",
+      "sha256": "d8052f68354b15dd6749c9fab6c1a7b40b344d5095e8e50b9922226f31d3b031",
+      "size_bytes": 26694
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_shared_bank_artifacts_v2.py",
+      "sha256": "d5c1b5c0db4e5330782548b7d4afc537d0596e1c1f58da095f02935b51f2f58a",
+      "size_bytes": 42899
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_shared_bank_configuration_identity_v2.py",
+      "sha256": "f9f934153d2f3a65f9e79488ed705684875c13089bd7154e4836f8374beb46c6",
+      "size_bytes": 35799
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_spatial_policy_admissibility_v2.py",
+      "sha256": "2b3da2f7531c9c9937e5d92a7c2e720ca45d9b859a0d011d4d2fa6eda4e02694",
+      "size_bytes": 26740
+    },
+    {
+      "relative_path": "validation/calibration_v2/tests/test_video_profile_contract.py",
+      "sha256": "6ab92d902d0fa8fc6d9a93e24fc032c7388ccba314851719abc68ad92830f904",
+      "size_bytes": 3285
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/build_spatial_policy_admissibility_v2.py",
+      "sha256": "1dc276e919c618a79d0a1eae6dbace1d970eb6d85d70f3e4c7beb4241b92be72",
+      "size_bytes": 15158
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/compile_reference_luts.py",
+      "sha256": "35aae92379969411779748150ead94e595a1873a269fcd437dd3df5974f3088a",
+      "size_bytes": 2465
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/finalize_evidence_wrapper.py",
+      "sha256": "878925d05b42db94afc76e6178c8be97ef5511223b24b88ea325ce199808487e",
+      "size_bytes": 111717
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/finalize_p06_runtime_correction.py",
+      "sha256": "1a7421b2242c577628fa42faba9cae5ed042cd6332b4bbe4e47f577a8ed3c184",
+      "size_bytes": 61912
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/initialize_live_holdout_guard.py",
+      "sha256": "921bb654d7c60590084c56968dea8f825c105434675e60b6c4c1408275ca161b",
+      "size_bytes": 2547
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/inspect_p06_corrective_archive.py",
+      "sha256": "1108fcfd10dc8f074fc010f3c3a7e67706d5e582237542741df249460444c473",
+      "size_bytes": 4088
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/prepare_p06_corrective_diagnostics.py",
+      "sha256": "f68bcd47aaf2260e228e5a3391b5314c2d9c3bea03a8f46bc48a7898d44a1e91",
+      "size_bytes": 30184
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_g05_current_source.py",
+      "sha256": "351881617389c958d4ec113df747c76f77762af881faa9fbd63a74293cd55444",
+      "size_bytes": 194702
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_g06_verification.py",
+      "sha256": "fdce2a8ba98123eda52627e64ee20a733143b272f8187802b2cfa34765893761",
+      "size_bytes": 147947
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_p06_corrective_diagnostics.py",
+      "sha256": "17fdbbc999ab71bc26a7c12fccddec5633893a45534a0f4ef17786f580d252c4",
+      "size_bytes": 124990
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_p06_production_calibration.py",
+      "sha256": "29b4e5d5f4b967f744c9723f6cc40b1dd09cfe8fdbcebbb5a69ea5fa751ffaf7",
+      "size_bytes": 13098
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/run_p07_locked_holdout.py",
+      "sha256": "74b81f71f9f898477f9392a8f139b7612a541d57411ed8db6a4cae7361dd9703",
+      "size_bytes": 37750
+    },
+    {
+      "relative_path": "validation/calibration_v2/tools/verify_p06_v1_terminal_failure_analysis.py",
+      "sha256": "0ad30bebe667bab08eabaf8e64ee41b0594da3e6279967763b01d5df85c8506a",
+      "size_bytes": 53716
+    },
+    {
+      "relative_path": "validation/quality/reference/analytic-fixtures-v1.json",
+      "sha256": "5c7a6d2d91b081a63168e82f222bc0a2d8e6fe4c8f0369b4a8a16e6bf49fde9f",
+      "size_bytes": 788
+    },
+    {
+      "relative_path": "validation/quality/reference/analytic-fixtures-v2.json",
+      "sha256": "4bc11e0b0b074be2a6bfcf509a62181220249f4e107e1ee920170c78b0eb47aa",
+      "size_bytes": 15978
+    },
+    {
+      "relative_path": "validation/quality/reference/metric-vectors-v1.json",
+      "sha256": "0b0e4cf961acf907be56c28b1cadd645c0944b058e1e3c84f9f28ce9aba41262",
+      "size_bytes": 836
+    },
+    {
+      "relative_path": "validation/quality/reference/metric_oracle.py",
+      "sha256": "a524612a73d38a71be5870cc5e154f6f1ff18c25bb43373bf7447bbbac2ee8a2",
+      "size_bytes": 5054
+    },
+    {
+      "relative_path": "validation/quality/schemas/actual-codec-fixture-failure.schema.json",
+      "sha256": "84eec0c2c82f1e603afbc096aadeb03a6d4b9c0ba8b951bfc6f9d085217a16a5",
+      "size_bytes": 685
+    },
+    {
+      "relative_path": "validation/quality/schemas/actual-codec-fixture.schema.json",
+      "sha256": "65ee19902e7fa84c369b2442a5fa25a38903dcbae0cc21699d76ddf5e5609c97",
+      "size_bytes": 13815
+    },
+    {
+      "relative_path": "validation/quality/schemas/actual-codec-source.schema.json",
+      "sha256": "3af79f94444eb196c2bf4ebd69f725a7a800b8f341edb761b39aaa0c844e8dd0",
+      "size_bytes": 4738
+    },
+    {
+      "relative_path": "validation/quality/schemas/analytic-fixtures-v2.schema.json",
+      "sha256": "f13ee0d3fd9562333a86d4ec1214f92f7945f6110e7f26119800612b1a406a21",
+      "size_bytes": 11047
+    },
+    {
+      "relative_path": "validation/quality/schemas/artifact-manifest.schema.json",
+      "sha256": "32bd1d38cb45f93d192142c69fa700775df2ba7553042983564757ca89f0f7a9",
+      "size_bytes": 1046
+    },
+    {
+      "relative_path": "validation/quality/schemas/benchmark-dry-run.schema.json",
+      "sha256": "1cb1b02b0690942ce7da00bf6df57bbe8143f545ac07473ef4fbc67f4c6e8551",
+      "size_bytes": 16365
+    },
+    {
+      "relative_path": "validation/quality/schemas/common-writer-failure.schema.json",
+      "sha256": "216045e2f9aacaea9e4d35235832682987bc9350936c708c8b6e030d9aedbfe6",
+      "size_bytes": 1029
+    },
+    {
+      "relative_path": "validation/quality/schemas/common-writer-source.schema.json",
+      "sha256": "c85e6f4b913b606803ae0f71329f676301925983be6cc62d47bc194284e26188",
+      "size_bytes": 3362
+    },
+    {
+      "relative_path": "validation/quality/schemas/common-writer.schema.json",
+      "sha256": "2af5e2a393ab138503fb994246328a115cb40f6102fc4b81cf306935317abc92",
+      "size_bytes": 12788
+    },
+    {
+      "relative_path": "validation/quality/schemas/configuration-lock.schema.json",
+      "sha256": "66e9508bd345910bf990e0f2a8d2b3aceaf567860a7d42c4f0380803857f67ca",
+      "size_bytes": 1966
+    },
+    {
+      "relative_path": "validation/quality/schemas/corpus-lock.schema.json",
+      "sha256": "efed90aee4cc22e8e9276c5362eebee8674bd53f1c840ede27b658f3680338a7",
+      "size_bytes": 10852
+    },
+    {
+      "relative_path": "validation/quality/schemas/degradation-lock.schema.json",
+      "sha256": "95f1b119b63ea4c4a7088624df9de0bc9853387963feb5a6403b0ada7bd1aff2",
+      "size_bytes": 4451
+    },
+    {
+      "relative_path": "validation/quality/schemas/development-sample-lock.schema.json",
+      "sha256": "2efd5d374cc7188cb35455a187ba4d9dd88e9d3937e134c9682b4b59c709f4d0",
+      "size_bytes": 7627
+    },
+    {
+      "relative_path": "validation/quality/schemas/holdout-access-anchor.schema.json",
+      "sha256": "c3cebafc50b5daeff5baec5a44438d9667500ee1867cab7c51bf45ee01f9ca1f",
+      "size_bytes": 1030
+    },
+    {
+      "relative_path": "validation/quality/schemas/holdout-access-ledger.schema.json",
+      "sha256": "0f956d1944313d8ca4958ce5a46edd17c47d04f9cd3515a1e0a6db5fb0ecd202",
+      "size_bytes": 1668
+    },
+    {
+      "relative_path": "validation/quality/schemas/metric-conformance.schema.json",
+      "sha256": "7f8bca985ea6dc34a8d56bd0f5dd7d58a33dde247c09e89e76ab2c773e9d642f",
+      "size_bytes": 6756
+    },
+    {
+      "relative_path": "validation/quality/schemas/metric-policy.schema.json",
+      "sha256": "edf18fa58ab3b5f46acb3785cc298478177cab9759fb5e42d14b1ae679a5c016",
+      "size_bytes": 3815
+    },
+    {
+      "relative_path": "validation/quality/schemas/production-writer.schema.json",
+      "sha256": "bdb29cbee729fde9b9ea0319d85e5b6f084a1eba085d96536aa25fcf8b1d4174",
+      "size_bytes": 14756
+    },
+    {
+      "relative_path": "validation/quality/schemas/quality-harness-implementation-manifest.schema.json",
+      "sha256": "5c2b9072ca70101755485194ac6da4f96169d06b1cfb8ed472845a2498cef8be",
+      "size_bytes": 1086
+    },
+    {
+      "relative_path": "validation/quality/schemas/quality-result.schema.json",
+      "sha256": "36b367685d806f716006561a6a8e157e2a9d00b61db6d726d12a88254059653f",
+      "size_bytes": 2260
+    },
+    {
+      "relative_path": "validation/quality/schemas/validation-sample-lock.schema.json",
+      "sha256": "a2cd7f221b706c604c4f7c18fecce5a2007c6f0489df78b0e451d77803912dee",
+      "size_bytes": 11035
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/__init__.py",
+      "sha256": "20b726d7ee1429b8764067c6bad3dfabf766cc9f2d05e0c60febfb4b610cd84d",
+      "size_bytes": 1280
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/arrays.py",
+      "sha256": "20b4e5c2ddbb986c25916e0492f6aa7ddc7dec4f920b1a9f7945f69c6d777895",
+      "size_bytes": 6584
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/bootstrap.py",
+      "sha256": "08cf2cb6d215e3cbb6d5cc737ee3be0c030b5e6f64bcb402b392a87c07d06711",
+      "size_bytes": 4367
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/common_writer.py",
+      "sha256": "4c1429de72d80b037cecf402381f0a0b52d2bf3e6d8671f560cd93061ba75598",
+      "size_bytes": 37795
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/conformance.py",
+      "sha256": "d77fbba5f8174d3312d339244b2321aa8ae28ae95b6145f5765e337852c889c4",
+      "size_bytes": 17977
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/corpus.py",
+      "sha256": "e521296971970d9f028b12011037e0146fe60613433ecce6c90f215828b8b6d1",
+      "size_bytes": 20905
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/degradation.py",
+      "sha256": "9e1ac033c22c6c263baedcb49f58ef6cfb6e4cfab0be36fab7fb17e168e6c78a",
+      "size_bytes": 15314
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/dry_run.py",
+      "sha256": "3920a2a214619776969eb808a94bfc894c2807d5ad2badbaa81919fbed1a3656",
+      "size_bytes": 19842
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/fixtures.py",
+      "sha256": "f8a09bf8f4ad614ac30a054310de8e7877efce052f46469243e2319052e0aa20",
+      "size_bytes": 5806
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/harness_manifest.py",
+      "sha256": "8798c0d5ec48a8fba37bb8467bd19482fcff1006ca65579fc690cefd1a7f6cbe",
+      "size_bytes": 16309
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/holdout.py",
+      "sha256": "51b591ba4d0f9ce4dd1869986de2f930c7343ce1b63147a452c8262a74226c76",
+      "size_bytes": 19835
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/json_tools.py",
+      "sha256": "3962d36e9a9542479bf0f3b779eeaed9aa4c7dfa40641057bb2ffcfd3bf1ac3b",
+      "size_bytes": 1763
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/metrics.py",
+      "sha256": "100e461cb63f7e32ce047ce43d9e02e64ca2ee2f75b4130f023881cdd4dbdf87",
+      "size_bytes": 10622
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/production_dry_run.py",
+      "sha256": "1cbc3195eef671b899eb6363e4f0d513f073331fd6ecf6ca8d694f805b24ad0b",
+      "size_bytes": 116293
+    },
+    {
+      "relative_path": "validation/quality/src/mirmir_quality/samples.py",
+      "sha256": "2c0cbd9f8bf7f7047a4aa4e05245cfe7c437bd125d310e6c6e268f8633e46a34",
+      "size_bytes": 42018
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixtureMain.swift",
+      "sha256": "0721b69040647931988770826923969e29fb86c4e8910cab564779569ab13faf",
+      "size_bytes": 18793
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixtureMedia.swift",
+      "sha256": "4b254b4b41f4940208c68e71bedeabeebb236116c1a103e367b5ebd7a39a7764",
+      "size_bytes": 18651
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixturePixelIO.swift",
+      "sha256": "e628cfd5975ebd0a0f050b19bd7809d18f0c8a943b741b2fd6457439033a754c",
+      "size_bytes": 8461
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixtureProductRoute.swift",
+      "sha256": "3f45391049a00183be6e6b4dfed03034d15e6811489b41e38d7f6d9fabb99c47",
+      "size_bytes": 5068
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixtureSoftwareDecode.swift",
+      "sha256": "5e0deaf1e87d33a4ee8b7a6d944fa443ec83e4c6d53cf8fb1b42f368f2537925",
+      "size_bytes": 3652
+    },
+    {
+      "relative_path": "validation/quality/tools/actual_codec_fixture/ActualCodecFixtureTypes.swift",
+      "sha256": "66928666d086d1bcc08f5b46c32e6c4d75c768c1b829dfd8027f6b2408753e88",
+      "size_bytes": 13875
+    },
+    {
+      "relative_path": "validation/quality/tools/assemble_production_corpus_lock.py",
+      "sha256": "f276d76552b857039b13a14bd389131bc2237e2812268fc12832d9e518eafcfd",
+      "size_bytes": 4464
+    },
+    {
+      "relative_path": "validation/quality/tools/build_development_sample_lock.py",
+      "sha256": "81d10599c300b2348c8f1b99bf0c76b01435c7c46b7fe2d86f085e51cd2929fe",
+      "size_bytes": 3881
+    },
+    {
+      "relative_path": "validation/quality/tools/build_quality_harness_implementation_manifest.py",
+      "sha256": "947499bc85462b725ca46d03589bcac98cc76b45bb48d419580f1bb76d9fcc30",
+      "size_bytes": 1269
+    },
+    {
+      "relative_path": "validation/quality/tools/build_validation_sample_lock.py",
+      "sha256": "a408c2a677bfddf10fb391788910c3d75c0f85ab85dd7fd990c44bdf6313130b",
+      "size_bytes": 3904
+    },
+    {
+      "relative_path": "validation/quality/tools/common_writer/CommonWriterMain.swift",
+      "sha256": "ba624d0e388c94c57181f7a21aaa0c6a175cf30bedba38308a949a20f1c62675",
+      "size_bytes": 21749
+    },
+    {
+      "relative_path": "validation/quality/tools/common_writer/CommonWriterTypes.swift",
+      "sha256": "c9e8a069c6afb99c7c841e2991c147f06b6e072739b1dadd8a18a445ac990317",
+      "size_bytes": 7289
+    },
+    {
+      "relative_path": "validation/quality/tools/export_actual_codec_source.py",
+      "sha256": "3a9cc6afa14ab87e85ce18d73d49eaf18c34e653c0803ef6aa101d7ca0e852db",
+      "size_bytes": 6028
+    },
+    {
+      "relative_path": "validation/quality/tools/production_writer/ProductionWriterMain.swift",
+      "sha256": "ed0cd8cf2be311134048982ddeeb865ef66062547d9329776920c1ea067faa27",
+      "size_bytes": 63413
+    },
+    {
+      "relative_path": "validation/quality/tools/production_writer/ProductionWriterTypes.swift",
+      "sha256": "ce4e91b8264f7387a80c3aa79422145b60ee9b3d29b79e483a326b8610ea1893",
+      "size_bytes": 4083
+    },
+    {
+      "relative_path": "validation/quality/tools/run_actual_codec_fixture.py",
+      "sha256": "b8bfc2232b30a5568e6c63a75939467d9078dba9b724612cfd0fe5957e231700",
+      "size_bytes": 2507
+    },
+    {
+      "relative_path": "validation/quality/tools/run_development_dry_run.py",
+      "sha256": "f0ecfcfab176055cc884d8c36e59dda0516beb55665b07814f6ac8d77f980949",
+      "size_bytes": 1187
+    },
+    {
+      "relative_path": "validation/quality/tools/run_production_development_dry_run.py",
+      "sha256": "5aaeac366cd8016b8047418dc97ffd834f5fa9ab23be1eb6f5bb0782e7fa3873",
+      "size_bytes": 1854
+    },
+    {
+      "relative_path": "validation/spatial_v2/P05EvidenceMain.swift",
+      "sha256": "8eb38c8bb04b5df0fee3185de5fd8f5902b0f428c9caa8dc92601ddcfe33271a",
+      "size_bytes": 86382
+    },
+    {
+      "relative_path": "validation/spatial_v2/run_p05_evidence.py",
+      "sha256": "94c60719760193c198198e4e46e453ae484e818256c9c7bd2188fcd02b3c4200",
+      "size_bytes": 8148
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/coordinate-comparison.schema.json",
+      "sha256": "4219d42196c64b8f1859e4024400e171bb33afab00ff7ebf8cdc935aa17e98ae",
+      "size_bytes": 1440
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/cpu-reference-results.schema.json",
+      "sha256": "3a61bd847ebee0385cc0d8cc534c6cb99188bd7c532bba8855e41c91b1c09e73",
+      "size_bytes": 1101
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/cpu-reference-vectors.schema.json",
+      "sha256": "9f07c91d7a368ea4b73349fac76b5aaf05d65b8f882ac19e031e1319aab53b31",
+      "size_bytes": 783
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/development-mapping.schema.json",
+      "sha256": "60db146a28b1c1926b30d089a7af630d2d59998a452917289d92c5dc51c111da",
+      "size_bytes": 858
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/operator-discrimination.schema.json",
+      "sha256": "58ad217d10962953269c797e9503d8a9c37ca10547ef7573f06ce1a1b7025250",
+      "size_bytes": 815
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/operator-distinctness.schema.json",
+      "sha256": "4915685df3462a3913563b9874bd004a76fffbef22219657bad67c5af5ed85c0",
+      "size_bytes": 860
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/p05-common.schema.json",
+      "sha256": "9bda6750dfd6dcb6cdb52996b8482843b380c4261456ede17c54fdf144f4104a",
+      "size_bytes": 2816
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/state-causality-results.schema.json",
+      "sha256": "9d57b0c9acf89bfddc8826c0fc5dd44f21b9a7352b2382c665da99972075a7cd",
+      "size_bytes": 8086
+    },
+    {
+      "relative_path": "validation/spatial_v2/schemas/state-fixtures.schema.json",
+      "sha256": "a41b30b58c179b47c69d1344d75fb8924fe7e913185cf1ec3358fb88f1152760",
+      "size_bytes": 778
+    }
+  ],
+  "manifest_sha256": "4fb97673b67d12028b9d393d4b866fac650cb88449056c7741a081ea708504e6",
+  "schema_version": "1.0.0"
+}

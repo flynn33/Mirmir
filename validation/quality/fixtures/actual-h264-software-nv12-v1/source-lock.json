@@ -1,0 +1,106 @@
+{
+  "fixture_id": "actual-h264-software-nv12-v1",
+  "frame_count": 3,
+  "frames": [
+    {
+      "active_row_sha256": {
+        "Cb": "dba20d585ed6418aa94b9ed7b6f5e1a5b7666a4b4444cdd36007968212b6a38b",
+        "Cr": "6332daec7d7ce146d9200e5e85a64cd94b1441c51654804d2c642c7153f2a302",
+        "Y": "df53d342d2cb486d3b5358d86644ac2525bcf7b1cabe0d032adb215899c9e929"
+      },
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "b480c791f3e2824369f3751890ecdf60149c5db42b44d57854ebf6a12b6a6260",
+      "index": 0,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 0
+      }
+    },
+    {
+      "active_row_sha256": {
+        "Cb": "dba20d585ed6418aa94b9ed7b6f5e1a5b7666a4b4444cdd36007968212b6a38b",
+        "Cr": "87d5039f7f3921e7b21f9424ed7d3614ce1170948b8359fd2c3e06e42f8720c8",
+        "Y": "3eecfa129c4d338792837fe02069b34a68e8eb8a525c338eb6b46e118b28d956"
+      },
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "76ae6abc598768c91ae0a7e12efa5a1df862194ed627d3f83014429b47d8ae1d",
+      "index": 1,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 20
+      }
+    },
+    {
+      "active_row_sha256": {
+        "Cb": "dba20d585ed6418aa94b9ed7b6f5e1a5b7666a4b4444cdd36007968212b6a38b",
+        "Cr": "7ce3e7a8c533d9e3d1adbb3637e9523e498549abdbe9cd4011d1bb44c086fe5a",
+        "Y": "737bc3ac5b4fc311df0bfaaca37e1a6d2b10573ed6e2761131cf3ae919533a50"
+      },
+      "duration": {
+        "timescale": 600,
+        "value": 20
+      },
+      "frame_nv12_sha256": "417eae83accb11c6cdbc29b5e7356715bb273801c23c9486944b4007b2a7c808",
+      "index": 2,
+      "presentation_time": {
+        "timescale": 600,
+        "value": 40
+      }
+    }
+  ],
+  "payload_sha256": "05d1aa8b114e361b14f8ae9242412d3279fc63c6849aec4b4d69c47c26e4e5fe",
+  "payload_size_bytes": 64800,
+  "pixel_layout": {
+    "active_row_hash_contract": "SHA-256 over raster-order active bytes with no row padding",
+    "chroma_code_range": [
+      16,
+      240
+    ],
+    "chroma_location_bottom_field": "Left",
+    "chroma_location_top_field": "Left",
+    "color_primaries": "ITU_R_709_2",
+    "height": 90,
+    "luma_code_range": [
+      16,
+      235
+    ],
+    "pixel_format": "420v",
+    "plane_order": [
+      "Y",
+      "interleaved_CbCr"
+    ],
+    "range": "video",
+    "rounding": "binary64 multiply/add then round to nearest, ties to even",
+    "row_padding": "absent",
+    "transfer_function": "ITU_R_709_2",
+    "width": 160,
+    "ycbcr_matrix": "ITU_R_709_2"
+  },
+  "schema_version": "1.0.0",
+  "source": {
+    "degradation_policy_sha256": "fb902e34fa28f827288715a6b7cb2b78e9994989dd3c9d8d9c64c5ed7bd706b0",
+    "degradation_profile_id": "hq-binomial7-decimate-2x-v1",
+    "frame_indices": [
+      0,
+      1,
+      2
+    ],
+    "generator": "synthetic_planar_frame",
+    "native_dimensions": {
+      "height": 180,
+      "width": 320
+    }
+  },
+  "timing": {
+    "frame_duration_value": 20,
+    "frame_rate_denominator": 1,
+    "frame_rate_numerator": 30,
+    "timescale": 600
+  }
+}

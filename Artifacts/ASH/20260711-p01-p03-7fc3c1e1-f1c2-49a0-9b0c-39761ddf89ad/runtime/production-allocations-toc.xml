@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+
+<trace-toc>
+    <run number="1">
+        <info>
+            <target>
+                <device uuid="396E8AE2-4B0B-51E2-AE11-498395ED5AA1" model="MacBook Pro" name="MBP16-M4P" os-version="26.5.1 (25F80)" platform="macOS"/>
+                <process type="attached" return-exit-status="0" name="Mirmir" pid="2864" termination-reason="exit(0)"/>
+                <environment>
+                    <item key="PERFC_SUPPRESS_SYSTEM_REPORTS" value="1"/>
+                    <item key="APP_DISTRIBUTOR_ID_OVERRIDE" value="com.apple.AppStore"/>
+                    <item key="XCInjectBundleInto" value="unused"/>
+                    <item key="executable_boothash" value="3fb28760681af69dd7724cffc056e49d5f21dbbc"/>
+                    <item key="XPC_SERVICE_NAME" value="application.com.mirmir.app.30613097.30617762.2AEB8EAA-2383-49FB-BE44-9C02FEF1AAF7"/>
+                    <item key="SSH_AUTH_SOCK" value="/var/run/com.apple.launchd.ZxJVy4awTG/Listeners"/>
+                    <item key="SQLITE_ENABLE_THREAD_ASSERTIONS" value="1"/>
+                    <item key="SHELL" value="/bin/zsh"/>
+                    <item key="DYLD_FRAMEWORK_PATH" value="/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/PackageFrameworks:/Applications/Xcode.app/Contents/SharedFrameworks:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/PackageFrameworks:/Applications/Xcode.app/Contents/SharedFrameworks:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks"/>
+                    <item key="XCODE_SCHEME_NAME" value="Mirmir"/>
+                    <item key="__CFBundleIdentifier" value="com.mirmir.app"/>
+                    <item key="executable_file" value="0x1a01000011,0x1d330a2"/>
+                    <item key="__XPC_LLVM_PROFILE_FILE" value="/dev/null"/>
+                    <item key="__XCODE_BUILT_PRODUCTS_DIR_PATHS" value="/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug"/>
+                    <item key="dyld_file" value="0x1a01000011,0xfffffff000a955d"/>
+                    <item key="COMMAND_MODE" value="unix2003"/>
+                    <item key="LLVM_PROFILE_FILE" value="/dev/null"/>
+                    <item key="XCTestBundleInjectPath" value="/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib"/>
+                    <item key="XCTestSessionIdentifier" value="BB6D2B4F-E0DD-4FA3-8BF9-5EAC8C0265DA"/>
+                    <item key="HOME" value="/Users/jimdaley"/>
+                    <item key="RUN_DESTINATION_DEVICE_UDID" value="00006040-0016283C11F8801C"/>
+                    <item key="TMPDIR" value="/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/"/>
+                    <item key="main_stack" value=""/>
+                    <item key="DYLD_LIBRARY_PATH" value="/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib"/>
+                    <item key="TERM" value="dumb"/>
+                    <item key="PATH" value="/usr/bin:/bin:/usr/sbin:/sbin"/>
+                    <item key="NSUnbufferedIO" value="YES"/>
+                    <item key="XCTestConfigurationFilePath" value=""/>
+                    <item key="security_config" value="0x0"/>
+                    <item key="OSLogRateLimit" value="64"/>
+                    <item key="XPC_FLAGS" value="1"/>
+                    <item key="USER" value="jimdaley"/>
+                    <item key="__XPC_DYLD_LIBRARY_PATH" value="/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug"/>
+                    <item key="executable_cdhash" value="18c0109156e4c7a99fe470ce70bc8682775ebde5"/>
+                    <item key="XCODE_TEST_PLAN_NAME" value="Mirmir"/>
+                    <item key="PERFC_ENABLE_EXTENDED_DIAGNOSTIC_FORMAT" value="1"/>
+                    <item key="XCTestBundlePath" value="Contents/PlugIns/MirmirTests.xctest"/>
+                    <item key="CA_ASSERT_MAIN_THREAD_TRANSACTIONS" value="0"/>
+                    <item key="DYLD_INSERT_LIBRARIES" value="/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/Mirmir.app/Contents/Frameworks/libXCTestBundleInject.dylib:/Applications/Xcode.app/Contents/Developer/usr/lib/libMainThreadChecker.dylib:/usr/lib/libRPAC.dylib"/>
+                    <item key="__XPC_DYLD_FRAMEWORK_PATH" value="/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug:/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug"/>
+                    <item key="LOGNAME" value="jimdaley"/>
+                    <item key="OS_ACTIVITY_DT_MODE" value="YES"/>
+                    <item key="PERFC_RESET_INSERT_LIBRARIES" value="1"/>
+                    <item key="RUN_DESTINATION_DEVICE_NAME" value="My Mac"/>
+                    <item key="PERFC_ENABLE_PROFILE_MODE" value="1"/>
+                    <item key="ptr_munge" value=""/>
+                    <item key="CA_DEBUG_TRANSACTIONS" value="0"/>
+                    <item key="RUN_DESTINATION_DEVICE_PLATFORM_IDENTIFIER" value="com.apple.platform.macosx"/>
+                    <item key="th_port" value=""/>
+                    <item key="MallocNanoZone" value="1"/>
+                </environment>
+            </target>
+            <summary>
+                <start-date>2026-07-11T08:05:33.564-05:00</start-date>
+                <end-date>2026-07-11T08:06:04.269-05:00</end-date>
+                <duration>30.705006</duration>
+                <end-reason>Time limit reached</end-reason>
+                <instruments-version>26.0 (17C52)</instruments-version>
+                <template-name>Allocations</template-name>
+                <recording-mode>Deferred</recording-mode>
+                <time-limit>30 seconds</time-limit>
+                <intruments-recording-settings>
+                    <instrument name="Allocations">
+                        <array>
+                            <dictionary>
+                                <key name="All Allocations">
+                                    <value>Discard unrecorded data upon stop</value>
+                                </key>
+                            </dictionary>
+                            <dictionary>
+                                <key name="Heap Allocations">
+                                    <value>Identify virtual C++ objects</value>
+                                </key>
+                            </dictionary>
+                            <dictionary>
+                                <key name="Recorded Types">
+                                    <value>Record all types</value>
+                                </key>
+                            </dictionary>
+                        </array>
+                    </instrument>
+                </intruments-recording-settings>
+            </summary>
+        </info>
+        <processes>
+            <process name="Mirmir" pid="2864" path="/private/tmp/mirmir-p01p03-optimized-deriveddata/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir"/>
+            <process name="kernel.release.t6041" pid="0" path="/System/Library/Kernels/kernel.release.t6041"/>
+        </processes>
+        <data>
+            <table schema="os-log" category="PointsOfInterest"/>
+            <table schema="global-roi-layout" target-pid="SINGLE"/>
+            <table exclude-os-logs="0" schema="global-poi-layout" target-pid="SINGLE"/>
+            <table schema="tick" frequency="10"/>
+            <table schema="kdebug-signpost" target-pid="SINGLE"/>
+            <table schema="os-signpost-arg" category="PointsOfInterest"/>
+            <table schema="os-log-arg" category="PointsOfInterest"/>
+            <table schema="dyld-library-load" target-pid="SINGLE"/>
+            <table schema="gcd-perf-event" target-pid="SINGLE"/>
+            <table codes="&quot;0x1f,0x05&quot;" schema="kdebug-strings" target="SINGLE"/>
+            <table codes="&quot;46,2&quot;" schema="kdebug" callstack="user" target="SINGLE"/>
+            <table codes="&quot;0x1,0xa&quot;" schema="kdebug" callstack="user" target="SINGLE"/>
+            <table codes="&quot;0x21,0xa&quot;" schema="kdebug" callstack="user" target="SINGLE"/>
+            <table category="PointsOfInterest" schema="os-signpost" dynamic-tracing-enabled-subsystems="&quot;com.apple.neappprivacy&quot;"/>
+            <table exclude-os-logs="0" schema="roi-metadata" target-pid="SINGLE"/>
+            <table schema="process-info"/>
+            <table schema="thread-info"/>
+            <table exclude-os-logs="0" schema="region-of-interest" target-pid="SINGLE"/>
+            <table codes="&quot;0x07,0x00&quot; &quot;0x1f,0x05&quot;" schema="kdebug" target="SINGLE"/>
+        </data>
+        <tracks>
+            <track name="Allocations">
+                <details>
+                    <detail name="Statistics" kind="table"/>
+                    <detail name="Allocations List" kind="table"/>
+                </details>
+            </track>
+            <track name="VM Tracker">
+                <details>
+                    <detail name="Regions Map" kind="table"/>
+                </details>
+            </track>
+        </tracks>
+    </run>
+</trace-toc>

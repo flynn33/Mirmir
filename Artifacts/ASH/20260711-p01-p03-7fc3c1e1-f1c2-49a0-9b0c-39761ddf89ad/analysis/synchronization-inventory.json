@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "analysis_basis": ["current_static_production_source", "signpost_validated_optimized_direct_route_telemetry", "separate_time_limited_debug_coverage_profile"],
+  "synchronization": [
+    {"id": "S01", "mechanism": "main_actor", "scope": "bootstrap_and_ui_submission", "anchors": ["Mirmir/App/MirmirForsettiBootstrap.swift:7-23", "Mirmir/Modules/UI/MirmirViewModel.swift:87", "Mirmir/Modules/UI/MirmirViewModel.swift:299-312"]},
+    {"id": "S02", "mechanism": "detached_task", "scope": "upscale_job", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:92-133"], "limitation": "os_thread_not_stable_across_suspension"},
+    {"id": "S03", "mechanism": "async_stream_buffering_newest_1", "scope": "progress", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:62-89"]},
+    {"id": "S04", "mechanism": "task_cancellation_handler", "scope": "session_teardown", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:176-177", "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:254-262"]},
+    {"id": "S05", "mechanism": "nslock", "scope": "media_session_lifecycle", "anchors": ["Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:179-182", "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:414-453"]},
+    {"id": "S06", "mechanism": "unfair_lock", "scope": "telemetry_state", "anchors": ["Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift:145-150", "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift:178-253", "Mirmir/Modules/Telemetry/ASHTelemetryRecorder.swift:267-399"]},
+    {"id": "S07", "mechanism": "cvpixelbuffer_base_address_lock", "scope": "cpu_plane_access", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:56-58", "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:85-87", "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:109-120"]},
+    {"id": "S08", "mechanism": "task_sleep_polling_1ms", "scope": "writer_video_and_audio_readiness", "anchors": ["Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:333-344", "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:365-385"]},
+    {"id": "S09", "mechanism": "await_writer_finish", "scope": "container_finalization", "anchors": ["Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:388-412"]},
+    {"id": "S10", "mechanism": "metal_command_queue", "scope": "conditional_lanczos", "anchors": ["Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift:67-94", "Mirmir/Modules/MetalRendering/DefaultMetalRenderingService.swift:13-36"]},
+    {"id": "S11", "mechanism": "checked_continuation", "scope": "lanczos_completion", "anchors": ["Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift:94-103"], "defect": "completion_handler_registered_after_commit"},
+    {"id": "S12", "mechanism": "cooperative_cancellation_checks", "scope": "frame_tile_row_candidate_loops", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:200-225", "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:27-53", "Mirmir/Modules/UpscalerEngine/ASH/ASHTileProcessing.swift:245-249", "Mirmir/Modules/UpscalerEngine/ASH/ASHReconstruction.swift:252-268"], "limitation": "latency_depends_on_checkpoint_spacing"},
+    {"id": "S13", "mechanism": "unfair_lock", "scope": "single_active_job_reservation", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:14", "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:30-55", "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:98-101"], "behavior": "overlap_rejected_and_every_terminal_path_releases_reservation"},
+    {"id": "S14", "mechanism": "per_job_factory_and_media_scope", "scope": "telemetry_isolation", "anchors": ["Mirmir/App/MirmirForsettiBootstrap.swift:39-48", "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:9-24", "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:42-50", "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:7-9", "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:36-49"], "behavior": "engine_media_backend_and_conditional_polish_share_only_the_current_job_recorder"},
+    {"id": "S15", "mechanism": "main_actor_running_state_guard", "scope": "source_selection_and_cancellation_convergence", "anchors": ["Mirmir/Modules/UI/MirmirViewModel.swift:121-124", "Mirmir/Modules/UI/MirmirViewModel.swift:222-234", "Mirmir/Modules/UI/MirmirViewModel.swift:299-370"], "behavior": "source_replacement_ignored_and_cancel_remains_running_until_terminal"}
+  ],
+  "copies_and_allocations": [
+    {"id": "C01", "kind": "decoder_output_request", "storage": "video_range_nv12_cvpixelbuffer", "anchors": ["Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift:15-34"], "limitation": "alwaysCopiesSampleData_false_does_not_prove_zero_copy"},
+    {"id": "C02", "kind": "output_pool", "requested_threshold": 8, "anchors": ["Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:267-271", "Mirmir/Modules/MediaPipeline/PixelBufferBridge.swift:12-35"]},
+    {"id": "C03", "kind": "intermediate_pool", "requested_threshold": 6, "route": "720p_to_1080p", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:181-194"]},
+    {"id": "C04", "kind": "full_frame_copy", "from": "nv12_luma", "to": "double_array", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:56-82"]},
+    {"id": "C05", "kind": "full_frame_copy", "from": "nv12_chroma_storage", "to": "uint8_array", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:85-106"]},
+    {"id": "C06", "kind": "tile_copy", "from": "full_frame_double_array", "to": "tile_double_array", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHTileProcessing.swift:371-390"]},
+    {"id": "C07", "kind": "full_frame_output_allocation", "storage": "double_array", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHTileProcessing.swift:240-256"]},
+    {"id": "C08", "kind": "runtime_tree_allocation", "nodes_per_tile": 121, "leaves_per_tile": 81, "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHBranchTree.swift:45-69", "MirmirTests/ASHFeatureBranchReconstructionTests.swift:36-48"]},
+    {"id": "C09", "kind": "operator_basis_allocation", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHReconstructionHelpers.swift:9-25"]},
+    {"id": "C10", "kind": "candidate_evaluation", "messages_evaluated": 16, "production_top_k": 1, "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHReconstruction.swift:222-270", "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:38-43"]},
+    {"id": "C11", "kind": "full_frame_cpu_write", "plane": "luma", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:132-156"]},
+    {"id": "C12", "kind": "full_frame_cpu_nearest_copy", "plane": "chroma", "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift:158-190"]},
+    {"id": "C13", "kind": "cvmetaltexture_view_creation", "planes": ["luma", "chroma"], "anchors": ["Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift:51-65", "Mirmir/Modules/MediaPipeline/PixelBufferBridge.swift:49-80"]},
+    {"id": "C14", "kind": "writer_append", "storage": "destination_cvpixelbuffer_to_encoder", "anchors": ["Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift:200-225", "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift:333-357"], "limitation": "encoder_internals_opaque_to_source_audit"}
+  ],
+  "measured_evidence": {
+    "optimized_direct_route_telemetry": {
+      "run_context": "debug_test_host_swift_optimization_minus_O_coverage_disabled_hardened_runtime_disabled_only_for_test_injection",
+      "telemetry_path": "runtime/telemetry-signpost-final.json",
+      "telemetry_sha256": "1daab305ff3319b5430c19102af1aced811033bc6fd2524dd9267dad6e15c045",
+      "signpost_validation_path": "analysis/signpost-validation.json",
+      "signpost_validation_status": "pass",
+      "full_frame_cpu_loops": 4,
+      "full_frame_copies": 4,
+      "reconstruct_luma_total_ms": 15543.467141,
+      "frame_total_ms": 15725.812417,
+      "job_total_ms": 15891.318833,
+      "reconstruct_share_frame_percent": 98.840472,
+      "reconstruct_share_job_percent": 97.811058
+    },
+    "separate_debug_coverage_time_profile": {
+      "total_samples": 30316,
+      "total_sample_weight_ms": 30316,
+      "generate_top_candidates_inclusive_ms": 29602,
+      "generate_top_candidates_share_percent": 97.644808,
+      "make_candidate_inclusive_ms": 28495,
+      "make_candidate_share_percent": 93.993271,
+      "apply_operator_inclusive_ms": 21240,
+      "apply_operator_share_percent": 70.062013,
+      "memory_stack_anywhere": {
+        "malloc_library_ms": 3662,
+        "move_or_copy_ms": 916,
+        "set_or_zero_ms": 658,
+        "swift_alloc_or_dealloc_ms": 320,
+        "deduplicated_union_ms": 5284,
+        "deduplicated_union_share_percent": 17.429740,
+        "nearest_message_bits_union_ms": 3043,
+        "nearest_message_bits_union_share_percent": 10.037604
+      },
+      "anchors": ["Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift:164-168", "Mirmir/Modules/UpscalerEngine/ASH/ASHReconstructionHelpers.swift:33-50"],
+      "artifact": "production-time-profile-aggregation.json"
+    },
+    "reconciliation": "Both separate runs concentrate in repeated candidate reconstruction; absolute values are not combined."
+  },
+  "unmeasured": [
+    "bytes_copied",
+    "verified_full_frame_gpu_readback_count",
+    "actual_max_in_flight_frames",
+    "production_gpu_stage_time",
+    "per_site_allocation_count_and_bytes",
+    "release_or_general_product_stage_cost_share"
+  ]
+}

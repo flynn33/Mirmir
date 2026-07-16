@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "sourcePackage": "ASH-Model-main",
   "sourceRepository": "https://github.com/flynn33/ASH-Model",
   "sourceRevision": "8782886a8cca9fa63f7d44b529add6eac80a50f8",
@@ -29,6 +29,16 @@
       "path": "computational-certificate.json",
       "sourcePath": "proofs/computational-certificate.json",
       "sha256": "b0ea48e16ede4d09d8361fcb374c7f3072d9c498685623b9bc747103efb9febf"
+    },
+    {
+      "path": "ash_video_mapping_v2.seed.json",
+      "sourcePath": "config/ash_video_mapping_v2.seed.json",
+      "sha256": "2ebdffa39909012e3284888fd23ede66a68a8a2e270fdfc278b287d109a60e88"
+    },
+    {
+      "path": "operator_bank_v2.seed.json",
+      "sourcePath": "config/operator_bank_spec.json",
+      "sha256": "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137"
     }
   ]
 }

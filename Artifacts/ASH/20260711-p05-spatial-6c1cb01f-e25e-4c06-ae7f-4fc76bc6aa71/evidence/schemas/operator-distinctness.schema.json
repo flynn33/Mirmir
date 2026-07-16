@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/schemas/operator-distinctness.schema.json",
+  "allOf": [
+    {"$ref": "p05-common.schema.json#/$defs/artifact"},
+    {
+      "properties": {
+        "artifact_type": {"const": "operator-distinctness"},
+        "data": {
+          "required": ["descriptor_count", "semantically_unique_count", "behaviorally_distinct_pair_count", "descriptors", "behavior_signatures"],
+          "properties": {
+            "descriptor_count": {"const": 16},
+            "semantically_unique_count": {"const": 16},
+            "behaviorally_distinct_pair_count": {"const": 120},
+            "descriptors": {"type": "array", "minItems": 16, "maxItems": 16},
+            "behavior_signatures": {"type": "array", "minItems": 16, "maxItems": 16}
+          }
+        }
+      }
+    }
+  ]
+}
+

@@ -2,6 +2,8 @@ import Foundation
 
 struct ASHAssetCatalog: Sendable {
     var mapping: ASHMappingAsset
+    var developmentMappingV2: ASHVideoMappingV2SeedAsset
+    var developmentOperatorBankV2: ASHOperatorBankV2SeedAsset
     var codewords: [ASHCodewordAssetRow]
     var stateReference: [ASHStateReferenceAssetRow]
     var branchTopology: ASHBranchTopologyAsset
@@ -15,6 +17,14 @@ struct ASHAssetCatalog: Sendable {
             mapping: decoder.decode(
                 ASHMappingAsset.self,
                 from: Data(contentsOf: resourceRoot.appendingPathComponent("ash_mapping_v1.json"))
+            ),
+            developmentMappingV2: decoder.decode(
+                ASHVideoMappingV2SeedAsset.self,
+                from: Data(contentsOf: resourceRoot.appendingPathComponent("ash_video_mapping_v2.seed.json"))
+            ),
+            developmentOperatorBankV2: decoder.decode(
+                ASHOperatorBankV2SeedAsset.self,
+                from: Data(contentsOf: resourceRoot.appendingPathComponent("operator_bank_v2.seed.json"))
             ),
             codewords: parseCodewords(
                 Data(contentsOf: resourceRoot.appendingPathComponent("codewords.csv"))
@@ -49,6 +59,8 @@ struct ASHAssetCatalog: Sendable {
     static func resolveResourceRoot(candidates: [URL?]) throws -> URL {
         let requiredFiles = [
             "ash_mapping_v1.json",
+            "ash_video_mapping_v2.seed.json",
+            "operator_bank_v2.seed.json",
             "codewords.csv",
             "ash-state-reference.csv",
             "branch-topology.json",
@@ -69,6 +81,8 @@ struct ASHAssetCatalog: Sendable {
 
     func validateRuntime() throws -> ASHAssetValidationReport {
         let mappingMatchesRuntime = validateMapping()
+        let developmentMappingV2IsValid = validateDevelopmentMappingV2()
+        let developmentOperatorBankV2IsValid = validateDevelopmentOperatorBankV2()
         let codewordsMatchRuntime = try validateCodewords()
         let stateReferenceMatchesRuntime = try validateStateReference()
         let branchTopologyMatchesRuntime = try validateBranchTopology()
@@ -76,6 +90,8 @@ struct ASHAssetCatalog: Sendable {
 
         return ASHAssetValidationReport(
             mappingMatchesRuntime: mappingMatchesRuntime,
+            developmentMappingV2IsValid: developmentMappingV2IsValid,
+            developmentOperatorBankV2IsValid: developmentOperatorBankV2IsValid,
             codewordsMatchRuntime: codewordsMatchRuntime,
             stateReferenceMatchesRuntime: stateReferenceMatchesRuntime,
             branchTopologyMatchesRuntime: branchTopologyMatchesRuntime,
@@ -117,6 +133,63 @@ struct ASHAssetCatalog: Sendable {
             }
         }
         return true
+    }
+
+    private func validateDevelopmentMappingV2() -> Bool {
+        let expectedNames = [
+            "orientation_low",
+            "orientation_high",
+            "edge_present",
+            "coherent_structure",
+            "texture_high_frequency",
+            "alias_or_ringing_risk",
+            "temporal_support_valid",
+            "chroma_luma_structure_aligned"
+        ]
+        return developmentMappingV2.schemaVersion == "2.0.1-seed"
+            && developmentMappingV2.mappingId == "ash-video-mapping-v2"
+            && developmentMappingV2.status == "development_seed_requires_calibration_and_lock"
+            && developmentMappingV2.canonicalCoreUnchanged
+            && developmentMappingV2.payloadBits.map(\.bit) == Array(0..<ASHState.payloadBitCount)
+            && developmentMappingV2.payloadBits.map(\.name) == expectedNames
+            && developmentMappingV2.integrityBit.bit == 8
+            && developmentMappingV2.integrityBit.name == "parity"
+    }
+
+    private func validateDevelopmentOperatorBankV2() -> Bool {
+        let expectedAxes = [
+            ASHOperatorAxisSeedAsset(
+                bit: 0,
+                name: "base_kernel",
+                zero: "keys_cubic_a_minus_0_5",
+                one: "lanczos3"
+            ),
+            ASHOperatorAxisSeedAsset(
+                bit: 1,
+                name: "support",
+                zero: "isotropic",
+                one: "structure_tensor_anisotropic"
+            ),
+            ASHOperatorAxisSeedAsset(
+                bit: 2,
+                name: "detail",
+                zero: "conservative",
+                one: "controlled_positive_detail"
+            ),
+            ASHOperatorAxisSeedAsset(
+                bit: 3,
+                name: "limiter",
+                zero: "strict_neighborhood_range",
+                one: "calibrated_relaxed_range"
+            )
+        ]
+        return developmentOperatorBankV2.schemaVersion == "2.0.0"
+            && developmentOperatorBankV2.bankId == "ash-spatial-operator-bank-v2"
+            && developmentOperatorBankV2.axes == expectedAxes
+            && developmentOperatorBankV2.coordinateMappingCandidates.map(\.id) == [
+                "half_pixel_center",
+                "source_aligned_rational"
+            ]
     }
 
     private func validateCodewords() throws -> Bool {
@@ -236,6 +309,8 @@ struct ASHAssetCatalog: Sendable {
 
 struct ASHAssetValidationReport: Sendable {
     let mappingMatchesRuntime: Bool
+    let developmentMappingV2IsValid: Bool
+    let developmentOperatorBankV2IsValid: Bool
     let codewordsMatchRuntime: Bool
     let stateReferenceMatchesRuntime: Bool
     let branchTopologyMatchesRuntime: Bool
@@ -247,6 +322,8 @@ struct ASHAssetValidationReport: Sendable {
 
     var isValid: Bool {
         mappingMatchesRuntime
+            && developmentMappingV2IsValid
+            && developmentOperatorBankV2IsValid
             && codewordsMatchRuntime
             && stateReferenceMatchesRuntime
             && branchTopologyMatchesRuntime

@@ -128,18 +128,18 @@ final class ASHInternalAlphaTests: XCTestCase {
     }
 
     func test_backendProcessesNV12BufferAndWritesDeterministicOutput() async throws {
-        let source = try makeNV12PixelBuffer(width: 64, height: 32) { row, col in
+        let source = try makeNV12PixelBuffer(width: 16, height: 8) { row, col in
             UInt8((row * 9 + col * 5) % 255)
         } chroma: { row, col in
             (UInt8(80 + (row + col) % 24), UInt8(176 - (row * 3 + col) % 24))
         }
-        let firstDestination = try makeNV12PixelBuffer(width: 128, height: 64)
-        let secondDestination = try makeNV12PixelBuffer(width: 128, height: 64)
+        let firstDestination = try makeNV12PixelBuffer(width: 32, height: 16)
+        let secondDestination = try makeNV12PixelBuffer(width: 32, height: 16)
 
-        let firstBackend = ASHDeterministicUpscaleBackend(scale: 2, tileSize: 32)
+        let firstBackend = ASHDeterministicUpscaleBackend(route: .direct2x)
         try await firstBackend.process(source: source, into: firstDestination)
 
-        let secondBackend = ASHDeterministicUpscaleBackend(scale: 2, tileSize: 32)
+        let secondBackend = ASHDeterministicUpscaleBackend(route: .direct2x)
         try await secondBackend.process(source: source, into: secondDestination)
 
         XCTAssertEqual(readPlane(firstDestination, plane: 0), readPlane(secondDestination, plane: 0))
@@ -148,25 +148,114 @@ final class ASHInternalAlphaTests: XCTestCase {
         XCTAssertGreaterThan(Set(readPlane(firstDestination, plane: 1)).count, 2)
     }
 
-    func test_backendDebugSummaryReportsTilesAndChroma() async throws {
-        let source = try makeNV12PixelBuffer(width: 64, height: 32) { row, col in
-            if col < 32 {
-                return UInt8(row < 16 ? 28 : 228)
+    func test_backendRunsDirect3Over2WithLegalDirectChromaOutput() async throws {
+        let lumaGenerator: (Int, Int) -> UInt8 = { row, col in
+            UInt8(16 + ((row * 17 + col * 11) % 220))
+        }
+        let chromaGenerator: (Int, Int) -> (UInt8, UInt8) = { row, col in
+            (
+                UInt8(16 + ((row * 23 + col * 31) % 225)),
+                UInt8(240 - ((row * 29 + col * 19) % 225))
+            )
+        }
+        let source = try makeNV12PixelBuffer(
+            width: 16,
+            height: 8,
+            luma: lumaGenerator,
+            chroma: chromaGenerator
+        )
+        let destination = try makeNV12PixelBuffer(width: 24, height: 12)
+        let backend = ASHDeterministicUpscaleBackend(route: .direct3Over2)
+
+        try await backend.process(source: source, into: destination)
+        let luma = readPlane(destination, plane: 0)
+        let chroma = readPlane(destination, plane: 1)
+        let summary = try XCTUnwrap(backend.lastDebugSummary)
+
+        XCTAssertEqual(summary.route, .direct3Over2)
+        XCTAssertEqual(summary.reconstructedLumaSampleCount, 24 * 12)
+        XCTAssertEqual(summary.reconstructedChromaSampleCount, 2 * 12 * 6)
+        XCTAssertTrue(luma.allSatisfy { (16...235).contains($0) })
+        XCTAssertTrue(chroma.allSatisfy { (16...240).contains($0) })
+        XCTAssertGreaterThan(Set(luma).count, 8)
+        XCTAssertGreaterThan(Set(chroma).count, 4)
+        XCTAssertEqual(summary.runtimeTreeGenerationCount, 0)
+        XCTAssertFalse(summary.nearestExpansionUsed)
+    }
+
+    func test_backendDebugSummaryReportsDirectStateConditionedPlanes() async throws {
+        let source = try makeNV12PixelBuffer(width: 16, height: 8) { row, col in
+            if col < 8 {
+                return UInt8(row < 4 ? 28 : 228)
             }
             return UInt8((row + col).isMultiple(of: 2) ? 236 : 20)
         } chroma: { _, _ in
             (64, 192)
         }
-        let destination = try makeNV12PixelBuffer(width: 128, height: 64)
-        let backend = ASHDeterministicUpscaleBackend(scale: 2, tileSize: 32)
+        let destination = try makeNV12PixelBuffer(width: 32, height: 16)
+        let backend = ASHDeterministicUpscaleBackend(route: .direct2x)
 
         try await backend.process(source: source, into: destination)
         let summary = try XCTUnwrap(backend.lastDebugSummary)
 
-        XCTAssertEqual(summary.tileCount, 2)
-        XCTAssertTrue(summary.chromaFeatureEnabled)
-        XCTAssertGreaterThan(summary.selectedMessageHistogram.count, 1)
-        XCTAssertGreaterThan(summary.estimatedPeakTemporaryBytes, 0)
+        XCTAssertEqual(summary.analysisSampleCount, 16 * 8)
+        XCTAssertEqual(summary.reconstructedLumaSampleCount, 32 * 16)
+        XCTAssertEqual(summary.reconstructedChromaSampleCount, 2 * 16 * 8)
+        XCTAssertGreaterThan(summary.stateHistogram.count, 1)
+        XCTAssertGreaterThan(summary.operatorHistogram.count, 1)
+        XCTAssertLessThanOrEqual(summary.maxOperatorEvaluations, 2)
+        XCTAssertEqual(summary.temporalStateCount, 0)
+        XCTAssertEqual(summary.runtimeTreeGenerationCount, 0)
+        XCTAssertFalse(summary.nearestExpansionUsed)
+    }
+
+    func test_backendUsesAndPropagatesProgressiveChromaSiting() async throws {
+        let luma: (Int, Int) -> UInt8 = { _, column in column < 8 ? 32 : 220 }
+        let chroma: (Int, Int) -> (UInt8, UInt8) = { _, column in
+            column < 4 ? (32, 224) : (224, 32)
+        }
+        let centerSource = try makeNV12PixelBuffer(
+            width: 16,
+            height: 8,
+            chromaLocation: kCVImageBufferChromaLocation_Center,
+            luma: luma,
+            chroma: chroma
+        )
+        let leftSource = try makeNV12PixelBuffer(
+            width: 16,
+            height: 8,
+            chromaLocation: kCVImageBufferChromaLocation_Left,
+            luma: luma,
+            chroma: chroma
+        )
+        let centerDestination = try makeNV12PixelBuffer(width: 32, height: 16)
+        let leftDestination = try makeNV12PixelBuffer(width: 32, height: 16)
+
+        try await ASHDeterministicUpscaleBackend(route: .direct2x).process(
+            source: centerSource,
+            into: centerDestination
+        )
+        try await ASHDeterministicUpscaleBackend(route: .direct2x).process(
+            source: leftSource,
+            into: leftDestination
+        )
+
+        XCTAssertNotEqual(readPlane(centerDestination, plane: 1), readPlane(leftDestination, plane: 1))
+        XCTAssertEqual(chromaLocation(centerDestination), kCVImageBufferChromaLocation_Center as String)
+        XCTAssertEqual(chromaLocation(leftDestination), kCVImageBufferChromaLocation_Left as String)
+    }
+
+    func test_backendRejectsMissingChromaSitingInsteadOfGuessing() async throws {
+        let source = try makeNV12PixelBuffer(width: 16, height: 8, chromaLocation: nil)
+        let destination = try makeNV12PixelBuffer(width: 32, height: 16)
+        let backend = ASHDeterministicUpscaleBackend(route: .direct2x)
+
+        do {
+            try await backend.process(source: source, into: destination)
+            XCTFail("Expected missing chroma siting to fail")
+        } catch let error as UpscalerEngineError {
+            XCTAssertTrue(String(describing: error).contains("explicit progressive chroma location"))
+        }
     }
 
     func test_backendStatusDoesNotClaimReadyBeforeValidation() {
@@ -224,6 +313,7 @@ final class ASHInternalAlphaTests: XCTestCase {
     private func makeNV12PixelBuffer(
         width: Int,
         height: Int,
+        chromaLocation: CFString? = kCVImageBufferChromaLocation_Center,
         luma: ((Int, Int) -> UInt8)? = nil,
         chroma: ((Int, Int) -> (UInt8, UInt8))? = nil
     ) throws -> CVPixelBuffer {
@@ -269,7 +359,24 @@ final class ASHInternalAlphaTests: XCTestCase {
             }
         }
 
+        if let chromaLocation {
+            CVBufferSetAttachment(
+                pixelBuffer,
+                kCVImageBufferChromaLocationTopFieldKey,
+                chromaLocation,
+                .shouldPropagate
+            )
+        }
+
         return pixelBuffer
+    }
+
+    private func chromaLocation(_ pixelBuffer: CVPixelBuffer) -> String? {
+        CVBufferCopyAttachment(
+            pixelBuffer,
+            kCVImageBufferChromaLocationTopFieldKey,
+            nil
+        ) as? String
     }
 
     private func readPlane(_ pixelBuffer: CVPixelBuffer, plane: Int) -> [UInt8] {

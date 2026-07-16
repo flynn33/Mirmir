@@ -70,6 +70,8 @@ targets:
     deploymentTarget: "15.4"
     sources:
       - path: MirmirTests
+      - path: validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift
+      - path: validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift
     dependencies:
       - target: Mirmir
     settings:

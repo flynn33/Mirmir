@@ -1,0 +1,115 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/non-ash-selector-selection-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "selection_stage", "selector_id",
+    "shared_bank_configuration_sha256", "uniform_application",
+    "candidate_evaluation_budget", "full_ash_maximum_candidate_evaluation_budget",
+    "selection_objective", "cached_16_operator_output_manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "artifact_kind": {"const": "p06_non_ash_selector_selection"},
+    "selection_stage": {"enum": ["development_provisional", "validation_final"]},
+    "selector_id": {"const": "continuous-linear-bank-selector-q15-v1"},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "uniform_application": {"const": true},
+    "candidate_evaluation_budget": {"const": 1513},
+    "full_ash_maximum_candidate_evaluation_budget": {"const": 1345},
+    "selection_objective": {"$ref": "#/$defs/objective"},
+    "development_attempt_count": {"type": "integer", "minimum": 1, "maximum": 1513},
+    "development_attempt_ledger_sha256": {"$ref": "#/$defs/sha256"},
+    "development_terminal_rule_sha256": {"$ref": "#/$defs/sha256"},
+    "development_terminal_rule_configuration": {"$ref": "#/$defs/rule"},
+    "development_objective_summary_sha256": {"$ref": "#/$defs/sha256"},
+    "development_engine_raw_corpus_mean_tuple": {"$ref": "#/$defs/tuple"},
+    "development_selection_sha256": {"$ref": "#/$defs/sha256"},
+    "validation_neighbor_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "validation_candidate_count": {"type": "integer", "minimum": 1, "maximum": 163},
+    "validation_results": {"type": "array", "minItems": 1, "maxItems": 163, "items": {"$ref": "#/$defs/result"}},
+    "selected_rule_sha256": {"$ref": "#/$defs/sha256"},
+    "selected_rule_configuration": {"$ref": "#/$defs/rule"},
+    "validation_objective_summary_sha256": {"$ref": "#/$defs/sha256"},
+    "cached_16_operator_output_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "tie_break": {"type": "string", "minLength": 1}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"selection_stage": {"const": "development_provisional"}}},
+      "then": {
+        "required": ["development_attempt_count", "development_attempt_ledger_sha256", "development_terminal_rule_sha256", "development_terminal_rule_configuration", "development_objective_summary_sha256", "development_engine_raw_corpus_mean_tuple", "tie_break"],
+        "properties": {"tie_break": {"const": "lexicographically maximize the development engine_raw corpus-mean tuple, then choose the lexicographically ascending canonical serialized complete rule vector"}},
+        "not": {"anyOf": [{"required": ["development_selection_sha256"]}, {"required": ["validation_neighbor_manifest_sha256"]}, {"required": ["validation_candidate_count"]}, {"required": ["validation_results"]}, {"required": ["selected_rule_sha256"]}, {"required": ["selected_rule_configuration"]}, {"required": ["validation_objective_summary_sha256"]}]}
+      },
+      "else": {
+        "required": ["development_selection_sha256", "development_terminal_rule_sha256", "validation_neighbor_manifest_sha256", "validation_candidate_count", "validation_results", "selected_rule_sha256", "selected_rule_configuration", "validation_objective_summary_sha256", "tie_break"],
+        "properties": {"tie_break": {"const": "lexicographically maximize the validation engine_raw corpus-mean tuple, then choose the lexicographically ascending canonical serialized complete rule vector"}},
+        "not": {"anyOf": [{"required": ["development_attempt_count"]}, {"required": ["development_attempt_ledger_sha256"]}, {"required": ["development_terminal_rule_configuration"]}, {"required": ["development_objective_summary_sha256"]}, {"required": ["development_engine_raw_corpus_mean_tuple"]}]}
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "tuple": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"type": "number"}},
+    "q8_8": {"enum": [-384, -256, -128, 0, 128, 256, 384]},
+    "rule": {
+      "type": "object",
+      "required": ["bias_descriptor_00_q8_8", "bias_descriptor_01_q8_8", "bias_descriptor_02_q8_8", "bias_descriptor_03_q8_8", "bias_descriptor_04_q8_8", "bias_descriptor_05_q8_8", "bias_descriptor_06_q8_8", "bias_descriptor_07_q8_8", "bias_descriptor_08_q8_8", "bias_descriptor_09_q8_8", "bias_descriptor_10_q8_8", "bias_descriptor_11_q8_8", "bias_descriptor_12_q8_8", "bias_descriptor_13_q8_8", "bias_descriptor_14_q8_8", "bias_descriptor_15_q8_8", "weight_magnitude_q8_8", "weight_coherence_q8_8", "weight_texture_q8_8", "weight_risk_q8_8", "weight_chroma_alignment_q8_8", "weight_orientation_cos_q8_8", "weight_orientation_sin_q8_8", "weight_noise_q8_8", "weight_horizontal_phase_q8_8", "weight_vertical_phase_q8_8", "weight_route_q8_8"],
+      "properties": {
+        "bias_descriptor_00_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_01_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_02_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_03_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_04_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_05_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_06_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_07_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_08_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_09_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_10_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_11_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_12_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_13_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_14_q8_8": {"$ref": "#/$defs/q8_8"},
+        "bias_descriptor_15_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_magnitude_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_coherence_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_texture_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_risk_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_chroma_alignment_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_orientation_cos_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_orientation_sin_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_noise_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_horizontal_phase_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_vertical_phase_q8_8": {"$ref": "#/$defs/q8_8"},
+        "weight_route_q8_8": {"$ref": "#/$defs/q8_8"}
+      },
+      "additionalProperties": false
+    },
+    "objective": {
+      "const": {
+        "comparison_domain": "engine_raw",
+        "row_scope": "natural corpus asset rows only",
+        "per_source_aggregation": "unweighted arithmetic mean across that source's locked degradation-profile rows",
+        "across_source_aggregation": "unweighted arithmetic mean across source assets",
+        "direction": "lexicographically maximize",
+        "metric_order": ["y_psnr_db", "y_ms_ssim", "y_ssim", "cb_psnr_db", "cr_psnr_db"]
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": ["stable_candidate_id", "rule_sha256", "rule_configuration", "engine_raw_corpus_mean_tuple", "objective_summary_sha256", "output_manifest_sha256"],
+      "properties": {
+        "stable_candidate_id": {"type": "string", "minLength": 1},
+        "rule_sha256": {"$ref": "#/$defs/sha256"},
+        "rule_configuration": {"$ref": "#/$defs/rule"},
+        "engine_raw_corpus_mean_tuple": {"$ref": "#/$defs/tuple"},
+        "objective_summary_sha256": {"$ref": "#/$defs/sha256"},
+        "output_manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

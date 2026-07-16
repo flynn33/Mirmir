@@ -1,0 +1,266 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-runtime-evidence-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_sha256",
+    "p06_release_bundle_manifest_sha256",
+    "release_native_executable_sha256",
+    "release_native_source_manifest_sha256",
+    "release_lut_manifest_sha256",
+    "release_lut_independent_recompile",
+    "sampling_plan_manifest_sha256",
+    "frame_extraction_manifest_sha256",
+    "measurement_core_sha256",
+    "preopen_cache_snapshot_before",
+    "preopen_cache_snapshot_after",
+    "preopen_cache_unchanged",
+    "loader_preopen_verification",
+    "p00_continuity_evidence",
+    "analytic_preopen_evidence",
+    "corpus_case_evidence",
+    "persistent_holdout_binary_artifact_count",
+    "temporary_binary_artifacts_published",
+    "holdout_accessed",
+    "configuration_files_modified_after_holdout",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p07_runtime_evidence"},
+    "status": {"const": "complete"},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "p06_release_bundle_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "release_native_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "release_native_source_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "release_lut_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "release_lut_independent_recompile": {"$ref": "#/$defs/recompileEvidence"},
+    "sampling_plan_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "frame_extraction_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "measurement_core_sha256": {"$ref": "#/$defs/sha256"},
+    "preopen_cache_snapshot_before": {"$ref": "#/$defs/treeSnapshot"},
+    "preopen_cache_snapshot_after": {"$ref": "#/$defs/treeSnapshot"},
+    "preopen_cache_unchanged": {"const": true},
+    "loader_preopen_verification": {"$ref": "#/$defs/loaderVerification"},
+    "p00_continuity_evidence": {"$ref": "#/$defs/p00Continuity"},
+    "analytic_preopen_evidence": {"$ref": "#/$defs/analyticEvidence"},
+    "corpus_case_evidence": {
+      "type": "array", "minItems": 9, "maxItems": 9,
+      "items": {"$ref": "#/$defs/runtimeCase"}
+    },
+    "persistent_holdout_binary_artifact_count": {"const": 0},
+    "temporary_binary_artifacts_published": {"const": false},
+    "holdout_accessed": {"const": true},
+    "configuration_files_modified_after_holdout": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "treeSnapshot": {
+      "type": "object",
+      "required": ["file_count", "size_bytes", "tree_sha256", "files"],
+      "properties": {
+        "file_count": {"type": "integer", "minimum": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "tree_sha256": {"$ref": "#/$defs/sha256"},
+        "files": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "sha256", "size_bytes"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "size_bytes": {"type": "integer", "minimum": 1}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "recompileEvidence": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "status",
+        "p06_release_bundle_manifest_sha256", "configuration_sha256",
+        "compiler_inputs_sha256", "native_executable_sha256",
+        "native_source_manifest_sha256",
+        "current_worktree_builder_executable_sha256",
+        "released_binary_used_for_recompile", "routes", "holdout_accessed"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p07_release_lut_independent_recompile"},
+        "status": {"const": "pass"},
+        "p06_release_bundle_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"},
+        "native_executable_sha256": {"$ref": "#/$defs/sha256"},
+        "native_source_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "current_worktree_builder_executable_sha256": {"$ref": "#/$defs/sha256"},
+        "released_binary_used_for_recompile": {"const": true},
+        "routes": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": ["target_route", "whole_file_sha256", "size_bytes", "byte_identical"],
+            "properties": {
+              "target_route": {"enum": ["direct-2x", "direct-3over2"]},
+              "whole_file_sha256": {"$ref": "#/$defs/sha256"},
+              "size_bytes": {"type": "integer", "minimum": 1},
+              "byte_identical": {"const": true}
+            },
+            "additionalProperties": false
+          }
+        },
+        "holdout_accessed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "p00Continuity": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "status",
+        "selected_p06_configuration_sha256", "commit", "commit_tree_sha1",
+        "backend_source_sha256", "source_manifest_sha256",
+        "adapter_source_sha256", "executable_sha256", "configuration_sha256",
+        "compatibility_boundary_normalization",
+        "selected_p06_runtime_invocation_count", "holdout_accessed"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p07_p00_continuity_evidence"},
+        "status": {"const": "pass"},
+        "selected_p06_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "commit": {"type": "string", "minLength": 1},
+        "commit_tree_sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "backend_source_sha256": {"$ref": "#/$defs/sha256"},
+        "source_manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "adapter_source_sha256": {"$ref": "#/$defs/sha256"},
+        "executable_sha256": {"$ref": "#/$defs/sha256"},
+        "configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "compatibility_boundary_normalization": {"type": "object", "minProperties": 1},
+        "selected_p06_runtime_invocation_count": {"type": "integer", "minimum": 1},
+        "holdout_accessed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "runtimeCase": {
+      "type": "object",
+      "required": [
+        "case_evidence_sha256", "case_evidence",
+        "native_records_by_control", "writer_evidence_by_control"
+      ],
+      "properties": {
+        "case_evidence_sha256": {"$ref": "#/$defs/sha256"},
+        "case_evidence": {"type": "object", "minProperties": 10},
+        "native_records_by_control": {
+          "type": "object", "minProperties": 24, "maxProperties": 25,
+          "additionalProperties": {"type": "object", "minProperties": 2}
+        },
+        "writer_evidence_by_control": {
+          "type": "object", "minProperties": 28, "maxProperties": 28,
+          "additionalProperties": {
+            "anyOf": [
+              {"type": "object", "minProperties": 2},
+              {"type": "null"}
+            ]
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "loaderBuild": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "status", "source_path",
+        "source_sha256", "executable_sha256", "compiler_version", "command",
+        "mach_o_uuid", "mach_o_uuid_contract", "code_signing",
+        "code_signing_identifier",
+        "holdout_accessed", "manifest_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p07_holdout_frame_loader_build"},
+        "status": {"const": "pass"},
+        "source_path": {"type": "string", "minLength": 1},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "executable_sha256": {"$ref": "#/$defs/sha256"},
+        "compiler_version": {"type": "string", "minLength": 1},
+        "command": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+        "mach_o_uuid": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "mach_o_uuid_contract": {"const": "sha256_first_128_bits_after_zeroing_lc_uuid_rfc4122_v3_variant"},
+        "code_signing": {"const": "deterministic_ad_hoc_fixed_identifier_no_timestamp"},
+        "code_signing_identifier": {"const": "local.mirmir.p07-holdout-frame-loader"},
+        "holdout_accessed": {"const": false},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "loaderSelfTest": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "status", "input_dimensions",
+        "crop", "nv12_size_bytes", "nv12_sha256", "repeat_byte_identical",
+        "presentation_order_monotonicity_checked", "midpoint_tie_selects_first",
+        "descending_presentation_time_rejected", "holdout_accessed", "manifest_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "p07_holdout_frame_loader_self_test"},
+        "status": {"const": "pass"},
+        "input_dimensions": {"const": {"width": 328, "height": 196}},
+        "crop": {"const": {"x": 2, "y": 2, "width": 324, "height": 192}},
+        "nv12_size_bytes": {"const": 93312},
+        "nv12_sha256": {"$ref": "#/$defs/sha256"},
+        "repeat_byte_identical": {"const": true},
+        "presentation_order_monotonicity_checked": {"const": true},
+        "midpoint_tie_selects_first": {"const": true},
+        "descending_presentation_time_rejected": {"const": true},
+        "holdout_accessed": {"const": false},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "loaderVerification": {
+      "type": "object",
+      "required": ["build", "reproducibility_build", "builds_byte_identical", "self_tests", "self_tests_byte_identical"],
+      "properties": {
+        "build": {"$ref": "#/$defs/loaderBuild"},
+        "reproducibility_build": {"$ref": "#/$defs/loaderBuild"},
+        "builds_byte_identical": {"const": true},
+        "self_tests": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {"$ref": "#/$defs/loaderSelfTest"}
+        },
+        "self_tests_byte_identical": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "analyticEvidence": {
+      "type": "object",
+      "required": [
+        "status", "fixture_count", "row_count", "evaluated_before_guard",
+        "reproduction_mode", "p06_semantic_comparison", "case_evidence"
+      ],
+      "properties": {
+        "status": {"const": "pass"},
+        "fixture_count": {"const": 14},
+        "row_count": {"const": 28},
+        "evaluated_before_guard": {"const": true},
+        "reproduction_mode": {"const": "independently_reproduced_exhaustive_controls"},
+        "p06_semantic_comparison": {"type": "object", "minProperties": 1},
+        "case_evidence": {
+          "type": "array", "minItems": 14, "maxItems": 14,
+          "items": {"$ref": "#/$defs/runtimeCase"}
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

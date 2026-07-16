@@ -1,0 +1,172 @@
+{
+  "schema_version": "2.0.1-seed",
+  "mapping_id": "ash-video-mapping-v2",
+  "status": "development_seed_requires_calibration_and_lock",
+  "canonical_core_unchanged": true,
+  "bit_order": "bit 0 is payload coordinate 1; bit 8 is coordinate 9 parity; serialize to a UInt16 with only the low nine bits used",
+  "payload_bits": [
+    {
+      "bit": 0,
+      "name": "orientation_low",
+      "definition": "Low bit of the nearest unoriented edge-tangent sector. Sector encoding: 0=horizontal tangent, 1=positive diagonal tangent, 2=vertical tangent, 3=negative diagonal tangent. Force sector 0 when edge_present is false."
+    },
+    {
+      "bit": 1,
+      "name": "orientation_high",
+      "definition": "High bit of the same four-sector edge-tangent code."
+    },
+    {
+      "bit": 2,
+      "name": "edge_present",
+      "definition": "Hysteretic threshold of contrast-normalized structure-tensor magnitude."
+    },
+    {
+      "bit": 3,
+      "name": "coherent_structure",
+      "definition": "Hysteretic threshold of structure-tensor coherence; distinguishes line/edge-like support from isotropic/corner-like support."
+    },
+    {
+      "bit": 4,
+      "name": "texture_high_frequency",
+      "definition": "Hysteretic threshold of normalized high-pass residual energy."
+    },
+    {
+      "bit": 5,
+      "name": "alias_or_ringing_risk",
+      "definition": "Hysteretic threshold of a normalized Laplacian/gradient and alternating-gradient risk proxy. This is a versioned image-domain proxy, not a mathematical property of the ASH core."
+    },
+    {
+      "bit": 6,
+      "name": "temporal_support_valid",
+      "definition": "True only when deterministic motion correspondence passes residual, forward/backward consistency, occlusion, and scene-cut gates. Always false in spatial-only phase."
+    },
+    {
+      "bit": 7,
+      "name": "chroma_luma_structure_aligned",
+      "definition": "True when no significant chroma edge exists or when significant luma and chroma edge orientations agree under the locked angular and confidence thresholds."
+    }
+  ],
+  "integrity_bit": {
+    "bit": 8,
+    "name": "parity",
+    "formula": "b8 = b0 xor b1 xor b2 xor b3 xor b4 xor b5 xor b6 xor b7"
+  },
+  "continuous_sidecar": [
+    "normalized_gradient_magnitude_q15",
+    "structure_coherence_q15",
+    "orientation_radians_or_q15_sector_fraction",
+    "texture_energy_q15",
+    "risk_proxy_q15",
+    "local_noise_estimate_q15",
+    "temporal_confidence_q15",
+    "motion_vector_q8_8",
+    "chroma_alignment_q15",
+    "local_min_y",
+    "local_max_y"
+  ],
+  "feature_math": {
+    "gradient_kernel": {
+      "name": "Scharr 3x3",
+      "gx": [
+        [
+          -3,
+          0,
+          3
+        ],
+        [
+          -10,
+          0,
+          10
+        ],
+        [
+          -3,
+          0,
+          3
+        ]
+      ],
+      "gy": [
+        [
+          -3,
+          -10,
+          -3
+        ],
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          3,
+          10,
+          3
+        ]
+      ],
+      "normalization_denominator": 32
+    },
+    "structure_tensor": {
+      "window": "separable 5-tap binomial [1,4,6,4,1]/16 over gx^2, gy^2, gx*gy",
+      "magnitude": "sqrt(Jxx + Jyy)",
+      "coherence": "sqrt((Jxx-Jyy)^2 + 4*Jxy^2) / (Jxx+Jyy+epsilon)",
+      "normal_orientation": "theta_n = 0.5 * atan2(2*Jxy, Jxx-Jyy), normalized modulo pi; this is the dominant gradient/edge-normal orientation.",
+      "tangent_orientation": "theta_t = (theta_n + pi/2) modulo pi; use theta_t for edge-aligned support and orientation bits.",
+      "sector_quantization": "sector = floor((theta_t + pi/8)/(pi/4)) modulo 4; ties use the lower integer sector after fixed-point conversion."
+    },
+    "contrast_normalization": "gradient magnitude divided by local RMS contrast plus epsilon",
+    "texture_energy": "mean((Y - binomial5x5(Y))^2) / (local_variance + epsilon)",
+    "risk_proxy": "weighted combination of normalized absolute Laplacian energy and alternating first-difference energy along the dominant normal; weights and thresholds are calibration parameters",
+    "chroma_alignment": "max(0, cos(2*(theta_y-theta_c))) multiplied by the smaller edge confidence; if chroma edge confidence is below threshold, treat alignment as not contradicted",
+    "numeric_epsilon": "A versioned positive epsilon stored in the locked mapping. CPU and Metal must use the same encoded value."
+  },
+  "hysteresis": {
+    "rule": "When previous motion-aligned state is valid, retain 1 until measurement falls below low threshold and retain 0 until measurement rises above high threshold. Without valid history, use midpoint (low+high)/2.",
+    "thresholds": {
+      "edge_present": {
+        "low": null,
+        "high": null
+      },
+      "coherent_structure": {
+        "low": null,
+        "high": null
+      },
+      "texture_high_frequency": {
+        "low": null,
+        "high": null
+      },
+      "alias_or_ringing_risk": {
+        "low": null,
+        "high": null
+      },
+      "temporal_support_valid": {
+        "low": null,
+        "high": null
+      },
+      "chroma_luma_structure_aligned": {
+        "low": null,
+        "high": null
+      }
+    },
+    "lock_requirement": "Every null must be populated by deterministic development-corpus calibration and written to a signed/hash-locked mapping file before holdout evaluation."
+  },
+  "calibration": {
+    "method": "Deterministic grid or coordinate search over predeclared ranges; no neural training and no runtime learning.",
+    "data_separation": "Tune on development assets, choose configuration on validation assets, evaluate holdout once. Assets, not frames, are the split unit.",
+    "holdout_rule": "After holdout metrics are viewed, that holdout becomes validation data for any subsequent mapping version; create and hash-lock a new holdout before the next claim."
+  },
+  "required_tests": [
+    "All 512 raw states have deterministic parity-valid/invalid classification.",
+    "All 256 valid states serialize identically in production Swift and independent reference-oracle.",
+    "Controlled fixtures toggle each payload bit without unintentionally toggling unrelated bits, except orientation pair changes by design.",
+    "State occupancy, transition, and hysteresis telemetry is emitted.",
+    "The production mapping version and hash are embedded in telemetry and sidecar provenance."
+  ],
+  "analysis_grid": {
+    "reference": "one state sample per source-lattice site using a bounded neighborhood",
+    "production_candidates": [
+      "one state per source site",
+      "one state per 2x2 source cells",
+      "one state per 4x4 source cells"
+    ],
+    "lock_rule": "Benchmark the candidates on development/validation for quality, state occupancy, churn, GPU time, and memory. Lock one per route before holdout; do not choose by intuition.",
+    "dispatch_granularity": "Decode and form compact dispatch records once per analysis cell and target phase; reconstruction taps consume the compact record and do not rerun feature extraction or branch compilation."
+  }
+}

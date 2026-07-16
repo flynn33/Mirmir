@@ -1,0 +1,181 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/metric-performance-tolerances-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "contract_id",
+    "status",
+    "declaration_rule",
+    "quality",
+    "numeric_conformance",
+    "performance",
+    "application"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "contract_id": {"const": "mirmir-p06-metric-performance-tolerances-v1"},
+    "status": {"const": "preregistered_not_measured"},
+    "declaration_rule": {"type": "string", "minLength": 1},
+    "quality": {
+      "type": "object",
+      "required": [
+        "paired_bootstrap",
+        "y_psnr_paired_delta_lower_bound_db",
+        "ms_ssim_noninferiority",
+        "ringing",
+        "alias",
+        "chroma_displacement",
+        "severe_regression",
+        "minimum_source_families_per_category",
+        "temporal_future_gate"
+      ],
+      "properties": {
+        "paired_bootstrap": {
+          "const": {"unit": "source_asset", "replicates": 10000, "seed": 20260710, "confidence": 0.95}
+        },
+        "y_psnr_paired_delta_lower_bound_db": {
+          "const": {
+            "full_spatial_ash_vs_best_fixed_same_bank": 0.0,
+            "full_spatial_ash_vs_non_ash_same_bank_selector": 0.0,
+            "full_spatial_ash_vs_best_conventional_baseline": 0.0,
+            "comparison": "strictly_greater_than"
+          }
+        },
+        "ms_ssim_noninferiority": {
+          "const": {"paired_delta_lower_bound_minimum": -0.002, "comparison": "greater_than_or_equal"}
+        },
+        "ringing": {
+          "const": {
+            "absolute_overshoot_maximum": 0.05,
+            "absolute_undershoot_magnitude_maximum": 0.05,
+            "increase_over_best_conventional_maximum": 0.01
+          }
+        },
+        "alias": {
+          "const": {
+            "forbidden_band_energy_ratio_maximum": 0.05,
+            "increase_over_best_conventional_maximum": 0.01
+          }
+        },
+        "chroma_displacement": {
+          "const": {
+            "absolute_pixels_maximum": 0.25,
+            "increase_over_best_conventional_pixels_maximum": 0.1
+          }
+        },
+        "severe_regression": {
+          "const": {
+            "per_asset_y_psnr_delta_db_minimum": -0.25,
+            "per_category_mean_y_psnr_delta_db_minimum": -0.1,
+            "allowed_asset_failure_fraction": 0.0
+          }
+        },
+        "minimum_source_families_per_category": {
+          "const": {"development": 1, "validation": 1, "holdout": 1}
+        },
+        "temporal_future_gate": {
+          "const": {
+            "active_in_p06": false,
+            "ghosting_normalized_error_absolute_maximum": 0.02,
+            "ghosting_increase_over_spatial_maximum": 0.005,
+            "scene_cut_reset_latency_frames_maximum": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "numeric_conformance": {
+      "type": "object",
+      "required": [
+        "fixed_point_and_integer_fields",
+        "lut_bytes",
+        "metric_binary64_absolute_tolerance",
+        "metric_binary64_relative_tolerance",
+        "cpu_float32_vs_metal_normalized_absolute",
+        "cpu_float32_vs_metal_normalized_rms",
+        "quantized_output_code_maximum_difference",
+        "nan_or_infinity_allowed"
+      ],
+      "properties": {
+        "fixed_point_and_integer_fields": {"const": "exact"},
+        "lut_bytes": {"const": "exact"},
+        "metric_binary64_absolute_tolerance": {"const": 1e-12},
+        "metric_binary64_relative_tolerance": {"const": 1e-12},
+        "cpu_float32_vs_metal_normalized_absolute": {"const": {"numerator": 2, "denominator": 65535}},
+        "cpu_float32_vs_metal_normalized_rms": {"const": {"numerator": 1, "denominator": 65535}},
+        "quantized_output_code_maximum_difference": {"const": 1},
+        "nan_or_infinity_allowed": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "performance": {
+      "type": "object",
+      "required": [
+        "same_machine_speedup_minimum",
+        "same_machine_frames_per_second_minimum",
+        "ash_dispatch_overhead_budget",
+        "full_frame_cpu_reconstruction_loops_maximum",
+        "runtime_leaf_tree_generations_per_frame_maximum",
+        "candidate_evaluations_per_output_cell_maximum",
+        "production_wait_until_completed_calls_maximum",
+        "avoidable_full_frame_gpu_readbacks_per_frame_maximum",
+        "default_in_flight_frames_maximum",
+        "memory_stability",
+        "calibration_estimate_relative_error_maximum",
+        "compute_only_frames_per_second_objective",
+        "compute_only_objective_is_blocking"
+      ],
+      "properties": {
+        "same_machine_speedup_minimum": {"const": 20.0},
+        "same_machine_frames_per_second_minimum": {"const": 0.982},
+        "ash_dispatch_overhead_budget": {
+          "const": {
+            "status": "pending_validation_derivation",
+            "measurement": "same-machine same-bank full ASH dispatch overhead percentage p95",
+            "formula": "max(5, ceil(measured_validation_p95_percent + 5))",
+            "uncertainty_margin_percentage_points": 5.0,
+            "minimum_budget_percent": 5.0,
+            "maximum_admissible_budget_percent": 25.0,
+            "rounding": "ceiling to the next integer percentage point after adding the margin",
+            "g06_failure": "derived budget greater than 25 percent",
+            "locked_policy_required_fields": [
+              "measured_validation_p95_percent",
+              "uncertainty_margin_percentage_points",
+              "derived_budget_percent",
+              "measurement_run_ids",
+              "measurement_artifact_sha256_values",
+              "derivation_formula",
+              "locked_before_g08"
+            ],
+            "post_g08_adjustment_allowed": false
+          }
+        },
+        "full_frame_cpu_reconstruction_loops_maximum": {"const": 0},
+        "runtime_leaf_tree_generations_per_frame_maximum": {"const": 0},
+        "candidate_evaluations_per_output_cell_maximum": {"const": 2},
+        "production_wait_until_completed_calls_maximum": {"const": 0},
+        "avoidable_full_frame_gpu_readbacks_per_frame_maximum": {"const": 0},
+        "default_in_flight_frames_maximum": {"const": 3},
+        "memory_stability": {
+          "const": {
+            "measurement_frames": 300,
+            "warmup_frames": 30,
+            "rss_or_footprint_drift_percent_maximum": 10.0,
+            "live_frame_resources_return_to_bound": true
+          }
+        },
+        "calibration_estimate_relative_error_maximum": {"const": 0.2},
+        "compute_only_frames_per_second_objective": {"const": 24.0},
+        "compute_only_objective_is_blocking": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "application": {
+      "type": "object",
+      "required": ["quality_limits_apply_to", "performance_limits_apply_to", "temporal_limits_apply_to"],
+      "additionalProperties": {"type": "string", "minLength": 1}
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,31 @@
+Asset: runtime/img9200_exact_1080p_1f_mirmir_signpost_final_2160p_hevc.mp4
+Duration: 0.067 seconds (40/600)
+Track count: 1
+Track 1: Video 'vide'
+	Enabled: Yes
+	Format Description 1:
+		Format: HEVC 'hvc1'
+		Dimensions: 3840 x 2160
+		Encoded Pixels: 3840 x 2160
+		Presentation Dimensions: 3840 x 2160
+	System support for decoding this track: Yes
+	Data size: 195798 bytes
+	Media time scale: 600
+	Duration: 0.067 seconds
+	Estimated data rate: 23495.760 kbit/s
+	Nominal frame rate: 15.000 fps
+	Minimum sample duration: 40/600 seconds
+	1 segment present
+	Index   Media Start  Media Duration   Track Start  Track Duration
+	    1  00:00:00.000    00:00:00.067  00:00:00.000    00:00:00.067
+	Chunks
+	Chunk Info: All samples in a chunk have the same size (=S), or the same duration (=D), or the same format description (=F)
+	Chunk Index Sample Count       Sample Range       Offset   Size(bytes)    Start Time Chunk Info
+	          1            1                [1]           44        195798  00:00:00.000        SDF
+	Sample Information
+	Synchronization Info: Sample is a Full Sync sample (=S), Partial Sync sample (= P), Droppable sample (=D)
+	Dependency Info: Sample has redundant coding (=R), is depended on by other samples (=B), is dependent on other samples (=O)
+	Sample Index            Decode Time(stamp)      Presentation Time(stamp)                      Duration        Offset  Size(bytes) Attributes
+	           1               0  00:00:00.000               0  00:00:00.000              40  00:00:00.067            44       195798          S
+
+Movie analyzed with 0 error.

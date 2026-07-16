@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "8b63a2ed-faa1-4a25-963d-9f3b4db101ed",
+  "started_utc": "2026-07-11T12:04:47Z",
+  "ended_utc": "2026-07-11T12:12:56Z",
+  "baseline_commit": "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a",
+  "status": "pass_with_evidence_based_variance",
+  "supplied_baseline": {
+    "focused_ash_tests_passed": 33,
+    "full_debug_tests_passed": 64,
+    "debug_build": "pass",
+    "release_build": "pass",
+    "one_frame_seconds": 20.162,
+    "three_frame_seconds": 61.224,
+    "throughput_fps": 0.0491,
+    "three_frame_maximum_rss_mib": 394,
+    "same_device_repeat_pixel_differences": 0,
+    "route_720p": "process_abort_handler_after_commit",
+    "route_720p_partial_left": true,
+    "audio_fixture": "enabled AAC plus disabled APAC rejected"
+  },
+  "current_run": {
+    "package_validation": "pass",
+    "checksum_validation": "pass",
+    "debug_build": "pass",
+    "focused_tests": {
+      "status": "pass",
+      "passed": 33,
+      "failed": 0,
+      "skipped": 0
+    },
+    "full_tests": {
+      "status": "pass",
+      "passed": 64,
+      "failed": 0,
+      "skipped": 0
+    },
+    "release_build": "pass",
+    "app_launch": "pass",
+    "one_frame_1080p_to_4k": "not_reproduced_missing_noninteractive_harness",
+    "three_frame_1080p_to_4k": "not_reproduced_missing_noninteractive_harness",
+    "one_frame_720p_to_1080p": "not_reproduced_missing_noninteractive_harness",
+    "audio_eligibility_fixture": "not_reproduced_missing_noninteractive_harness"
+  },
+  "variance_notes": [
+    "The tracked project has a GUI file-picker workflow but no noninteractive production media harness or XCTest entry point that accepts an input and output URL.",
+    "GUI scripting was not used as baseline evidence because the application sandbox and macOS accessibility authorization prevent a deterministic unattended file-panel run.",
+    "The supplied production-media measurements and exact fixture/output hashes remain the authoritative P00 media baseline. They were preserved without overwrite and are recorded in baseline-known-failures.json.",
+    "Current clean Debug and Release builds, 33 focused ASH tests, and all 64 Debug tests exactly reproduce the supplied build/test baseline. A noninteractive harness is required before behavior changes so P02 and later media gates can execute deterministically."
+  ],
+  "source_integrity": {
+    "hashes_recorded": true,
+    "post_run_hashes_match": true,
+    "tracked_files_verified": 104,
+    "input_media_files_verified": 15
+  }
+}

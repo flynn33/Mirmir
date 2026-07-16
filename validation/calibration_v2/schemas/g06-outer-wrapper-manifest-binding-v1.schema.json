@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/g06-outer-wrapper-manifest-binding-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "source_wrapper",
+    "source_manifest_path",
+    "copied_manifest_path",
+    "sha256",
+    "size_bytes",
+    "project_commit",
+    "manifest_schema",
+    "holdout_accessed",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p06_g06_outer_wrapper_manifest_binding"},
+    "source_wrapper": {
+      "type": "object",
+      "required": [
+        "absolute_path",
+        "device",
+        "inode",
+        "final_name",
+        "execution_partial_path"
+      ],
+      "properties": {
+        "absolute_path": {"type": "string", "pattern": "^/[^\\u0000]+$"},
+        "device": {"type": "integer", "minimum": 0},
+        "inode": {"type": "integer", "minimum": 1},
+        "final_name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+        },
+        "execution_partial_path": {
+          "type": "string",
+          "pattern": "^/[^\\u0000]+/\\.[A-Za-z0-9][A-Za-z0-9._-]{0,127}\\.partial$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_manifest_path": {"const": "artifact-manifest.json"},
+    "copied_manifest_path": {
+      "const": "test-evidence/python_calibration_full_suite/g06-outer-wrapper-artifact-manifest.json"
+    },
+    "sha256": {"$ref": "#/$defs/sha256"},
+    "size_bytes": {"type": "integer", "minimum": 1},
+    "project_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "manifest_schema": {"$ref": "#/$defs/sourceBinding"},
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sourceBinding": {
+      "type": "object",
+      "required": ["repository_path", "sha256", "size_bytes"],
+      "properties": {
+        "repository_path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    }
+  }
+}

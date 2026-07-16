@@ -9,19 +9,28 @@ enum ASHReferencePipeline {
         scale: Int = ASHReconstruction.defaultScale,
         topK: Int = ASHReconstruction.defaultTopK,
         candidateRetention: ASHCandidateRetention = .all,
-        scoringPolicy: ASHScoringPolicy = .referenceV1
+        scoringPolicy: ASHScoringPolicy = .referenceV1,
+        telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
     ) throws -> ASHMappingResult {
         let previousStateIsInvalid = previousState.map { !$0.hasValidIntegrity } ?? false
         let effectivePrevious = previousStateIsInvalid ? nil : previous
         let effectivePreviousState = previousStateIsInvalid ? nil : previousState
         let effectivePreviousReconstruction = previousStateIsInvalid ? nil : previousReconstruction
-        let features = try ASHFeatureExtractor.extract(
-            current: current,
-            previous: effectivePrevious,
-            chromaEnergy: chromaEnergy
+        let features = try telemetry.measure(.analyzeLuma) {
+            try ASHFeatureExtractor.extract(
+                current: current,
+                previous: effectivePrevious,
+                chromaEnergy: chromaEnergy
+            )
+        }
+        let sourceState = try telemetry.measure(.statePack) {
+            try ASHFeatureBinarizer.binarize(features, previousState: effectivePreviousState)
+        }
+        let tree = try ASHBranchTree.generate(
+            sourceState: sourceState,
+            depth: branchDepth,
+            telemetry: telemetry
         )
-        let sourceState = try ASHFeatureBinarizer.binarize(features, previousState: effectivePreviousState)
-        let tree = try ASHBranchTree.generate(sourceState: sourceState, depth: branchDepth)
         let leaves = ASHBranchTree.leafNodes(tree)
         let candidates: [ASHReconstructionCandidate]
         let selected: [ASHReconstructionCandidate]
@@ -35,7 +44,8 @@ enum ASHReferencePipeline {
                 scale: scale,
                 previousCandidate: effectivePreviousReconstruction,
                 features: features,
-                scoringPolicy: scoringPolicy
+                scoringPolicy: scoringPolicy,
+                telemetry: telemetry
             )
             selected = try ASHReconstruction.prune(candidates, topK: topK)
             evaluatedCandidateCount = candidates.count
@@ -48,7 +58,8 @@ enum ASHReferencePipeline {
                 previousCandidate: effectivePreviousReconstruction,
                 topK: topK,
                 features: features,
-                scoringPolicy: scoringPolicy
+                scoringPolicy: scoringPolicy,
+                telemetry: telemetry
             )
             candidates = result.selected
             selected = result.selected

@@ -1,0 +1,31 @@
+{
+  "expected": {
+    "ms_ssim": 0.6877531279202908,
+    "scale_contrast_structure_means": [
+      0.3213757008366993,
+      0.5090983825087755,
+      0.668557620728281,
+      0.9633033634873074,
+      0.9926945122622384
+    ],
+    "scale_ssim_means": [
+      0.3196741515648729,
+      0.5086634473921533,
+      0.6682219111465324,
+      0.9629838903064621,
+      0.9925730381538932
+    ],
+    "ssim": 0.3196741515648729
+  },
+  "fixture": {
+    "candidate_f64le_sha256": "fc04fcd08271c6a4006d93585eaad7550e02bf3ff2ab2372adb54eaa0bdbbce4",
+    "dimensions": [
+      96,
+      96
+    ],
+    "id": "nonidentical-multiscale-pattern-v1",
+    "reference_f64le_sha256": "356befe796503f54026082d9db81617a8b0effea902bec5213a1eecf420619e2"
+  },
+  "oracle": "independent direct two-dimensional Gaussian convolution",
+  "schema_version": "1.0.0"
+}

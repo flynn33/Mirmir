@@ -1,0 +1,326 @@
+{
+  "artifact_kind" : "common_writer_actual_codec",
+  "decoder" : {
+    "codec" : "avc1",
+    "frame_count" : 4,
+    "frames" : [
+      {
+        "active_row_sha256" : {
+          "Cb" : "3238e43978a95ea021c5893f85efc03546df54115a6cc05a65d1e432f654e724",
+          "Cr" : "55d5c7e538d847330b5b47ab114796f15034c33fa133a8d9e67f2cc8b0324902",
+          "Y" : "55e80a10a1706bf62e8cb0e0928f690edef762eba9a4bc3d227b1515c1d62787"
+        },
+        "attachments" : {
+          "chroma_location_bottom_field" : "Left",
+          "chroma_location_top_field" : "Left",
+          "color_primaries" : "ITU_R_709_2",
+          "range" : "video",
+          "transfer_function" : "ITU_R_709_2",
+          "ycbcr_matrix" : "ITU_R_709_2"
+        },
+        "case_id" : "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "height" : 96,
+        "index" : 0,
+        "payload_path" : "frame-000000.nv12",
+        "payload_sha256" : "3386f5d49344fc6b8322595f2bf45b43c8411f897a648ec870dbe5e9d6950de7",
+        "payload_size_bytes" : 23328,
+        "pixel_format" : "420v",
+        "presentation_time" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 0
+        },
+        "width" : 162
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "46e87348b7674950606bcf91fc5b2182c5ce1b376503b31f086f5f2d0f5b34cc",
+          "Cr" : "0235274213c08baff64210febe8a6623b2674d8b1ae76071429a962451c80a87",
+          "Y" : "a696e5547089794d88e339aeaf8cbbdb902ac74a1420fdab87c1a5e11f1b01d0"
+        },
+        "attachments" : {
+          "chroma_location_bottom_field" : "Left",
+          "chroma_location_top_field" : "Left",
+          "color_primaries" : "ITU_R_709_2",
+          "range" : "video",
+          "transfer_function" : "ITU_R_709_2",
+          "ycbcr_matrix" : "ITU_R_709_2"
+        },
+        "case_id" : "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "height" : 96,
+        "index" : 1,
+        "payload_path" : "frame-000001.nv12",
+        "payload_sha256" : "ed23bb0c3d239485c4110b5c37c281d60cdcca7f1e15f2a8df2e430f130541a8",
+        "payload_size_bytes" : 23328,
+        "pixel_format" : "420v",
+        "presentation_time" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "width" : 162
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "035fffc7cf9141d7260a37408959539d43fee95ba5fe3ed3a251e19ceb566e9d",
+          "Cr" : "1470a8ec5125a0a715a741cb536583ed843200d2058ed5b95276ccb4cd54861d",
+          "Y" : "fbfd9b7a5d086f1ba6f6c61c404589303cfd3ae3f46b8e4f7deddb888d1c6eaa"
+        },
+        "attachments" : {
+          "chroma_location_bottom_field" : "Left",
+          "chroma_location_top_field" : "Left",
+          "color_primaries" : "ITU_R_709_2",
+          "range" : "video",
+          "transfer_function" : "ITU_R_709_2",
+          "ycbcr_matrix" : "ITU_R_709_2"
+        },
+        "case_id" : "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "height" : 96,
+        "index" : 2,
+        "payload_path" : "frame-000002.nv12",
+        "payload_sha256" : "be04418b561c10c83be7c7f616a9b6a76a0245176a3f04833baee228ddb1df18",
+        "payload_size_bytes" : 23328,
+        "pixel_format" : "420v",
+        "presentation_time" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 40
+        },
+        "width" : 162
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "763c579b17eb98cf79092e8e18d0abcd95a9f903dad71e7dabcdb58e9b6177a9",
+          "Cr" : "8e42d9211cfd33f42e3640c6fbee75698606e33509e3ef774fe691fb357dfa48",
+          "Y" : "3ae9491aa27e19f9553465f56ae3067ddb722ba0850c79c4f116c75c1a1ee5f6"
+        },
+        "attachments" : {
+          "chroma_location_bottom_field" : "Left",
+          "chroma_location_top_field" : "Left",
+          "color_primaries" : "ITU_R_709_2",
+          "range" : "video",
+          "transfer_function" : "ITU_R_709_2",
+          "ycbcr_matrix" : "ITU_R_709_2"
+        },
+        "case_id" : "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 20
+        },
+        "height" : 96,
+        "index" : 3,
+        "payload_path" : "frame-000003.nv12",
+        "payload_sha256" : "89dbce7a0a6dd22a16da20f836de55cf9c9c7140a6f9fa8da287d1d240d920c4",
+        "payload_size_bytes" : 23328,
+        "pixel_format" : "420v",
+        "presentation_time" : {
+          "epoch" : 0,
+          "flags" : 1,
+          "timescale" : 600,
+          "value" : 60
+        },
+        "width" : 162
+      }
+    ],
+    "framework" : "AVFoundation",
+    "payload_layout" : "active_row_nv12_without_padding",
+    "pixel_format" : "420v",
+    "session_type" : "AVAssetReaderTrackOutput"
+  },
+  "encoded" : {
+    "codec" : "avc1",
+    "container" : "mp4",
+    "duration" : {
+      "epoch" : 0,
+      "flags" : 1,
+      "timescale" : 600,
+      "value" : 80
+    },
+    "format_attachments" : {
+      "chroma_location_bottom_field" : "Left",
+      "chroma_location_top_field" : "Left",
+      "color_primaries" : "ITU_R_709_2",
+      "range" : "video",
+      "transfer_function" : "ITU_R_709_2",
+      "ycbcr_matrix" : "ITU_R_709_2"
+    },
+    "frame_count" : 4,
+    "height" : 96,
+    "path" : "lr-direct-2x.mp4",
+    "sha256" : "a632374176fb5c66daf654a2f2863cc8f296c2460a93d2d88a1a80d47a53efb3",
+    "size_bytes" : 7958,
+    "width" : 162
+  },
+  "encoder" : {
+    "all_frames_sync" : true,
+    "allow_frame_reordering" : false,
+    "allow_temporal_compression" : false,
+    "average_bit_rate" : 250000,
+    "chroma_location" : "Left",
+    "color_primaries" : "ITU_R_709_2",
+    "data_rate_limit_bytes" : 31250,
+    "data_rate_limit_seconds" : 1,
+    "display_name" : "Apple H.264 (SW)",
+    "encoder_id" : "com.apple.videotoolbox.videoencoder.h264",
+    "encoder_name" : "Apple H.264 (SW)",
+    "expected_frame_rate" : 30,
+    "framework" : "VideoToolbox",
+    "hardware_accelerated" : false,
+    "hardware_acceleration_property_available" : false,
+    "hardware_acceleration_verification" : "explicit hardware disable and exact software encoder ID; acceleration property unsupported",
+    "max_key_frame_interval" : 1,
+    "pixel_format" : "420v",
+    "profile_level" : "H264_Baseline_3_0",
+    "real_time" : false,
+    "session_type" : "VTCompressionSession",
+    "transfer_function" : "ITU_R_709_2",
+    "ycbcr_matrix" : "ITU_R_709_2"
+  },
+  "environment" : {
+    "architecture" : "arm64",
+    "hardware_model" : "Mac16,7",
+    "macos" : "ProductName:\t\tmacOS\nProductVersion:\t\t26.5.1\nBuildVersion:\t\t25F80",
+    "processor" : "Apple M4 Pro",
+    "swift" : "swift-driver version: 1.127.14.1 Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)\nTarget: arm64-apple-macosx26.0",
+    "xcode" : "Xcode 26.2\nBuild version 17C52"
+  },
+  "limitations" : {
+    "decoded_pixel_repeatability_scope" : "repeatability is established only when separate recorded runs have matching decoded payload hashes",
+    "decoder_acceleration_visibility" : "AVAssetReaderTrackOutput does not expose decoder selection or acceleration state",
+    "mp4_byte_identity_across_runs_claimed" : false
+  },
+  "schema_version" : "1.0.0",
+  "source" : {
+    "frame_count" : 4,
+    "frames" : [
+      {
+        "active_row_sha256" : {
+          "Cb" : "0210a95af2c886e2cd943b282e88a043f365c874e90654b90ee5d6f9ff4138e1",
+          "Cr" : "13ea82880501c07af7087c5a3a5a2a708432f7d52be1013ee9b43fb32c2ee05a",
+          "Y" : "d058dbb816f8249a440fc867b3ed4257f1ce8a10b47bc6c99b54a62de78c646a"
+        },
+        "case_id" : "Aerial Footage Of B-Stand w-Artemis I Core Stage - 2020-02-09 - Full 4K::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "timescale" : 600,
+          "value" : 20
+        },
+        "frame_nv12_sha256" : "081ca32c9a1fd07b2ade3fe4b8ea3734d1bc201cdd543041ac3fb7bad8153ac9",
+        "index" : 0,
+        "presentation_time" : {
+          "timescale" : 600,
+          "value" : 0
+        }
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "7c2ceb22a437249153c4a7c53552e42089458866fdb2c1aeb69ce88b5d6af157",
+          "Cr" : "ad565ddf9dd61162a12bf822921cc905bac4c52de2747e148adbf04ad1be80e8",
+          "Y" : "751b293af2e6f954833a3f125d5ee54e799215c5e69723dbdd3f9c58264c34c0"
+        },
+        "case_id" : "JPL-20190403-OCOf-0002-OCO3 Watching Plants Grow and Glow 4K::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "timescale" : 600,
+          "value" : 20
+        },
+        "frame_nv12_sha256" : "67c8efd7bec1f561931e5178ca9dc6c2bbfc2a3de22bb075a376a0935b8cd928",
+        "index" : 1,
+        "presentation_time" : {
+          "timescale" : 600,
+          "value" : 20
+        }
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "4b0ed10bd1f4d4e183f2d354e287d59b422f1449d002fe26b07dffa2bf170bd3",
+          "Cr" : "09bf37e18abcaef0529fd063f63db6592c181061d5bc505c178b56015ece1759",
+          "Y" : "76e14d82146406b1cd0e40f3759f4060d415839dbdda005eadb41cb131334391"
+        },
+        "case_id" : "JPL-20211025-CALf-0001-Mixed Reality Meets Quantum Science-2160::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "timescale" : 600,
+          "value" : 20
+        },
+        "frame_nv12_sha256" : "6e6a4186892d6aa768dfde524dd4c1b883c623ca96e7f7b50d9bdcbe11a300d5",
+        "index" : 2,
+        "presentation_time" : {
+          "timescale" : 600,
+          "value" : 40
+        }
+      },
+      {
+        "active_row_sha256" : {
+          "Cb" : "d484c7abd99042f6a27a0a26fc536e21f076d6664f9cec93ac8a3b92da9a8096",
+          "Cr" : "db00d8013fd855fcbd16b6c457e0916a0912c605a7b3311a7169812e30ef46d1",
+          "Y" : "0d45fabf898b2483475b05f40988673b5c1506f2da54544b536d11be35918bae"
+        },
+        "case_id" : "b9570d94-bbd1-4f2a-9cfd-9391f547cd0f::actual-h264-software-direct-2x-v1",
+        "duration" : {
+          "timescale" : 600,
+          "value" : 20
+        },
+        "frame_nv12_sha256" : "118571f62e7589749e63d49bcae5083ab905b3c8256fbab51b54624fa96af9a4",
+        "index" : 3,
+        "presentation_time" : {
+          "timescale" : 600,
+          "value" : 60
+        }
+      }
+    ],
+    "payload_path" : "lr-direct-2x-source.nv12",
+    "payload_sha256" : "45ffb1a2b6d146763097bb0651bd0bbc17d09b7e32d96d67366d389d027c88e7",
+    "payload_size_bytes" : 93312,
+    "pixel_layout" : {
+      "chroma_location_bottom_field" : "Left",
+      "chroma_location_top_field" : "Left",
+      "color_primaries" : "ITU_R_709_2",
+      "height" : 96,
+      "pixel_format" : "420v",
+      "range" : "video",
+      "transfer_function" : "ITU_R_709_2",
+      "width" : 162,
+      "ycbcr_matrix" : "ITU_R_709_2"
+    },
+    "source_id" : "production-prechange-lr-direct-2x",
+    "source_lock_path" : "lr-direct-2x-source-lock.json",
+    "source_lock_sha256" : "13b4b6375f537a67452f2c4b28a486ff25e5a366e4841e06966c86f65f3f1f5e",
+    "source_lock_size_bytes" : 3360
+  },
+  "status" : "pass",
+  "verification" : {
+    "actual_codec_container_used" : true,
+    "attachments_recorded" : true,
+    "decoded_payloads_byte_bound" : true,
+    "dimensions_preserved" : true,
+    "encoded_container_reopened" : true,
+    "exact_case_order_preserved" : true,
+    "exact_timing_preserved" : true,
+    "frame_count_preserved" : true,
+    "pixel_format_preserved" : true,
+    "row_padding_excluded" : true,
+    "source_bytes_match_lock" : true,
+    "source_lock_valid" : true
+  }
+}

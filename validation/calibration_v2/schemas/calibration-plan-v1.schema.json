@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/calibration-plan-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "plan_id",
+    "status",
+    "phase",
+    "scope",
+    "execution_state",
+    "authority",
+    "input_bindings",
+    "data_separation",
+    "baseline_and_ablation_contract",
+    "corpus_lock_bundle_contract",
+    "spatial_temporal_threshold_policy",
+    "analysis_grid_contract",
+    "search",
+    "objective",
+    "ranges",
+    "fixed_choices",
+    "required_outputs_after_execution"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "plan_id": {"const": "mirmir-p06-spatial-calibration-v1"},
+    "status": {"const": "preregistered_not_executed"},
+    "phase": {"const": "P06"},
+    "scope": {"const": "spatial_only"},
+    "execution_state": {
+      "type": "object",
+      "required": [
+        "calibration_performed",
+        "validation_selection_performed",
+        "holdout_accessed",
+        "generated_luts_present"
+      ],
+      "properties": {
+        "calibration_performed": {"const": false},
+        "validation_selection_performed": {"const": false},
+        "holdout_accessed": {"const": false},
+        "generated_luts_present": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "authority": {
+      "type": "object",
+      "required": [
+        "conflict_record",
+        "product_implementation_role",
+        "independent_implementation_role",
+        "product_platform",
+        "parity_rule"
+      ],
+      "properties": {
+        "conflict_record": {"type": "string", "minLength": 1},
+        "product_implementation_role": {"const": "production_swift"},
+        "independent_implementation_role": {"const": "independent_test_python"},
+        "product_platform": {"const": "native_macos"},
+        "parity_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "input_bindings": {
+      "type": "array",
+      "minItems": 18,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["id", "path", "binding"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "path": {"type": "string", "minLength": 1},
+          "binding": {"type": "string", "pattern": "^sha256_"}
+        },
+        "additionalProperties": false
+      }
+    },
+    "data_separation": {
+      "type": "object",
+      "required": [
+        "tuning_split",
+        "selection_split",
+        "holdout_split",
+        "split_unit",
+        "holdout_may_be_opened_in_p06",
+        "media_payload_read_policy"
+      ],
+      "properties": {
+        "tuning_split": {"const": "development"},
+        "selection_split": {"const": "validation"},
+        "holdout_split": {"const": "sealed"},
+        "split_unit": {"const": "source_asset"},
+        "holdout_may_be_opened_in_p06": {"const": false},
+        "media_payload_read_policy": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "baseline_and_ablation_contract": {
+      "type": "object",
+      "required": ["contract_id", "path", "schema", "candidate_rule", "final_rule"],
+      "properties": {
+        "contract_id": {"const": "mirmir-p06-baselines-ablations-v1"},
+        "path": {"const": "validation/calibration_v2/contracts/baseline-ablation-contract-v1.json"},
+        "schema": {"const": "validation/calibration_v2/schemas/baseline-ablation-contract-v1.schema.json"},
+        "candidate_rule": {"type": "string", "minLength": 1},
+        "final_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "corpus_lock_bundle_contract": {
+      "type": "object",
+      "required": ["canonicalization", "hash_algorithm", "ordered_fields", "media_policy", "compiler_binding"],
+      "properties": {
+        "canonicalization": {"const": "sorted-key compact UTF-8 JSON with no trailing newline"},
+        "hash_algorithm": {"const": "SHA-256"},
+        "ordered_fields": {
+          "const": [
+            "corpus_lock_file_sha256",
+            "corpus_manifest_sha256",
+            "holdout_sampling_plan_file_sha256",
+            "holdout_sampling_plan_manifest_sha256",
+            "holdout_sampling_target_pixel_hashes_known_before_p07",
+            "development_sample_lock_file_sha256",
+            "development_sample_lock_manifest_sha256",
+            "validation_sample_lock_file_sha256",
+            "validation_sample_lock_manifest_sha256",
+            "holdout_access_ledger_file_sha256",
+            "holdout_access_ledger_status",
+            "holdout_access_count",
+            "holdout_preopen_anchor_file_sha256",
+            "holdout_preopen_anchor_pixel_content_included",
+            "holdout_preopen_anchor_evaluation_status",
+            "live_holdout_verification_receipt_sha256",
+            "live_holdout_access_status",
+            "live_holdout_access_count",
+            "live_holdout_open_intent_anchor_present",
+            "live_holdout_pixel_content_included"
+          ]
+        },
+        "media_policy": {"type": "string", "minLength": 1},
+        "compiler_binding": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "spatial_temporal_threshold_policy": {
+      "type": "object",
+      "required": ["field", "status", "low_unorm15", "high_unorm15", "release_mapping_null_allowed", "payload_bit_6_required", "future_temporal_phase"],
+      "properties": {
+        "field": {"const": "temporal_support_valid"},
+        "status": {"const": "inactive_spatial_p06_forced_zero_not_calibrated"},
+        "low_unorm15": {"const": 32767},
+        "high_unorm15": {"const": 32767},
+        "release_mapping_null_allowed": {"const": false},
+        "payload_bit_6_required": {"const": 0},
+        "future_temporal_phase": {"type": "string", "pattern": "P10"}
+      },
+      "additionalProperties": false
+    },
+    "analysis_grid_contract": {
+      "type": "object",
+      "required": ["contract_id", "step_domain", "coordinate_space", "cell_geometry", "feature_analysis", "dispatch_assignment", "chroma_siting"],
+      "properties": {
+        "contract_id": {"const": "source_lattice_symmetric_cell_center_v1"},
+        "step_domain": {"const": [1, 2, 4]},
+        "coordinate_space": {"const": "continuous luma source-lattice coordinates"},
+        "cell_geometry": {
+          "type": "object",
+          "required": ["origin", "partial_high_edge_cells", "actual_extent", "center", "cell_count", "integer_count_formula"],
+          "properties": {
+            "origin": {"const": "origin_x = cell_x * s and origin_y = cell_y * s"},
+            "partial_high_edge_cells": {"const": true},
+            "actual_extent": {"const": "actual_width = min(s, source_width - origin_x) and actual_height = min(s, source_height - origin_y)"},
+            "center": {"const": "center_x = origin_x + (actual_width - 1) / 2 and center_y = origin_y + (actual_height - 1) / 2"},
+            "cell_count": {"const": "cell_count_x = ceil(source_width / s), cell_count_y = ceil(source_height / s), total = cell_count_x * cell_count_y"},
+            "integer_count_formula": {"const": "cell_count_x = (source_width + s - 1) / s and cell_count_y = (source_height + s - 1) / s using integer division"}
+          },
+          "additionalProperties": false
+        },
+        "feature_analysis": {
+          "type": "object",
+          "required": ["evaluation_location", "sampling", "boundary", "features", "step_one_reduction", "cell_output"],
+          "properties": {
+            "evaluation_location": {"const": "continuous cell center"},
+            "sampling": {"const": "sample every integer-offset tap of the locked Scharr, tensor, texture, and risk stencils bilinearly at center plus tap offset"},
+            "boundary": {"const": "resolve each bilinear integer source tap with the selected locked boundary mode before weighted combination"},
+            "features": {"const": ["Scharr", "structure_tensor", "texture", "risk"]},
+            "step_one_reduction": {"const": "for s = 1 every center is an integer source site and bilinear fractions are zero, yielding exactly the P05 integer-site feature math"},
+            "cell_output": {"const": "one packed state and one continuous sidecar are computed per cell and remain constant for every target sample assigned to that cell"}
+          },
+          "additionalProperties": false
+        },
+        "dispatch_assignment": {
+          "type": "object",
+          "required": ["per_axis", "coordinate_input", "state_and_sidecar", "target_phase"],
+          "properties": {
+            "per_axis": {"const": "cell_index = clamp(floor((exact_source_coordinate + 0.5) / s), 0, last_cell)"},
+            "coordinate_input": {"const": "use the exact continuous target-to-source coordinate expressed in luma source-lattice coordinates"},
+            "state_and_sidecar": {"const": "select the cell-constant packed state and sidecar without interpolation"},
+            "target_phase": {"const": "derive and retain the exact route target phase from the unrounded exact source coordinate; cell assignment never changes phase"}
+          },
+          "additionalProperties": false
+        },
+        "chroma_siting": {
+          "type": "object",
+          "required": ["analysis", "dispatch", "rounding"],
+          "properties": {
+            "analysis": {"const": "map each continuous luma cell center through the locked exact chroma-siting correction before bilinear Cb and Cr sampling"},
+            "dispatch": {"const": "convert the exact chroma source coordinate through the locked siting correction into luma source-lattice coordinates before cell assignment"},
+            "rounding": {"const": "perform no intermediate rounding; retain exact rational siting and route phase semantics until the declared cell-index floor"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "search": {
+      "type": "object",
+      "required": [
+        "protocol_version",
+        "algorithm",
+        "candidate_order",
+        "initial_vector",
+        "initial_vector_values",
+        "sweep_rule",
+        "infeasible_retention_rule",
+        "termination",
+        "maximum_sweeps",
+        "tie_break",
+        "record_rule",
+        "parameter_order"
+      ],
+      "properties": {
+        "protocol_version": {"const": "1.2.0"},
+        "algorithm": {"const": "deterministic_coordinate_search"},
+        "candidate_order": {"type": "string", "minLength": 1},
+        "initial_vector": {"type": "string", "minLength": 1},
+        "initial_vector_values": {
+          "type": "object",
+          "minProperties": 42,
+          "maxProperties": 42,
+          "additionalProperties": {"type": ["integer", "string"]}
+        },
+        "sweep_rule": {"type": "string", "minLength": 1},
+        "infeasible_retention_rule": {"type": "string", "minLength": 1},
+        "termination": {"type": "string", "minLength": 1},
+        "maximum_sweeps": {"const": 8},
+        "tie_break": {"type": "string", "minLength": 1},
+        "record_rule": {"type": "string", "minLength": 1},
+        "parameter_order": {
+          "type": "array",
+          "minItems": 42,
+          "maxItems": 42,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9_]+$"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "objective": {
+      "type": "object",
+      "required": [
+        "comparison_domain_rule",
+        "feasibility_first",
+        "development_tuple",
+        "validation_selection",
+        "validation_tuple",
+        "pareto_rule"
+      ],
+      "properties": {
+        "comparison_domain_rule": {"type": "string", "pattern": "both must be feasible"},
+        "feasibility_first": {"$ref": "#/$defs/nonemptyStringArray"},
+        "development_tuple": {"$ref": "#/$defs/nonemptyStringArray"},
+        "validation_selection": {"type": "string", "minLength": 1},
+        "validation_tuple": {"$ref": "#/$defs/nonemptyStringArray"},
+        "pareto_rule": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "ranges": {
+      "type": "object",
+      "required": ["mapping", "operator", "compiler"],
+      "properties": {
+        "mapping": {"$ref": "#/$defs/rangeGroup"},
+        "operator": {"$ref": "#/$defs/rangeGroup"},
+        "compiler": {"$ref": "#/$defs/rangeGroup"}
+      },
+      "additionalProperties": false
+    },
+    "fixed_choices": {
+      "type": "object",
+      "required": [
+        "branch_depth",
+        "branch_actions",
+        "branch_action_mass_numerators_over_4",
+        "orientation_sector_step",
+        "weight_epsilon_f32_bits",
+        "temporal_mode",
+        "temporal_payload_semantics",
+        "temporal_context_semantics",
+        "source_aligned_denoising",
+        "p00_compatibility_legal_range_normalization",
+        "container_decoded_legal_range_normalization",
+        "maximum_candidates_per_cell",
+        "runtime_learning"
+      ],
+      "properties": {
+        "branch_depth": {"const": 4},
+        "branch_actions": {"const": ["0", "+", "-"]},
+        "branch_action_mass_numerators_over_4": {"const": [2, 1, 1]},
+        "orientation_sector_step": {"const": 1},
+        "weight_epsilon_f32_bits": {"const": 730643660},
+        "temporal_mode": {"const": "disabled"},
+        "temporal_payload_semantics": {"type": "string", "minLength": 1},
+        "temporal_context_semantics": {"type": "string", "minLength": 1},
+        "source_aligned_denoising": {"const": "disabled"},
+        "p00_compatibility_legal_range_normalization": {
+          "type": "object",
+          "required": ["scope", "method", "nominal_y_code_range", "nominal_chroma_code_range", "evidence", "already_legal_payload_no_op_required", "direct_2x_postprocess_behavior", "uniform_application"],
+          "properties": {
+            "scope": {"const": "reopened P00 helper NV12 output before PlanarFrame conversion, control-output caching, engine-raw metrics, and container encoding"},
+            "method": {"const": "p00_compatibility_nominal_video_range_clip_v1"},
+            "nominal_y_code_range": {"const": [16, 235]},
+            "nominal_chroma_code_range": {"const": [16, 240]},
+            "evidence": {"const": "bind raw and normalized payload SHA-256 values and sizes, raw and normalized per-plane code ranges, and exact six-direction clip counts in every P00 native control record"},
+            "already_legal_payload_no_op_required": {"const": true},
+            "direct_2x_postprocess_behavior": {"const": "unchanged exact 2x; compatibility normalization only clips nominal-range excursions"},
+            "uniform_application": {"const": "apply identically to every P00 control invocation before any comparison domain is derived"}
+          },
+          "additionalProperties": false
+        },
+        "container_decoded_legal_range_normalization": {
+          "type": "object",
+          "required": ["scope", "method", "nominal_y_code_range", "nominal_chroma_code_range", "evidence", "engine_raw_affected", "uniform_application"],
+          "properties": {
+            "scope": {"const": "reopened isolated production HEVC writer 420v bytes before PlanarFrame conversion and container-decoded metrics only"},
+            "method": {"const": "nominal_video_range_clip_v1"},
+            "nominal_y_code_range": {"const": [16, 235]},
+            "nominal_chroma_code_range": {"const": [16, 240]},
+            "evidence": {"const": "bind raw and normalized payload SHA-256 values and sizes, raw and normalized per-plane code ranges, and exact six-direction clip counts"},
+            "engine_raw_affected": {"const": false},
+            "uniform_application": {"const": "apply identically to every candidate, baseline, fixed operator, and ablation container-decoded output"}
+          },
+          "additionalProperties": false
+        },
+        "maximum_candidates_per_cell": {"const": 2},
+        "runtime_learning": {"const": false}
+      },
+      "additionalProperties": false
+    },
+    "required_outputs_after_execution": {
+      "type": "array",
+      "minItems": 10,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nonemptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "rangeGroup": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "oneOf": [
+          {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": ["integer", "string"]}
+          },
+          {"type": "string", "minLength": 1}
+        ]
+      }
+    }
+  }
+}

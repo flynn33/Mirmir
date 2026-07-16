@@ -1,0 +1,297 @@
+{
+  "schema_version": "1.0.0",
+  "document_status": "final",
+  "phase_id": "P03",
+  "gate_id": "G03",
+  "overall_technical_assessment": "pass",
+  "assessed_utc": "2026-07-11T13:19:26Z",
+  "repository_root": "/Users/jimdaley/GitHub/Mirmir",
+  "instruction_package": "mirmr-iA.1.0.1.0",
+  "gate_definition": {
+    "path": "config/audit_gates.json",
+    "line_start": 52,
+    "line_end": 62
+  },
+  "canonical_core": {
+    "state_bits": 9,
+    "payload_bits": 8,
+    "message_bits": 4,
+    "coordinate_1_packed_bit": 8,
+    "coordinate_9_packed_bit": 0,
+    "coordinate_9_relation": "xor parity of coordinates 1 through 8",
+    "generator_rows_binary": [
+      "111100000",
+      "110011000",
+      "101010100",
+      "100110001"
+    ],
+    "decoder_radius": 1,
+    "decoder_acceptance": "unique nearest codeword at distance zero or one",
+    "affine_reduction": "received xor anchor",
+    "baseline_preservation": [
+      {
+        "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+        "p00_sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+        "current_sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2",
+        "unchanged": true
+      },
+      {
+        "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+        "p00_sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc",
+        "current_sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc",
+        "unchanged": true
+      }
+    ],
+    "baseline_checksum_list": {
+      "path": "Artifacts/ASH/20260711-p00-baseline-824a5910-8b63a2ed/baseline-source.sha256",
+      "sha256": "c0665b427b578c9842e41647a18de2ab76f5013e35228c6abad3faf45c79d5f4",
+      "relevant_lines": [
+        60,
+        68
+      ]
+    }
+  },
+  "shared_contract": {
+    "path": "validation/reference/ash-core-v1.contract.json",
+    "retained_evidence_path": "conformance/ash-core-v1.contract.json",
+    "sha256": "97ff97a79257707824c91f6f99bc7495bd4b78b221e930f8614c8ce12d782936",
+    "production_validation_anchors": [
+      "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift:118-214"
+    ],
+    "independent_validation_anchors": [
+      "validation/reference/ash_core_oracle.py:15-180"
+    ],
+    "application_resource": false,
+    "application_runtime_dependency": false,
+    "mutation_rejection": {
+      "fields": ["core.generator_rows", "binary.decoder_radius"],
+      "production_test": "MirmirTests/ASHCoreConformanceTests.swift:33-55",
+      "independent_check": "validation/reference/ash_core_oracle.py:382-433",
+      "result": "pass"
+    }
+  },
+  "binary_contract": {
+    "fixture_path": "validation/reference/generated/ash-core-v1.bin",
+    "sidecar_path": "validation/reference/generated/ash-core-v1.sha256",
+    "magic_ascii": "ASHCORE1",
+    "schema_version": 1,
+    "endianness": "little",
+    "implicit_padding": false,
+    "header_size_bytes": 64,
+    "file_size_bytes": 3016832,
+    "sha256": "19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776",
+    "header_fields": [
+      {"offset": 0, "bytes": 8, "name": "magic", "value": "ASHCORE1"},
+      {"offset": 8, "bytes": 2, "name": "schema_version", "value": 1},
+      {"offset": 10, "bytes": 2, "name": "header_size", "value": 64},
+      {"offset": 12, "bytes": 1, "name": "state_bits", "value": 9},
+      {"offset": 13, "bytes": 1, "name": "payload_bits", "value": 8},
+      {"offset": 14, "bytes": 1, "name": "message_bits", "value": 4},
+      {"offset": 15, "bytes": 1, "name": "bit_order_code", "value": 1},
+      {"offset": 16, "bytes": 1, "name": "endianness_code", "value": 1},
+      {"offset": 17, "bytes": 1, "name": "decoder_radius", "value": 1},
+      {"offset": 18, "bytes": 2, "name": "raw_state_record_size", "value": 4},
+      {"offset": 20, "bytes": 2, "name": "codeword_record_size", "value": 4},
+      {"offset": 22, "bytes": 2, "name": "affine_record_size", "value": 16},
+      {"offset": 24, "bytes": 4, "name": "raw_state_count", "value": 512},
+      {"offset": 28, "bytes": 4, "name": "codeword_count", "value": 16},
+      {"offset": 32, "bytes": 4, "name": "valid_anchor_count", "value": 256},
+      {"offset": 36, "bytes": 4, "name": "exact_affine_count", "value": 4096},
+      {"offset": 40, "bytes": 4, "name": "one_bit_affine_count", "value": 36864},
+      {"offset": 44, "bytes": 4, "name": "two_bit_affine_count", "value": 147456},
+      {"offset": 48, "bytes": 4, "name": "raw_state_offset", "value": 64},
+      {"offset": 52, "bytes": 4, "name": "codeword_offset", "value": 2112},
+      {"offset": 56, "bytes": 4, "name": "affine_offset", "value": 2176},
+      {"offset": 60, "bytes": 4, "name": "file_size", "value": 3016832}
+    ],
+    "record_layouts": {
+      "raw_state": {
+        "size_bytes": 4,
+        "fields": ["raw_u16", "payload_parity_u8", "integrity_valid_u8"],
+        "ordering": "packed raw value ascending from 0 through 511"
+      },
+      "codeword": {
+        "size_bytes": 4,
+        "fields": ["message_u8", "hamming_weight_u8", "codeword_u16"],
+        "ordering": "packed message ascending from 0 through 15"
+      },
+      "affine": {
+        "size_bytes": 16,
+        "fields": [
+          "anchor_u16",
+          "message_u8",
+          "fault_count_u8",
+          "first_fault_coordinate_u8",
+          "second_fault_coordinate_u8",
+          "relative_codeword_u16",
+          "transmitted_affine_u16",
+          "received_affine_u16",
+          "status_u8",
+          "corrected_coordinate_u8",
+          "nearest_distance_u8",
+          "nearest_count_u8"
+        ],
+        "status_codes": {"exact": 0, "corrected": 1, "rejected": 2},
+        "section_order": ["exact", "one_bit", "two_bit"],
+        "ordering": "anchor ascending, message ascending, then coordinate or lexicographic unordered coordinate pair"
+      }
+    }
+  },
+  "exhaustive_counts": [
+    {"domain": "raw_states", "formula": "2^9", "count": 512, "result": "checked"},
+    {"domain": "valid_anchors", "formula": "2^8", "count": 256, "result": "checked"},
+    {"domain": "codewords", "formula": "2^4", "count": 16, "result": "checked"},
+    {"domain": "exact_affine", "formula": "256*16", "count": 4096, "result": "exact"},
+    {"domain": "one_bit_affine", "formula": "256*16*9", "count": 36864, "result": "corrected"},
+    {"domain": "two_bit_affine", "formula": "256*16*C(9,2)", "count": 147456, "result": "rejected"}
+  ],
+  "independent_reference_boundary": {
+    "implementation_path": "validation/reference/ash_core_oracle.py",
+    "imports_application_code": false,
+    "imports_application_resources": false,
+    "reads_locked_fixture_before_generation": false,
+    "application_executes_reference_script": false,
+    "shared_contract_path": "validation/reference/ash-core-v1.contract.json",
+    "comparison_point": "after independent reference emission and production Swift emission",
+    "evidence_anchors": [
+      "validation/reference/ash_core_oracle.py:15-180",
+      "validation/reference/ash_core_oracle.py:183-375",
+      "validation/reference/ash_core_oracle.py:412-425",
+      "validation/reference/README.md:3-20",
+      "MirmirTests/ASHCoreConformanceTests.swift:7-31"
+    ]
+  },
+  "byte_hash_agreement": {
+    "reference_check_command": "python3 validation/reference/ash_core_oracle.py --check",
+    "reference_check_result": "pass",
+    "reference_check_bytes": 3016832,
+    "reference_check_sha256": "19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776",
+    "production_xctest": "test_productionVectorsMatchIndependentLockedFixtureByteForByteAndBySHA256()",
+    "production_xctest_result": "passed",
+    "comparison": "byte-for-byte equality plus SHA-256 equality for both streams"
+  },
+  "retained_xcode_evidence": {
+    "run_directory": "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad",
+    "run_directory_state": "finalized_atomic_directory",
+    "focused_result": {
+      "path": "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/swift-conformance.xcresult",
+      "info_plist_sha256": "67d14572435132345b39adbb3998ec5c8a193b3ae25a5b703766cc4baf0ac613",
+      "database_sha256": "a4b1bbfbcf7efb4f6b57c627254586c81fe712a98537169386d985e1f70c4cbd",
+      "result": "Passed",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "platform": "macOS",
+      "architecture": "arm64",
+      "os_version": "26.5.1",
+      "os_build": "25F80",
+      "start_utc": "2026-07-11T13:48:19Z",
+      "finish_utc": "2026-07-11T13:48:27Z",
+      "p03_tests": [
+        {"name": "test_exhaustiveProductionAffineSemantics()", "result": "Passed", "duration_seconds": 0.7229030132293701},
+        {"name": "test_exhaustiveProductionStateAndCodewordSemantics()", "result": "Passed", "duration_seconds": 0.001750946044921875},
+        {"name": "test_productionVectorsMatchIndependentLockedFixtureByteForByteAndBySHA256()", "result": "Passed", "duration_seconds": 1.0741039514541626},
+        {"name": "test_sharedCanonicalContractRejectsGeneratorRowAndDecoderRadiusMutations()", "result": "Passed", "duration_seconds": 0.0009469985961914062}
+      ]
+    },
+    "full_debug_result": {
+      "path": "Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/tests/full-debug-pass.xcresult",
+      "info_plist_sha256": "5b78a19eb44f5f9e80d27e2cc2175bdda9004d77ffb85abbe2fcc008975781c3",
+      "database_sha256": "e6a2f9c406464f6eb85d79767bcfca49afc54fe46364c613dcc048cf4eaf53df",
+      "result": "Passed",
+      "passed": 82,
+      "failed": 0,
+      "skipped": 1
+    }
+  },
+  "exact_commands": {
+    "working_directory": "/Users/jimdaley/GitHub/Mirmir",
+    "reference_check": [
+      "python3 validation/reference/ash_core_oracle.py --check"
+    ],
+    "focused_reproduction": [
+      "RESULT_BUNDLE=\"/tmp/mirmir-p03-focused-$(uuidgen).xcresult\"",
+      "xcodebuild -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/mirmir-p03-deriveddata -resultBundlePath \"$RESULT_BUNDLE\" -only-testing:MirmirTests/ASHCoreConformanceTests test",
+      "xcrun xcresulttool get test-results summary --path \"$RESULT_BUNDLE\"",
+      "xcrun xcresulttool get test-results tests --path \"$RESULT_BUNDLE\""
+    ],
+    "retained_result_inspection": [
+      "xcrun xcresulttool get test-results summary --path Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/swift-conformance.xcresult",
+      "xcrun xcresulttool get test-results tests --path Artifacts/ASH/20260711-p01-p03-7fc3c1e1-f1c2-49a0-9b0c-39761ddf89ad/conformance/swift-conformance.xcresult"
+    ]
+  },
+  "gate_criteria": [
+    {
+      "criterion": "All 512 states checked",
+      "result": "pass",
+      "evidence": ["MirmirTests/ASHCoreConformanceTests.swift:57-77", "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift:264-272"]
+    },
+    {
+      "criterion": "256 valid parity states checked",
+      "result": "pass",
+      "evidence": ["MirmirTests/ASHCoreConformanceTests.swift:75-77", "MirmirTests/ASHCoreConformanceTests.swift:114-118"]
+    },
+    {
+      "criterion": "16 codewords checked",
+      "result": "pass",
+      "evidence": ["MirmirTests/ASHCoreConformanceTests.swift:79-112"]
+    },
+    {
+      "criterion": "all one-bit affine corruptions corrected",
+      "result": "pass",
+      "count": 36864,
+      "evidence": ["MirmirTests/ASHCoreConformanceTests.swift:114-155", "MirmirTests/ASHCoreConformanceTests.swift:180-182"]
+    },
+    {
+      "criterion": "all required two-bit corruptions rejected",
+      "result": "pass",
+      "count": 147456,
+      "evidence": ["MirmirTests/ASHCoreConformanceTests.swift:157-182"]
+    },
+    {
+      "criterion": "Production Swift and independent reference vectors and hashes match exactly",
+      "result": "pass",
+      "evidence": [
+        "validation/reference/ash-core-v1.contract.json",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift:118-214",
+        "MirmirTests/ASHCoreConformanceTests.swift:7-55",
+        "validation/reference/ash_core_oracle.py:15-180",
+        "validation/reference/ash_core_oracle.py:382-425",
+        "conformance/swift-conformance.xcresult"
+      ]
+    },
+    {
+      "criterion": "canonical core unchanged or operator-approved math change recorded",
+      "result": "pass",
+      "branch": "unchanged",
+      "evidence": ["P00 and current SHA-256 equality for ASHState.swift", "P00 and current SHA-256 equality for ASHCode.swift"]
+    }
+  ],
+  "source_anchors": [
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift", "line_start": 56, "line_end": 125, "claim": "packed state, bit order, parity"},
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift", "line_start": 138, "line_end": 167, "claim": "message bit order"},
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift", "line_start": 18, "line_end": 100, "claim": "generator, encoder, strict decoder, affine reduction"},
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift", "line_start": 3, "line_end": 420, "claim": "shared-contract validation, binary layout, and production vector emission"},
+    {"path": "MirmirTests/ASHCoreConformanceTests.swift", "line_start": 7, "line_end": 227, "claim": "contract mutation rejection, byte/hash equality, and exhaustive semantics"},
+    {"path": "validation/reference/ash_core_oracle.py", "line_start": 15, "line_end": 453, "claim": "shared-contract validation, independent implementation, mutation rejection, and locked-fixture check"},
+    {"path": "validation/reference/ash-core-v1.contract.json", "line_start": 1, "line_end": 93, "claim": "shared canonical JSON contract"},
+    {"path": "validation/reference/README.md", "line_start": 3, "line_end": 114, "claim": "reference boundary, shared contract, and binary documentation"}
+  ],
+  "source_file_hashes": [
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift", "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2"},
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift", "sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc"},
+    {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift", "sha256": "0f142ef338137cf15deb416c97413e0d0a21451d433464c8914eed999df62f61"},
+    {"path": "MirmirTests/ASHCoreConformanceTests.swift", "sha256": "333a8698c7bcad6a8e5a2896f8dffd538a39f6c955186225d052d642269709d2"},
+    {"path": "validation/reference/ash_core_oracle.py", "sha256": "8f4626ffc8284087a1f463c4e314166c6acf344ff6fe900682a8fcd215060c11"},
+    {"path": "validation/reference/ash-core-v1.contract.json", "sha256": "97ff97a79257707824c91f6f99bc7495bd4b78b221e930f8614c8ce12d782936"},
+    {"path": "validation/reference/README.md", "sha256": "41dbfb19c1ba314296a2b2edea4efc08e6139fbdb6c95d3b1da301a0c990b39c"},
+    {"path": "validation/reference/generated/ash-core-v1.bin", "sha256": "19b1dfe4f7aa3f1e77e1364afbced3799aca261e88024c823f8cc1d68fb42776"},
+    {"path": "validation/reference/generated/ash-core-v1.sha256", "sha256": "b27083ffaf77672fcee7bf4351aa1f5723ba4f6a4c60244218ca54c7abbe8dca"}
+  ],
+  "limitations": [
+    "This evidence proves the finite canonical bit core only; it does not prove video-state mapping, dispatch, pixel parity, quality, performance, geometry, color, audio, or media routes.",
+    "The canonical-vectors.json file indexes the deterministic binary payload and exact record counts without altering the locked payload bytes.",
+    "The controlling macOS/Xcode scope supersedes the lower Windows TRX output label; platform-output-resolution.json records this without fabricating a TRX result.",
+    "The two implementations are separate but intentionally consume the same hash-locked JSON contract; each rejects contract fields that differ from its own implementation and layout."
+  ]
+}

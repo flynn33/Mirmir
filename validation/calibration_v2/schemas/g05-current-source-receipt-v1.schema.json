@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/g05-current-source-receipt-v1.schema.json",
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "file_binding": {
+      "type": "object",
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "run_root_binding": {
+      "type": "object",
+      "required": ["path", "run_sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "run_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "passing_verification": {
+      "type": "object",
+      "required": ["status"],
+      "properties": {
+        "status": {"const": "pass"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "gate",
+    "phase",
+    "source_commit",
+    "status",
+    "holdout_accessed",
+    "evidence_runs",
+    "assessment",
+    "finding_register",
+    "upstream_bindings",
+    "command_execution",
+    "verification",
+    "receipt_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "g05_current_source_receipt"},
+    "gate": {"const": "G05"},
+    "phase": {"const": "P05"},
+    "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "status": {"const": "pass"},
+    "holdout_accessed": {"const": false},
+    "evidence_runs": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/run_root_binding"},
+            {"properties": {"path": {"const": "evidence/run-a"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/run_root_binding"},
+            {"properties": {"path": {"const": "evidence/run-b"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/run_root_binding"},
+            {"properties": {"path": {"const": "evidence/independent-run"}}}
+          ]
+        }
+      ],
+      "items": false
+    },
+    "assessment": {
+      "allOf": [
+        {"$ref": "#/$defs/file_binding"},
+        {"properties": {"path": {"const": "analysis/g05-gate-assessment.json"}}}
+      ]
+    },
+    "finding_register": {
+      "allOf": [
+        {"$ref": "#/$defs/file_binding"},
+        {"properties": {"path": {"const": "analysis/g05-scoped-finding-register.json"}}}
+      ]
+    },
+    "upstream_bindings": {
+      "allOf": [
+        {"$ref": "#/$defs/file_binding"},
+        {"properties": {"path": {"const": "inputs/upstream-bindings.json"}}}
+      ]
+    },
+    "command_execution": {
+      "allOf": [
+        {"$ref": "#/$defs/file_binding"},
+        {
+          "properties": {
+            "path": {"const": "inputs/command-execution-aggregate.json"}
+          }
+        }
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "evidence_closure",
+        "schema_validation",
+        "byte_determinism",
+        "source_provenance",
+        "semantic_criteria",
+        "holdout_boundary",
+        "finding_register"
+        ,"command_execution"
+      ],
+      "properties": {
+        "evidence_closure": {"$ref": "#/$defs/passing_verification"},
+        "schema_validation": {"$ref": "#/$defs/passing_verification"},
+        "byte_determinism": {"$ref": "#/$defs/passing_verification"},
+        "source_provenance": {"$ref": "#/$defs/passing_verification"},
+        "semantic_criteria": {"$ref": "#/$defs/passing_verification"},
+        "holdout_boundary": {"$ref": "#/$defs/passing_verification"},
+        "finding_register": {"$ref": "#/$defs/passing_verification"}
+        ,"command_execution": {"$ref": "#/$defs/passing_verification"}
+      },
+      "additionalProperties": false
+    },
+    "receipt_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false
+}

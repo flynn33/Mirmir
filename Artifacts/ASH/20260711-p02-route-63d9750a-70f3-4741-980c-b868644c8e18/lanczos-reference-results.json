@@ -1,0 +1,73 @@
+{
+  "schema": "mirmir-lanczos-parity-results-v1",
+  "generated_at_utc": "2026-07-11T15:12:30Z",
+  "contract": {
+    "path": "/Users/jimdaley/GitHub/Mirmir/MirmirTests/Fixtures/lanczos-parity-v1.json",
+    "sha256": "3ac96f337fca16cd36e0c4efa1f5e528e1e1f7b556820fb9dbe07ab53cb8f5ab",
+    "source_dimensions": [64, 32],
+    "destination_dimensions": [48, 24],
+    "maximum_absolute_error": 1,
+    "maximum_rmse_per_channel": 0.25
+  },
+  "repository": {
+    "path": "/Users/jimdaley/GitHub/Mirmir",
+    "head": "cc608c7ecbbf9fac3b48e80d4251a6d0703cd64c"
+  },
+  "source_sha256": {
+    "Mirmir/Modules/MediaPipeline/PixelBufferBridge.swift": "88bee2b3d8dfd9d6b26853a823b338826d7aad3e113e134f21cacf5e01e6fedd",
+    "Mirmir/Modules/MetalRendering/MetalCommandBufferCompletionBridge.swift": "3eeae3457a141eac5b1141bbd8de87d4c0b1aad887b3bda45cde9876b7f36010",
+    "Mirmir/Modules/Telemetry/ASHTelemetryModels.swift": "210fda0f7371098d4dd174f78ec05ac857eaab7ba56e32a1294e7730e943e5fe",
+    "Mirmir/Modules/UpscalerEngine/LanczosPolishPass.swift": "62d8e155f97c9ea44d804f138c625e3c3c0c09549f5fa0870592f18d58765a98",
+    "MirmirTests/LanczosCPUReference.swift": "8f187e623ff28ac5061f0f94d88e1dd37a5170daf764e4db26e3e8437acb27eb",
+    "MirmirTests/LanczosPolishPassTests.swift": "6e75d7ae846f400078b2fe70cb121a0bcd0a7ebd907bcb72bbde2abf864bed3f"
+  },
+  "build": {
+    "temporary_project_sha256": "620bd9b6f9addaa5aae737295348d3475070935aab65244d2de1971523c71bcd",
+    "application_dylib_sha256": "e3ed61e4448926d6c7002b65f7e35caa59137819a4bfeb7637dd0a6846576de2",
+    "test_executable_sha256": "ca0e2c9092e40d83685f506b55ade0ceef41c05f0039be62708527d03d07a65d",
+    "xcresult_tree_sha256": "9952f9ac05df45f9c66f0e91c91bf65ca951a48004fbc0e23ee32f1b64b995a3",
+    "xcresult_path": "/tmp/mirmir-p02-lanczos-20260711-4.xcresult",
+    "xcode": "26.2 (17C52)",
+    "macos": "26.5.1",
+    "gpu": "Apple M4 Pro",
+    "metal": "Metal 4"
+  },
+  "test_summary": {
+    "executed": 13,
+    "passed": 13,
+    "failed": 0,
+    "unexpected_failures": 0
+  },
+  "metrics": [
+    {"fixture": "constant_legal_low", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "constant_legal_low", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "constant_legal_low", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "constant_legal_high", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "constant_legal_high", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "constant_legal_high", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "horizontal_ramp", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "horizontal_ramp", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "horizontal_ramp", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "vertical_ramp", "channel": "Y", "max_absolute_error": 1, "rmse": 0.08333333333333333, "differing_samples": 8, "sample_count": 1152},
+    {"fixture": "vertical_ramp", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "vertical_ramp", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "center_impulse", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "center_impulse", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "center_impulse", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "border_impulses", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "border_impulses", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "border_impulses", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "legal_endpoint_step", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "legal_endpoint_step", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "legal_endpoint_step", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "cb_only_edge", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "cb_only_edge", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "cb_only_edge", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "cr_only_edge", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "cr_only_edge", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "cr_only_edge", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "fixed_seed_random", "channel": "Y", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 1152},
+    {"fixture": "fixed_seed_random", "channel": "Cb", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288},
+    {"fixture": "fixed_seed_random", "channel": "Cr", "max_absolute_error": 0, "rmse": 0.0, "differing_samples": 0, "sample_count": 288}
+  ]
+}

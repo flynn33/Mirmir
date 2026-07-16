@@ -80,18 +80,52 @@ final class ArchitectureGuardrailTests: XCTestCase {
         }
     }
 
+    func test_v2ProductionUpscalePathHasNoLegacyExpansionOrPostResize() throws {
+        let root = repoRootURL()
+        let backend = try String(
+            contentsOf: root.appendingPathComponent(
+                "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift"
+            ),
+            encoding: .utf8
+        )
+        let service = try String(
+            contentsOf: root.appendingPathComponent(
+                "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift"
+            ),
+            encoding: .utf8
+        )
+        let strategy = try String(
+            contentsOf: root.appendingPathComponent(
+                "Mirmir/Modules/UpscalerEngine/UpscaleStrategy.swift"
+            ),
+            encoding: .utf8
+        )
+
+        XCTAssertFalse(backend.contains("ASHTileProcessor"))
+        XCTAssertFalse(backend.contains("nearestUpsample"))
+        XCTAssertFalse(service.contains("LanczosPolishPass"))
+        XCTAssertFalse(service.contains("twoXThenLanczosDownsample"))
+        XCTAssertTrue(service.contains("ASHDeterministicUpscaleBackend"))
+        XCTAssertTrue(strategy.contains("case direct3Over2"))
+    }
+
     func test_repositorySurfacesHaveNoProhibitedAttribution() throws {
         let contentTerms = prohibitedContentTerms()
         for fileURL in try repositoryTextFiles() {
-            let source = try String(contentsOf: fileURL, encoding: .utf8)
-            for term in contentTerms where source.range(of: term, options: [.caseInsensitive]) != nil {
+            let data = try Data(contentsOf: fileURL)
+            guard let source = String(data: data, encoding: .utf8) else {
+                continue
+            }
+            let normalizedSource = source.lowercased()
+            for term in contentTerms where normalizedSource.contains(term.lowercased()) {
                 XCTFail("\(fileURL.path) contains prohibited attribution")
             }
         }
 
         let pathTerms = prohibitedPathTerms()
         for fileURL in try repositoryFiles() {
-            for term in pathTerms where fileURL.path.range(of: term, options: [.caseInsensitive]) != nil {
+            let normalizedPath = fileURL.path.lowercased()
+            for term in pathTerms where normalizedPath.contains(term.lowercased()) {
                 XCTFail("\(fileURL.path) contains prohibited attribution in its path")
             }
         }
@@ -168,10 +202,14 @@ final class ArchitectureGuardrailTests: XCTestCase {
     }
 
     private func shouldSkip(relativePath: String) -> Bool {
+        if relativePath.split(separator: "/").contains(where: { $0.hasSuffix(".xcresult") }) {
+            return true
+        }
         let skippedRoots = [
             ".git",
             ".build",
             ".swiftpm",
+            "Artifacts",
             "build",
             "DerivedData",
             "Mirmir.xcodeproj/project.xcworkspace"

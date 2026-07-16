@@ -1,0 +1,415 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/actual-codec-fixture-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "fixture_id",
+    "status",
+    "source",
+    "fixture",
+    "encoder",
+    "decoder_routes",
+    "verification",
+    "environment",
+    "integration",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "actual_codec_fixture"},
+    "fixture_id": {"const": "actual-h264-software-nv12-v1"},
+    "status": {"const": "pass"},
+    "source": {"$ref": "#/$defs/source"},
+    "fixture": {"$ref": "#/$defs/fixture"},
+    "encoder": {"$ref": "#/$defs/encoder"},
+    "decoder_routes": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/softwareRoute"},
+        {"$ref": "#/$defs/productRoute"}
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "verification": {"$ref": "#/$defs/verification"},
+    "environment": {"$ref": "#/$defs/environment"},
+    "integration": {"$ref": "#/$defs/integration"},
+    "limitations": {"$ref": "#/$defs/limitations"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonempty": {"type": "string", "minLength": 1},
+    "exactTime": {
+      "type": "object",
+      "required": ["value", "timescale", "flags", "epoch"],
+      "properties": {
+        "value": {"type": "integer", "minimum": 0},
+        "timescale": {"const": 600},
+        "flags": {"const": 1},
+        "epoch": {"const": 0}
+      },
+      "additionalProperties": false
+    },
+    "planeHashes": {
+      "type": "object",
+      "required": ["Y", "Cb", "Cr"],
+      "properties": {
+        "Y": {"$ref": "#/$defs/sha256"},
+        "Cb": {"$ref": "#/$defs/sha256"},
+        "Cr": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "attachments": {
+      "type": "object",
+      "required": [
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location_top_field",
+        "chroma_location_bottom_field",
+        "range"
+      ],
+      "properties": {
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location_top_field": {"const": "Left"},
+        "chroma_location_bottom_field": {"const": "Left"},
+        "range": {"const": "video"}
+      },
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "payload_path",
+        "payload_sha256",
+        "payload_size_bytes",
+        "source_lock_path",
+        "source_lock_sha256",
+        "degradation_profile_id",
+        "degradation_policy_sha256"
+      ],
+      "properties": {
+        "payload_path": {"const": "source.nv12"},
+        "payload_sha256": {"$ref": "#/$defs/sha256"},
+        "payload_size_bytes": {"const": 64800},
+        "source_lock_path": {"const": "source-lock.json"},
+        "source_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "degradation_profile_id": {"const": "hq-binomial7-decimate-2x-v1"},
+        "degradation_policy_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "fixture": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "container",
+        "codec",
+        "width",
+        "height",
+        "frame_count",
+        "duration",
+        "format_attachments"
+      ],
+      "properties": {
+        "path": {"pattern": "\\.mp4$", "type": "string"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "container": {"const": "mp4"},
+        "codec": {"const": "avc1"},
+        "width": {"const": 160},
+        "height": {"const": 90},
+        "frame_count": {"const": 3},
+        "duration": {
+          "allOf": [
+            {"$ref": "#/$defs/exactTime"},
+            {"properties": {"value": {"const": 60}}}
+          ]
+        },
+        "format_attachments": {"$ref": "#/$defs/attachments"}
+      },
+      "additionalProperties": false
+    },
+    "encoder": {
+      "type": "object",
+      "required": [
+        "framework",
+        "session_type",
+        "encoder_id",
+        "encoder_name",
+        "display_name",
+        "hardware_accelerated",
+        "hardware_acceleration_property_available",
+        "hardware_acceleration_verification",
+        "real_time",
+        "allow_frame_reordering",
+        "allow_temporal_compression",
+        "max_key_frame_interval",
+        "all_frames_sync",
+        "profile_level",
+        "average_bit_rate",
+        "data_rate_limit_bytes",
+        "data_rate_limit_seconds",
+        "expected_frame_rate",
+        "pixel_format",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location"
+      ],
+      "properties": {
+        "framework": {"const": "VideoToolbox"},
+        "session_type": {"const": "VTCompressionSession"},
+        "encoder_id": {"const": "com.apple.videotoolbox.videoencoder.h264"},
+        "encoder_name": {"const": "Apple H.264 (SW)"},
+        "display_name": {"const": "Apple H.264 (SW)"},
+        "hardware_accelerated": {"const": false},
+        "hardware_acceleration_property_available": {"type": "boolean"},
+        "hardware_acceleration_verification": {"$ref": "#/$defs/nonempty"},
+        "real_time": {"const": false},
+        "allow_frame_reordering": {"const": false},
+        "allow_temporal_compression": {"const": false},
+        "max_key_frame_interval": {"const": 1},
+        "all_frames_sync": {"const": true},
+        "profile_level": {"const": "H264_Baseline_3_0"},
+        "average_bit_rate": {"const": 250000},
+        "data_rate_limit_bytes": {"const": 31250},
+        "data_rate_limit_seconds": {"const": 1},
+        "expected_frame_rate": {"const": 30},
+        "pixel_format": {"const": "420v"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "chroma_location": {"const": "Left"}
+      },
+      "additionalProperties": false
+    },
+    "decodedFrame": {
+      "type": "object",
+      "required": [
+        "index",
+        "presentation_time",
+        "duration",
+        "width",
+        "height",
+        "pixel_format",
+        "active_row_sha256",
+        "attachments"
+      ],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0, "maximum": 2},
+        "presentation_time": {"$ref": "#/$defs/exactTime"},
+        "duration": {
+          "allOf": [
+            {"$ref": "#/$defs/exactTime"},
+            {"properties": {"value": {"const": 20}}}
+          ]
+        },
+        "width": {"const": 160},
+        "height": {"const": 90},
+        "pixel_format": {"const": "420v"},
+        "active_row_sha256": {"$ref": "#/$defs/planeHashes"},
+        "attachments": {"$ref": "#/$defs/attachments"}
+      },
+      "additionalProperties": false
+    },
+    "decodeRun": {
+      "type": "object",
+      "required": ["run_index", "frames"],
+      "properties": {
+        "run_index": {"type": "integer", "minimum": 0, "maximum": 2},
+        "frames": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/decodedFrame"},
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "softwareIdentity": {
+      "type": "object",
+      "required": [
+        "framework",
+        "session_type",
+        "codec",
+        "hardware_acceleration_control",
+        "hardware_accelerated",
+        "hardware_acceleration_property_available",
+        "public_decoder_identifier"
+      ],
+      "properties": {
+        "framework": {"const": "VideoToolbox"},
+        "session_type": {"const": "VTDecompressionSession"},
+        "codec": {"const": "avc1"},
+        "hardware_acceleration_control": {"$ref": "#/$defs/nonempty"},
+        "hardware_accelerated": {"const": false},
+        "hardware_acceleration_property_available": {"type": "boolean"},
+        "public_decoder_identifier": {"const": "not_exposed_by_public_API"}
+      },
+      "additionalProperties": false
+    },
+    "productIdentity": {
+      "type": "object",
+      "required": [
+        "framework",
+        "session_type",
+        "codec",
+        "hardware_acceleration_control",
+        "public_decoder_identifier"
+      ],
+      "properties": {
+        "framework": {"const": "AVFoundation"},
+        "session_type": {"const": "AVAssetReaderTrackOutput"},
+        "codec": {"const": "avc1"},
+        "hardware_acceleration_control": {"const": "not exposed by AVAssetReaderTrackOutput"},
+        "public_decoder_identifier": {"const": "not_exposed_by_public_API"}
+      },
+      "additionalProperties": false
+    },
+    "softwareRoute": {
+      "type": "object",
+      "required": ["route", "identity", "runs"],
+      "properties": {
+        "route": {"const": "videotoolbox_software_nv12"},
+        "identity": {"$ref": "#/$defs/softwareIdentity"},
+        "runs": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/decodeRun"},
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "productRoute": {
+      "type": "object",
+      "required": ["route", "identity", "runs"],
+      "properties": {
+        "route": {"const": "avassetreader_product_nv12"},
+        "identity": {"$ref": "#/$defs/productIdentity"},
+        "runs": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/decodeRun"},
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "required": [
+        "software_decode_run_count",
+        "product_reader_run_count",
+        "software_runs_pixel_identical",
+        "product_reader_runs_pixel_identical",
+        "cross_route_pixel_identical",
+        "exact_timing_preserved",
+        "dimensions_preserved",
+        "pixel_format_preserved",
+        "attachments_recorded",
+        "row_padding_excluded"
+      ],
+      "properties": {
+        "software_decode_run_count": {"const": 3},
+        "product_reader_run_count": {"const": 3},
+        "software_runs_pixel_identical": {"const": true},
+        "product_reader_runs_pixel_identical": {"const": true},
+        "cross_route_pixel_identical": {"const": true},
+        "exact_timing_preserved": {"const": true},
+        "dimensions_preserved": {"const": true},
+        "pixel_format_preserved": {"const": true},
+        "attachments_recorded": {"const": true},
+        "row_padding_excluded": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "environment": {
+      "type": "object",
+      "required": ["macos", "xcode", "swift", "architecture", "hardware_model", "processor"],
+      "properties": {
+        "macos": {"$ref": "#/$defs/nonempty"},
+        "xcode": {"$ref": "#/$defs/nonempty"},
+        "swift": {"$ref": "#/$defs/nonempty"},
+        "architecture": {"$ref": "#/$defs/nonempty"},
+        "hardware_model": {"$ref": "#/$defs/nonempty"},
+        "processor": {"$ref": "#/$defs/nonempty"}
+      },
+      "additionalProperties": false
+    },
+    "integration": {
+      "type": "object",
+      "required": ["degradation_lock_profile", "benchmark_dry_run_fields"],
+      "properties": {
+        "degradation_lock_profile": {
+          "type": "object",
+          "required": [
+            "id",
+            "kind",
+            "version",
+            "source_profile_id",
+            "fixture_path",
+            "fixture_sha256",
+            "evidence_path",
+            "deterministic_decoded_pixels_on_recorded_environment"
+          ],
+          "properties": {
+            "id": {"const": "actual-h264-software-nv12-v1"},
+            "kind": {"const": "actual_codec"},
+            "version": {"const": "1.0.0"},
+            "source_profile_id": {"const": "hq-binomial7-decimate-2x-v1"},
+            "fixture_path": {"pattern": "\\.mp4$", "type": "string"},
+            "fixture_sha256": {"$ref": "#/$defs/sha256"},
+            "evidence_path": {"pattern": "\\.json$", "type": "string"},
+            "deterministic_decoded_pixels_on_recorded_environment": {"const": true}
+          },
+          "additionalProperties": false
+        },
+        "benchmark_dry_run_fields": {
+          "type": "object",
+          "required": [
+            "comparison_domains_executed",
+            "actual_codec_fixture_used",
+            "actual_codec_fixture_id",
+            "container_decoded_frame_count",
+            "holdout_accessed"
+          ],
+          "properties": {
+            "comparison_domains_executed": {"const": ["container_decoded"]},
+            "actual_codec_fixture_used": {"const": true},
+            "actual_codec_fixture_id": {"const": "actual-h264-software-nv12-v1"},
+            "container_decoded_frame_count": {"const": 3},
+            "holdout_accessed": {"const": false}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "limitations": {
+      "type": "object",
+      "required": [
+        "cross_os_bitstream_stability_claimed",
+        "regeneration_bitstream_stability_claimed",
+        "bitstream_scope",
+        "product_reader_acceleration_visibility"
+      ],
+      "properties": {
+        "cross_os_bitstream_stability_claimed": {"const": false},
+        "regeneration_bitstream_stability_claimed": {"const": false},
+        "bitstream_scope": {"$ref": "#/$defs/nonempty"},
+        "product_reader_acceleration_visibility": {"$ref": "#/$defs/nonempty"}
+      },
+      "additionalProperties": false
+    }
+  }
+}

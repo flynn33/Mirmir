@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "fetch": false,
+  "push": false,
+  "pull_request": false,
+  "tag": false,
+  "release": false,
+  "remote_config_change": false,
+  "history_rewrite": false,
+  "forsetti_source_modified": false
+}

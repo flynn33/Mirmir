@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/quality/corpus-lock-v1.1.schema.json",
+  "title": "Mirmir native-HR corpus lock",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "corpus_id",
+    "corpus_version",
+    "created_utc",
+    "category_vocabulary_version",
+    "split_policy",
+    "holdout_policy",
+    "canonicalization",
+    "hash_scope",
+    "assets",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.1.0"},
+    "corpus_id": {"type": "string", "minLength": 1},
+    "corpus_version": {"type": "string", "minLength": 1},
+    "created_utc": {"type": "string", "format": "date-time"},
+    "category_vocabulary_version": {"type": "string", "minLength": 1},
+    "canonicalization": {"const": "sorted-key compact UTF-8 JSON"},
+    "hash_scope": {"const": "entire document excluding /manifest_sha256"},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "split_policy": {
+      "type": "object",
+      "required": ["unit", "group_key", "allocation", "algorithm", "rounding_rule"],
+      "properties": {
+        "unit": {"const": "source_asset"},
+        "group_key": {"const": "source_family_id"},
+        "allocation": {
+          "type": "object",
+          "required": ["development", "validation", "holdout"],
+          "properties": {
+            "development": {"const": 0.5},
+            "validation": {"const": 0.25},
+            "holdout": {"const": 0.25}
+          },
+          "additionalProperties": false
+        },
+        "algorithm": {"type": "string", "minLength": 1},
+        "seed": {"type": ["integer", "null"]},
+        "rounding_rule": {"type": "string", "minLength": 1},
+        "minimum_category_counts": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        },
+        "minimum_category_counts_by_split": {
+          "type": "object",
+          "required": ["development", "validation", "holdout"],
+          "properties": {
+            "development": {"$ref": "#/$defs/categoryCounts"},
+            "validation": {"$ref": "#/$defs/categoryCounts"},
+            "holdout": {"$ref": "#/$defs/categoryCounts"}
+          },
+          "additionalProperties": false
+        },
+        "expected_family_counts": {
+          "type": "object",
+          "required": ["development", "validation", "holdout"],
+          "properties": {
+            "development": {"const": 6},
+            "validation": {"const": 3},
+            "holdout": {"const": 3}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "holdout_policy": {
+      "type": "object",
+      "required": [
+        "state",
+        "evaluation_opened_utc",
+        "access_requires_complete_configuration_lock"
+      ],
+      "properties": {
+        "state": {"const": "sealed"},
+        "evaluation_opened_utc": {"type": ["string", "null"], "format": "date-time"},
+        "access_requires_complete_configuration_lock": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/asset"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "categoryCounts": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "integer", "minimum": 1}
+    },
+    "dimensions": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "asset_id",
+        "source_asset_id",
+        "source_family_id",
+        "relative_path",
+        "sha256",
+        "size_bytes",
+        "media_type",
+        "native_target",
+        "derived",
+        "split",
+        "encoded_dimensions",
+        "presentation_dimensions",
+        "frame_range",
+        "target_routes",
+        "pixel_format",
+        "range",
+        "color_primaries",
+        "transfer_function",
+        "ycbcr_matrix",
+        "chroma_location",
+        "categories",
+        "provenance",
+        "rights",
+        "sensitive_metadata_present"
+      ],
+      "properties": {
+        "asset_id": {"type": "string", "minLength": 1},
+        "source_asset_id": {"type": "string", "minLength": 1},
+        "source_family_id": {"type": "string", "minLength": 1},
+        "relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+        },
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "media_type": {"enum": ["image", "video"]},
+        "native_target": {"const": true},
+        "derived": {"const": false},
+        "split": {"enum": ["development", "validation", "holdout"]},
+        "encoded_dimensions": {"$ref": "#/$defs/dimensions"},
+        "presentation_dimensions": {"$ref": "#/$defs/dimensions"},
+        "clean_aperture": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["Width", "Height", "HorizontalOffset", "VerticalOffset"],
+              "properties": {
+                "Width": {"type": "integer", "minimum": 1},
+                "Height": {"type": "integer", "minimum": 1},
+                "HorizontalOffset": {"const": 0},
+                "VerticalOffset": {"const": 0}
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["width", "height", "horizontal_offset", "vertical_offset"],
+              "properties": {
+                "width": {"type": "integer", "minimum": 1},
+                "height": {"type": "integer", "minimum": 1},
+                "horizontal_offset": {"const": 0},
+                "vertical_offset": {"const": 0}
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "pixel_aspect_ratio": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["HorizontalSpacing", "VerticalSpacing"],
+              "properties": {
+                "HorizontalSpacing": {"const": 1},
+                "VerticalSpacing": {"const": 1}
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["horizontal_spacing", "vertical_spacing"],
+              "properties": {
+                "horizontal_spacing": {"const": 1},
+                "vertical_spacing": {"const": 1}
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "orientation": {"const": "identity"},
+        "frame_range": {
+          "type": "object",
+          "required": ["start", "duration", "timescale"],
+          "properties": {
+            "start": {"type": "integer", "minimum": 0},
+            "duration": {"type": "integer", "minimum": 1},
+            "timescale": {"type": "integer", "minimum": 1}
+          },
+          "additionalProperties": false
+        },
+        "frame_count": {"type": ["integer", "null"], "minimum": 1},
+        "target_routes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "pixel_format": {"type": "string", "minLength": 1},
+        "range": {"type": "string", "minLength": 1},
+        "color_primaries": {"type": "string", "minLength": 1},
+        "transfer_function": {"type": "string", "minLength": 1},
+        "ycbcr_matrix": {"type": "string", "minLength": 1},
+        "chroma_location": {"type": "string", "minLength": 1},
+        "categories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "provenance": {
+          "type": "object",
+          "required": [
+            "origin_kind",
+            "creator",
+            "original_filename",
+            "acquired_utc",
+            "evidence_path",
+            "evidence_sha256"
+          ],
+          "properties": {
+            "origin_kind": {"type": "string", "minLength": 1},
+            "creator": {"type": "string", "minLength": 1},
+            "source_uri": {"type": ["string", "null"]},
+            "original_filename": {"type": "string", "minLength": 1},
+            "acquired_utc": {"type": "string", "format": "date-time"},
+            "capture_or_creation_metadata": {"type": "object"},
+            "evidence_path": {"type": "string", "minLength": 1},
+            "evidence_sha256": {"$ref": "#/$defs/sha256"}
+          },
+          "additionalProperties": false
+        },
+        "rights": {
+          "type": "object",
+          "required": [
+            "status",
+            "basis",
+            "license_or_declaration_path",
+            "license_or_declaration_sha256",
+            "item_specific_exception_status",
+            "item_specific_exception_evidence_path",
+            "item_specific_exception_evidence_sha256",
+            "permitted_uses",
+            "derivative_artifacts_permitted",
+            "redistribution_permitted",
+            "confirmed_by",
+            "confirmed_utc"
+          ],
+          "properties": {
+            "status": {"const": "confirmed"},
+            "basis": {"type": "string", "minLength": 1},
+            "license_id": {"type": ["string", "null"]},
+            "license_or_declaration_path": {"type": "string", "minLength": 1},
+            "license_or_declaration_sha256": {"$ref": "#/$defs/sha256"},
+            "item_specific_exception_status": {
+              "enum": ["none_found", "not_applicable_project_owned"]
+            },
+            "item_specific_exception_evidence_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "item_specific_exception_evidence_sha256": {"$ref": "#/$defs/sha256"},
+            "permitted_uses": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "derivative_artifacts_permitted": {"type": "boolean"},
+            "redistribution_permitted": {"type": "boolean"},
+            "confirmed_by": {"type": "string", "minLength": 1},
+            "confirmed_utc": {"type": "string", "format": "date-time"},
+            "expires_utc": {"type": ["string", "null"], "format": "date-time"}
+          },
+          "additionalProperties": false
+        },
+        "sensitive_metadata_present": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

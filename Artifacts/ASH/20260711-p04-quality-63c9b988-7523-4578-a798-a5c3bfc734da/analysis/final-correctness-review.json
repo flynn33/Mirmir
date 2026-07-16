@@ -1,0 +1,57 @@
+{
+  "artifact_publication": {
+    "artifact_files_before_manifest": 152,
+    "directory_count_before_outer_evidence": 58,
+    "held_writable_descriptor_result": "write affected only the detached old inode; the published pathname hash did not change",
+    "manifest_replacement_included": true,
+    "ordinary_write_failures": [
+      "replace published file contents",
+      "add file at published root",
+      "add file in nested published directory"
+    ],
+    "published_file_mode": "0400",
+    "published_file_user_immutable": true,
+    "replacement_count_including_manifest": 153,
+    "replacement_inodes_distinct": true,
+    "same_device_atomic_root_rename_count": 1,
+    "status": "pass"
+  },
+  "benchmark_semantics": {
+    "container_decoded_rows": 24,
+    "engine_raw_rows": 24,
+    "h264_writer_runs": 2,
+    "holdout_accessed": false,
+    "isolated_hevc_writer_runs": 24,
+    "semantic_replay_passes": 2,
+    "status": "pass",
+    "writer_runs_per_replay": 26
+  },
+  "review_boundary": {
+    "excluded": [
+      "deliberate user-immutable flag clearing by the owner or administrator",
+      "direct access to protected media outside the loader",
+      "filesystem rollback",
+      "replacement of the executing interpreter or operating system"
+    ],
+    "included": [
+      "cooperating processes",
+      "ordinary writes through pathnames",
+      "a writable descriptor opened before publication",
+      "schema-valid but semantically inconsistent evidence"
+    ]
+  },
+  "schema_version": "1.0.0",
+  "source_under_review": {
+    "path": "validation/quality/src/mirmir_quality/production_dry_run.py",
+    "sha256": "1cbc3195eef671b899eb6363e4f0d513f073331fd6ecf6ca8d694f805b24ad0b"
+  },
+  "status": "pass",
+  "test_evidence": {
+    "focused_end_to_end_elapsed_seconds": 19.645,
+    "focused_end_to_end_failures": 0,
+    "focused_end_to_end_passed": 1,
+    "full_python_failures": 0,
+    "full_python_passed": 80,
+    "full_python_skipped": 0
+  }
+}

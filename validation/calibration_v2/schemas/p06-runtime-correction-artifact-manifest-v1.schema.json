@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p06-runtime-correction-artifact-manifest-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "run_id",
+    "run_uuid",
+    "started_utc",
+    "finished_utc",
+    "created_utc",
+    "project_commit",
+    "working_tree_clean",
+    "dirty_state_sha256",
+    "repository_state",
+    "root",
+    "holdout_accessed",
+    "artifacts",
+    "recovery_actions",
+    "self_reference_boundary",
+    "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {
+      "const": "p06_runtime_feasibility_correction_artifact_manifest"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "run_uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "started_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finished_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "project_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "working_tree_clean": {"type": "boolean"},
+    "dirty_state_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "repository_state": {
+      "type": "object",
+      "required": [
+        "algorithm",
+        "artifact_pathspec_exclusion",
+        "project_commit",
+        "tracked_diff_sha256",
+        "tracked_diff_size_bytes",
+        "untracked_file_count",
+        "ordered_untracked_files_sha256",
+        "dirty_state_sha256"
+      ],
+      "properties": {
+        "algorithm": {
+          "const": "git-diff-head-binary-plus-content-bound-untracked-v1"
+        },
+        "artifact_pathspec_exclusion": {"const": "Artifacts/**"},
+        "project_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tracked_diff_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "tracked_diff_size_bytes": {"type": "integer", "minimum": 0},
+        "untracked_file_count": {"type": "integer", "minimum": 0},
+        "ordered_untracked_files_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dirty_state_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+    },
+    "holdout_accessed": {"const": false},
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "sha256",
+          "size_bytes",
+          "producer",
+          "command",
+          "platform",
+          "gate_ids"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))[^\\u0000]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "producer": {"type": "string", "minLength": 1},
+          "command": {"type": "string", "minLength": 1},
+          "platform": {"type": "string", "minLength": 1},
+          "gate_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["P06", "G06"]
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "recovery_actions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "required": ["action", "path", "sha256", "size_bytes"],
+        "properties": {
+          "action": {
+            "const": "removed_recognized_stale_manifest_temporary"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^\\.artifact-manifest\\.json\\.[0-9a-f]{32}\\.tmp$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {"type": "integer", "minimum": 0}
+        },
+        "additionalProperties": false
+      }
+    },
+    "self_reference_boundary": {
+      "const": "artifact-manifest.json is excluded from its own ordered artifact list and bound by manifest_sha256 over this document without that field"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "additionalProperties": false
+}

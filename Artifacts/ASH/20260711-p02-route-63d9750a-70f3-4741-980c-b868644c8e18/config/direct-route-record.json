@@ -1,0 +1,9 @@
+{
+  "codec": "hevc",
+  "emitsSignposts": false,
+  "input": "inputs/img9200_exact_1080p_1f.mp4",
+  "output": "raw/routes/direct/output-2160p-hevc.mp4",
+  "targetHeight": 2160,
+  "targetWidth": 3840,
+  "telemetry": "raw/routes/direct/telemetry.json"
+}

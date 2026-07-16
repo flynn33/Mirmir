@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0.0",
+  "contract_id": "mirmir-p06-metric-performance-tolerances-v1",
+  "status": "preregistered_not_measured",
+  "declaration_rule": "these values are fixed inputs and are not calibration coordinates",
+  "quality": {
+    "paired_bootstrap": {
+      "unit": "source_asset",
+      "replicates": 10000,
+      "seed": 20260710,
+      "confidence": 0.95
+    },
+    "y_psnr_paired_delta_lower_bound_db": {
+      "full_spatial_ash_vs_best_fixed_same_bank": 0.0,
+      "full_spatial_ash_vs_non_ash_same_bank_selector": 0.0,
+      "full_spatial_ash_vs_best_conventional_baseline": 0.0,
+      "comparison": "strictly_greater_than"
+    },
+    "ms_ssim_noninferiority": {
+      "paired_delta_lower_bound_minimum": -0.002,
+      "comparison": "greater_than_or_equal"
+    },
+    "ringing": {
+      "absolute_overshoot_maximum": 0.05,
+      "absolute_undershoot_magnitude_maximum": 0.05,
+      "increase_over_best_conventional_maximum": 0.01
+    },
+    "alias": {
+      "forbidden_band_energy_ratio_maximum": 0.05,
+      "increase_over_best_conventional_maximum": 0.01
+    },
+    "chroma_displacement": {
+      "absolute_pixels_maximum": 0.25,
+      "increase_over_best_conventional_pixels_maximum": 0.1
+    },
+    "severe_regression": {
+      "per_asset_y_psnr_delta_db_minimum": -0.25,
+      "per_category_mean_y_psnr_delta_db_minimum": -0.1,
+      "allowed_asset_failure_fraction": 0.0
+    },
+    "minimum_source_families_per_category": {
+      "development": 1,
+      "validation": 1,
+      "holdout": 1
+    },
+    "temporal_future_gate": {
+      "active_in_p06": false,
+      "ghosting_normalized_error_absolute_maximum": 0.02,
+      "ghosting_increase_over_spatial_maximum": 0.005,
+      "scene_cut_reset_latency_frames_maximum": 1
+    }
+  },
+  "numeric_conformance": {
+    "fixed_point_and_integer_fields": "exact",
+    "lut_bytes": "exact",
+    "metric_binary64_absolute_tolerance": 1e-12,
+    "metric_binary64_relative_tolerance": 1e-12,
+    "cpu_float32_vs_metal_normalized_absolute": {
+      "numerator": 2,
+      "denominator": 65535
+    },
+    "cpu_float32_vs_metal_normalized_rms": {
+      "numerator": 1,
+      "denominator": 65535
+    },
+    "quantized_output_code_maximum_difference": 1,
+    "nan_or_infinity_allowed": false
+  },
+  "performance": {
+    "same_machine_speedup_minimum": 20.0,
+    "same_machine_frames_per_second_minimum": 0.982,
+    "ash_dispatch_overhead_budget": {
+      "status": "pending_validation_derivation",
+      "measurement": "same-machine same-bank full ASH dispatch overhead percentage p95",
+      "formula": "max(5, ceil(measured_validation_p95_percent + 5))",
+      "uncertainty_margin_percentage_points": 5.0,
+      "minimum_budget_percent": 5.0,
+      "maximum_admissible_budget_percent": 25.0,
+      "rounding": "ceiling to the next integer percentage point after adding the margin",
+      "g06_failure": "derived budget greater than 25 percent",
+      "locked_policy_required_fields": [
+        "measured_validation_p95_percent",
+        "uncertainty_margin_percentage_points",
+        "derived_budget_percent",
+        "measurement_run_ids",
+        "measurement_artifact_sha256_values",
+        "derivation_formula",
+        "locked_before_g08"
+      ],
+      "post_g08_adjustment_allowed": false
+    },
+    "full_frame_cpu_reconstruction_loops_maximum": 0,
+    "runtime_leaf_tree_generations_per_frame_maximum": 0,
+    "candidate_evaluations_per_output_cell_maximum": 2,
+    "production_wait_until_completed_calls_maximum": 0,
+    "avoidable_full_frame_gpu_readbacks_per_frame_maximum": 0,
+    "default_in_flight_frames_maximum": 3,
+    "memory_stability": {
+      "measurement_frames": 300,
+      "warmup_frames": 30,
+      "rss_or_footprint_drift_percent_maximum": 10.0,
+      "live_frame_resources_return_to_bound": true
+    },
+    "calibration_estimate_relative_error_maximum": 0.2,
+    "compute_only_frames_per_second_objective": 24.0,
+    "compute_only_objective_is_blocking": false
+  },
+  "application": {
+    "quality_limits_apply_to": "development feasibility, validation selection, and the future locked holdout without modification",
+    "performance_limits_apply_to": "P06 feasibility estimates and measured G08 with the same values",
+    "temporal_limits_apply_to": "future temporal calibration and holdout; temporal processing remains disabled in P06"
+  }
+}

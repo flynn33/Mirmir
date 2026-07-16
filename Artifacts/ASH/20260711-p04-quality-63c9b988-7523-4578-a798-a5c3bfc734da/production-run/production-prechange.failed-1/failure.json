@@ -1,0 +1,8 @@
+{
+  "failure_type": "RuntimeError",
+  "holdout_accessed": false,
+  "message": "injected production development dry-run interruption",
+  "partial_preserved": true,
+  "run_id": "production-prechange",
+  "schema_version": "1.0.0"
+}

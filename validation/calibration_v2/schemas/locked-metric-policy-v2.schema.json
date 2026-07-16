@@ -1,0 +1,256 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/locked-metric-policy-v2.schema.json",
+  "title": "Locked metric policy after P06 selection",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "comparison_domains",
+    "domain_aggregation_forbidden",
+    "numeric_precision",
+    "normalization",
+    "psnr",
+    "ssim",
+    "ms_ssim",
+    "artifact_metrics",
+    "independent_oracle",
+    "analytic_fixture_manifest",
+    "bootstrap",
+    "release_tolerances",
+    "dispatch_measurement_evidence",
+    "unlocked_release_fields",
+    "hash_scope",
+    "policy_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "status": {"const": "locked"},
+    "comparison_domains": {"const": ["engine_raw", "container_decoded"]},
+    "domain_aggregation_forbidden": {"const": true},
+    "numeric_precision": {"const": "IEEE-754 binary64"},
+    "normalization": {
+      "type": "object",
+      "required": ["luma", "chroma", "peak", "missing_metadata"],
+      "properties": {
+        "luma": {"const": "legal code interval maps linearly to [0,1]"},
+        "chroma": {"const": "legal code interval maps linearly to centered [-0.5,0.5]"},
+        "peak": {"const": 1.0},
+        "missing_metadata": {"const": "fail"}
+      },
+      "additionalProperties": false
+    },
+    "psnr": {
+      "type": "object",
+      "required": ["mse", "zero_mse"],
+      "properties": {
+        "mse": {"const": "unweighted arithmetic mean over the declared valid aperture"},
+        "zero_mse": {"const": "value is null and exact_match is true"}
+      },
+      "additionalProperties": false
+    },
+    "ssim": {
+      "type": "object",
+      "required": ["window", "sigma", "kernel_construction", "k1", "k2", "peak", "boundary", "aggregation"],
+      "properties": {
+        "window": {"const": 11},
+        "sigma": {"const": 1.5},
+        "kernel_construction": {"const": "sample exp(-x^2/(2*sigma^2)) at integer offsets -5...5 and normalize"},
+        "k1": {"const": 0.01},
+        "k2": {"const": 0.03},
+        "peak": {"const": 1.0},
+        "boundary": {"const": "reflect-101"},
+        "aggregation": {"const": "unweighted arithmetic mean of the SSIM map"}
+      },
+      "additionalProperties": false
+    },
+    "ms_ssim": {
+      "type": "object",
+      "required": [
+        "scales",
+        "weights",
+        "downsample",
+        "odd_extent",
+        "minimum_side",
+        "negative_component_policy",
+        "scale_combination"
+      ],
+      "properties": {
+        "scales": {"const": 5},
+        "weights": {"const": [0.0448, 0.2856, 0.3001, 0.2363, 0.1333]},
+        "downsample": {"const": "normalized 2x2 box followed by factor-two decimation"},
+        "odd_extent": {"const": "reflect-101 pad the high edge to an even extent"},
+        "minimum_side": {"const": 32},
+        "negative_component_policy": {"const": "clamp scale means to [0,1] before exponentiation"},
+        "scale_combination": {"const": "contrast-structure means at scales 1 through 4 and the complete SSIM mean at scale 5"}
+      },
+      "additionalProperties": false
+    },
+    "artifact_metrics": {
+      "type": "object",
+      "required": ["edge_crossing", "ringing", "thin_line", "chroma_displacement", "alias"],
+      "properties": {
+        "edge_crossing": {"type": "string", "minLength": 1},
+        "ringing": {"type": "string", "minLength": 1},
+        "thin_line": {"type": "string", "minLength": 1},
+        "chroma_displacement": {"type": "string", "minLength": 1},
+        "alias": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "independent_oracle": {
+      "type": "object",
+      "required": ["implementation", "vector_path", "vector_sha256", "required_cases"],
+      "properties": {
+        "implementation": {"const": "direct two-dimensional convolution independent of production metric helpers"},
+        "vector_path": {"const": "validation/quality/reference/metric-vectors-v1.json"},
+        "vector_sha256": {"$ref": "#/$defs/sha256"},
+        "required_cases": {"const": ["non-identical SSIM", "non-identical five-scale MS-SSIM"]}
+      },
+      "additionalProperties": false
+    },
+    "analytic_fixture_manifest": {
+      "type": "object",
+      "required": ["path", "manifest_sha256", "file_sha256"],
+      "properties": {
+        "path": {"const": "reference/analytic-fixtures-v2.json"},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "file_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "bootstrap": {
+      "type": "object",
+      "required": ["unit", "per_asset_aggregation", "aggregate", "replicates", "seed", "generator", "ordering", "interval", "quantile"],
+      "properties": {
+        "unit": {"const": "source_asset"},
+        "per_asset_aggregation": {"const": "unweighted arithmetic mean of row deltas"},
+        "aggregate": {"const": "unweighted arithmetic mean across source assets"},
+        "replicates": {"const": 10000},
+        "seed": {"const": 20260710},
+        "generator": {"const": "SplitMix64 v1 with rejection sampling"},
+        "ordering": {"const": "ascending source_asset_id"},
+        "interval": {"const": [0.025, 0.975]},
+        "quantile": {"const": "linear interpolation at (n-1)*p"}
+      },
+      "additionalProperties": false
+    },
+    "release_tolerances": {
+      "type": "object",
+      "required": [
+        "contract_path",
+        "contract_sha256",
+        "y_psnr_paired_delta_lower_bound_db",
+        "ms_ssim_noninferiority_lower_bound_minimum",
+        "ringing_overshoot_absolute_maximum",
+        "ringing_undershoot_magnitude_absolute_maximum",
+        "ringing_increase_maximum",
+        "alias_ratio_maximum",
+        "alias_increase_maximum",
+        "chroma_displacement_pixels_maximum",
+        "chroma_displacement_increase_pixels_maximum",
+        "severe_regression",
+        "minimum_source_families_per_category",
+        "temporal_ghosting",
+        "dispatch_overhead_budget"
+      ],
+      "properties": {
+        "contract_path": {"const": "validation/calibration_v2/contracts/metric-performance-tolerances-v1.json"},
+        "contract_sha256": {"$ref": "#/$defs/sha256"},
+        "y_psnr_paired_delta_lower_bound_db": {
+          "const": {
+            "full_spatial_ash_vs_best_fixed_same_bank": 0.0,
+            "full_spatial_ash_vs_non_ash_same_bank_selector": 0.0,
+            "full_spatial_ash_vs_best_conventional_baseline": 0.0,
+            "comparison": "strictly_greater_than"
+          }
+        },
+        "ms_ssim_noninferiority_lower_bound_minimum": {"const": -0.002},
+        "ringing_overshoot_absolute_maximum": {"const": 0.05},
+        "ringing_undershoot_magnitude_absolute_maximum": {"const": 0.05},
+        "ringing_increase_maximum": {"const": 0.01},
+        "alias_ratio_maximum": {"const": 0.05},
+        "alias_increase_maximum": {"const": 0.01},
+        "chroma_displacement_pixels_maximum": {"const": 0.25},
+        "chroma_displacement_increase_pixels_maximum": {"const": 0.1},
+        "severe_regression": {
+          "const": {
+            "per_asset_y_psnr_delta_db_minimum": -0.25,
+            "per_category_mean_y_psnr_delta_db_minimum": -0.1,
+            "allowed_asset_failure_fraction": 0.0
+          }
+        },
+        "minimum_source_families_per_category": {"const": {"development": 1, "validation": 1, "holdout": 1}},
+        "temporal_ghosting": {
+          "const": {
+            "normalized_error_absolute_maximum": 0.02,
+            "increase_over_spatial_maximum": 0.005,
+            "scene_cut_reset_latency_frames_maximum": 1
+          }
+        },
+        "dispatch_overhead_budget": {
+          "type": "object",
+          "required": [
+            "measured_validation_p95_percent",
+            "uncertainty_margin_percentage_points",
+            "derived_budget_percent",
+            "measurement_run_ids",
+            "measurement_artifact_sha256_values",
+            "derivation_formula",
+            "locked_before_g08",
+            "post_g08_adjustment_allowed"
+          ],
+          "properties": {
+            "measured_validation_p95_percent": {"type": "number", "minimum": 0.0, "maximum": 20.0},
+            "uncertainty_margin_percentage_points": {"const": 5.0},
+            "derived_budget_percent": {"type": "integer", "minimum": 5, "maximum": 25},
+            "measurement_run_ids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "measurement_artifact_sha256_values": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"$ref": "#/$defs/sha256"}
+            },
+            "derivation_formula": {"const": "max(5, ceil(measured_validation_p95_percent + 5))"},
+            "locked_before_g08": {"const": true},
+            "post_g08_adjustment_allowed": {"const": false}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "dispatch_measurement_evidence": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "measurement_domain",
+        "production_metal_constraint_satisfied",
+        "status"
+      ],
+      "properties": {
+        "path": {"const": "dispatch-measurement.json"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "measurement_domain": {"const": "native_cpu_reference_projection_not_metal"},
+        "production_metal_constraint_satisfied": {"const": false},
+        "status": {"const": "pass"}
+      },
+      "additionalProperties": false
+    },
+    "unlocked_release_fields": {"const": []},
+    "hash_scope": {"const": "canonical sorted-key compact UTF-8 JSON excluding /policy_sha256"},
+    "policy_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0.0",
+  "ledger_type": "sealed_evaluation_access",
+  "revision_id": "revision-002",
+  "prepared_for_seal_utc": "2026-07-11T18:02:43Z",
+  "status": "unopened",
+  "evaluation_opened_utc": null,
+  "first_evaluation_access_utc": null,
+  "last_evaluation_access_utc": null,
+  "evaluation_access_count": 0,
+  "evaluation_run_id": null,
+  "entries": []
+}

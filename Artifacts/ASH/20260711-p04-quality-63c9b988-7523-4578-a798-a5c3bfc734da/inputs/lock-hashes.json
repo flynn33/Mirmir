@@ -1,0 +1,60 @@
+{
+  "records": [
+    {
+      "path": "validation/quality/locks/corpus-lock.json",
+      "sha256": "244def78bcecc419f4a28d1660c75e83500399727955256e5e3218ce9a7cd234",
+      "size_bytes": 37038
+    },
+    {
+      "path": "validation/quality/locks/development-sample-lock.json",
+      "sha256": "9d3f1df7452c29e34ae1b622dc2ba72aa92a25af21a36f5e4cbed2ef9a18ffa7",
+      "size_bytes": 19582
+    },
+    {
+      "path": "validation/quality/locks/quality-harness-implementation-manifest.json",
+      "sha256": "74aecc7988483bff09c3906c5d8c46b5029ced5b0d65c67c520ff0614de7973d",
+      "size_bytes": 11230
+    },
+    {
+      "path": "validation/quality/policies/degradation-policy.json",
+      "sha256": "e9e5b1ace29a15f4aa1cf8af2960c6341b9bc11338309ba69be769bd81ac436d",
+      "size_bytes": 9814
+    },
+    {
+      "path": "validation/quality/policies/metric-policy.json",
+      "sha256": "7dfe31ed4e7df0452673ed63edb4a9a78f59afef3d567e18e6f4af88f6d9cfdf",
+      "size_bytes": 3375
+    },
+    {
+      "path": "validation/quality/reference/analytic-fixtures-v1.json",
+      "sha256": "5c7a6d2d91b081a63168e82f222bc0a2d8e6fe4c8f0369b4a8a16e6bf49fde9f",
+      "size_bytes": 788
+    },
+    {
+      "path": "validation/quality/reference/metric-vectors-v1.json",
+      "sha256": "0b0e4cf961acf907be56c28b1cadd645c0944b058e1e3c84f9f28ce9aba41262",
+      "size_bytes": 836
+    },
+    {
+      "path": "validation/quality/fixtures/actual-h264-software-nv12-v1/actual-codec-fixture-lock.json",
+      "sha256": "5b105f83f8c6d6f01fde1e2adbc4feb73ec94d363531e4fb5bb97f827198ab47",
+      "size_bytes": 26791
+    },
+    {
+      "path": "validation/quality/fixtures/actual-h264-software-nv12-v1/actual-h264-software-nv12-v1.mp4",
+      "sha256": "120d7378c184bce42baf1fac8bdf0d56d2ff21c316a8a3a2a6067ed78dafd35f",
+      "size_bytes": 10389
+    },
+    {
+      "path": "validation/quality/fixtures/actual-h264-software-nv12-v1/source-lock.json",
+      "sha256": "0911bf5c3e1e27be21b9f3d7c0fa0d7c555a7ed1af39c206b1446f17e439db13",
+      "size_bytes": 3102
+    },
+    {
+      "path": "validation/quality/fixtures/actual-h264-software-nv12-v1/source.nv12",
+      "sha256": "05d1aa8b114e361b14f8ae9242412d3279fc63c6849aec4b4d69c47c26e4e5fe",
+      "size_bytes": 64800
+    }
+  ],
+  "schema_version": "1.0.0"
+}
