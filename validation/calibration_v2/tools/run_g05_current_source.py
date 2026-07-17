@@ -4031,6 +4031,118 @@ def _strict_reopen_final_wrapper(
     )
 
 
+def reopen_finalized_g04_current_source(
+    *,
+    root: Path,
+    source_commit: str,
+) -> Mapping[str, Any]:
+    """Public semantic reopener for one already-finalized current-source G04."""
+
+    expected_commit = _require_commit(source_commit)
+    final_root = _canonical_directory(root, "published G04 success wrapper")
+    manifest_payload = _read_regular(
+        final_root / "artifact-manifest.json",
+        "G04 finalized artifact manifest",
+    )
+    manifest = _json_object(
+        manifest_payload,
+        "G04 finalized artifact manifest",
+    )
+    _require(
+        manifest.get("project_commit") == expected_commit
+        and manifest.get("working_tree_clean") is True,
+        "G04 finalized manifest is not the exact clean current source",
+    )
+    attestation = _validate_finalized_g04_closure(
+        root=final_root,
+        manifest=manifest,
+        manifest_payload=manifest_payload,
+        source_commit=expected_commit,
+    )
+    return {
+        "gate_id": "G04",
+        "source_commit": expected_commit,
+        "working_tree_clean": True,
+        "holdout_accessed": False,
+        "manifest_sha256": _sha256(manifest_payload),
+        "closure_attestation": attestation,
+    }
+
+
+def reopen_finalized_g05_current_source(
+    *,
+    repository_root: Path,
+    final_root: Path,
+    instruction_package_root: Path,
+    source_commit: str,
+    baseline_commit: str,
+) -> Mapping[str, Any]:
+    """Public strict reopener for a published current-source G05 closure."""
+
+    repository = _canonical_directory(
+        repository_root,
+        "G05 repository root",
+    )
+    wrapper = _canonical_directory(
+        final_root,
+        "published G05 success wrapper",
+    )
+    instructions = _canonical_directory(
+        instruction_package_root,
+        "G05 instruction package root",
+    )
+    expected_commit = _require_commit(source_commit)
+    expected_baseline = _require_commit(baseline_commit)
+    command_plan_payload = _read_regular(
+        wrapper / "inputs/g05-command-plan.json",
+        "published G05 command plan",
+    )
+    command_plan = _json_object(
+        command_plan_payload,
+        "published G05 command plan",
+    )
+    closure = validate_g05_evidence(
+        repository,
+        tuple(wrapper / "evidence" / name for name in RUN_NAMES),
+    )
+    root_identity = _owned_directory_identity(
+        wrapper,
+        "published G05 success wrapper",
+    )
+    _strict_reopen_final_wrapper(
+        repository_root=repository,
+        final_root=wrapper,
+        instruction_package_root=instructions,
+        source_commit=expected_commit,
+        baseline_commit=expected_baseline,
+        command_plan=command_plan,
+        expected_p05_closure=closure,
+        expected_root_identity=root_identity,
+    )
+    manifest_payload = _read_regular(
+        wrapper / "artifact-manifest.json",
+        "published G05 artifact manifest",
+    )
+    manifest = _json_object(
+        manifest_payload,
+        "published G05 artifact manifest",
+    )
+    _require(
+        manifest.get("project_commit") == expected_commit
+        and manifest.get("working_tree_clean") is True,
+        "G05 finalized manifest is not the exact clean current source",
+    )
+    return {
+        "gate_id": "G05",
+        "source_commit": expected_commit,
+        "working_tree_clean": True,
+        "holdout_accessed": False,
+        "manifest_sha256": _sha256(manifest_payload),
+        "command_plan_sha256": _sha256(command_plan_payload),
+        "p05_closure_sha256": canonical_sha256(closure),
+    }
+
+
 def _strict_reopen_failure_wrapper(
     *,
     repository_root: Path,

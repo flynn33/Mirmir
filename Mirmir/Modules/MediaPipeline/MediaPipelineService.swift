@@ -18,6 +18,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case partialCleanupFailed(URL, String)
     case readerStartFailed
     case writerStartFailed
+    case outputMetadataMismatch(String)
     case unsupportedAssetDimensions(VideoResolution)
     case audioBridgeFailed(Error)
     case readerFailed(Error?)
@@ -55,6 +56,8 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "AVAssetReader.startReading() returned false."
         case .writerStartFailed:
             return "AVAssetWriter.startWriting() returned false."
+        case .outputMetadataMismatch(let reason):
+            return "ASH output identity metadata is invalid: \(reason)"
         case .unsupportedAssetDimensions(let res):
             return "Unsupported source resolution \(res). Mirmir supports 720p and 1080p sources."
         case .audioBridgeFailed(let error):
@@ -86,8 +89,18 @@ public protocol MediaSession: AnyObject, Sendable {
     /// Flushes the writer and finishes the file.
     func finish() async throws
 
+    /// Flushes the writer with the exact aggregate identity known after the
+    /// final reconstructed frame.
+    func finish(finalMetadata: [String: String]) async throws
+
     /// Cancels the session and tears down reader/writer resources.
     func cancel()
+}
+
+public extension MediaSession {
+    func finish(finalMetadata _: [String: String]) async throws {
+        try await finish()
+    }
 }
 
 /// Owns AVFoundation ingest and encode for upscale jobs. Implementations must

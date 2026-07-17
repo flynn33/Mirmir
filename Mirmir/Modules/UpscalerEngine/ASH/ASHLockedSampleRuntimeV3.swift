@@ -13,6 +13,7 @@ extension ASHLockedRuntimeV3 {
         let primary: ASHLockedRuntimeOperatorResultV3
         let secondary: ASHLockedRuntimeOperatorResultV3?
         let fallbackUsed: Bool
+        let actualOperatorInvocationCount: Int
     }
 
     static func evaluateSample(
@@ -119,7 +120,8 @@ extension ASHLockedRuntimeV3 {
             secondaryResult: evaluation.secondary,
             sourceAlignedSamplePreserved: evaluation.primary.sample.sourceAlignedSamplePreserved
                 && (evaluation.secondary?.sample.sourceAlignedSamplePreserved ?? true),
-            numericalFallbackUsed: evaluation.fallbackUsed
+            numericalFallbackUsed: evaluation.fallbackUsed,
+            actualOperatorInvocationCount: evaluation.actualOperatorInvocationCount
         )
     }
 
@@ -276,7 +278,9 @@ extension ASHLockedRuntimeV3 {
         coordinatePolicy: ASHSpatialCoordinatePolicyV2,
         sourceCoordinates: ASHSpatialSourceCoordinatesV2
     ) throws -> Evaluation {
+        var actualOperatorInvocationCount = 0
         do {
+            actualOperatorInvocationCount += 1
             let primary = try evaluateCandidate(
                 dispatch.primary,
                 plane: plane,
@@ -292,9 +296,11 @@ extension ASHLockedRuntimeV3 {
                     value: primary.sample.value,
                     primary: primary,
                     secondary: nil,
-                    fallbackUsed: false
+                    fallbackUsed: false,
+                    actualOperatorInvocationCount: actualOperatorInvocationCount
                 )
             }
+            actualOperatorInvocationCount += 1
             let secondary = try evaluateCandidate(
                 secondaryCandidate,
                 plane: plane,
@@ -314,12 +320,14 @@ extension ASHLockedRuntimeV3 {
                 value: value,
                 primary: primary,
                 secondary: secondary,
-                fallbackUsed: false
+                fallbackUsed: false,
+                actualOperatorInvocationCount: actualOperatorInvocationCount
             )
         } catch let error as ASHSpatialOperatorErrorV2 {
             guard ASHSpatialOperatorBankV2.conservativeFallback(for: error) != nil else {
                 throw error
             }
+            actualOperatorInvocationCount += 1
             let fallback = try conservativeEvaluation(
                 dispatch: dispatch,
                 plane: plane,
@@ -334,7 +342,8 @@ extension ASHLockedRuntimeV3 {
                 value: fallback.sample.value,
                 primary: fallback,
                 secondary: nil,
-                fallbackUsed: true
+                fallbackUsed: true,
+                actualOperatorInvocationCount: actualOperatorInvocationCount
             )
         }
     }

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-spatial-holdout-measurements-v2.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "p06_v2_identity", "status",
+    "configuration_sha256", "locked_metric_policy_sha256",
+    "sampling_plan_manifest_sha256", "frame_extraction_manifest_sha256",
+    "analytic_fixture_manifest_sha256", "runtime_evidence_manifest_sha256",
+    "comparison_domains", "source_order", "degradation_kind_order",
+    "locked_degradation_profiles", "locked_analytic_fixtures", "selected_aliases",
+    "control_configuration_sha256_by_control", "selected_p06_evidence_projection",
+    "corpus_rows", "analytic_fixture_rows", "holdout_accessed",
+    "configuration_files_modified_after_holdout", "measurement_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "p07_spatial_holdout_measurements_v2"},
+    "p06_v2_identity": {"$ref": "#/$defs/p06Identity"},
+    "status": {"const": "complete"},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "locked_metric_policy_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "frame_extraction_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "analytic_fixture_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "runtime_evidence_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "comparison_domains": {"const": ["engine_raw", "container_decoded"]},
+    "source_order": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true},
+    "degradation_kind_order": {"const": ["lowpass_decimate", "camera_blur_decimate", "codec_quantized_proxy"]},
+    "locked_degradation_profiles": {"type": "array", "minItems": 6, "maxItems": 6},
+    "locked_analytic_fixtures": {"type": "array", "minItems": 14, "maxItems": 14},
+    "selected_aliases": {"type": "object"},
+    "control_configuration_sha256_by_control": {"type": "object", "minProperties": 28, "maxProperties": 28},
+    "selected_p06_evidence_projection": {"type": "object"},
+    "corpus_rows": {"type": "array", "minItems": 18, "maxItems": 18},
+    "analytic_fixture_rows": {"type": "array", "minItems": 28, "maxItems": 28},
+    "holdout_accessed": {"const": true},
+    "configuration_files_modified_after_holdout": {"const": false},
+    "measurement_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "p06Identity": {
+      "type": "object",
+      "required": [
+        "calibration_plan_v2_file_sha256", "candidate_vector_sha256",
+        "shared_bank_configuration_sha256", "input_bundle_sha256",
+        "p06_release_bundle_artifact_sha256", "selected_evaluation_file_sha256",
+        "selected_evaluation_artifact_sha256", "selected_evaluation_semantic_sha256"
+      ],
+      "properties": {
+        "calibration_plan_v2_file_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "p06_release_bundle_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_file_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_semantic_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

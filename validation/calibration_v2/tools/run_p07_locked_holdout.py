@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import platform
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,9 @@ if str(REPOSITORY_ROOT) not in sys.path:
 
 from validation.calibration_v2.native_adapter.factory import (  # noqa: E402
     make_native_candidate_adapter_factory,
+)
+from validation.calibration_v2.current_source_gate_closure_v2 import (  # noqa: E402
+    reopen_staged_current_source_gate_receipts_v2,
 )
 from validation.calibration_v2.p07.execution import (  # noqa: E402
     P07ExecutionError,
@@ -46,15 +50,15 @@ from validation.calibration_v2.p07.execution import (  # noqa: E402
 from validation.calibration_v2.p07.production import (  # noqa: E402
     P07ProductionEvaluator,
 )
-from validation.calibration_v2.release_orchestrator import (  # noqa: E402
-    _configuration_bindings,
+from validation.calibration_v2.release_lock import (  # noqa: E402
+    p06_release_bundle_sha256,
 )
 from validation.calibration_v2.runner import (  # noqa: E402
     LiveHoldoutPreopenBinding,
     bind_preregistered_inputs,
 )
 from validation.quality.src.mirmir_quality.holdout import (  # noqa: E402
-    HoldoutAccessGuard,
+    P06V3HoldoutAccessGuard,
 )
 from validation.quality.src.mirmir_quality.json_tools import (  # noqa: E402
     canonical_sha256,
@@ -69,6 +73,128 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _read_v3_configuration_lock(
+    *,
+    release_root: Path,
+    release_manifest_path: Path,
+    expected_release_manifest_sha256: str,
+) -> tuple[Mapping[str, object], Mapping[str, object]]:
+    """Bind the only P07 configuration lock to the exact P06 V3 manifest row."""
+
+    _, bundle = _read_json(release_manifest_path, "P06 V3 release bundle")
+    if p06_release_bundle_sha256(bundle) != expected_release_manifest_sha256:
+        raise ValueError("P06 V3 release manifest differs from explicit expected hash")
+    artifacts = bundle.get("artifacts")
+    if not isinstance(artifacts, list):
+        raise ValueError("P06 V3 artifact bindings are absent")
+    rows = [
+        row
+        for row in artifacts
+        if isinstance(row, dict) and row.get("id") == "configuration_lock"
+    ]
+    if len(rows) != 1 or rows[0].get("path") != "configuration-lock-v2.json":
+        raise ValueError("P06 V3 configuration-lock binding is not exact")
+    payload, configuration = _read_json(
+        release_root / "configuration-lock-v2.json",
+        "P06 V3 configuration lock",
+    )
+    row = rows[0]
+    if (
+        hashlib.sha256(payload).hexdigest() != row.get("sha256")
+        or len(payload) != row.get("size_bytes")
+    ):
+        raise ValueError("P06 V3 configuration-lock bytes differ from release")
+    return bundle, configuration
+
+
+def _publish_startup_nonopening_failure(
+    *,
+    output_directory: Path,
+    error: BaseException,
+) -> Path:
+    """Persist failures that occur before a configuration can drive the executor."""
+
+    digest = hashlib.sha256(
+        os.fspath(output_directory).encode("utf-8", "strict")
+    ).hexdigest()[:32]
+    directory = output_directory.parent / f".p07-startup-failure-{digest}"
+    document = {
+        "schema_version": "1.0.0",
+        "artifact_kind": "p07_runner_startup_failure",
+        "status": "failed_before_holdout_intent",
+        "requested_output_directory": os.fspath(output_directory),
+        "failure_type": type(error).__name__,
+        "failure_message_sha256": hashlib.sha256(
+            str(error).encode("utf-8", "strict")
+        ).hexdigest(),
+        "holdout_intent_recorded": False,
+        "holdout_accessed": False,
+    }
+    document["manifest_sha256"] = canonical_sha256(document)
+    payload = json.dumps(
+        document,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8") + b"\n"
+    try:
+        directory.mkdir(mode=0o700)
+    except FileExistsError:
+        metadata = os.stat(directory, follow_symlinks=False)
+        if not stat.S_ISDIR(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            raise P07ExecutionError("P07 startup-failure archive is unsafe")
+        if {entry.name for entry in directory.iterdir()} != {"startup-failure.json"}:
+            raise P07ExecutionError("P07 startup-failure archive has foreign state")
+        existing = directory / "startup-failure.json"
+        existing_metadata = os.stat(existing, follow_symlinks=False)
+        if (
+            stat.S_ISLNK(existing_metadata.st_mode)
+            or not stat.S_ISREG(existing_metadata.st_mode)
+            or existing_metadata.st_nlink != 1
+            or existing.read_bytes() != payload
+        ):
+            raise P07ExecutionError("P07 startup-failure archive is unsafe")
+        return existing
+    target = directory / "startup-failure.json"
+    descriptor = os.open(
+        target,
+        os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+        0o600,
+    )
+    try:
+        offset = 0
+        while offset < len(payload):
+            written = os.write(descriptor, payload[offset:])
+            if written <= 0:
+                raise P07ExecutionError(
+                    "P07 startup-failure publication made no progress"
+                )
+            offset += written
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    directory_descriptor = os.open(
+        directory,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+    )
+    try:
+        os.fsync(directory_descriptor)
+    finally:
+        os.close(directory_descriptor)
+    if target.read_bytes() != payload:
+        raise P07ExecutionError("P07 startup-failure publication changed")
+    parent_descriptor = os.open(
+        directory.parent,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0),
+    )
+    try:
+        os.fsync(parent_descriptor)
+    finally:
+        os.close(parent_descriptor)
+    return target
 
 
 def _arguments() -> argparse.Namespace:
@@ -88,6 +214,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--p06-release-root", required=True, type=Path)
     parser.add_argument("--p06-release-manifest-path", required=True, type=Path)
     parser.add_argument("--expected-p06-release-manifest-sha256", required=True)
+    parser.add_argument("--g04-root", required=True, type=Path)
+    parser.add_argument("--g05-root", required=True, type=Path)
+    parser.add_argument("--g05-instruction-package-root", required=True, type=Path)
+    parser.add_argument("--g05-baseline-commit", required=True)
+    parser.add_argument("--g06-root", required=True, type=Path)
+    parser.add_argument("--g06-execution-run-name", required=True)
     parser.add_argument(
         "--support-root",
         required=True,
@@ -134,6 +266,46 @@ def _support_roots(values: list[str]) -> Mapping[str, Path]:
             )
         )
     return result
+
+
+def _verify_fresh_source_gate_semantics(
+    *,
+    arguments: argparse.Namespace,
+    repository_root: Path,
+    release_bundle: Mapping[str, object],
+) -> Mapping[str, object]:
+    payload, authority = _read_json(
+        arguments.p06_release_root / "p07-production-execution-authority-v2.json",
+        "P07 production execution authority V2",
+    )
+    if (
+        hashlib.sha256(payload).hexdigest()
+        != release_bundle.get("authorized_execution_bindings_sha256")
+        or authority.get("artifact_sha256")
+        != canonical_sha256(
+            {
+                key: value
+                for key, value in authority.items()
+                if key != "artifact_sha256"
+            }
+        )
+    ):
+        raise ValueError("P07 production execution authority differs from P06 V3")
+    fresh = reopen_staged_current_source_gate_receipts_v2(
+        repository_root=repository_root,
+        release_root=arguments.p06_release_root.resolve(strict=True),
+        g04_root=arguments.g04_root.resolve(strict=True),
+        g05_root=arguments.g05_root.resolve(strict=True),
+        g05_instruction_package_root=(
+            arguments.g05_instruction_package_root.resolve(strict=True)
+        ),
+        g05_baseline_commit=arguments.g05_baseline_commit,
+        g06_root=arguments.g06_root.resolve(strict=True),
+        g06_execution_run_name=arguments.g06_execution_run_name,
+    )
+    if fresh != authority.get("source_gate_semantics"):
+        raise ValueError("fresh G04/G05/G06 semantics differ from P06 authority")
+    return fresh
 
 
 def _loader_verification(
@@ -641,22 +813,11 @@ def _run_terminal_or_consumed_recovery(
     live_anchor_path: Path,
 ) -> Mapping[str, object]:
     output_directory = arguments.output_directory.resolve(strict=False)
-    bound = _recovery_bound_inputs(
-        repository_root=repository_root,
-        output_directory=output_directory,
-        transaction_intent=transaction_intent,
-    )
-    configuration_bindings = _configuration_bindings(
-        repository_root=repository_root,
-        release_root=arguments.p06_release_root.resolve(strict=True),
-        p04_quality_root=arguments.p04_quality_root.resolve(strict=True),
-        bound_inputs=bound,
-    )
-    guard = HoldoutAccessGuard(
+    guard = P06V3HoldoutAccessGuard(
         arguments.expected_corpus_manifest_sha256,
         ledger_path=live_ledger_path,
         anchor_path=live_anchor_path,
-        hash_bindings=configuration_bindings,
+        release_root=arguments.p06_release_root.resolve(strict=True),
     )
 
     def unreachable_evaluator(*unused: object) -> Mapping[str, object]:
@@ -715,8 +876,7 @@ def _protected_directories(
     return tuple(result)
 
 
-def main() -> int:
-    arguments = _arguments()
+def _main(arguments: argparse.Namespace) -> int:
     repository_root = arguments.repository_root.resolve(strict=True)
     if not arguments.p07_cache_root.is_absolute():
         raise ValueError("P07 cache root must be an absolute path")
@@ -753,6 +913,10 @@ def main() -> int:
             live_preopen_receipt_path.parent,
             repository_sealed_copy_path.parent,
             repository_attestation_path.parent,
+            arguments.g04_root,
+            arguments.g05_root,
+            arguments.g05_instruction_package_root,
+            arguments.g06_root,
             *support_roots.values(),
         ]
     )
@@ -771,9 +935,14 @@ def main() -> int:
         support_roots=support_roots,
         live_binding=live_binding,
     )
-    _, configuration_lock = _read_json(
-        arguments.p06_release_root / "configuration-lock.json",
-        "P06 configuration lock",
+    release_bundle, configuration_lock = _read_v3_configuration_lock(
+        release_root=arguments.p06_release_root.resolve(strict=True),
+        release_manifest_path=arguments.p06_release_manifest_path.resolve(
+            strict=True
+        ),
+        expected_release_manifest_sha256=(
+            arguments.expected_p06_release_manifest_sha256
+        ),
     )
     recovery_mode, transaction_intent = _recovery_mode(
         output_directory=output_directory,
@@ -839,19 +1008,17 @@ def main() -> int:
                 raise ValueError(
                     "no-pixel attestation differs from explicit expected hash"
                 )
-            _, release_bundle = _read_json(
-                arguments.p06_release_manifest_path,
-                "P06 release bundle",
-            )
-            if (
-                release_bundle.get("manifest_sha256")
-                != arguments.expected_p06_release_manifest_sha256
-                or release_bundle.get("manifest_sha256")
-                != manifest_sha256(release_bundle)
+            if p06_release_bundle_sha256(release_bundle) != (
+                arguments.expected_p06_release_manifest_sha256
             ):
                 raise ValueError(
                     "P06 release manifest differs from explicit expected hash"
                 )
+            _verify_fresh_source_gate_semantics(
+                arguments=arguments,
+                repository_root=repository_root,
+                release_bundle=release_bundle,
+            )
 
             bound = bind_preregistered_inputs(
                 repository_root,
@@ -895,7 +1062,7 @@ def main() -> int:
                 ),
             )
             preflight = executor.preflight()
-            if preflight.release_bundle.get("manifest_sha256") != (
+            if p06_release_bundle_sha256(preflight.release_bundle) != (
                 arguments.expected_p06_release_manifest_sha256
             ):
                 raise ValueError(
@@ -961,19 +1128,11 @@ def main() -> int:
                 cache_descriptor,
                 cache_identity,
             )
-            configuration_bindings = _configuration_bindings(
-                repository_root=repository_root,
-                release_root=arguments.p06_release_root.resolve(strict=True),
-                p04_quality_root=arguments.p04_quality_root.resolve(
-                    strict=True
-                ),
-                bound_inputs=bound,
-            )
-            guard = HoldoutAccessGuard(
+            guard = P06V3HoldoutAccessGuard(
                 arguments.expected_corpus_manifest_sha256,
                 ledger_path=live_ledger_path,
                 anchor_path=live_anchor_path,
-                hash_bindings=configuration_bindings,
+                release_root=arguments.p06_release_root.resolve(strict=True),
             )
             live_result = executor.execute_once(
                 configuration_lock=configuration_lock,
@@ -1034,6 +1193,31 @@ def main() -> int:
             os.close(executor_cache_descriptor)
             executor._p07_cache_descriptor = None
             executor._p07_cache_identity = None
+
+
+def main() -> int:
+    arguments = _arguments()
+    try:
+        return _main(arguments)
+    except BaseException as error:
+        anchor_path = Path(arguments.live_anchor_path)
+        output_directory = Path(arguments.output_directory).resolve(strict=False)
+        durable_executor_failure = any(
+            os.path.lexists(path)
+            for path in (
+                output_directory / "failed-version-archive.json",
+                output_directory.with_name(output_directory.name + ".failed")
+                / "failed-version-archive.json",
+                _pre_guard_failure_staging_path(output_directory)
+                / "failed-version-archive.json",
+            )
+        )
+        if not os.path.lexists(anchor_path) and not durable_executor_failure:
+            _publish_startup_nonopening_failure(
+                output_directory=output_directory,
+                error=error,
+            )
+        raise
 
 
 if __name__ == "__main__":

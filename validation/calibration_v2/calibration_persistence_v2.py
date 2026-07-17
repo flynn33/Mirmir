@@ -3909,6 +3909,54 @@ class CalibrationPersistenceAdapterV2:
         )
         return document
 
+    def publish_run_artifact_manifest(
+        self,
+        document: Mapping[str, object],
+    ) -> FileBindingV2:
+        """Publish or exactly reopen the dependency-only run manifest.
+
+        The run ledger deliberately excludes itself and this manifest from the
+        manifest's artifact rows to avoid a self-reference cycle.  Complete
+        dependency closure is enforced when ``publish_run_ledger`` reopens it.
+        """
+
+        snapshot = _snapshot_json(document, label="run-ledger artifact manifest")
+        if type(snapshot) is not dict:
+            raise CalibrationPersistenceV2Error(
+                "run-ledger artifact manifest is not an object"
+            )
+        _validate_schema_document(
+            snapshot,
+            self._schemas["evidence-wrapper-artifact-manifest-v2"],
+            label="run-ledger artifact manifest",
+        )
+        payload = canonical_json_file_bytes_v2(snapshot)
+        binding = FileBindingV2(
+            "artifact-manifest-v2.json",
+            _sha256(payload),
+            len(payload),
+        )
+        descriptor = self._store._open_root()
+        try:
+            self._store._publish_at(
+                descriptor,
+                binding.path,
+                payload,
+                label="run-ledger artifact manifest",
+            )
+            reopened = self._store._read_at(
+                descriptor,
+                binding.path,
+                label="run-ledger artifact manifest",
+            )
+        finally:
+            os.close(descriptor)
+        if reopened != payload:
+            raise CalibrationPersistenceV2Error(
+                "run-ledger artifact manifest changed after publication"
+            )
+        return binding
+
     @_authenticated_calibration_replay
     def verify_run_ledger_declared_relations(
         self,

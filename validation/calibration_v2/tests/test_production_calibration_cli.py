@@ -78,14 +78,11 @@ class ProductionCalibrationCLIAnchorTests(unittest.TestCase):
         arguments: argparse.Namespace,
         message: str,
     ) -> None:
-        with mock.patch.object(cli, "_arguments", return_value=arguments), mock.patch.object(
-            cli,
-            "make_production_calibration_assembly",
-        ) as factory, mock.patch.object(cli, "CalibrationExecutor") as executor:
+        with mock.patch.object(cli, "_arguments", return_value=arguments):
             with self.assertRaisesRegex(ValueError, message):
                 cli.main()
-        factory.assert_not_called()
-        executor.assert_not_called()
+        self.assertFalse(hasattr(cli, "make_production_calibration_assembly"))
+        self.assertFalse(hasattr(cli, "CalibrationExecutor"))
 
     def test_binding_uses_only_explicit_expected_anchor_values(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-p06-cli-anchor-") as value:

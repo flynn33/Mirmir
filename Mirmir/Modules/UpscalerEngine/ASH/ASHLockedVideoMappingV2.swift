@@ -1,18 +1,6 @@
 import CryptoKit
 import Foundation
 
-enum ASHLockedVideoMappingV2Error: Error, Equatable, Sendable {
-    case hashMismatch
-    case nonCanonicalEncoding
-    case fieldSetMismatch
-    case invalidValue
-}
-
-enum ASHLockedArtifactStatusV2: String, Equatable, Sendable {
-    case calibrationCandidate = "calibration_candidate"
-    case lockedBeforeP07 = "locked_before_p07"
-}
-
 /// Hash-bound analyzer inputs for one P06 calibration candidate.
 ///
 /// The initializer remains private so callers cannot pair arbitrary analyzer
@@ -98,7 +86,7 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
         try require(root["canonical_core_unchanged"], boolean: true)
         let status = try artifactStatus(root["status"])
         let configurationID = try string(root["configuration_id"])
-        guard validConfigurationID(configurationID) else {
+        guard ASHLockedVideoMappingValidationV2.validConfigurationID(configurationID) else {
             throw ASHLockedVideoMappingV2Error.invalidValue
         }
         let selection = try selectionBinding(root["selection_binding"], status: status)
@@ -147,6 +135,155 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
             direct3Over2AnalysisGridSourceStep: direct3Over2Step,
             immutableBytes: data
         )
+    }
+
+    /// Load the LF-terminated, plane-aware format-1.2 candidate mapping.
+    ///
+    /// The returned analyzer contract intentionally uses the established V2
+    /// runtime type: format 1.2 changes the route/plane compiler surface, not
+    /// the canonical analyzer thresholds or 420v input contract.
+    static func loadCalibrationCandidateV2(
+        _ data: Data,
+        expectedSHA256: ASHLUTHashV3,
+        configuration: ASHLUTLockedConfigurationV3
+    ) throws -> ASHLockedVideoMappingV2 {
+        let observedV3 = ASHLUTHashV3(
+            validatedBytes: Array(SHA256.hash(data: data))
+        )
+        guard observedV3 == expectedSHA256, data.last == 0x0a else {
+            throw ASHLockedVideoMappingV2Error.hashMismatch
+        }
+        let compact = Data(data.dropLast())
+        var parser = ASHLUTStrictJSONParserV2(data: compact)
+        let parsed = try parser.parse()
+        guard ASHLUTCanonicalJSONV2.encode(parsed) == compact else {
+            throw ASHLockedVideoMappingV2Error.nonCanonicalEncoding
+        }
+        let root = try object(parsed, keys: [
+            "schema_version", "artifact_kind", "status", "mapping_id",
+            "configuration_id", "mapping_seed_sha256",
+            "materialization_authority", "candidate_identity",
+            "selection_binding", "canonical_core_unchanged", "input_contract",
+            "boundary_mode", "analysis_grid_source_steps", "thresholds_unorm15",
+            "analysis_epsilon_q0_30", "risk_weights_unorm15",
+            "chroma_edge_confidence_unorm15"
+        ])
+        try require(root["schema_version"], string: "2.0.0")
+        try require(root["artifact_kind"], string: "p06_video_mapping_v2")
+        try require(root["status"], string: "calibration_candidate")
+        try require(root["mapping_id"], string: "ash-video-mapping-v2")
+        try require(root["canonical_core_unchanged"], boolean: true)
+
+        let configurationID = try string(root["configuration_id"])
+        guard ASHLockedVideoMappingValidationV2.validConfigurationID(configurationID),
+              configurationID == configuration.configurationID else {
+            throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+        _ = try selectionBinding(
+            root["selection_binding"],
+            status: .calibrationCandidate
+        )
+        let identity = try candidateIdentity(root, configuration: configuration)
+
+        let inputContract = try object(root["input_contract"], keys: [
+            "pixel_format", "matrix", "range", "chroma_siting", "bit_depth",
+            "subsampling"
+        ])
+        try require(inputContract["pixel_format"], string: "420v")
+        try require(inputContract["matrix"], string: "BT.709")
+        try require(inputContract["range"], string: "video")
+        try require(inputContract["chroma_siting"], string: "left")
+        try require(inputContract["bit_depth"], integer: 8)
+        try require(inputContract["subsampling"], string: "4:2:0")
+
+        let boundaryMode: ASHSpatialBoundaryModeV2
+        switch try string(root["boundary_mode"]) {
+        case "clamp": boundaryMode = .clamp
+        case "mirror_reflect101": boundaryMode = .mirrorReflect101
+        default: throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+        let gridSteps = try object(root["analysis_grid_source_steps"], keys: [
+            "direct_2x", "direct_3_over_2"
+        ])
+        let direct2xStep = try analysisGridStep(gridSteps["direct_2x"])
+        let direct3Over2Step = try analysisGridStep(gridSteps["direct_3_over_2"])
+        guard boundaryMode == configuration.boundaryMode,
+              direct2xStep == configuration.routes.direct2x.analysisGridSourceStep,
+              direct3Over2Step
+                == configuration.routes.direct3Over2.analysisGridSourceStep else {
+            throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+
+        return try ASHLockedVideoMappingV2(
+            sha256: ASHLUTHashV2(hex: observedV3.hex),
+            status: .calibrationCandidate,
+            configurationID: configurationID,
+            mappingSeedSHA256: ASHLUTHashV2(
+                hex: string(root["mapping_seed_sha256"])
+            ),
+            candidateVectorSHA256: ASHLUTHashV2(
+                hex: string(identity["candidate_vector_sha256"])
+            ),
+            sharedBankConfigurationSHA256: ASHLUTHashV2(
+                hex: string(identity["shared_bank_configuration_sha256"])
+            ),
+            calibrationSelectionSHA256: nil,
+            selectedEvaluationSHA256: nil,
+            analyzerConfiguration: try analyzerConfiguration(root),
+            codeRange: .video,
+            chromaSiting: .left,
+            boundaryMode: boundaryMode,
+            direct2xAnalysisGridSourceStep: direct2xStep,
+            direct3Over2AnalysisGridSourceStep: direct3Over2Step,
+            immutableBytes: data
+        )
+    }
+}
+
+private extension ASHLockedVideoMappingV2 {
+    static func candidateIdentity(
+        _ root: [String: ASHLUTStrictJSONValueV2],
+        configuration: ASHLUTLockedConfigurationV3
+    ) throws -> [String: ASHLUTStrictJSONValueV2] {
+        let materialization = try object(
+            root["materialization_authority"],
+            keys: [
+                "shared_bank_artifact_materialization_v2_file_sha256",
+                "shared_bank_artifact_materialization_v2_self_sha256",
+                "shared_bank_artifact_materialization_v2_schema_file_sha256"
+            ]
+        )
+        for value in materialization.values {
+            _ = try ASHLUTHashV2(hex: string(value))
+        }
+        let identity = try object(root["candidate_identity"], keys: [
+            "calibration_plan_v2_file_sha256",
+            "calibration_plan_v2_self_sha256",
+            "calibration_plan_v2_schema_file_sha256",
+            "shared_bank_configuration_v2_file_sha256",
+            "shared_bank_configuration_v2_self_sha256",
+            "shared_bank_configuration_v2_schema_file_sha256",
+            "physical_candidate_field_count", "physical_candidate_items",
+            "candidate_vector_sha256", "shared_bank_configuration_sha256"
+        ])
+        guard try string(identity["calibration_plan_v2_file_sha256"])
+                == configuration.calibrationPlanSHA256.hex,
+              try integer(identity["physical_candidate_field_count"]) == 48 else {
+            throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+        for name in [
+            "calibration_plan_v2_self_sha256",
+            "calibration_plan_v2_schema_file_sha256",
+            "shared_bank_configuration_v2_file_sha256",
+            "shared_bank_configuration_v2_self_sha256",
+            "shared_bank_configuration_v2_schema_file_sha256"
+        ] {
+            _ = try ASHLUTHashV2(hex: string(identity[name]))
+        }
+        try ASHLockedVideoMappingValidationV2.validatePhysicalCandidateItems(
+            identity["physical_candidate_items"]
+        )
+        return identity
     }
 
     private static func analyzerConfiguration(
@@ -270,20 +407,6 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
             throw ASHLockedVideoMappingV2Error.invalidValue
         }
         return UInt8(result)
-    }
-
-    private static func validConfigurationID(_ value: String) -> Bool {
-        let bytes = Array(value.utf8)
-        guard (3...128).contains(bytes.count),
-              let first = bytes.first,
-              (first >= 97 && first <= 122) || (first >= 48 && first <= 57) else {
-            return false
-        }
-        return bytes.allSatisfy {
-            ($0 >= 97 && $0 <= 122)
-                || ($0 >= 48 && $0 <= 57)
-                || [45, 46, 95].contains($0)
-        }
     }
 
     private static func encodedBand(

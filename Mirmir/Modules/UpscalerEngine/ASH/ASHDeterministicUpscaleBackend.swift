@@ -10,6 +10,10 @@ final class ASHDeterministicUpscaleBackend: ASHUpscaleBackend, @unchecked Sendab
     private let telemetry: any ASHTelemetryRecording
     private(set) var lastDebugSummary: ASHSpatialReferenceSummaryV2?
 
+    var outputMetadata: [String: String] {
+        runtimeConfiguration.outputMetadata
+    }
+
     init(
         route: ASHSpatialRouteV2,
         runtimeConfiguration: ASHSpatialRuntimeConfigurationV2 = .developmentP05,
@@ -28,7 +32,11 @@ final class ASHDeterministicUpscaleBackend: ASHUpscaleBackend, @unchecked Sendab
         lastDebugSummary = nil
     }
 
-    func process(source: CVPixelBuffer, into destination: CVPixelBuffer) async throws {
+    func process(
+        source: CVPixelBuffer,
+        into destination: CVPixelBuffer,
+        context _: ASHUpscaleFrameContext
+    ) async throws -> any ASHUpscaleFrameCompletion {
         try Task.checkCancellation()
         let sourceFrame = try telemetry.measure(.canonicalize) {
             try ASHNV12FrameCodec.extract(from: source)
@@ -61,5 +69,6 @@ final class ASHDeterministicUpscaleBackend: ASHUpscaleBackend, @unchecked Sendab
         telemetry.increment(.fullFrameCopies, by: 3)
         telemetry.increment(.fullFrameCPULoops, by: 2)
         lastDebugSummary = output.summary
+        return ASHImmediateFrameCompletion.shared
     }
 }

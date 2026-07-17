@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p08-metal-parity-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "evidence_identity",
+    "xctest_result_bundle", "same_device_repeat_minimum",
+    "pixel_determinism_scope", "routes", "hash_scope", "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p08_metal_parity"},
+    "evidence_identity": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/identity"
+    },
+    "xctest_result_bundle": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/treeBinding"
+    },
+    "same_device_repeat_minimum": {"const": 2},
+    "pixel_determinism_scope": {
+      "const": "same device, identical locked fixture bytes, decoded plane bytes"
+    },
+    "routes": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [
+        {"$ref": "#/$defs/direct2x"},
+        {"$ref": "#/$defs/direct3over2"}
+      ],
+      "items": false
+    },
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /artifact_sha256"
+    },
+    "artifact_sha256": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "parityRow": {
+      "type": "object",
+      "required": [
+        "plane", "phase_ordinal", "descriptor_id", "fixture_id",
+        "input_sha256", "cpu_output_sha256",
+        "metal_repeat_output_sha256_values",
+        "maximum_normalized_absolute_error", "normalized_rms_error",
+        "maximum_output_code_difference", "finite",
+        "state_bytes_equal", "message_bytes_equal", "lut_lookup_bytes_equal"
+      ],
+      "properties": {
+        "plane": {"enum": ["y", "cbcr"]},
+        "phase_ordinal": {"type": "integer", "minimum": 0, "maximum": 8},
+        "descriptor_id": {"type": "integer", "minimum": 0, "maximum": 15},
+        "fixture_id": {"type": "string", "minLength": 1},
+        "input_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "cpu_output_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "metal_repeat_output_sha256_values": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+          }
+        },
+        "maximum_normalized_absolute_error": {"type": "number", "minimum": 0},
+        "normalized_rms_error": {"type": "number", "minimum": 0},
+        "maximum_output_code_difference": {"type": "integer", "minimum": 0},
+        "finite": {"type": "boolean"},
+        "state_bytes_equal": {"type": "boolean"},
+        "message_bytes_equal": {"type": "boolean"},
+        "lut_lookup_bytes_equal": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "direct2x": {
+      "type": "object",
+      "required": ["route", "phase_count", "rows"],
+      "properties": {
+        "route": {"const": "direct_2x"},
+        "phase_count": {"const": 4},
+        "rows": {
+          "type": "array", "minItems": 128, "maxItems": 128,
+          "items": {"$ref": "#/$defs/parityRow"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "direct3over2": {
+      "type": "object",
+      "required": ["route", "phase_count", "rows"],
+      "properties": {
+        "route": {"const": "direct_3_over_2"},
+        "phase_count": {"const": 9},
+        "rows": {
+          "type": "array", "minItems": 288, "maxItems": 288,
+          "items": {"$ref": "#/$defs/parityRow"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

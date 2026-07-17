@@ -184,6 +184,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     let videoInput: AVAssetWriterInput
     private let videoAdaptor: AVAssetWriterInputPixelBufferAdaptor
     let audioInput: AVAssetWriterInput?
+    let timedMetadataWriter: TimedMetadataWriter?
     let outputTransaction: AtomicMediaOutput
     let outputVerifier: any OutputMediaVerifying
     let telemetry: any ASHTelemetryRecording
@@ -283,7 +284,6 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let outputTransaction = try Self.makeOutputTransaction(outputURL: output.url)
         outputTransaction.attachTelemetry(telemetry)
         let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
-        writer.metadata = Self.makeASHMetadataItems()
         let writerInputs = try Self.configureWriterInputs(
             writer: writer,
             output: output,
@@ -311,6 +311,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.videoInput = writerInputs.video
         self.videoAdaptor = writerInputs.adaptor
         self.audioInput = writerInputs.audio
+        self.timedMetadataWriter = writerInputs.timedMetadata
         self.outputTransaction = outputTransaction
         self.outputVerifier = outputVerifier
         self.telemetry = telemetry

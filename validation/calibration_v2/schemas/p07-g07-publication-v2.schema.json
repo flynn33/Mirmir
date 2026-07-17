@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-g07-publication-v2.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "p06_v2_identity", "status",
+    "gate_pass", "artifact_file_sha256", "holdout_accessed",
+    "configuration_files_modified_after_holdout", "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "p07_g07_publication_v2"},
+    "p06_v2_identity": {"$ref": "#/$defs/p06Identity"},
+    "status": {"enum": ["pass", "fail"]},
+    "gate_pass": {"type": "boolean"},
+    "artifact_file_sha256": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "holdout_accessed": {"const": true},
+    "configuration_files_modified_after_holdout": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "p06Identity": {
+      "type": "object",
+      "required": [
+        "calibration_plan_v2_file_sha256", "candidate_vector_sha256",
+        "shared_bank_configuration_sha256", "input_bundle_sha256",
+        "p06_release_bundle_artifact_sha256", "selected_evaluation_file_sha256",
+        "selected_evaluation_artifact_sha256", "selected_evaluation_semantic_sha256"
+      ],
+      "properties": {
+        "calibration_plan_v2_file_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "p06_release_bundle_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_file_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_semantic_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

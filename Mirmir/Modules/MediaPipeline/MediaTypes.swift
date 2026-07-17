@@ -119,12 +119,20 @@ public struct OutputProfile: Sendable {
     public let resolution: VideoResolution
     public let codec: OutputCodec
     public let preserveAudio: Bool
+    public let timedMetadataTemplate: [String: String]
 
-    public init(url: URL, resolution: VideoResolution, codec: OutputCodec, preserveAudio: Bool) {
+    public init(
+        url: URL,
+        resolution: VideoResolution,
+        codec: OutputCodec,
+        preserveAudio: Bool,
+        timedMetadataTemplate: [String: String] = [:]
+    ) {
         self.url = url
         self.resolution = resolution
         self.codec = codec
         self.preserveAudio = preserveAudio
+        self.timedMetadataTemplate = timedMetadataTemplate
     }
 }
 

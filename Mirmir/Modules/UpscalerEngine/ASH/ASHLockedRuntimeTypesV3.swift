@@ -188,6 +188,7 @@ struct ASHLockedRuntimeSampleResultV3: Equatable, Sendable {
     let secondaryResult: ASHLockedRuntimeOperatorResultV3?
     let sourceAlignedSamplePreserved: Bool
     let numericalFallbackUsed: Bool
+    let actualOperatorInvocationCount: Int
 }
 
 enum ASHLockedRuntimeV3 {}

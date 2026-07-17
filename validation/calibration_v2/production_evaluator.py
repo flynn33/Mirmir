@@ -3066,10 +3066,27 @@ def make_control_selection_bundle(
     fixed = _selection_document(fixed_selection, "fixed")
     conventional = _selection_document(conventional_selection, "conventional")
     non_ash = _selection_document(non_ash_selection, "non-ASH")
-    for document, schema_name in (
-        (fixed, "fixed-control-selection-v1.schema.json"),
-        (conventional, "conventional-control-selection-v1.schema.json"),
-        (non_ash, "non-ash-selector-selection-v1.schema.json"),
+    is_v2 = (
+        fixed.get("schema_version") == "2.0.0"
+        and conventional.get("schema_version") == "2.0.0"
+        and non_ash.get("schema_version") == "2.0.2"
+    )
+    schema_names = (
+        (
+            "fixed-control-selection-v2.schema.json",
+            "conventional-control-selection-v2.schema.json",
+            "non-ash-selector-selection-v2.schema.json",
+        )
+        if is_v2
+        else (
+            "fixed-control-selection-v1.schema.json",
+            "conventional-control-selection-v1.schema.json",
+            "non-ash-selector-selection-v1.schema.json",
+        )
+    )
+    for document, schema_name in zip(
+        (fixed, conventional, non_ash),
+        schema_names,
     ):
         try:
             validate_schema(document, SCHEMAS_ROOT / schema_name)
@@ -3087,11 +3104,23 @@ def make_control_selection_bundle(
     selection_stage = stages.pop()
     if selection_stage not in {"development_provisional", "validation_final"}:
         raise ProductionEvaluatorError("selected control lifecycle stage is invalid")
+    expected_kinds = (
+        (
+            "p06_fixed_control_selection_v2",
+            "p06_conventional_control_selection_v2",
+            "p06_non_ash_selector_selection_v2",
+        )
+        if is_v2
+        else (
+            "p06_fixed_control_selection",
+            "p06_conventional_control_selection",
+            "p06_non_ash_selector_selection",
+        )
+    )
     if (
-        fixed.get("artifact_kind") != "p06_fixed_control_selection"
-        or conventional.get("artifact_kind")
-        != "p06_conventional_control_selection"
-        or non_ash.get("artifact_kind") != "p06_non_ash_selector_selection"
+        fixed.get("artifact_kind") != expected_kinds[0]
+        or conventional.get("artifact_kind") != expected_kinds[1]
+        or non_ash.get("artifact_kind") != expected_kinds[2]
         or fixed.get("shared_bank_configuration_sha256") != bank
         or conventional.get("shared_bank_configuration_sha256") != bank
         or non_ash.get("shared_bank_configuration_sha256") != bank
@@ -3123,23 +3152,54 @@ def make_control_selection_bundle(
         if selection_stage == "development_provisional"
         else "chosen_algorithm_id"
     )
-    selected_rule = non_ash.get(
-        "development_terminal_rule_configuration"
-        if selection_stage == "development_provisional"
-        else "selected_rule_configuration"
-    )
-    selected_rule_sha256 = non_ash.get(
-        "development_terminal_rule_sha256"
-        if selection_stage == "development_provisional"
-        else "selected_rule_sha256"
-    )
+    if is_v2:
+        rule_values = non_ash.get(
+            "development_terminal_rule_values"
+            if selection_stage == "development_provisional"
+            else "selected_control_rule_values"
+        )
+        serialization = non_ash.get("canonical_rule_serialization")
+        coordinate_order = (
+            serialization.get("coordinate_order")
+            if isinstance(serialization, dict)
+            else None
+        )
+        selected_rule = (
+            dict(zip(coordinate_order, rule_values))
+            if isinstance(coordinate_order, list)
+            and isinstance(rule_values, list)
+            and len(coordinate_order) == len(rule_values)
+            else None
+        )
+        selected_rule_sha256 = non_ash.get(
+            "development_terminal_rule_sha256"
+            if selection_stage == "development_provisional"
+            else "selected_control_rule_sha256"
+        )
+    else:
+        selected_rule = non_ash.get(
+            "development_terminal_rule_configuration"
+            if selection_stage == "development_provisional"
+            else "selected_rule_configuration"
+        )
+        selected_rule_sha256 = non_ash.get(
+            "development_terminal_rule_sha256"
+            if selection_stage == "development_provisional"
+            else "selected_rule_sha256"
+        )
     if not isinstance(selected_descriptor, int) or not isinstance(selected_algorithm, str):
         raise ProductionEvaluatorError("selected fixed or conventional ID is invalid")
     if not isinstance(selected_rule, dict):
         raise ProductionEvaluatorError("selected non-ASH rule is absent")
     fixed_request = fixed_control_request(selected_descriptor, bank)
     conventional_request = conventional_control_request(selected_algorithm, bank)
-    non_ash_request = non_ash_control_request(selected_rule, bank)
+    non_ash_request = non_ash_control_request_for_selector_v2(
+        selected_rule,
+        bank,
+        selector_id=(
+            NON_ASH_SELECTOR_ID_V2 if is_v2 else NON_ASH_SELECTOR_ID
+        ),
+    )
     if (
         non_ash_request["parameters"]["selected_rule_sha256"]
         != selected_rule_sha256
@@ -6042,7 +6102,11 @@ class ProductionCandidateEvaluator:
         rule_sha256 = non_ash_document[
             "development_terminal_rule_sha256"
             if development
-            else "selected_rule_sha256"
+            else (
+                "selected_control_rule_sha256"
+                if non_ash_document.get("schema_version") == "2.0.2"
+                else "selected_rule_sha256"
+            )
         ]
         bank = bundle.shared_bank_configuration_sha256
         baseline_selection = self.baseline_ablation_contract_sha256
@@ -6070,13 +6134,15 @@ class ProductionCandidateEvaluator:
                 "shared_bank_configuration_sha256": bank,
             },
             "non_ash_selector": {
-                "selector_id": NON_ASH_SELECTOR_ID,
+                "selector_id": non_ash_document["selector_id"],
                 "configuration_sha256": requests["non_ash_selector"][
                     "configuration_sha256"
                 ],
                 "selection_sha256": artifacts["non_ash_selector"]["sha256"],
                 "rule_sha256": rule_sha256,
-                "candidate_evaluation_budget": 1513,
+                "candidate_evaluation_budget": non_ash_document[
+                    "candidate_evaluation_budget"
+                ],
                 "shared_bank_configuration_sha256": bank,
             },
             "state_only": {

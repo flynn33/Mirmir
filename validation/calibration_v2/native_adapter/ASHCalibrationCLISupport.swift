@@ -56,6 +56,64 @@ final class ASHNoopTelemetryRecorder: ASHTelemetryRecording, @unchecked Sendable
     func recordDecode(_: ASHDecodeStatus) {}
     func recordCandidateCount(_: Int) {}
 }
+
+/// Standalone CLI equivalents of the app's CoreVideo-backed frame envelope.
+/// The command-line target operates on exact planar bytes and therefore needs
+/// only the pure normalized-plane portion of `ASHNV12FrameCodec`.
+struct ASHNV12CodeFrame: Equatable, Sendable {
+    let luma: ASHVideoAnalyzerV2CodePlane
+    let cb: ASHVideoAnalyzerV2CodePlane
+    let cr: ASHVideoAnalyzerV2CodePlane
+    let chromaSiting: ASHChromaSitingV2
+}
+
+struct ASHNV12FrameGeometry: Equatable, Sendable {
+    let lumaWidth: Int
+    let lumaHeight: Int
+    let chromaWidth: Int
+    let chromaHeight: Int
+}
+
+struct ASHSpatialReferencePlaneOutputV2: Equatable, Sendable {
+    let width: Int
+    let height: Int
+    let normalizedSamples: [Double]
+}
+
+enum ASHNormalizedChannel: Equatable, Sendable {
+    case luma
+    case chroma
+}
+
+enum ASHNV12FrameCodec {
+    static func normalizedPlane(
+        _ plane: ASHVideoAnalyzerV2CodePlane,
+        channel: ASHNormalizedChannel
+    ) throws -> ASHSpatialPlaneV2 {
+        var samples: [Double] = []
+        samples.reserveCapacity(plane.width * plane.height)
+        for row in 0..<plane.height {
+            let rowOffset = row * plane.bytesPerRow
+            for column in 0..<plane.width {
+                let code = plane.codes[rowOffset + column]
+                let value: Double
+                switch channel {
+                case .luma:
+                    value = plane.range.normalizeLuma(code)
+                case .chroma:
+                    value = plane.range.normalizeChroma(code) + 0.5
+                }
+                samples.append(min(1.0, max(0.0, value)))
+            }
+        }
+        return try ASHSpatialPlaneV2(
+            width: plane.width,
+            height: plane.height,
+            samples: samples,
+            legalRange: 0.0...1.0
+        )
+    }
+}
 #endif
 
 enum ASHCalibrationCLIHash {

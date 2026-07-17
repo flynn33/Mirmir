@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p08-native-measurements-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "run_id", "execution_identity",
+    "device", "device_identity_sha256", "xctest_result_bundles",
+    "metal_parity", "performance", "resource_ring", "instruments",
+    "gpu_capture", "hash_scope", "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p08_native_measurements"},
+    "run_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "execution_identity": {"$ref": "#/$defs/executionIdentity"},
+    "device": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/device"
+    },
+    "device_identity_sha256": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+    },
+    "xctest_result_bundles": {
+      "const": {
+        "metal_parity": "metal-parity.xcresult",
+        "performance": "performance.xcresult",
+        "resource_ring": "resource-ring.xcresult"
+      }
+    },
+    "metal_parity": {"$ref": "#/$defs/metalParity"},
+    "performance": {"$ref": "#/$defs/performance"},
+    "resource_ring": {"$ref": "#/$defs/resourceRing"},
+    "instruments": {"$ref": "#/$defs/instruments"},
+    "gpu_capture": {"$ref": "#/$defs/gpuCapture"},
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /artifact_sha256"
+    },
+    "artifact_sha256": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "resourceIdentity": {
+      "type": "object",
+      "required": ["filename", "sha256", "size_bytes"],
+      "properties": {
+        "filename": {"type": "string", "minLength": 1},
+        "sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "size_bytes": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "executionIdentity": {
+      "type": "object",
+      "required": [
+        "source_commit", "source_tree_sha256", "configuration_id",
+        "p06_release_bundle_artifact_sha256",
+        "selected_evaluation_artifact_sha256",
+        "g07_publication_manifest_sha256", "holdout_accessed",
+        "production_app_tree_sha256",
+        "production_executable_sha256",
+        "metal_library_sha256", "bundled_release_resources"
+      ],
+      "properties": {
+        "source_commit": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sourceCommit"
+        },
+        "source_tree_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "configuration_id": {
+          "type": "string",
+          "pattern": "^ash-p06-[0-9a-f]{24}$"
+        },
+        "p06_release_bundle_artifact_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "selected_evaluation_artifact_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "g07_publication_manifest_sha256": {
+          "type": "null"
+        },
+        "holdout_accessed": {"const": false},
+        "production_app_tree_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "production_executable_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "metal_library_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "bundled_release_resources": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "prefixItems": [
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "lut-manifest-v3.json"}}},
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "locked-compiler-input-v2.json"}}},
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "locked-mapping.json"}}},
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "direct2x.ashlut"}}},
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "direct3over2.ashlut"}}},
+            {"$ref": "#/$defs/resourceIdentity", "properties": {"filename": {"const": "native-lut-parity-manifest-v3.json"}}}
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "metalParity": {
+      "type": "object",
+      "required": ["same_device_repeat_minimum", "pixel_determinism_scope", "routes"],
+      "properties": {
+        "same_device_repeat_minimum": {"const": 2},
+        "pixel_determinism_scope": {
+          "const": "same device, identical locked fixture bytes, decoded plane bytes"
+        },
+        "routes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "prefixItems": [
+            {"$ref": "https://mirmir.local/validation/calibration-v2/p08-metal-parity-v1.schema.json#/$defs/direct2x"},
+            {"$ref": "https://mirmir.local/validation/calibration-v2/p08-metal-parity-v1.schema.json#/$defs/direct3over2"}
+          ],
+          "items": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "performance": {
+      "type": "object",
+      "required": ["measurement_protocol", "measurements"],
+      "properties": {
+        "measurement_protocol": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-performance-results-v1.schema.json#/properties/measurement_protocol"
+        },
+        "measurements": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-performance-results-v1.schema.json#/properties/measurements"
+        }
+      },
+      "additionalProperties": false
+    },
+    "resourceRing": {
+      "type": "object",
+      "required": ["measurement_protocol", "routes"],
+      "properties": {
+        "measurement_protocol": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-resource-ring-results-v1.schema.json#/properties/measurement_protocol"
+        },
+        "routes": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-resource-ring-results-v1.schema.json#/properties/routes"
+        }
+      },
+      "additionalProperties": false
+    },
+    "profile": {
+      "type": "object",
+      "required": ["tool", "route", "archive_name"],
+      "properties": {
+        "tool": {"enum": ["time_profiler", "allocations", "metal_system_trace"]},
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "archive_name": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "instruments": {
+      "type": "object",
+      "required": ["xctrace_version", "profiles", "route_observations"],
+      "properties": {
+        "xctrace_version": {"type": "string", "minLength": 1},
+        "profiles": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {"$ref": "#/$defs/profile"}
+        },
+        "route_observations": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "https://mirmir.local/validation/calibration-v2/p08-instruments-manifest-v1.schema.json#/$defs/observation"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "nativeCapture": {
+      "type": "object",
+      "required": [
+        "route", "archive_name", "capture_scope", "capture_succeeded",
+        "command_buffer_count",
+        "command_buffer_status", "command_buffer_error",
+        "compute_encoder_count", "kernel_names", "plane_coverage"
+      ],
+      "properties": {
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "archive_name": {"type": "string", "minLength": 1},
+        "capture_scope": {
+          "const": "exhaustive synthetic route-plane-phase-descriptor parity fixtures; not a natural-frame coverage claim"
+        },
+        "capture_succeeded": {"type": "boolean"},
+        "command_buffer_count": {"type": "integer", "minimum": 0},
+        "command_buffer_status": {"type": "string", "minLength": 1},
+        "command_buffer_error": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "required": ["domain", "code", "message"],
+              "properties": {
+                "domain": {"type": "string", "minLength": 1},
+                "code": {"type": "integer"},
+                "message": {"type": "string", "minLength": 1}
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
+        "compute_encoder_count": {"type": "integer", "minimum": 0},
+        "kernel_names": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "plane_coverage": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "items": {
+            "$ref": "https://mirmir.local/validation/calibration-v2/p08-gpu-capture-manifest-v1.schema.json#/$defs/planeCoverage"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "gpuCapture": {
+      "type": "object",
+      "required": ["capture_tool", "captures"],
+      "properties": {
+        "capture_tool": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-gpu-capture-manifest-v1.schema.json#/properties/capture_tool"
+        },
+        "captures": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/nativeCapture"}
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

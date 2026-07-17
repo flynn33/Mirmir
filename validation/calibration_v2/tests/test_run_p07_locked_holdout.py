@@ -25,6 +25,33 @@ def _digest(value: str) -> str:
 
 
 class P07LockedHoldoutCLITests(unittest.TestCase):
+    def setUp(self) -> None:
+        def synthetic_v3_configuration(**values: object) -> tuple[dict[str, object], dict[str, object]]:
+            manifest_path = Path(values["release_manifest_path"])
+            bundle = json.loads(manifest_path.read_text(encoding="utf-8"))
+            return bundle, {"synthetic_configuration": "locked"}
+
+        self._compatibility_patchers = (
+            mock.patch.object(
+                runner,
+                "_read_v3_configuration_lock",
+                side_effect=synthetic_v3_configuration,
+            ),
+            mock.patch.object(
+                runner,
+                "p06_release_bundle_sha256",
+                side_effect=lambda bundle: bundle["manifest_sha256"],
+            ),
+            mock.patch.object(
+                runner,
+                "_verify_fresh_source_gate_semantics",
+                return_value={"status": "pass"},
+            ),
+        )
+        for patcher in self._compatibility_patchers:
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
     def _fixture(self, root: Path) -> argparse.Namespace:
         repository = root / "repository"
         holdout = root / "holdout"
@@ -49,6 +76,11 @@ class P07LockedHoldoutCLITests(unittest.TestCase):
             path = root / "support" / identifier
             path.mkdir(parents=True)
             support_roots[identifier] = path
+        gate_roots = {}
+        for identifier in ("g04", "g05", "g05-instructions", "g06"):
+            path = root / "gates" / identifier
+            path.mkdir(parents=True)
+            gate_roots[identifier] = path
 
         sampling = repository / "sampling-plan.json"
         no_pixel = repository / "no-pixel.json"
@@ -126,6 +158,12 @@ class P07LockedHoldoutCLITests(unittest.TestCase):
             expected_p06_release_manifest_sha256=release_manifest[
                 "manifest_sha256"
             ],
+            g04_root=gate_roots["g04"],
+            g05_root=gate_roots["g05"],
+            g05_instruction_package_root=gate_roots["g05-instructions"],
+            g05_baseline_commit="b" * 40,
+            g06_root=gate_roots["g06"],
+            g06_execution_run_name="synthetic-execution",
             support_root=[
                 "{}={}".format(identifier, support_roots[identifier])
                 for identifier in sorted(support_roots)

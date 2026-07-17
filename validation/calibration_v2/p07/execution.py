@@ -38,12 +38,24 @@ from validation.calibration_v2.native_adapter.factory import (
 )
 from validation.calibration_v2.release_lock import (
     P06_SUPPORT_EVIDENCE_ROOT_IDS,
+    p06_release_bundle_sha256 as _versioned_p06_release_bundle_sha256,
     validate_p06_release_bundle_manifest,
+)
+from validation.calibration_v2.run_provenance_v2 import (
+    INPUT_BUNDLE_SHA256 as P06_V2_INPUT_BUNDLE_SHA256,
+    PLAN_FILE_SHA256 as P06_V2_PLAN_FILE_SHA256,
+    authority_input_bindings_v2,
 )
 from validation.calibration_v2.runner import (
     LiveHoldoutPreopenBinding,
     bind_preregistered_inputs,
     corpus_lock_bundle_sha256,
+)
+from validation.calibration_v2.p07.contracts_v2 import (
+    IDENTITY_FIELD,
+    release_identity_v2,
+    selected_evaluation_projection_v2,
+    validate_identity_v2,
 )
 from validation.quality.src.mirmir_quality.json_tools import canonical_sha256
 from validation.quality.src.mirmir_quality.holdout import HoldoutAccessGuard
@@ -74,6 +86,22 @@ AUTHORIZED_EXECUTION_BINDINGS_SCHEMA = (
 PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA = (
     SCHEMAS_ROOT
     / "p07-production-authorized-execution-binding-fragment-v1.schema.json"
+)
+EXECUTION_RESULT_V2_SCHEMA = SCHEMAS_ROOT / "p07-execution-result-v2.schema.json"
+G07_PUBLICATION_V2_SCHEMA = SCHEMAS_ROOT / "p07-g07-publication-v2.schema.json"
+RUNTIME_EVIDENCE_V2_SCHEMA = SCHEMAS_ROOT / "p07-runtime-evidence-v2.schema.json"
+ARTIFACT_MANIFEST_V2_SCHEMA = SCHEMAS_ROOT / "p07-artifact-manifest-v2.schema.json"
+FAILURE_LOG_V2_SCHEMA = SCHEMAS_ROOT / "p07-failure-log-v2.schema.json"
+TRANSACTION_INTENT_V2_SCHEMA = SCHEMAS_ROOT / "p07-transaction-intent-v2.schema.json"
+AUTHORIZED_EXECUTION_BINDINGS_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p07-authorized-execution-bindings-v2.schema.json"
+)
+PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA = (
+    SCHEMAS_ROOT
+    / "p07-production-authorized-execution-binding-fragment-v2.schema.json"
+)
+EXECUTION_FAILURE_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p07-execution-failure-v2.schema.json"
 )
 MAX_JSON_BYTES = 16 * 1024 * 1024
 SHA256_LENGTH = 64
@@ -222,6 +250,9 @@ class P07Preflight:
     input_bundle_sha256: str
     corpus_lock_bundle_sha256: str
     input_records: Sequence[Mapping[str, object]]
+    candidate_vector_sha256: Optional[str] = None
+    shared_bank_configuration_sha256: Optional[str] = None
+    p06_v2_identity: Optional[Mapping[str, str]] = None
     authorized_execution_bindings: Optional[Mapping[str, object]] = None
 
 
@@ -237,6 +268,53 @@ def _require_sha256(value: object, label: str) -> str:
     if not _is_sha256(value):
         raise P07ExecutionError("{} is not a lowercase SHA-256".format(label))
     return str(value)
+
+
+def p06_release_bundle_sha256(
+    bundle: Mapping[str, object],
+) -> str:
+    """Return exact V2/V3 identity without allowing V3 legacy fallback.
+
+    The executor retains the historical manifest field for injected V1 test
+    fixtures and legacy P07 archives.  Any document declaring a release schema
+    is dispatched only through the strict versioned release validator.
+    """
+
+    if "schema_version" in bundle or "bundle_id" in bundle:
+        return _versioned_p06_release_bundle_sha256(bundle)
+    return _require_sha256(
+        bundle.get("manifest_sha256"),
+        "legacy P06 release manifest",
+    )
+
+
+def _preflight_p06_v2_identity(
+    preflight: P07Preflight,
+) -> Optional[Mapping[str, str]]:
+    bundle = preflight.release_bundle
+    identity = preflight.p06_v2_identity
+    is_v3 = (
+        bundle.get("schema_version") == "3.0.1"
+        and bundle.get("bundle_id")
+        == "mirmir-p06-spatial-release-lock-v3"
+    )
+    if is_v3:
+        if identity is None:
+            raise P07ExecutionError(
+                "P06 V3 preflight has no authenticated P07 V2 identity"
+            )
+        validated = validate_identity_v2(identity)
+        if (
+            validated["p06_release_bundle_artifact_sha256"]
+            != _versioned_p06_release_bundle_sha256(bundle)
+        ):
+            raise P07ExecutionError("P06 V3 preflight identity differs")
+        return validated
+    if identity is not None:
+        raise P07ExecutionError(
+            "P07 V2 identity is attached to a non-V3 preflight"
+        )
+    return None
 
 
 def _normalized_absolute(path: Path, label: str) -> Path:
@@ -479,11 +557,24 @@ def _validate_authorized_execution_bindings(
     *,
     require_bound: bool,
 ) -> None:
+    is_v2 = document.get("schema_version") == "2.0.0"
     _validate_schema(
         document,
-        AUTHORIZED_EXECUTION_BINDINGS_SCHEMA,
+        (
+            AUTHORIZED_EXECUTION_BINDINGS_V2_SCHEMA
+            if is_v2
+            else AUTHORIZED_EXECUTION_BINDINGS_SCHEMA
+        ),
         "P07 authorized execution bindings",
     )
+    identity = None
+    if is_v2:
+        try:
+            identity = validate_identity_v2(document.get(IDENTITY_FIELD))
+        except ValueError as error:
+            raise P07ExecutionError(
+                "P07 authorized execution V2 identity differs"
+            ) from error
     if document.get("manifest_sha256") != _manifest_hash(document):
         raise P07ExecutionError(
             "P07 authorized execution bindings self-hash differs"
@@ -498,9 +589,23 @@ def _validate_authorized_execution_bindings(
             )
         _validate_schema(
             production_fragment,
-            PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA,
+            (
+                PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA
+                if is_v2
+                else PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA
+            ),
             "P07 production execution binding fragment",
         )
+        if is_v2:
+            try:
+                validate_identity_v2(
+                    production_fragment.get(IDENTITY_FIELD),
+                    expected=identity,
+                )
+            except ValueError as error:
+                raise P07ExecutionError(
+                    "P07 production fragment V2 identity differs"
+                ) from error
         if production_fragment.get("fragment_sha256") != _manifest_hash(
             production_fragment,
             field="fragment_sha256",
@@ -943,11 +1048,26 @@ class _AuthorizedExecutionContext:
     production_execution_binding_fragment: Optional[
         Mapping[str, object]
     ]
+    p06_v2_identity: Optional[Mapping[str, str]] = None
 
     def binding_document(self) -> Mapping[str, object]:
+        identity = (
+            validate_identity_v2(self.p06_v2_identity)
+            if self.p06_v2_identity is not None
+            else None
+        )
         document = {
-            "schema_version": "1.0.0",
-            "artifact_kind": "p07_authorized_execution_bindings",
+            "schema_version": "2.0.0" if identity is not None else "1.0.0",
+            "artifact_kind": (
+                "p07_authorized_execution_bindings_v2"
+                if identity is not None
+                else "p07_authorized_execution_bindings"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(identity)}
+                if identity is not None
+                else {}
+            ),
             "status": "bound",
             "authorized_environment": authorized_process_environment(
                 Path("/private/tmp")
@@ -994,11 +1114,23 @@ class _AuthorizedExecutionContext:
         ):
             executable.verify()
         if self.production_execution_binding_fragment is not None:
+            is_v2 = self.p06_v2_identity is not None
             _validate_schema(
                 self.production_execution_binding_fragment,
-                PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA,
+                (
+                    PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA
+                    if is_v2
+                    else PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA
+                ),
                 "P07 retained production execution binding fragment",
             )
+            if is_v2:
+                validate_identity_v2(
+                    self.production_execution_binding_fragment.get(
+                        IDENTITY_FIELD
+                    ),
+                    expected=validate_identity_v2(self.p06_v2_identity),
+                )
             if self.production_execution_binding_fragment.get(
                 "fragment_sha256"
             ) != _manifest_hash(
@@ -1338,17 +1470,57 @@ def _transaction_intent_document(
     platform: str,
 ) -> Mapping[str, object]:
     workflow = preflight.attestation["read_only_provisioning_workflow"]
+    identity = _preflight_p06_v2_identity(preflight)
+    source_gate_semantics = None
+    if identity is not None:
+        bindings = preflight.authorized_execution_bindings
+        fragment = (
+            bindings.get("production_execution_binding_fragment")
+            if isinstance(bindings, dict)
+            else None
+        )
+        source_gate_semantics = (
+            fragment.get("source_gate_semantics")
+            if isinstance(fragment, dict)
+            else None
+        )
+        if (
+            not isinstance(source_gate_semantics, dict)
+            or source_gate_semantics.get("artifact_kind")
+            != "p06_current_source_gate_semantics_v2"
+            or source_gate_semantics.get("status") != "pass"
+            or source_gate_semantics.get("holdout_accessed") is not False
+            or source_gate_semantics.get("manifest_sha256")
+            != _manifest_hash(source_gate_semantics)
+        ):
+            raise P07ExecutionError(
+                "P07 V2 transaction has no authenticated source-gate semantics"
+            )
     document = {
-        "schema_version": "1.0.0",
-        "artifact_kind": "p07_durable_transaction_intent",
+        "schema_version": "2.0.0" if identity is not None else "1.0.0",
+        "artifact_kind": (
+            "p07_durable_transaction_intent_v2"
+            if identity is not None
+            else "p07_durable_transaction_intent"
+        ),
+        **(
+            {IDENTITY_FIELD: dict(identity)}
+            if identity is not None
+            else {}
+        ),
+        **(
+            {"source_gate_semantics": dict(source_gate_semantics)}
+            if source_gate_semantics is not None
+            else {}
+        ),
         "transaction_id": str(uuid.uuid4()),
         "transaction_state": "pre_guard",
         "requested_output_directory": os.fspath(output_directory),
         "configuration_id": preflight.release_bundle["configuration_id"],
         "configuration_sha256": canonical_sha256(configuration_lock),
-        "release_bundle_manifest_sha256": preflight.release_bundle[
-            "manifest_sha256"
-        ],
+        "release_bundle_manifest_sha256": p06_release_bundle_sha256(
+            preflight.release_bundle
+        ),
         "input_bundle_sha256": preflight.input_bundle_sha256,
         "corpus_lock_bundle_sha256": preflight.corpus_lock_bundle_sha256,
         "corpus_manifest_sha256": preflight.corpus_lock["manifest_sha256"],
@@ -1402,7 +1574,11 @@ def _transaction_intent_document(
     document["manifest_sha256"] = _manifest_hash(document)
     _validate_schema(
         document,
-        TRANSACTION_INTENT_SCHEMA,
+        (
+            TRANSACTION_INTENT_V2_SCHEMA
+            if identity is not None
+            else TRANSACTION_INTENT_SCHEMA
+        ),
         "P07 durable transaction intent",
     )
     return document
@@ -1419,11 +1595,19 @@ def _read_transaction_intent_at(
         "P07 durable transaction intent",
     )
     document = _decode_json(payload, "P07 durable transaction intent")
+    is_v2 = document.get("schema_version") == "2.0.0"
     _validate_schema(
         document,
-        TRANSACTION_INTENT_SCHEMA,
+        TRANSACTION_INTENT_V2_SCHEMA if is_v2 else TRANSACTION_INTENT_SCHEMA,
         "P07 durable transaction intent",
     )
+    if is_v2:
+        try:
+            validate_identity_v2(document.get(IDENTITY_FIELD))
+        except ValueError as error:
+            raise P07ExecutionError(
+                "P07 durable transaction V2 identity differs"
+            ) from error
     if (
         payload != _canonical_bytes(document) + b"\n"
         or document.get("manifest_sha256") != _manifest_hash(document)
@@ -1760,11 +1944,19 @@ class _P07TransactionWorkspace:
                 ),
                 "P07 emergency failure seed",
             )
+            is_v2 = seed.get("schema_version") == "2.0.0"
             if (
-                seed.get("artifact_kind") != "p07_emergency_failure_seed"
+                seed.get("artifact_kind")
+                != (
+                    "p07_emergency_failure_seed_v2"
+                    if is_v2
+                    else "p07_emergency_failure_seed"
+                )
                 or seed.get("manifest_sha256") != _manifest_hash(seed)
             ):
                 raise P07ExecutionError("P07 emergency failure seed is invalid")
+            if is_v2:
+                validate_identity_v2(seed.get(IDENTITY_FIELD))
             return seed
         finally:
             os.close(descriptor)
@@ -2013,6 +2205,7 @@ def _write_artifact_manifest(
     holdout_access_consumed: Optional[bool],
     command: str,
     platform: str,
+    p06_v2_identity: Optional[Mapping[str, str]] = None,
 ) -> Mapping[str, object]:
     if status not in {"complete", "failed"}:
         raise P07ExecutionError("P07 artifact-manifest status is invalid")
@@ -2052,9 +2245,23 @@ def _write_artifact_manifest(
         )
     if not artifacts:
         raise P07ExecutionError("P07 artifact manifest has no evidence files")
+    identity = (
+        validate_identity_v2(p06_v2_identity)
+        if p06_v2_identity is not None
+        else None
+    )
     document = {
-        "schema_version": "1.0.0",
-        "artifact_kind": "p07_artifact_manifest",
+        "schema_version": "2.0.0" if identity is not None else "1.0.0",
+        "artifact_kind": (
+            "p07_artifact_manifest_v2"
+            if identity is not None
+            else "p07_artifact_manifest"
+        ),
+        **(
+            {IDENTITY_FIELD: dict(identity)}
+            if identity is not None
+            else {}
+        ),
         "status": status,
         "publication_kind": publication_kind,
         "configuration_id": configuration_id,
@@ -2097,7 +2304,11 @@ def _write_artifact_manifest(
     document["manifest_sha256"] = _manifest_hash(document)
     _validate_schema(
         document,
-        ARTIFACT_MANIFEST_SCHEMA,
+        (
+            ARTIFACT_MANIFEST_V2_SCHEMA
+            if identity is not None
+            else ARTIFACT_MANIFEST_SCHEMA
+        ),
         "P07 artifact manifest",
     )
     _write_json(manifest_path, document)
@@ -2116,11 +2327,14 @@ def _validate_artifact_manifest(
     )
     if payload != _canonical_bytes(manifest) + b"\n":
         raise P07ExecutionError("P07 artifact manifest is not canonical JSON")
+    is_v2 = manifest.get("schema_version") == "2.0.0"
     _validate_schema(
         manifest,
-        ARTIFACT_MANIFEST_SCHEMA,
+        ARTIFACT_MANIFEST_V2_SCHEMA if is_v2 else ARTIFACT_MANIFEST_SCHEMA,
         "P07 artifact manifest",
     )
+    if is_v2:
+        validate_identity_v2(manifest.get(IDENTITY_FIELD))
     children = sorted(child.name for child in directory.iterdir())
     artifacts = manifest.get("artifacts")
     if (
@@ -2168,6 +2382,8 @@ def _artifact_manifest_top_level(directory: Path) -> Mapping[str, object]:
     return {
         field: manifest.get(field)
         for field in (
+            "schema_version",
+            IDENTITY_FIELD,
             "configuration_id",
             "configuration_sha256",
             "release_bundle_manifest_sha256",
@@ -2201,12 +2417,31 @@ def _validate_failure_publication(directory: Path) -> Mapping[str, str]:
         directory / "failed-version-archive.json",
         "P07 execution failure archive",
     )
-    _validate_schema(failure_log, FAILURE_LOG_SCHEMA, "P07 failure log")
+    is_v2 = archive.get("schema_version") == "2.0.0"
+    identity = (
+        validate_identity_v2(archive.get(IDENTITY_FIELD))
+        if is_v2
+        else None
+    )
+    _validate_schema(
+        failure_log,
+        FAILURE_LOG_V2_SCHEMA if is_v2 else FAILURE_LOG_SCHEMA,
+        "P07 failure log",
+    )
     _validate_schema(
         archive,
-        SCHEMAS_ROOT / "p07-execution-failure-v1.schema.json",
+        (
+            EXECUTION_FAILURE_V2_SCHEMA
+            if is_v2
+            else SCHEMAS_ROOT / "p07-execution-failure-v1.schema.json"
+        ),
         "P07 execution failure archive",
     )
+    if is_v2:
+        validate_identity_v2(
+            failure_log.get(IDENTITY_FIELD),
+            expected=identity,
+        )
     authorized_payload, authorized_execution = (
         _read_authorized_execution_bindings(
             directory,
@@ -2219,6 +2454,15 @@ def _validate_failure_publication(directory: Path) -> Mapping[str, str]:
         "production_execution_binding_fragment"
     )
     manifest_top_level = _artifact_manifest_top_level(directory)
+    if is_v2:
+        validate_identity_v2(
+            manifest_top_level.get(IDENTITY_FIELD),
+            expected=identity,
+        )
+        validate_identity_v2(
+            authorized_execution.get(IDENTITY_FIELD),
+            expected=identity,
+        )
     expected_holdout_accessed = (
         archive.get("holdout_access_consumed") is True
         or archive.get("holdout_access_state")
@@ -3144,6 +3388,7 @@ fi
                     direct_mount_template_sha256
                 ),
                 production_execution_binding_fragment=None,
+                p06_v2_identity=_preflight_p06_v2_identity(preflight),
             )
             context.verify()
             self._authorized_execution_context = context
@@ -3182,9 +3427,14 @@ fi
             raise P07ExecutionError(
                 "P07 production execution binding fragment is absent"
             )
+        is_v2 = value.get("schema_version") == "2.0.0"
         _validate_schema(
             value,
-            PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA,
+            (
+                PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA
+                if is_v2
+                else PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA
+            ),
             "P07 production execution binding fragment",
         )
         if value.get("fragment_sha256") != _manifest_hash(
@@ -3214,11 +3464,22 @@ fi
             evaluator
         )
         if fragment.get("p06_release_bundle_manifest_sha256") != (
-            preflight.release_bundle.get("manifest_sha256")
+            p06_release_bundle_sha256(preflight.release_bundle)
         ):
             raise P07ExecutionError(
                 "P07 production fragment uses another P06 release"
             )
+        preflight_identity = _preflight_p06_v2_identity(preflight)
+        if preflight_identity is not None:
+            try:
+                validate_identity_v2(
+                    fragment.get(IDENTITY_FIELD),
+                    expected=preflight_identity,
+                )
+            except ValueError as error:
+                raise P07ExecutionError(
+                    "P07 production fragment uses another V2 identity"
+                ) from error
         if (
             context.production_execution_binding_fragment is not None
             and context.production_execution_binding_fragment != fragment
@@ -3277,7 +3538,11 @@ fi
             ) from error
         _validate_schema(
             fragment,
-            PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA,
+            (
+                PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA
+                if fragment.get("schema_version") == "2.0.0"
+                else PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA
+            ),
             "P07 reconstructed production execution binding fragment",
         )
         return fragment
@@ -3453,6 +3718,11 @@ fi
                 ),
                 production_execution_binding_fragment=dict(
                     declared["production_execution_binding_fragment"]
+                ),
+                p06_v2_identity=(
+                    validate_identity_v2(declared.get(IDENTITY_FIELD))
+                    if declared.get("schema_version") == "2.0.0"
+                    else None
                 ),
             )
             context.verify()
@@ -3976,9 +4246,14 @@ fi
             self.sampling_plan_path,
             "P07 workspace current sampling plan",
         )
+        try:
+            release_sha256 = p06_release_bundle_sha256(release)
+        except ValueError as error:
+            raise P07ExecutionError(
+                "P07 workspace current release self-hash differs"
+            ) from error
         if (
-            release.get("manifest_sha256") != _manifest_hash(release)
-            or release.get("manifest_sha256")
+            release_sha256
             != intent.get("release_bundle_manifest_sha256")
             or release.get("configuration_id")
             != intent.get("configuration_id")
@@ -4268,10 +4543,13 @@ fi
                 self.p06_release_manifest_path,
                 "terminal P07 release manifest",
             )
-            if (
-                release.get("manifest_sha256") != _manifest_hash(release)
-                or release.get("manifest_sha256") != release_manifest
-            ):
+            try:
+                current_release_sha256 = p06_release_bundle_sha256(release)
+            except ValueError as error:
+                raise P07ExecutionError(
+                    "terminal P07 release self-hash differs"
+                ) from error
+            if current_release_sha256 != release_manifest:
                 raise P07ExecutionError(
                     "terminal P07 publication uses another release"
                 )
@@ -4496,6 +4774,12 @@ fi
         seed: Mapping[str, object],
         archive_publication_failure: Optional[Mapping[str, object]],
     ) -> None:
+        is_v2 = seed.get("schema_version") == "2.0.0"
+        identity = (
+            validate_identity_v2(seed.get(IDENTITY_FIELD))
+            if is_v2
+            else None
+        )
         failure_log_value = seed.get("failure_log")
         access_evidence = seed.get("access_evidence")
         if not isinstance(failure_log_value, dict) or not isinstance(
@@ -4510,7 +4794,16 @@ fi
             else None
         )
         failure_log["manifest_sha256"] = _manifest_hash(failure_log)
-        _validate_schema(failure_log, FAILURE_LOG_SCHEMA, "P07 failure log")
+        _validate_schema(
+            failure_log,
+            FAILURE_LOG_V2_SCHEMA if is_v2 else FAILURE_LOG_SCHEMA,
+            "P07 failure log",
+        )
+        if is_v2:
+            validate_identity_v2(
+                failure_log.get(IDENTITY_FIELD),
+                expected=identity,
+            )
         if failure_log.get("manifest_sha256") != _manifest_hash(failure_log):
             raise P07ExecutionError("P07 emergency failure log hash differs")
         opened = workspace.child_descriptor("failure", required=False)
@@ -4545,8 +4838,17 @@ fi
             ),
         )
         document = {
-            "schema_version": "1.1.0",
-            "artifact_kind": "p07_execution_failure_archive",
+            "schema_version": "2.0.0" if is_v2 else "1.1.0",
+            "artifact_kind": (
+                "p07_execution_failure_archive_v2"
+                if is_v2
+                else "p07_execution_failure_archive"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(identity)}
+                if identity is not None
+                else {}
+            ),
             "status": "failed",
             **{
                 field: seed[field]
@@ -4603,7 +4905,11 @@ fi
         document["manifest_sha256"] = _manifest_hash(document)
         _validate_schema(
             document,
-            SCHEMAS_ROOT / "p07-execution-failure-v1.schema.json",
+            (
+                EXECUTION_FAILURE_V2_SCHEMA
+                if is_v2
+                else SCHEMAS_ROOT / "p07-execution-failure-v1.schema.json"
+            ),
             "P07 recovered failure archive",
         )
         _write_json(staged / "failed-version-archive.json", document)
@@ -4633,6 +4939,7 @@ fi
             ),
             command=str(failure_log["command"]),
             platform=str(failure_log["platform"]),
+            p06_v2_identity=identity,
         )
 
     def _artifact_path(
@@ -4776,7 +5083,15 @@ fi
         _, ledger = _read_json(ledger_path, "P06 calibration-run ledger")
         selection_path = self._artifact_path(bundle, "calibration_selection")
         _, selection = _read_json(selection_path, "P06 calibration selection")
-        compiler_path = self._artifact_path(bundle, "locked_compiler_input")
+        is_v3 = (
+            bundle.get("schema_version") == "3.0.1"
+            and bundle.get("bundle_id")
+            == "mirmir-p06-spatial-release-lock-v3"
+        )
+        compiler_id = (
+            "locked_compiler_input_v2" if is_v3 else "locked_compiler_input"
+        )
+        compiler_path = self._artifact_path(bundle, compiler_id)
         _, compiler = _read_json(compiler_path, "P06 locked compiler input")
         live_path = self._artifact_path(bundle, "live_holdout_preopen_verification")
         _, live = _read_json(live_path, "P06 live holdout verification")
@@ -4790,6 +5105,38 @@ fi
             matches = [record for record in records if record.get("id") == "calibration_plan"]
             if len(matches) == 1:
                 calibration_plan_record = matches[0]
+        if is_v3:
+            exact_v2_inputs = list(authority_input_bindings_v2())
+            selected = selection.get("selected")
+            if (
+                ledger.get("schema_version") != "2.0.1"
+                or selection.get("schema_version") != "2.0.2"
+                or not isinstance(selected, dict)
+                or not _is_sha256(selected.get("candidate_vector_sha256"))
+                or ledger.get("input_bindings") != exact_v2_inputs
+                or ledger.get("input_bundle_sha256")
+                != P06_V2_INPUT_BUNDLE_SHA256
+                or selection.get("input_bundle_sha256")
+                != P06_V2_INPUT_BUNDLE_SHA256
+                or bundle.get("input_bundle_sha256")
+                != P06_V2_INPUT_BUNDLE_SHA256
+                or bundle.get("shared_bank_configuration_sha256")
+                != selection.get("shared_bank_configuration_sha256")
+                or bundle.get("corpus_lock_bundle_sha256")
+                != rebound_corpus_bundle_sha256
+                or live != live_verification
+                or not isinstance(compiler_bindings, dict)
+                or compiler_bindings.get("corpus_lock_bundle_sha256")
+                != rebound_corpus_bundle_sha256
+                or compiler_bindings.get("calibration_plan_sha256")
+                != P06_V2_PLAN_FILE_SHA256
+            ):
+                raise P07ExecutionError(
+                    "reopened P06 V3 inputs do not match the exact schema-2 "
+                    "authority, selected identity, live verification, and compiler"
+                )
+            return bundle, bound
+
         if (
             not _is_sha256(input_bundle_sha256)
             or not isinstance(records, tuple)
@@ -5024,6 +5371,59 @@ fi
             raise P07ExecutionError("P07 loader executable is not executable")
         mount_root = self.holdout_root / "mount-v2"
         _validate_existing_path(mount_root, label="holdout mount root", kind="directory")
+        candidate_vector_sha256: Optional[str] = None
+        shared_bank_configuration_sha256: Optional[str] = None
+        p06_v2_identity: Optional[Mapping[str, str]] = None
+        preflight_input_bundle_sha256 = str(getattr(bound, "bundle_sha256"))
+        if (
+            bundle.get("schema_version") == "3.0.1"
+            and bundle.get("bundle_id")
+            == "mirmir-p06-spatial-release-lock-v3"
+        ):
+            selection_path = self._artifact_path(
+                bundle,
+                "calibration_selection",
+            )
+            _, selected_release = _read_json(
+                selection_path,
+                "P06 V3 calibration selection",
+            )
+            selected = selected_release.get("selected")
+            if not isinstance(selected, dict):
+                raise P07ExecutionError(
+                    "P06 V3 selected candidate identity is absent"
+                )
+            candidate_vector_sha256 = _require_sha256(
+                selected.get("candidate_vector_sha256"),
+                "P06 V3 candidate-vector identity",
+            )
+            shared_bank_configuration_sha256 = _require_sha256(
+                bundle.get("shared_bank_configuration_sha256"),
+                "P06 V3 shared-bank identity",
+            )
+            preflight_input_bundle_sha256 = _require_sha256(
+                bundle.get("input_bundle_sha256"),
+                "P06 V3 input-bundle identity",
+            )
+            _, selected_evaluation = _read_json(
+                self._artifact_path(bundle, "selected_evaluation"),
+                "P06 V3 selected evaluation",
+            )
+            _, compiler_input = _read_json(
+                self._artifact_path(bundle, "locked_compiler_input_v2"),
+                "P06 V3 locked compiler input",
+            )
+            try:
+                p06_v2_identity = release_identity_v2(
+                    bundle=bundle,
+                    selection=selected_release,
+                    evaluation=selected_evaluation,
+                    compiler_input=compiler_input,
+                )
+            except ValueError as error:
+                raise P07ExecutionError(
+                    "P06 V3 identity projection differs"
+                ) from error
         return P07Preflight(
             plan=plan,
             plan_file_sha256=plan_file_sha256,
@@ -5045,9 +5445,14 @@ fi
                 self.p07_cache_root,
                 "P07 pre-open cache tree",
             ),
-            input_bundle_sha256=str(getattr(bound, "bundle_sha256")),
+            input_bundle_sha256=preflight_input_bundle_sha256,
             corpus_lock_bundle_sha256=corpus_lock_bundle_sha256(bound),
             input_records=tuple(records),
+            candidate_vector_sha256=candidate_vector_sha256,
+            shared_bank_configuration_sha256=(
+                shared_bank_configuration_sha256
+            ),
+            p06_v2_identity=p06_v2_identity,
         )
 
     def _verify_preflight_files(self, preflight: P07Preflight) -> None:
@@ -5553,11 +5958,31 @@ fi
                 dict,
             ):
                 raise P07ExecutionError("P07 evaluator evidence envelope is invalid")
+            p06_identity = _preflight_p06_v2_identity(preflight)
+            is_v2 = p06_identity is not None
             _validate_schema(
                 runtime_evidence,
-                RUNTIME_EVIDENCE_SCHEMA,
+                (
+                    RUNTIME_EVIDENCE_V2_SCHEMA
+                    if is_v2
+                    else RUNTIME_EVIDENCE_SCHEMA
+                ),
                 "P07 runtime evidence",
             )
+            if is_v2:
+                try:
+                    validate_identity_v2(
+                        runtime_evidence.get(IDENTITY_FIELD),
+                        expected=p06_identity,
+                    )
+                    validate_identity_v2(
+                        evaluation.get(IDENTITY_FIELD),
+                        expected=p06_identity,
+                    )
+                except ValueError as error:
+                    raise P07ExecutionError(
+                        "P07 evaluator V2 identity differs"
+                    ) from error
             runtime_manifest_sha256 = runtime_evidence.get("manifest_sha256")
             if (
                 runtime_manifest_sha256 != _manifest_hash(runtime_evidence)
@@ -5576,7 +6001,7 @@ fi
                     )[1]
                 )
                 or runtime_evidence.get("p06_release_bundle_manifest_sha256")
-                != preflight.release_bundle.get("manifest_sha256")
+                != p06_release_bundle_sha256(preflight.release_bundle)
                 or runtime_evidence.get("sampling_plan_manifest_sha256")
                 != preflight.plan.get("manifest_sha256")
                 or runtime_evidence.get("frame_extraction_manifest_sha256")
@@ -5640,7 +6065,11 @@ fi
             _validate_runtime_case_records(runtime_evidence, evaluation)
             if (
                 evaluation.get("artifact_kind")
-                != "p07_spatial_holdout_measurements"
+                != (
+                    "p07_spatial_holdout_measurements_v2"
+                    if is_v2
+                    else "p07_spatial_holdout_measurements"
+                )
                 or
                 evaluation.get("holdout_accessed") is not True
                 or evaluation.get("configuration_files_modified_after_holdout") is not False
@@ -5672,52 +6101,87 @@ fi
                 selected_path,
                 "P07 selected P06 evaluation",
             )
-            performance = selected_evaluation.get("performance")
-            if not isinstance(performance, dict):
-                raise P07ExecutionError("selected P06 performance evidence is absent")
-            expected_performance = {
-                "selected_evaluation_sha256": selected_binding.get("sha256"),
-                "full_frames_per_second": performance.get(
-                    "preregistered_production_estimate_frames_per_second"
-                ),
-                "h07_control_frames_per_second": performance.get(
-                    "h07_control_estimate_frames_per_second"
-                ),
-                "full_dispatch_cost": performance.get(
-                    "preregistered_production_estimate_dispatch_cost"
-                ),
-                "h07_control_dispatch_cost": performance.get(
-                    "h07_control_estimate_dispatch_cost"
-                ),
-                "no_worse_frames_per_second": (
-                    performance.get("preregistered_production_estimate_frames_per_second")
-                    >= performance.get("h07_control_estimate_frames_per_second")
-                    if isinstance(
-                        performance.get("preregistered_production_estimate_frames_per_second"),
-                        (int, float),
+            if is_v2:
+                expected_projection = selected_evaluation_projection_v2(
+                    selected_evaluation,
+                    identity=p06_identity,
+                )
+                if evaluation.get(
+                    "selected_p06_evidence_projection"
+                ) != expected_projection:
+                    raise P07ExecutionError(
+                        "P07 measurements differ from selected P06 V2 evidence"
                     )
-                    and isinstance(
-                        performance.get("h07_control_estimate_frames_per_second"),
-                        (int, float),
+            else:
+                performance = selected_evaluation.get("performance")
+                if not isinstance(performance, dict):
+                    raise P07ExecutionError(
+                        "selected P06 performance evidence is absent"
                     )
-                    else False
-                ),
-                "no_worse_dispatch_cost": (
-                    performance.get("preregistered_production_estimate_dispatch_cost")
-                    <= performance.get("h07_control_estimate_dispatch_cost")
-                    if isinstance(
-                        performance.get("preregistered_production_estimate_dispatch_cost"),
-                        (int, float),
+                expected_performance = {
+                    "selected_evaluation_sha256": selected_binding.get("sha256"),
+                    "full_frames_per_second": performance.get(
+                        "preregistered_production_estimate_frames_per_second"
+                    ),
+                    "h07_control_frames_per_second": performance.get(
+                        "h07_control_estimate_frames_per_second"
+                    ),
+                    "full_dispatch_cost": performance.get(
+                        "preregistered_production_estimate_dispatch_cost"
+                    ),
+                    "h07_control_dispatch_cost": performance.get(
+                        "h07_control_estimate_dispatch_cost"
+                    ),
+                    "no_worse_frames_per_second": (
+                        performance.get(
+                            "preregistered_production_estimate_frames_per_second"
+                        )
+                        >= performance.get(
+                            "h07_control_estimate_frames_per_second"
+                        )
+                        if isinstance(
+                            performance.get(
+                                "preregistered_production_estimate_frames_per_second"
+                            ),
+                            (int, float),
+                        )
+                        and isinstance(
+                            performance.get(
+                                "h07_control_estimate_frames_per_second"
+                            ),
+                            (int, float),
+                        )
+                        else False
+                    ),
+                    "no_worse_dispatch_cost": (
+                        performance.get(
+                            "preregistered_production_estimate_dispatch_cost"
+                        )
+                        <= performance.get(
+                            "h07_control_estimate_dispatch_cost"
+                        )
+                        if isinstance(
+                            performance.get(
+                                "preregistered_production_estimate_dispatch_cost"
+                            ),
+                            (int, float),
+                        )
+                        and isinstance(
+                            performance.get(
+                                "h07_control_estimate_dispatch_cost"
+                            ),
+                            (int, float),
+                        )
+                        else False
+                    ),
+                }
+                if (
+                    evaluation.get("locked_p06_performance_evidence")
+                    != expected_performance
+                ):
+                    raise P07ExecutionError(
+                        "P07 measurements differ from locked P06 performance"
                     )
-                    and isinstance(
-                        performance.get("h07_control_estimate_dispatch_cost"),
-                        (int, float),
-                    )
-                    else False
-                ),
-            }
-            if evaluation.get("locked_p06_performance_evidence") != expected_performance:
-                raise P07ExecutionError("P07 measurements differ from locked P06 performance")
             self._validate_measurement_input_bindings(
                 preflight=preflight,
                 extraction=extraction,
@@ -5856,16 +6320,27 @@ fi
         publication = documents.get("evaluation-result.json")
         if not isinstance(publication, dict):
             raise P07ExecutionError("P07 G07 publication summary is absent")
+        is_v2 = publication.get("schema_version") == "2.0.0"
+        identity = (
+            validate_identity_v2(publication.get(IDENTITY_FIELD))
+            if is_v2
+            else None
+        )
         _validate_schema(
             publication,
-            G07_PUBLICATION_SCHEMA,
+            G07_PUBLICATION_V2_SCHEMA if is_v2 else G07_PUBLICATION_SCHEMA,
             "P07 G07 publication summary",
         )
         publication_hash = publication.get("manifest_sha256")
         gate_pass = publication.get("gate_pass")
         gate_bindings = publication.get("artifact_file_sha256")
         if (
-            publication.get("artifact_kind") != "p07_g07_publication"
+            publication.get("artifact_kind")
+            != (
+                "p07_g07_publication_v2"
+                if is_v2
+                else "p07_g07_publication"
+            )
             or publication_hash != _manifest_hash(publication)
             or not isinstance(gate_pass, bool)
             or publication.get("status") != ("pass" if gate_pass else "fail")
@@ -5889,9 +6364,19 @@ fi
         measurement = documents["spatial-holdout-measurements.json"]
         _validate_schema(
             measurement,
-            SCHEMAS_ROOT / "p07-spatial-holdout-measurements-v1.schema.json",
+            SCHEMAS_ROOT
+            / (
+                "p07-spatial-holdout-measurements-v2.schema.json"
+                if is_v2
+                else "p07-spatial-holdout-measurements-v1.schema.json"
+            ),
             "P07 published measurements",
         )
+        if is_v2:
+            validate_identity_v2(
+                measurement.get(IDENTITY_FIELD),
+                expected=identity,
+            )
         if measurement.get("measurement_sha256") != canonical_sha256(
             {key: value for key, value in measurement.items() if key != "measurement_sha256"}
         ):
@@ -5900,9 +6385,19 @@ fi
             document = documents[name]
             _validate_schema(
                 document,
-                SCHEMAS_ROOT / "p07-gate-evidence-v1.schema.json",
+                SCHEMAS_ROOT
+                / (
+                    "p07-gate-evidence-v2.schema.json"
+                    if is_v2
+                    else "p07-gate-evidence-v1.schema.json"
+                ),
                 "P07 gate artifact",
             )
+            if is_v2:
+                validate_identity_v2(
+                    document.get(IDENTITY_FIELD),
+                    expected=identity,
+                )
             if document.get("manifest_sha256") != _manifest_hash(document):
                 raise P07ExecutionError("P07 gate artifact self-hash differs")
             if document.get("measurement_sha256") != measurement["measurement_sha256"]:
@@ -5918,9 +6413,14 @@ fi
         execution = documents["p07-execution-result.json"]
         _validate_schema(
             execution,
-            EXECUTION_RESULT_SCHEMA,
+            EXECUTION_RESULT_V2_SCHEMA if is_v2 else EXECUTION_RESULT_SCHEMA,
             "published P07 execution result",
         )
+        if is_v2:
+            validate_identity_v2(
+                execution.get(IDENTITY_FIELD),
+                expected=identity,
+            )
         authorized_payload, authorized_execution = (
             _read_authorized_execution_bindings(
                 directory,
@@ -5931,8 +6431,26 @@ fi
             "production_execution_binding_fragment"
         ]
         manifest_top_level = _artifact_manifest_top_level(directory)
+        if is_v2:
+            validate_identity_v2(
+                manifest_top_level.get(IDENTITY_FIELD),
+                expected=identity,
+            )
+            validate_identity_v2(
+                authorized_execution.get(IDENTITY_FIELD),
+                expected=identity,
+            )
+            validate_identity_v2(
+                production_fragment.get(IDENTITY_FIELD),
+                expected=identity,
+            )
         if (
-            execution.get("artifact_kind") != "p07_locked_holdout_execution"
+            execution.get("artifact_kind")
+            != (
+                "p07_locked_holdout_execution_v2"
+                if is_v2
+                else "p07_locked_holdout_execution"
+            )
             or execution.get("manifest_sha256") != _manifest_hash(execution)
             or execution.get(
                 "authorized_execution_bindings_file_sha256"
@@ -5999,9 +6517,14 @@ fi
         runtime_evidence = documents["p07-runtime-evidence.json"]
         _validate_schema(
             runtime_evidence,
-            RUNTIME_EVIDENCE_SCHEMA,
+            RUNTIME_EVIDENCE_V2_SCHEMA if is_v2 else RUNTIME_EVIDENCE_SCHEMA,
             "published P07 runtime evidence",
         )
+        if is_v2:
+            validate_identity_v2(
+                runtime_evidence.get(IDENTITY_FIELD),
+                expected=identity,
+            )
         if (
             runtime_evidence.get("manifest_sha256")
             != _manifest_hash(runtime_evidence)
@@ -6144,9 +6667,24 @@ fi
             authorized_execution_document,
             require_bound=True,
         )
+        is_v2 = intent.get("schema_version") == "2.0.0"
+        identity = (
+            validate_identity_v2(intent.get(IDENTITY_FIELD))
+            if is_v2
+            else None
+        )
         execution = {
-            "schema_version": "1.0.0",
-            "artifact_kind": "p07_locked_holdout_execution",
+            "schema_version": "2.0.0" if is_v2 else "1.0.0",
+            "artifact_kind": (
+                "p07_locked_holdout_execution_v2"
+                if is_v2
+                else "p07_locked_holdout_execution"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(identity)}
+                if identity is not None
+                else {}
+            ),
             "status": "complete",
             "configuration_sha256": configuration_sha256,
             "configuration_id": intent["configuration_id"],
@@ -6195,7 +6733,7 @@ fi
         execution["manifest_sha256"] = canonical_sha256(execution)
         _validate_schema(
             execution,
-            EXECUTION_RESULT_SCHEMA,
+            EXECUTION_RESULT_V2_SCHEMA if is_v2 else EXECUTION_RESULT_SCHEMA,
             "P07 execution result",
         )
         execution_path = publication_directory / "p07-execution-result.json"
@@ -6228,6 +6766,7 @@ fi
                 holdout_access_consumed=True,
                 command=str(intent["command"]),
                 platform=str(intent["platform"]),
+                p06_v2_identity=identity,
             )
         evidence_bindings = self._validate_publication(publication_directory)
         self._validate_terminal_invocation_binding(
@@ -6326,11 +6865,10 @@ fi
                 self.p06_release_manifest_path,
                 "P07 pre-guard release manifest",
             )
-            if release.get("manifest_sha256") == _manifest_hash(release):
-                release_manifest = str(release["manifest_sha256"])
-                raw_id = release.get("configuration_id")
-                if isinstance(raw_id, str) and raw_id:
-                    configuration_id = raw_id
+            release_manifest = p06_release_bundle_sha256(release)
+            raw_id = release.get("configuration_id")
+            if isinstance(raw_id, str) and raw_id:
+                configuration_id = raw_id
         except BaseException:
             pass
         sampling_manifest: Optional[str] = None
@@ -6541,6 +7079,8 @@ fi
         failure_stage: str,
         access_evidence: Mapping[str, object],
     ) -> Path:
+        identity = _preflight_p06_v2_identity(preflight)
+        is_v2 = identity is not None
         command = str(
             getattr(
                 self,
@@ -6651,8 +7191,15 @@ fi
                 ).hexdigest(),
             }
         failure_log = {
-            "schema_version": "1.0.0",
-            "artifact_kind": "p07_failure_log",
+            "schema_version": "2.0.0" if is_v2 else "1.0.0",
+            "artifact_kind": (
+                "p07_failure_log_v2" if is_v2 else "p07_failure_log"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(identity)}
+                if identity is not None
+                else {}
+            ),
             "status": "failed",
             "failure_type": type(evidence_error).__name__,
             "failure_message": message,
@@ -6680,24 +7227,33 @@ fi
         failure_log["manifest_sha256"] = _manifest_hash(failure_log)
         _validate_schema(
             failure_log,
-            FAILURE_LOG_SCHEMA,
+            FAILURE_LOG_V2_SCHEMA if is_v2 else FAILURE_LOG_SCHEMA,
             "P07 failure log",
         )
 
         workspace = getattr(self, "_active_workspace", None)
         if isinstance(workspace, _P07TransactionWorkspace):
             seed = {
-                "schema_version": "1.0.0",
-                "artifact_kind": "p07_emergency_failure_seed",
+                "schema_version": "2.0.0" if is_v2 else "1.0.0",
+                "artifact_kind": (
+                    "p07_emergency_failure_seed_v2"
+                    if is_v2
+                    else "p07_emergency_failure_seed"
+                ),
+                **(
+                    {IDENTITY_FIELD: dict(identity)}
+                    if identity is not None
+                    else {}
+                ),
                 "failure_log": failure_log,
                 "access_evidence": dict(access_evidence),
                 "configuration_id": preflight.release_bundle[
                     "configuration_id"
                 ],
                 "configuration_sha256": canonical_sha256(configuration_lock),
-                "release_bundle_manifest_sha256": preflight.release_bundle[
-                    "manifest_sha256"
-                ],
+                "release_bundle_manifest_sha256": p06_release_bundle_sha256(
+                    preflight.release_bundle
+                ),
                 "input_bundle_sha256": preflight.input_bundle_sha256,
                 "direct_input_bindings": [
                     {
@@ -6760,14 +7316,23 @@ fi
                 require_bound=(failure_stage != "pre_guard_validation"),
             )
             document = {
-                "schema_version": "1.1.0",
-                "artifact_kind": "p07_execution_failure_archive",
+                "schema_version": "2.0.0" if is_v2 else "1.1.0",
+                "artifact_kind": (
+                    "p07_execution_failure_archive_v2"
+                    if is_v2
+                    else "p07_execution_failure_archive"
+                ),
+                **(
+                    {IDENTITY_FIELD: dict(identity)}
+                    if identity is not None
+                    else {}
+                ),
                 "status": "failed",
                 "configuration_id": preflight.release_bundle["configuration_id"],
                 "configuration_sha256": canonical_sha256(configuration_lock),
-                "release_bundle_manifest_sha256": preflight.release_bundle[
-                    "manifest_sha256"
-                ],
+                "release_bundle_manifest_sha256": p06_release_bundle_sha256(
+                    preflight.release_bundle
+                ),
                 "input_bundle_sha256": preflight.input_bundle_sha256,
                 "direct_input_bindings": [
                     {
@@ -6822,7 +7387,12 @@ fi
             document["manifest_sha256"] = _manifest_hash(document)
             _validate_schema(
                 document,
-                SCHEMAS_ROOT / "p07-execution-failure-v1.schema.json",
+                (
+                    EXECUTION_FAILURE_V2_SCHEMA
+                    if is_v2
+                    else SCHEMAS_ROOT
+                    / "p07-execution-failure-v1.schema.json"
+                ),
                 "P07 execution failure archive",
             )
             _write_json(private / "failed-version-archive.json", document)
@@ -6839,8 +7409,8 @@ fi
                 publication_kind="execution_failure",
                 configuration_id=str(preflight.release_bundle["configuration_id"]),
                 configuration_sha256=canonical_sha256(configuration_lock),
-                release_bundle_manifest_sha256=str(
-                    preflight.release_bundle["manifest_sha256"]
+                release_bundle_manifest_sha256=p06_release_bundle_sha256(
+                    preflight.release_bundle
                 ),
                 sampling_plan_manifest_sha256=str(
                     preflight.plan["manifest_sha256"]
@@ -6851,6 +7421,7 @@ fi
                 ),
                 command=command,
                 platform=platform,
+                p06_v2_identity=identity,
             )
             _validate_failure_publication(private)
             if isinstance(workspace, _P07TransactionWorkspace):

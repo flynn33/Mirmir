@@ -34,6 +34,12 @@ targets:
         type: folder
       - path: Mirmir/Resources/ASH
         type: folder
+    postBuildScripts:
+      - name: Inject Exact P06 ASH Release
+        script: '"${SRCROOT}/Scripts/inject-ash-p06-release.sh"'
+        inputFiles:
+          - "$(SRCROOT)/Scripts/inject-ash-p06-release.sh"
+        basedOnDependencyAnalysis: false
     dependencies:
       - package: ForsettiFramework
         product: ForsettiCore
@@ -80,3 +86,49 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir"
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.mirmir.app.tests
+
+  MirmirP08Tests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "15.4"
+    sources:
+      - path: MirmirP08Tests
+    settings:
+      base:
+        BUNDLE_LOADER: ""
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.mirmir.app.p08-tests
+
+schemes:
+  Mirmir:
+    build:
+      targets:
+        Mirmir: all
+        MirmirTests: [test, analyze]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - name: MirmirTests
+          parallelizable: false
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
+  Mirmir P08:
+    build:
+      targets:
+        MirmirP08Tests: [test, analyze]
+    test:
+      config: Release
+      targets:
+        - name: MirmirP08Tests
+          parallelizable: false
+      environmentVariables:
+        MTL_CAPTURE_ENABLED: "1"
+    analyze:
+      config: Release

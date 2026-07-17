@@ -1,0 +1,335 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-production-execution-authority-v2.schema.json",
+  "title": "Mirmir P07 production execution authority V2",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$"
+    },
+    "safeRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*/$)[A-Za-z0-9._/-]+$"
+    },
+    "evidenceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "root_id": {
+          "enum": [
+            "release",
+            "repository",
+            "open_split",
+            "calibration_evidence",
+            "native_cache",
+            "production_writer",
+            "dispatch_measurement",
+            "calibration_run"
+          ]
+        },
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "kind": {"enum": ["file", "directory_tree"]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "file_count": {"type": "integer", "minimum": 1}
+      },
+      "required": [
+        "id",
+        "root_id",
+        "path",
+        "kind",
+        "sha256",
+        "size_bytes",
+        "file_count"
+      ]
+    },
+    "codeIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "artifact_kind": {"const": "macos_code_identity_v1"},
+        "architecture": {"const": "arm64"},
+        "file_sha256": {"$ref": "#/$defs/sha256"},
+        "unique_cdhash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40,128}$"
+        },
+        "all_cdhashes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40,128}$"
+          }
+        },
+        "digest_algorithms": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"enum": [1, 2, 3, 4]}
+        },
+        "static_code_flags": {"type": "integer", "minimum": 0},
+        "signing_kind": {"enum": ["ad_hoc", "cms"]},
+        "identifier": {"type": "string", "minLength": 1}
+      },
+      "required": [
+        "schema_version",
+        "artifact_kind",
+        "architecture",
+        "file_sha256",
+        "unique_cdhash",
+        "all_cdhashes",
+        "digest_algorithms",
+        "static_code_flags",
+        "signing_kind",
+        "identifier"
+      ]
+    },
+    "sourceGateTree": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {"const": "canonical-sorted-gate-tree-v2"},
+        "entry_count": {"type": "integer", "minimum": 1},
+        "tree_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "required": ["algorithm", "entry_count", "tree_sha256"]
+    },
+    "sourceGateRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gate_id": {"enum": ["G04", "G05", "G06"]},
+        "receipt_path": {"pattern": "^source-gates/G0[456]\\.json$", "type": "string"},
+        "receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "receipt_size_bytes": {"type": "integer", "minimum": 1},
+        "gate_tree": {"$ref": "#/$defs/sourceGateTree"},
+        "semantic_reopen_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "required": [
+        "gate_id", "receipt_path", "receipt_sha256", "receipt_size_bytes",
+        "gate_tree", "semantic_reopen_sha256"
+      ]
+    },
+    "sourceGateSemantics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": "2.0.0"},
+        "artifact_kind": {"const": "p06_current_source_gate_semantics_v2"},
+        "status": {"const": "pass"},
+        "source_commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "working_tree_clean": {"const": true},
+        "holdout_accessed": {"const": false},
+        "gates": {
+          "type": "array", "minItems": 3, "maxItems": 3, "items": false,
+          "prefixItems": [
+            {"allOf": [{"$ref": "#/$defs/sourceGateRow"}, {"properties": {"gate_id": {"const": "G04"}, "receipt_path": {"const": "source-gates/G04.json"}}}]},
+            {"allOf": [{"$ref": "#/$defs/sourceGateRow"}, {"properties": {"gate_id": {"const": "G05"}, "receipt_path": {"const": "source-gates/G05.json"}}}]},
+            {"allOf": [{"$ref": "#/$defs/sourceGateRow"}, {"properties": {"gate_id": {"const": "G06"}, "receipt_path": {"const": "source-gates/G06.json"}}}]}
+          ]
+        },
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "required": [
+        "schema_version", "artifact_kind", "status", "source_commit",
+        "working_tree_clean", "holdout_accessed", "gates", "manifest_sha256"
+      ]
+    }
+  },
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "p07_production_execution_authority_v2"},
+    "status": {"const": "locked_before_p07"},
+    "configuration_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"
+    },
+    "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "calibration_plan_v2_file_sha256": {"$ref": "#/$defs/sha256"},
+    "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "raw_output_contract_sha256": {"$ref": "#/$defs/sha256"},
+    "release_files": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": false,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "candidate_runtime_manifest_v2"},
+                "root_id": {"const": "release"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "production_swift_executable"},
+                "root_id": {"const": "release"},
+                "path": {"const": "bin/ash-calibration-cli"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "production_swift_source_manifest"},
+                "root_id": {"const": "release"},
+                "path": {"const": "sources/production-swift-source-manifest.json"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "external_files": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": false,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "production_writer_executable"},
+                "root_id": {"const": "production_writer"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "p00_native_executable"},
+                "root_id": {"const": "native_cache"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {
+              "properties": {
+                "id": {"const": "product_settings_source"},
+                "root_id": {"const": "repository"},
+                "path": {"const": "Mirmir/Modules/MediaPipeline/MediaTypes.swift"},
+                "kind": {"const": "file"},
+                "file_count": {"const": 1}
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "support_evidence_trees": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": false,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "open_split_tree"}, "root_id": {"const": "open_split"}, "kind": {"const": "directory_tree"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "calibration_evidence_tree"}, "root_id": {"const": "calibration_evidence"}, "kind": {"const": "directory_tree"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "native_cache_tree"}, "root_id": {"const": "native_cache"}, "kind": {"const": "directory_tree"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "production_writer_tree"}, "root_id": {"const": "production_writer"}, "kind": {"const": "directory_tree"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "dispatch_measurement_tree"}, "root_id": {"const": "dispatch_measurement"}, "kind": {"const": "directory_tree"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/evidenceBinding"},
+            {"properties": {"id": {"const": "complete_calibration_run_tree"}, "root_id": {"const": "calibration_run"}, "kind": {"const": "directory_tree"}}}
+          ]
+        }
+      ]
+    },
+    "source_gate_semantics": {"$ref": "#/$defs/sourceGateSemantics"},
+    "macos_code_identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "production_swift_executable": {"$ref": "#/$defs/codeIdentity"},
+        "production_writer_executable": {"$ref": "#/$defs/codeIdentity"},
+        "p00_native_executable": {"$ref": "#/$defs/codeIdentity"}
+      },
+      "required": [
+        "production_swift_executable",
+        "production_writer_executable",
+        "p00_native_executable"
+      ]
+    },
+    "artifact_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "configuration_id",
+    "candidate_vector_sha256",
+    "shared_bank_configuration_sha256",
+    "calibration_plan_v2_file_sha256",
+    "input_bundle_sha256",
+    "corpus_lock_bundle_sha256",
+    "raw_output_contract_sha256",
+    "release_files",
+    "external_files",
+    "support_evidence_trees",
+    "source_gate_semantics",
+    "macos_code_identities",
+    "artifact_sha256"
+  ]
+}

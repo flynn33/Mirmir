@@ -13,7 +13,7 @@ import subprocess
 import sys
 import traceback
 import uuid
-from typing import Mapping
+from typing import Callable, Mapping, Optional
 
 from validation.calibration_v2.native_adapter.factory import (
     NativeSwiftBuilder,
@@ -4604,6 +4604,9 @@ def build_p06_release_transaction(
     bound_inputs: object,
     test_evidence_paths: Mapping[str, Path],
     preserved_failure_paths: Mapping[str, Path],
+    _release_publisher: Optional[
+        Callable[..., Mapping[str, object]]
+    ] = None,
 ) -> Mapping[str, object]:
     """Create, validate, and atomically publish one selected P06 release bundle."""
 
@@ -5092,7 +5095,8 @@ def build_p06_release_transaction(
             )
             record_stage("partial_created")
             _require_parent_path_identity(destination.parent, parent_identity)
-            bundle = _publish_release(
+            publisher = _publish_release if _release_publisher is None else _release_publisher
+            bundle = publisher(
                 repository_root=repository,
                 calibration_run_root=run,
                 release_root=partial,

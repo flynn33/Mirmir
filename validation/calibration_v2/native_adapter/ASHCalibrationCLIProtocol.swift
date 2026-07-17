@@ -57,6 +57,42 @@ struct ASHCalibrationBatchRequest {
         )
     }
 
+    static func parse(
+        _ data: Data,
+        configuration: ASHLUTLockedConfigurationV3
+    ) throws -> ASHCalibrationBatchRequest {
+        let json = ASHCalibrationCLIJSON.self
+        let value = try json.strictCanonicalValue(data)
+        let root = try json.object(value, keys: [
+            "schema_version", "operation", "configuration_id",
+            "compiler_inputs_sha256", "frames"
+        ])
+        guard try json.string(root["schema_version"]) == "1.0.0",
+              try json.string(root["operation"]) == "process_batch" else {
+            throw ASHCalibrationCLIError.invalidRequest("protocol identity mismatch")
+        }
+        let configurationID = try json.string(root["configuration_id"])
+        let compilerInputsSHA256 = try json.string(root["compiler_inputs_sha256"])
+        guard configurationID == configuration.configurationID,
+              compilerInputsSHA256 == configuration.compilerInputsSHA256.hex else {
+            throw ASHCalibrationCLIError.invalidRequest("configuration identity mismatch")
+        }
+        let frameValues = try json.array(root["frames"])
+        guard !frameValues.isEmpty, frameValues.count <= 256 else {
+            throw ASHCalibrationCLIError.invalidRequest("invalid batch size")
+        }
+        let frames = try frameValues.map(parseFrame)
+        guard Set(frames.map(\.requestID)).count == frames.count,
+              Set(frames.map(\.outputPath)).count == frames.count else {
+            throw ASHCalibrationCLIError.invalidRequest("duplicate request ID or output path")
+        }
+        return ASHCalibrationBatchRequest(
+            configurationID: configurationID,
+            compilerInputsSHA256: compilerInputsSHA256,
+            frames: frames
+        )
+    }
+
     static func parseFrame(
         _ value: ASHLUTStrictJSONValueV2
     ) throws -> ASHCalibrationFrameRequest {
@@ -333,6 +369,40 @@ struct ASHCalibrationControlRequest {
         configuration: ASHLUTLockedConfigurationV2,
         mapping: ASHLockedVideoMappingV2
     ) throws -> ASHCalibrationControlRequest {
+        guard mapping.configurationID == configuration.configurationID else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "control configuration identity"
+            )
+        }
+        return try parse(
+            data,
+            mapping: mapping,
+            selectorID: "continuous-linear-bank-selector-q15-v1"
+        )
+    }
+
+    static func parse(
+        _ data: Data,
+        configuration: ASHLUTLockedConfigurationV3,
+        mapping: ASHLockedVideoMappingV2
+    ) throws -> ASHCalibrationControlRequest {
+        guard mapping.configurationID == configuration.configurationID else {
+            throw ASHCalibrationCLIError.invalidRequest(
+                "format-1.2 control configuration identity"
+            )
+        }
+        return try parse(
+            data,
+            mapping: mapping,
+            selectorID: "continuous-linear-bank-selector-q15-v2"
+        )
+    }
+
+    private static func parse(
+        _ data: Data,
+        mapping: ASHLockedVideoMappingV2,
+        selectorID: String
+    ) throws -> ASHCalibrationControlRequest {
         let json = ASHCalibrationCLIJSON.self
         let value = try json.strictCanonicalValue(data)
         let root = try json.object(value, keys: [
@@ -372,7 +442,8 @@ struct ASHCalibrationControlRequest {
             configurationSHA256: configurationSHA256,
             sharedBank: sharedBank,
             parameters: parameters,
-            candidateVectorSHA256: mapping.candidateVectorSHA256.hex
+            candidateVectorSHA256: mapping.candidateVectorSHA256.hex,
+            selectorID: selectorID
         )
         let frame = try ASHCalibrationBatchRequest.parseFrame(root["frame"]!)
         if case .h07 = mode, frame.route != .direct3Over2 {
@@ -395,7 +466,8 @@ struct ASHCalibrationControlRequest {
         configurationSHA256: String,
         sharedBank: String,
         parameters: [String: ASHLUTStrictJSONValueV2],
-        candidateVectorSHA256: String
+        candidateVectorSHA256: String,
+        selectorID: String
     ) throws -> ASHCalibrationControlMode {
         let json = ASHCalibrationCLIJSON.self
         let expectedConfiguration: ASHLUTStrictJSONValueV2
@@ -447,8 +519,7 @@ struct ASHCalibrationControlRequest {
             guard Set(parameters.keys) == [
                 "selector_id", "selected_rule_sha256", "selected_rule_configuration"
             ],
-            try json.string(parameters["selector_id"])
-                == "continuous-linear-bank-selector-q15-v1",
+            try json.string(parameters["selector_id"]) == selectorID,
             controlKey == "non_ash_selector" else {
                 throw ASHCalibrationCLIError.invalidRequest("non-ASH identity")
             }
@@ -468,7 +539,7 @@ struct ASHCalibrationControlRequest {
             }
             expectedConfiguration = .object([
                 "rule_sha256": .string(ruleSHA256),
-                "selector_id": .string("continuous-linear-bank-selector-q15-v1"),
+                "selector_id": .string(selectorID),
                 "shared_bank_configuration_sha256": .string(sharedBank)
             ])
             mode = .nonASH(try ASHLockedNonASHRuleV2(coordinates: coordinates))
@@ -2808,5 +2879,663 @@ final class ASHCalibrationNativeSession {
 
     private func nanoseconds(_ milliseconds: Double) -> Int {
         Int((milliseconds * 1_000_000.0).rounded(.toNearestOrEven))
+    }
+}
+
+/// Plane-aware format-1.2 candidate session.
+///
+/// The V1 session remains byte-for-byte behaviorally isolated above. This
+/// session loads the two V3 LUTs once, verifies every manifest binding before
+/// publication, and reconstructs through the same V3 frame pipeline used by
+/// the Apple-native application runtime.
+final class ASHCalibrationNativeSessionV2 {
+    let configuration: ASHLUTLockedConfigurationV3
+    let mapping: ASHLockedVideoMappingV2
+    let manifest: ASHLockedCandidateLUTManifestV2
+    let direct2xLUT: ASHLUTLoadedV3
+    let direct3Over2LUT: ASHLUTLoadedV3
+
+    private(set) var invocationCount = 0
+
+    init(
+        configuration: ASHLUTLockedConfigurationV3,
+        mapping: ASHLockedVideoMappingV2,
+        manifest: ASHLockedCandidateLUTManifestV2,
+        direct2xData: Data,
+        direct3Over2Data: Data
+    ) throws {
+        guard mapping.status == .calibrationCandidate,
+              mapping.configurationID == configuration.configurationID,
+              mapping.sha256.hex == configuration.mappingSHA256.hex,
+              mapping.boundaryMode == configuration.boundaryMode,
+              mapping.direct2xAnalysisGridSourceStep
+                == configuration.routes.direct2x.analysisGridSourceStep,
+              mapping.direct3Over2AnalysisGridSourceStep
+                == configuration.routes.direct3Over2.analysisGridSourceStep else {
+            throw ASHLockedVideoMappingV2Error.invalidValue
+        }
+        self.configuration = configuration
+        self.mapping = mapping
+        self.manifest = manifest
+        direct2xLUT = try Self.loadLUT(
+            direct2xData,
+            route: .direct2x,
+            manifest: manifest,
+            configuration: configuration
+        )
+        direct3Over2LUT = try Self.loadLUT(
+            direct3Over2Data,
+            route: .direct3Over2,
+            manifest: manifest,
+            configuration: configuration
+        )
+    }
+
+    func process(_ request: ASHCalibrationBatchRequest) throws -> [[String: Any]] {
+        try request.frames.map(processFrame)
+    }
+
+    func control(_ request: ASHCalibrationControlRequest) throws -> [String: Any] {
+        try controlFrame(request)
+    }
+
+    private static func loadLUT(
+        _ data: Data,
+        route: ASHSpatialRouteV2,
+        manifest: ASHLockedCandidateLUTManifestV2,
+        configuration: ASHLUTLockedConfigurationV3
+    ) throws -> ASHLUTLoadedV3 {
+        let binding = try manifest.route(route)
+        guard data.count == binding.wholeFileSizeBytes,
+              ASHCalibrationCLIHash.hex(data) == binding.wholeFileSHA256.hex,
+              ASHLUTLittleEndianV3.uint32(data, at: 288) == binding.headerCRC32,
+              ASHLUTLittleEndianV3.uint32(data, at: 292) == binding.payloadCRC32 else {
+            throw ASHLockedLUTManifestErrorV3.wholeFileHashMismatch
+        }
+        let loaded = try ASHLUTBinaryCodecV3.load(
+            data,
+            expectedRoute: route,
+            configuration: configuration
+        )
+        guard loaded.wholeFileSHA256 == binding.wholeFileSHA256,
+              loaded.payloadSHA256 == binding.payloadSHA256,
+              loaded.entries.count == binding.entryCount,
+              loaded.parameters.count == binding.parameterCount else {
+            throw ASHLockedLUTManifestErrorV3.payloadHashMismatch
+        }
+        return loaded
+    }
+
+    private func controlFrame(
+        _ request: ASHCalibrationControlRequest
+    ) throws -> [String: Any] {
+        invocationCount += 1
+        let frame = request.frame
+        ASHCalibrationCLIFileIO.removeIfPresent(frame.outputPath)
+        do {
+            let inputData = try ASHCalibrationCLIFileIO.readRegularFile(
+                frame.inputPath
+            )
+            guard inputData.count == frame.inputWidth * frame.inputHeight * 3 / 2,
+                  ASHCalibrationCLIHash.hex(inputData) == frame.inputSHA256 else {
+                throw ASHCalibrationCLIError.hashMismatch(
+                    "format-1.2 control input NV12"
+                )
+            }
+            let source = try decodeNV12(
+                inputData,
+                width: frame.inputWidth,
+                height: frame.inputHeight
+            )
+            let lut = frame.route == .direct2x ? direct2xLUT : direct3Over2LUT
+            let routeInput = ASHLockedFramePipelineInputV3(
+                source: source,
+                destinationGeometry: ASHNV12FrameGeometry(
+                    lumaWidth: frame.outputWidth,
+                    lumaHeight: frame.outputHeight,
+                    chromaWidth: frame.outputWidth / 2,
+                    chromaHeight: frame.outputHeight / 2
+                ),
+                destinationRange: .video,
+                expectedRange: .video,
+                expectedChromaSiting: .left,
+                lut: lut,
+                configuration: configuration,
+                analyzerConfiguration: mapping.analyzerConfiguration
+            )
+            let output: ASHLockedControlFrameV2
+            let runtime: ASHLockedFrameSummaryV3?
+            let proof: [String: Any]
+            var h07RuntimeSummary: [String: Any]? = nil
+            switch request.mode {
+            case .fullASH:
+                let result = try ASHLockedFramePipelineV3.process(routeInput)
+                output = controlFrame(result)
+                runtime = result.summary
+                proof = [
+                    "dispatch_source": "complete_plane_aware_primary_secondary_lut_dispatch",
+                    "maximum_operator_evaluations": result.summary.maximumOperatorEvaluations
+                ]
+            case .fixedDescriptor(let descriptorID):
+                let result = try ASHLockedFramePipelineV3.processControlDispatch(
+                    routeInput,
+                    mode: .fixedDescriptor(descriptorID)
+                )
+                output = controlFrame(result)
+                runtime = result.summary
+                proof = [
+                    "dispatch_source": "uniform_descriptor_plane_aware_no_lut_dispatch",
+                    "descriptor_id": Int(descriptorID),
+                    "primary_weight_unorm16": Int(UInt16.max),
+                    "secondary_present": false,
+                    "message_raw_value": 0
+                ]
+            case .stateOnly:
+                let result = try ASHLockedFramePipelineV3.processControlDispatch(
+                    routeInput,
+                    mode: .stateOnly
+                )
+                output = controlFrame(result)
+                runtime = result.summary
+                proof = [
+                    "dispatch_source": "plane_aware_state_phase_policy_base_descriptor_before_branch",
+                    "primary_weight_unorm16": Int(UInt16.max),
+                    "secondary_present": false,
+                    "message_raw_value": 0
+                ]
+            case .nonASH(let rule):
+                let result = try ASHLockedFramePipelineV3.processControlDispatch(
+                    routeInput,
+                    mode: .nonASHSelector(rule)
+                )
+                output = controlFrame(result)
+                runtime = result.summary
+                proof = [
+                    "dispatch_source": "plane_aware_continuous_features_q15_no_ash_state_or_lut_dispatch",
+                    "coordinate_count": ASHLockedNonASHRuleV2.coordinateOrder.count,
+                    "primary_weight_unorm16": Int(UInt16.max),
+                    "secondary_present": false,
+                    "message_raw_value": 0
+                ]
+            case .conventional(let algorithm):
+                output = try ASHLockedControlResamplerV2.conventional(
+                    source: source,
+                    route: frame.route,
+                    configuration: configuration,
+                    algorithm: algorithm
+                )
+                runtime = nil
+                proof = [
+                    "dispatch_source": "uniform_conventional_separable",
+                    "algorithm_id": algorithm.rawValue,
+                    "luma_coordinate_policy": configuration
+                        .routeSelection(for: frame.route)
+                        .lumaCoordinatePolicy.rawValue,
+                    "chroma_coordinate_policy": configuration
+                        .routeSelection(for: frame.route)
+                        .chromaCoordinatePolicy.rawValue,
+                    "boundary_mode": configuration.boundaryMode.rawValue
+                ]
+            case .nearest:
+                output = try ASHLockedControlResamplerV2.nearest(
+                    source: source,
+                    route: frame.route
+                )
+                runtime = nil
+                proof = [
+                    "dispatch_source": "nearest_integer_floor_same_writer",
+                    "index_formula": "min(floor(dst*source_extent/target_extent),source_extent-1)"
+                ]
+            case .h07:
+                let direct2Input = ASHLockedFramePipelineInputV3(
+                    source: source,
+                    destinationGeometry: ASHNV12FrameGeometry(
+                        lumaWidth: frame.inputWidth * 2,
+                        lumaHeight: frame.inputHeight * 2,
+                        chromaWidth: frame.inputWidth,
+                        chromaHeight: frame.inputHeight
+                    ),
+                    destinationRange: .video,
+                    expectedRange: .video,
+                    expectedChromaSiting: .left,
+                    lut: direct2xLUT,
+                    configuration: configuration,
+                    analyzerConfiguration: mapping.analyzerConfiguration
+                )
+                let direct2 = try ASHLockedFramePipelineV3.process(direct2Input)
+                output = try ASHLockedControlResamplerV2.h07Lanczos3(
+                    direct2x: direct2,
+                    targetLumaWidth: frame.outputWidth,
+                    targetLumaHeight: frame.outputHeight,
+                    targetChromaWidth: frame.outputWidth / 2,
+                    targetChromaHeight: frame.outputHeight / 2,
+                    boundary: configuration.boundaryMode
+                )
+                runtime = direct2.summary
+                h07RuntimeSummary = try makeH07RuntimeSummary(
+                    direct2x: direct2,
+                    targetLumaWidth: frame.outputWidth,
+                    targetLumaHeight: frame.outputHeight
+                )
+                proof = [
+                    "dispatch_source": "candidate_plane_aware_direct2x_then_lanczos3",
+                    "direct2x_lut_whole_file_sha256": try manifest
+                        .route(.direct2x).wholeFileSHA256.hex,
+                    "postprocess": "lanczos3-separable-v1",
+                    "postprocess_coordinate": "src=(dst+0.5)*intermediate_extent/target_extent-0.5",
+                    "boundary_mode": configuration.boundaryMode.rawValue
+                ]
+            }
+            let outputData = try encodeNV12(output)
+            guard outputData.count == frame.outputWidth * frame.outputHeight * 3 / 2 else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "format-1.2 control output NV12 byte count"
+                )
+            }
+            try ASHCalibrationCLIFileIO.writeNewEphemeralRegularFile(
+                outputData,
+                path: frame.outputPath
+            )
+            guard try ASHCalibrationCLIFileIO.readRegularFile(frame.outputPath)
+                    == outputData else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "format-1.2 control output reopen"
+                )
+            }
+            let manifestRoute = try manifest.route(frame.route)
+            return [
+                "request_id": frame.requestID,
+                "invocation_index": invocationCount,
+                "control_key": request.controlKey,
+                "control_mode": request.controlMode,
+                "control_request_sha256": request.requestSHA256,
+                "control_configuration_sha256": request.configurationSHA256,
+                "shared_bank_configuration_sha256": request.sharedBankConfigurationSHA256,
+                "target_route": frame.route == .direct2x
+                    ? "direct-2x" : "direct-3over2",
+                "input_nv12_sha256": ASHCalibrationCLIHash.hex(inputData),
+                "output_nv12_sha256": ASHCalibrationCLIHash.hex(outputData),
+                "configuration_id": configuration.configurationID,
+                "candidate_lut_runtime_manifest_sha256": manifest.manifestSHA256.hex,
+                "candidate_route_lut_whole_file_sha256": manifestRoute.wholeFileSHA256.hex,
+                "control_execution_proof": proof,
+                "locked_runtime_summary": runtime.map(runtimeSummary) ?? NSNull(),
+                "h07_runtime_summary": h07RuntimeSummary ?? NSNull(),
+                "pixel_contract": "bt709-video-range-420v-8bit-nv12-v1",
+                "quantization_convention": "common_420v_round_to_nearest_even",
+                "production_metal_constraint_satisfied": false,
+                "native_invocation_proof": [
+                    "protocol": "mirmir-ash-calibration-cli-v2",
+                    "process_id": Int(ProcessInfo.processInfo.processIdentifier),
+                    "executable_sha256": manifest.executableSHA256.hex,
+                    "source_manifest_sha256": manifest.sourceManifestSHA256.hex
+                ]
+            ]
+        } catch {
+            ASHCalibrationCLIFileIO.removeIfPresent(frame.outputPath)
+            throw error
+        }
+    }
+
+    private func processFrame(
+        _ request: ASHCalibrationFrameRequest
+    ) throws -> [String: Any] {
+        invocationCount += 1
+        ASHCalibrationCLIFileIO.removeIfPresent(request.outputPath)
+        do {
+            let inputData = try ASHCalibrationCLIFileIO.readRegularFile(
+                request.inputPath
+            )
+            guard inputData.count
+                    == request.inputWidth * request.inputHeight * 3 / 2,
+                  ASHCalibrationCLIHash.hex(inputData) == request.inputSHA256 else {
+                throw ASHCalibrationCLIError.hashMismatch("format-1.2 input NV12")
+            }
+            let source = try decodeNV12(
+                inputData,
+                width: request.inputWidth,
+                height: request.inputHeight
+            )
+            let lut = request.route == .direct2x ? direct2xLUT : direct3Over2LUT
+            let output = try ASHLockedFramePipelineV3.process(
+                ASHLockedFramePipelineInputV3(
+                    source: source,
+                    destinationGeometry: ASHNV12FrameGeometry(
+                        lumaWidth: request.outputWidth,
+                        lumaHeight: request.outputHeight,
+                        chromaWidth: request.outputWidth / 2,
+                        chromaHeight: request.outputHeight / 2
+                    ),
+                    destinationRange: .video,
+                    expectedRange: .video,
+                    expectedChromaSiting: .left,
+                    lut: lut,
+                    configuration: configuration,
+                    analyzerConfiguration: mapping.analyzerConfiguration
+                )
+            )
+            let outputData = try encodeNV12(output)
+            guard outputData.count
+                    == request.outputWidth * request.outputHeight * 3 / 2 else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "format-1.2 output NV12 byte count"
+                )
+            }
+            try ASHCalibrationCLIFileIO.writeNewEphemeralRegularFile(
+                outputData,
+                path: request.outputPath
+            )
+            guard try ASHCalibrationCLIFileIO.readRegularFile(request.outputPath)
+                    == outputData else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "format-1.2 reopened output bytes"
+                )
+            }
+            return try summary(
+                request: request,
+                inputData: inputData,
+                outputData: outputData,
+                runtime: output.summary
+            )
+        } catch {
+            ASHCalibrationCLIFileIO.removeIfPresent(request.outputPath)
+            throw error
+        }
+    }
+
+    private func decodeNV12(
+        _ data: Data,
+        width: Int,
+        height: Int
+    ) throws -> ASHNV12CodeFrame {
+        let yCount = width * height
+        let y = Array(data[0..<yCount])
+        let uv = Array(data[yCount..<data.count])
+        var cb: [UInt8] = []
+        var cr: [UInt8] = []
+        cb.reserveCapacity(uv.count / 2)
+        cr.reserveCapacity(uv.count / 2)
+        for index in stride(from: 0, to: uv.count, by: 2) {
+            cb.append(uv[index])
+            cr.append(uv[index + 1])
+        }
+        return ASHNV12CodeFrame(
+            luma: try ASHVideoAnalyzerV2CodePlane(
+                width: width,
+                height: height,
+                bytesPerRow: width,
+                codes: y,
+                range: .video
+            ),
+            cb: try ASHVideoAnalyzerV2CodePlane(
+                width: width / 2,
+                height: height / 2,
+                bytesPerRow: width / 2,
+                codes: cb,
+                range: .video
+            ),
+            cr: try ASHVideoAnalyzerV2CodePlane(
+                width: width / 2,
+                height: height / 2,
+                bytesPerRow: width / 2,
+                codes: cr,
+                range: .video
+            ),
+            chromaSiting: .left
+        )
+    }
+
+    private func encodeNV12(_ output: ASHLockedFrameOutputV3) throws -> Data {
+        try encodeNV12(
+            lumaWidth: output.luma.width,
+            lumaHeight: output.luma.height,
+            luma: output.luma.normalizedSamples,
+            chromaWidth: output.cb.width,
+            chromaHeight: output.cb.height,
+            cb: output.cb.normalizedSamples,
+            cr: output.cr.normalizedSamples
+        )
+    }
+
+    private func encodeNV12(_ output: ASHLockedControlFrameV2) throws -> Data {
+        try encodeNV12(
+            lumaWidth: output.luma.width,
+            lumaHeight: output.luma.height,
+            luma: output.luma.normalizedSamples,
+            chromaWidth: output.cb.width,
+            chromaHeight: output.cb.height,
+            cb: output.cb.normalizedSamples,
+            cr: output.cr.normalizedSamples
+        )
+    }
+
+    private func encodeNV12(
+        lumaWidth: Int,
+        lumaHeight: Int,
+        luma: [Double],
+        chromaWidth: Int,
+        chromaHeight: Int,
+        cb: [Double],
+        cr: [Double]
+    ) throws -> Data {
+        guard lumaWidth == chromaWidth * 2,
+              lumaHeight == chromaHeight * 2,
+              luma.count == lumaWidth * lumaHeight,
+              cb.count == chromaWidth * chromaHeight,
+              cr.count == cb.count else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "format-1.2 output 4:2:0 geometry"
+            )
+        }
+        var result = Data()
+        result.reserveCapacity(lumaWidth * lumaHeight * 3 / 2)
+        for value in luma {
+            result.append(try quantize(value * 219.0 + 16.0))
+        }
+        for index in cb.indices {
+            let cbValue = cb[index]
+            let crValue = cr[index]
+            guard cbValue.isFinite, crValue.isFinite,
+                  (0.0...1.0).contains(cbValue),
+                  (0.0...1.0).contains(crValue) else {
+                throw ASHCalibrationCLIError.outputValidation(
+                    "format-1.2 normalized chroma sample"
+                )
+            }
+            result.append(try quantize(cbValue * 224.0 + 16.0))
+            result.append(try quantize(crValue * 224.0 + 16.0))
+        }
+        return result
+    }
+
+    private func controlFrame(
+        _ output: ASHLockedFrameOutputV3
+    ) -> ASHLockedControlFrameV2 {
+        ASHLockedControlFrameV2(
+            luma: ASHLockedReferencePlaneOutputV2(
+                width: output.luma.width,
+                height: output.luma.height,
+                normalizedSamples: output.luma.normalizedSamples
+            ),
+            cb: ASHLockedReferencePlaneOutputV2(
+                width: output.cb.width,
+                height: output.cb.height,
+                normalizedSamples: output.cb.normalizedSamples
+            ),
+            cr: ASHLockedReferencePlaneOutputV2(
+                width: output.cr.width,
+                height: output.cr.height,
+                normalizedSamples: output.cr.normalizedSamples
+            )
+        )
+    }
+
+    private func runtimeSummary(
+        _ summary: ASHLockedFrameSummaryV3
+    ) -> [String: Any] {
+        let selection = configuration.routeSelection(for: summary.route)
+        return [
+            "schema_version": "2.0.0",
+            "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
+            "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
+            "luma_anisotropy_mode_ordinal": Int(
+                selection.lumaAnisotropyMode.rawValue
+            ),
+            "chroma_anisotropy_mode_ordinal": Int(
+                selection.chromaAnisotropyMode.rawValue
+            ),
+            "state_histogram": summary.stateHistogram.keys.sorted().map { state in
+                [
+                    "state_raw_value": Int(state),
+                    "count": summary.stateHistogram[state]!
+                ]
+            },
+            "luma_operator_histogram": summary.lumaOperatorHistogram.keys
+                .sorted().map { descriptor in
+                    [
+                        "descriptor_id": Int(descriptor),
+                        "count": summary.lumaOperatorHistogram[descriptor]!
+                    ]
+                },
+            "chroma_operator_histogram": summary.chromaOperatorHistogram.keys
+                .sorted().map { descriptor in
+                    [
+                        "descriptor_id": Int(descriptor),
+                        "count": summary.chromaOperatorHistogram[descriptor]!
+                    ]
+                },
+            "maximum_operator_evaluations": summary.maximumOperatorEvaluations,
+            "analysis_cell_count": summary.analysisCellCount,
+            "occupied_analysis_cell_count": summary.occupiedAnalysisCellCount,
+            "dispatch_record_count": summary.dispatchRecordCount,
+            "exact_decode_count": summary.exactDecodeCount,
+            "corrected_decode_count": summary.correctedDecodeCount,
+            "rejected_decode_count": summary.rejectedDecodeCount
+        ]
+    }
+
+    private func makeH07RuntimeSummary(
+        direct2x: ASHLockedFrameOutputV3,
+        targetLumaWidth: Int,
+        targetLumaHeight: Int
+    ) throws -> [String: Any] {
+        let intermediatePixelCount = direct2x.luma.width * direct2x.luma.height
+        let targetPixelCount = targetLumaWidth * targetLumaHeight
+        let direct2WorkItemCount = 2 * intermediatePixelCount
+        let lanczos3WorkItemCount = 12 * targetPixelCount
+        var summary: [String: Any] = [
+            "schema_version": "1.0.0",
+            "artifact_kind": "p06_h07_direct2_lanczos3_runtime_summary",
+            "direct2_analysis_grid_invocation_count": 1,
+            "direct2_analysis_cell_count": direct2x.summary.analysisCellCount,
+            "direct2_intermediate_luma_dimensions": [
+                "height": direct2x.luma.height,
+                "width": direct2x.luma.width
+            ],
+            "target_luma_pixel_count": targetPixelCount,
+            "direct2_operator_work_item_count": direct2WorkItemCount,
+            "lanczos3_work_item_count": lanczos3WorkItemCount,
+            "total_work_item_count": direct2WorkItemCount + lanczos3WorkItemCount
+        ]
+        summary["summary_sha256"] = ASHCalibrationCLIHash.hex(
+            try ASHCalibrationCLIJSON.canonicalData(summary)
+        )
+        return summary
+    }
+
+    private func quantize(_ value: Double) throws -> UInt8 {
+        guard value.isFinite else {
+            throw ASHCalibrationCLIError.outputValidation(
+                "format-1.2 nonfinite sample"
+            )
+        }
+        return UInt8(min(255.0, max(0.0, value.rounded(.toNearestOrEven))))
+    }
+
+    private func summary(
+        request: ASHCalibrationFrameRequest,
+        inputData: Data,
+        outputData: Data,
+        runtime: ASHLockedFrameSummaryV3
+    ) throws -> [String: Any] {
+        let route = try manifest.route(request.route)
+        let selection = configuration.routeSelection(for: request.route)
+        return [
+            "request_id": request.requestID,
+            "invocation_index": invocationCount,
+            "target_route": request.route == .direct2x
+                ? "direct-2x" : "direct-3over2",
+            "input_width": request.inputWidth,
+            "input_height": request.inputHeight,
+            "output_width": request.outputWidth,
+            "output_height": request.outputHeight,
+            "input_nv12_sha256": ASHCalibrationCLIHash.hex(inputData),
+            "output_nv12_sha256": ASHCalibrationCLIHash.hex(outputData),
+            "configuration_id": configuration.configurationID,
+            "mapping_sha256": configuration.mappingSHA256.hex,
+            "operator_bank_sha256": configuration.operatorBankSHA256.hex,
+            "metric_policy_sha256": configuration.metricPolicySHA256.hex,
+            "compiler_inputs_sha256": configuration.compilerInputsSHA256.hex,
+            "calibration_plan_sha256": configuration.calibrationPlanSHA256.hex,
+            "corpus_lock_bundle_sha256": configuration.corpusLockBundleSHA256.hex,
+            "candidate_vector_sha256": mapping.candidateVectorSHA256.hex,
+            "shared_bank_configuration_sha256": mapping
+                .sharedBankConfigurationSHA256.hex,
+            "candidate_lut_runtime_manifest_sha256": manifest.manifestSHA256.hex,
+            "route_lut_whole_file_sha256": route.wholeFileSHA256.hex,
+            "route_lut_payload_sha256": route.payloadSHA256.hex,
+            "lut_header_crc32": String(format: "0x%08X", route.headerCRC32),
+            "lut_payload_crc32": String(format: "0x%08X", route.payloadCRC32),
+            "lut_entry_count": route.entryCount,
+            "lut_parameter_count": route.parameterCount,
+            "cpu_reference_analysis_traversals": runtime
+                .constructionCounters.analyzerTraversalCount,
+            "cpu_reference_full_frame_loop_count": 3,
+            "production_metal_constraint_satisfied": false,
+            "loaded_lut_instance_count": 1,
+            "session_loaded_lut_instance_count": 2,
+            "per_frame_lut_load_count": runtime.constructionCounters.lutLoadCount,
+            "runtime_leaf_tree_generations": runtime
+                .constructionCounters.runtimeTreeGenerationCount,
+            "runtime_path_generations": runtime
+                .constructionCounters.runtimePathConstructionCount,
+            "maximum_operator_evaluations": runtime.maximumOperatorEvaluations,
+            "analysis_cell_count": runtime.analysisCellCount,
+            "occupied_analysis_cell_count": runtime.occupiedAnalysisCellCount,
+            "dispatch_record_count": runtime.dispatchRecordCount,
+            "analysis_elapsed_nanoseconds": 0,
+            "dispatch_elapsed_nanoseconds": 0,
+            "reconstruction_elapsed_nanoseconds": 0,
+            "chroma_convention": "ASHLockedCandidateAdapterBridgeV2.centeredChroma_subtract_0.5_once",
+            "quantization_convention": "common_420v_round_to_nearest_even",
+            "pixel_contract": "bt709-video-range-420v-8bit-nv12-v1",
+            "locked_runtime_summary": [
+                "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
+                "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
+                "luma_anisotropy_mode_ordinal": Int(
+                    selection.lumaAnisotropyMode.rawValue
+                ),
+                "chroma_anisotropy_mode_ordinal": Int(
+                    selection.chromaAnisotropyMode.rawValue
+                ),
+                "analysis_cell_count": runtime.analysisCellCount,
+                "dispatch_record_count": runtime.dispatchRecordCount,
+                "primary_evaluation_count": runtime.primaryEvaluationCount,
+                "secondary_evaluation_count": runtime.secondaryEvaluationCount,
+                "maximum_operator_evaluations": runtime.maximumOperatorEvaluations,
+                "affine_fallback_count": runtime.affineFallbackCount,
+                "numerical_fallback_count": runtime.numericalFallbackCount,
+                "parity_recomputation_count": runtime.parityRecomputationCount,
+                "source_aligned_preservation_count": runtime
+                    .sourceAlignedPreservationCount,
+                "temporal_state_count": runtime.temporalStateCount
+            ],
+            "native_invocation_proof": [
+                "protocol": "mirmir-ash-calibration-cli-v2",
+                "process_id": Int(ProcessInfo.processInfo.processIdentifier),
+                "executable_sha256": manifest.executableSHA256.hex,
+                "source_manifest_sha256": manifest.sourceManifestSHA256.hex
+            ]
+        ]
     }
 }

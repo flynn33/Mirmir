@@ -116,6 +116,7 @@ class CalibrationContractSchemaTests(unittest.TestCase):
             ("locked-compiler-input-v1.schema.json", "routeSelection"),
             ("operator-bank-v1.schema.json", "routeCoordinatePolicies"),
             ("candidate-lut-runtime-manifest-v1.schema.json", "routeBase"),
+            ("candidate-lut-runtime-manifest-v2.schema.json", "routeBase"),
             ("lut-manifest-v2.schema.json", "routeBase"),
         ]
         for schema_name, definition_name in definitions:
@@ -124,6 +125,12 @@ class CalibrationContractSchemaTests(unittest.TestCase):
                 self.assertIn("luma_coordinate_policy", definition["required"])
                 self.assertIn("chroma_coordinate_policy", definition["required"])
                 self.assertNotIn("coordinate_policy", definition["properties"])
+
+        candidate_v2 = self.schemas[
+            "candidate-lut-runtime-manifest-v2.schema.json"
+        ]["$defs"]["routeBase"]
+        self.assertIn("plane_count", candidate_v2["required"])
+        self.assertEqual(candidate_v2["properties"]["plane_count"]["const"], 2)
 
         execution = self.schemas[
             "control-aggregate-cache-native-benchmark-v1.schema.json"

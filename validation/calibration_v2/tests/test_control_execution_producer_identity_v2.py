@@ -9,6 +9,7 @@ from pathlib import Path, PurePosixPath
 import stat
 from tempfile import TemporaryDirectory
 import unittest
+from unittest import mock
 
 from jsonschema import Draft202012Validator
 
@@ -20,6 +21,11 @@ from validation.calibration_v2.calibration_plan_codec import (
 from validation.calibration_v2.control_evidence_publisher_v2 import (
     ControlEvidencePublisherV2Error,
     RawControlAuthorizationArtifactPublisherV2,
+)
+from validation.calibration_v2.native_adapter.factory import (
+    NativeAdapterError,
+    _control_execution_implementation_source_sha256_v2,
+    _read_regular_at,
 )
 from validation.calibration_v2.production_evaluator import (
     ControlExecutionProducerIdentityV2,
@@ -421,6 +427,10 @@ class ControlExecutionProducerIdentityV2Tests(unittest.TestCase):
         self.assertFalse(payload.endswith(b"\n"))
         self.assertRegex(digest, r"^(?!0{64}$)[0-9a-f]{64}$")
         self.assertEqual(
+            _control_execution_implementation_source_sha256_v2(ROOT),
+            digest,
+        )
+        self.assertEqual(
             [set(record) for record in manifest["sources"]],
             [set(identity["record_exact_keys"])] * 3,
         )
@@ -502,6 +512,49 @@ class ControlExecutionProducerIdentityV2Tests(unittest.TestCase):
             hashlib.sha256(canonical_json_bytes(different_domain)).hexdigest(),
             digest,
         )
+
+    def test_secure_source_read_rejects_pathname_replacement_after_open(self) -> None:
+        with TemporaryDirectory(dir="/private/tmp") as temporary:
+            root = Path(temporary)
+            source = root / "producer.py"
+            replacement = root / "replacement.py"
+            source.write_bytes(b"original producer bytes\n")
+            replacement.write_bytes(b"replacement producer bytes\n")
+            parent = os.open(
+                root,
+                os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC,
+            )
+            original_read = os.read
+            replaced = False
+
+            def replace_path_after_descriptor_read(
+                descriptor: int,
+                count: int,
+            ) -> bytes:
+                nonlocal replaced
+                payload = original_read(descriptor, count)
+                if payload and not replaced:
+                    replaced = True
+                    os.replace(replacement, source)
+                return payload
+
+            try:
+                with mock.patch(
+                    "validation.calibration_v2.native_adapter.factory.os.read",
+                    side_effect=replace_path_after_descriptor_read,
+                ):
+                    with self.assertRaisesRegex(
+                        NativeAdapterError,
+                        "file changed while reading",
+                    ):
+                        _read_regular_at(
+                            parent,
+                            source.name,
+                            display_path=source,
+                        )
+            finally:
+                os.close(parent)
+            self.assertTrue(replaced)
 
     def test_dependency_evidence_and_downstream_boundary_are_explicit(self) -> None:
         source_set = self.contract["implementation_source_identity"]["source_set"]

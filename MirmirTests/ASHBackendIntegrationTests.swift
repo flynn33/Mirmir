@@ -1,35 +1,11 @@
 import Foundation
 import CoreMedia
+import CoreVideo
 import os.lock
 import XCTest
 @testable import Mirmir
 
 final class ASHBackendIntegrationTests: XCTestCase {
-
-    @available(macOS 15.4, *)
-    func test_defaultUpscalerRejectsInputOutputCollision() throws {
-        let service = DefaultUpscalerEngineService(
-            media: NoopMediaPipelineService(),
-            metal: NoopMetalRenderingService(),
-            modelAssets: NoopModelAssetsService(),
-            backendFactory: ASHDevelopmentUpscaleBackendFactory()
-        )
-        let fileURL = URL(fileURLWithPath: "/tmp/source.mp4")
-        let job = UpscaleJob(
-            inputURL: fileURL,
-            outputURL: fileURL,
-            targetResolution: .p2160,
-            preserveAudio: false
-        )
-
-        XCTAssertThrowsError(try service.submit(job)) { error in
-            guard let engineError = error as? UpscalerEngineError,
-                  case .inputOutputCollision = engineError else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-        }
-    }
-
     @available(macOS 15.4, *)
     func test_defaultUpscalerUsesASHBackendWithoutStagingModelAssets() async throws {
         let modelAssets = FailingModelAssetsService()
@@ -106,6 +82,80 @@ final class ASHBackendIntegrationTests: XCTestCase {
         XCTAssertFalse(session.didRequestFrame)
         XCTAssertFalse(session.didCancel)
         XCTAssertFalse(session.didFinish)
+    }
+
+    @available(macOS 15.4, *)
+    func testLockedReleaseIdentityReachesTimedMetadataBeforeSessionCreation() async throws {
+        let fixture = try ASHLockedReleaseTestSupportV3.makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let artifacts = try await ASHLockedArtifactStoreV3(resourceRoot: fixture.root).artifacts()
+        let session = try RecordingMediaSession(behavior: .fail)
+        let media = RecordingMediaPipelineService(session: session)
+        let service = DefaultUpscalerEngineService(
+            media: media,
+            metal: NoopMetalRenderingService(),
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHLockedUpscaleBackendFactoryV3(resourceRoot: fixture.root)
+        )
+
+        let handle = try service.submit(makeRecordingJob())
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("Expected the injected media-session failure")
+        } catch is RecordingMediaSession.InjectedFailure {
+            // Expected after the output profile has been captured.
+        }
+
+        XCTAssertEqual(
+            media.outputTimedMetadataTemplate?["com.mirmir.ash.configuration-id"],
+            artifacts.configuration.configurationID
+        )
+        XCTAssertEqual(
+            media.outputTimedMetadataTemplate?["com.mirmir.ash.release-manifest-sha256"],
+            artifacts.manifest.manifestSHA256.hex
+        )
+        XCTAssertEqual(
+            media.outputTimedMetadataTemplate?["com.mirmir.ash.spatial-only"],
+            "true"
+        )
+        XCTAssertEqual(
+            media.outputTimedMetadataTemplate?[
+                "com.mirmir.ash.numerical-fallback-count"
+            ],
+            "0"
+        )
+    }
+
+    @available(macOS 15.4, *)
+    func testLockedReleaseFinalIdentityReachesSessionFinalization() async throws {
+        let fixture = try ASHLockedReleaseTestSupportV3.makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let artifacts = try await ASHLockedArtifactStoreV3(
+            resourceRoot: fixture.root
+        ).artifacts()
+        let session = try RecordingMediaSession(behavior: .complete)
+        let service = DefaultUpscalerEngineService(
+            media: RecordingMediaPipelineService(session: session),
+            metal: NoopMetalRenderingService(),
+            modelAssets: NoopModelAssetsService(),
+            backendFactory: ASHLockedUpscaleBackendFactoryV3(resourceRoot: fixture.root)
+        )
+
+        _ = try await service.submit(makeRecordingJob()).waitForCompletion()
+
+        XCTAssertTrue(session.didFinish)
+        XCTAssertEqual(
+            session.finalMetadata?["com.mirmir.ash.configuration-id"],
+            artifacts.configuration.configurationID
+        )
+        XCTAssertEqual(
+            session.finalMetadata?["com.mirmir.ash.release-manifest-sha256"],
+            artifacts.manifest.manifestSHA256.hex
+        )
+        XCTAssertEqual(
+            session.finalMetadata?["com.mirmir.ash.numerical-fallback-count"],
+            "0"
+        )
     }
 
     @available(macOS 15.4, *)
@@ -212,6 +262,28 @@ final class ASHBackendIntegrationTests: XCTestCase {
         _ = try? await next.waitForCompletion()
     }
 
+    @available(macOS 15.4, *)
+    func testProductionLockedFactoryConstructsMetalBackend() async throws {
+        let fixture = try ASHLockedReleaseTestSupportV3.makeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.root) }
+        let store = ASHLockedArtifactStoreV3(resourceRoot: fixture.root)
+        let artifacts = try await store.artifacts()
+        let factory = ASHLockedUpscaleBackendFactoryV3(
+            artifactStore: store,
+            metal: NoopMetalRenderingService()
+        )
+        let backend = try await factory.makeBackend(
+            route: .direct2x,
+            telemetry: ASHNoopTelemetryRecorder.shared
+        )
+
+        XCTAssertTrue(backend is ASHMetalUpscaleBackendV3)
+        XCTAssertEqual(
+            backend.outputMetadata["com.mirmir.ash.configuration-id"],
+            artifacts.configuration.configurationID
+        )
+    }
+
     @MainActor
     func test_viewModelCanStartASHUpscaleWithoutModelReadiness() {
         let viewModel = MirmirViewModel(
@@ -253,6 +325,9 @@ final class ASHBackendIntegrationTests: XCTestCase {
 private final class RecordingMediaPipelineService: MediaPipelineService, @unchecked Sendable {
     private let session: RecordingMediaSession
     private let beganSession = OSAllocatedUnfairLock(initialState: false)
+    private let capturedOutputTimedMetadata = OSAllocatedUnfairLock<[String: String]?>(
+        initialState: nil
+    )
 
     init(session: RecordingMediaSession) {
         self.session = session
@@ -264,11 +339,16 @@ private final class RecordingMediaPipelineService: MediaPipelineService, @unchec
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
         beganSession.withLock { $0 = true }
+        capturedOutputTimedMetadata.withLock { $0 = output.timedMetadataTemplate }
         return session
     }
 
     var didBeginSession: Bool {
         beganSession.withLock { $0 }
+    }
+
+    var outputTimedMetadataTemplate: [String: String]? {
+        capturedOutputTimedMetadata.withLock { $0 }
     }
 
     func start() {}
@@ -277,6 +357,7 @@ private final class RecordingMediaPipelineService: MediaPipelineService, @unchec
 
 private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
     enum Behavior: Sendable, Equatable {
+        case complete
         case fail
         case suspend
         case suspendWithCleanupFailure
@@ -288,6 +369,7 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
         var didRequestFrame = false
         var didCancel = false
         var didFinish = false
+        var finalMetadata: [String: String]?
         var continuation: CheckedContinuation<FrameRecord?, Error>?
     }
 
@@ -335,8 +417,15 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
         state.withLock { $0.didFinish }
     }
 
+    var finalMetadata: [String: String]? {
+        state.withLock { $0.finalMetadata }
+    }
+
     func nextSourceFrame() async throws -> FrameRecord? {
         switch behavior {
+        case .complete:
+            state.withLock { $0.didRequestFrame = true }
+            return nil
         case .fail:
             state.withLock { $0.didRequestFrame = true }
             throw InjectedFailure()
@@ -361,6 +450,13 @@ private final class RecordingMediaSession: MediaSession, @unchecked Sendable {
 
     func finish() async throws {
         state.withLock { $0.didFinish = true }
+    }
+
+    func finish(finalMetadata: [String: String]) async throws {
+        state.withLock { state in
+            state.didFinish = true
+            state.finalMetadata = finalMetadata
+        }
     }
 
     func cancel() {

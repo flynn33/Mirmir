@@ -14,7 +14,17 @@ from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
+from validation.calibration_v2.calibration_plan_codec import (
+    candidate_vector_sha256_v2,
+    shared_bank_configuration_sha256_v2,
+    validate_materialized_candidate_identity_v2,
+)
+from validation.calibration_v2.native_adapter.factory import (
+    NativeCandidateAdapterFactory,
+)
 from validation.calibration_v2.production_evaluator import (
+    ControlExecutionProducerIdentityV2,
+    ControlExecutionSemanticContextV2,
     ControlWriterProducerIdentityV2,
     ControlWriterSemanticContextV2,
     ControlSelectionBundle,
@@ -23,6 +33,7 @@ from validation.calibration_v2.production_evaluator import (
     WriterRoundTrip,
     canonical_control_measurement_frame_bytes_v2,
     decode_control_measurement_frame_bytes_v2,
+    degradation_native_input,
     _freeze_frame,
     _invoke_cached_fixed,
     _invoke_native_control,
@@ -30,6 +41,9 @@ from validation.calibration_v2.production_evaluator import (
     _validate_control_aggregate_origin_envelope,
     _validate_evidence_dependency_commit_result,
     _validate_writer_round_trip,
+)
+from validation.calibration_v2.shared_bank_artifacts_v2 import (
+    SharedBankArtifactMaterializerV2,
 )
 from validation.quality.src.mirmir_quality import common_writer as common_writer_module
 from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha256
@@ -90,6 +104,24 @@ _CONTAINER_DECODED_LEGAL_RANGE_NORMALIZATION = {
     ),
 }
 
+_CONTROL_DEGRADATION_PROFILE_KIND_V2 = (
+    "p06_control_degradation_profile_v2"
+)
+_CONTROL_EXECUTION_PROVENANCE_KIND_V2 = (
+    "p06_control_execution_provenance_v2"
+)
+_CONTROL_LOW_RESOLUTION_INPUT_BYTES_KIND_V2 = (
+    "p06_control_low_resolution_input_bytes_v2"
+)
+_CONTROL_OUTPUT_BYTES_KIND_V2 = "p06_control_output_bytes_v2"
+_CONTROL_SOURCE_TARGET_PROVENANCE_KIND_V2 = (
+    "p06_control_source_target_provenance_v2"
+)
+_CONTROL_TARGET_FRAME_BYTES_KIND_V2 = (
+    "p06_control_target_frame_bytes_v2"
+)
+_CONTROL_OUTPUT_MANIFEST_KIND_V2 = "p06_control_output_manifest_v2"
+
 
 def production_writer_settings_document(
     *,
@@ -127,6 +159,631 @@ def _sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _canonical_control_context_object_v2(
+    payload: bytes,
+    *,
+    label: str,
+) -> Mapping[str, object]:
+    try:
+        document = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ProductionEvaluatorError(f"{label} is not canonical JSON") from error
+    if (
+        type(document) is not dict
+        or canonical_json_bytes(document) != payload
+    ):
+        raise ProductionEvaluatorError(f"{label} is not a canonical object")
+    return document
+
+
+def _physical_candidate_from_items_bytes_v2(
+    payload: bytes,
+    *,
+    materializer: SharedBankArtifactMaterializerV2,
+) -> Mapping[str, object]:
+    try:
+        items = json.loads(payload)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise ProductionEvaluatorError(
+            "control producer physical candidate bytes are invalid JSON"
+        ) from error
+    plan = materializer.plan
+    if (
+        type(items) is not list
+        or len(items) != 48
+        or canonical_json_bytes(items) != payload
+        or any(type(item) is not list or len(item) != 2 for item in items)
+        or [item[0] for item in items] != list(plan.physical_candidate_order)
+    ):
+        raise ProductionEvaluatorError(
+            "control producer physical candidate pair order differs"
+        )
+    physical = {item[0]: item[1] for item in items}
+    if len(physical) != 48:
+        raise ProductionEvaluatorError(
+            "control producer physical candidate names repeat"
+        )
+    try:
+        validate_materialized_candidate_identity_v2(physical, plan)
+    except ValueError as error:
+        raise ProductionEvaluatorError(
+            "control producer physical candidate identity differs"
+        ) from error
+    return {
+        name: physical[name]
+        for name in plan.physical_candidate_order
+    }
+
+
+def native_control_execution_producer_identity_v2(
+    *,
+    factory: NativeCandidateAdapterFactory,
+    adapter: CandidateAdapter,
+    physical_candidate_items_bytes: bytes,
+    candidate_vector_sha256: str,
+) -> ControlExecutionProducerIdentityV2:
+    """Authenticate one live format-1.2 adapter as a V2 control producer."""
+
+    from validation.calibration_v2.control_authorization_v2 import (
+        authenticate_control_execution_producer_identity_authority_v2,
+    )
+
+    authenticate_control_execution_producer_identity_authority_v2()
+    if type(factory) is not NativeCandidateAdapterFactory:
+        raise ProductionEvaluatorError(
+            "control producer native factory has the wrong type"
+        )
+    materializer = SharedBankArtifactMaterializerV2(factory.repository_root)
+    physical = _physical_candidate_from_items_bytes_v2(
+        physical_candidate_items_bytes,
+        materializer=materializer,
+    )
+    expected_candidate_sha256 = candidate_vector_sha256_v2(
+        physical,
+        materializer.plan,
+    )
+    configuration = getattr(adapter, "configuration", None)
+    configuration_sha256 = getattr(adapter, "configuration_sha256", None)
+    if (
+        expected_candidate_sha256 != candidate_vector_sha256
+        or not isinstance(configuration, Mapping)
+        or configuration.get("schema_version") != "2.0.0"
+        or configuration.get("serialized_candidate_vector_sha256")
+        != candidate_vector_sha256
+        or configuration.get("physical_candidate_vector") != physical
+        or canonical_sha256(configuration) != configuration_sha256
+    ):
+        raise ProductionEvaluatorError(
+            "control producer adapter candidate identity differs"
+        )
+    adapter_identity = factory.authenticated_adapter_identity_v2(adapter)
+    return ControlExecutionProducerIdentityV2(
+        physical_candidate_items_bytes=physical_candidate_items_bytes,
+        candidate_vector_sha256=candidate_vector_sha256,
+        adapter_configuration_sha256=str(configuration_sha256),
+        authenticated_adapter_identity_bytes=canonical_json_bytes(
+            adapter_identity
+        ),
+    )
+
+
+def _require_control_payload_binding_v2(
+    value: object,
+    *,
+    artifact_kind: str,
+    payload: bytes,
+    label: str,
+) -> TypedArtifactBindingV2:
+    from validation.calibration_v2.control_authorization_v2 import (
+        TypedArtifactBindingV2,
+        schema_sha256_for_kind_v2,
+    )
+
+    try:
+        binding = TypedArtifactBindingV2.from_document(value)
+    except ValueError as error:
+        raise ProductionEvaluatorError(f"{label} binding is invalid") from error
+    if (
+        binding.artifact_kind != artifact_kind
+        or binding.schema_sha256
+        != schema_sha256_for_kind_v2(_CONTROL_OUTPUT_MANIFEST_KIND_V2)
+        or binding.sha256 != hashlib.sha256(payload).hexdigest()
+        or binding.size_bytes != len(payload)
+    ):
+        raise ProductionEvaluatorError(f"{label} byte binding differs")
+    return binding
+
+
+def _normalized_native_control_record_v2(
+    record: object,
+) -> Mapping[str, object]:
+    if type(record) is not dict:
+        raise ProductionEvaluatorError("native control replay record is absent")
+    unhashed = dict(record)
+    declared = unhashed.pop("record_sha256", None)
+    if declared != canonical_sha256(unhashed):
+        raise ProductionEvaluatorError(
+            "native control replay record self-hash differs"
+        )
+    transient_fields = {
+        "control_cache_reused",
+        "current_call_analysis_grid_invocation_count",
+        "current_call_spatial_operator_evaluation_count",
+    }
+    present = transient_fields.intersection(unhashed)
+    if present and present != transient_fields:
+        raise ProductionEvaluatorError(
+            "native control cache replay fields are incomplete"
+        )
+    if present:
+        if (
+            type(unhashed["control_cache_reused"]) is not bool
+            or type(unhashed[
+                "current_call_analysis_grid_invocation_count"
+            ]) is not int
+            or unhashed["current_call_analysis_grid_invocation_count"] < 0
+            or type(unhashed[
+                "current_call_spatial_operator_evaluation_count"
+            ]) is not int
+            or unhashed["current_call_spatial_operator_evaluation_count"] < 0
+        ):
+            raise ProductionEvaluatorError(
+                "native control cache replay counters are invalid"
+            )
+        for field in transient_fields:
+            unhashed.pop(field)
+    return json.loads(canonical_json_bytes(unhashed))
+
+
+class _NativeControlExecutionSemanticReplayV2:
+    """One exact candidate session retained for a bundle verification call."""
+
+    _EXECUTION_FIELDS = {
+        "schema_version",
+        "artifact_kind",
+        "source_profile_identity_sha256",
+        "source_target_provenance",
+        "degradation_profile",
+        "low_resolution_input",
+        "input_frame_sha256",
+        "control_request",
+        "output",
+        "output_frame_sha256",
+        "authenticated_adapter_identity",
+        "native_execution_record",
+    }
+    _SOURCE_PROFILE_FIELDS = {
+        "source_asset_id",
+        "source_family_id",
+        "categories",
+        "target_route",
+        "degradation_profile_id",
+        "degradation_profile_sha256",
+        "source_target_provenance",
+        "degradation_profile",
+    }
+    _SCOPE_FIELDS = {
+        "run_id",
+        "split",
+        "shared_bank_configuration_sha256",
+        "degradation_policy_sha256",
+        "source_profile_matrix_sha256",
+        "control_family",
+        "stable_id",
+        "control_configuration_sha256",
+    }
+
+    def __init__(
+        self,
+        *,
+        request: CandidateControlProducerRequestV2,
+        adapter: CandidateAdapter,
+        producer_identity: ControlExecutionProducerIdentityV2,
+    ) -> None:
+        self.request = request
+        self.adapter = adapter
+        self.producer_identity = producer_identity
+        self._closed = False
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        self.adapter.callable.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
+
+    @staticmethod
+    def _control_scope_matches_request(
+        scope: Mapping[str, object],
+        request: Mapping[str, object],
+    ) -> bool:
+        family = scope.get("control_family")
+        stable_id = scope.get("stable_id")
+        parameters = request.get("parameters")
+        if type(parameters) is not dict:
+            return False
+        if family == "best_fixed":
+            return (
+                request.get("control_mode") == "fixed_descriptor_uniform"
+                and type(stable_id) is int
+                and stable_id == parameters.get("descriptor_id")
+            )
+        if family == "conventional":
+            return (
+                request.get("control_mode") == "conventional_uniform"
+                and type(stable_id) is str
+                and stable_id == parameters.get("algorithm_id")
+            )
+        if family == "non_ash_selector":
+            return (
+                request.get("control_mode") == "non_ash_selector_q15"
+                and type(stable_id) is str
+                and stable_id == parameters.get("selected_rule_sha256")
+            )
+        return False
+
+    def verify(
+        self,
+        binding: TypedArtifactBindingV2,
+        document: Mapping[str, object],
+        context: ControlExecutionSemanticContextV2,
+    ) -> Mapping[str, object]:
+        from validation.calibration_v2.control_authorization_v2 import (
+            TypedArtifactBindingV2,
+            schema_sha256_for_kind_v2,
+        )
+
+        if (
+            self._closed
+            or type(binding) is not TypedArtifactBindingV2
+            or type(document) is not dict
+            or type(context) is not ControlExecutionSemanticContextV2
+        ):
+            raise ProductionEvaluatorError(
+                "control execution semantic replay inputs are invalid"
+            )
+        payload = canonical_json_bytes(document)
+        if (
+            binding.artifact_kind != _CONTROL_EXECUTION_PROVENANCE_KIND_V2
+            or binding.schema_sha256
+            != schema_sha256_for_kind_v2(_CONTROL_OUTPUT_MANIFEST_KIND_V2)
+            or binding.sha256 != hashlib.sha256(payload).hexdigest()
+            or binding.size_bytes != len(payload)
+        ):
+            raise ProductionEvaluatorError(
+                "control execution provenance binding differs"
+            )
+
+        scope = _canonical_control_context_object_v2(
+            context.expected_scope_bytes,
+            label="control execution expected scope",
+        )
+        control_request = _canonical_control_context_object_v2(
+            context.expected_control_request_bytes,
+            label="control execution expected request",
+        )
+        source_profile = _canonical_control_context_object_v2(
+            context.source_profile_identity_bytes,
+            label="control execution source/profile identity",
+        )
+        source_provenance = _canonical_control_context_object_v2(
+            context.source_target_provenance_bytes,
+            label="control execution source-target provenance",
+        )
+        degradation_record = _canonical_control_context_object_v2(
+            context.degradation_profile_bytes,
+            label="control execution degradation profile",
+        )
+        expected_adapter_identity = _canonical_control_context_object_v2(
+            self.producer_identity.authenticated_adapter_identity_bytes,
+            label="control execution producer identity",
+        )
+        authorization_scope = self.request.authorization_scope
+        replay_scope = (
+            authorization_scope.development_scope()
+            if scope.get("split") == "development"
+            else authorization_scope
+        )
+        if (
+            set(scope) != self._SCOPE_FIELDS
+            or scope.get("run_id") != replay_scope.run_id
+            or scope.get("split") != replay_scope.split
+            or scope.get("shared_bank_configuration_sha256")
+            != replay_scope.shared_bank_configuration_sha256
+            or scope.get("degradation_policy_sha256")
+            != replay_scope.degradation_policy_sha256
+            or scope.get("source_profile_matrix_sha256")
+            != replay_scope.source_profile_matrix_sha256
+            or scope.get("control_configuration_sha256")
+            != control_request.get("configuration_sha256")
+            or control_request.get("shared_bank_configuration_sha256")
+            != replay_scope.shared_bank_configuration_sha256
+            or not self._control_scope_matches_request(scope, control_request)
+            or context.expected_control_request_bytes
+            != canonical_json_bytes(control_request)
+            or context.physical_candidate_items_bytes
+            != self.producer_identity.physical_candidate_items_bytes
+            or context.candidate_vector_sha256
+            != self.producer_identity.candidate_vector_sha256
+            or context.adapter_configuration_sha256
+            != self.producer_identity.adapter_configuration_sha256
+            or context.authenticated_adapter_identity_bytes
+            != self.producer_identity.authenticated_adapter_identity_bytes
+        ):
+            raise ProductionEvaluatorError(
+                "control execution producer or authorization scope differs"
+            )
+
+        if (
+            set(document) != self._EXECUTION_FIELDS
+            or document.get("schema_version") != "2.0.0"
+            or document.get("artifact_kind")
+            != _CONTROL_EXECUTION_PROVENANCE_KIND_V2
+            or document.get("control_request") != control_request
+            or document.get("authenticated_adapter_identity")
+            != expected_adapter_identity
+            or set(source_profile) != self._SOURCE_PROFILE_FIELDS
+            or document.get("source_profile_identity_sha256")
+            != canonical_sha256(source_profile)
+        ):
+            raise ProductionEvaluatorError(
+                "control execution provenance document differs"
+            )
+
+        _require_control_payload_binding_v2(
+            document.get("source_target_provenance"),
+            artifact_kind=_CONTROL_SOURCE_TARGET_PROVENANCE_KIND_V2,
+            payload=context.source_target_provenance_bytes,
+            label="source-target provenance",
+        )
+        _require_control_payload_binding_v2(
+            document.get("degradation_profile"),
+            artifact_kind=_CONTROL_DEGRADATION_PROFILE_KIND_V2,
+            payload=context.degradation_profile_bytes,
+            label="degradation profile",
+        )
+        _require_control_payload_binding_v2(
+            document.get("low_resolution_input"),
+            artifact_kind=_CONTROL_LOW_RESOLUTION_INPUT_BYTES_KIND_V2,
+            payload=context.low_resolution_input_frame_bytes,
+            label="low-resolution input",
+        )
+        _require_control_payload_binding_v2(
+            document.get("output"),
+            artifact_kind=_CONTROL_OUTPUT_BYTES_KIND_V2,
+            payload=context.raw_output_frame_bytes,
+            label="raw control output",
+        )
+        if (
+            source_profile.get("source_target_provenance")
+            != document.get("source_target_provenance")
+            or source_profile.get("degradation_profile")
+            != document.get("degradation_profile")
+        ):
+            raise ProductionEvaluatorError(
+                "control execution source/profile bindings differ"
+            )
+
+        source_fields = {
+            "schema_version",
+            "artifact_kind",
+            "source_asset_id",
+            "source_family_id",
+            "categories",
+            "target_route",
+            "target_frame",
+            "target_frame_sha256",
+        }
+        profile_fields = {
+            "schema_version",
+            "artifact_kind",
+            "degradation_policy_sha256",
+            "degradation_profile_id",
+            "profile_definition",
+        }
+        profile = degradation_record.get("profile_definition")
+        route = source_profile.get("target_route")
+        if (
+            set(source_provenance) != source_fields
+            or source_provenance.get("schema_version") != "2.0.0"
+            or source_provenance.get("artifact_kind")
+            != _CONTROL_SOURCE_TARGET_PROVENANCE_KIND_V2
+            or set(degradation_record) != profile_fields
+            or degradation_record.get("schema_version") != "2.0.0"
+            or degradation_record.get("artifact_kind")
+            != _CONTROL_DEGRADATION_PROFILE_KIND_V2
+            or degradation_record.get("degradation_policy_sha256")
+            != replay_scope.degradation_policy_sha256
+            or type(profile) is not dict
+            or not profile
+            or route not in {"direct-2x", "direct-3over2"}
+            or source_provenance.get("target_route") != route
+            or degradation_record.get("degradation_profile_id")
+            != source_profile.get("degradation_profile_id")
+            or profile.get("id") != source_profile.get("degradation_profile_id")
+            or profile.get("target_route") != route
+            or canonical_sha256(profile)
+            != source_profile.get("degradation_profile_sha256")
+            or any(
+                source_provenance.get(field) != source_profile.get(field)
+                for field in (
+                    "source_asset_id",
+                    "source_family_id",
+                    "categories",
+                    "target_route",
+                )
+            )
+        ):
+            raise ProductionEvaluatorError(
+                "control execution source or degradation identity differs"
+            )
+        _require_control_payload_binding_v2(
+            source_provenance.get("target_frame"),
+            artifact_kind=_CONTROL_TARGET_FRAME_BYTES_KIND_V2,
+            payload=context.source_target_frame_bytes,
+            label="source target frame",
+        )
+
+        target = decode_control_measurement_frame_bytes_v2(
+            context.source_target_frame_bytes
+        )
+        low_resolution = decode_control_measurement_frame_bytes_v2(
+            context.low_resolution_input_frame_bytes
+        )
+        raw_output = decode_control_measurement_frame_bytes_v2(
+            context.raw_output_frame_bytes
+        )
+        recomputed_input = degradation_native_input(target, profile)
+        if (
+            source_provenance.get("target_frame_sha256")
+            != frame_sha256(target)
+            or target.y.shape != raw_output.y.shape
+            or target.cb.shape != raw_output.cb.shape
+            or target.cr.shape != raw_output.cr.shape
+            or canonical_control_measurement_frame_bytes_v2(recomputed_input)
+            != context.low_resolution_input_frame_bytes
+            or document.get("input_frame_sha256")
+            != frame_sha256(low_resolution)
+            or document.get("output_frame_sha256")
+            != frame_sha256(raw_output)
+        ):
+            raise ProductionEvaluatorError(
+                "control execution frame snapshot semantics differ"
+            )
+
+        candidate_context = CandidateContext(
+            y_shape=target.y.shape,
+            cb_shape=target.cb.shape,
+            cr_shape=target.cr.shape,
+            target_route=str(route),
+        )
+        replayed_output, replayed_record = _invoke_native_control(
+            adapter=self.adapter,
+            request=control_request,
+            low_resolution=low_resolution,
+            context=candidate_context,
+        )
+        if (
+            canonical_control_measurement_frame_bytes_v2(replayed_output)
+            != context.raw_output_frame_bytes
+            or _normalized_native_control_record_v2(replayed_record)
+            != _normalized_native_control_record_v2(
+                document.get("native_execution_record")
+            )
+        ):
+            raise ProductionEvaluatorError(
+                "control execution native semantic replay differs"
+            )
+        return json.loads(payload)
+
+
+class NativeControlExecutionCapabilityProviderV2:
+    """Construct candidate-bound V2 replay capabilities from native Swift."""
+
+    def __init__(self, factory: NativeCandidateAdapterFactory) -> None:
+        if type(factory) is not NativeCandidateAdapterFactory:
+            raise ProductionEvaluatorError(
+                "control execution capability factory has the wrong type"
+            )
+        self.factory = factory
+
+    def __call__(
+        self,
+        request: CandidateControlProducerRequestV2,
+    ) -> CandidateControlProducerCapabilitiesV2:
+        from validation.calibration_v2.calibration_persistence_v2 import (
+            CandidateControlProducerCapabilitiesV2,
+            CandidateControlProducerRequestV2,
+        )
+        from validation.calibration_v2.control_authorization_v2 import (
+            authenticate_control_execution_producer_identity_authority_v2,
+        )
+
+        authenticate_control_execution_producer_identity_authority_v2()
+        if type(request) is not CandidateControlProducerRequestV2:
+            raise ProductionEvaluatorError(
+                "control execution capability request has the wrong type"
+            )
+        materializer = SharedBankArtifactMaterializerV2(
+            self.factory.repository_root
+        )
+        physical = _physical_candidate_from_items_bytes_v2(
+            request.physical_candidate_items_bytes,
+            materializer=materializer,
+        )
+        candidate_sha256 = candidate_vector_sha256_v2(
+            physical,
+            materializer.plan,
+        )
+        shared_bank_sha256 = shared_bank_configuration_sha256_v2(
+            physical,
+            materializer.plan,
+        )
+        scope = request.authorization_scope
+        evaluation_scope = request.non_ash_evaluation_scope
+        if (
+            candidate_sha256 != request.candidate_vector_sha256
+            or shared_bank_sha256
+            != scope.shared_bank_configuration_sha256
+            or evaluation_scope.shared_bank_configuration_sha256
+            != shared_bank_sha256
+            or evaluation_scope.degradation_policy_sha256
+            != scope.degradation_policy_sha256
+            or evaluation_scope.calibration_plan_file_sha256
+            != materializer.plan.plan_file_sha256
+        ):
+            raise ProductionEvaluatorError(
+                "control execution capability request identity differs"
+            )
+        logical = {
+            name: physical[name]
+            for name in materializer.plan.logical_parameter_order
+        }
+        adapter = self.factory(logical, scope.split)
+        try:
+            producer_identity = native_control_execution_producer_identity_v2(
+                factory=self.factory,
+                adapter=adapter,
+                physical_candidate_items_bytes=(
+                    request.physical_candidate_items_bytes
+                ),
+                candidate_vector_sha256=request.candidate_vector_sha256,
+            )
+            if (
+                adapter.configuration.get("shared_bank_configuration_sha256")
+                != shared_bank_sha256
+            ):
+                raise ProductionEvaluatorError(
+                    "control execution adapter shared-bank identity differs"
+                )
+            replay = _NativeControlExecutionSemanticReplayV2(
+                request=request,
+                adapter=adapter,
+                producer_identity=producer_identity,
+            )
+            return CandidateControlProducerCapabilitiesV2(
+                request=request,
+                control_execution_semantic_verifier=replay.verify,
+                control_execution_producer_identity=producer_identity,
+            )
+        except BaseException:
+            adapter.callable.close()
+            raise
+
+
+def native_control_execution_capability_provider_v2(
+    factory: NativeCandidateAdapterFactory,
+) -> NativeControlExecutionCapabilityProviderV2:
+    """Return the concrete candidate control producer admitted by V2."""
+
+    return NativeControlExecutionCapabilityProviderV2(factory)
 
 
 def _write_or_verify_json(path: Path, document: Mapping[str, object]) -> None:
@@ -1237,6 +1894,18 @@ class NativeProductionWriterCapability:
             raise ProductionEvaluatorError(
                 "locked production-writer settings identity differs"
             )
+
+    @property
+    def executable_path(self) -> Path:
+        """Return the authenticated native writer executable used by this capability."""
+
+        return self._executable
+
+    @property
+    def product_settings_source_path(self) -> Path:
+        """Return the authenticated Apple-native product settings source."""
+
+        return PRODUCT_MEDIA_TYPES_PATH
 
     @staticmethod
     def _writer_source_manifest() -> Mapping[str, object]:

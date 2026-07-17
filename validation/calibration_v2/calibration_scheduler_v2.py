@@ -917,6 +917,7 @@ def _new_attempt_record(
 def _evaluate_next_attempt(
     state: _SearchState,
     evaluator: DevelopmentEvaluatorV2,
+    fatal_evaluator_exceptions: Tuple[type[Exception], ...],
 ) -> AttemptRecordV2:
     logical, phase, coordinate, value = state.expected_attempt()
     physical = materialize_candidate_vector_v2(logical, state.plan)
@@ -989,6 +990,8 @@ def _evaluate_next_attempt(
             raise CalibrationSchedulerV2Error(
                 "evaluator returned the wrong result type"
             )
+    except fatal_evaluator_exceptions:
+        raise
     except Exception as error:
         detail = f"{type(error).__module__}.{type(error).__qualname__}: {error}"
         return _new_attempt_record(
@@ -1083,11 +1086,23 @@ def run_development_search_v2(
     resume_records: Sequence[AttemptRecordV2] = (),
     expected_resume_attempt_count: int | None = None,
     expected_resume_last_record_sha256: str | None = None,
+    fatal_evaluator_exceptions: Tuple[type[Exception], ...] = (),
 ) -> DevelopmentSearchResultV2:
     """Run or resume the exact preregistered V2 development-search schedule."""
 
     if not callable(evaluator):
         raise CalibrationSchedulerV2Error("development evaluator is not callable")
+    if (
+        type(fatal_evaluator_exceptions) is not tuple
+        or any(
+            not isinstance(exception_type, type)
+            or not issubclass(exception_type, Exception)
+            for exception_type in fatal_evaluator_exceptions
+        )
+    ):
+        raise CalibrationSchedulerV2Error(
+            "fatal evaluator exceptions are not exception classes"
+        )
     if resume_records and (
         expected_resume_attempt_count is None
         or expected_resume_last_record_sha256 is None
@@ -1106,7 +1121,13 @@ def run_development_search_v2(
             raise CalibrationSchedulerV2Error(
                 "scheduler requested an attempt beyond the frozen budget"
             )
-        state.apply(_evaluate_next_attempt(state, evaluator))
+        state.apply(
+            _evaluate_next_attempt(
+                state,
+                evaluator,
+                fatal_evaluator_exceptions,
+            )
+        )
     result = state.result()
     if result.attempt_count > MAXIMUM_DEVELOPMENT_ATTEMPTS:
         raise CalibrationSchedulerV2Error("development attempt budget exceeded")

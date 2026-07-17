@@ -44,7 +44,10 @@ final class MirmirForsettiBootstrap: ObservableObject {
                 media: mediaPipelineService,
                 metal: metalService,
                 modelAssets: modelAssetsService,
-                backendFactory: ASHLockedUpscaleBackendFactoryV3(bundle: .main),
+                backendFactory: ASHLockedUpscaleBackendFactoryV3(
+                    bundle: .main,
+                    metal: metalService
+                ),
                 telemetryFactory: { DefaultASHTelemetryRecorder() }
             )
         } else {

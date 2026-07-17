@@ -166,17 +166,18 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         let source = try await media.probe(url: job.inputURL)
         let strategy = try StrategySelector.choose(source: source.resolution, target: job.targetResolution)
 
-        let output = OutputProfile(
-            url: job.outputURL,
-            resolution: job.targetResolution,
-            codec: job.codec,
-            preserveAudio: job.preserveAudio
-        )
         let backend = try await backendFactory.makeBackend(
             route: strategy.spatialRoute,
             telemetry: telemetry
         )
         backend.reset()
+        let output = OutputProfile(
+            url: job.outputURL,
+            resolution: job.targetResolution,
+            codec: job.codec,
+            preserveAudio: job.preserveAudio,
+            timedMetadataTemplate: backend.finalOutputMetadata
+        )
         let session = try await media.beginSession(source: source, output: output)
 
         do {
@@ -213,7 +214,7 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
 
                 try Task.checkCancellation()
 
-                try await session.finish()
+                try await session.finish(finalMetadata: backend.finalOutputMetadata)
                 try Task.checkCancellation()
                 if let cleanupError = session.terminalCleanupError {
                     throw cleanupError
@@ -251,7 +252,16 @@ final class DefaultUpscalerJobHandle: UpscalerJobHandle, @unchecked Sendable {
         let frameToken = telemetry.beginStage(.frameTotal, frameIndex: record.frameIndex)
         do {
             let outputBuffer = try PixelBufferBridge.dequeue(from: outputPool)
-            try await backend.process(source: record.pixelBuffer, into: outputBuffer)
+            let completion = try await backend.process(
+                source: record.pixelBuffer,
+                into: outputBuffer,
+                context: ASHUpscaleFrameContext(
+                    frameIndex: record.frameIndex,
+                    presentationTimestampValue: record.presentationTime.value,
+                    presentationTimestampTimescale: record.presentationTime.timescale
+                )
+            )
+            defer { completion.finishAfterAppend() }
             try Task.checkCancellation()
             try await session.appendOutput(
                 pixelBuffer: outputBuffer,

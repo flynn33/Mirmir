@@ -4,6 +4,57 @@ import XCTest
 
 final class ASHLockedUpscaleBackendV3Tests: XCTestCase {
     @available(macOS 15.4, *)
+    func testReleaseIdentityIsRecordedOnceAndBoundIntoOutputMetadata() async throws {
+        let artifacts = try await ASHLockedReleaseTestSupportV3.artifacts()
+        let telemetry = DefaultASHTelemetryRecorder(emitsSignposts: false)
+        telemetry.beginRun(id: "locked-release-identity")
+        let backend = try ASHLockedUpscaleBackendV3(
+            route: .direct2x,
+            artifacts: artifacts,
+            telemetry: telemetry
+        )
+        let selection = artifacts.configuration.routeSelection(for: .direct2x)
+        let route = try artifacts.manifest.route(.direct2x)
+
+        XCTAssertEqual(
+            backend.releaseIdentityDetails["configuration_id"],
+            artifacts.configuration.configurationID
+        )
+        XCTAssertEqual(
+            backend.releaseIdentityDetails["release_manifest_sha256"],
+            artifacts.manifest.manifestSHA256.hex
+        )
+        XCTAssertEqual(
+            backend.releaseIdentityDetails["lut_whole_file_sha256"],
+            route.wholeFileSHA256.hex
+        )
+        XCTAssertEqual(
+            backend.releaseIdentityDetails["lut_payload_sha256"],
+            route.payloadSHA256.hex
+        )
+        XCTAssertEqual(
+            backend.releaseIdentityDetails["analysis_grid_source_step"],
+            String(selection.analysisGridSourceStep)
+        )
+        XCTAssertEqual(backend.releaseIdentityDetails["spatial_only"], "true")
+        XCTAssertEqual(backend.releaseIdentityDetails["lut_format_version"], "1.2")
+        XCTAssertEqual(
+            backend.outputMetadata["com.mirmir.ash.configuration-id"],
+            artifacts.configuration.configurationID
+        )
+        XCTAssertEqual(
+            backend.finalOutputMetadata["com.mirmir.ash.numerical-fallback-count"],
+            "0"
+        )
+
+        let observations = telemetry.snapshot().media.filter {
+            $0.kind == "ash_locked_release_identity"
+        }
+        XCTAssertEqual(observations.count, 1)
+        XCTAssertEqual(observations.first?.details, backend.releaseIdentityDetails)
+    }
+
+    @available(macOS 15.4, *)
     func testBothRoutesProduceDeterministicLockedOutputAndResetDiagnostics() async throws {
         let artifacts = try await ASHLockedReleaseTestSupportV3.artifacts()
 
@@ -39,11 +90,73 @@ final class ASHLockedUpscaleBackendV3Tests: XCTestCase {
             XCTAssertEqual(firstSummary.constructionCounters.analyzerTraversalCount, 1)
             XCTAssertEqual(firstSummary.constructionCounters.dispatchGridConstructionCount, 2)
             XCTAssertLessThanOrEqual(firstSummary.maximumOperatorEvaluations, 2)
+            XCTAssertGreaterThanOrEqual(
+                firstSummary.actualOperatorInvocationCount,
+                firstSummary.primaryEvaluationCount
+            )
+            XCTAssertGreaterThanOrEqual(
+                firstSummary.maximumActualOperatorInvocations,
+                firstSummary.maximumOperatorEvaluations
+            )
             XCTAssertEqual(firstSummary.temporalStateCount, 0)
 
             backend.reset()
             XCTAssertNil(backend.lastDebugSummary)
         }
+    }
+
+    @available(macOS 15.4, *)
+    func testAggregateRuntimeCountersMatchTheCompletedFrameSummary() async throws {
+        let artifacts = try await ASHLockedReleaseTestSupportV3.artifacts()
+        let telemetry = DefaultASHTelemetryRecorder(emitsSignposts: false)
+        telemetry.beginRun(id: "locked-runtime-counters")
+        let backend = try ASHLockedUpscaleBackendV3(
+            route: .direct2x,
+            artifacts: artifacts,
+            telemetry: telemetry
+        )
+        let source = try makePixelBuffer(width: 8, height: 4)
+        fill(source)
+
+        try await backend.process(
+            source: source,
+            into: makePixelBuffer(width: 16, height: 8)
+        )
+
+        let summary = try XCTUnwrap(backend.lastDebugSummary)
+        let counters = telemetry.snapshot().counters
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.declaredPrimaryCandidates.rawValue],
+            UInt64(summary.primaryEvaluationCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.declaredSecondaryCandidates.rawValue],
+            UInt64(summary.secondaryEvaluationCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.actualOperatorInvocations.rawValue],
+            UInt64(summary.actualOperatorInvocationCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.affineFallbacks.rawValue],
+            UInt64(summary.affineFallbackCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.affineCorrections.rawValue],
+            UInt64(summary.correctedDecodeCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.parityRecomputations.rawValue],
+            UInt64(summary.parityRecomputationCount)
+        )
+        XCTAssertEqual(
+            counters[ASHTelemetryCounter.numericalFallbacks.rawValue],
+            UInt64(summary.numericalFallbackCount)
+        )
+        XCTAssertEqual(
+            backend.finalOutputMetadata["com.mirmir.ash.numerical-fallback-count"],
+            String(summary.numericalFallbackCount)
+        )
     }
 
     @available(macOS 15.4, *)

@@ -3,93 +3,6 @@ import CoreMedia
 import CoreVideo
 import Foundation
 
-struct OutputMediaVerificationExpectation: @unchecked Sendable, Equatable {
-    let resolution: VideoResolution
-    let codec: OutputCodec
-    let timing: FrameTimingLedgerSnapshot
-}
-
-struct OutputMediaVerificationResult: @unchecked Sendable, Equatable {
-    let codec: String
-    let resolution: VideoResolution
-    let frameCount: Int
-    let duration: CMTime
-    let lumaPayloadBytes: Int
-    let chromaPayloadBytes: Int
-}
-
-enum OutputMediaVerificationError: Error, Equatable, CustomStringConvertible {
-    case emptyTimingLedger
-    case reopenFailed(String)
-    case videoTrackCount(expected: Int, actual: Int)
-    case missingVideoFormatDescription
-    case codecMismatch(expected: String, actual: String)
-    case dimensionsMismatch(expected: VideoResolution, actual: VideoResolution)
-    case readerCreationFailed(String)
-    case readerStartFailed(String)
-    case readerFailed(String)
-    case frameCountMismatch(expected: Int, actual: Int)
-    case missingDecodedImage(frameIndex: Int)
-    case pixelFormatMismatch(frameIndex: Int, expected: OSType, actual: OSType)
-    case planeCountMismatch(frameIndex: Int, expected: Int, actual: Int)
-    case planeLockFailed(frameIndex: Int, status: CVReturn)
-    case emptyPlanePayload(frameIndex: Int, planeIndex: Int)
-    case presentationTimeMismatch(frameIndex: Int, expected: CMTime, actual: CMTime)
-    case frameDurationMismatch(frameIndex: Int, expected: CMTime, actual: CMTime)
-    case mediaDurationMismatch(expected: CMTime, actual: CMTime)
-    case trackEndMismatch(expected: CMTime, actual: CMTime)
-
-    var description: String {
-        switch self {
-        case .emptyTimingLedger:
-            return "Output verification requires at least one expected video frame."
-        case .reopenFailed(let reason):
-            return "Output could not be reopened: \(reason)."
-        case .videoTrackCount(let expected, let actual):
-            return "Output contains \(actual) video tracks; expected \(expected)."
-        case .missingVideoFormatDescription:
-            return "Output video track has no format description."
-        case .codecMismatch(let expected, let actual):
-            return "Output codec \(actual) does not match expected codec \(expected)."
-        case .dimensionsMismatch(let expected, let actual):
-            return "Output dimensions \(actual) do not match expected dimensions \(expected)."
-        case .readerCreationFailed(let reason):
-            return "Output verification reader creation failed: \(reason)."
-        case .readerStartFailed(let reason):
-            return "Output verification reader did not start: \(reason)."
-        case .readerFailed(let reason):
-            return "Output verification reader failed: \(reason)."
-        case .frameCountMismatch(let expected, let actual):
-            return "Decoded output frame count \(actual) does not match expected count \(expected)."
-        case .missingDecodedImage(let frameIndex):
-            return "Decoded output frame \(frameIndex) contains no image buffer."
-        case .pixelFormatMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) pixel format \(actual) does not match NV12 format \(expected)."
-        case .planeCountMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) has \(actual) planes; expected \(expected)."
-        case .planeLockFailed(let frameIndex, let status):
-            return "Decoded frame \(frameIndex) could not be locked for plane verification (\(status))."
-        case .emptyPlanePayload(let frameIndex, let planeIndex):
-            return "Decoded frame \(frameIndex) plane \(planeIndex) has no addressable payload."
-        case .presentationTimeMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) PTS \(actual) does not match expected PTS \(expected)."
-        case .frameDurationMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) duration \(actual) does not match expected duration \(expected)."
-        case .mediaDurationMismatch(let expected, let actual):
-            return "Reopened media duration \(actual) does not match expected endpoint \(expected)."
-        case .trackEndMismatch(let expected, let actual):
-            return "Reopened video track endpoint \(actual) does not match expected endpoint \(expected)."
-        }
-    }
-}
-
-protocol OutputMediaVerifying: Sendable {
-    func verify(
-        url: URL,
-        expectation: OutputMediaVerificationExpectation
-    ) async throws -> OutputMediaVerificationResult
-}
-
 struct OutputMediaVerifier: OutputMediaVerifying {
     private struct ReopenedOutput {
         let asset: AVURLAsset
@@ -152,6 +65,11 @@ struct OutputMediaVerifier: OutputMediaVerifying {
             reopened: reopened,
             expectedEndTime: expectedEndTime
         )
+        try await Self.verifyTimedMetadata(
+            asset: reopened.asset,
+            expected: expectation.timedMetadata,
+            expectedEndTime: expectedEndTime
+        )
 
         return OutputMediaVerificationResult(
             codec: reopened.codec,
@@ -162,7 +80,9 @@ struct OutputMediaVerifier: OutputMediaVerifying {
             chromaPayloadBytes: decoded.chromaPayloadBytes
         )
     }
+}
 
+private extension OutputMediaVerifier {
     private static func reopen(
         url: URL,
         expectation: OutputMediaVerificationExpectation
@@ -298,6 +218,121 @@ struct OutputMediaVerifier: OutputMediaVerifying {
                 actual: trackEnd
             )
         }
+    }
+
+    private static func verifyTimedMetadata(
+        asset: AVURLAsset,
+        expected: [String: String],
+        expectedEndTime: CMTime
+    ) async throws {
+        guard !expected.isEmpty else { return }
+        let tracks = try await asset.loadTracks(withMediaType: .metadata)
+        guard tracks.count == 1, let track = tracks.first else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "expected one metadata track, observed \(tracks.count)"
+            )
+        }
+        let reader: AVAssetReader
+        do {
+            reader = try AVAssetReader(asset: asset)
+        } catch {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "reader creation failed: \(error)"
+            )
+        }
+        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        guard reader.canAdd(output) else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "reader rejected the metadata track"
+            )
+        }
+        reader.add(output)
+        let adaptor = AVAssetReaderOutputMetadataAdaptor(
+            assetReaderTrackOutput: output
+        )
+        guard reader.startReading() else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: reader.error.map(String.init(describing:))
+                    ?? "reader did not start"
+            )
+        }
+        var groups: [AVTimedMetadataGroup] = []
+        while let group = adaptor.nextTimedMetadataGroup() {
+            groups.append(group)
+        }
+        guard reader.status == .completed else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: reader.error.map(String.init(describing:))
+                    ?? "reader status \(reader.status.rawValue)"
+            )
+        }
+        guard groups.count == 1, let group = groups.first else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "expected one group, observed \(groups.count)"
+            )
+        }
+        guard CMTimeCompare(group.timeRange.start, .zero) == 0,
+              CMTimeCompare(CMTimeRangeGetEnd(group.timeRange), expectedEndTime) == 0 else {
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "group time range does not span the completed video"
+            )
+        }
+        try await verifyMetadataItems(
+            group.items,
+            expected: expected,
+            scope: "timed ASH identity"
+        )
+    }
+
+    private static func verifyMetadataItems(
+        _ items: [AVMetadataItem],
+        expected: [String: String],
+        scope: String
+    ) async throws {
+        guard !expected.isEmpty else { return }
+        var observed: [String: String] = [:]
+        for item in items {
+            guard let key = metadataKey(item), key.hasPrefix("com.mirmir.ash.") else {
+                continue
+            }
+            guard observed[key] == nil else {
+                throw OutputMediaVerificationError.metadataMismatch(
+                    scope: scope,
+                    reason: "duplicate key \(key)"
+                )
+            }
+            guard let value = try await item.load(.stringValue), !value.isEmpty else {
+                throw OutputMediaVerificationError.metadataMismatch(
+                    scope: scope,
+                    reason: "key \(key) has no UTF-8 string value"
+                )
+            }
+            observed[key] = value
+        }
+        guard observed == expected else {
+            let missing = Set(expected.keys).subtracting(observed.keys).sorted()
+            let additional = Set(observed.keys).subtracting(expected.keys).sorted()
+            let changed = expected.keys.filter {
+                observed[$0] != nil && observed[$0] != expected[$0]
+            }.sorted()
+            throw OutputMediaVerificationError.metadataMismatch(
+                scope: scope,
+                reason: "missing=\(missing), additional=\(additional), changed=\(changed)"
+            )
+        }
+    }
+
+    private static func metadataKey(_ item: AVMetadataItem) -> String? {
+        if let value = item.key as? String { return value }
+        if let value = item.key as? NSString { return value as String }
+        return nil
     }
 
     private static func verifyTiming(
