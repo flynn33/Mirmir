@@ -1023,6 +1023,8 @@ def run_g04_current_source(
                     os.fspath(release_derived),
                     "-resultBundlePath",
                     os.fspath(release_bundle),
+                    "ARCHS=arm64",
+                    "ONLY_ACTIVE_ARCH=YES",
                 ),
                 cwd=repository_root,
                 environment=native_environment,

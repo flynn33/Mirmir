@@ -34,6 +34,7 @@ class FakeG04Executor:
         self.metric_document = metric_document
         self.omit_output = omit_output
         self.identifiers: list[str] = []
+        self.argv_by_identifier: dict[str, tuple[str, ...]] = {}
 
     @staticmethod
     def _argument(spec: runner.CommandSpec, name: str) -> Path:
@@ -100,6 +101,7 @@ class FakeG04Executor:
 
     def __call__(self, spec: runner.CommandSpec) -> runner.CommandResult:
         self.identifiers.append(spec.identifier)
+        self.argv_by_identifier[spec.identifier] = spec.argv
         identifier = spec.identifier
         if identifier == "xcode-full":
             self._bundle(self._argument(spec, "-resultBundlePath"))
@@ -456,6 +458,9 @@ class G04CurrentSourceRunnerTests(unittest.TestCase):
                 "attribution-scan",
             ],
         )
+        release_argv = executor.argv_by_identifier["xcode-release"]
+        self.assertIn("ARCHS=arm64", release_argv)
+        self.assertIn("ONLY_ACTIVE_ARCH=YES", release_argv)
         evidence = captured["evidence"]
         self.assertGreater(len(evidence.files), 20)
         tests = captured["tests"]
