@@ -788,9 +788,7 @@ class CurrentSourceStagerTests(unittest.TestCase):
             command = tuple(argv)
             calls.append(command)
             if command[0] == "/usr/bin/true":
-                payload = (
-                    b"Done linting! Found 0 violations, 0 serious in 1 files.\n"
-                )
+                payload = b"[]\n"
             elif command[-1] == "tools/validate_instruction_package.py":
                 payload = expected_instruction
             elif command == ("/usr/bin/git", "diff", "--check"):
