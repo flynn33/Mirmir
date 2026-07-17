@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -34,10 +35,6 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
                     "size_bytes": len(payload),
                 }
             )
-        self.manifest_payload = b'{"release":"v3"}\n'
-        (self.release / "p06-release-bundle.json").write_bytes(
-            self.manifest_payload
-        )
         self.bundle = {
             "schema_version": "3.0.1",
             "bundle_id": "mirmir-p06-spatial-release-lock-v3",
@@ -45,6 +42,12 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
             "artifact_sha256": "a" * 64,
             "artifacts": artifacts,
         }
+        self.manifest_payload = resources.canonical_json_file_bytes_v2(
+            self.bundle
+        )
+        (self.release / "p06-release-bundle.json").write_bytes(
+            self.manifest_payload
+        )
         self.destination = self.root / "p08-six"
         self.receipt = self.root / "p08-six-receipt.json"
         self.support_roots = {
@@ -119,9 +122,13 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
             payload: bytes,
         ) -> None:
             write_new_at(directory_descriptor, name, payload)
-            if name == self.receipt.name:
-                self.receipt.chmod(0o600)
-                self.receipt.write_bytes(b'{"substituted":true}\n')
+            receipt_prefix = (
+                f".{self.receipt.name}.p06-v3-exact-six-receipt."
+            )
+            if name.startswith(receipt_prefix) and name.endswith(".partial"):
+                staged_receipt = self.receipt.parent / name
+                staged_receipt.chmod(0o600)
+                staged_receipt.write_bytes(b'{"substituted":true}\n')
 
         with mock.patch.object(
             resources,
@@ -133,6 +140,40 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
                 "receipt identifies different bytes",
             ):
                 self._export()
+        self.assertFalse(self.receipt.exists())
+
+    def test_resource_member_change_during_receipt_publication_is_rejected(self) -> None:
+        self._preexisting_exact()
+        publish_receipt = resources._publish_receipt
+        filename = next(iter(self.payloads))
+
+        def mutate_then_publish(path, document, *, verify_before_commit):
+            publication = publish_receipt(
+                path,
+                document,
+                verify_before_commit=verify_before_commit,
+            )
+            member = self.destination / filename
+            member.chmod(0o600)
+            member.write_bytes(b"mutated-after-reopen\n")
+            return publication
+
+        with mock.patch.object(
+            resources,
+            "_publish_receipt",
+            side_effect=mutate_then_publish,
+        ), self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "resource bytes differ",
+        ):
+            self._export()
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(
+            len(list(self.root.glob(
+                f".{self.receipt.name}.p06-v3-exact-six-receipt.*.failed"
+            ))),
+            1,
+        )
 
     def test_exact_preexisting_collision_replays_but_receipt_collision_fails(self) -> None:
         self._preexisting_exact()
@@ -182,7 +223,7 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
                 with self.assertRaises(resources.ProductionReleaseResourcesV3Error):
                     self._export()
 
-    def test_linked_root_and_foreign_partial_are_not_adopted(self) -> None:
+    def test_linked_root_is_rejected_and_interrupted_partial_is_quarantined(self) -> None:
         exact = self.root / "foreign-exact"
         exact.mkdir()
         for filename, payload in self.payloads.items():
@@ -198,24 +239,124 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
             + ".partial"
         )
         foreign_partial.mkdir()
+        self.assertEqual(self._export()["status"], "published_and_reopened")
+        self.assertFalse(foreign_partial.exists())
+        quarantined = sorted(
+            path
+            for path in self.root.iterdir()
+            if path.name.startswith(foreign_partial.name + ".interrupted.")
+            and path.name.endswith(".failed")
+        )
+        self.assertEqual(len(quarantined), 1)
+
+    def test_failed_owned_partial_is_preserved_without_blocking_retry(self) -> None:
+        write_new_at = resources._write_new_at
+        invocation_count = 0
+
+        def fail_second_write(
+            directory_descriptor: int,
+            name: str,
+            payload: bytes,
+        ) -> None:
+            nonlocal invocation_count
+            invocation_count += 1
+            if invocation_count == 2:
+                raise OSError("injected exact-six write failure")
+            write_new_at(directory_descriptor, name, payload)
+
+        with mock.patch.object(
+            resources,
+            "_write_new_at",
+            side_effect=fail_second_write,
+        ), self.assertRaisesRegex(OSError, "injected exact-six write failure"):
+            self._export()
+
+        staging_prefix = f".{self.destination.name}.p06-v3-exact-six."
+        preserved = sorted(
+            path
+            for path in self.root.iterdir()
+            if path.name.startswith(staging_prefix)
+            and path.name.endswith(".partial.failed")
+        )
+        self.assertEqual(len(preserved), 1)
+        self.assertFalse(
+            any(
+                path.name.startswith(staging_prefix)
+                and path.name.endswith(".partial")
+                for path in self.root.iterdir()
+            )
+        )
+        first_filename = next(iter(self.payloads))
+        self.assertEqual(
+            (preserved[0] / first_filename).read_bytes(),
+            self.payloads[first_filename],
+        )
+        self.assertEqual(self._export()["status"], "published_and_reopened")
+
+    def test_publication_outputs_are_disjoint_from_authenticated_inputs(self) -> None:
+        cases = (
+            (
+                "resource-in-release",
+                self.release / "p08-six",
+                self.receipt,
+            ),
+            (
+                "resource-in-support",
+                self.support_roots["calibration_evidence"] / "p08-six",
+                self.receipt,
+            ),
+            (
+                "receipt-in-release",
+                self.destination,
+                self.release / "receipt.json",
+            ),
+            (
+                "receipt-in-support",
+                self.destination,
+                self.support_roots["calibration_evidence"] / "receipt.json",
+            ),
+        )
+        for label, resource_root, receipt_path in cases:
+            with self.subTest(case=label), self.assertRaisesRegex(
+                resources.ProductionReleaseResourcesV3Error,
+                "overlaps protected input root",
+            ):
+                resources.export_p08_release_resources_v3(
+                    release_root=self.release,
+                    resource_root=resource_root,
+                    receipt_path=receipt_path,
+                    support_evidence_roots=self.support_roots,
+                )
+            self.assertFalse(resource_root.exists())
+            self.assertFalse(receipt_path.exists())
+
+    def test_directory_paths_require_exact_component_spelling(self) -> None:
+        canonical = self.root / "ExactCaseDirectory"
+        canonical.mkdir()
         with self.assertRaisesRegex(
             resources.ProductionReleaseResourcesV3Error,
-            "foreign exact-six partial",
+            "exact directory entry spelling",
         ):
-            self._export()
-        self.assertFalse(self.destination.exists())
+            resources._strict_directory(
+                self.root / "exactcasedirectory",
+                label="case-alias fixture",
+            )
 
     def test_root_replacement_during_receipt_publication_is_rejected(self) -> None:
         self._preexisting_exact()
         original = resources._publish_receipt
 
-        def replace_then_publish(path, document):
+        def replace_then_publish(path, document, *, verify_before_commit):
             displaced = self.root / "displaced-six"
             self.destination.rename(displaced)
             self.destination.mkdir()
             for filename, payload in self.payloads.items():
                 (self.destination / filename).write_bytes(payload)
-            original(path, document)
+            return original(
+                path,
+                document,
+                verify_before_commit=verify_before_commit,
+            )
 
         with mock.patch.object(
             resources,
@@ -223,9 +364,10 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
             side_effect=replace_then_publish,
         ), self.assertRaisesRegex(
             resources.ProductionReleaseResourcesV3Error,
-            "changed before receipt completion",
+            "changed before receipt commit",
         ):
             self._export()
+        self.assertFalse(self.receipt.exists())
 
     def test_receipt_inside_resource_root_is_rejected(self) -> None:
         with self.assertRaisesRegex(
@@ -274,6 +416,221 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
         ):
             self._export()
         self.assertFalse(self.destination.exists())
+
+    def test_support_authority_is_replayed_after_receipt_publication(self) -> None:
+        sentinel = self.support_roots["calibration_run"] / "transitive.bin"
+        sentinel.write_bytes(b"original\n")
+        replay_count = 0
+
+        def full_replay(**arguments):
+            nonlocal replay_count
+            replay_count += 1
+            self.assertEqual(arguments["support_evidence_roots"], self.support_roots)
+            if replay_count == 2:
+                sentinel.write_bytes(b"mutated\n")
+                raise resources.ProductionReleaseResourcesV3Error(
+                    "support evidence changed during exact-six export"
+                )
+            return self.bundle
+
+        self.validator.side_effect = full_replay
+        with self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "support evidence changed during exact-six export",
+        ):
+            self._export()
+        self.assertEqual(replay_count, 2)
+        self.assertFalse(self.receipt.exists())
+
+    def test_second_replay_resource_mutation_blocks_receipt_commit(self) -> None:
+        replay_count = 0
+        filename = next(iter(self.payloads))
+
+        def full_replay(**arguments):
+            nonlocal replay_count
+            replay_count += 1
+            self.assertEqual(arguments["support_evidence_roots"], self.support_roots)
+            if replay_count == 2:
+                member = self.destination / filename
+                member.chmod(0o600)
+                member.write_bytes(b"mutated-by-second-replay\n")
+            return self.bundle
+
+        self.validator.side_effect = full_replay
+        with self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "resource bytes differ",
+        ):
+            self._export()
+        self.assertEqual(replay_count, 2)
+        self.assertFalse(self.receipt.exists())
+
+    def test_second_replay_requires_identical_release_authority(self) -> None:
+        replay_count = 0
+
+        def full_replay(**arguments):
+            nonlocal replay_count
+            replay_count += 1
+            self.assertEqual(arguments["support_evidence_roots"], self.support_roots)
+            if replay_count == 2:
+                return {**self.bundle, "artifact_sha256": "b" * 64}
+            return self.bundle
+
+        self.validator.side_effect = full_replay
+        with self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "release authority changed",
+        ):
+            self._export()
+        self.assertEqual(replay_count, 2)
+        self.assertFalse(self.receipt.exists())
+
+    def test_second_replay_requires_identical_raw_manifest_bytes(self) -> None:
+        replay_count = 0
+
+        def full_replay(**arguments):
+            nonlocal replay_count
+            replay_count += 1
+            self.assertEqual(arguments["support_evidence_roots"], self.support_roots)
+            if replay_count == 2:
+                (self.release / "p06-release-bundle.json").write_text(
+                    json.dumps(self.bundle, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+            return self.bundle
+
+        self.validator.side_effect = full_replay
+        with self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "manifest bytes changed",
+        ):
+            self._export()
+        self.assertEqual(replay_count, 2)
+        self.assertFalse(self.receipt.exists())
+
+    def test_terminal_receipt_change_is_quarantined(self) -> None:
+        publish_receipt = resources._publish_receipt
+
+        def corrupt_after_publish(path, document, *, verify_before_commit):
+            publication = publish_receipt(
+                path,
+                document,
+                verify_before_commit=verify_before_commit,
+            )
+            self.receipt.chmod(0o600)
+            self.receipt.write_bytes(b'{"corrupted":true}\n')
+            return publication
+
+        with mock.patch.object(
+            resources,
+            "_publish_receipt",
+            side_effect=corrupt_after_publish,
+        ), self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "terminal exact-six receipt identifies different bytes",
+        ):
+            self._export()
+        self.assertFalse(self.receipt.exists())
+        self.assertEqual(
+            len(list(self.root.glob(
+                f".{self.receipt.name}.p06-v3-exact-six-receipt."
+                "*.published.failed"
+            ))),
+            1,
+        )
+
+    def test_exact_six_rechecks_earlier_member_identity(self) -> None:
+        self._preexisting_exact()
+        filenames = list(self.payloads)
+        first = self.destination / filenames[0]
+        trigger = filenames[1]
+        read_file = resources._read_file
+        mutated = False
+
+        def mutate_earlier_member(path, *, label):
+            nonlocal mutated
+            payload = read_file(path, label=label)
+            if path.name == trigger and not mutated:
+                mutated = True
+                first.write_bytes(b"changed-after-first-read\n")
+            return payload
+
+        with mock.patch.object(
+            resources,
+            "_read_file",
+            side_effect=mutate_earlier_member,
+        ), self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "changed across exact-six reopening",
+        ):
+            resources._verify_exact_six(self.destination, self.payloads)
+
+    def test_exact_six_binds_identity_before_each_member_read(self) -> None:
+        self._preexisting_exact()
+        filename = next(iter(self.payloads))
+        member = self.destination / filename
+        read_file = resources._read_file
+        mutated = False
+
+        def mutate_same_member(path, *, label):
+            nonlocal mutated
+            payload = read_file(path, label=label)
+            if path == member and not mutated:
+                mutated = True
+                member.write_bytes(b"changed-after-own-read\n")
+            return payload
+
+        with mock.patch.object(
+            resources,
+            "_read_file",
+            side_effect=mutate_same_member,
+        ), self.assertRaisesRegex(
+            resources.ProductionReleaseResourcesV3Error,
+            "changed while reopening",
+        ):
+            resources._verify_exact_six(self.destination, self.payloads)
+
+    def test_failed_new_file_write_removes_partial_final_name(self) -> None:
+        descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            with mock.patch.object(
+                resources.os,
+                "write",
+                side_effect=OSError("injected write failure"),
+            ), self.assertRaisesRegex(OSError, "injected write failure"):
+                resources._write_new_at(
+                    descriptor,
+                    "failed-receipt.partial",
+                    b"receipt\n",
+                )
+        finally:
+            os.close(descriptor)
+        self.assertFalse((self.root / "failed-receipt.partial").exists())
+
+    def test_failed_new_file_close_removes_partial_and_allows_retry(self) -> None:
+        descriptor = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        real_close = os.close
+        try:
+            with mock.patch.object(
+                resources.os,
+                "close",
+                side_effect=OSError("injected close failure"),
+            ), self.assertRaisesRegex(OSError, "injected close failure"):
+                resources._write_new_at(
+                    descriptor,
+                    "close-failed-receipt.partial",
+                    b"receipt\n",
+                )
+            partial = self.root / "close-failed-receipt.partial"
+            self.assertFalse(partial.exists())
+            resources._write_new_at(
+                descriptor,
+                partial.name,
+                b"receipt\n",
+            )
+            self.assertEqual(partial.read_bytes(), b"receipt\n")
+        finally:
+            real_close(descriptor)
 
 
 if __name__ == "__main__":

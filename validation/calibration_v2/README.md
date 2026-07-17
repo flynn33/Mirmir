@@ -423,7 +423,17 @@ an already-authoritative V3 release. It requires explicit paths for all six
 support roots, performs the same full transitive replay, publishes or
 idempotently reopens only the six-file set, and never reruns P06 or creates a
 second release. Its receipt records `full_support_replay_performed=true` and
-`holdout_accessed=false`.
+`holdout_accessed=false`. Both output paths must be disjoint from the release
+and every support root. Success requires a readback of the terminal receipt, a
+second exact-six member readback after that receipt is published, and a second
+full replay of the authenticated release/support authority plus an exact raw
+release-manifest comparison before the receipt commit. Receipt bytes are staged,
+fsynced, and reopened before exclusive terminal publication, then reopened at
+the final path. A failing post-commit readback quarantines a newly published
+receipt. An interrupted owned staging artifact is retained with a `.failed`
+suffix. A matching `.partial` left by process interruption is exclusively
+quarantined to a collision-safe `.failed` name before recovery proceeds. These
+bytes never qualify as an adoptable or retry-blocking publication.
 
 ## P07 locked holdout transaction
 

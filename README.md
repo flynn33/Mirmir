@@ -130,9 +130,18 @@ The sole authorizing production P06 command is
 reopens the actual current-source G04/G05/G06 trees, executes the Apple-native
 schema-2 calibration path, publishes and reopens only the schema-3 release,
 then publishes and reopens the external exact-six resource set and its terminal
-receipt. The historical `run_p06_production_calibration.py` command validates
-only its legacy anchor diagnostics, constructs no candidate or release, and
-exits with status `2`.
+receipt. Export outputs must be disjoint from the authenticated release and all
+six support trees. The exporter reopens the receipt bytes, reopens the exact-six
+members again after receipt publication, and replays the complete release,
+support, and raw-manifest authority before the terminal commit. The receipt is
+staged and reopened first, exclusively published as the last commit action,
+and reopened again; a failing post-commit readback quarantines a newly owned
+receipt rather than leaving a success document at its terminal path. An
+interrupted matching staging artifact is exclusively quarantined under a
+collision-safe, nonblocking `.failed` name; its bytes are never adopted, and it
+cannot permanently block recovery. The historical
+`run_p06_production_calibration.py` command validates only its legacy anchor
+diagnostics, constructs no candidate or release, and exits with status `2`.
 
 If the V3 release completed but its exact-six export must be recovered,
 `export_p08_release_resources_v3.py` reopens that existing authoritative

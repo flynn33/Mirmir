@@ -148,6 +148,18 @@ All notable project changes are recorded here.
   and G08 promotion.
 - Prevented stale release resources in reused build products when exact P06
   injection is not enabled.
+- Prevented an exact-six export from claiming `published_and_reopened` without
+  reopening the new terminal receipt and all six members after receipt
+  publication. The exporter now replays the complete release/support authority
+  and exact raw release-manifest bytes before committing the staged receipt as
+  the final transaction action; failed final readback quarantines the owned
+  receipt instead of leaving a success artifact.
+- Prevented exact-six resource or receipt outputs from overlapping and mutating
+  the authenticated V3 release or any of its six frozen support trees.
+- Quarantined failed or interrupted exact-six resource/receipt staging
+  artifacts under collision-safe, nonblocking `.failed` names so their bytes
+  remain diagnosable without being adopted or preventing an explicit recovery
+  attempt.
 - Corrective diagnostic CLI tests resolve POSIX paths before comparing temporary
   roots, avoiding the macOS `/var` to `/private/var` alias mismatch.
 - Repository guardrails exclude preserved `Artifacts` evidence from mutable

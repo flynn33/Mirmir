@@ -363,7 +363,19 @@ dependency-ordered transaction reopens the actual current-source G04/G05/G06
 trees, runs the concrete Apple-native schema-2 measurement/calibration path,
 publishes and reopens only the schema-3 release family, and then atomically
 publishes/reopens the exact-six P08 resource set plus its terminal receipt. It
-does not call the legacy release publisher.
+does not call the legacy release publisher. The release, six support roots,
+exact-six destination, and receipt destination must be mutually protected from
+output/input overlap. After receipt publication, the transaction reopens the
+receipt and all six resource members again. Before that terminal commit, it
+stages, fsyncs, and reopens the receipt; repeats the complete release/support
+replay; exact-compares the raw release-manifest snapshot; and verifies one
+stable six-member filesystem snapshot. The receipt is then exclusively
+published as the last commit action. If its final readback or the post-commit
+exact-six readback fails, a newly owned receipt is quarantined rather than left
+as a success artifact. A failed or interrupted matching staging artifact is
+exclusively moved to a collision-safe `.failed` path; it remains available for
+diagnosis without its bytes being eligible for adoption or blocking a clean
+recovery attempt.
 
 The similarly named `run_p06_production_calibration.py` is retained only for
 historical anchor diagnostics. It constructs no provider, candidate,
