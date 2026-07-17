@@ -76,6 +76,7 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift",

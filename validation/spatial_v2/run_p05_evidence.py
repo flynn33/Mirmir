@@ -29,6 +29,7 @@ PRODUCTION_SOURCES = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialDispatchV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialRuntimeConfigurationV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialReferencePipelineV2.swift",

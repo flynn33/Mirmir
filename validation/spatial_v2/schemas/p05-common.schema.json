@@ -27,7 +27,7 @@
         "production_source_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "configuration_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "harness_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "production_sources": {"type": "array", "minItems": 11, "maxItems": 11, "items": {"$ref": "#/$defs/digest"}},
+        "production_sources": {"type": "array", "minItems": 12, "maxItems": 12, "items": {"$ref": "#/$defs/digest"}},
         "configuration_files": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/digest"}},
         "harness_files": {"type": "array", "minItems": 11, "maxItems": 11, "items": {"$ref": "#/$defs/digest"}},
         "reproduction_command": {"type": "string", "minLength": 1}
