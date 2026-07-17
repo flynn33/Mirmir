@@ -1805,6 +1805,8 @@ def _expected_command_contracts(
             "lint",
             "--quiet",
             "--strict",
+            "--reporter",
+            "json",
             "--config",
             ".swiftlint.yml",
         ],
@@ -2096,18 +2098,14 @@ def _validate_command_stdout(
         return None
     if identifier == "swiftlint":
         try:
-            text = payload.decode("utf-8", errors="strict")
-        except UnicodeDecodeError as error:
-            raise G05GateError("G05 SwiftLint output is not UTF-8") from error
-        summaries = re.findall(
-            r"Found 0 violations, 0 serious in [1-9][0-9]* files\.",
-            text,
-        )
+            findings = json.loads(payload)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise G05GateError(
+                "G05 SwiftLint output is not valid UTF-8 JSON"
+            ) from error
         _require(
-            len(summaries) == 1
-            and re.search(r"Found [1-9][0-9]* violations", text) is None
-            and "error:" not in text.lower(),
-            "G05 SwiftLint output does not prove one zero-violation strict run",
+            isinstance(findings, list) and findings == [],
+            "G05 SwiftLint output is not an empty violation array",
         )
         return None
     if identifier == "attribution":
