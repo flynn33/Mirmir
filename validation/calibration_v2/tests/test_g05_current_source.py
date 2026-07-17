@@ -15,6 +15,7 @@ from unittest import mock
 
 from validation.calibration_v2.tools import run_g05_current_source as g05
 from validation.quality.src.mirmir_quality.json_tools import canonical_json_bytes
+from validation.spatial_v2 import run_p05_evidence as p05
 
 
 SOURCE_COMMIT = "1" * 40
@@ -28,6 +29,12 @@ _MISSING = object()
 
 
 class G05CurrentSourceTests(unittest.TestCase):
+    def test_p05_compiler_is_bound_to_explicit_macos_sdk(self) -> None:
+        self.assertEqual(
+            p05.SWIFT_COMPILER_COMMAND,
+            ("/usr/bin/xcrun", "--sdk", "macosx", "swiftc"),
+        )
+
     def setUp(self) -> None:
         repository_parent = Path(__file__).resolve().parents[4]
         self.temporary = tempfile.TemporaryDirectory(

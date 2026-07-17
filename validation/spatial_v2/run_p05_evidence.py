@@ -51,6 +51,13 @@ EXPECTED_OUTPUTS = (
     "cpu-reference-vectors.json",
 )
 
+SWIFT_COMPILER_COMMAND = (
+    "/usr/bin/xcrun",
+    "--sdk",
+    "macosx",
+    "swiftc",
+)
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -190,15 +197,8 @@ def main() -> int:
     executable = build_directory / "p05-evidence"
     write_digest_source(digest_source, source_records, configuration_records, harness_records)
 
-    swiftc = subprocess.run(
-        ["xcrun", "--find", "swiftc"],
-        cwd=PROJECT_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.strip()
     compile_command = [
-        swiftc,
+        *SWIFT_COMPILER_COMMAND,
         "-O",
         "-warnings-as-errors",
         *[str(PROJECT_ROOT / path) for path in PRODUCTION_SOURCES],
