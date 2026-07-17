@@ -9,6 +9,9 @@ import unittest
 from unittest import mock
 
 from validation.calibration_v2 import runner
+from validation.calibration_v2.shared_bank_artifacts_v2 import (
+    SharedBankArtifactMaterializerV2,
+)
 from validation.quality.src.mirmir_quality.json_tools import (
     canonical_sha256,
     manifest_sha256,
@@ -24,6 +27,25 @@ class _LiveBinding:
 
 
 class BoundInputsV2Tests(unittest.TestCase):
+    def test_real_materializer_exposes_the_bound_plan_digests(self) -> None:
+        repository_root = Path(__file__).resolve().parents[3]
+        plan_path = (
+            repository_root
+            / "validation/calibration_v2/contracts/calibration-plan-v2.json"
+        )
+        plan_payload = plan_path.read_bytes()
+        plan_document = json.loads(plan_payload)
+        authenticated = SharedBankArtifactMaterializerV2(repository_root).plan
+
+        self.assertEqual(
+            authenticated.plan_file_sha256,
+            hashlib.sha256(plan_payload).hexdigest(),
+        )
+        self.assertEqual(
+            authenticated.plan_self_sha256,
+            plan_document["plan_sha256"],
+        )
+
     @staticmethod
     def _write_document(
         root: Path,
@@ -106,7 +128,7 @@ class BoundInputsV2Tests(unittest.TestCase):
         )
         authenticated_plan = SimpleNamespace(
             plan_file_sha256=plan_binding["sha256"],
-            plan_sha256=plan["plan_sha256"],
+            plan_self_sha256=plan["plan_sha256"],
         )
         return legacy, authenticated_plan, plan_binding, compiler_binding
 
@@ -165,7 +187,7 @@ class BoundInputsV2Tests(unittest.TestCase):
         ) as temporary:
             root = Path(temporary).resolve(strict=True)
             legacy, authenticated, _, _ = self._fixture(root)
-            authenticated.plan_sha256 = "f" * 64
+            authenticated.plan_self_sha256 = "f" * 64
             with mock.patch.object(
                 runner,
                 "bind_preregistered_inputs",

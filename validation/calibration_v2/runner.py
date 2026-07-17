@@ -972,7 +972,7 @@ def bind_preregistered_inputs_v2(
     if (
         authenticated_plan.plan_file_sha256
         != replacement_records["calibration_plan"]["sha256"]
-        or authenticated_plan.plan_sha256
+        or authenticated_plan.plan_self_sha256
         != replacement_documents["calibration_plan"]["plan_sha256"]
     ):
         raise CalibrationBindingError(
