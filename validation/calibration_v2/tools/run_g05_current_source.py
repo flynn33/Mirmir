@@ -1521,6 +1521,7 @@ def _command_contracts(
         "argv": [
             swiftlint_executable,
             "lint",
+            "--quiet",
             "--strict",
             "--config",
             ".swiftlint.yml",

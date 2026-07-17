@@ -1800,7 +1800,14 @@ def _expected_command_contracts(
         }
     result["swiftlint"] = {
         "id": "swiftlint",
-        "argv": [swiftlint_executable, "lint", "--strict", "--config", ".swiftlint.yml"],
+        "argv": [
+            swiftlint_executable,
+            "lint",
+            "--quiet",
+            "--strict",
+            "--config",
+            ".swiftlint.yml",
+        ],
         "cwd": os.fspath(repository_root),
         "environment": native_environment,
         "exit_status": 0,

@@ -392,6 +392,7 @@ class G05GateTests(unittest.TestCase):
                     "argv": [
                         swiftlint_executable,
                         "lint",
+                        "--quiet",
                         "--strict",
                         "--config",
                         ".swiftlint.yml",

@@ -997,6 +997,10 @@ class G05CurrentSourceTests(unittest.TestCase):
 
         commands = plan["commands"]
         self.assertIsInstance(commands, list)
+        swiftlint_command = next(
+            command for command in commands if command["id"] == "swiftlint"
+        )
+        self.assertEqual(swiftlint_command["argv"][2], "--quiet")
         original_argv = list(commands[0]["argv"])
         commands[0]["argv"] = [str(Path(g05.sys.executable).resolve()), "-V"]
         self._write_json(partial / "inputs/g05-command-plan.json", plan)
