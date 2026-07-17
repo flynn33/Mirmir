@@ -110,6 +110,30 @@ class ProductionReleaseResourcesV3Tests(unittest.TestCase):
             support_evidence_roots=self.support_roots,
         )
 
+    def test_first_receipt_publication_reopens_the_published_bytes(self) -> None:
+        write_new_at = resources._write_new_at
+
+        def substitute_receipt(
+            directory_descriptor: int,
+            name: str,
+            payload: bytes,
+        ) -> None:
+            write_new_at(directory_descriptor, name, payload)
+            if name == self.receipt.name:
+                self.receipt.chmod(0o600)
+                self.receipt.write_bytes(b'{"substituted":true}\n')
+
+        with mock.patch.object(
+            resources,
+            "_write_new_at",
+            side_effect=substitute_receipt,
+        ):
+            with self.assertRaisesRegex(
+                resources.ProductionReleaseResourcesV3Error,
+                "receipt identifies different bytes",
+            ):
+                self._export()
+
     def test_exact_preexisting_collision_replays_but_receipt_collision_fails(self) -> None:
         self._preexisting_exact()
         first = self._export()

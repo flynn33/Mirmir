@@ -210,11 +210,12 @@ def _publish_receipt(path: Path, document: Mapping[str, object]) -> None:
         try:
             _write_new_at(descriptor, path.name, payload)
         except FileExistsError:
-            if _read_file(path, label="existing exact-six receipt") != payload:
-                raise ProductionReleaseResourcesV3Error(
-                    "published exact-six receipt identifies different bytes"
-                )
+            pass
         os.fsync(descriptor)
+        if _read_file(path, label="published exact-six receipt") != payload:
+            raise ProductionReleaseResourcesV3Error(
+                "published exact-six receipt identifies different bytes"
+            )
     finally:
         os.close(descriptor)
 
