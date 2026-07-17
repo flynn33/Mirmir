@@ -1,6 +1,6 @@
 # Mirmir ASH Local Work Plan
 
-P00 baseline: `20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a`
+Baseline commit: `20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a`
 
 Merged V3 wiring: `47e9cef9d574ab03e7729c5f7125ec32e1484f6e`
 through PR #7, merge commit
