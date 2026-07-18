@@ -1,4 +1,21 @@
-# Mirmir ASH Local Work Plan
+# Preserved Mirmir ASH V3 Local Work Plan
+
+> This plan is preserved as implementation and failure-evidence history. It is
+> superseded as the forward product plan by the
+> [Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.0](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md).
+> Unchecked P04-P12 items below are not authorized merely because this historical
+> plan remains in the repository. No tag or release is authorized.
+
+## Current Roadmap Execution State
+
+- R00 strategic reset and current-source inventory: next.
+- R01 capability laboratory: planned after R00.
+- R02 unified backend architecture: planned after R01 capability contracts.
+- R03 deterministic Apple-native baselines: planned after R02.
+- Production Auto, Core AI residual output, holdout access, market claims, and
+  release publication: blocked by their roadmap gates.
+
+## Historical ASH V3 Record
 
 Baseline commit: `20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a`
 

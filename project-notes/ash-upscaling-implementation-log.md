@@ -1,5 +1,7 @@
 # ASH Upscaling Implementation Log
 
+> **Historical implementation log:** Preserved for traceability and failure evidence. The [Apple-native roadmap](../docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md) is the forward product plan.
+
 Date: 2026-07-09
 
 Starting commit: `c97468a784be256a132268bea297a6cd1a867d46`

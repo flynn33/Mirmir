@@ -1,5 +1,7 @@
 # ASH Plane-Aware V3 Production Wiring and Release-Closure Design
 
+> **Historical design:** Superseded as the forward product direction by the [Apple-native roadmap](../docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md). The implemented media, Metal-lifetime, evidence, and ASH control-plane components remain retained or repurposed. This document does not claim a release.
+
 Date: 2026-07-16
 
 Status: source implementation present; exact-byte G04-G08 execution remains

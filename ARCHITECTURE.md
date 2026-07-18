@@ -1,4 +1,10 @@
-# Mirmir Forsetti Architecture
+# Mirmir Architecture
+
+> **Current status:** This document records the preserved ASH V3 implementation
+> and the Apple-native target architecture defined by
+> [Roadmap 1.0.0](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md).
+> ASH V3 testing, failure evidence, and diagnostic artifacts are retained, but
+> their publication is not a release or gate promotion.
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
@@ -6,17 +12,32 @@ VideoToolbox, and Apple platform services. Python modules under `validation/`
 implement offline calibration, evidence production, schema validation, and
 gate finalization. They are not linked into or embedded in `Mirmir.app`.
 
-Forsetti is a sealed package dependency pinned in `project.yml` and the
-generated Xcode project to revision
-`43eef7a739f3b78253c64aa4b070521ab5b1f43c`. The product follows Forsetti
-Pattern B: one UI module plus cohesive services assembled once in
-`MirmirForsettiBootstrap` and injected through module factories.
+The preserved source currently consumes Forsetti as a sealed package dependency
+pinned in `project.yml` and the generated Xcode project to revision
+`43eef7a739f3b78253c64aa4b070521ab5b1f43c`. Roadmap R00 must replace that
+repository dependency while retaining the approved Forsetti Pattern B structure:
+one UI module plus cohesive services assembled once in
+`MirmirForsettiBootstrap` and injected through module factories. The complete
+Forsetti repository must not be included in Mirmir.
 
 Production launch activates the five product modules and renders
 `MirmirProductionRootView` only after the UI module is active. Framework
 developer controls are limited to development deployment mode.
 
-## Module Inventory
+## Target Apple-Native Adaptive Architecture
+
+The target data flow is AVFoundation decode, source profiling, capability
+discovery, deterministic ASH orchestration, an immutable enhancement plan,
+qualified Apple-native backend sessions, postflight quality monitoring, and
+AVFoundation encode/reopen verification. ASH becomes the control, temporal
+governance, policy, and explainability layer. Core AI remains optional and begins
+with analysis; pixel residual work is separately blocked.
+
+The current module inventory below is retained implementation evidence. Planned
+interfaces and backends are not represented as implemented until their roadmap
+phases produce accepted evidence.
+
+## Current Retained Module Inventory
 
 | Module ID | Entry point | Responsibility | Capabilities | Isolation |
 | --- | --- | --- | --- | --- |
@@ -30,7 +51,7 @@ Bundled manifests use schema/template `1.1`, require Forsetti `0.1.4`, and
 declare their runtime requirements. `ManifestRegistryAlignmentTests` bind the
 Swift descriptors, JSON manifests, and registry factories.
 
-## Native Product Composition
+## Preserved ASH V3 Product Composition
 
 `DefaultUpscalerEngineService` depends on `ASHUpscaleBackendFactory`.
 `MirmirForsettiBootstrap` injects
@@ -67,7 +88,7 @@ the application call graph. The runtime receives parsed, validated, immutable
 LUT bytes and performs no per-frame JSON parsing, LUT compilation, or tree
 generation.
 
-## Exact Release-Resource Transaction
+## Preserved Exact Release-Resource Transaction
 
 The application bundle lookup root is
 `Contents/Resources/ASH/LockedV3`. `ASHLockedArtifactStoreV3` permits exactly:
@@ -216,7 +237,7 @@ publication and requires one metadata track, one group with the exact duration,
 no duplicate keys, UTF-8 string values, and an exact dictionary match. Only
 then can `AtomicMediaOutput` commit the output.
 
-## Offline Schema-2 Calibration and Control Authorization
+## Preserved Offline Schema-2 Calibration and Control Evidence
 
 `P06ProductionCoordinatorV2` is an offline Python composition root, not an app
 service. It accepts a concrete `CandidateEvaluationProviderV2`; a provider must
@@ -285,7 +306,7 @@ the actual external gate trees with their authoritative validators under the
 unchanged clean HEAD and compares freshly derived semantics/tree hashes with
 the P06 execution authority. Copied receipt claims are not sufficient.
 
-## P08 Exact-App and G08 Transaction
+## Preserved P08 Exact-App and G08 Design
 
 `MirmirP08Tests` is an unhosted XCTest target exercised by the
 Release-configured `Mirmir P08` scheme. Its build settings leave `TEST_HOST` and

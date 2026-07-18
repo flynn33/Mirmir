@@ -1,5 +1,7 @@
 # Mirmir quality validation
 
+> **Retained validation tooling:** This quality harness is retained for the Apple-native roadmap. Historical gate results are not current product qualification or release authority.
+
 This directory contains the offline quality harness used to verify Mirmir's
 media pipeline before implementation work advances beyond G04. It is not linked
 into the `Mirmir` application target, copied into `Mirmir.app`, or called by the

@@ -1,0 +1,328 @@
+{
+  "apple_methods": [
+    {
+      "family": "VideoToolbox",
+      "id": "A01",
+      "method": "VTSuperResolutionScaler",
+      "priority": 1,
+      "role": "primary_quality"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A02",
+      "method": "VTLowLatencySuperResolutionScaler",
+      "priority": 2,
+      "role": "fast_preview"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A03",
+      "method": "VTLowLatencyFrameInterpolation spatial scaling",
+      "priority": 8,
+      "role": "optional_smooth_2x"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A04",
+      "method": "VTTemporalNoiseFilter",
+      "priority": 4,
+      "role": "preprocess"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A05",
+      "method": "VTOpticalFlow",
+      "priority": 4,
+      "role": "temporal_evidence"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A06",
+      "method": "VTPixelTransferSession",
+      "priority": 3,
+      "role": "conversion_baseline_fallback"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A07",
+      "method": "Spatial scaler",
+      "priority": 3,
+      "role": "fast_gpu_alternative"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A08",
+      "method": "Temporal scaler",
+      "priority": 7,
+      "role": "conditional_research"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A09",
+      "method": "Temporal denoised scaler",
+      "priority": 9,
+      "role": "renderer_auxiliary_research"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A10",
+      "method": "Frame interpolator",
+      "priority": 9,
+      "role": "optional_cadence"
+    },
+    {
+      "family": "MPS",
+      "id": "A11",
+      "method": "MPSImageLanczosScale",
+      "priority": 2,
+      "role": "deterministic_gpu_baseline"
+    },
+    {
+      "family": "MPS",
+      "id": "A12",
+      "method": "MPSImageBilinearScale",
+      "priority": 3,
+      "role": "fast_lower_bound"
+    },
+    {
+      "family": "MPS",
+      "id": "A13",
+      "method": "Guided/detail/artifact filters",
+      "priority": 3,
+      "role": "localized_support_stages"
+    },
+    {
+      "family": "CoreImage",
+      "id": "A14",
+      "method": "Lanczos/Bicubic scale",
+      "priority": 3,
+      "role": "compatibility_and_reference"
+    },
+    {
+      "family": "CoreImage",
+      "id": "A15",
+      "method": "EdgePreserveUpsample",
+      "priority": 3,
+      "role": "mask_and_chroma_guidance"
+    },
+    {
+      "family": "Accelerate",
+      "id": "A16",
+      "method": "vImage Lanczos-3/Lanczos-5/custom",
+      "priority": 2,
+      "role": "cpu_reference"
+    },
+    {
+      "family": "Metal",
+      "id": "A17",
+      "method": "Custom compute",
+      "priority": 1,
+      "role": "ash_analysis_masks_and_corrections"
+    },
+    {
+      "family": "CoreAI",
+      "id": "A18",
+      "method": "Custom model runtime",
+      "priority": 6,
+      "role": "analysis_then_bounded_residual"
+    }
+  ],
+  "authorizations": {
+    "capability_lab": "authorized_after_current_source_inventory",
+    "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
+    "holdout": "blocked",
+    "market_leading_claim": "blocked",
+    "production_auto_mode": "blocked",
+    "strategic_reset": "authorized",
+    "unified_backend_architecture": "authorized_after_capability_contracts"
+  },
+  "completed_work": [
+    {
+      "disposition": "retain",
+      "id": "C01",
+      "name": "Forsetti modular macOS application architecture"
+    },
+    {
+      "disposition": "retain",
+      "id": "C02",
+      "name": "AVFoundation ingest/output/reopen/atomic publication"
+    },
+    {
+      "disposition": "retain",
+      "id": "C03",
+      "name": "Metal service, async completion, and resource lifetime"
+    },
+    {
+      "disposition": "retain",
+      "id": "C04",
+      "name": "Three-slot reusable Metal resource ring"
+    },
+    {
+      "disposition": "retain_as_control_plane",
+      "id": "C05",
+      "name": "Canonical packed ASH state/code/decoder/conformance"
+    },
+    {
+      "disposition": "retain_as_reference_and_analysis_substrate",
+      "id": "C06",
+      "name": "Plane-aware ASH V3 Metal runtime and telemetry"
+    },
+    {
+      "disposition": "retain_first_contract",
+      "id": "C07",
+      "name": "Direct 2x and 3-over-2x NV12 route contracts"
+    },
+    {
+      "disposition": "retain_and_extend",
+      "id": "C08",
+      "name": "Output identity metadata and verification"
+    },
+    {
+      "disposition": "retain_for_policy_and_model_assets",
+      "id": "C09",
+      "name": "Exact resource validation and build injection"
+    },
+    {
+      "disposition": "repurpose",
+      "id": "C10",
+      "name": "Offline calibration/evidence and exact-app measurement"
+    },
+    {
+      "disposition": "repurpose_as_reference_fallback_and_policy_dispatch",
+      "id": "C11",
+      "name": "ASH V3 operator bank and LUTs"
+    }
+  ],
+  "date": "2026-07-18",
+  "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
+  "phases": [
+    {
+      "depends_on": [],
+      "exit": "accepted architecture record and current-source inventory",
+      "id": "R00",
+      "name": "Strategic reset and evidence preservation",
+      "status": "next"
+    },
+    {
+      "depends_on": [
+        "R00"
+      ],
+      "exit": "authoritative compile/runtime capability matrix",
+      "id": "R01",
+      "name": "Apple capability laboratory",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R01"
+      ],
+      "exit": "common session contract across multiple backends",
+      "id": "R02",
+      "name": "Unified backend and stage architecture",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R02"
+      ],
+      "exit": "quality/performance/resource baseline matrix",
+      "id": "R03",
+      "name": "Deterministic Apple-native baseline suite",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R03"
+      ],
+      "exit": "quality and low-latency VT backends qualified",
+      "id": "R04",
+      "name": "VideoToolbox super-resolution integration",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R03"
+      ],
+      "exit": "qualified/restricted/rejected disposition for each MetalFX path",
+      "id": "R05",
+      "name": "MetalFX integration and suitability decision",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R04",
+        "R05"
+      ],
+      "exit": "positive ASH orchestration ablation",
+      "id": "R06",
+      "name": "ASH orchestration engine v1",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R06"
+      ],
+      "exit": "measured temporal and chroma improvement",
+      "id": "R07",
+      "name": "Temporal stability and artifact governance",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R07"
+      ],
+      "exit": "positive learned-analysis ablation or diagnostic-only disposition",
+      "id": "R08",
+      "name": "Core AI analysis-only integration",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R08"
+      ],
+      "exit": "qualified or explicitly rejected residual model",
+      "id": "R09",
+      "name": "Core AI bounded residual experiment",
+      "status": "blocked"
+    },
+    {
+      "depends_on": [
+        "R07"
+      ],
+      "exit": "frozen validated Auto policy",
+      "id": "R10",
+      "name": "Auto-policy optimization and bounded calibration",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R10"
+      ],
+      "exit": "reproducible benchmark and blind-evaluation result",
+      "id": "R11",
+      "name": "Competitive benchmark and market-position decision",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R11"
+      ],
+      "exit": "explicit contracts for every new format and route",
+      "id": "R12",
+      "name": "Format, route, and product expansion",
+      "status": "planned"
+    },
+    {
+      "depends_on": [
+        "R11"
+      ],
+      "exit": "exact-app evidence and release-ready product",
+      "id": "R13",
+      "name": "Release hardening",
+      "status": "planned"
+    }
+  ],
+  "roadmap_version": "1.0.0",
+  "schema_version": "1.0.0",
+  "title": "Mirmir Apple-Native Adaptive Video Enhancement Roadmap"
+}

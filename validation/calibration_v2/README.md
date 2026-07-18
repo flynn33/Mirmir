@@ -1,5 +1,7 @@
 # P05/P06 semantic and calibration contracts
 
+> **Preserved evidence tooling:** These ASH V3 calibration and gate tools remain for reproducibility and reuse. Their presence does not authorize legacy P06/P07/P08 execution under the current roadmap.
+
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration
 results. Their status fields

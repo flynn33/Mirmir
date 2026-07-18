@@ -4,6 +4,24 @@ All notable project changes are recorded here.
 
 ## Unreleased
 
+### Roadmap and Evidence Status
+
+- Published the complete Mirmir Apple-Native Adaptive Video Enhancement Roadmap
+  1.0.0, dated 2026-07-18, as canonical Markdown and machine-readable JSON and
+  embedded the complete Markdown roadmap in the repository README.
+- Established R00-R13 as the forward product direction, with A01-A18 capability
+  tracking, C01-C11 retained/repurposed work, explicit authorization gates, and
+  evidence-backed completion rules.
+- Published the current ASH V3 branch to preserve source, tests, partial results,
+  failed results, and diagnostic evidence. This is not a product release and does
+  not authorize a tag, GitHub Release, production Auto mode, holdout access, G08,
+  or a market-position claim.
+- Reclassified ASH V3 as a retained deterministic reference, control-plane
+  substrate, and evidence source rather than the presumptive future reconstruction
+  engine. Existing failed and partial evidence remains historical and unchanged.
+- Recorded the target Forsetti boundary: retain approved architecture and templates
+  without including or depending on the complete Forsetti framework repository.
+
 ### Added
 
 - Added the Apple-native ASH V3 Metal spatial runtime for direct 2× and direct
