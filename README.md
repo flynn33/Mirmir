@@ -1000,6 +1000,7 @@ The roadmap succeeds when all of the following are true:
 - Core Image Lanczos, bicubic, and edge-preserve upsample documentation
 - Accelerate/vImage scaling and resampling documentation
 - WWDC25 and WWDC26 sessions covering VideoToolbox ML video effects, MetalFX, Metal 4 neural rendering, and Core AI
+
 <!-- END CANONICAL ROADMAP 1.0.0 -->
 
 ## Current Scope
