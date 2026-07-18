@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import selectors
 import signal
 import stat
@@ -76,6 +76,7 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoProfileContractV1.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHVideoAnalyzerV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHRiskStateDiagnosticV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV2.swift",
@@ -96,18 +97,23 @@ _SWIFT_SOURCE_PATHS = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTValidationV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTLockedConfigurationJSONV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2Validation.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2+ConfigurationValidation.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedOperatorBankV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedLUTManifestRouteV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedCandidateLUTManifestV1.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReleaseLUTManifestV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeTypesV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedRuntimeV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedSampleRuntimeV3.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedFramePipelineV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlResamplerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedNonASHOutputCacheV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedReferenceTypesV2.swift",
@@ -153,6 +159,24 @@ _PERSISTED_CONTROL_MODES = frozenset(
         "nearest_uniform",
         "p00_current_production_ash",
     }
+)
+_CONTROL_EXECUTION_PRODUCER_SOURCE_SET_V2 = (
+    (
+        "validation/calibration_v2/native_adapter/factory.py",
+        "native_adapter_builder_session_replay",
+    ),
+    (
+        "validation/calibration_v2/production_evaluator.py",
+        "control_execution_identity_and_evaluator_interface",
+    ),
+    (
+        "validation/calibration_v2/production_providers.py",
+        "concrete_control_execution_capability_provider",
+    ),
+)
+_CONTROL_EXECUTION_PRODUCER_DOMAIN_V2 = (
+    "mirmir-p06-control-execution-producer-v2/"
+    "python-implementation-source-manifest-v1"
 )
 _P00_COMMIT = "20dc1a9e8057d25b0430bfcd4c09e7806dc22d0a"
 _P00_BACKEND_SOURCE_SHA256 = (
@@ -1397,7 +1421,11 @@ def _read_regular_at(parent: int, name: str, *, display_path: Path) -> bytes:
     descriptor = os.open(name, flags, dir_fd=parent)
     try:
         opened = os.fstat(descriptor)
-        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+            != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        ):
             raise NativeAdapterError(f"file changed while opening: {display_path}")
         chunks = []
         while True:
@@ -1406,12 +1434,30 @@ def _read_regular_at(parent: int, name: str, *, display_path: Path) -> bytes:
                 break
             chunks.append(chunk)
         after = os.fstat(descriptor)
+        try:
+            after_path = os.stat(
+                name,
+                dir_fd=parent,
+                follow_symlinks=False,
+            )
+        except OSError as error:
+            raise NativeAdapterError(
+                f"file changed while reading: {display_path}"
+            ) from error
     finally:
         os.close(descriptor)
     if (
-        (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino)
-        or after.st_size != before.st_size
-        or after.st_mtime_ns != before.st_mtime_ns
+        not stat.S_ISREG(after.st_mode)
+        or not stat.S_ISREG(after_path.st_mode)
+        or (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        or (
+            after_path.st_dev,
+            after_path.st_ino,
+            after_path.st_size,
+            after_path.st_mtime_ns,
+        )
+        != (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
     ):
         raise NativeAdapterError(f"file changed while reading: {display_path}")
     return b"".join(chunks)
@@ -1424,6 +1470,55 @@ def _read_regular(path: Path) -> bytes:
         return _read_regular_at(parent, absolute.name, display_path=absolute)
     finally:
         os.close(parent)
+
+
+def _control_execution_implementation_source_sha256_v2(
+    repository_root: Path,
+) -> str:
+    """Hash the exact authority-ordered Python producer source manifest."""
+
+    root = _absolute_lexical_path(repository_root)
+    records: list[Mapping[str, object]] = []
+    observed_casefolded_paths: set[str] = set()
+    for order, (path_value, role) in enumerate(
+        _CONTROL_EXECUTION_PRODUCER_SOURCE_SET_V2
+    ):
+        relative = PurePosixPath(path_value)
+        casefolded = path_value.casefold()
+        if (
+            relative.is_absolute()
+            or relative.as_posix() != path_value
+            or not relative.parts
+            or any(part in {"", ".", ".."} for part in relative.parts)
+            or "\\" in path_value
+            or casefolded in observed_casefolded_paths
+            or not role
+        ):
+            raise NativeAdapterError(
+                "control execution producer source authority is invalid"
+            )
+        observed_casefolded_paths.add(casefolded)
+        payload = _read_regular(root.joinpath(*relative.parts))
+        if not payload:
+            raise NativeAdapterError(
+                "control execution producer source is empty"
+            )
+        records.append(
+            {
+                "order": order,
+                "path": path_value,
+                "role": role,
+                "sha256": _sha256(payload),
+                "size_bytes": len(payload),
+            }
+        )
+    manifest = {
+        "domain_separator": _CONTROL_EXECUTION_PRODUCER_DOMAIN_V2,
+        "implementation_role": "control_execution_producer_python",
+        "schema_version": "1.0.0",
+        "sources": records,
+    }
+    return _sha256(canonical_json_bytes(manifest))
 
 
 class _InheritedCorpusBoundView:
@@ -2041,13 +2136,14 @@ class NativeConfiguration:
 
 @dataclass(frozen=True)
 class NativeCompiledConfigurationV2:
-    """Format-1.2 compilation product without an unauthorized runtime manifest."""
+    """Format-1.2 compilation product and calibration runtime authority."""
 
     root: Path
     artifact_pair_root: Path
     compiler_input_path: Path
     mapping_path: Path
     operator_bank_path: Path
+    runtime_manifest_path: Path
     route_paths: Mapping[str, Path]
     compile_summary: Mapping[str, object]
     configuration: Mapping[str, object]
@@ -2425,18 +2521,54 @@ class NativeSwiftBuilder:
             expected_schema_version="2.0.0",
             expected_compiler_input_v2=compiler_document,
         )
+        runtime_manifest = self._candidate_runtime_manifest_v2(
+            configuration_id=configuration_id,
+            compiler_path=compiler_path,
+            compiler_bytes=compiler_bytes,
+            compiler_document=compiler_document,
+            compile_summary=compile_summary,
+        )
+        validate_schema(
+            runtime_manifest,
+            SCHEMAS_ROOT / "candidate-lut-runtime-manifest-v2.schema.json",
+        )
+        runtime_manifest_path = root / "candidate-lut-runtime-manifest-v2.json"
+        _write_or_verify(
+            runtime_manifest_path,
+            canonical_json_bytes(runtime_manifest) + b"\n",
+        )
         rows = compile_summary["routes"]
         assert isinstance(rows, list)
         rows_by_route = {
             "direct-2x" if row["route"] == "direct_2x" else "direct-3over2": row
             for row in rows
         }
+        raw_output_contract = {
+            "pixel_contract": "bt709-video-range-420v-8bit-nv12-v1",
+            "chroma_conversion": (
+                "ASHLockedCandidateAdapterBridgeV2.centeredChroma_subtract_0.5_once"
+            ),
+            "quantization": "common_420v_round_to_nearest_even",
+            "output_reopen_verification": True,
+        }
+        raw_output_hash = canonical_sha256(raw_output_contract)
+        full_control_hash = canonical_sha256(
+            {
+                "candidate_vector_sha256": vector_hash,
+                "shared_bank_configuration_sha256": (
+                    pair.shared_bank_configuration_sha256
+                ),
+                "mapping_sha256": pair.mapping_sha256,
+                "operator_bank_sha256": pair.operator_bank_sha256,
+                "metric_policy_sha256": metric_hash,
+                "compiler_inputs_sha256": compiler_hash,
+                "raw_output_contract_sha256": raw_output_hash,
+            }
+        )
         configuration = {
             "schema_version": "2.0.0",
-            "implementation_role": "production_swift_format_1_2_compile_only",
-            "runtime_status": (
-                "compiled_not_servable_missing_candidate_runtime_manifest_v2"
-            ),
+            "implementation_role": "production_swift_format_1_2",
+            "runtime_status": "servable_calibration_candidate",
             "configuration_id": configuration_id,
             "serialized_candidate_vector_sha256": vector_hash,
             "physical_candidate_vector": dict(physical),
@@ -2448,12 +2580,17 @@ class NativeSwiftBuilder:
             "metric_policy_sha256": metric_hash,
             "compiler_inputs_sha256": compiler_hash,
             "compiler_input_file_sha256": compiler_file_hash,
+            "candidate_lut_runtime_manifest_sha256": runtime_manifest[
+                "manifest_sha256"
+            ],
             "compiler_contract_sha256": record("compiler_contract")["sha256"],
             "calibration_plan_sha256": materializer.plan.plan_file_sha256,
             "corpus_lock_bundle_sha256": corpus_hash,
             "shared_bank_configuration_sha256": (
                 pair.shared_bank_configuration_sha256
             ),
+            "raw_output_contract_sha256": raw_output_hash,
+            "full_control_configuration_sha256": full_control_hash,
             "candidate_artifacts": {
                 "mapping": _parse_json(pair.mapping_bytes, trailing_newline=True),
                 "operator_bank": _parse_json(
@@ -2493,6 +2630,7 @@ class NativeSwiftBuilder:
             compiler_input_path=compiler_path,
             mapping_path=mapping_path,
             operator_bank_path=operator_path,
+            runtime_manifest_path=runtime_manifest_path,
             route_paths=route_paths,
             compile_summary=compile_summary,
             configuration=configuration,
@@ -2542,6 +2680,7 @@ class NativeSwiftBuilder:
             "payload_sha256", "header_crc32", "payload_crc32",
         }
         if expected_schema_version == "2.0.0":
+            expected_row_fields.add("plane_count")
             if expected_compiler_input_v2 is None:
                 raise NativeAdapterError("schema-2 compiler validation input is absent")
             parsed_v2 = parse_locked_compiler_input_v2(expected_compiler_input_v2)
@@ -2582,6 +2721,7 @@ class NativeSwiftBuilder:
                     "phase_count": oracle_route.phase_count,
                     "context_count": 4,
                     "valid_state_count": 256,
+                    "plane_count": 2,
                     "luma_coordinate_policy": validated.luma_coordinate_policy,
                     "chroma_coordinate_policy": validated.chroma_coordinate_policy,
                     "analysis_grid_source_step": selection.analysis_grid_source_step,
@@ -2619,6 +2759,36 @@ class NativeSwiftBuilder:
                 "size_bytes": len(compiler_bytes),
             },
             "hash_bindings": dict(compiler_document["hash_bindings"]),  # type: ignore[arg-type]
+            "routes": compile_summary["routes"],
+            "swift_cli": {
+                "executable_sha256": self.executable.sha256,
+                "source_manifest_sha256": self.executable.source_manifest_sha256,
+            },
+            "native_parity_claimed": False,
+        }
+        document["manifest_sha256"] = canonical_sha256(document)
+        return document
+
+    def _candidate_runtime_manifest_v2(
+        self,
+        *,
+        configuration_id: str,
+        compiler_path: Path,
+        compiler_bytes: bytes,
+        compiler_document: Mapping[str, object],
+        compile_summary: Mapping[str, object],
+    ) -> Mapping[str, object]:
+        document: Dict[str, object] = {
+            "schema_version": "2.0.0",
+            "manifest_id": "mirmir-ash-candidate-route-luts-v2",
+            "status": "calibration_candidate",
+            "configuration_id": configuration_id,
+            "compiler_input": {
+                "path": compiler_path.name,
+                "sha256": _sha256(compiler_bytes),
+                "size_bytes": len(compiler_bytes),
+            },
+            "hash_bindings": dict(compiler_document["hash_bindings"]),
             "routes": compile_summary["routes"],
             "swift_cli": {
                 "executable_sha256": self.executable.sha256,
@@ -3105,7 +3275,7 @@ class NativeSwiftSession:
     def __init__(
         self,
         executable: NativeExecutable,
-        configuration: NativeConfiguration,
+        configuration: NativeConfiguration | NativeCompiledConfigurationV2,
         *,
         timeout_seconds: float,
         pass_fds: Sequence[int] = (),
@@ -3157,7 +3327,9 @@ class NativeSwiftSession:
             }
             config = configuration.configuration
             if set(document) != expected_keys or (
-                document["status"] != "ready"
+                document["schema_version"]
+                != config.get("schema_version", "1.0.0")
+                or document["status"] != "ready"
                 or document["configuration_id"] != config["configuration_id"]
                 or document["candidate_lut_runtime_manifest_sha256"]
                 != config["candidate_lut_runtime_manifest_sha256"]
@@ -6188,6 +6360,12 @@ class NativeCandidateCallable:
         output_payload: bytes,
     ) -> None:
         configuration = self.session.configuration.configuration
+        schema_version = configuration.get("schema_version", "1.0.0")
+        native_protocol = (
+            "mirmir-ash-calibration-cli-v2"
+            if schema_version == "2.0.0"
+            else "mirmir-ash-calibration-cli-v1"
+        )
         proof = summary.get("native_invocation_proof")
         dispatch_modes = {
             "full_ash",
@@ -6238,7 +6416,7 @@ class NativeCandidateCallable:
                 and h07_summary is not None
             )
             or not isinstance(proof, dict)
-            or proof.get("protocol") != "mirmir-ash-calibration-cli-v1"
+            or proof.get("protocol") != native_protocol
             or proof.get("executable_sha256")
             != configuration["swift_cli"]["executable_sha256"]
             or proof.get("source_manifest_sha256")
@@ -6252,23 +6430,205 @@ class NativeCandidateCallable:
                 else str(native_frame["route"])
             )
             route_binding = configuration["route_luts"][runtime_route]
-            self._validate_locked_runtime_summary(
-                locked_summary,
-                control_mode=str(request["control_mode"]),
-                target_route=runtime_route,
-                expected_luma_coordinate_policy=str(
-                    route_binding["luma_coordinate_policy"]
-                ),
-                expected_chroma_coordinate_policy=str(
-                    route_binding["chroma_coordinate_policy"]
-                ),
-            )
+            if schema_version == "2.0.0":
+                physical = configuration.get("physical_candidate_vector")
+                if not isinstance(physical, dict):
+                    raise NativeAdapterError(
+                        "format-1.2 physical candidate identity is absent"
+                    )
+                route_prefix = (
+                    "direct_2x"
+                    if runtime_route == "direct-2x"
+                    else "direct_3_over_2"
+                )
+                self._validate_locked_runtime_summary_v3(
+                    locked_summary,
+                    control_mode=str(request["control_mode"]),
+                    target_route=runtime_route,
+                    expected_luma_coordinate_policy=str(
+                        route_binding["luma_coordinate_policy"]
+                    ),
+                    expected_chroma_coordinate_policy=str(
+                        route_binding["chroma_coordinate_policy"]
+                    ),
+                    expected_luma_anisotropy_mode=physical[
+                        f"{route_prefix}_luma_anisotropy_mode_ordinal"
+                    ],
+                    expected_chroma_anisotropy_mode=physical[
+                        f"{route_prefix}_chroma_anisotropy_mode_ordinal"
+                    ],
+                )
+            else:
+                self._validate_locked_runtime_summary(
+                    locked_summary,
+                    control_mode=str(request["control_mode"]),
+                    target_route=runtime_route,
+                    expected_luma_coordinate_policy=str(
+                        route_binding["luma_coordinate_policy"]
+                    ),
+                    expected_chroma_coordinate_policy=str(
+                        route_binding["chroma_coordinate_policy"]
+                    ),
+                )
         if isinstance(h07_summary, dict):
             assert isinstance(locked_summary, dict)
             self._validate_h07_runtime_summary(
                 h07_summary,
                 direct2_summary=locked_summary,
                 native_frame=native_frame,
+            )
+
+    @staticmethod
+    def _validate_locked_runtime_summary_v3(
+        summary: Mapping[str, object],
+        *,
+        control_mode: str,
+        target_route: str,
+        expected_luma_coordinate_policy: str,
+        expected_chroma_coordinate_policy: str,
+        expected_luma_anisotropy_mode: object,
+        expected_chroma_anisotropy_mode: object,
+    ) -> None:
+        fields = {
+            "schema_version",
+            "luma_coordinate_policy",
+            "chroma_coordinate_policy",
+            "luma_anisotropy_mode_ordinal",
+            "chroma_anisotropy_mode_ordinal",
+            "state_histogram",
+            "luma_operator_histogram",
+            "chroma_operator_histogram",
+            "maximum_operator_evaluations",
+            "analysis_cell_count",
+            "occupied_analysis_cell_count",
+            "dispatch_record_count",
+            "exact_decode_count",
+            "corrected_decode_count",
+            "rejected_decode_count",
+        }
+        states = summary.get("state_histogram")
+        luma_operators = summary.get("luma_operator_histogram")
+        chroma_operators = summary.get("chroma_operator_histogram")
+        numeric_fields = [
+            "luma_anisotropy_mode_ordinal",
+            "chroma_anisotropy_mode_ordinal",
+            "maximum_operator_evaluations",
+            "analysis_cell_count",
+            "occupied_analysis_cell_count",
+            "dispatch_record_count",
+            "exact_decode_count",
+            "corrected_decode_count",
+            "rejected_decode_count",
+        ]
+        if (
+            set(summary) != fields
+            or summary.get("schema_version") != "2.0.0"
+            or summary.get("luma_coordinate_policy")
+            != expected_luma_coordinate_policy
+            or summary.get("chroma_coordinate_policy")
+            != expected_chroma_coordinate_policy
+            or not isinstance(states, list)
+            or not states
+            or not isinstance(luma_operators, list)
+            or not luma_operators
+            or not isinstance(chroma_operators, list)
+            or not chroma_operators
+            or any(
+                not isinstance(summary.get(field), int)
+                or isinstance(summary[field], bool)
+                or int(summary[field]) < 0
+                for field in numeric_fields
+            )
+            or summary.get("luma_anisotropy_mode_ordinal")
+            != expected_luma_anisotropy_mode
+            or summary.get("chroma_anisotropy_mode_ordinal")
+            != expected_chroma_anisotropy_mode
+            or not 0 <= int(summary["luma_anisotropy_mode_ordinal"]) <= 5
+            or not 0 <= int(summary["chroma_anisotropy_mode_ordinal"]) <= 5
+        ):
+            raise NativeAdapterError("locked V3 runtime summary field set is invalid")
+
+        def histogram_rows(
+            rows: list[object],
+            identifier: str,
+            upper_bound: int,
+        ) -> list[tuple[int, int]]:
+            result = []
+            for row in rows:
+                if (
+                    not isinstance(row, dict)
+                    or set(row) != {identifier, "count"}
+                    or not isinstance(row.get(identifier), int)
+                    or isinstance(row[identifier], bool)
+                    or not (0 <= int(row[identifier]) <= upper_bound)
+                    or not isinstance(row.get("count"), int)
+                    or isinstance(row["count"], bool)
+                    or int(row["count"]) <= 0
+                ):
+                    raise NativeAdapterError(
+                        "locked V3 runtime histogram row is invalid"
+                    )
+                result.append((int(row[identifier]), int(row["count"])))
+            if (
+                result != sorted(result)
+                or len(result) != len({item[0] for item in result})
+            ):
+                raise NativeAdapterError(
+                    "locked V3 runtime histogram is not sorted unique"
+                )
+            return result
+
+        state_rows = histogram_rows(states, "state_raw_value", 511)
+        luma_rows = histogram_rows(luma_operators, "descriptor_id", 15)
+        chroma_rows = histogram_rows(chroma_operators, "descriptor_id", 15)
+        analysis_count = int(summary["analysis_cell_count"])
+        occupied_count = int(summary["occupied_analysis_cell_count"])
+        dispatch_count = int(summary["dispatch_record_count"])
+        phase_pair_counts = {"direct-2x": 4, "direct-3over2": 9}
+        phase_pair_count = phase_pair_counts.get(target_route)
+        if phase_pair_count is None:
+            raise NativeAdapterError("locked V3 runtime route is invalid")
+        per_plane_dispatch_count = analysis_count * phase_pair_count
+        luma_operator_count = sum(count for _, count in luma_rows)
+        chroma_operator_count = sum(count for _, count in chroma_rows)
+        operator_count = luma_operator_count + chroma_operator_count
+        decode_count = sum(
+            int(summary[field])
+            for field in (
+                "exact_decode_count",
+                "corrected_decode_count",
+                "rejected_decode_count",
+            )
+        )
+        maximum = int(summary["maximum_operator_evaluations"])
+        if (
+            sum(count for _, count in state_rows) != analysis_count
+            or analysis_count <= 0
+            or not 0 <= occupied_count <= analysis_count
+            or dispatch_count != 2 * per_plane_dispatch_count
+            or not (
+                per_plane_dispatch_count
+                <= luma_operator_count
+                <= 2 * per_plane_dispatch_count
+            )
+            or not (
+                per_plane_dispatch_count
+                <= chroma_operator_count
+                <= 2 * per_plane_dispatch_count
+            )
+            or operator_count != decode_count
+            or not (1 <= maximum <= 2)
+        ):
+            raise NativeAdapterError("locked V3 runtime summary cardinality differs")
+        if control_mode == "state_only" and (
+            maximum != 1
+            or luma_operator_count != per_plane_dispatch_count
+            or chroma_operator_count != per_plane_dispatch_count
+            or summary["corrected_decode_count"] != 0
+            or summary["rejected_decode_count"] != 0
+        ):
+            raise NativeAdapterError(
+                "state-only V3 runtime summary contains branch/decode evidence"
             )
 
     @staticmethod
@@ -7062,6 +7422,121 @@ class NativeCandidateAdapterFactory:
         self.builder = NativeSwiftBuilder(self.repository_root, self.cache_root)
         self.p00_builder = P00NativeBuilder(self.repository_root, self.cache_root)
 
+    def authenticated_adapter_identity_v2(
+        self,
+        adapter: CandidateAdapter,
+    ) -> Mapping[str, str]:
+        """Independently reopen and bind one live format-1.2 adapter product."""
+
+        if _plan_schema_version(self.plan) != "2.0.0":
+            raise NativeAdapterError(
+                "control execution producer identity requires a schema-2 plan"
+            )
+        callable_object = getattr(adapter, "callable", None)
+        session = getattr(callable_object, "session", None)
+        executable = getattr(session, "executable", None)
+        configuration = getattr(adapter, "configuration", None)
+        configuration_sha256 = getattr(adapter, "configuration_sha256", None)
+        if (
+            type(adapter) is not CandidateAdapter
+            or type(callable_object) is not NativeCandidateCallable
+            or type(session) is not NativeSwiftSession
+            or executable is not self.builder.executable
+            or not isinstance(configuration, Mapping)
+            or not _is_sha256(configuration_sha256)
+            or canonical_sha256(configuration) != configuration_sha256
+            or callable_object.adapter_configuration_sha256
+            != configuration_sha256
+        ):
+            raise NativeAdapterError(
+                "control execution identity is not the live factory product"
+            )
+        swift_cli = configuration.get("swift_cli")
+        if (
+            not isinstance(swift_cli, Mapping)
+            or set(swift_cli)
+            != {"executable_sha256", "source_manifest_sha256"}
+            or swift_cli.get("executable_sha256") != executable.sha256
+            or swift_cli.get("source_manifest_sha256")
+            != executable.source_manifest_sha256
+        ):
+            raise NativeAdapterError(
+                "control execution native configuration identity differs"
+            )
+
+        executable_payload = _read_regular(executable.path)
+        executable_metadata = os.stat(executable.path, follow_symlinks=False)
+        if (
+            _sha256(executable_payload) != executable.sha256
+            or not stat.S_ISREG(executable_metadata.st_mode)
+            or executable_metadata.st_mode & 0o111 == 0
+        ):
+            raise NativeAdapterError(
+                "control execution native executable identity differs"
+            )
+
+        source_manifest_payload = _read_regular(executable.source_manifest_path)
+        source_manifest = _parse_json(
+            source_manifest_payload,
+            trailing_newline=False,
+        )
+        swiftc, sdk_path, toolchain = _resolve_swift_toolchain(
+            self.repository_root
+        )
+        del swiftc
+        expected_source_records = []
+        for path_value in _SWIFT_SOURCE_PATHS:
+            relative = PurePosixPath(path_value)
+            payload = _read_regular(
+                self.repository_root.joinpath(*relative.parts)
+            )
+            expected_source_records.append(
+                {
+                    "path": path_value,
+                    "sha256": _sha256(payload),
+                    "size_bytes": len(payload),
+                }
+            )
+        expected_source_manifest = {
+            "schema_version": "1.0.0",
+            "implementation_role": "production_swift",
+            "toolchain": toolchain,
+            "compile_flags": [*_COMPILE_FLAGS, "-sdk", sdk_path],
+            "sources": expected_source_records,
+        }
+        if (
+            source_manifest != expected_source_manifest
+            or canonical_json_bytes(source_manifest) != source_manifest_payload
+            or _sha256(source_manifest_payload)
+            != executable.source_manifest_sha256
+        ):
+            raise NativeAdapterError(
+                "control execution native source manifest identity differs"
+            )
+
+        identity = {
+            "adapter_configuration_sha256": str(configuration_sha256),
+            "native_executable_sha256": executable.sha256,
+            "native_implementation_source_sha256": (
+                _control_execution_implementation_source_sha256_v2(
+                    self.repository_root
+                )
+            ),
+            "native_source_manifest_sha256": (
+                executable.source_manifest_sha256
+            ),
+        }
+        if set(identity) != {
+            "adapter_configuration_sha256",
+            "native_executable_sha256",
+            "native_implementation_source_sha256",
+            "native_source_manifest_sha256",
+        } or any(not _is_sha256(value) for value in identity.values()):
+            raise NativeAdapterError(
+                "control execution authenticated adapter identity is invalid"
+            )
+        return identity
+
     def compile_candidate_configuration(
         self,
         vector: Mapping[str, object],
@@ -7080,10 +7555,11 @@ class NativeCandidateAdapterFactory:
         return compiled
 
     def _require_native_session_authority(self) -> None:
-        if _plan_schema_version(self.plan) == "2.0.0":
+        if _plan_schema_version(self.plan) == "2.0.0" and not (
+            SCHEMAS_ROOT / "candidate-lut-runtime-manifest-v2.schema.json"
+        ).is_file():
             raise NativeAdapterError(
-                "schema-2 candidate is compiled_not_servable because an "
-                "authorized candidate runtime-manifest successor is absent"
+                "schema-2 candidate runtime-manifest authority is absent"
             )
 
     def __call__(
@@ -7096,7 +7572,7 @@ class NativeCandidateAdapterFactory:
         self._require_native_session_authority()
         if self.verify_bound_inputs:
             self.bound.verify_unchanged()
-        native = self.builder.ensure_configuration(
+        native = self.builder.compile_candidate(
             vector=vector,
             plan=self.plan,
             bound=self.bound,

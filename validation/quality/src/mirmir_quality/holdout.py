@@ -52,6 +52,38 @@ CONFIGURATION_LOCK_SCHEMA = (
     / "schemas"
     / "configuration-lock.schema.json"
 )
+CONFIGURATION_LOCK_V2_SCHEMA = (
+    Path(__file__).resolve().parents[3]
+    / "calibration_v2"
+    / "schemas"
+    / "p06-configuration-lock-v2.schema.json"
+)
+V3_CONFIGURATION_FILE_ORDER = (
+    ("locked_mapping", "locked-mapping.json"),
+    ("locked_operator_bank", "locked-operator-bank.json"),
+    ("locked_quality_policy", "locked-quality-policy.json"),
+    ("locked_metric_policy", "locked-metric-policy.json"),
+    ("locked_compiler_input_v2", "locked-compiler-input-v2.json"),
+    ("direct2x_lut", "direct2x.ashlut"),
+    ("direct3over2_lut", "direct3over2.ashlut"),
+    ("native_parity_manifest", "native-lut-parity-manifest-v3.json"),
+    ("lut_manifest", "lut-manifest-v3.json"),
+)
+V3_CONFIGURATION_LOCK_FIELDS = {
+    "schema_version",
+    "artifact_kind",
+    "status",
+    "locked_utc",
+    "configuration_id",
+    "candidate_vector_sha256",
+    "shared_bank_configuration_sha256",
+    "calibration_selection",
+    "selected_evaluation",
+    "configuration_files",
+    "candidate_bytes_rewritten_after_selection",
+    "holdout_accessed",
+    "manifest_sha256",
+}
 
 
 class HoldoutAccessError(PermissionError):
@@ -508,3 +540,222 @@ class HoldoutAccessGuard:
             details={"post_loader_bindings_reverified": True},
         )
         return result
+
+
+class P06V3HoldoutAccessGuard(HoldoutAccessGuard):
+    """Authorize P07 only from the exact schema-3 P06 configuration bytes."""
+
+    def __init__(
+        self,
+        expected_corpus_manifest_sha256: str,
+        *,
+        ledger_path: Path,
+        anchor_path: Path,
+        release_root: Path,
+        clock: Callable[[], str] = _utc_now,
+    ) -> None:
+        if not SHA256_PATTERN.fullmatch(expected_corpus_manifest_sha256):
+            raise ValueError("expected corpus hash is invalid")
+        root = Path(os.path.abspath(release_root))
+        if len(root.parts) >= 2 and root.parts[1] == "var":
+            root = Path("/private/var").joinpath(*root.parts[2:])
+        if root.is_symlink() or not root.is_dir():
+            raise ValueError("P06 V3 release root must be one real directory")
+        _validate_anchor_location(ledger_path, anchor_path)
+        self.expected_corpus_manifest_sha256 = expected_corpus_manifest_sha256
+        self.ledger_path = ledger_path
+        self.anchor_path = anchor_path
+        self.intent_path = anchor_path
+        self.release_root = root
+        self.hash_bindings = {
+            identifier: HashBinding(path=root / filename, root=root)
+            for identifier, filename in V3_CONFIGURATION_FILE_ORDER
+        }
+        self.clock = clock
+
+    @staticmethod
+    def _validate_release_binding(binding: object, label: str) -> Mapping[str, object]:
+        if not isinstance(binding, dict) or set(binding) != {
+            "path",
+            "sha256",
+            "size_bytes",
+        }:
+            raise HoldoutAccessError(f"{label} binding is not exact")
+        if (
+            not isinstance(binding.get("path"), str)
+            or not binding["path"]
+            or not SHA256_PATTERN.fullmatch(str(binding.get("sha256", "")))
+            or not isinstance(binding.get("size_bytes"), int)
+            or isinstance(binding.get("size_bytes"), bool)
+            or int(binding["size_bytes"]) <= 0
+        ):
+            raise HoldoutAccessError(f"{label} binding is invalid")
+        return binding
+
+    def _validate_hash_bindings(self, configuration_lock: Mapping[str, object]) -> None:
+        self._validate_release_lock_bytes(configuration_lock)
+        rows = configuration_lock.get("configuration_files")
+        if not isinstance(rows, list) or len(rows) != len(V3_CONFIGURATION_FILE_ORDER):
+            raise HoldoutAccessError("P06 V3 configuration-file bindings are not exact")
+        for row, (identifier, filename) in zip(rows, V3_CONFIGURATION_FILE_ORDER):
+            if not isinstance(row, dict) or set(row) != {
+                "id",
+                "path",
+                "sha256",
+                "size_bytes",
+            }:
+                raise HoldoutAccessError(
+                    f"P06 V3 configuration binding is not exact: {identifier}"
+                )
+            if row.get("id") != identifier or row.get("path") != filename:
+                raise HoldoutAccessError(
+                    f"P06 V3 configuration filename differs: {identifier}"
+                )
+            expected_sha256 = row.get("sha256")
+            expected_size = row.get("size_bytes")
+            if (
+                not isinstance(expected_sha256, str)
+                or not SHA256_PATTERN.fullmatch(expected_sha256)
+                or not isinstance(expected_size, int)
+                or isinstance(expected_size, bool)
+                or expected_size <= 0
+            ):
+                raise HoldoutAccessError(
+                    f"P06 V3 configuration binding is invalid: {identifier}"
+                )
+            binding = self.hash_bindings[identifier]
+            actual_sha256 = hash_binding_digest_v3(identifier, binding)
+            try:
+                actual_size = os.stat(binding.path, follow_symlinks=False).st_size
+            except OSError as error:
+                raise HoldoutAccessError(
+                    f"P06 V3 configuration file is absent: {identifier}"
+                ) from error
+            if actual_sha256 != expected_sha256 or actual_size != expected_size:
+                raise HoldoutAccessError(
+                    f"P06 V3 configuration bytes differ: {identifier}"
+                )
+
+    def _validate_release_lock_bytes(
+        self,
+        configuration_lock: Mapping[str, object],
+    ) -> None:
+        try:
+            # Lazy import avoids the release_lock -> holdout module cycle while
+            # retaining one authoritative descriptor-safe P06 validator.
+            from validation.calibration_v2.release_lock import (
+                validate_p06_configuration_lock_v2,
+            )
+
+            lock_path = self.release_root / "configuration-lock-v2.json"
+            validated = validate_p06_configuration_lock_v2(
+                release_root=self.release_root,
+                expected_file_sha256=_sha256_file(lock_path),
+            )
+        except (OSError, ValueError) as error:
+            raise HoldoutAccessError(
+                "P06 V3 configuration lock release validation failed"
+            ) from error
+        if validated != configuration_lock:
+            raise HoldoutAccessError(
+                "supplied P06 V3 configuration lock differs from release"
+            )
+
+    def validate_lock(self, configuration_lock: Mapping[str, object]) -> None:
+        try:
+            validate_schema(
+                dict(configuration_lock),
+                CONFIGURATION_LOCK_V2_SCHEMA,
+            )
+        except (OSError, ValueError) as error:
+            raise HoldoutAccessError(
+                "P06 V3 configuration lock schema validation failed"
+            ) from error
+        if not isinstance(configuration_lock, dict) or set(configuration_lock) != (
+            V3_CONFIGURATION_LOCK_FIELDS
+        ):
+            raise HoldoutAccessError("P06 V3 configuration lock fields are not exact")
+        if (
+            configuration_lock.get("schema_version") != "2.0.0"
+            or configuration_lock.get("artifact_kind")
+            != "p06_configuration_lock_v2"
+            or configuration_lock.get("status") != "locked_before_p07"
+            or not isinstance(configuration_lock.get("locked_utc"), str)
+            or not configuration_lock.get("locked_utc")
+            or not isinstance(configuration_lock.get("configuration_id"), str)
+            or not configuration_lock.get("configuration_id")
+            or not SHA256_PATTERN.fullmatch(
+                str(configuration_lock.get("candidate_vector_sha256", ""))
+            )
+            or not SHA256_PATTERN.fullmatch(
+                str(configuration_lock.get("shared_bank_configuration_sha256", ""))
+            )
+            or configuration_lock.get("candidate_bytes_rewritten_after_selection")
+            is not False
+            or configuration_lock.get("holdout_accessed") is not False
+        ):
+            raise HoldoutAccessError("P06 V3 configuration lock is incomplete")
+        self._validate_release_binding(
+            configuration_lock.get("calibration_selection"),
+            "P06 V3 calibration selection",
+        )
+        self._validate_release_binding(
+            configuration_lock.get("selected_evaluation"),
+            "P06 V3 selected evaluation",
+        )
+        if configuration_lock.get("manifest_sha256") != manifest_sha256(
+            dict(configuration_lock),
+            "manifest_sha256",
+        ):
+            raise HoldoutAccessError("P06 V3 configuration lock self-hash differs")
+        self._validate_hash_bindings(configuration_lock)
+        ledger = self._read_ledger()
+        if os.path.lexists(self.anchor_path) or ledger.get("state") != "sealed":
+            raise HoldoutAccessError("persistent holdout ledger already contains an open intent")
+        if any(
+            ledger.get(field) is not None
+            for field in ("open_intent_utc", "opened_utc", "completed_utc")
+        ):
+            raise HoldoutAccessError(
+                "persistent holdout ledger contains a prior open timestamp"
+            )
+
+
+def hash_binding_digest_v3(identifier: str, binding: HashBinding) -> str:
+    """Reopen one exact P06 V3 configuration file without legacy field aliases."""
+
+    if identifier not in {row[0] for row in V3_CONFIGURATION_FILE_ORDER}:
+        raise HoldoutAccessError(
+            f"unsupported P06 V3 configuration binding: {identifier}"
+        )
+    if not isinstance(binding, HashBinding) or binding.digest_mode != "file_sha256":
+        raise HoldoutAccessError(
+            f"invalid P06 V3 configuration binding: {identifier}"
+        )
+    root = Path(os.path.abspath(binding.root))
+    path = Path(os.path.abspath(binding.path))
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise HoldoutAccessError(
+            f"P06 V3 configuration file escapes release root: {identifier}"
+        ) from error
+    if relative.as_posix() != dict(V3_CONFIGURATION_FILE_ORDER)[identifier]:
+        raise HoldoutAccessError(
+            f"P06 V3 configuration filename differs: {identifier}"
+        )
+    if root.is_symlink() or not root.is_dir() or path.is_symlink():
+        raise HoldoutAccessError(
+            f"P06 V3 configuration path is symbolic: {identifier}"
+        )
+    try:
+        metadata = os.stat(path, follow_symlinks=False)
+    except OSError as error:
+        raise HoldoutAccessError(
+            f"P06 V3 configuration file is absent: {identifier}"
+        ) from error
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise HoldoutAccessError(
+            f"P06 V3 configuration file is not singular: {identifier}"
+        )
+    return _sha256_file(path)

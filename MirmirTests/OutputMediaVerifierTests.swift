@@ -37,6 +37,107 @@ final class OutputMediaVerifierTests: XCTestCase {
         XCTAssertEqual(CMTimeCompare(result.duration, duration), 0)
     }
 
+    func testSessionEmbedsAndReopensExactFinalASHIdentity() async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let duration = CMTime(value: 1, timescale: 30)
+        try await writeOneFrameVideo(
+            to: fixture.source,
+            resolution: VideoResolution(width: 64, height: 64),
+            duration: duration
+        )
+        let staticMetadata = [
+            "com.mirmir.ash.configuration-id": "fixture-configuration",
+            "com.mirmir.ash.release-manifest-sha256": String(repeating: "a", count: 64)
+        ]
+        let template = staticMetadata.merging([
+            "com.mirmir.ash.numerical-fallback-count": "0"
+        ]) { _, final in final }
+        let finalMetadata = staticMetadata.merging([
+            "com.mirmir.ash.numerical-fallback-count": "7"
+        ]) { _, final in final }
+        let pipeline = AVFoundationMediaPipeline(metal: NoopMetalRenderingService())
+        let source = try await pipeline.probe(url: fixture.source)
+        let session = try await pipeline.beginSession(
+            source: source,
+            output: OutputProfile(
+                url: fixture.destination,
+                resolution: VideoResolution(width: 128, height: 128),
+                codec: .h264,
+                preserveAudio: false,
+                timedMetadataTemplate: template
+            )
+        )
+        let nextRecord = try await session.nextSourceFrame()
+        let record = try XCTUnwrap(nextRecord)
+        let output = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
+        try fillNV12(output)
+        try await session.appendOutput(pixelBuffer: output, timing: record.timing)
+        let endOfStream = try await session.nextSourceFrame()
+        XCTAssertNil(endOfStream)
+
+        try await session.finish(finalMetadata: finalMetadata)
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.destination.path))
+        _ = try await OutputMediaVerifier().verify(
+            url: fixture.destination,
+            expectation: OutputMediaVerificationExpectation(
+                resolution: VideoResolution(width: 128, height: 128),
+                codec: .h264,
+                timing: try makeTimingSnapshot(
+                    presentationTime: record.presentationTime,
+                    duration: record.duration
+                ),
+                timedMetadata: finalMetadata
+            )
+        )
+    }
+
+    func testSessionRejectsFinalASHIdentityKeyDriftWithoutPublishing() async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let duration = CMTime(value: 1, timescale: 30)
+        try await writeOneFrameVideo(
+            to: fixture.source,
+            resolution: VideoResolution(width: 64, height: 64),
+            duration: duration
+        )
+        let pipeline = AVFoundationMediaPipeline(metal: NoopMetalRenderingService())
+        let source = try await pipeline.probe(url: fixture.source)
+        let session = try await pipeline.beginSession(
+            source: source,
+            output: OutputProfile(
+                url: fixture.destination,
+                resolution: VideoResolution(width: 128, height: 128),
+                codec: .h264,
+                preserveAudio: false,
+                timedMetadataTemplate: [
+                    "com.mirmir.ash.numerical-fallback-count": "0"
+                ]
+            )
+        )
+        let nextRecord = try await session.nextSourceFrame()
+        let record = try XCTUnwrap(nextRecord)
+        let output = try PixelBufferBridge.dequeue(from: session.outputPixelBufferPool)
+        try fillNV12(output)
+        try await session.appendOutput(pixelBuffer: output, timing: record.timing)
+        let endOfStream = try await session.nextSourceFrame()
+        XCTAssertNil(endOfStream)
+
+        do {
+            try await session.finish(finalMetadata: [
+                "com.mirmir.ash.unexpected": "1"
+            ])
+            XCTFail("Expected final ASH identity key-closure rejection.")
+        } catch let error as MediaPipelineError {
+            guard case .outputMetadataMismatch = error else {
+                return XCTFail("Unexpected media pipeline error: \(error)")
+            }
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.destination.path))
+        XCTAssertTrue(fixture.recognizedTemporaryFiles().isEmpty)
+    }
+
     func testVerifierRejectsExactPTSMismatch() async throws {
         let fixture = try MediaOutputFixture()
         defer { fixture.remove() }
@@ -205,203 +306,5 @@ final class OutputMediaVerifierTests: XCTestCase {
         XCTAssertEqual(verification.frameCount, 1)
         XCTAssertGreaterThan(verification.lumaPayloadBytes, 0)
         XCTAssertGreaterThan(verification.chromaPayloadBytes, 0)
-    }
-}
-
-private struct RejectingOutputMediaVerifier: OutputMediaVerifying {
-    struct InjectedFailure: Error {}
-
-    func verify(
-        url: URL,
-        expectation: OutputMediaVerificationExpectation
-    ) async throws -> OutputMediaVerificationResult {
-        throw InjectedFailure()
-    }
-}
-
-private final class SuspendingOutputMediaVerifier: OutputMediaVerifying, @unchecked Sendable {
-    private struct State {
-        var didStart = false
-        var expectation: OutputMediaVerificationExpectation?
-        var continuation: CheckedContinuation<OutputMediaVerificationResult, Error>?
-    }
-
-    private let state = OSAllocatedUnfairLock(initialState: State())
-
-    func verify(
-        url: URL,
-        expectation: OutputMediaVerificationExpectation
-    ) async throws -> OutputMediaVerificationResult {
-        try await withCheckedThrowingContinuation { continuation in
-            state.withLock { state in
-                state.didStart = true
-                state.expectation = expectation
-                state.continuation = continuation
-            }
-        }
-    }
-
-    func waitUntilStarted() async throws {
-        for _ in 0..<100_000 {
-            if state.withLock({ $0.didStart }) { return }
-            await Task.yield()
-        }
-        throw MediaTestFailure.timeout
-    }
-
-    func resumeSuccessfully() {
-        let resume = state.withLock { state -> (
-            CheckedContinuation<OutputMediaVerificationResult, Error>,
-            OutputMediaVerificationResult
-        )? in
-            guard let continuation = state.continuation,
-                  let expectation = state.expectation,
-                  let duration = expectation.timing.sessionEndTime else {
-                return nil
-            }
-            state.continuation = nil
-            let result = OutputMediaVerificationResult(
-                codec: "avc1",
-                resolution: expectation.resolution,
-                frameCount: expectation.timing.frameCount,
-                duration: duration,
-                lumaPayloadBytes: 1,
-                chromaPayloadBytes: 1
-            )
-            return (continuation, result)
-        }
-        guard let resume else { return }
-        resume.0.resume(returning: resume.1)
-    }
-}
-
-private struct MediaOutputFixture {
-    let directory: URL
-    let source: URL
-    let destination: URL
-
-    init() throws {
-        directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        source = directory.appendingPathComponent("source.mp4")
-        destination = directory.appendingPathComponent("destination.mp4")
-        try FileManager.default.createDirectory(
-            at: directory,
-            withIntermediateDirectories: true
-        )
-    }
-
-    func recognizedTemporaryFiles() -> [URL] {
-        let contents = (try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil
-        )) ?? []
-        return contents.filter {
-            $0.lastPathComponent.hasPrefix(".destination.mirmir-")
-                && $0.lastPathComponent.contains(".partial")
-        }
-    }
-
-    func remove() {
-        try? FileManager.default.removeItem(at: directory)
-    }
-}
-
-private enum MediaTestFailure: Error {
-    case cannotCreateWriter
-    case cannotAddWriterInput
-    case cannotStartWriter
-    case missingPixelBufferPool
-    case cannotCreatePixelBuffer(CVReturn)
-    case appendFailed
-    case writerFailed
-    case timeout
-}
-
-private func makeTimingSnapshot(
-    presentationTime: CMTime,
-    duration: CMTime
-) throws -> FrameTimingLedgerSnapshot {
-    var ledger = FrameTimingLedger()
-    try ledger.append(FrameTiming(
-        frameIndex: 0,
-        presentationTime: presentationTime,
-        duration: duration
-    ))
-    return ledger.snapshot
-}
-
-private func writeOneFrameVideo(
-    to url: URL,
-    resolution: VideoResolution,
-    duration: CMTime
-) async throws {
-    let writer: AVAssetWriter
-    do {
-        writer = try AVAssetWriter(url: url, fileType: .mp4)
-    } catch {
-        throw MediaTestFailure.cannotCreateWriter
-    }
-    let input = AVAssetWriterInput(
-        mediaType: .video,
-        outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: resolution.width,
-            AVVideoHeightKey: resolution.height,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
-            ]
-        ]
-    )
-    input.mediaTimeScale = 600
-    let adaptor = AVAssetWriterInputPixelBufferAdaptor(
-        assetWriterInput: input,
-        sourcePixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
-            kCVPixelBufferWidthKey as String: resolution.width,
-            kCVPixelBufferHeightKey as String: resolution.height,
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()
-        ]
-    )
-    guard writer.canAdd(input) else { throw MediaTestFailure.cannotAddWriterInput }
-    writer.add(input)
-    guard writer.startWriting() else { throw MediaTestFailure.cannotStartWriter }
-    writer.startSession(atSourceTime: .zero)
-    guard let pool = adaptor.pixelBufferPool else { throw MediaTestFailure.missingPixelBufferPool }
-    var optionalPixelBuffer: CVPixelBuffer?
-    let createStatus = CVPixelBufferPoolCreatePixelBuffer(
-        kCFAllocatorDefault,
-        pool,
-        &optionalPixelBuffer
-    )
-    guard createStatus == kCVReturnSuccess, let pixelBuffer = optionalPixelBuffer else {
-        throw MediaTestFailure.cannotCreatePixelBuffer(createStatus)
-    }
-    try fillNV12(pixelBuffer)
-    guard adaptor.append(pixelBuffer, withPresentationTime: .zero) else {
-        throw MediaTestFailure.appendFailed
-    }
-    input.markAsFinished()
-    writer.endSession(atSourceTime: duration)
-    await writer.finishWriting()
-    guard writer.status == .completed else { throw MediaTestFailure.writerFailed }
-}
-
-private func fillNV12(_ pixelBuffer: CVPixelBuffer) throws {
-    let lockStatus = CVPixelBufferLockBaseAddress(pixelBuffer, [])
-    guard lockStatus == kCVReturnSuccess else { throw MediaTestFailure.appendFailed }
-    defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
-    guard CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
-        throw MediaTestFailure.appendFailed
-    }
-    for planeIndex in 0..<2 {
-        guard let baseAddress = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, planeIndex) else {
-            throw MediaTestFailure.appendFailed
-        }
-        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, planeIndex)
-        let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, planeIndex)
-        memset(baseAddress, planeIndex == 0 ? 64 : 128, height * bytesPerRow)
     }
 }

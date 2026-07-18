@@ -27,6 +27,7 @@ QUALITY_HARNESS_REQUIRED_IMPLEMENTATION_FILES = (
     "Mirmir/Modules/UpscalerEngine/ASH/ASHAnalysisGridV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHChromaSitingV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCodePlaneNormalizerV2.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateDiagnosticRuntimeV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHCoordinateModelContractV3.swift",
     "Mirmir/Modules/UpscalerEngine/ASH/ASHDeterministicUpscaleBackend.swift",

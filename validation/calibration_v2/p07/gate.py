@@ -18,6 +18,11 @@ from validation.calibration_v2.p07.execution import (
     _validate_schema,
     _write_json,
 )
+from validation.calibration_v2.p07.contracts_v2 import (
+    IDENTITY_FIELD,
+    validate_identity_v2,
+    validate_selected_evaluation_projection_v2,
+)
 from validation.quality.src.mirmir_quality.bootstrap import paired_bootstrap
 from validation.quality.src.mirmir_quality.corpus import QUALITY_CATEGORIES
 from validation.quality.src.mirmir_quality.json_tools import canonical_sha256
@@ -45,6 +50,9 @@ CONTROL_ORDER = FIXED_CONTROLS + CONVENTIONAL_CONTROLS + SELECTED_AND_ASH_CONTRO
 MEASUREMENT_SCHEMA = SCHEMAS_ROOT / "p07-spatial-holdout-measurements-v1.schema.json"
 EVIDENCE_SCHEMA = SCHEMAS_ROOT / "p07-gate-evidence-v1.schema.json"
 PUBLICATION_SCHEMA = SCHEMAS_ROOT / "p07-g07-publication-v1.schema.json"
+MEASUREMENT_V2_SCHEMA = SCHEMAS_ROOT / "p07-spatial-holdout-measurements-v2.schema.json"
+EVIDENCE_V2_SCHEMA = SCHEMAS_ROOT / "p07-gate-evidence-v2.schema.json"
+PUBLICATION_V2_SCHEMA = SCHEMAS_ROOT / "p07-g07-publication-v2.schema.json"
 BOOTSTRAP_REPLICATES = 10_000
 BOOTSTRAP_SEED = 20_260_710
 DEGRADATION_KIND_ORDER = (
@@ -109,9 +117,22 @@ def _evidence_document(
     measurements: Mapping[str, object],
     evidence: Mapping[str, object],
 ) -> Mapping[str, object]:
+    is_v2 = measurements.get("schema_version") == "2.0.0"
+    identity = (
+        validate_identity_v2(measurements.get(IDENTITY_FIELD))
+        if is_v2
+        else None
+    )
     document = {
-        "schema_version": "1.0.0",
-        "artifact_kind": artifact_kind,
+        "schema_version": "2.0.0" if is_v2 else "1.0.0",
+        "artifact_kind": (
+            artifact_kind + "_v2" if is_v2 else artifact_kind
+        ),
+        **(
+            {IDENTITY_FIELD: dict(identity)}
+            if identity is not None
+            else {}
+        ),
         "status": status,
         "configuration_sha256": measurements["configuration_sha256"],
         "measurement_sha256": measurements["measurement_sha256"],
@@ -121,7 +142,11 @@ def _evidence_document(
         "evidence": dict(evidence),
     }
     document["manifest_sha256"] = canonical_sha256(document)
-    _validate_schema(document, EVIDENCE_SCHEMA, artifact_kind)
+    _validate_schema(
+        document,
+        EVIDENCE_V2_SCHEMA if is_v2 else EVIDENCE_SCHEMA,
+        artifact_kind,
+    )
     return document
 
 
@@ -302,7 +327,20 @@ def _validate_measurements(
     measurements: Mapping[str, object],
     locked_metric_policy: Mapping[str, object],
 ) -> Tuple[Sequence[Mapping[str, object]], Sequence[Mapping[str, object]]]:
-    _validate_schema(measurements, MEASUREMENT_SCHEMA, "P07 holdout measurements")
+    is_v2 = measurements.get("schema_version") == "2.0.0"
+    _validate_schema(
+        measurements,
+        MEASUREMENT_V2_SCHEMA if is_v2 else MEASUREMENT_SCHEMA,
+        "P07 holdout measurements",
+    )
+    try:
+        p06_identity = (
+            validate_identity_v2(measurements.get(IDENTITY_FIELD))
+            if is_v2
+            else None
+        )
+    except ValueError as error:
+        raise P07GateError("P07 V2 release identity differs") from error
     if measurements.get("measurement_sha256") != canonical_sha256(
         {key: value for key, value in measurements.items() if key != "measurement_sha256"}
     ):
@@ -353,30 +391,52 @@ def _validate_measurements(
         != configuration_hashes["state_plus_branch"]
     ):
         raise P07GateError("selected alias or full-branch configuration hashes differ")
-    performance = measurements.get("locked_p06_performance_evidence")
-    expected_performance_fields = {
-        "selected_evaluation_sha256",
-        "full_frames_per_second",
-        "h07_control_frames_per_second",
-        "full_dispatch_cost",
-        "h07_control_dispatch_cost",
-        "no_worse_frames_per_second",
-        "no_worse_dispatch_cost",
-    }
-    if not isinstance(performance, dict) or set(performance) != expected_performance_fields:
-        raise P07GateError("locked P06 performance evidence is incomplete")
-    _sha(performance["selected_evaluation_sha256"], "selected evaluation")
-    full_fps = _finite(performance["full_frames_per_second"], "full FPS")
-    control_fps = _finite(performance["h07_control_frames_per_second"], "H07 control FPS")
-    full_cost = _finite(performance["full_dispatch_cost"], "full dispatch cost")
-    control_cost = _finite(performance["h07_control_dispatch_cost"], "H07 control cost")
-    if (
-        performance["no_worse_frames_per_second"] is not True
-        or performance["no_worse_dispatch_cost"] is not True
-        or full_fps < control_fps
-        or full_cost > control_cost
-    ):
-        raise P07GateError("locked H07 quality/performance Pareto evidence fails")
+    if is_v2:
+        try:
+            validate_selected_evaluation_projection_v2(
+                measurements.get("selected_p06_evidence_projection"),
+                identity=p06_identity,
+            )
+        except ValueError as error:
+            raise P07GateError(
+                "selected P06 V2 objective/check evidence differs"
+            ) from error
+    else:
+        performance = measurements.get("locked_p06_performance_evidence")
+        expected_performance_fields = {
+            "selected_evaluation_sha256",
+            "full_frames_per_second",
+            "h07_control_frames_per_second",
+            "full_dispatch_cost",
+            "h07_control_dispatch_cost",
+            "no_worse_frames_per_second",
+            "no_worse_dispatch_cost",
+        }
+        if (
+            not isinstance(performance, dict)
+            or set(performance) != expected_performance_fields
+        ):
+            raise P07GateError("locked P06 performance evidence is incomplete")
+        _sha(performance["selected_evaluation_sha256"], "selected evaluation")
+        full_fps = _finite(performance["full_frames_per_second"], "full FPS")
+        control_fps = _finite(
+            performance["h07_control_frames_per_second"],
+            "H07 control FPS",
+        )
+        full_cost = _finite(performance["full_dispatch_cost"], "full dispatch cost")
+        control_cost = _finite(
+            performance["h07_control_dispatch_cost"],
+            "H07 control cost",
+        )
+        if (
+            performance["no_worse_frames_per_second"] is not True
+            or performance["no_worse_dispatch_cost"] is not True
+            or full_fps < control_fps
+            or full_cost > control_cost
+        ):
+            raise P07GateError(
+                "locked H07 quality/performance Pareto evidence fails"
+            )
 
     source_order = measurements["source_order"]
     kind_order = measurements["degradation_kind_order"]
@@ -1049,9 +1109,19 @@ def build_g07_artifacts(
             "fixed_operator_count": len(FIXED_CONTROLS),
             "conventional_control_count": len(CONVENTIONAL_CONTROLS),
             "selected_aliases": aliases,
-            "locked_p06_performance_evidence": measurements[
-                "locked_p06_performance_evidence"
-            ],
+            **(
+                {
+                    "selected_p06_evidence_projection": measurements[
+                        "selected_p06_evidence_projection"
+                    ]
+                }
+                if measurements.get("schema_version") == "2.0.0"
+                else {
+                    "locked_p06_performance_evidence": measurements[
+                        "locked_p06_performance_evidence"
+                    ]
+                }
+            ),
             "domains": {
                 domain: {
                     "control_y_psnr_means_db": summaries[domain][
@@ -1135,9 +1205,24 @@ def publish_g07_artifacts(
         _write_json(path, document)
         bindings[name] = hashlib.sha256(path.read_bytes()).hexdigest()
     decision = artifacts["g07-decision.json"]
+    is_v2 = measurements.get("schema_version") == "2.0.0"
+    identity = (
+        validate_identity_v2(measurements.get(IDENTITY_FIELD))
+        if is_v2
+        else None
+    )
     document = {
-        "schema_version": "1.0.0",
-        "artifact_kind": "p07_g07_publication",
+        "schema_version": "2.0.0" if is_v2 else "1.0.0",
+        "artifact_kind": (
+            "p07_g07_publication_v2"
+            if is_v2
+            else "p07_g07_publication"
+        ),
+        **(
+            {IDENTITY_FIELD: dict(identity)}
+            if identity is not None
+            else {}
+        ),
         "status": decision["status"],
         "gate_pass": decision["evidence"]["pass"],
         "artifact_file_sha256": bindings,
@@ -1145,5 +1230,9 @@ def publish_g07_artifacts(
         "configuration_files_modified_after_holdout": False,
     }
     document["manifest_sha256"] = canonical_sha256(document)
-    _validate_schema(document, PUBLICATION_SCHEMA, "P07 G07 publication")
+    _validate_schema(
+        document,
+        PUBLICATION_V2_SCHEMA if is_v2 else PUBLICATION_SCHEMA,
+        "P07 G07 publication",
+    )
     return document

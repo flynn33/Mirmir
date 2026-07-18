@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 import errno
@@ -14,6 +15,7 @@ import threading
 import unittest
 from unittest import mock
 
+import validation.calibration_v2.release_lock as release_lock_module
 import validation.calibration_v2.shared_bank_artifacts_v2 as shared_bank_module
 
 from validation.calibration_v2.calibration_plan_codec import (
@@ -63,6 +65,94 @@ MAPPING_SEED_SHA256 = (
 OPERATOR_SEED_SHA256 = (
     "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137"
 )
+
+_V1_RELEASE_LOCK_SOURCE_BINDINGS = frozenset(
+    {
+        "hashlib",
+        "json",
+        "validate_schema",
+        "VIDEO_MAPPING_SCHEMA",
+        "OPERATOR_BANK_SCHEMA",
+        "_PARAMETER_ORDER_LENGTH",
+        "_THRESHOLD_BANDS",
+        "_SHARED_BANK_COORDINATES",
+        "ReleaseLockError",
+        "_sha256",
+        "_require_sha256",
+        "_canonical_bytes",
+        "candidate_vector_sha256_for_plan",
+        "shared_bank_configuration_sha256_for_plan",
+        "_selection_binding",
+        "video_mapping_document",
+        "operator_bank_document",
+    }
+)
+_V1_RELEASE_LOCK_SOURCE_SHA256 = (
+    "879525fccc8a28a0c3d05debf6ff4505ff0901f5f6f732a5d4127f24fc98ea1f"
+)
+
+
+class _ModuleScopeBindingVisitor(ast.NodeVisitor):
+    """Find names bound while executing one module-level statement."""
+
+    def __init__(self) -> None:
+        self.names: list[str] = []
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, (ast.Store, ast.Del)):
+            self.names.append(node.id)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for alias in node.names:
+            self.names.append(alias.asname or alias.name.partition(".")[0])
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        for alias in node.names:
+            self.names.append(alias.asname or alias.name)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.names.append(node.name)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self.names.append(node.name)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.names.append(node.name)
+
+
+def _v1_release_lock_source_sha256(source: str) -> str:
+    """Hash the exact source statements that transitively define V1 banks."""
+
+    tree = ast.parse(source)
+    records: list[dict[str, object]] = []
+    binding_counts = {name: 0 for name in _V1_RELEASE_LOCK_SOURCE_BINDINGS}
+    for node in tree.body:
+        visitor = _ModuleScopeBindingVisitor()
+        visitor.visit(node)
+        matched_names = sorted(
+            name
+            for name in visitor.names
+            if name in _V1_RELEASE_LOCK_SOURCE_BINDINGS
+        )
+        if not matched_names:
+            continue
+        segment = ast.get_source_segment(source, node)
+        if segment is None:
+            raise AssertionError("V1 source binding has no exact source segment")
+        for name in matched_names:
+            binding_counts[name] += 1
+        records.append(
+            {
+                "bound_names": matched_names,
+                "source": segment,
+            }
+        )
+    nonunique = {
+        name: count for name, count in binding_counts.items() if count != 1
+    }
+    if nonunique:
+        raise AssertionError(f"V1 source bindings are not unique: {nonunique}")
+    return _sha256(canonical_json_bytes(records))
 
 
 def _decode(payload: bytes) -> dict[str, object]:
@@ -1039,9 +1129,18 @@ class SharedBankArtifactsV2Tests(unittest.TestCase):
             )
 
     def test_v1_source_schemas_and_fixture_bytes_are_immutable(self) -> None:
+        release_lock_source = RELEASE_LOCK_PATH.read_text(encoding="utf-8")
         self.assertEqual(
-            _sha256(RELEASE_LOCK_PATH.read_bytes()),
-            "339b2a40688023fabdae5378bf578f57622465b7de840d5c620023d6b91cbb40",
+            _v1_release_lock_source_sha256(release_lock_source),
+            _V1_RELEASE_LOCK_SOURCE_SHA256,
+        )
+        self.assertEqual(
+            release_lock_module.VIDEO_MAPPING_SCHEMA,
+            MAPPING_V1_SCHEMA_PATH,
+        )
+        self.assertEqual(
+            release_lock_module.OPERATOR_BANK_SCHEMA,
+            OPERATOR_V1_SCHEMA_PATH,
         )
         self.assertEqual(
             _sha256(MAPPING_V1_SCHEMA_PATH.read_bytes()),
@@ -1081,6 +1180,38 @@ class SharedBankArtifactsV2Tests(unittest.TestCase):
             _sha256(operator_v1),
             "1255660096e412d666c41f6149353e2a82a2268f4b002ed7d002de0a329ef508",
         )
+
+    def test_v1_source_lock_is_scoped_but_rejects_v1_drift(self) -> None:
+        source = RELEASE_LOCK_PATH.read_text(encoding="utf-8")
+        baseline = _v1_release_lock_source_sha256(source)
+        additive_v3_source = source + (
+            "\n\ndef additive_v3_extension(payload: bytes) -> str:\n"
+            "    return _sha256(payload)\n"
+        )
+        self.assertEqual(
+            _v1_release_lock_source_sha256(additive_v3_source),
+            baseline,
+        )
+
+        changed_v1_source = source.replace(
+            '"mapping_id": "ash-video-mapping-v2"',
+            '"mapping_id": "ash-video-mapping-v2-drift"',
+            1,
+        )
+        self.assertNotEqual(changed_v1_source, source)
+        self.assertNotEqual(
+            _v1_release_lock_source_sha256(changed_v1_source),
+            baseline,
+        )
+
+        rebound_v1_source = source + (
+            "\nvideo_mapping_document = operator_bank_document\n"
+        )
+        with self.assertRaisesRegex(
+            AssertionError,
+            "V1 source bindings are not unique",
+        ):
+            _v1_release_lock_source_sha256(rebound_v1_source)
 
 
 if __name__ == "__main__":

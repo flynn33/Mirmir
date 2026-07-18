@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p07-transaction-intent-v2.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "p06_v2_identity", "source_gate_semantics", "transaction_id",
+    "transaction_state", "requested_output_directory", "configuration_id",
+    "configuration_sha256", "release_bundle_manifest_sha256", "input_bundle_sha256",
+    "corpus_lock_bundle_sha256", "corpus_manifest_sha256", "sampling_plan_file_sha256",
+    "sampling_plan_manifest_sha256", "no_pixel_attestation_file_sha256",
+    "outer_wrapper_file_sha256", "outer_wrapper_manifest_sha256",
+    "loader_executable_sha256", "authorized_execution_bindings",
+    "p07_preopen_cache_tree_sha256", "inner_inventory_sha256",
+    "direct_input_bindings", "unmount_script_path", "unmount_script_sha256",
+    "live_ledger_path", "live_anchor_path", "live_preopen_receipt_path",
+    "expected_live_ledger_root_identity_sha256",
+    "expected_live_anchor_root_identity_sha256",
+    "expected_live_preopen_receipt_sha256", "command", "platform", "manifest_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "p07_durable_transaction_intent_v2"},
+    "p06_v2_identity": {"$ref": "#/$defs/p06Identity"},
+    "source_gate_semantics": {
+      "type": "object",
+      "required": [
+        "schema_version", "artifact_kind", "status", "source_commit",
+        "working_tree_clean", "holdout_accessed", "gates", "manifest_sha256"
+      ],
+      "properties": {
+        "schema_version": {"const": "2.0.0"},
+        "artifact_kind": {"const": "p06_current_source_gate_semantics_v2"},
+        "status": {"const": "pass"},
+        "source_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "working_tree_clean": {"const": true},
+        "holdout_accessed": {"const": false},
+        "gates": {"type": "array", "minItems": 3, "maxItems": 3},
+        "manifest_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    },
+    "transaction_id": {"type": "string", "minLength": 1},
+    "transaction_state": {"const": "pre_guard"},
+    "requested_output_directory": {"type": "string", "minLength": 1},
+    "configuration_id": {"type": "string", "minLength": 1},
+    "configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "release_bundle_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"},
+    "corpus_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_file_sha256": {"$ref": "#/$defs/sha256"},
+    "sampling_plan_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "no_pixel_attestation_file_sha256": {"$ref": "#/$defs/sha256"},
+    "outer_wrapper_file_sha256": {"$ref": "#/$defs/sha256"},
+    "outer_wrapper_manifest_sha256": {"$ref": "#/$defs/sha256"},
+    "loader_executable_sha256": {"$ref": "#/$defs/sha256"},
+    "authorized_execution_bindings": {"type": "object"},
+    "p07_preopen_cache_tree_sha256": {"$ref": "#/$defs/sha256"},
+    "inner_inventory_sha256": {"$ref": "#/$defs/sha256"},
+    "direct_input_bindings": {"type": "array"},
+    "unmount_script_path": {"type": "string", "minLength": 1},
+    "unmount_script_sha256": {"$ref": "#/$defs/sha256"},
+    "live_ledger_path": {"type": "string", "minLength": 1},
+    "live_anchor_path": {"type": "string", "minLength": 1},
+    "live_preopen_receipt_path": {"type": "string", "minLength": 1},
+    "expected_live_ledger_root_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "expected_live_anchor_root_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "expected_live_preopen_receipt_sha256": {"$ref": "#/$defs/sha256"},
+    "command": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "p06Identity": {
+      "type": "object", "minProperties": 8, "maxProperties": 8,
+      "required": [
+        "calibration_plan_v2_file_sha256", "candidate_vector_sha256",
+        "shared_bank_configuration_sha256", "input_bundle_sha256",
+        "p06_release_bundle_artifact_sha256", "selected_evaluation_file_sha256",
+        "selected_evaluation_artifact_sha256", "selected_evaluation_semantic_sha256"
+      ],
+      "properties": {
+        "calibration_plan_v2_file_sha256": {"$ref": "#/$defs/sha256"},
+        "candidate_vector_sha256": {"$ref": "#/$defs/sha256"},
+        "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+        "input_bundle_sha256": {"$ref": "#/$defs/sha256"},
+        "p06_release_bundle_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_file_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_artifact_sha256": {"$ref": "#/$defs/sha256"},
+        "selected_evaluation_semantic_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

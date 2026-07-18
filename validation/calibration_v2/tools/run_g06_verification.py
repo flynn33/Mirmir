@@ -32,6 +32,7 @@ from validation.calibration_v2.release_evidence import (  # noqa: E402
     RELEASE_LOCK_TEST_MODULES,
     RELEASE_RUNTIME_TEST_IDS,
     TEST_EVIDENCE_IDS,
+    V3_RELEASE_INTEGRATION_TEST_IDS,
     actionable_diagnostic_counts,
 )
 from validation.calibration_v2.tools.finalize_p06_runtime_correction import (  # noqa: E402
@@ -80,6 +81,7 @@ VERIFIER_SOURCE_PATH = Path(__file__).resolve(strict=True)
 REQUIRED_G06_TEST_EVIDENCE_IDS = TEST_EVIDENCE_IDS
 NATIVE_INTEGRATION_TESTS = NATIVE_INTEGRATION_TEST_IDS
 RELEASE_RUNTIME_TESTS = RELEASE_RUNTIME_TEST_IDS
+V3_RELEASE_INTEGRATION_TESTS = V3_RELEASE_INTEGRATION_TEST_IDS
 G06_TRANSACTION_SCHEMA_VERSION = "1.0.0"
 G06_TRANSACTION_TOKEN_NAME = "g06-publication-transaction.json"
 
@@ -3893,6 +3895,57 @@ class G06VerificationRunner:
                 "published G06 run-tree closure differs"
             )
         return tuple(result)
+
+    def verify_published_release_evidence(
+        self,
+        root: Path,
+        *,
+        execution_run_name: str,
+        expected_source_commit: str,
+    ) -> Mapping[str, object]:
+        """Public semantic reopener for one passing release-grade G06 run."""
+
+        if (
+            re.fullmatch(r"[0-9a-f]{40}", expected_source_commit) is None
+            or _git_head(self.repository_root) != expected_source_commit
+        ):
+            raise G06VerificationError(
+                "published G06 source commit differs from repository HEAD"
+            )
+        resolved = Path(root).resolve(strict=True)
+        evidence_paths = self._verify_published(
+            resolved,
+            require_release_semantics=True,
+            execution_run_name=execution_run_name,
+        )
+        bindings = []
+        for identifier, path in evidence_paths:
+            document = _read_json(path)
+            if (
+                document.get("status") != "passed"
+                or document.get("holdout_accessed") is not False
+            ):
+                raise G06VerificationError(
+                    "published G06 evidence is not passing and holdout-free"
+                )
+            payload = _read_regular(path)
+            bindings.append(
+                {
+                    "id": identifier,
+                    "path": path.name,
+                    "sha256": hashlib.sha256(payload).hexdigest(),
+                    "size_bytes": len(payload),
+                }
+            )
+        return {
+            "gate_id": "G06",
+            "source_commit": expected_source_commit,
+            "working_tree_clean": True,
+            "holdout_accessed": False,
+            "execution_run_name": execution_run_name,
+            "evidence": bindings,
+            "evidence_set_sha256": canonical_sha256(bindings),
+        }
 
     def run(self) -> VerificationRunResult:
         self.output_root.mkdir(parents=True, exist_ok=True)

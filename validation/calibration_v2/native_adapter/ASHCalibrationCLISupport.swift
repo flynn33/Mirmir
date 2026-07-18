@@ -56,6 +56,41 @@ final class ASHNoopTelemetryRecorder: ASHTelemetryRecording, @unchecked Sendable
     func recordDecode(_: ASHDecodeStatus) {}
     func recordCandidateCount(_: Int) {}
 }
+
+/// Standalone CLI equivalents of the app's CoreVideo-backed frame envelope.
+/// The command-line target operates on exact planar bytes and therefore needs
+/// only the pure normalized-plane portion of `ASHNV12FrameCodec`.
+struct ASHNV12CodeFrame: Equatable, Sendable {
+    let luma: ASHVideoAnalyzerV2CodePlane
+    let cb: ASHVideoAnalyzerV2CodePlane
+    let cr: ASHVideoAnalyzerV2CodePlane
+    let chromaSiting: ASHChromaSitingV2
+}
+
+struct ASHNV12FrameGeometry: Equatable, Sendable {
+    let lumaWidth: Int
+    let lumaHeight: Int
+    let chromaWidth: Int
+    let chromaHeight: Int
+}
+
+struct ASHSpatialReferencePlaneOutputV2: Equatable, Sendable {
+    let width: Int
+    let height: Int
+    let normalizedSamples: [Double]
+}
+
+enum ASHNV12FrameCodec {
+    static func normalizedPlane(
+        _ plane: ASHVideoAnalyzerV2CodePlane,
+        channel: ASHNormalizedChannel
+    ) throws -> ASHSpatialPlaneV2 {
+        try ASHCodePlaneNormalizerV2.normalizedPlane(
+            plane,
+            channel: channel
+        )
+    }
+}
 #endif
 
 enum ASHCalibrationCLIHash {

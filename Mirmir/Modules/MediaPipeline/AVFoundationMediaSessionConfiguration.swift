@@ -76,7 +76,16 @@ extension AVFoundationMediaSession {
             audioOutput: audioOutput,
             audioFormatDescription: audioFormatDescription
         )
-        return WriterInputs(video: videoInput, adaptor: adaptor, audio: audioInput)
+        let timedMetadata = try makeTimedMetadataWriter(
+            writer: writer,
+            template: output.timedMetadataTemplate
+        )
+        return WriterInputs(
+            video: videoInput,
+            adaptor: adaptor,
+            audio: audioInput,
+            timedMetadata: timedMetadata
+        )
     }
 
     static func start(
@@ -121,8 +130,12 @@ extension AVFoundationMediaSession {
         }
     }
 
-    static func makeASHMetadataItems() -> [AVMetadataItem] {
-        ASHSpatialRuntimeConfigurationV2.developmentP05.outputMetadata
+    static func makeASHMetadataItems(
+        _ metadata: [String: String] = ASHSpatialRuntimeConfigurationV2
+            .developmentP05
+            .outputMetadata
+    ) -> [AVMetadataItem] {
+        metadata
             .sorted { $0.key < $1.key }
             .map { key, value -> AVMetadataItem in
                 let item = AVMutableMetadataItem()
@@ -132,6 +145,52 @@ extension AVFoundationMediaSession {
                 item.dataType = kCMMetadataBaseDataType_UTF8 as String
                 return item
             }
+    }
+
+    static func makeASHMetadataGroup(
+        _ metadata: [String: String],
+        timeRange: CMTimeRange
+    ) -> AVTimedMetadataGroup {
+        AVTimedMetadataGroup(
+            items: makeASHMetadataItems(metadata),
+            timeRange: timeRange
+        )
+    }
+
+    private static func makeTimedMetadataWriter(
+        writer: AVAssetWriter,
+        template: [String: String]
+    ) throws -> TimedMetadataWriter? {
+        guard !template.isEmpty else { return nil }
+        guard template.allSatisfy({ key, value in
+            key.hasPrefix("com.mirmir.ash.") && !value.isEmpty
+        }) else {
+            throw MediaPipelineError.outputMetadataMismatch(
+                "timed metadata template contains an invalid key or empty value"
+            )
+        }
+        let templateGroup = makeASHMetadataGroup(
+            template,
+            timeRange: CMTimeRange(
+                start: .zero,
+                duration: CMTime(value: 1, timescale: 1)
+            )
+        )
+        let input = AVAssetWriterInput(
+            mediaType: .metadata,
+            outputSettings: nil,
+            sourceFormatHint: templateGroup.copyFormatDescription()
+        )
+        input.expectsMediaDataInRealTime = false
+        guard writer.canAdd(input) else {
+            throw MediaPipelineError.cannotAddWriterInput("ASH identity metadata")
+        }
+        writer.add(input)
+        return TimedMetadataWriter(
+            input: input,
+            adaptor: AVAssetWriterInputMetadataAdaptor(assetWriterInput: input),
+            expectedKeys: Set(template.keys)
+        )
     }
 
     private static func makeAudioOutput(
@@ -211,4 +270,11 @@ struct WriterInputs {
     let video: AVAssetWriterInput
     let adaptor: AVAssetWriterInputPixelBufferAdaptor
     let audio: AVAssetWriterInput?
+    let timedMetadata: TimedMetadataWriter?
+}
+
+struct TimedMetadataWriter {
+    let input: AVAssetWriterInput
+    let adaptor: AVAssetWriterInputMetadataAdaptor
+    let expectedKeys: Set<String>
 }

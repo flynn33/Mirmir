@@ -921,6 +921,96 @@ def bind_preregistered_inputs(
     return bound
 
 
+def bind_preregistered_inputs_v2(
+    repository_root: Path,
+    *,
+    live_holdout_preopen_binding: LiveHoldoutPreopenBinding,
+    validate_implementation_manifest: bool = True,
+    implementation_manifest_validator: Optional[
+        Callable[[Mapping[str, object], Path], str]
+    ] = None,
+) -> Tuple[BoundInputs, BoundInputs]:
+    """Return native-V2 and inherited evaluation bindings from one preopen."""
+
+    legacy = bind_preregistered_inputs(
+        repository_root,
+        live_holdout_preopen_binding=live_holdout_preopen_binding,
+        validate_implementation_manifest=validate_implementation_manifest,
+        implementation_manifest_validator=implementation_manifest_validator,
+    )
+    root = legacy.repository_root
+    replacements = {
+        "calibration_plan": (
+            "validation/calibration_v2/contracts/calibration-plan-v2.json",
+            "validation/calibration_v2/schemas/calibration-plan-v2.schema.json",
+            "plan_sha256",
+        ),
+        "compiler_contract": (
+            "validation/calibration_v2/contracts/compiler-contract-v2.json",
+            "validation/calibration_v2/schemas/compiler-contract-v2.schema.json",
+            "artifact_sha256",
+        ),
+    }
+    replacement_records: Dict[str, Mapping[str, object]] = {}
+    replacement_documents: Dict[str, Mapping[str, object]] = {}
+    for identifier, (relative, schema_relative, self_field) in replacements.items():
+        binding = _hash_regular_file(root, relative)
+        document = _load_bound_json(root, binding)
+        validate_schema(document, root / schema_relative)
+        if document.get(self_field) != manifest_sha256(document, self_field):
+            raise CalibrationBindingError(
+                f"schema-2 {identifier} self-hash differs"
+            )
+        replacement_records[identifier] = {"id": identifier, **binding}
+        replacement_documents[identifier] = document
+
+    from validation.calibration_v2.shared_bank_artifacts_v2 import (
+        SharedBankArtifactMaterializerV2,
+    )
+
+    authenticated_plan = SharedBankArtifactMaterializerV2(root).plan
+    if (
+        authenticated_plan.plan_file_sha256
+        != replacement_records["calibration_plan"]["sha256"]
+        or authenticated_plan.plan_self_sha256
+        != replacement_documents["calibration_plan"]["plan_sha256"]
+    ):
+        raise CalibrationBindingError(
+            "schema-2 calibration plan authentication differs"
+        )
+    records = tuple(
+        replacement_records.get(str(record["id"]), record)
+        for record in legacy.records
+    )
+    if len(records) != len(legacy.records) or len(
+        {str(record["path"]) for record in records}
+    ) != len(records):
+        raise CalibrationBindingError(
+            "schema-2 bound input replacement aliases a path"
+        )
+    documents = dict(legacy.documents)
+    documents.update(replacement_documents)
+    bundle = {
+        "repository_file_bindings": list(records),
+        "live_holdout_preopen_verification": (
+            legacy.live_holdout_preopen_verification
+        ),
+    }
+    native_v2 = BoundInputs(
+        repository_root=root,
+        records=records,
+        documents=documents,
+        live_holdout_preopen_binding=legacy.live_holdout_preopen_binding,
+        live_holdout_preopen_verification=(
+            legacy.live_holdout_preopen_verification
+        ),
+        bundle_sha256=canonical_sha256(bundle),
+    )
+    legacy.verify_unchanged()
+    native_v2.verify_unchanged()
+    return native_v2, legacy
+
+
 def corpus_lock_bundle_document(bound: BoundInputs) -> Mapping[str, object]:
     """Build the exact metadata-only compiler corpus bundle without media paths."""
 

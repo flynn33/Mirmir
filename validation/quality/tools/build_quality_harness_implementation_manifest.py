@@ -15,7 +15,14 @@ from mirmir_quality.harness_manifest import (  # noqa: E402
     create_quality_harness_implementation_manifest,
     validate_quality_harness_implementation_manifest,
 )
-from mirmir_quality.json_tools import write_json  # noqa: E402
+from mirmir_quality.json_tools import canonical_json_bytes  # noqa: E402
+
+
+def _write_manifest(path: Path, manifest: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = canonical_json_bytes(manifest) + b"\n"
+    with path.open("xb") as stream:
+        stream.write(payload)
 
 
 def main() -> int:
@@ -31,7 +38,7 @@ def main() -> int:
     manifest = create_quality_harness_implementation_manifest(
         arguments.repository_root
     )
-    write_json(arguments.output, manifest)
+    _write_manifest(arguments.output, manifest)
     validated = validate_quality_harness_implementation_manifest(
         manifest,
         arguments.repository_root,

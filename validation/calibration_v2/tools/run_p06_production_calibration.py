@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Run normal-mode P06 calibration and publish its immutable release bundle."""
+"""Historical P06 V1 utility; never an authorizing production entry point."""
 
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -17,18 +16,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 if str(REPOSITORY_ROOT) not in sys.path:
     sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from validation.calibration_v2.production_factory import (  # noqa: E402
-    make_production_calibration_assembly,
-)
-from validation.calibration_v2.release_orchestrator import (  # noqa: E402
-    REQUIRED_G06_TEST_EVIDENCE_IDS,
-    build_p06_release_transaction,
-)
-from validation.calibration_v2.release_evidence import (  # noqa: E402
-    P00_FAILURE_ID,
-)
 from validation.calibration_v2.runner import (  # noqa: E402
-    CalibrationExecutor,
     LiveHoldoutPreopenBinding,
 )
 
@@ -121,8 +109,8 @@ def _receipt(path: Path) -> tuple[dict[str, object], str]:
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Execute the concrete native P06 calibration and atomically publish "
-            "the selected mapping, operator bank, policies, LUTs, and lock bundle."
+            "Validate historical V1 preopen anchors without executing calibration "
+            "or publishing a release. Production P06 uses the V2 command."
         )
     )
     parser.add_argument("--repository-root", required=True, type=Path)
@@ -273,75 +261,16 @@ def _live_holdout_preopen_binding(
 
 def main() -> int:
     arguments = _arguments()
-    test_evidence = _named_paths(arguments.test_evidence, "test evidence")
-    failure_evidence = _named_paths(
-        arguments.preserved_failure_evidence,
-        "preserved failure evidence",
-    )
-    if tuple(test_evidence) != REQUIRED_G06_TEST_EVIDENCE_IDS:
-        raise ValueError(
-            "test evidence IDs must be supplied once in this exact order: "
-            + ", ".join(REQUIRED_G06_TEST_EVIDENCE_IDS)
-        )
-    if P00_FAILURE_ID not in failure_evidence:
-        raise ValueError(f"preserved failure evidence must include {P00_FAILURE_ID}")
-    live_binding = _live_holdout_preopen_binding(arguments)
-    assembly = make_production_calibration_assembly(
-        repository_root=arguments.repository_root,
-        evidence_root=arguments.evidence_root,
-        native_cache_root=arguments.native_cache_root,
-        writer_root=arguments.writer_root,
-        dispatch_measurement_root=arguments.dispatch_measurement_root,
-        live_holdout_preopen_binding=live_binding,
-        timeout_seconds=arguments.timeout_seconds,
-    )
-    executor = CalibrationExecutor(
-        repository_root=arguments.repository_root,
-        output_root=arguments.calibration_output_root,
-        run_id=arguments.run_id,
-        candidate=assembly.candidate,
-        live_holdout_preopen_binding=live_binding,
-        analytic_test_mode=False,
-        open_split_root=arguments.open_split_root,
-        dispatch_measurement_root=assembly.dispatch_measurement_root,
-    )
-    run_root = executor.run()
-    locked_utc = arguments.locked_utc or datetime.now(timezone.utc).isoformat(
-        timespec="microseconds"
-    ).replace("+00:00", "Z")
-    bundle = build_p06_release_transaction(
-        repository_root=arguments.repository_root,
-        calibration_run_root=run_root,
-        release_root=arguments.release_root,
-        native_cache_root=arguments.native_cache_root,
-        open_split_root=arguments.open_split_root,
-        evidence_root=arguments.evidence_root,
-        writer_root=arguments.writer_root,
-        dispatch_measurement_root=assembly.dispatch_measurement_root,
-        p04_quality_root=arguments.p04_quality_root,
-        locked_utc=locked_utc,
-        bound_inputs=assembly.adapter_factory.bound,
-        test_evidence_paths=test_evidence,
-        preserved_failure_paths=failure_evidence,
-    )
+    # Retain historical anchor validation for offline receipt diagnostics, but
+    # never construct a candidate, execute calibration, or publish a release.
+    _live_holdout_preopen_binding(arguments)
     print(
-        json.dumps(
-            {
-                "schema_version": "1.0.0",
-                "status": "p06_release_locked",
-                "calibration_run_root": str(run_root.resolve(strict=True)),
-                "release_root": str(arguments.release_root.resolve(strict=True)),
-                "configuration_id": bundle["configuration_id"],
-                "release_bundle_manifest_sha256": bundle["manifest_sha256"],
-                "holdout_accessed": False,
-            },
-            ensure_ascii=False,
-            allow_nan=False,
-            sort_keys=True,
-            separators=(",", ":"),
-        )
+        "error: this historical V1 runner is non-authorizing; use "
+        "validation/calibration_v2/tools/"
+        "run_p06_production_calibration_v2.py for production P06",
+        file=sys.stderr,
     )
-    return 0
+    return 2
 
 
 if __name__ == "__main__":

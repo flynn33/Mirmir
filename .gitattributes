@@ -2,3 +2,4 @@ Mirmir/Resources/ASH/*.csv binary
 Artifacts/ASH/**/*.log binary
 Artifacts/ASH/**/avmediainfo.txt binary
 Artifacts/ASH/**/reference-audit-reproduced.md binary
+docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md whitespace=-blank-at-eol,-blank-at-eof

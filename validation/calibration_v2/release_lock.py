@@ -53,6 +53,8 @@ NATIVE_PARITY_FAILURE_SCHEMA = (
 )
 VIDEO_MAPPING_SCHEMA = SCHEMAS_ROOT / "video-mapping-v1.schema.json"
 OPERATOR_BANK_SCHEMA = SCHEMAS_ROOT / "operator-bank-v1.schema.json"
+VIDEO_MAPPING_V2_SCHEMA = SCHEMAS_ROOT / "video-mapping-v2.schema.json"
+OPERATOR_BANK_V2_SCHEMA = SCHEMAS_ROOT / "operator-bank-v2.schema.json"
 LOCKED_COMPILER_INPUT_SCHEMA = (
     SCHEMAS_ROOT / "locked-compiler-input-v1.schema.json"
 )
@@ -71,6 +73,12 @@ BASELINE_ABLATION_CONTRACT_SCHEMA = (
 P06_RELEASE_BUNDLE_SCHEMA = (
     SCHEMAS_ROOT / "p06-release-bundle-v2.schema.json"
 )
+P06_RELEASE_BUNDLE_V3_SCHEMA = (
+    SCHEMAS_ROOT / "p06-release-bundle-v3.schema.json"
+)
+CONFIGURATION_LOCK_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p06-configuration-lock-v2.schema.json"
+)
 ROUTE_SELECTION_SCHEMA = (
     SCHEMAS_ROOT / "route-analysis-grid-selection-v1.schema.json"
 )
@@ -80,11 +88,62 @@ CONFIGURATION_LOCK_SCHEMA = (
 CALIBRATION_SELECTION_SCHEMA = (
     SCHEMAS_ROOT / "calibration-selection-v1.schema.json"
 )
+CALIBRATION_SELECTION_V2_SCHEMA = (
+    SCHEMAS_ROOT / "calibration-selection-v2.schema.json"
+)
 CALIBRATION_RUN_LEDGER_SCHEMA = (
     SCHEMAS_ROOT / "calibration-run-ledger-v1.schema.json"
 )
+CALIBRATION_RUN_LEDGER_V2_SCHEMA = (
+    SCHEMAS_ROOT / "calibration-run-ledger-v2.schema.json"
+)
 CANDIDATE_EVALUATION_SCHEMA = (
     SCHEMAS_ROOT / "candidate-evaluation-v1.schema.json"
+)
+CANDIDATE_EVALUATION_V2_SCHEMA = (
+    SCHEMAS_ROOT / "candidate-evaluation-v2.schema.json"
+)
+P06_EVIDENCE_CLOSURE_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p06-evidence-closure-v2.schema.json"
+)
+VALIDATION_ADMISSION_V2_SCHEMA = (
+    SCHEMAS_ROOT / "validation-candidate-development-evidence-v2.schema.json"
+)
+NON_ASH_ATTEMPT_LEDGER_V2_SCHEMA = (
+    SCHEMAS_ROOT / "non-ash-selector-attempt-ledger-v2.schema.json"
+)
+NON_ASH_SELECTION_V2_SCHEMA = (
+    SCHEMAS_ROOT / "non-ash-selector-selection-v2.schema.json"
+)
+NON_ASH_NEIGHBOR_MANIFEST_V2_SCHEMA = (
+    SCHEMAS_ROOT / "non-ash-validation-neighbor-manifest-v2.schema.json"
+)
+BASELINE_ABLATION_BUDGET_V2_SCHEMA = (
+    SCHEMAS_ROOT / "baseline-ablation-budget-v2.schema.json"
+)
+BASELINE_ABLATION_BUDGET_V2_PATH = (
+    CALIBRATION_ROOT / "contracts/baseline-ablation-budget-v2.json"
+)
+LOCKED_QUALITY_POLICY_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p06-locked-quality-policy-v2.schema.json"
+)
+NATIVE_PARITY_V3_SCHEMA = (
+    SCHEMAS_ROOT / "native-parity-manifest-v3.schema.json"
+)
+LUT_MANIFEST_V3_SCHEMA = SCHEMAS_ROOT / "lut-manifest-v3.schema.json"
+RUN_ARTIFACT_MANIFEST_V2_SCHEMA = (
+    SCHEMAS_ROOT / "evidence-wrapper-artifact-manifest-v2.schema.json"
+)
+CONTROL_AUTHORIZATION_BUNDLE_V2_SCHEMA = (
+    SCHEMAS_ROOT / "p06-control-authorization-bundle-v2.schema.json"
+)
+CORPUS_LOCK_PATH = CALIBRATION_ROOT.parent / "quality/locks/corpus-lock.json"
+CORPUS_LOCK_SCHEMA = CALIBRATION_ROOT.parent / "quality/schemas/corpus-lock.schema.json"
+LOCKED_COMPILER_INPUT_V2_SCHEMA = (
+    SCHEMAS_ROOT / "locked-compiler-input-v2.schema.json"
+)
+CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA = (
+    SCHEMAS_ROOT / "candidate-lut-runtime-manifest-v2.schema.json"
 )
 LIVE_HOLDOUT_PREOPEN_VERIFICATION_SCHEMA = (
     SCHEMAS_ROOT / "live-holdout-preopen-verification-v1.schema.json"
@@ -138,6 +197,49 @@ _RELEASE_ARTIFACTS = (
     ("lut_manifest", "lut-manifest.json"),
     ("configuration_lock", "configuration-lock.json"),
     ("evidence_closure", "p06-evidence-closure.json"),
+)
+_RELEASE_ARTIFACTS_V3 = (
+    ("calibration_selection", "calibration-selection-v2.json"),
+    ("selected_evaluation", None),
+    ("calibration_run_ledger", "calibration-run-ledger-v2.json"),
+    (
+        "validation_candidate_development_evidence",
+        "validation-candidate-development-evidence-v2.json",
+    ),
+    ("calibration_attempt_ledger", "attempts-v2.ndjson"),
+    (
+        "non_ash_development_attempt_ledger",
+        "non-ash-selector-development-attempt-ledger-v2.json",
+    ),
+    (
+        "non_ash_development_selection",
+        "non-ash-selector-development-selection-v2.json",
+    ),
+    (
+        "non_ash_validation_neighbor_manifest",
+        "non-ash-validation-neighbor-manifest-v2.json",
+    ),
+    (
+        "non_ash_validation_selection",
+        "non-ash-selector-validation-selection-v2.json",
+    ),
+    ("baseline_ablation_budget_v2", "baseline-ablation-budget-v2.json"),
+    (
+        "live_holdout_preopen_verification",
+        "live-holdout-preopen-verification.json",
+    ),
+    ("locked_mapping", "locked-mapping.json"),
+    ("locked_operator_bank", "locked-operator-bank.json"),
+    ("locked_quality_policy", "locked-quality-policy.json"),
+    ("locked_metric_policy", "locked-metric-policy.json"),
+    ("locked_compiler_input_v2", "locked-compiler-input-v2.json"),
+    ("direct2x_lut", "direct2x.ashlut"),
+    ("direct3over2_lut", "direct3over2.ashlut"),
+    ("native_parity_manifest", "native-lut-parity-manifest-v3.json"),
+    ("lut_manifest", "lut-manifest-v3.json"),
+    ("configuration_lock", "configuration-lock-v2.json"),
+    ("evidence_closure", "p06-evidence-closure-v2.json"),
+    ("artifact_manifest", "artifact-manifest-v2.json"),
 )
 _P06_RELEASE_BUNDLE_NAME = "p06-release-bundle.json"
 P06_TRANSACTION_TOKEN_NAME = ".p06-release-transaction-token"
@@ -375,6 +477,34 @@ def _manifest_sha256(document: Mapping[str, object]) -> str:
     unhashed = dict(document)
     unhashed.pop("manifest_sha256", None)
     return _sha256(_canonical_bytes(unhashed))
+
+
+def _artifact_sha256(document: Mapping[str, object]) -> str:
+    unhashed = dict(document)
+    unhashed.pop("artifact_sha256", None)
+    return _sha256(_canonical_bytes(unhashed))
+
+
+def p06_release_bundle_sha256(document: Mapping[str, object]) -> str:
+    """Return the authenticated self-hash for exactly one supported bundle family."""
+
+    if (
+        document.get("schema_version") == "3.0.1"
+        and document.get("bundle_id") == "mirmir-p06-spatial-release-lock-v3"
+    ):
+        value = document.get("artifact_sha256")
+        if value != _artifact_sha256(document):
+            raise ReleaseLockError("P06 V3 release bundle self-hash mismatch")
+        return str(value)
+    if (
+        document.get("schema_version") == "2.0.0"
+        and document.get("bundle_id") == "mirmir-p06-spatial-release-lock-v2"
+    ):
+        value = document.get("manifest_sha256")
+        if value != _manifest_sha256(document):
+            raise ReleaseLockError("P06 V2 release bundle self-hash mismatch")
+        return str(value)
+    raise ReleaseLockError("historical or unknown P06 release bundle version")
 
 
 def candidate_vector_sha256_for_plan(
@@ -1629,6 +1759,168 @@ def build_p06_release_bundle_manifest(
     return document
 
 
+def build_p06_release_bundle_v3_manifest(
+    *,
+    release_root: Path,
+    output_path: Path,
+    configuration_id: str,
+    locked_utc: str,
+    shared_bank_configuration_sha256: str,
+    input_bundle_sha256: str,
+    corpus_lock_bundle_sha256: str,
+    selected_evaluation_path: str,
+    authorized_execution_bindings_sha256: str,
+    artifact_provenance: Mapping[str, Mapping[str, object]],
+    support_evidence_roots: Mapping[str, Path] | None = None,
+    transaction_id: str | None = None,
+) -> Mapping[str, object]:
+    """Publish and reopen the authenticated schema-3 P06 release closure.
+
+    All release bytes must already exist.  This builder neither selects a
+    candidate nor compiles a LUT; it binds the exact V2 calibration and
+    format-1.2 outputs produced before the release transaction.
+    """
+
+    release = release_root.resolve(strict=True)
+    if (
+        output_path.name != _P06_RELEASE_BUNDLE_NAME
+        or output_path.parent.resolve(strict=True) != release
+    ):
+        raise ReleaseLockError("P06 V3 bundle output path differs")
+    selected_relative = _relative_path(selected_evaluation_path).as_posix()
+    if not (
+        selected_relative.startswith("evaluations/")
+        and selected_relative.endswith(".json")
+        and len(PurePosixPath(selected_relative).name) == 69
+    ):
+        raise ReleaseLockError(
+            "P06 V3 selected evaluation path is not content-addressed"
+        )
+    expected_ids = tuple(identifier for identifier, _ in _RELEASE_ARTIFACTS_V3)
+    if set(artifact_provenance) != set(expected_ids):
+        missing = sorted(set(expected_ids) - set(artifact_provenance))
+        extra = sorted(set(artifact_provenance) - set(expected_ids))
+        raise ReleaseLockError(
+            "P06 V3 artifact provenance is not exact: "
+            f"missing={missing}, extra={extra}"
+        )
+    provenance_fields = {"producer", "command", "platform", "gate_bindings"}
+    artifacts: list[Mapping[str, object]] = []
+    for identifier, fixed_path in _RELEASE_ARTIFACTS_V3:
+        relative_path = selected_relative if fixed_path is None else fixed_path
+        provenance = artifact_provenance[identifier]
+        if not isinstance(provenance, Mapping) or set(provenance) != provenance_fields:
+            raise ReleaseLockError(
+                f"P06 V3 artifact provenance fields differ: {identifier}"
+            )
+        gates = provenance.get("gate_bindings")
+        if (
+            not isinstance(gates, Sequence)
+            or isinstance(gates, (str, bytes, bytearray))
+            or not gates
+            or any(not isinstance(gate, str) for gate in gates)
+            or len(set(gates)) != len(gates)
+        ):
+            raise ReleaseLockError(
+                f"P06 V3 artifact gate provenance differs: {identifier}"
+            )
+        for field in ("producer", "command", "platform"):
+            value = provenance.get(field)
+            if not isinstance(value, str) or not value:
+                raise ReleaseLockError(
+                    f"P06 V3 artifact provenance is absent: {identifier}/{field}"
+                )
+        binding = _binding(
+            _path_under_root(release, relative_path),
+            relative_path,
+        )
+        if (
+            identifier == "selected_evaluation"
+            and PurePosixPath(relative_path).stem != binding["sha256"]
+        ):
+            raise ReleaseLockError(
+                "P06 V3 selected evaluation content address differs"
+            )
+        artifacts.append(
+            {
+                "id": identifier,
+                **binding,
+                "producer": provenance["producer"],
+                "command": provenance["command"],
+                "platform": provenance["platform"],
+                "gate_bindings": list(gates),
+            }
+        )
+    try:
+        from validation.calibration_v2.calibration_persistence_v2 import (
+            authority_bindings_v2,
+        )
+
+        authorities = authority_bindings_v2()
+    except (OSError, ValueError) as error:
+        raise ReleaseLockError(
+            "P06 V3 authority bindings cannot be authenticated"
+        ) from error
+    transient_exclusions = _authenticated_p06_transaction_token_exclusions(
+        release,
+        transaction_id=transaction_id,
+    )
+    document: dict[str, object] = {
+        "schema_version": "3.0.1",
+        "artifact_kind": "p06_release_bundle_v3",
+        "bundle_id": "mirmir-p06-spatial-release-lock-v3",
+        "status": "locked_before_p07",
+        "configuration_id": configuration_id,
+        "locked_utc": _require_utc_timestamp(locked_utc, "P06 V3 lock timestamp"),
+        "authority_bindings": authorities,
+        "shared_bank_configuration_sha256": _require_sha256(
+            shared_bank_configuration_sha256,
+            "P06 V3 shared-bank configuration SHA-256",
+        ),
+        "input_bundle_sha256": _require_sha256(
+            input_bundle_sha256,
+            "P06 V3 input-bundle SHA-256",
+        ),
+        "corpus_lock_bundle_sha256": _require_sha256(
+            corpus_lock_bundle_sha256,
+            "P06 V3 corpus-lock bundle SHA-256",
+        ),
+        "release_fields_complete": True,
+        "configuration_files_modified_after_lock": False,
+        "holdout_accessed": False,
+        "holdout_access_count": 0,
+        "artifact_ids": list(expected_ids),
+        "artifacts": artifacts,
+        "filesystem_closure_rule": _P06_FILESYSTEM_CLOSURE_RULE,
+        "filesystem_closure": _release_filesystem_closure(
+            release,
+            excluded_paths=(
+                P06_RELEASE_SELF_MANIFEST_EXCLUSIONS | transient_exclusions
+            ),
+        ),
+        "authorized_execution_bindings_sha256": _require_sha256(
+            authorized_execution_bindings_sha256,
+            "P06 V3 authorized-execution bindings SHA-256",
+        ),
+        "p07_authorization_status": "ready_for_single_locked_holdout_execution",
+    }
+    document["artifact_sha256"] = _artifact_sha256(document)
+    try:
+        validate_schema(document, P06_RELEASE_BUNDLE_V3_SCHEMA)
+    except ValueError as error:
+        raise ReleaseLockError("P06 V3 release bundle schema validation failed") from error
+    _publish_new_file(output_path, _canonical_bytes(document) + b"\n")
+    reopened = _validate_p06_release_bundle_manifest(
+        release_root=release,
+        manifest_path=output_path,
+        support_evidence_roots=support_evidence_roots,
+        transaction_id=transaction_id,
+    )
+    if reopened != document:
+        raise ReleaseLockError("published P06 V3 release bundle changed after reopen")
+    return document
+
+
 def route_analysis_grid_selection_document(
     *,
     vector: Mapping[str, object],
@@ -1723,6 +2015,21 @@ def _validate_p06_release_bundle_manifest(
         transaction_id=transaction_id,
     )
     document = _read_strict_json(manifest_path)
+    if (
+        document.get("schema_version") == "3.0.1"
+        and document.get("bundle_id") == "mirmir-p06-spatial-release-lock-v3"
+    ):
+        return _validate_p06_release_bundle_v3_manifest(
+            release_root=release,
+            document=document,
+            support_evidence_roots=support_evidence_roots,
+            transient_exclusions=transient_exclusions,
+        )
+    if (
+        document.get("schema_version") != "2.0.0"
+        or document.get("bundle_id") != "mirmir-p06-spatial-release-lock-v2"
+    ):
+        raise ReleaseLockError("historical or unknown P06 release bundle version")
     validate_schema(document, P06_RELEASE_BUNDLE_SCHEMA)
     if document.get("filesystem_closure_rule") != _P06_FILESYSTEM_CLOSURE_RULE:
         raise ReleaseLockError("P06 release filesystem closure rule differs")
@@ -1765,6 +2072,83 @@ def _validate_p06_release_bundle_manifest(
             closure,
             support_evidence_roots=support_evidence_roots,
         )
+    return document
+
+
+def _validate_p06_release_bundle_v3_manifest(
+    *,
+    release_root: Path,
+    document: Mapping[str, object],
+    support_evidence_roots: Mapping[str, Path] | None,
+    transient_exclusions: frozenset[str],
+) -> Mapping[str, object]:
+    """Reopen the exact schema-3 release family without accepting V2 aliases."""
+
+    try:
+        validate_schema(document, P06_RELEASE_BUNDLE_V3_SCHEMA)
+    except ValueError as error:
+        raise ReleaseLockError("P06 V3 release bundle schema validation failed") from error
+    if document.get("filesystem_closure_rule") != _P06_FILESYSTEM_CLOSURE_RULE:
+        raise ReleaseLockError("P06 V3 release filesystem closure rule differs")
+    p06_release_bundle_sha256(document)
+    rows = document.get("artifacts")
+    if not isinstance(rows, list) or len(rows) != len(_RELEASE_ARTIFACTS_V3):
+        raise ReleaseLockError("P06 V3 release bundle artifact count differs")
+    if document.get("artifact_ids") != [item[0] for item in _RELEASE_ARTIFACTS_V3]:
+        raise ReleaseLockError("P06 V3 release artifact ID closure differs")
+    artifacts: dict[str, Mapping[str, object]] = {}
+    for row, (expected_id, fixed_path) in zip(rows, _RELEASE_ARTIFACTS_V3):
+        if not isinstance(row, dict) or row.get("id") != expected_id:
+            raise ReleaseLockError("P06 V3 release bundle artifact order differs")
+        path = str(row.get("path"))
+        if fixed_path is not None and path != fixed_path:
+            raise ReleaseLockError(
+                f"P06 V3 release artifact path differs: {expected_id}"
+            )
+        actual = _binding(_path_under_root(release_root, path), path)
+        if any(row.get(field) != actual[field] for field in actual):
+            raise ReleaseLockError(f"P06 V3 release artifact changed: {expected_id}")
+        artifacts[expected_id] = row
+    observed_filesystem_closure = _release_filesystem_closure(
+        release_root,
+        excluded_paths=(
+            P06_RELEASE_SELF_MANIFEST_EXCLUSIONS | transient_exclusions
+        ),
+    )
+    if document.get("filesystem_closure") != observed_filesystem_closure:
+        raise ReleaseLockError("P06 V3 release filesystem closure changed")
+    authority = _validate_p06_release_v3_cross_bindings(
+        release_root=release_root,
+        bundle=document,
+        artifacts=artifacts,
+        support_evidence_roots=support_evidence_roots,
+    )
+    if support_evidence_roots is not None:
+        try:
+            from validation.calibration_v2.p07.execution_authority_v2 import verify
+
+            verify(
+                release_root=release_root,
+                repository_root=CALIBRATION_ROOT.parents[1],
+                expected_file_sha256=str(
+                    document["authorized_execution_bindings_sha256"]
+                ),
+                expected_configuration_id=str(document["configuration_id"]),
+                expected_shared_bank_configuration_sha256=str(
+                    document["shared_bank_configuration_sha256"]
+                ),
+                expected_input_bundle_sha256=str(document["input_bundle_sha256"]),
+                expected_corpus_lock_bundle_sha256=str(
+                    document["corpus_lock_bundle_sha256"]
+                ),
+                support_evidence_roots=support_evidence_roots,
+            )
+        except (OSError, ValueError) as error:
+            raise ReleaseLockError(
+                "P06 V3 authorized execution closure differs"
+            ) from error
+    elif authority.get("artifact_sha256") is None:
+        raise ReleaseLockError("P06 V3 authorized execution authority is absent")
     return document
 
 
@@ -1923,6 +2307,31 @@ def _validated_json_artifact(
     return document
 
 
+def _validated_canonical_json_artifact(
+    *,
+    release_root: Path,
+    binding: Mapping[str, object],
+    schema_path: Path,
+    label: str,
+    trailing_lf: bool = True,
+) -> Mapping[str, object]:
+    """Validate one role's schema and exact canonical serialization."""
+
+    document = _validated_json_artifact(
+        release_root=release_root,
+        binding=binding,
+        schema_path=schema_path,
+        label=label,
+    )
+    payload = _read_regular_file(
+        _path_under_root(release_root, str(binding["path"]))
+    )
+    expected = _canonical_bytes(document) + (b"\n" if trailing_lf else b"")
+    if payload != expected:
+        raise ReleaseLockError(f"{label} is not canonical JSON")
+    return document
+
+
 def _require_manifest_hash(
     document: Mapping[str, object],
     *,
@@ -1935,6 +2344,1039 @@ def _require_manifest_hash(
     if document.get(field) != actual:
         raise ReleaseLockError(f"{label} self-hash mismatch")
     return actual
+
+
+def _binding_fields(binding: Mapping[str, object]) -> Mapping[str, object]:
+    return {
+        "path": binding.get("path"),
+        "sha256": binding.get("sha256"),
+        "size_bytes": binding.get("size_bytes"),
+    }
+
+
+def validate_p06_configuration_lock_v2(
+    *,
+    release_root: Path,
+    expected_file_sha256: str,
+) -> Mapping[str, object]:
+    """Reopen the fixed V2 lock, its schema, self-hash, and nine file bytes."""
+
+    path = _path_under_root(release_root, "configuration-lock-v2.json")
+    actual_binding = _binding(path, "configuration-lock-v2.json")
+    if actual_binding["sha256"] != _require_sha256(
+        expected_file_sha256,
+        "P06 configuration lock V2 file SHA-256",
+    ):
+        raise ReleaseLockError("P06 configuration lock V2 file binding differs")
+    document = _validated_json_artifact(
+        release_root=release_root,
+        binding=actual_binding,
+        schema_path=CONFIGURATION_LOCK_V2_SCHEMA,
+        label="P06 configuration lock V2",
+    )
+    payload = _read_regular_file(path)
+    if payload != _canonical_bytes(document) + b"\n":
+        raise ReleaseLockError(
+            "P06 configuration lock V2 is not canonical one-LF JSON"
+        )
+    _require_manifest_hash(
+        document,
+        field="manifest_sha256",
+        label="P06 configuration lock V2",
+    )
+    rows = document.get("configuration_files")
+    if not isinstance(rows, list):
+        raise ReleaseLockError("P06 configuration lock V2 file rows are absent")
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ReleaseLockError("P06 configuration lock V2 file row is invalid")
+        relative = str(row.get("path"))
+        rebound = _binding(_path_under_root(release_root, relative), relative)
+        if _binding_fields(row) != rebound:
+            raise ReleaseLockError(
+                f"P06 configuration lock V2 file changed: {row.get('id')}"
+            )
+    return document
+
+
+def _validate_p06_configuration_lock_v2_cross_bindings(
+    *,
+    release_root: Path,
+    binding: Mapping[str, object],
+    bundle: Mapping[str, object],
+    artifacts: Mapping[str, Mapping[str, object]],
+    selection_binding: Mapping[str, object],
+    evaluation_binding: Mapping[str, object],
+    candidate_vector_sha256: str,
+    shared_bank_configuration_sha256: str,
+) -> Mapping[str, object]:
+    """Schema-validate and independently rebind the nine-file V2 lock."""
+
+    document = validate_p06_configuration_lock_v2(
+        release_root=release_root,
+        expected_file_sha256=str(binding["sha256"]),
+    )
+    configuration_ids = (
+        "locked_mapping",
+        "locked_operator_bank",
+        "locked_quality_policy",
+        "locked_metric_policy",
+        "locked_compiler_input_v2",
+        "direct2x_lut",
+        "direct3over2_lut",
+        "native_parity_manifest",
+        "lut_manifest",
+    )
+    expected_files = [
+        {"id": identifier, **_binding_fields(artifacts[identifier])}
+        for identifier in configuration_ids
+    ]
+    if (
+        document.get("locked_utc") != bundle.get("locked_utc")
+        or document.get("configuration_id") != bundle.get("configuration_id")
+        or document.get("candidate_vector_sha256")
+        != candidate_vector_sha256
+        or document.get("shared_bank_configuration_sha256")
+        != shared_bank_configuration_sha256
+        or document.get("calibration_selection") != selection_binding
+        or document.get("selected_evaluation") != evaluation_binding
+        or document.get("configuration_files") != expected_files
+        or document.get("candidate_bytes_rewritten_after_selection") is not False
+        or document.get("holdout_accessed") is not False
+    ):
+        raise ReleaseLockError("P06 configuration lock V2 identity differs")
+    return document
+
+
+def _validate_calibration_attempt_ledger_role_v3(
+    *,
+    release_root: Path,
+    artifact_binding: Mapping[str, object],
+    run_ledger: Mapping[str, object],
+) -> None:
+    """Schema-decode and replay attempts without weakening external references."""
+
+    declared = run_ledger.get("attempt_ledger")
+    if not isinstance(declared, dict) or _binding_fields(declared) != (
+        _binding_fields(artifact_binding)
+    ):
+        raise ReleaseLockError("P06 V3 attempt-ledger binding differs")
+    payload = _read_regular_file(
+        _path_under_root(release_root, str(artifact_binding["path"]))
+    )
+    try:
+        from validation.calibration_v2.calibration_persistence_v2 import (
+            AttemptLedgerBindingV2,
+            CalibrationPersistenceAdapterV2,
+        )
+        from validation.calibration_v2.calibration_scheduler_v2 import (
+            replay_development_attempts_v2,
+        )
+
+        adapter = CalibrationPersistenceAdapterV2(release_root)
+        binding = AttemptLedgerBindingV2(
+            path=str(declared["path"]),
+            sha256=str(declared["sha256"]),
+            size_bytes=int(declared["size_bytes"]),
+            record_count=int(declared["record_count"]),
+            last_record_sha256=str(declared["last_record_sha256"]),
+        )
+        documents = adapter._attempt_documents_from_bytes(payload)
+        records = tuple(
+            adapter.decode_attempt_record(
+                document,
+                expected_run_id=str(run_ledger["run_id"]),
+                reopen_references=False,
+            )
+            for document in documents
+        )
+        if (
+            len(records) != binding.record_count
+            or records[-1].record_sha256 != binding.last_record_sha256
+        ):
+            raise ReleaseLockError("P06 V3 attempt-ledger summary differs")
+        replay_development_attempts_v2(
+            adapter.plan,
+            records,
+            expected_attempt_count=binding.record_count,
+            expected_last_record_sha256=binding.last_record_sha256,
+        )
+    except ReleaseLockError:
+        raise
+    except (KeyError, OSError, TypeError, ValueError) as error:
+        raise ReleaseLockError(
+            "P06 V3 attempt-ledger semantic replay failed"
+        ) from error
+
+
+def _validate_run_artifact_manifest_role_v3(
+    *,
+    document: Mapping[str, object],
+    artifact_binding: Mapping[str, object],
+    run_ledger: Mapping[str, object],
+    evidence_closure: Mapping[str, object],
+) -> None:
+    """Validate the run-manifest relation and its exact path closure."""
+
+    if run_ledger.get("artifact_manifest") != _binding_fields(artifact_binding):
+        raise ReleaseLockError("P06 V3 run artifact-manifest binding differs")
+    rows = document.get("artifacts")
+    directories = document.get("directories")
+    if not isinstance(rows, list) or not isinstance(directories, list):
+        raise ReleaseLockError("P06 V3 run artifact manifest closure is absent")
+    paths = [str(row.get("path")) for row in rows if isinstance(row, dict)]
+    hashes = [str(row.get("sha256")) for row in rows if isinstance(row, dict)]
+    expected_directories = set()
+    for path in paths:
+        parts = PurePosixPath(path).parts
+        for depth in range(1, len(parts)):
+            expected_directories.add(PurePosixPath(*parts[:depth]).as_posix())
+    components = evidence_closure.get("components")
+    commits = {
+        component.get("local_green_commit")
+        for component in components
+        if isinstance(component, dict)
+    } if isinstance(components, list) else set()
+    if (
+        len(paths) != len(rows)
+        or paths != sorted(paths)
+        or len(paths) != len(set(paths))
+        or len(hashes) != len(set(hashes))
+        or directories != sorted(directories)
+        or len(directories) != len(set(directories))
+        or set(directories) != expected_directories
+        or document.get("working_tree_clean") is not True
+        or commits != {document.get("project_commit")}
+    ):
+        raise ReleaseLockError("P06 V3 run artifact manifest semantics differ")
+
+
+def _tracked_corpus_manifest_sha256_v3() -> str:
+    document = _read_strict_json(CORPUS_LOCK_PATH)
+    try:
+        validate_schema(document, CORPUS_LOCK_SCHEMA)
+    except ValueError as error:
+        raise ReleaseLockError("tracked corpus lock schema validation failed") from error
+    return _require_manifest_hash(
+        document,
+        field="manifest_sha256",
+        label="tracked corpus lock",
+    )
+
+
+def _validate_live_preopen_role_v3(
+    document: Mapping[str, object],
+) -> None:
+    """Bind preopen state to the corpus manifest, not the bundle digest."""
+
+    if (
+        document.get("verification_status") != "pass"
+        or document.get("access_status") != "unopened"
+        or document.get("access_count") != 0
+        or document.get("open_intent_anchor_present") is not False
+        or document.get("pixel_content_included") is not False
+        or document.get("corpus_binding_sha256")
+        != _tracked_corpus_manifest_sha256_v3()
+    ):
+        raise ReleaseLockError("P06 V3 live preopen authority differs")
+
+
+def _require_unmodified_selected_candidate_authority_v3(
+    mapping: Mapping[str, object],
+    operator_bank: Mapping[str, object],
+) -> None:
+    """Reject every attempt to add post-selection claims to measured bytes."""
+
+    unselected = {
+        "calibration_selection_sha256": None,
+        "selected_evaluation_sha256": None,
+    }
+    if (
+        mapping.get("status") != "calibration_candidate"
+        or operator_bank.get("status") != "calibration_candidate"
+        or mapping.get("selection_binding") != unselected
+        or operator_bank.get("selection_binding") != unselected
+    ):
+        raise ReleaseLockError(
+            "P06 V3 selected candidate bytes contain a post-selection mutation"
+        )
+
+
+def _validate_p06_release_v3_cross_bindings(
+    *,
+    release_root: Path,
+    bundle: Mapping[str, object],
+    artifacts: Mapping[str, Mapping[str, object]],
+    support_evidence_roots: Mapping[str, Path] | None = None,
+) -> Mapping[str, object]:
+    """Bind the schema-2 identity triple to format-1.2 bytes and P07 authority."""
+
+    selection = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["calibration_selection"],
+        schema_path=CALIBRATION_SELECTION_V2_SCHEMA,
+        label="calibration selection V2",
+    )
+    evaluation = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["selected_evaluation"],
+        schema_path=CANDIDATE_EVALUATION_V2_SCHEMA,
+        label="selected evaluation V2",
+    )
+    ledger = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["calibration_run_ledger"],
+        schema_path=CALIBRATION_RUN_LEDGER_V2_SCHEMA,
+        label="calibration run ledger V2",
+    )
+    closure = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["evidence_closure"],
+        schema_path=P06_EVIDENCE_CLOSURE_V2_SCHEMA,
+        label="P06 evidence closure V2",
+    )
+    mapping = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["locked_mapping"],
+        schema_path=VIDEO_MAPPING_V2_SCHEMA,
+        label="locked mapping V2",
+    )
+    operator_bank = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["locked_operator_bank"],
+        schema_path=OPERATOR_BANK_V2_SCHEMA,
+        label="locked operator bank V2",
+    )
+    _require_unmodified_selected_candidate_authority_v3(
+        mapping,
+        operator_bank,
+    )
+    compiler = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["locked_compiler_input_v2"],
+        schema_path=LOCKED_COMPILER_INPUT_V2_SCHEMA,
+        label="locked compiler input V2",
+    )
+    admission = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["validation_candidate_development_evidence"],
+        schema_path=VALIDATION_ADMISSION_V2_SCHEMA,
+        label="validation candidate development evidence V2",
+    )
+    baseline_budget = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["baseline_ablation_budget_v2"],
+        schema_path=BASELINE_ABLATION_BUDGET_V2_SCHEMA,
+        label="baseline ablation budget V2",
+    )
+    live_preopen = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["live_holdout_preopen_verification"],
+        schema_path=LIVE_HOLDOUT_PREOPEN_VERIFICATION_SCHEMA,
+        label="live holdout preopen verification",
+    )
+    quality_policy = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["locked_quality_policy"],
+        schema_path=LOCKED_QUALITY_POLICY_V2_SCHEMA,
+        label="locked quality policy V2",
+    )
+    metric_policy = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["locked_metric_policy"],
+        schema_path=LOCKED_METRIC_POLICY_SCHEMA,
+        label="locked metric policy V2",
+        trailing_lf=False,
+    )
+    native_parity = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["native_parity_manifest"],
+        schema_path=NATIVE_PARITY_V3_SCHEMA,
+        label="native parity manifest V3",
+    )
+    lut_manifest = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["lut_manifest"],
+        schema_path=LUT_MANIFEST_V3_SCHEMA,
+        label="LUT manifest V3",
+    )
+    run_artifact_manifest = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=artifacts["artifact_manifest"],
+        schema_path=RUN_ARTIFACT_MANIFEST_V2_SCHEMA,
+        label="calibration run artifact manifest V2",
+    )
+    non_ash_documents = {
+        "non_ash_development_attempt_ledger": (
+            _validated_canonical_json_artifact(
+                release_root=release_root,
+                binding=artifacts["non_ash_development_attempt_ledger"],
+                schema_path=NON_ASH_ATTEMPT_LEDGER_V2_SCHEMA,
+                label="non-ASH development attempt ledger V2",
+            )
+        ),
+        "non_ash_development_selection": (
+            _validated_canonical_json_artifact(
+                release_root=release_root,
+                binding=artifacts["non_ash_development_selection"],
+                schema_path=NON_ASH_SELECTION_V2_SCHEMA,
+                label="non-ASH development selection V2",
+            )
+        ),
+        "non_ash_validation_neighbor_manifest": (
+            _validated_canonical_json_artifact(
+                release_root=release_root,
+                binding=artifacts["non_ash_validation_neighbor_manifest"],
+                schema_path=NON_ASH_NEIGHBOR_MANIFEST_V2_SCHEMA,
+                label="non-ASH validation neighbor manifest V2",
+            )
+        ),
+        "non_ash_validation_selection": (
+            _validated_canonical_json_artifact(
+                release_root=release_root,
+                binding=artifacts["non_ash_validation_selection"],
+                schema_path=NON_ASH_SELECTION_V2_SCHEMA,
+                label="non-ASH validation selection V2",
+            )
+        ),
+    }
+    for document, label in (
+        (selection, "calibration selection V2"),
+        (evaluation, "selected evaluation V2"),
+        (ledger, "calibration run ledger V2"),
+        (closure, "P06 evidence closure V2"),
+        (admission, "validation candidate development evidence V2"),
+        (baseline_budget, "baseline ablation budget V2"),
+    ):
+        _require_manifest_hash(document, field="artifact_sha256", label=label)
+
+    _require_manifest_hash(
+        quality_policy,
+        field="manifest_sha256",
+        label="locked quality policy V2",
+    )
+    _require_manifest_hash(
+        metric_policy,
+        field="policy_sha256",
+        label="locked metric policy V2",
+    )
+    _require_manifest_hash(
+        native_parity,
+        field="manifest_sha256",
+        label="native parity manifest V3",
+    )
+    _require_manifest_hash(
+        lut_manifest,
+        field="manifest_sha256",
+        label="LUT manifest V3",
+    )
+    for identifier, field in (
+        ("non_ash_development_attempt_ledger", "ledger_sha256"),
+        ("non_ash_development_selection", "development_selection_sha256"),
+        ("non_ash_validation_neighbor_manifest", "manifest_sha256"),
+        ("non_ash_validation_selection", "validation_selection_sha256"),
+    ):
+        _require_manifest_hash(
+            non_ash_documents[identifier],
+            field=field,
+            label=identifier.replace("_", " "),
+        )
+
+    selected = selection.get("selected")
+    if not isinstance(selected, dict):
+        raise ReleaseLockError("P06 V3 selected evaluation binding is absent")
+    selected_binding = selected.get("evaluation")
+    selected_artifact_binding = _binding_fields(artifacts["selected_evaluation"])
+    selected_hash = str(artifacts["selected_evaluation"]["sha256"])
+    selection_hash = str(artifacts["calibration_selection"]["sha256"])
+    if (
+        selected_binding != selected_artifact_binding
+        or PurePosixPath(str(selected_artifact_binding["path"])).stem
+        != selected_hash
+        or selected.get("candidate_vector_sha256")
+        != evaluation.get("candidate_vector_sha256")
+        or selected.get("evaluation_semantic_sha256")
+        != evaluation.get("evaluation_semantic_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 selected evaluation identity differs")
+
+    admission_binding = _binding_fields(
+        artifacts["validation_candidate_development_evidence"]
+    )
+    attempt_binding = ledger.get("attempt_ledger")
+    development_trace = admission.get("development_trace")
+    if (
+        selection.get("validation_candidate_development_evidence")
+        != admission_binding
+        or ledger.get("validation_admission") != admission_binding
+        or admission.get("run_id") != selection.get("run_id")
+        or admission.get("shared_bank_configuration_sha256")
+        != selection.get("shared_bank_configuration_sha256")
+        or not isinstance(attempt_binding, dict)
+        or not isinstance(development_trace, dict)
+        or development_trace.get("attempt_ledger")
+        != _binding_fields(artifacts["calibration_attempt_ledger"])
+        or development_trace.get("attempt_count")
+        != attempt_binding.get("record_count")
+        or development_trace.get("last_record_sha256")
+        != attempt_binding.get("last_record_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 validation-admission identity differs")
+    _validate_calibration_attempt_ledger_role_v3(
+        release_root=release_root,
+        artifact_binding=artifacts["calibration_attempt_ledger"],
+        run_ledger=ledger,
+    )
+    _validate_run_artifact_manifest_role_v3(
+        document=run_artifact_manifest,
+        artifact_binding=artifacts["artifact_manifest"],
+        run_ledger=ledger,
+        evidence_closure=closure,
+    )
+
+    baseline_payload = _read_regular_file(BASELINE_ABLATION_BUDGET_V2_PATH)
+    released_baseline_payload = _read_regular_file(
+        _path_under_root(
+            release_root,
+            str(artifacts["baseline_ablation_budget_v2"]["path"]),
+        )
+    )
+    if released_baseline_payload != baseline_payload:
+        raise ReleaseLockError("P06 V3 baseline ablation budget authority differs")
+    _validate_live_preopen_role_v3(live_preopen)
+
+    control_binding = selection.get("selected_control_authorization_bundle")
+    if not isinstance(control_binding, dict):
+        raise ReleaseLockError("P06 V3 selected control authorization is absent")
+    control_actual = _binding(
+        _path_under_root(release_root, str(control_binding.get("path"))),
+        str(control_binding.get("path")),
+    )
+    if control_actual != _binding_fields(control_binding):
+        raise ReleaseLockError("P06 V3 selected control authorization changed")
+    control_bundle = _validated_canonical_json_artifact(
+        release_root=release_root,
+        binding=control_binding,
+        schema_path=CONTROL_AUTHORIZATION_BUNDLE_V2_SCHEMA,
+        label="selected control authorization bundle V2",
+    )
+    _require_manifest_hash(
+        control_bundle,
+        field="artifact_sha256",
+        label="selected control authorization bundle V2",
+    )
+    if (
+        quality_policy.get("run_id") != selection.get("run_id")
+        or quality_policy.get("shared_bank_configuration_sha256")
+        != selection.get("shared_bank_configuration_sha256")
+        or quality_policy.get("selected_control_authorization_bundle")
+        != control_binding
+        or quality_policy.get("control_selections")
+        != control_bundle.get("control_selections")
+        or quality_policy.get("holdout_accessed") is not False
+        or control_bundle.get("run_id") != selection.get("run_id")
+        or control_bundle.get("split") != "validation"
+        or control_bundle.get("shared_bank_configuration_sha256")
+        != selection.get("shared_bank_configuration_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 quality/control authority differs")
+
+    dependencies = control_bundle.get("dependency_bindings")
+    if not isinstance(dependencies, list):
+        raise ReleaseLockError("P06 V3 selected control dependencies are absent")
+    expected_non_ash_stage = {
+        "non_ash_development_attempt_ledger": (
+            "p06_non_ash_selector_attempt_ledger_v2",
+            None,
+        ),
+        "non_ash_development_selection": (
+            "p06_non_ash_selector_selection_v2",
+            "development_provisional",
+        ),
+        "non_ash_validation_neighbor_manifest": (
+            "p06_non_ash_validation_neighbor_manifest_v2",
+            None,
+        ),
+        "non_ash_validation_selection": (
+            "p06_non_ash_selector_selection_v2",
+            "validation_final",
+        ),
+    }
+    for identifier, (kind, stage) in expected_non_ash_stage.items():
+        artifact = artifacts[identifier]
+        document = non_ash_documents[identifier]
+        matches = [
+            row
+            for row in dependencies
+            if isinstance(row, dict)
+            and row.get("artifact_kind") == kind
+            and row.get("sha256") == artifact.get("sha256")
+            and row.get("size_bytes") == artifact.get("size_bytes")
+        ]
+        if (
+            len(matches) != 1
+            or (stage is not None and document.get("selection_stage") != stage)
+            or document.get("shared_bank_configuration_sha256")
+            != selection.get("shared_bank_configuration_sha256")
+        ):
+            raise ReleaseLockError(
+                f"P06 V3 projected non-ASH role differs: {identifier}"
+            )
+    non_ash_ledger = non_ash_documents["non_ash_development_attempt_ledger"]
+    non_ash_development = non_ash_documents["non_ash_development_selection"]
+    non_ash_neighbor = non_ash_documents[
+        "non_ash_validation_neighbor_manifest"
+    ]
+    non_ash_validation = non_ash_documents["non_ash_validation_selection"]
+    if (
+        non_ash_development.get("development_attempt_ledger_sha256")
+        != non_ash_ledger.get("ledger_sha256")
+        or non_ash_neighbor.get("development_attempt_ledger_sha256")
+        != non_ash_ledger.get("ledger_sha256")
+        or non_ash_neighbor.get("development_selection_sha256")
+        != non_ash_development.get("development_selection_sha256")
+        or non_ash_validation.get("development_selection_sha256")
+        != non_ash_development.get("development_selection_sha256")
+        or non_ash_validation.get("validation_neighbor_manifest_sha256")
+        != non_ash_neighbor.get("manifest_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 non-ASH predecessor chain differs")
+
+    physical_items = evaluation.get("physical_candidate_items")
+    if (
+        not isinstance(physical_items, list)
+        or len(physical_items) != 48
+        or any(
+            not isinstance(item, list)
+            or len(item) != 2
+            or not isinstance(item[0], str)
+            for item in physical_items
+        )
+        or len({str(item[0]) for item in physical_items}) != 48
+    ):
+        raise ReleaseLockError("P06 V3 physical candidate identity is invalid")
+    physical = {str(item[0]): item[1] for item in physical_items}
+    try:
+        from validation.calibration_v2.calibration_plan_codec import (
+            candidate_vector_sha256_v2,
+            shared_bank_configuration_sha256_v2,
+            validate_candidate_constraints_v2,
+        )
+        from validation.calibration_v2.shared_bank_artifacts_v2 import (
+            SharedBankArtifactMaterializerV2,
+        )
+
+        plan = SharedBankArtifactMaterializerV2(
+            CALIBRATION_ROOT.parents[1]
+        ).plan
+        validate_candidate_constraints_v2(physical, plan)
+        candidate_hash = candidate_vector_sha256_v2(physical, plan)
+        bank_hash = shared_bank_configuration_sha256_v2(physical, plan)
+    except (OSError, ValueError) as error:
+        raise ReleaseLockError(
+            "P06 V3 selected physical candidate cannot be authenticated"
+        ) from error
+    if (
+        candidate_hash != evaluation.get("candidate_vector_sha256")
+        or candidate_hash != selected.get("candidate_vector_sha256")
+        or bank_hash != evaluation.get("shared_bank_configuration_sha256")
+        or bank_hash != selection.get("shared_bank_configuration_sha256")
+        or bank_hash != bundle.get("shared_bank_configuration_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 candidate/shared-bank identity differs")
+
+    _validate_p06_configuration_lock_v2_cross_bindings(
+        release_root=release_root,
+        binding=artifacts["configuration_lock"],
+        bundle=bundle,
+        artifacts=artifacts,
+        selection_binding=_binding_fields(artifacts["calibration_selection"]),
+        evaluation_binding=selected_artifact_binding,
+        candidate_vector_sha256=candidate_hash,
+        shared_bank_configuration_sha256=bank_hash,
+    )
+
+    run_id = selection.get("run_id")
+    if any(
+        value != run_id
+        for value in (
+            evaluation.get("run_id"),
+            ledger.get("run_id"),
+            closure.get("run_id"),
+        )
+    ) or any(
+        value != bundle.get("input_bundle_sha256")
+        for value in (
+            selection.get("input_bundle_sha256"),
+            ledger.get("input_bundle_sha256"),
+            closure.get("input_bundle_sha256"),
+        )
+    ):
+        raise ReleaseLockError("P06 V3 run or input-bundle identity differs")
+    if (
+        closure.get("corpus_lock_bundle_sha256")
+        != bundle.get("corpus_lock_bundle_sha256")
+        or closure.get("configuration_id") != bundle.get("configuration_id")
+        or closure.get("shared_bank_configuration_sha256") != bank_hash
+        or selection.get("calibration_run_ledger")
+        != _binding_fields(artifacts["calibration_run_ledger"])
+        or closure.get("calibration_run_ledger")
+        != _binding_fields(artifacts["calibration_run_ledger"])
+        or closure.get("calibration_selection")
+        != _binding_fields(artifacts["calibration_selection"])
+        or closure.get("selected_evaluation") != selected_artifact_binding
+        or closure.get("artifact_manifest")
+        != _binding_fields(artifacts["artifact_manifest"])
+    ):
+        raise ReleaseLockError("P06 V3 ledger/evidence closure identity differs")
+    candidate_rows = ledger.get("candidate_evaluations")
+    if not isinstance(candidate_rows, list) or not any(
+        isinstance(row, dict)
+        and row.get("split") == "validation"
+        and row.get("candidate_vector_sha256") == candidate_hash
+        and row.get("binding") == selected_artifact_binding
+        for row in candidate_rows
+    ):
+        raise ReleaseLockError("P06 V3 run ledger does not bind the selected evaluation")
+
+    expected_candidate_identity = mapping.get("candidate_identity")
+    if (
+        not isinstance(expected_candidate_identity, dict)
+        or expected_candidate_identity != operator_bank.get("candidate_identity")
+        or expected_candidate_identity.get("physical_candidate_items")
+        != physical_items
+        or expected_candidate_identity.get("candidate_vector_sha256")
+        != candidate_hash
+        or expected_candidate_identity.get("shared_bank_configuration_sha256")
+        != bank_hash
+        or mapping.get("configuration_id") != bundle.get("configuration_id")
+        or operator_bank.get("configuration_id") != bundle.get("configuration_id")
+        # The selected evaluation already content-addresses the exact
+        # calibration-candidate mapping, operator, compiler input, and LUT
+        # bytes.  Rewriting either shared-bank document after selection would
+        # change all downstream hashes; embedding ``selected_hash`` in those
+        # bytes would additionally introduce a cryptographic cycle.  The V3
+        # release manifest and evidence closure provide the later selection
+        # authority, while these files must remain the measured candidate
+        # bytes without a post-selection claim.
+    ):
+        raise ReleaseLockError("P06 V3 mapping/operator identity differs")
+
+    compiler_path = _path_under_root(
+        release_root,
+        str(artifacts["locked_compiler_input_v2"]["path"]),
+    )
+    try:
+        from validation.calibration_v2.reference.lut_oracle_v2 import (
+            load_locked_compiler_input_v2,
+            validate_lut_v2,
+        )
+
+        parsed_compiler = load_locked_compiler_input_v2(compiler_path)
+    except (OSError, ValueError) as error:
+        raise ReleaseLockError("P06 V3 compiler input is invalid") from error
+    compiler_bindings = compiler.get("hash_bindings")
+    compiler_payload_hash = (
+        compiler_bindings.get("compiler_inputs_sha256")
+        if isinstance(compiler_bindings, dict)
+        else None
+    )
+    if (
+        compiler.get("configuration_id") != bundle.get("configuration_id")
+        or not isinstance(compiler_bindings, dict)
+        or compiler_bindings.get("mapping_sha256")
+        != artifacts["locked_mapping"]["sha256"]
+        or compiler_bindings.get("operator_bank_sha256")
+        != artifacts["locked_operator_bank"]["sha256"]
+        or compiler_bindings.get("metric_policy_sha256")
+        != artifacts["locked_metric_policy"]["sha256"]
+        or compiler_bindings.get("corpus_lock_bundle_sha256")
+        != bundle.get("corpus_lock_bundle_sha256")
+        or evaluation.get("compiler_input")
+        != {
+            "file_sha256": artifacts["locked_compiler_input_v2"]["sha256"],
+            "payload_sha256": compiler_payload_hash,
+        }
+    ):
+        raise ReleaseLockError("P06 V3 compiler input binding differs")
+
+    evaluation_routes = evaluation.get("route_lut_bindings")
+    if not isinstance(evaluation_routes, list) or len(evaluation_routes) != 2:
+        raise ReleaseLockError("P06 V3 selected route LUT bindings are absent")
+    validated_routes: list[Mapping[str, object]] = []
+    for evaluation_row, identifier, oracle_route in zip(
+        evaluation_routes,
+        ("direct2x_lut", "direct3over2_lut"),
+        ("direct_2x", "direct_3_over_2"),
+    ):
+        payload = _read_regular_file(
+            _path_under_root(release_root, str(artifacts[identifier]["path"]))
+        )
+        try:
+            validated = validate_lut_v2(
+                payload,
+                expected_configuration=parsed_compiler,
+                expected_route=oracle_route,
+            )
+        except (OSError, ValueError) as error:
+            raise ReleaseLockError(f"P06 V3 released LUT is invalid: {identifier}") from error
+        expected_route_name = (
+            "direct-2x" if oracle_route == "direct_2x" else "direct-3over2"
+        )
+        if evaluation_row != {
+            "route": expected_route_name,
+            "whole_file_sha256": artifacts[identifier]["sha256"],
+            "payload_sha256": validated.payload_sha256,
+        }:
+            raise ReleaseLockError(f"P06 V3 selected LUT identity differs: {identifier}")
+        validated_routes.append(
+            {
+                "identifier": identifier,
+                "oracle_route": oracle_route,
+                "validated": validated,
+            }
+        )
+
+    compiler_file_binding = _binding_fields(
+        artifacts["locked_compiler_input_v2"]
+    )
+    parity_rows = native_parity.get("routes")
+    lut_rows = lut_manifest.get("routes")
+    implementations = native_parity.get("implementations")
+    if (
+        native_parity.get("configuration_id")
+        != bundle.get("configuration_id")
+        or native_parity.get("compiler_input") != compiler_file_binding
+        or native_parity.get("input_hashes") != compiler_bindings
+        or native_parity.get("all_routes_byte_identical") is not True
+        or native_parity.get("holdout_accessed") is not False
+        or not isinstance(parity_rows, list)
+        or not isinstance(implementations, dict)
+        or lut_manifest.get("configuration_id")
+        != bundle.get("configuration_id")
+        or lut_manifest.get("compiler_input") != compiler_file_binding
+        or lut_manifest.get("hash_bindings") != compiler_bindings
+        or lut_manifest.get("native_parity_manifest")
+        != _binding_fields(artifacts["native_parity_manifest"])
+        or lut_manifest.get("holdout_accessed") is not False
+        or not isinstance(lut_rows, list)
+    ):
+        raise ReleaseLockError("P06 V3 native parity or LUT manifest identity differs")
+    for implementation_id in ("production_swift", "independent_test_python"):
+        row = implementations.get(implementation_id)
+        if not isinstance(row, dict):
+            raise ReleaseLockError(
+                f"P06 V3 parity implementation is absent: {implementation_id}"
+            )
+        rebound = _binding(
+            _path_under_root(release_root, str(row.get("path"))),
+            str(row.get("path")),
+        )
+        if row != rebound:
+            raise ReleaseLockError(
+                f"P06 V3 parity implementation changed: {implementation_id}"
+            )
+    if len(parity_rows) != 2 or len(lut_rows) != 2:
+        raise ReleaseLockError("P06 V3 native parity or LUT route count differs")
+    for parity_row, lut_row, validated_row in zip(
+        parity_rows,
+        lut_rows,
+        validated_routes,
+    ):
+        identifier = str(validated_row["identifier"])
+        oracle_route = str(validated_row["oracle_route"])
+        validated = validated_row["validated"]
+        runtime_route = (
+            "direct-2x" if oracle_route == "direct_2x" else "direct-3over2"
+        )
+        production_binding = _binding_fields(artifacts[identifier])
+        independent = parity_row.get("independent_test_python") \
+            if isinstance(parity_row, dict) else None
+        if not isinstance(independent, dict):
+            raise ReleaseLockError(
+                f"P06 V3 independent parity output is absent: {identifier}"
+            )
+        independent_path = _path_under_root(
+            release_root,
+            str(independent.get("path")),
+        )
+        independent_binding = _binding(
+            independent_path,
+            str(independent.get("path")),
+        )
+        production_payload = _read_regular_file(
+            _path_under_root(release_root, str(production_binding["path"]))
+        )
+        independent_payload = _read_regular_file(independent_path)
+        route_contract = ROUTES[oracle_route]
+        route_selection = parsed_compiler.routes[oracle_route]
+        expected_lut_row = {
+            "route": runtime_route,
+            "route_id": route_contract.route_id,
+            "scale_numerator": route_contract.scale_numerator,
+            "scale_denominator": route_contract.scale_denominator,
+            "phase_count": route_contract.phase_count,
+            "context_count": 4,
+            "valid_state_count": 256,
+            "plane_count": validated.plane_count,
+            "luma_coordinate_policy": route_selection.luma_coordinate_policy,
+            "chroma_coordinate_policy": route_selection.chroma_coordinate_policy,
+            "analysis_grid_source_step": route_selection.analysis_grid_source_step,
+            "entry_count": validated.entry_count,
+            "parameter_count": validated.parameter_count,
+            "path": route_contract.filename,
+            "whole_file_size_bytes": len(production_payload),
+            "whole_file_sha256": validated.whole_file_sha256,
+            "payload_sha256": validated.payload_sha256,
+            "header_crc32": f"0x{validated.header_crc32:08X}",
+            "payload_crc32": f"0x{validated.payload_crc32:08X}",
+        }
+        if (
+            not isinstance(parity_row, dict)
+            or parity_row.get("route") != runtime_route
+            or parity_row.get("production_swift") != production_binding
+            or independent != independent_binding
+            or parity_row.get("byte_identical") is not True
+            or parity_row.get("payload_hash_identical") is not True
+            or parity_row.get("first_differing_byte_offset") is not None
+            or production_payload != independent_payload
+            or lut_row != expected_lut_row
+        ):
+            raise ReleaseLockError(
+                f"P06 V3 parity/LUT route semantics differ: {identifier}"
+            )
+
+    try:
+        from validation.calibration_v2.p07.execution_authority_v2 import (
+            FILENAME as AUTHORITY_FILENAME,
+            canonical_file_bytes as canonical_authority_bytes,
+        )
+
+        authority_path = _path_under_root(release_root, AUTHORITY_FILENAME)
+        authority_payload = _read_regular_file(authority_path)
+        authority = _read_strict_json(authority_path)
+        if (
+            _sha256(authority_payload)
+            != bundle.get("authorized_execution_bindings_sha256")
+            or authority_payload != canonical_authority_bytes(authority)
+        ):
+            raise ReleaseLockError("P06 V3 execution authority file differs")
+    except (OSError, ValueError) as error:
+        raise ReleaseLockError("P06 V3 execution authority is invalid") from error
+    if (
+        authority.get("configuration_id") != bundle.get("configuration_id")
+        or authority.get("candidate_vector_sha256") != candidate_hash
+        or authority.get("shared_bank_configuration_sha256") != bank_hash
+        or authority.get("input_bundle_sha256") != bundle.get("input_bundle_sha256")
+        or authority.get("corpus_lock_bundle_sha256")
+        != bundle.get("corpus_lock_bundle_sha256")
+    ):
+        raise ReleaseLockError("P06 V3 execution authority identity differs")
+    release_files = authority.get("release_files")
+    if not isinstance(release_files, list):
+        raise ReleaseLockError("P06 V3 execution authority release files are absent")
+    authority_files = {
+        str(row.get("id")): row for row in release_files if isinstance(row, dict)
+    }
+    runtime_binding = authority_files.get("candidate_runtime_manifest_v2")
+    if not isinstance(runtime_binding, dict):
+        raise ReleaseLockError("P06 V3 candidate runtime manifest authority is absent")
+    runtime = _validated_json_artifact(
+        release_root=release_root,
+        binding=runtime_binding,
+        schema_path=CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA,
+        label="candidate runtime manifest V2",
+    )
+    _require_manifest_hash(
+        runtime,
+        field="manifest_sha256",
+        label="candidate runtime manifest V2",
+    )
+    runtime_routes = runtime.get("routes")
+    runtime_bindings = runtime.get("hash_bindings")
+    if (
+        runtime.get("configuration_id") != bundle.get("configuration_id")
+        or runtime.get("compiler_input")
+        != {
+            "path": "locked-compiler-input-v2.json",
+            "sha256": artifacts["locked_compiler_input_v2"]["sha256"],
+            "size_bytes": artifacts["locked_compiler_input_v2"]["size_bytes"],
+        }
+        or runtime_bindings != compiler_bindings
+        or not isinstance(runtime_routes, list)
+        or len(runtime_routes) != 2
+    ):
+        raise ReleaseLockError("P06 V3 runtime/compiler identity differs")
+    for runtime_row, validated_row in zip(runtime_routes, validated_routes):
+        validated = validated_row["validated"]
+        identifier = str(validated_row["identifier"])
+        if (
+            not isinstance(runtime_row, dict)
+            or runtime_row.get("whole_file_sha256")
+            != artifacts[identifier]["sha256"]
+            or runtime_row.get("whole_file_size_bytes")
+            != artifacts[identifier]["size_bytes"]
+            or runtime_row.get("payload_sha256") != validated.payload_sha256
+        ):
+            raise ReleaseLockError(f"P06 V3 runtime LUT binding differs: {identifier}")
+    swift_cli = runtime.get("swift_cli")
+    if (
+        not isinstance(swift_cli, dict)
+        or swift_cli.get("executable_sha256")
+        != authority_files.get("production_swift_executable", {}).get("sha256")
+        or swift_cli.get("source_manifest_sha256")
+        != authority_files.get("production_swift_source_manifest", {}).get("sha256")
+    ):
+        raise ReleaseLockError("P06 V3 runtime native identity differs")
+    if support_evidence_roots is not None:
+        if set(support_evidence_roots) != P06_SUPPORT_EVIDENCE_ROOT_IDS:
+            raise ReleaseLockError(
+                "P06 V3 full semantic replay support roots are not exact"
+            )
+        support_rows = authority.get("support_evidence_trees")
+        calibration_rows = [
+            row
+            for row in support_rows
+            if isinstance(row, dict)
+            and row.get("id") == "complete_calibration_run_tree"
+            and row.get("root_id") == CALIBRATION_RUN_SUPPORT_ROOT_ID
+        ] if isinstance(support_rows, list) else []
+        if len(calibration_rows) != 1:
+            raise ReleaseLockError(
+                "P06 V3 calibration-run semantic authority is absent"
+            )
+        calibration_root = _path_under_root(
+            support_evidence_roots[CALIBRATION_RUN_SUPPORT_ROOT_ID],
+            str(calibration_rows[0].get("path")),
+        )
+        try:
+            from validation.calibration_v2.calibration_persistence_v2 import (
+                FileBindingV2,
+            )
+            from validation.calibration_v2.calibration_selection_persistence_v2 import (
+                CalibrationSelectionPersistenceAdapterV2,
+            )
+
+            semantic = CalibrationSelectionPersistenceAdapterV2(
+                calibration_root
+            ).reopen_calibration_selection(
+                FileBindingV2(
+                    path=str(artifacts["calibration_selection"]["path"]),
+                    sha256=str(artifacts["calibration_selection"]["sha256"]),
+                    size_bytes=int(
+                        artifacts["calibration_selection"]["size_bytes"]
+                    ),
+                )
+            )
+        except (KeyError, OSError, TypeError, ValueError) as error:
+            raise ReleaseLockError(
+                "P06 V3 authoritative calibration selection replay failed"
+            ) from error
+        if semantic.document != selection:
+            raise ReleaseLockError(
+                "P06 V3 authoritative calibration selection bytes differ"
+            )
+    return authority
 
 
 def _validate_p06_release_cross_bindings(
@@ -3003,6 +4445,7 @@ def validate_lut_manifest(
 
 __all__ = [
     "CALIBRATION_RUN_SUPPORT_ROOT_ID",
+    "CONFIGURATION_LOCK_V2_SCHEMA",
     "NativeParityMismatch",
     "P06_SUPPORT_EVIDENCE_ROOT_IDS",
     "ReleaseLockError",
@@ -3011,6 +4454,7 @@ __all__ = [
     "build_native_parity_manifest",
     "build_lut_manifest",
     "build_p06_release_bundle_manifest",
+    "build_p06_release_bundle_v3_manifest",
     "candidate_vector_sha256_for_plan",
     "configuration_lock_document_from_bindings",
     "locked_compiler_input_document",
@@ -3020,6 +4464,7 @@ __all__ = [
     "route_analysis_grid_selection_document",
     "shared_bank_configuration_sha256_for_plan",
     "validate_lut_manifest",
+    "validate_p06_configuration_lock_v2",
     "validate_p06_release_bundle_manifest",
     "validate_dispatch_measurement_document",
     "video_mapping_document",

@@ -519,6 +519,24 @@ class CalibrationSchedulerV2Tests(unittest.TestCase):
         self.assertEqual(incumbent[ATOMIC_STRUCTURAL_COORDINATE], 1)
         self.assertTrue(calls)
 
+    def test_declared_fatal_evaluator_exception_is_not_recorded(self) -> None:
+        class FatalEvaluatorError(RuntimeError):
+            pass
+
+        expected = FatalEvaluatorError("authenticated provider contract drift")
+
+        def evaluator(logical, physical, identity):
+            del logical, physical, identity
+            raise expected
+
+        with self.assertRaises(FatalEvaluatorError) as raised:
+            run_development_search_v2(
+                self.plan,
+                evaluator,
+                fatal_evaluator_exceptions=(FatalEvaluatorError,),
+            )
+        self.assertIs(raised.exception, expected)
+
     def test_all_evaluation_failures_end_without_an_incumbent(self) -> None:
         def failing_evaluator(logical, physical, identity):
             del logical, physical, identity

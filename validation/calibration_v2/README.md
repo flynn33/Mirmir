@@ -1,5 +1,7 @@
 # P05/P06 semantic and calibration contracts
 
+> **Preserved evidence tooling:** These ASH V3 calibration and gate tools remain for reproducibility and reuse. Their presence does not authorize legacy P06/P07/P08 execution under the current roadmap.
+
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration
 results. Their status fields
@@ -283,35 +285,75 @@ python3 -m unittest discover -s validation/calibration_v2/tests -p 'test_*.py'
 python3 -m pytest validation/calibration_v2/tests
 ```
 
-`tools/run_p06_production_calibration.py` is the supported normal-mode entry
-point. It assembles the native Swift adapter, product HEVC writer, locked
-analytic fixtures, formula-derived evidence provider, and persistent
-content-addressed evidence store. It accepts no analytic test provider or
-injected measurement resolver. After development tuning and validation
-selection, the same command atomically publishes the mapping, operator bank,
-quality and metric policies, independent byte-identical LUTs, configuration
-lock, and the 17-artifact release bundle.
+## P06 V2 production and V3 release
 
-The command requires five pre-release evidence IDs in this exact order:
+`tools/run_p06_production_calibration_v2.py` is the sole production P06 entry
+point. The similarly named `run_p06_production_calibration.py` file is retained
+only for historical V1 preopen-anchor diagnostics: it has no calibration
+factory or executor, returns a non-authorizing status, and cannot publish a
+release.
 
-1. `python_calibration_full_suite`
-2. `xcode_native_integration`
-3. `xcode_release_runtime`
-4. `swiftlint`
-5. `release_lock_unit_suite`
+The V2 command requires one clean Git HEAD and the finalized G04, G05, and G06
+roots. It freshly reopens their semantic contracts, requires each result to
+name the same current commit with `working_tree_clean=true` and
+`holdout_accessed=false`, hashes each complete gate tree, and writes the three
+canonical receipts in exact G04, G05, G06 order under the calibration run. A
+dirty tree, commit drift, semantic mismatch, changed receipt, or changed gate
+tree aborts the run.
 
-Each path must be the matching root JSON returned by
-`tools/run_g06_verification.py`, and all five paths must share that verifier run
-root. Release publication revalidates the schema, ordinal, passing status,
-no-holdout flag, self-hash, verifier-source/schema hashes, exact group command
-contract, independently parsed test counts and diagnostics, command/log
-closure, and every declared file or directory-tree digest. Release build and
-runtime evidence is accepted only with zero warnings and zero errors. It then
-copies each JSON and its declared artifacts to
-`test-evidence/<evidence-id>/` without changing the relative artifact IDs. The
-release evidence closure hashes each resulting evidence directory as a whole,
-so the copied JSON, logs, products, summaries, and `.xcresult` contents remain
-one transitive release-local binding.
+One preopen operation creates two input views. The production-native view
+replaces only the calibration plan and compiler contract with their
+authenticated schema-2 forms; the inherited evaluation view retains the
+existing quality and corpus authorities. Candidate reconstruction and
+measurement are executed by the concrete Apple-native Swift adapter and product
+writer. Python owns deterministic search scheduling, strict evidence parsing,
+content addressing, selection replay, transaction control, and tests; it is
+not a product-runtime upscaler and no Python runtime ships in Mirmir.
+
+After validation selection, the command uses the hardened atomic transaction
+shell to publish only release bundle schema `3.0.1`. The selected candidate's
+mapping, operator bank, compiler input, and two LUT files are copied from their
+content-addressed evaluation as exact bytes. Their internal status remains
+`calibration_candidate`; the enclosing selection, evidence closure,
+configuration lock, and release bundle provide authority. Rewriting those
+candidate bytes to embed post-selection status or hashes is forbidden.
+
+The V3 manifest contains exactly these 23 ordered roles:
+
+1. `calibration_selection`
+2. `selected_evaluation`
+3. `calibration_run_ledger`
+4. `validation_candidate_development_evidence`
+5. `calibration_attempt_ledger`
+6. `non_ash_development_attempt_ledger`
+7. `non_ash_development_selection`
+8. `non_ash_validation_neighbor_manifest`
+9. `non_ash_validation_selection`
+10. `baseline_ablation_budget_v2`
+11. `live_holdout_preopen_verification`
+12. `locked_mapping`
+13. `locked_operator_bank`
+14. `locked_quality_policy`
+15. `locked_metric_policy`
+16. `locked_compiler_input_v2`
+17. `direct2x_lut`
+18. `direct3over2_lut`
+19. `native_parity_manifest`
+20. `lut_manifest`
+21. `configuration_lock`
+22. `evidence_closure`
+23. `artifact_manifest`
+
+Validation is role-semantic, not merely a manifest hash check. It replays the
+attempt chain and selection, validates the non-ASH predecessor chain, reopens
+control authorization dependencies, authenticates all schemas and self-hashes,
+recompiles both route LUTs independently, cross-binds native parity and the
+LUT manifest, and verifies the artifact-tree closure. The
+`configuration-lock-v2.json` validator additionally reopens an exact ordered
+nine-file set: mapping, operator bank, quality policy, metric policy, compiler
+input, both LUTs, native parity manifest, and LUT manifest. It requires
+`candidate_bytes_rewritten_after_selection=false` and
+`holdout_accessed=false`.
 
 The G06 verifier also requires a finalized native-runtime evidence root under
 repository `Artifacts/ASH` and the expected file SHA-256 of that root's
@@ -328,11 +370,14 @@ node ID as three separately parsed commands. Each command clears
 the cache provider. The full suite therefore retains its zero-skip and
 zero-deselection requirement without depending on ambient shell variables.
 
-A passing verifier directory is provisional until its enclosing evidence
+A passing G06 verifier directory is provisional until its enclosing evidence
 wrapper publishes `artifact-manifest.json`, recursively freezes the complete
 run tree, and reopens the same manifest and tree snapshot. The manifest belongs
-in the wrapper, not the verifier run root, because P06 requires exactly the five
-top-level G06 evidence JSON files in that run root.
+in the wrapper, not the verifier run root. G06 itself publishes the five
+ordered evidence roles `python_calibration_full_suite`,
+`xcode_native_integration`, `xcode_release_runtime`, `swiftlint`, and
+`release_lock_unit_suite`; the fresh G06 semantic reopener authenticates that
+closure before P06 stages its G06 receipt.
 
 `tools/finalize_evidence_wrapper.py` performs that publication from the exact
 hidden sibling `.<final-name>.partial`. Its version-2 manifest binds every
@@ -360,18 +405,37 @@ manifest file (the raw file digest, not the manifest's internal self-hash):
   --expected-native-runtime-manifest-file-sha256 <lowercase-hex-sha256>
 ```
 
-It also requires preserved failure evidence containing
-`p00_pinned_lanczos_postcommit_handler`. The release evidence closure binds
-those records, the complete calibration run tree, the selected controls, both
-compiler implementations, and every configuration artifact using the same
-digest modes enforced by the one-time holdout guard. It also tree-hashes the
-external open-split, content-addressed evaluation, native-cache,
-production-writer, dispatch-measurement, and canonical calibration-run stores
-so referenced proof hashes remain independently recoverable and can be
-revalidated before P07. P06 reads
+The V3 evidence closure tree-hashes six external support authorities:
+`open_split`, `calibration_evidence`, `native_cache`, `production_writer`,
+`dispatch_measurement`, and `calibration_run`. Full release validation requires
+all six roots and transitively reopens the calibration selection. P06 reads
 development and validation pixels only; it does not accept or open a holdout
-payload path. The corpus-lock bundle binds the sampling plan's file/self hashes
-and its pre-open `target_pixel_hashes_known_before_p07=false` state.
+payload path. The live-preopen receipt must remain `unopened`, have zero access
+count, no open-intent anchor, and no pixel content. Its corpus binding is the
+tracked corpus manifest self-hash, which is deliberately distinct from the
+compiler's canonical corpus-lock bundle digest.
+
+On successful V3 publication the production command performs one support-aware
+export of the exact six Apple product resources: `lut-manifest-v3.json`,
+`locked-compiler-input-v2.json`, `locked-mapping.json`, `direct2x.ashlut`,
+`direct3over2.ashlut`, and `native-lut-parity-manifest-v3.json`. The destination
+must contain exactly those files and byte-match the authenticated release.
+`tools/export_p08_release_resources_v3.py` is the recovery-only entry point for
+an already-authoritative V3 release. It requires explicit paths for all six
+support roots, performs the same full transitive replay, publishes or
+idempotently reopens only the six-file set, and never reruns P06 or creates a
+second release. Its receipt records `full_support_replay_performed=true` and
+`holdout_accessed=false`. Both output paths must be disjoint from the release
+and every support root. Success requires a readback of the terminal receipt, a
+second exact-six member readback after that receipt is published, and a second
+full replay of the authenticated release/support authority plus an exact raw
+release-manifest comparison before the receipt commit. Receipt bytes are staged,
+fsynced, and reopened before exclusive terminal publication, then reopened at
+the final path. A failing post-commit readback quarantines a newly published
+receipt. An interrupted owned staging artifact is retained with a `.failed`
+suffix. A matching `.partial` left by process interruption is exclusively
+quarantined to a collision-safe `.failed` name before recovery proceeds. These
+bytes never qualify as an adoptable or retry-blocking publication.
 
 ## P07 locked holdout transaction
 
@@ -382,6 +446,13 @@ frozen. The exact support IDs are `open_split`, `calibration_evidence`,
 `calibration_run`; the last path is the canonical calibration output root that
 directly contains the locked run directory.
 
+The command also requires the original G04, G05, and G06 roots, the G05
+instruction-package root and baseline commit, and the G06 execution-run name.
+It reruns the authoritative gate reopeners under one unchanged clean HEAD,
+rehashes the actual external trees, and requires the fresh semantic/tree
+projection to equal the P06-sealed execution authority. Sealed receipt fields
+without that fresh external reopening do not authorize P07.
+
 Before guard intent, the command reopens every direct preregistered input,
 performs support-aware P06 release validation, independently recompiles both
 released LUT routes, builds the Swift extraction loader twice, requires
@@ -391,6 +462,16 @@ fresh, empty directory outside the repository, holdout, release, support,
 ledger, and anchor roots. The output directory and temporary publication root
 must also remain outside those protected trees; a dedicated P07 sibling under
 an artifact parent is allowed.
+
+The guard accepts only the release-manifest-bound
+`configuration-lock-v2.json`. It invokes the shared P06 schema/self-hash and
+descriptor-safe nine-file validator, then reopens the exact ordered V3 files
+before and after loader delegation. The schema-2 path never imports the legacy
+scalar `_configuration_bindings` helper and does not accept
+`locked-compiler-input.json` or `lut-manifest.json` aliases. A startup failure
+that occurs before the immutable holdout anchor exists is written as an
+exclusive, canonical, fsynced non-opening diagnostic; foreign or changed
+collision state is rejected.
 
 Only `HoldoutAccessGuard.read_once` may mount and read the sealed payloads. The
 loader requires identity orientation, monotonic presentation timestamps,

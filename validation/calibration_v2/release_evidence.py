@@ -58,6 +58,14 @@ PYTHON_TEST_RUNNER_IDS = (
     "pytest",
     "native_benchmark_proof",
 )
+V3_RELEASE_INTEGRATION_TEST_IDS = (
+    "ASHLUTFormat12V3Tests",
+    "ASHLockedArtifactStoreV3Tests",
+    "ASHLockedPlaneAwareRuntimeV3Tests",
+    "ASHLockedFramePipelineV3Tests",
+    "ASHLockedUpscaleBackendV3Tests",
+    "ASHBackendIntegrationTests",
+)
 NATIVE_INTEGRATION_TEST_IDS = (
     "ASHAnalysisGridV2Tests",
     "ASHLUTBinaryFormatV2Tests",
@@ -67,6 +75,7 @@ NATIVE_INTEGRATION_TEST_IDS = (
     "ASHLockedGeometryRuntimeV2Tests",
     "ASHLockedLUTManifestV2Tests",
     "ASHLockedReferencePipelineV2Tests",
+    *V3_RELEASE_INTEGRATION_TEST_IDS,
 )
 NATIVE_BENCHMARK_PROOF_NODE_ID = (
     "validation/calibration_v2/tests/"
@@ -80,6 +89,7 @@ RELEASE_RUNTIME_TEST_IDS = (
     "ASHLockedLUTManifestV2Tests",
     "ASHLockedReferencePipelineV2Tests",
     "ASHSpatialRuntimeConfigurationV2Tests",
+    *V3_RELEASE_INTEGRATION_TEST_IDS,
 )
 RELEASE_LOCK_TEST_MODULES = (
     "validation.calibration_v2.tests.test_release_lock",
@@ -415,6 +425,7 @@ __all__ = [
     "SELECTED_CONTROL_IDS",
     "SUPPORT_TREE_IDS",
     "TEST_EVIDENCE_IDS",
+    "V3_RELEASE_INTEGRATION_TEST_IDS",
     "actionable_diagnostic_counts",
     "evidence_binding",
     "p06_evidence_closure_document",

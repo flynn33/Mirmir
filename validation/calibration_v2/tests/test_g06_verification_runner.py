@@ -26,6 +26,31 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 
 
 class G06ParserTests(unittest.TestCase):
+    def test_v3_release_integration_tests_are_exact_and_run_in_both_scopes(
+        self,
+    ) -> None:
+        self.assertEqual(
+            g06.V3_RELEASE_INTEGRATION_TESTS,
+            (
+                "ASHLUTFormat12V3Tests",
+                "ASHLockedArtifactStoreV3Tests",
+                "ASHLockedPlaneAwareRuntimeV3Tests",
+                "ASHLockedFramePipelineV3Tests",
+                "ASHLockedUpscaleBackendV3Tests",
+                "ASHBackendIntegrationTests",
+            ),
+        )
+        for identifier in g06.V3_RELEASE_INTEGRATION_TESTS:
+            with self.subTest(identifier=identifier):
+                self.assertEqual(g06.NATIVE_INTEGRATION_TESTS.count(identifier), 1)
+                self.assertEqual(g06.RELEASE_RUNTIME_TESTS.count(identifier), 1)
+        self.assertFalse(
+            any("Metal" in identifier for identifier in g06.NATIVE_INTEGRATION_TESTS)
+        )
+        self.assertFalse(
+            any("Metal" in identifier for identifier in g06.RELEASE_RUNTIME_TESTS)
+        )
+
     def test_unittest_parser_requires_terminal_arithmetic(self) -> None:
         counts = g06.parse_unittest_output(
             "................................................................\n"

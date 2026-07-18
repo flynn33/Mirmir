@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p08-performance-results-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "evidence_identity",
+    "benchmark_result_bundle", "measurement_protocol", "measurements",
+    "hash_scope", "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p08_performance_results"},
+    "evidence_identity": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/identity"
+    },
+    "benchmark_result_bundle": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/treeBinding"
+    },
+    "measurement_protocol": {
+      "const": {
+        "warmup_frames": 30,
+        "measurement_frames": 300,
+        "cpu_reference_frames": 3,
+        "gpu_timing_percentile": "ascending paired overhead percentages with linear interpolation at (n-1)*0.95",
+        "calibration_estimate_source": "exact selected validation candidate-evaluation-v2 /evaluation/objective/estimated_dispatch_cost",
+        "calibration_estimate_formula": "binary64 mean in locked row order of (analysis_cell_count + maximum_operator_evaluations * target_luma_pixel_count) / target_luma_pixel_count",
+        "measured_dispatch_cost_formula": "(analysis_cell_count + actual_luma_operator_invocation_count) / target_luma_pixel_count",
+        "dispatch_cost_count_scope": "luma only, summed across full_ash_metal_frames after warmup",
+        "maximum_operator_evaluations_per_output_cell": 2,
+        "candidate_and_fallback_rule": "candidate luma operator invocations are bounded at two per target pixel; conservative numerical fallback invocations are recorded separately and are not candidate evaluations",
+        "compute_only_and_end_to_end_both_required": true,
+        "fixed_control": "same-bank fixed-operator Metal under identical input/output/writer conditions"
+      }
+    },
+    "measurements": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/measurement"}
+    },
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /artifact_sha256"
+    },
+    "artifact_sha256": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "measurement": {
+      "type": "object",
+      "required": [
+        "route", "mode", "input_sha256", "full_ash_conditions_sha256",
+        "fixed_metal_conditions_sha256", "benchmark_conditions",
+        "cpu_reference_frames",
+        "cpu_reference_elapsed_seconds", "full_ash_metal_warmup_frames",
+        "full_ash_metal_frames", "full_ash_metal_elapsed_seconds",
+        "same_bank_fixed_metal_warmup_frames", "same_bank_fixed_metal_frames",
+        "same_bank_fixed_metal_elapsed_seconds",
+        "same_machine_speedup", "frames_per_second",
+        "full_ash_gpu_time_samples_seconds",
+        "same_bank_fixed_gpu_time_samples_seconds",
+        "ash_dispatch_overhead_p95_percent",
+        "calibration_estimate_source_artifact_sha256",
+        "analysis_cell_count", "target_luma_pixel_count",
+        "candidate_luma_operator_invocation_count",
+        "luma_numerical_fallback_invocation_count",
+        "actual_luma_operator_invocation_count",
+        "calibration_estimated_dispatch_cost", "measured_luma_dispatch_cost",
+        "calibration_estimate_relative_error",
+        "repeat_output_sha256_values"
+      ],
+      "properties": {
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "mode": {"enum": ["compute_only", "end_to_end"]},
+        "input_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "full_ash_conditions_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "fixed_metal_conditions_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "benchmark_conditions": {"$ref": "#/$defs/benchmarkConditions"},
+        "cpu_reference_frames": {"const": 3},
+        "cpu_reference_elapsed_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "full_ash_metal_warmup_frames": {"const": 30},
+        "full_ash_metal_frames": {"const": 300},
+        "full_ash_metal_elapsed_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "same_bank_fixed_metal_warmup_frames": {"const": 30},
+        "same_bank_fixed_metal_frames": {"const": 300},
+        "same_bank_fixed_metal_elapsed_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "same_machine_speedup": {"type": "number", "minimum": 0},
+        "frames_per_second": {"type": "number", "minimum": 0},
+        "full_ash_gpu_time_samples_seconds": {
+          "type": "array", "minItems": 300, "maxItems": 300,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "same_bank_fixed_gpu_time_samples_seconds": {
+          "type": "array", "minItems": 300, "maxItems": 300,
+          "items": {"type": "number", "exclusiveMinimum": 0}
+        },
+        "ash_dispatch_overhead_p95_percent": {"type": "number"},
+        "calibration_estimate_source_artifact_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "analysis_cell_count": {"type": "integer", "minimum": 1},
+        "target_luma_pixel_count": {"type": "integer", "minimum": 1},
+        "candidate_luma_operator_invocation_count": {
+          "type": "integer", "minimum": 1
+        },
+        "luma_numerical_fallback_invocation_count": {
+          "type": "integer", "minimum": 0
+        },
+        "actual_luma_operator_invocation_count": {
+          "type": "integer", "minimum": 1
+        },
+        "calibration_estimated_dispatch_cost": {"type": "number", "exclusiveMinimum": 0},
+        "measured_luma_dispatch_cost": {"type": "number", "exclusiveMinimum": 0},
+        "calibration_estimate_relative_error": {"type": "number", "minimum": 0},
+        "repeat_output_sha256_values": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "decodedFrame": {
+      "type": "object",
+      "required": [
+        "frame_ordinal", "presentation_timestamp_value",
+        "presentation_timestamp_timescale", "decoded_nv12_sha256",
+        "y_plane_sha256", "cbcr_plane_sha256"
+      ],
+      "properties": {
+        "frame_ordinal": {"type": "integer", "minimum": 0, "maximum": 2},
+        "presentation_timestamp_value": {"type": "integer", "minimum": 0},
+        "presentation_timestamp_timescale": {"type": "integer", "minimum": 1},
+        "decoded_nv12_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "y_plane_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "cbcr_plane_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        }
+      },
+      "additionalProperties": false
+    },
+    "benchmarkConditions": {
+      "type": "object",
+      "required": [
+        "fixture_id", "fixture_file_sha256", "source_width", "source_height",
+        "destination_width", "destination_height", "fixture_frame_count",
+        "ordered_decoded_frames", "decoded_pixel_format_fourcc",
+        "decoded_plane_layout", "code_range", "chroma_location",
+        "color_primaries", "transfer_function", "ycbcr_matrix",
+        "frame_repetition", "measurement_scope", "writer_settings"
+      ],
+      "properties": {
+        "fixture_id": {
+          "enum": ["img9200_exact_1080p_3f.mp4", "img9200_exact_720p_1f.mp4"]
+        },
+        "fixture_file_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "source_width": {"type": "integer", "minimum": 1},
+        "source_height": {"type": "integer", "minimum": 1},
+        "destination_width": {"type": "integer", "minimum": 1},
+        "destination_height": {"type": "integer", "minimum": 1},
+        "fixture_frame_count": {"type": "integer", "minimum": 1, "maximum": 3},
+        "ordered_decoded_frames": {
+          "type": "array", "minItems": 1, "maxItems": 3,
+          "items": {"$ref": "#/$defs/decodedFrame"}
+        },
+        "decoded_pixel_format_fourcc": {"const": "420v"},
+        "decoded_plane_layout": {"const": "NV12"},
+        "code_range": {"const": "video"},
+        "chroma_location": {"const": "left"},
+        "color_primaries": {"const": "ITU_R_709_2"},
+        "transfer_function": {"const": "ITU_R_709_2"},
+        "ycbcr_matrix": {"const": "ITU_R_709_2"},
+        "frame_repetition": {
+          "const": {
+            "rule": "cyclic in original presentation order with generated benchmark timestamps",
+            "generated_timestamp_start_value": 0,
+            "generated_timestamp_step_value": 1,
+            "generated_timestamp_timescale": 60,
+            "cpu_reference_frames": 3,
+            "warmup_frames": 30,
+            "measurement_frames": 300
+          }
+        },
+        "measurement_scope": {"enum": ["compute_only", "end_to_end"]},
+        "writer_settings": {
+          "type": "object",
+          "required": [
+            "execution_scope", "framework", "container", "codec",
+            "expected_frame_rate", "average_bit_rate",
+            "expects_media_data_in_real_time", "pixel_format",
+            "color_primaries", "transfer_function", "ycbcr_matrix"
+          ],
+          "properties": {
+            "execution_scope": {
+              "enum": ["not_executed_compute_only", "production_end_to_end"]
+            },
+            "framework": {"const": "AVFoundation"},
+            "container": {"const": "mp4"},
+            "codec": {"const": "hevc"},
+            "expected_frame_rate": {"const": 30},
+            "average_bit_rate": {"type": "integer", "minimum": 2000000},
+            "expects_media_data_in_real_time": {"const": false},
+            "pixel_format": {"const": "420v"},
+            "color_primaries": {"const": "ITU_R_709_2"},
+            "transfer_function": {"const": "ITU_R_709_2"},
+            "ycbcr_matrix": {"const": "ITU_R_709_2"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -15,6 +15,7 @@ from unittest import mock
 
 from validation.calibration_v2.tools import run_g05_current_source as g05
 from validation.quality.src.mirmir_quality.json_tools import canonical_json_bytes
+from validation.spatial_v2 import run_p05_evidence as p05
 
 
 SOURCE_COMMIT = "1" * 40
@@ -28,6 +29,12 @@ _MISSING = object()
 
 
 class G05CurrentSourceTests(unittest.TestCase):
+    def test_p05_compiler_is_bound_to_explicit_macos_sdk(self) -> None:
+        self.assertEqual(
+            p05.SWIFT_COMPILER_COMMAND,
+            ("/usr/bin/xcrun", "--sdk", "macosx", "swiftc"),
+        )
+
     def setUp(self) -> None:
         repository_parent = Path(__file__).resolve().parents[4]
         self.temporary = tempfile.TemporaryDirectory(
@@ -748,7 +755,7 @@ class G05CurrentSourceTests(unittest.TestCase):
                 encoding="utf-8",
             )
         (outputs / "swiftlint.log").write_text(
-            "Done linting! Found 0 violations, 0 serious in 144 files.\n",
+            "[\n\n]\n",
             encoding="utf-8",
         )
         self._write_json(
@@ -997,6 +1004,24 @@ class G05CurrentSourceTests(unittest.TestCase):
 
         commands = plan["commands"]
         self.assertIsInstance(commands, list)
+        swiftlint_command = next(
+            command for command in commands if command["id"] == "swiftlint"
+        )
+        self.assertEqual(
+            swiftlint_command["argv"][2:],
+            ["--quiet", "--strict", "--reporter", "json", "--config", ".swiftlint.yml"],
+        )
+        (partial / "outputs/swiftlint.log").write_text(
+            '[{"rule_id":"fixture"}]\n',
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(
+            g05.G05CurrentSourceError,
+            "empty violation array",
+        ):
+            with mock.patch.object(g05.shutil, "which", return_value="/usr/bin/true"):
+                g05._validate_command_plan(**call)
+        (partial / "outputs/swiftlint.log").write_text("[\n\n]\n", encoding="utf-8")
         original_argv = list(commands[0]["argv"])
         commands[0]["argv"] = [str(Path(g05.sys.executable).resolve()), "-V"]
         self._write_json(partial / "inputs/g05-command-plan.json", plan)

@@ -392,7 +392,10 @@ class G05GateTests(unittest.TestCase):
                     "argv": [
                         swiftlint_executable,
                         "lint",
+                        "--quiet",
                         "--strict",
+                        "--reporter",
+                        "json",
                         "--config",
                         ".swiftlint.yml",
                     ],
@@ -637,7 +640,7 @@ class G05GateTests(unittest.TestCase):
             )
         stdout_payloads.update(
             {
-                "swiftlint": b"Found 0 violations, 0 serious in 42 files.\n",
+                "swiftlint": b"[\n\n]\n",
                 "attribution": document_bytes(
                     {
                         "status": "pass",

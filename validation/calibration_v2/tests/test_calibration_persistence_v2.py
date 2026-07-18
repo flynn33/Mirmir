@@ -280,7 +280,7 @@ def _write_unit_control_bundle(
         key=lambda item: item["path"],
     )
     bundle = {
-        "schema_version": "2.0.0",
+        "schema_version": "2.0.1",
         "artifact_kind": CONTROL_AUTHORIZATION_BUNDLE_KIND,
         "run_id": run_id,
         "split": split,

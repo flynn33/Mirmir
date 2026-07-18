@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p06-locked-quality-policy-v2.schema.json",
+  "title": "Mirmir P06 selected-control quality lock V2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "artifact_kind", "status", "run_id", "shared_bank_configuration_sha256", "selected_control_authorization_bundle", "control_selections", "holdout_accessed", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "2.0.0"},
+    "artifact_kind": {"const": "p06_locked_quality_policy_v2"},
+    "status": {"const": "locked_before_p07"},
+    "run_id": {"type": "string", "minLength": 1},
+    "shared_bank_configuration_sha256": {"$ref": "#/$defs/sha256"},
+    "selected_control_authorization_bundle": {"$ref": "#/$defs/typedBinding"},
+    "control_selections": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/control"}, {"properties": {"id": {"const": "best_fixed"}}}]},
+        {"allOf": [{"$ref": "#/$defs/control"}, {"properties": {"id": {"const": "conventional"}}}]},
+        {"allOf": [{"$ref": "#/$defs/control"}, {"properties": {"id": {"const": "non_ash_selector"}}}]}
+      ],
+      "items": false
+    },
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "safeRelativePath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*/$)[A-Za-z0-9._/-]+$"},
+    "fileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "size_bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "typedBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "schema_sha256", "path", "sha256", "size_bytes"],
+      "properties": {
+        "artifact_kind": {"type": "string", "minLength": 1},
+        "schema_sha256": {"$ref": "#/$defs/sha256"},
+        "path": {"$ref": "#/$defs/safeRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "selection"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "selection": {"$ref": "#/$defs/typedBinding"}
+      }
+    }
+  }
+}

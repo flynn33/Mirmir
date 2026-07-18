@@ -4,6 +4,10 @@ import Foundation
 
 extension AVFoundationMediaSession {
     func finish() async throws {
+        try await finish(finalMetadata: outputProfile.timedMetadataTemplate)
+    }
+
+    func finish(finalMetadata: [String: String]) async throws {
         do {
             try checkCancellation()
             try outputTransaction.beginFinishing()
@@ -16,6 +20,10 @@ extension AVFoundationMediaSession {
                     String(describing: FrameTimingLedgerError.empty)
                 )
             }
+            try await finishTimedMetadata(
+                finalMetadata,
+                sessionEndTime: sessionEndTime
+            )
             writer.endSession(atSourceTime: sessionEndTime)
             await finishWriter(at: sessionEndTime)
 
@@ -26,7 +34,10 @@ extension AVFoundationMediaSession {
             }
 
             try outputTransaction.beginVerifying()
-            let verification = try await verifyOutput(timing: timing)
+            let verification = try await verifyOutput(
+                timing: timing,
+                finalMetadata: finalMetadata
+            )
             recordVerification(verification)
             try checkCancellation()
             try publishOutput()
@@ -110,6 +121,47 @@ extension AVFoundationMediaSession {
         audioInput.markAsFinished()
     }
 
+    private func finishTimedMetadata(
+        _ finalMetadata: [String: String],
+        sessionEndTime: CMTime
+    ) async throws {
+        guard let timedMetadataWriter else {
+            guard finalMetadata.isEmpty else {
+                throw MediaPipelineError.outputMetadataMismatch(
+                    "final metadata was supplied without a configured writer input"
+                )
+            }
+            return
+        }
+        guard Set(finalMetadata.keys) == timedMetadataWriter.expectedKeys,
+              finalMetadata.values.allSatisfy({ !$0.isEmpty }) else {
+            throw MediaPipelineError.outputMetadataMismatch(
+                "final metadata keys or values differ from the preflight template"
+            )
+        }
+        while !timedMetadataWriter.input.isReadyForMoreMediaData {
+            try await Task.sleep(nanoseconds: 1_000_000)
+            try checkCancellation()
+        }
+        let group = Self.makeASHMetadataGroup(
+            finalMetadata,
+            timeRange: CMTimeRange(start: .zero, duration: sessionEndTime)
+        )
+        guard timedMetadataWriter.adaptor.append(group) else {
+            throw MediaPipelineError.writerFailed(writer.error)
+        }
+        timedMetadataWriter.input.markAsFinished()
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "ash_output_identity_finalized",
+            details: [
+                "metadata_key_count": String(finalMetadata.count),
+                "numerical_fallback_count": finalMetadata[
+                    "com.mirmir.ash.numerical-fallback-count"
+                ] ?? "not_applicable"
+            ]
+        ))
+    }
+
     private func finishWriter(at sessionEndTime: CMTime) async {
         let finishStage = telemetry.beginStage(.writerFinish)
         await writer.finishWriting()
@@ -125,7 +177,8 @@ extension AVFoundationMediaSession {
     }
 
     private func verifyOutput(
-        timing: FrameTimingLedgerSnapshot
+        timing: FrameTimingLedgerSnapshot,
+        finalMetadata: [String: String]
     ) async throws -> OutputMediaVerificationResult {
         let verificationStage = telemetry.beginStage(.reopenVerify)
         do {
@@ -134,7 +187,8 @@ extension AVFoundationMediaSession {
                 expectation: OutputMediaVerificationExpectation(
                     resolution: outputProfile.resolution,
                     codec: outputProfile.codec,
-                    timing: timing
+                    timing: timing,
+                    timedMetadata: finalMetadata
                 )
             )
             telemetry.endStage(verificationStage)

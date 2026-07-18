@@ -98,9 +98,9 @@ enum ASHSpatialReferencePipelineV2 {
         }
         telemetry.increment(.fullFrameCPULoops, by: 3)
 
-        let lumaPlane = try ASHNV12FrameCodec.normalizedPlane(input.luma, channel: .luma)
-        let cbPlane = try ASHNV12FrameCodec.normalizedPlane(input.cb, channel: .chroma)
-        let crPlane = try ASHNV12FrameCodec.normalizedPlane(input.cr, channel: .chroma)
+        let lumaPlane = try ASHCodePlaneNormalizerV2.normalizedPlane(input.luma, channel: .luma)
+        let cbPlane = try ASHCodePlaneNormalizerV2.normalizedPlane(input.cb, channel: .chroma)
+        let crPlane = try ASHCodePlaneNormalizerV2.normalizedPlane(input.cr, channel: .chroma)
         var summary = telemetry.measure(.telemetryReduce) {
             recordAnalysisTelemetry(analyses, telemetry: telemetry)
             return makeAnalysisSummary(analyses)

@@ -160,9 +160,15 @@ struct ASHCalibrationCLIMain {
         let compilerInputData = try ASHCalibrationCLIFileIO.readRegularFile(
             values["--compiler-input"]!
         )
-        guard try compilerInputSchemaVersion(compilerInputData) == "1.0.0" else {
+        switch try compilerInputSchemaVersion(compilerInputData) {
+        case "1.0.0":
+            break
+        case "2.0.0":
+            try serveCandidateV2(values, compilerInputData: compilerInputData)
+            return
+        default:
             throw ASHCalibrationCLIError.unsupported(
-                "schema-2 candidate runtime manifest authority"
+                "candidate runtime compiler-input schema"
             )
         }
         let inputs = try loadConfigurationInputsV1(
@@ -330,6 +336,108 @@ struct ASHCalibrationCLIMain {
         }
     }
 
+    private static func serveCandidateV2(
+        _ values: [String: String],
+        compilerInputData: Data
+    ) throws {
+        let inputs = try loadConfigurationInputsV2(
+            values,
+            compilerInputData: compilerInputData
+        )
+        let mapping = try ASHLockedVideoMappingV2.loadCalibrationCandidateV2(
+            inputs.mappingData,
+            expectedSHA256: inputs.configuration.mappingSHA256,
+            configuration: inputs.configuration
+        )
+        let manifestData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--runtime-manifest"]!
+        )
+        let manifest = try ASHLockedCandidateLUTManifestV2.load(
+            manifestData,
+            compilerInputData: inputs.compilerInputData,
+            configuration: inputs.configuration
+        )
+        let executableData = try ASHCalibrationCLIFileIO.readRegularFile(
+            CommandLine.arguments[0]
+        )
+        guard ASHCalibrationCLIHash.hex(executableData)
+                == manifest.executableSHA256.hex else {
+            throw ASHCalibrationCLIError.hashMismatch("native executable")
+        }
+        let sourceManifestData = try ASHCalibrationCLIFileIO.readRegularFile(
+            values["--source-manifest"]!
+        )
+        guard ASHCalibrationCLIHash.hex(sourceManifestData)
+                == manifest.sourceManifestSHA256.hex else {
+            throw ASHCalibrationCLIError.hashMismatch("source manifest")
+        }
+        let session = try ASHCalibrationNativeSessionV2(
+            configuration: inputs.configuration,
+            mapping: mapping,
+            manifest: manifest,
+            direct2xData: ASHCalibrationCLIFileIO.readRegularFile(
+                values["--direct2x-lut"]!
+            ),
+            direct3Over2Data: ASHCalibrationCLIFileIO.readRegularFile(
+                values["--direct3over2-lut"]!
+            )
+        )
+        try ASHCalibrationCLIJSON.writeLine([
+            "schema_version": "2.0.0",
+            "status": "ready",
+            "configuration_id": inputs.configuration.configurationID,
+            "candidate_lut_runtime_manifest_sha256": manifest.manifestSHA256.hex,
+            "session_loaded_lut_instance_count": 2,
+            "per_frame_lut_load_count": 0,
+            "native_parity_claimed": false
+        ])
+        while let line = readLine(strippingNewline: true) {
+            let data = Data(line.utf8)
+            let requestSHA256 = ASHCalibrationCLIHash.hex(data)
+            do {
+                switch try ASHCalibrationRequestOperation.parse(data) {
+                case "process_batch":
+                    let request = try ASHCalibrationBatchRequest.parse(
+                        data,
+                        configuration: inputs.configuration
+                    )
+                    let frames = try session.process(request)
+                    try ASHCalibrationCLIJSON.writeLine([
+                        "schema_version": "2.0.0",
+                        "status": "ok",
+                        "request_sha256": requestSHA256,
+                        "frames": frames
+                    ])
+                case "reconstruct_control":
+                    let request = try ASHCalibrationControlRequest.parse(
+                        data,
+                        configuration: inputs.configuration,
+                        mapping: mapping
+                    )
+                    let control = try session.control(request)
+                    try ASHCalibrationCLIJSON.writeLine([
+                        "schema_version": "2.0.0",
+                        "status": "ok",
+                        "request_sha256": requestSHA256,
+                        "control": control
+                    ])
+                default:
+                    throw ASHCalibrationCLIError.unsupported(
+                        "format-1.2 candidate operation"
+                    )
+                }
+            } catch {
+                try ASHCalibrationCLIJSON.writeLine([
+                    "schema_version": "2.0.0",
+                    "status": "error",
+                    "request_sha256": requestSHA256,
+                    "error_type": String(describing: type(of: error)),
+                    "message": String(describing: error)
+                ])
+            }
+        }
+    }
+
     private struct ConfigurationInputsV1 {
         let compilerInputData: Data
         let configuration: ASHLUTLockedConfigurationV2
@@ -482,6 +590,7 @@ struct ASHCalibrationCLIMain {
             "phase_count": route.phasePairCount,
             "context_count": 4,
             "valid_state_count": 256,
+            "plane_count": 2,
             "luma_coordinate_policy": selection.lumaCoordinatePolicy.rawValue,
             "chroma_coordinate_policy": selection.chromaCoordinatePolicy.rawValue,
             "analysis_grid_source_step": Int(selection.analysisGridSourceStep),

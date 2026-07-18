@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/p08-resource-ring-results-v1.schema.json",
+  "type": "object",
+  "required": [
+    "schema_version", "artifact_kind", "evidence_identity",
+    "xctest_result_bundle", "measurement_protocol", "routes",
+    "hash_scope", "artifact_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "artifact_kind": {"const": "p08_resource_ring_results"},
+    "evidence_identity": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/identity"
+    },
+    "xctest_result_bundle": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/treeBinding"
+    },
+    "measurement_protocol": {
+      "const": {"warmup_frames": 30, "measurement_frames": 300}
+    },
+    "routes": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"$ref": "#/$defs/routeResult"}
+    },
+    "hash_scope": {
+      "const": "canonical sorted-key compact UTF-8 JSON excluding /artifact_sha256"
+    },
+    "artifact_sha256": {
+      "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "routeResult": {
+      "type": "object",
+      "required": [
+        "route", "benchmark_conditions_sha256", "configured_capacity",
+        "maximum_observed_in_flight",
+        "observed_frames", "in_flight_after_drain",
+        "resource_failure_count", "memory_metric", "memory_bytes_after_warmup",
+        "memory_bytes_after_measurement", "memory_drift_percent",
+        "live_frame_resource_bound", "live_frame_resources_after_drain",
+        "live_frame_resources_returned_to_bound", "repeat_output_sha256_values"
+      ],
+      "properties": {
+        "route": {"enum": ["direct_2x", "direct_3_over_2"]},
+        "benchmark_conditions_sha256": {
+          "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+        },
+        "configured_capacity": {"type": "integer", "minimum": 1},
+        "maximum_observed_in_flight": {"type": "integer", "minimum": 0},
+        "observed_frames": {"const": 300},
+        "in_flight_after_drain": {"type": "integer", "minimum": 0},
+        "resource_failure_count": {"type": "integer", "minimum": 0},
+        "memory_metric": {"enum": ["rss", "physical_footprint"]},
+        "memory_bytes_after_warmup": {"type": "integer", "minimum": 1},
+        "memory_bytes_after_measurement": {"type": "integer", "minimum": 1},
+        "memory_drift_percent": {"type": "number", "minimum": 0},
+        "live_frame_resource_bound": {"type": "integer", "minimum": 0},
+        "live_frame_resources_after_drain": {"type": "integer", "minimum": 0},
+        "live_frame_resources_returned_to_bound": {"type": "boolean"},
+        "repeat_output_sha256_values": {
+          "type": "array", "minItems": 2,
+          "items": {
+            "$ref": "https://mirmir.local/validation/calibration-v2/p08-common-v1.schema.json#/$defs/sha256"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

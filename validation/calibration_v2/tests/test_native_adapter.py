@@ -12,6 +12,18 @@ from unittest import mock
 
 import numpy as np
 
+import validation.calibration_v2.control_authorization_v2 as control_authorization
+from validation.calibration_v2.calibration_persistence_v2 import (
+    CandidateControlProducerRequestV2,
+)
+from validation.calibration_v2.control_authorization_v2 import (
+    ControlAuthorizationScopeV2,
+    ControlAuthorizationVerifierV2,
+    TypedArtifactBindingV2,
+)
+from validation.calibration_v2.control_evidence_publisher_v2 import (
+    RawControlAuthorizationArtifactPublisherV2,
+)
 from validation.calibration_v2.native_adapter.factory import (
     NativeAdapterError,
     NativeCandidateCallable,
@@ -22,6 +34,9 @@ from validation.calibration_v2.native_adapter.factory import (
     _write_new_deferred,
     make_native_candidate_adapter_factory,
 )
+from validation.calibration_v2.non_ash_selector_v2 import (
+    NonAshSelectorEvaluationScopeV2,
+)
 from validation.calibration_v2.reference.lut_oracle_v2 import (
     compile_all_route_bytes_v2,
     parse_locked_compiler_input_v2,
@@ -29,10 +44,20 @@ from validation.calibration_v2.reference.lut_oracle_v2 import (
 from validation.calibration_v2.production_evaluator import (
     MemoryEvidenceStore,
     NON_ASH_COORDINATES,
+    NON_ASH_SELECTOR_ID_V2,
+    ProductionEvaluatorError,
+    RawControlMeasurementPublicationV2,
     _control_request,
+    _invoke_native_control,
     conventional_control_request,
+    degradation_native_input,
     fixed_control_request,
     non_ash_control_request,
+    non_ash_control_request_for_selector_v2,
+)
+from validation.calibration_v2.production_providers import (
+    native_control_execution_capability_provider_v2,
+    native_control_execution_producer_identity_v2,
 )
 from validation.calibration_v2.production_evidence import (
     PolicyEvaluationEvidenceProvider,
@@ -49,6 +74,7 @@ from validation.quality.src.mirmir_quality.arrays import PlanarFrame, frame_sha2
 from validation.quality.src.mirmir_quality.production_dry_run import (
     CandidateContext,
     _planar_to_video_range_nv12,
+    _round_trip_locked_bt709_video_range_nv12,
 )
 from validation.quality.src.mirmir_quality.json_tools import (
     canonical_json_bytes,
@@ -215,18 +241,36 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
                 manifest["compile_flags"][-2:], ["-sdk", str(expected_sdk_path)]
             )
 
-    def test_native_source_manifest_covers_every_v3_source_and_v1_bytes_remain_frozen(self) -> None:
+    def test_native_source_manifest_covers_split_dependencies_and_v1_bytes_remain_frozen(self) -> None:
         manifest = json.loads(
             self.factory.builder.executable.source_manifest_path.read_bytes()
         )
-        manifested = {row["path"] for row in manifest["sources"]}
-        v3_sources = {
-            path.relative_to(REPOSITORY_ROOT).as_posix()
-            for path in (
-                REPOSITORY_ROOT / "Mirmir/Modules/UpscalerEngine/ASH"
-            ).glob("*V3.swift")
-        }
-        self.assertEqual(v3_sources - manifested, set())
+        manifested_paths = [row["path"] for row in manifest["sources"]]
+        manifested = set(manifested_paths)
+        self.assertEqual(len(manifested_paths), len(manifested))
+        mapping_validation = (
+            "Mirmir/Modules/UpscalerEngine/ASH/"
+            "ASHLockedVideoMappingV2Validation.swift"
+        )
+        mapping = (
+            "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift"
+        )
+        control_v2 = (
+            "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV2.swift"
+        )
+        control_v3 = (
+            "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedControlRuntimeV3.swift"
+        )
+        self.assertEqual(manifested_paths.count(mapping_validation), 1)
+        self.assertEqual(manifested_paths.count(control_v3), 1)
+        self.assertLess(
+            manifested_paths.index(mapping_validation),
+            manifested_paths.index(mapping),
+        )
+        self.assertEqual(
+            manifested_paths.index(control_v3),
+            manifested_paths.index(control_v2) + 1,
+        )
 
         native = self.factory.builder.compile_candidate(
             vector=self.vector,
@@ -330,6 +374,24 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
             compiled.route_paths["direct-3over2"].read_bytes(),
             independent["direct_3_over_2"],
         )
+        runtime_manifest = json.loads(compiled.runtime_manifest_path.read_bytes())
+        self.assertEqual(runtime_manifest["schema_version"], "2.0.0")
+        self.assertEqual(
+            runtime_manifest["manifest_id"],
+            "mirmir-ash-candidate-route-luts-v2",
+        )
+        self.assertEqual(
+            runtime_manifest["compiler_input"]["sha256"],
+            hashlib.sha256(compiler_file).hexdigest(),
+        )
+        self.assertEqual(
+            [row["plane_count"] for row in runtime_manifest["routes"]],
+            [2, 2],
+        )
+        self.assertEqual(
+            compiled.configuration["runtime_status"],
+            "servable_calibration_candidate",
+        )
 
         summary_mutation = json.loads(canonical_json_bytes(compiled.compile_summary))
         summary_mutation["routes"][0]["payload_sha256"] = "f" * 64
@@ -382,12 +444,363 @@ class NativeAdapterIntegrationTests(unittest.TestCase):
             "ensure_configuration",
             side_effect=AssertionError("V1 family projection reached"),
         ) as ensure_v1:
-            with self.assertRaisesRegex(
-                NativeAdapterError,
-                "compiled_not_servable",
+            adapter = factory(vector, "development")
+            try:
+                ensure_v1.assert_not_called()
+                self.assertEqual(
+                    adapter.configuration["runtime_status"],
+                    "servable_calibration_candidate",
+                )
+                authenticated_identity = (
+                    factory.authenticated_adapter_identity_v2(adapter)
+                )
+                self.assertEqual(
+                    authenticated_identity["adapter_configuration_sha256"],
+                    adapter.configuration_sha256,
+                )
+                self.assertEqual(
+                    authenticated_identity["native_executable_sha256"],
+                    adapter.configuration["swift_cli"]["executable_sha256"],
+                )
+                self.assertEqual(
+                    authenticated_identity["native_source_manifest_sha256"],
+                    adapter.configuration["swift_cli"][
+                        "source_manifest_sha256"
+                    ],
+                )
+                frame = _fixture()
+                direct2x_first = adapter.reconstruct(
+                    frame,
+                    _context("direct-2x"),
+                )
+                direct2x_second = adapter.reconstruct(
+                    frame,
+                    _context("direct-2x"),
+                )
+                direct3over2 = adapter.reconstruct(
+                    frame,
+                    _context("direct-3over2"),
+                )
+                self.assertEqual(
+                    frame_sha256(direct2x_first),
+                    frame_sha256(direct2x_second),
+                )
+                self.assertEqual(direct2x_first.y.shape, (8, 8))
+                self.assertEqual(direct3over2.y.shape, (6, 6))
+                self.assertEqual(
+                    [record["lut_entry_count"] for record in (
+                        adapter.callable.runtime_records()
+                    )],
+                    [8_192, 8_192, 18_432],
+                )
+                bank = adapter.configuration[
+                    "shared_bank_configuration_sha256"
+                ]
+                fixed = adapter.callable.reconstruct_control(
+                    fixed_control_request(7, bank),
+                    frame,
+                    _context("direct-2x"),
+                )
+                non_ash = adapter.callable.reconstruct_control(
+                    non_ash_control_request_for_selector_v2(
+                        {name: 0 for name in NON_ASH_COORDINATES},
+                        bank,
+                        selector_id=NON_ASH_SELECTOR_ID_V2,
+                    ),
+                    frame,
+                    _context("direct-3over2"),
+                )
+                self.assertEqual(fixed.y.shape, (8, 8))
+                self.assertEqual(non_ash.y.shape, (6, 6))
+                control_records = adapter.callable.control_runtime_records()
+                self.assertEqual(
+                    [record["control_mode"] for record in control_records],
+                    ["fixed_descriptor_uniform", "non_ash_selector_q15"],
+                )
+            finally:
+                adapter.callable.close()
+
+    def test_format12_concrete_producer_semantic_replay_is_restart_safe(self) -> None:
+        bound = _BoundV2Stub()
+        factory = make_native_candidate_adapter_factory(
+            REPOSITORY_ROOT,
+            cache_root=self.cache,
+            timeout_seconds=300,
+            bound_inputs=bound,
+        )
+        plan = SharedBankArtifactMaterializerV2(REPOSITORY_ROOT).plan
+        vector = {
+            "spatial_structural_vector_ordinal": 0,
+            **dict(plan.scalar_initial_values),
+        }
+        adapter = factory(vector, "development")
+        adapter_closed = False
+        try:
+            physical = adapter.configuration["physical_candidate_vector"]
+            physical_items_bytes = canonical_json_bytes(
+                [
+                    [name, physical[name]]
+                    for name in plan.physical_candidate_order
+                ]
+            )
+            producer_identity = native_control_execution_producer_identity_v2(
+                factory=factory,
+                adapter=adapter,
+                physical_candidate_items_bytes=physical_items_bytes,
+                candidate_vector_sha256=adapter.configuration[
+                    "serialized_candidate_vector_sha256"
+                ],
+            )
+            authenticated_adapter_identity = json.loads(
+                producer_identity.authenticated_adapter_identity_bytes
+            )
+            self.assertEqual(
+                set(authenticated_adapter_identity),
+                {
+                    "adapter_configuration_sha256",
+                    "native_executable_sha256",
+                    "native_implementation_source_sha256",
+                    "native_source_manifest_sha256",
+                },
+            )
+            bank = adapter.configuration[
+                "shared_bank_configuration_sha256"
+            ]
+            control_request = fixed_control_request(7, bank)
+            degradation_policy = bound.documents["degradation_policy"]
+            publication_rows = []
+            for source_index, (route, target_size) in enumerate(
+                (("direct-2x", 64), ("direct-3over2", 96))
             ):
-                factory(vector, "development")
-            ensure_v1.assert_not_called()
+                y_index, x_index = np.indices(
+                    (target_size, target_size),
+                    dtype=np.float64,
+                )
+                chroma_size = target_size // 2
+                cy, cx = np.indices(
+                    (chroma_size, chroma_size),
+                    dtype=np.float64,
+                )
+                _, target = _round_trip_locked_bt709_video_range_nv12(
+                    PlanarFrame(
+                        y=0.1
+                        + 0.8
+                        * (
+                            (
+                                3.0 * x_index
+                                + 5.0 * y_index
+                                + source_index
+                            )
+                            % 17.0
+                        )
+                        / 16.0,
+                        cb=0.08 * np.sin((cx + source_index) / 2.0),
+                        cr=0.07 * np.cos((cy + source_index) / 2.5),
+                    )
+                )
+                context = CandidateContext(
+                    y_shape=target.y.shape,
+                    cb_shape=target.cb.shape,
+                    cr_shape=target.cr.shape,
+                    target_route=route,
+                )
+                profiles = [
+                    profile
+                    for profile in degradation_policy["profiles"]
+                    if profile.get("target_route") == route
+                    and profile.get("kind") != "synthetic_motion"
+                ]
+                self.assertEqual(len(profiles), 3)
+                for profile in profiles:
+                    low_resolution = degradation_native_input(
+                        target,
+                        profile,
+                    )
+                    output, native_record = _invoke_native_control(
+                        adapter=adapter,
+                        request=control_request,
+                        low_resolution=low_resolution,
+                        context=context,
+                    )
+                    publication_rows.append(
+                        RawControlMeasurementPublicationV2(
+                            metadata={
+                                "source_asset_id": f"synthetic-source-{source_index}",
+                                "source_family_id": f"synthetic-family-{source_index}",
+                                "categories": [
+                                    "synthetic-test",
+                                    f"route-{source_index}",
+                                ],
+                                "target_route": route,
+                            },
+                            profile=dict(profile),
+                            target=target,
+                            low_resolution=low_resolution,
+                            raw_output=output,
+                            native_execution_record=dict(native_record),
+                        )
+                    )
+
+            publisher = RawControlAuthorizationArtifactPublisherV2(
+                run_id="format-1.2-native-semantic-replay",
+                control_execution_producer_identity=producer_identity,
+            )
+            publication = publisher.publish_raw_control_aggregate_v2(
+                adapter=adapter,
+                run_id=publisher.run_id,
+                split="development",
+                control_family="best_fixed",
+                stable_id=7,
+                shared_bank_configuration_sha256=bank,
+                degradation_policy_sha256=degradation_policy[
+                    "policy_sha256"
+                ],
+                control_request=control_request,
+                rows=tuple(publication_rows),
+            )
+            snapshot = publisher.snapshot_for(publication)
+            dependencies = publisher.dependency_bindings_for(publication)
+            adapter.callable.close()
+            adapter_closed = True
+
+            scope = ControlAuthorizationScopeV2(
+                run_id=publisher.run_id,
+                split="development",
+                shared_bank_configuration_sha256=bank,
+                degradation_policy_sha256=degradation_policy[
+                    "policy_sha256"
+                ],
+                source_profile_matrix_sha256=publication[
+                    "source_profile_matrix_sha256"
+                ],
+            )
+            output_binding = TypedArtifactBindingV2.from_document(
+                publication["output_manifest"]
+            )
+            producer_request = CandidateControlProducerRequestV2(
+                evidence_snapshot=snapshot,
+                bundle_binding=output_binding,
+                dependency_bindings=dependencies,
+                physical_candidate_items_bytes=physical_items_bytes,
+                candidate_vector_sha256=producer_identity.candidate_vector_sha256,
+                authorization_scope=scope,
+                non_ash_evaluation_scope=NonAshSelectorEvaluationScopeV2(
+                    shared_bank_configuration_sha256=bank,
+                    degradation_policy_sha256=degradation_policy[
+                        "policy_sha256"
+                    ],
+                    calibration_plan_file_sha256=plan.plan_file_sha256,
+                    cached_16_operator_output_manifest_sha256=hashlib.sha256(
+                        b"format-1.2-semantic-replay-cache"
+                    ).hexdigest(),
+                ),
+            )
+            provider = native_control_execution_capability_provider_v2(
+                factory
+            )
+            with self.assertRaisesRegex(
+                ProductionEvaluatorError,
+                "request identity differs",
+            ):
+                provider(
+                    replace(
+                        producer_request,
+                        candidate_vector_sha256="f" * 64,
+                    )
+                )
+            substituted_scope = ControlAuthorizationScopeV2(
+                run_id=scope.run_id,
+                split=scope.split,
+                shared_bank_configuration_sha256="e" * 64,
+                degradation_policy_sha256=scope.degradation_policy_sha256,
+                source_profile_matrix_sha256=(
+                    scope.source_profile_matrix_sha256
+                ),
+            )
+            with self.assertRaisesRegex(
+                ProductionEvaluatorError,
+                "request identity differs",
+            ):
+                provider(
+                    replace(
+                        producer_request,
+                        authorization_scope=substituted_scope,
+                    )
+                )
+            substituted_items = json.loads(physical_items_bytes)
+            substituted_items[0][1] = 1
+            with self.assertRaisesRegex(
+                ProductionEvaluatorError,
+                "physical candidate identity differs",
+            ):
+                provider(
+                    replace(
+                        producer_request,
+                        physical_candidate_items_bytes=canonical_json_bytes(
+                            substituted_items
+                        ),
+                    )
+                )
+            capabilities = provider(producer_request)
+            self.assertIs(capabilities.request, producer_request)
+            self.assertEqual(
+                capabilities.control_execution_producer_identity,
+                producer_identity,
+            )
+            resolver = control_authorization._SnapshotResolverV2(
+                snapshot,
+                dependencies,
+            )
+            verifier = ControlAuthorizationVerifierV2(
+                control_execution_semantic_verifier=(
+                    capabilities.control_execution_semantic_verifier
+                ),
+                control_execution_producer_identity=(
+                    capabilities.control_execution_producer_identity
+                ),
+            )
+            replay = capabilities.control_execution_semantic_verifier.__self__
+            try:
+                observed_objective = verifier._aggregate_from_bindings(
+                    objective_binding=TypedArtifactBindingV2.from_document(
+                        publication["objective_summary"]
+                    ),
+                    output_binding=output_binding,
+                    resolver=resolver,
+                    scope=scope,
+                    expected_family="best_fixed",
+                    expected_split="development",
+                    expected_stable_id=7,
+                    expected_control_configuration_sha256=control_request[
+                        "configuration_sha256"
+                    ],
+                    expected_control_request=control_request,
+                )
+                replay_records = replay.adapter.callable.control_runtime_records()
+                self.assertEqual(len(replay_records), 6)
+                self.assertTrue(
+                    all(
+                        record["control_cache_reused"] is True
+                        for record in replay_records
+                    )
+                )
+            finally:
+                replay.close()
+            resolver.finish()
+            objective_document = json.loads(
+                snapshot.payload(
+                    TypedArtifactBindingV2.from_document(
+                        publication["objective_summary"]
+                    ).closure_binding()
+                )
+            )
+            self.assertEqual(
+                tuple(observed_objective),
+                tuple(objective_document["means"]),
+            )
+        finally:
+            if not adapter_closed:
+                adapter.callable.close()
 
     def test_locked_runtime_summary_enforces_route_phase_cardinality(self) -> None:
         for route, phase_pair_count in (

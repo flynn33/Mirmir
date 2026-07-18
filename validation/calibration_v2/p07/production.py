@@ -57,11 +57,26 @@ from validation.calibration_v2.p07.gate import (
     DOMAINS,
     FIXED_CONTROLS,
 )
+from validation.calibration_v2.p07.contracts_v2 import (
+    IDENTITY_FIELD,
+    release_identity_v2,
+    selected_evaluation_projection_v2,
+    validate_identity_v2,
+)
 from validation.calibration_v2.release_evidence import evidence_binding
 from validation.calibration_v2.release_lock import (
     ReleaseLockError,
     P06_RELEASE_SELF_MANIFEST_EXCLUSIONS,
     _release_filesystem_closure,
+    p06_release_bundle_sha256,
+)
+from validation.calibration_v2.calibration_plan_codec import (
+    candidate_vector_sha256_v2,
+    shared_bank_configuration_sha256_v2,
+    validate_candidate_constraints_v2,
+)
+from validation.calibration_v2.shared_bank_artifacts_v2 import (
+    SharedBankArtifactMaterializerV2,
 )
 from validation.calibration_v2.production_evaluator import (
     CONVENTIONAL_ALGORITHM_IDS,
@@ -123,7 +138,7 @@ ROUTE_FILENAMES = {
     "direct-2x": "direct2x.ashlut",
     "direct-3over2": "direct3over2.ashlut",
 }
-RELEASE_ARTIFACT_IDS = {
+RELEASE_ARTIFACT_IDS_V2 = {
     "selection": "calibration_selection",
     "evaluation": "selected_evaluation",
     "mapping": "locked_mapping",
@@ -133,6 +148,10 @@ RELEASE_ARTIFACT_IDS = {
     "lut_manifest": "lut_manifest",
     "configuration_lock": "configuration_lock",
     "evidence_closure": "evidence_closure",
+}
+RELEASE_ARTIFACT_IDS_V3 = {
+    **RELEASE_ARTIFACT_IDS_V2,
+    "compiler_input": "locked_compiler_input_v2",
 }
 RAW_OUTPUT_CONTRACT = {
     "pixel_contract": "bt709-video-range-420v-8bit-nv12-v1",
@@ -148,25 +167,114 @@ PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA = (
     / "schemas"
     / "p07-production-authorized-execution-binding-fragment-v1.schema.json"
 )
-P06_RELEASE_BUNDLE_SCHEMA = (
+PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p07-production-authorized-execution-binding-fragment-v2.schema.json"
+)
+P07_RUNTIME_EVIDENCE_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p07-runtime-evidence-v2.schema.json"
+)
+P07_MEASUREMENTS_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p07-spatial-holdout-measurements-v2.schema.json"
+)
+P06_RELEASE_BUNDLE_V2_SCHEMA = (
     Path(__file__).resolve().parents[1]
     / "schemas"
     / "p06-release-bundle-v2.schema.json"
 )
-P06_EVIDENCE_CLOSURE_SCHEMA = (
+P06_RELEASE_BUNDLE_V3_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p06-release-bundle-v3.schema.json"
+)
+P06_EVIDENCE_CLOSURE_V1_SCHEMA = (
     Path(__file__).resolve().parents[1]
     / "schemas"
     / "p06-evidence-closure-v1.schema.json"
 )
-CANDIDATE_RUNTIME_MANIFEST_SCHEMA = (
+CANDIDATE_RUNTIME_MANIFEST_V1_SCHEMA = (
     Path(__file__).resolve().parents[1]
     / "schemas"
     / "candidate-lut-runtime-manifest-v1.schema.json"
+)
+CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "candidate-lut-runtime-manifest-v2.schema.json"
+)
+P06_EVIDENCE_CLOSURE_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p06-evidence-closure-v2.schema.json"
+)
+P07_EXECUTION_AUTHORITY_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p07-production-execution-authority-v2.schema.json"
+)
+P07_EXECUTION_AUTHORITY_V2_FILENAME = (
+    "p07-production-execution-authority-v2.json"
+)
+CONTROL_AUTHORIZATION_BUNDLE_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "p06-control-authorization-bundle-v2.schema.json"
+)
+CONTROL_SELECTION_V2_SCHEMAS = {
+    "best_fixed": Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "fixed-control-selection-v2.schema.json",
+    "conventional": Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "conventional-control-selection-v2.schema.json",
+    "non_ash_selector": Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "non-ash-selector-selection-v2.schema.json",
+}
+VALIDATION_CANDIDATE_DEVELOPMENT_V2_SCHEMA = (
+    Path(__file__).resolve().parents[1]
+    / "schemas"
+    / "validation-candidate-development-evidence-v2.schema.json"
 )
 
 
 class P07ProductionError(P07ExecutionError):
     """Release or runtime evidence differs from the locked P07 inputs."""
+
+
+def _locked_p06_v2_identity(locked: object) -> Optional[Mapping[str, str]]:
+    """Dispatch V3 only through its exact authenticated identity projection."""
+
+    bundle = getattr(locked, "release_bundle", None)
+    identity = getattr(locked, "p06_v2_identity", None)
+    is_v3 = (
+        isinstance(bundle, dict)
+        and bundle.get("schema_version") == "3.0.1"
+        and bundle.get("bundle_id")
+        == "mirmir-p06-spatial-release-lock-v3"
+    )
+    if is_v3:
+        if identity is None:
+            raise P07ProductionError(
+                "P06 V3 release has no authenticated P07 V2 identity"
+            )
+        validated = validate_identity_v2(identity)
+        if (
+            validated["p06_release_bundle_artifact_sha256"]
+            != p06_release_bundle_sha256(bundle)
+        ):
+            raise P07ProductionError("P06 V3/P07 V2 release identity differs")
+        return validated
+    if identity is not None:
+        raise P07ProductionError(
+            "P07 V2 identity is attached to a non-V3 release"
+        )
+    return None
 
 
 def _sha256(payload: bytes) -> str:
@@ -199,6 +307,22 @@ def _artifact_binding(bundle: Mapping[str, object], identifier: str) -> Mapping[
     if len(matches) != 1:
         raise P07ProductionError("P06 release artifact is not singular: {}".format(identifier))
     return matches[0]
+
+
+def _release_artifact_ids(bundle: Mapping[str, object]) -> Mapping[str, str]:
+    if (
+        bundle.get("schema_version") == "3.0.1"
+        and bundle.get("bundle_id") == "mirmir-p06-spatial-release-lock-v3"
+    ):
+        return RELEASE_ARTIFACT_IDS_V3
+    if (
+        bundle.get("schema_version") == "2.0.0"
+        and bundle.get("bundle_id") == "mirmir-p06-spatial-release-lock-v2"
+    ):
+        return RELEASE_ARTIFACT_IDS_V2
+    raise P07ProductionError(
+        "historical or unknown P06 release bundle version is not executable"
+    )
 
 
 def _artifact_path(
@@ -247,6 +371,99 @@ def _validate_selected_vector_runtime(
     selection: Mapping[str, object],
     evaluation: Mapping[str, object],
 ) -> Tuple[Mapping[str, object], str, Mapping[str, object]]:
+    if (
+        selection.get("schema_version") == "2.0.2"
+        and selection.get("artifact_kind") == "p06_calibration_selection_v2"
+        and evaluation.get("schema_version") == "2.0.3"
+        and evaluation.get("artifact_kind") == "p06_candidate_evaluation_v2"
+    ):
+        items = evaluation.get("physical_candidate_items")
+        selected = selection.get("selected")
+        if (
+            not isinstance(items, list)
+            or len(items) != 48
+            or any(
+                not isinstance(item, list)
+                or len(item) != 2
+                or not isinstance(item[0], str)
+                for item in items
+            )
+            or len({str(item[0]) for item in items}) != 48
+            or not isinstance(selected, dict)
+            or evaluation.get("split") != "validation"
+            or evaluation.get("evaluation_status") != "feasible"
+        ):
+            raise P07ProductionError(
+                "selected V2 candidate identity or feasibility differs"
+            )
+        vector = {str(item[0]): item[1] for item in items}
+        try:
+            parsed_plan = SharedBankArtifactMaterializerV2(
+                Path(__file__).resolve().parents[3]
+            ).plan
+            validate_candidate_constraints_v2(vector, parsed_plan)
+            vector_hash = candidate_vector_sha256_v2(vector, parsed_plan)
+            bank_hash = shared_bank_configuration_sha256_v2(
+                vector,
+                parsed_plan,
+            )
+        except (OSError, ValueError) as error:
+            raise P07ProductionError(
+                "selected V2 physical candidate violates its frozen plan"
+            ) from error
+        evaluation_binding = selected.get("evaluation")
+        if (
+            selected.get("candidate_vector_sha256") != vector_hash
+            or evaluation.get("candidate_vector_sha256") != vector_hash
+            or selection.get("shared_bank_configuration_sha256") != bank_hash
+            or evaluation.get("shared_bank_configuration_sha256") != bank_hash
+            or not isinstance(evaluation_binding, dict)
+            or selected.get("evaluation_semantic_sha256")
+            != evaluation.get("evaluation_semantic_sha256")
+        ):
+            raise P07ProductionError(
+                "selected V2 candidate/shared-bank identity differs"
+            )
+        route_rows = evaluation.get("route_lut_bindings")
+        if (
+            not isinstance(route_rows, list)
+            or [
+                row.get("route") if isinstance(row, dict) else None
+                for row in route_rows
+            ]
+            != list(ROUTE_ORDER)
+        ):
+            raise P07ProductionError("selected V2 route LUT identities differ")
+        routes = {}
+        for row, route_prefix in zip(
+            route_rows,
+            ("direct_2x", "direct_3_over_2"),
+        ):
+            assert isinstance(row, dict)
+            routes[str(row["route"])] = {
+                "whole_file_sha256": row["whole_file_sha256"],
+                "payload_sha256": row["payload_sha256"],
+                "luma_coordinate_policy": vector[
+                    f"{route_prefix}_luma_coordinate_policy"
+                ],
+                "chroma_coordinate_policy": vector[
+                    f"{route_prefix}_chroma_coordinate_policy"
+                ],
+                "analysis_grid_source_step": vector[
+                    f"{route_prefix}_analysis_grid_source_step"
+                ],
+            }
+        return (
+            vector,
+            vector_hash,
+            {
+                "candidate_vector": vector,
+                "serialized_candidate_vector_sha256": vector_hash,
+                "shared_bank_configuration_sha256": bank_hash,
+                "route_luts": routes,
+            },
+        )
+
     vector = selection.get("selected_vector")
     vector_hash = selection.get("selected_vector_sha256")
     runtime = evaluation.get("runtime_evidence")
@@ -322,6 +539,8 @@ def _production_authorized_execution_binding_fragment(
     product_settings_source_sha256: str,
     production_writer_executable_sha256: str,
     p06_release_bundle_manifest_sha256: str,
+    p06_v2_identity: Optional[Mapping[str, str]] = None,
+    source_gate_semantics: Optional[Mapping[str, object]] = None,
 ) -> Mapping[str, object]:
     """Build the one canonical production authorized-execution fragment."""
 
@@ -398,9 +617,60 @@ def _production_authorized_execution_binding_fragment(
     ):
         _require_sha256(value, label)
 
+    if p06_v2_identity is not None:
+        validate_identity_v2(
+            p06_v2_identity,
+            expected=p06_v2_identity,
+        )
+        if (
+            p06_release_bundle_manifest_sha256
+            != p06_v2_identity["p06_release_bundle_artifact_sha256"]
+        ):
+            raise P07ProductionError(
+                "P07 V2 execution fragment release identity differs"
+            )
+        if (
+            not isinstance(source_gate_semantics, dict)
+            or source_gate_semantics.get("artifact_kind")
+            != "p06_current_source_gate_semantics_v2"
+            or source_gate_semantics.get("status") != "pass"
+            or source_gate_semantics.get("working_tree_clean") is not True
+            or source_gate_semantics.get("holdout_accessed") is not False
+            or source_gate_semantics.get("manifest_sha256")
+            != canonical_sha256(
+                {
+                    key: value
+                    for key, value in source_gate_semantics.items()
+                    if key != "manifest_sha256"
+                }
+            )
+        ):
+            raise P07ProductionError(
+                "P07 V2 source-gate semantics are absent or invalid"
+            )
+    elif source_gate_semantics is not None:
+        raise P07ProductionError(
+            "source-gate semantics cannot be attached to a legacy fragment"
+        )
     core = {
-        "schema_version": "1.0.0",
-        "artifact_kind": "p07_authorized_execution_binding_fragment",
+        "schema_version": (
+            "2.0.0" if p06_v2_identity is not None else "1.0.0"
+        ),
+        "artifact_kind": (
+            "p07_authorized_execution_binding_fragment_v2"
+            if p06_v2_identity is not None
+            else "p07_authorized_execution_binding_fragment"
+        ),
+        **(
+            {IDENTITY_FIELD: dict(p06_v2_identity)}
+            if p06_v2_identity is not None
+            else {}
+        ),
+        **(
+            {"source_gate_semantics": _json_copy(source_gate_semantics)}
+            if source_gate_semantics is not None
+            else {}
+        ),
         "spawn_policy": {
             "policy_id": "macos-posix-spawn-suspended-gated-v1",
             "spawn_flags": {
@@ -446,7 +716,11 @@ def _production_authorized_execution_binding_fragment(
     try:
         validate_schema(
             document,
-            PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA,
+            (
+                PRODUCTION_EXECUTION_BINDING_FRAGMENT_V2_SCHEMA
+                if p06_v2_identity is not None
+                else PRODUCTION_EXECUTION_BINDING_FRAGMENT_SCHEMA
+            ),
         )
     except ValueError as error:
         raise P07ProductionError(
@@ -719,6 +993,307 @@ def derive_production_authorized_execution_binding_fragment(
         cache_guard.close()
 
 
+def _v3_authority_row(
+    authority: Mapping[str, object],
+    field: str,
+    identifier: str,
+) -> Mapping[str, object]:
+    rows = authority.get(field)
+    matches = [
+        row
+        for row in rows
+        if isinstance(row, dict) and row.get("id") == identifier
+    ] if isinstance(rows, list) else []
+    if len(matches) != 1:
+        raise P07ProductionError(
+            "P06 V3 execution authority role is not singular: {}".format(
+                identifier
+            )
+        )
+    return matches[0]
+
+
+def _read_v3_execution_authority(
+    *,
+    release_root: Path,
+    release_bundle: Mapping[str, object],
+) -> Mapping[str, object]:
+    path = release_root / P07_EXECUTION_AUTHORITY_V2_FILENAME
+    payload, document = _read_json(path, "P06 V3 execution authority")
+    try:
+        validate_schema(document, P07_EXECUTION_AUTHORITY_V2_SCHEMA)
+    except ValueError as error:
+        raise P07ProductionError(
+            "P06 V3 execution authority violates schema"
+        ) from error
+    if (
+        _sha256(payload)
+        != release_bundle.get("authorized_execution_bindings_sha256")
+        or document.get("artifact_sha256")
+        != canonical_sha256(
+            {
+                key: value
+                for key, value in document.items()
+                if key != "artifact_sha256"
+            }
+        )
+        or payload != canonical_json_bytes(document) + b"\n"
+        or document.get("configuration_id")
+        != release_bundle.get("configuration_id")
+        or document.get("shared_bank_configuration_sha256")
+        != release_bundle.get("shared_bank_configuration_sha256")
+        or document.get("input_bundle_sha256")
+        != release_bundle.get("input_bundle_sha256")
+        or document.get("corpus_lock_bundle_sha256")
+        != release_bundle.get("corpus_lock_bundle_sha256")
+    ):
+        raise P07ProductionError("P06 V3 execution authority identity differs")
+    return document
+
+
+def _derive_production_execution_fragment_v3(
+    *,
+    release_root: Path,
+    release_bundle: Mapping[str, object],
+    production_writer_support_root: Path,
+    repository_root: Path,
+    p07_cache_root: Path,
+    current_cache_identity: Tuple[int, int],
+    cache_guard: "_RetainedCacheDirectory",
+    cache_snapshot: Mapping[str, object],
+) -> Tuple[Mapping[str, object], "_RetainedInputSet"]:
+    """Project the authenticated schema-3 authority into the P07 spawn fragment."""
+
+    authority = _read_v3_execution_authority(
+        release_root=release_root,
+        release_bundle=release_bundle,
+    )
+    identities = authority.get("macos_code_identities")
+    if not isinstance(identities, dict):
+        raise P07ProductionError("P06 V3 macOS code identities are absent")
+    release_executable_row = _v3_authority_row(
+        authority,
+        "release_files",
+        "production_swift_executable",
+    )
+    release_source_row = _v3_authority_row(
+        authority,
+        "release_files",
+        "production_swift_source_manifest",
+    )
+    runtime_row = _v3_authority_row(
+        authority,
+        "release_files",
+        "candidate_runtime_manifest_v2",
+    )
+    writer_row = _v3_authority_row(
+        authority,
+        "external_files",
+        "production_writer_executable",
+    )
+    p00_row = _v3_authority_row(
+        authority,
+        "external_files",
+        "p00_native_executable",
+    )
+    settings_row = _v3_authority_row(
+        authority,
+        "external_files",
+        "product_settings_source",
+    )
+    release_executable = _path_under(
+        release_root,
+        release_executable_row.get("path"),
+        "P06 V3 production Swift executable",
+    )
+    release_source = _path_under(
+        release_root,
+        release_source_row.get("path"),
+        "P06 V3 production Swift source manifest",
+    )
+    runtime_manifest = _path_under(
+        release_root,
+        runtime_row.get("path"),
+        "P06 V3 candidate runtime manifest",
+    )
+    writer_executable = _path_under(
+        production_writer_support_root,
+        writer_row.get("path"),
+        "P06 V3 production writer executable",
+    )
+    settings_source = _path_under(
+        repository_root,
+        settings_row.get("path"),
+        "P06 V3 product settings source",
+    )
+    expected_settings_source = (
+        repository_root
+        / "Mirmir"
+        / "Modules"
+        / "MediaPipeline"
+        / "MediaTypes.swift"
+    )
+    if settings_source != expected_settings_source:
+        raise P07ProductionError("P06 V3 product settings source path differs")
+    p00_executable = _current_p00_executable(
+        p07_cache_root=p07_cache_root,
+        expected_identity=identities.get("p00_native_executable", {}),
+        cache_guard=cache_guard,
+        cache_snapshot=cache_snapshot,
+    )
+    if p00_row.get("sha256") != identities.get(
+        "p00_native_executable", {}
+    ).get("file_sha256"):
+        raise P07ProductionError("P06 V3 P00 authority identity differs")
+    code_paths = {
+        "production_swift_executable": release_executable,
+        "production_writer_executable": writer_executable,
+        "p00_native_executable": p00_executable,
+    }
+    for identifier, path in code_paths.items():
+        expected_identity = identities.get(identifier)
+        if (
+            not isinstance(expected_identity, dict)
+            or not os.access(path, os.X_OK)
+            or static_code_identity(path) != expected_identity
+        ):
+            raise P07ProductionError(
+                "P06 V3 current code identity differs: {}".format(identifier)
+            )
+
+    artifact_roles = (
+        ("compiler_input", "locked_compiler_input_v2"),
+        ("mapping", "locked_mapping"),
+        ("operator_bank", "locked_operator_bank"),
+        ("direct2x_lut", "direct2x_lut"),
+        ("direct3over2_lut", "direct3over2_lut"),
+    )
+    role_specs: Dict[str, Tuple[Path, str, bool]] = {
+        "native_executable": (
+            release_executable,
+            str(release_executable_row["sha256"]),
+            True,
+        ),
+        "native_source_manifest": (
+            release_source,
+            str(release_source_row["sha256"]),
+            False,
+        ),
+        **{
+            role: (
+                _artifact_path(release_root, release_bundle, artifact_id),
+                str(_artifact_binding(release_bundle, artifact_id)["sha256"]),
+                False,
+            )
+            for role, artifact_id in artifact_roles[:3]
+        },
+        "runtime_manifest": (
+            runtime_manifest,
+            str(runtime_row["sha256"]),
+            False,
+        ),
+        **{
+            role: (
+                _artifact_path(release_root, release_bundle, artifact_id),
+                str(_artifact_binding(release_bundle, artifact_id)["sha256"]),
+                False,
+            )
+            for role, artifact_id in artifact_roles[3:]
+        },
+        "p00_executable": (p00_executable, str(p00_row["sha256"]), True),
+        "production_writer_executable": (
+            writer_executable,
+            str(writer_row["sha256"]),
+            True,
+        ),
+        "product_settings_source": (
+            settings_source,
+            str(settings_row["sha256"]),
+            False,
+        ),
+    }
+    retained = _RetainedInputSet.open(role_specs)
+    try:
+        retained.verify()
+
+        def rows(names: Sequence[str]) -> Sequence[Mapping[str, object]]:
+            return tuple(
+                {
+                    "role": name,
+                    "sha256": retained.values[name].record["sha256"],
+                    "size_bytes": retained.values[name].record["size_bytes"],
+                }
+                for name in names
+            )
+
+        production_rows = rows(
+            (
+                "native_executable",
+                "native_source_manifest",
+                "compiler_input",
+                "mapping",
+                "operator_bank",
+                "runtime_manifest",
+                "direct2x_lut",
+                "direct3over2_lut",
+            )
+        )
+        p00_rows = rows(("p00_executable",))
+        writer_rows = rows(
+            ("production_writer_executable", "product_settings_source")
+        )
+        writer_settings_sha256 = canonical_sha256(
+            production_writer_settings_document(
+                executable_sha256=str(writer_rows[0]["sha256"]),
+                product_settings_source_sha256=str(writer_rows[1]["sha256"]),
+            )
+        )
+        writer_tree = _v3_authority_row(
+            authority,
+            "support_evidence_trees",
+            "production_writer_tree",
+        )
+        p06_identity = release_identity_v2(
+            bundle=release_bundle,
+            selection=_read_bound_json(
+                release_root,
+                release_bundle,
+                "calibration_selection",
+            ),
+            evaluation=_read_bound_json(
+                release_root,
+                release_bundle,
+                "selected_evaluation",
+            ),
+            compiler_input=_read_bound_json(
+                release_root,
+                release_bundle,
+                "locked_compiler_input_v2",
+            ),
+        )
+        document = _production_authorized_execution_binding_fragment(
+            cache_root_identity=current_cache_identity,
+            macos_code_identities=identities,
+            production_swift_roles=production_rows,
+            p00_native_roles=p00_rows,
+            production_writer_roles=writer_rows,
+            production_writer_support_tree=writer_tree,
+            production_writer_settings_sha256=writer_settings_sha256,
+            product_settings_source_sha256=str(writer_rows[1]["sha256"]),
+            production_writer_executable_sha256=str(writer_rows[0]["sha256"]),
+            p06_release_bundle_manifest_sha256=p06_release_bundle_sha256(
+                release_bundle
+            ),
+            p06_v2_identity=p06_identity,
+            source_gate_semantics=authority.get("source_gate_semantics"),
+        )
+        retained.verify()
+        return document, retained
+    except BaseException:
+        retained.close()
+        raise
+
+
 def _derive_production_execution_fragment_from_open_cache(
     *,
     release_root: Path,
@@ -757,6 +1332,27 @@ def _derive_production_execution_fragment_from_open_cache(
     if not isinstance(release_bundle, dict):
         raise P07ProductionError("P06 release bundle is not a JSON object")
     if (
+        release_bundle.get("schema_version") == "3.0.1"
+        and release_bundle.get("bundle_id")
+        == "mirmir-p06-spatial-release-lock-v3"
+    ):
+        try:
+            validate_schema(release_bundle, P06_RELEASE_BUNDLE_V3_SCHEMA)
+            return _derive_production_execution_fragment_v3(
+                release_root=release_root,
+                release_bundle=release_bundle,
+                production_writer_support_root=production_writer_support_root,
+                repository_root=repository_root,
+                p07_cache_root=p07_cache_root,
+                current_cache_identity=current_cache_identity,
+                cache_guard=cache_guard,
+                cache_snapshot=cache_snapshot,
+            )
+        except ValueError as error:
+            raise P07ProductionError(
+                "P06 V3 release execution authority differs"
+            ) from error
+    if (
         release_bundle.get("schema_version") != "2.0.0"
         or release_bundle.get("bundle_id")
         != "mirmir-p06-spatial-release-lock-v2"
@@ -765,7 +1361,7 @@ def _derive_production_execution_fragment_from_open_cache(
             "historical or unknown P06 release bundle version is not executable"
         )
     try:
-        validate_schema(release_bundle, P06_RELEASE_BUNDLE_SCHEMA)
+        validate_schema(release_bundle, P06_RELEASE_BUNDLE_V2_SCHEMA)
     except ValueError as error:
         raise P07ProductionError("P06 release bundle violates schema") from error
     release_hash = _require_sha256(
@@ -861,7 +1457,7 @@ def _derive_production_execution_fragment_from_open_cache(
         "evidence_closure",
     )
     try:
-        validate_schema(evidence_closure, P06_EVIDENCE_CLOSURE_SCHEMA)
+        validate_schema(evidence_closure, P06_EVIDENCE_CLOSURE_V1_SCHEMA)
     except ValueError as error:
         raise P07ProductionError(
             "P06 execution evidence closure violates schema"
@@ -1094,7 +1690,7 @@ def _derive_production_execution_fragment_from_open_cache(
     try:
         validate_schema(
             runtime_manifest,
-            CANDIDATE_RUNTIME_MANIFEST_SCHEMA,
+            CANDIDATE_RUNTIME_MANIFEST_V1_SCHEMA,
         )
     except ValueError as error:
         raise P07ProductionError(
@@ -1306,10 +1902,13 @@ class P07LockedReleaseInputs:
     non_ash_selection: Mapping[str, object]
     full_ash_development_candidates_frozen_sha256: str
     validation_candidate_development_evidence: Mapping[str, object]
+    writer_settings_sha256: str
     release_native_executable: NativeExecutable
     production_writer_root: Path
     production_writer_executable: Path
     macos_code_identities: Mapping[str, Mapping[str, object]]
+    p06_v2_identity: Optional[Mapping[str, str]] = None
+    source_gate_semantics: Optional[Mapping[str, object]] = None
 
     @classmethod
     def from_preflight(
@@ -1325,18 +1924,27 @@ class P07LockedReleaseInputs:
 
         release_root = release_root.resolve(strict=True)
         bundle = preflight.release_bundle
-        release_hash = _require_sha256(
-            bundle.get("manifest_sha256"),
-            "P06 release bundle manifest",
-        )
-        if release_hash != canonical_sha256(
-            {key: value for key, value in bundle.items() if key != "manifest_sha256"}
+        if (
+            bundle.get("schema_version") == "3.0.1"
+            and bundle.get("bundle_id")
+            == "mirmir-p06-spatial-release-lock-v3"
         ):
-            raise P07ProductionError("P06 release bundle self-hash differs")
+            return _locked_release_inputs_from_preflight_v3(
+                result_type=cls,
+                preflight=preflight,
+                release_root=release_root,
+                bound_inputs=bound_inputs,
+                calibration_run_support_root=calibration_run_support_root,
+                production_writer_support_root=production_writer_support_root,
+            )
+        try:
+            release_hash = p06_release_bundle_sha256(bundle)
+        except ReleaseLockError as error:
+            raise P07ProductionError("P06 release bundle self-hash differs") from error
 
         documents = {
             name: _read_bound_json(release_root, bundle, identifier)
-            for name, identifier in RELEASE_ARTIFACT_IDS.items()
+            for name, identifier in _release_artifact_ids(bundle).items()
         }
         selection = documents["selection"]
         evaluation = documents["evaluation"]
@@ -1522,7 +2130,7 @@ class P07LockedReleaseInputs:
 
         artifact_hashes = {
             name: _artifact_binding(bundle, identifier).get("sha256")
-            for name, identifier in RELEASE_ARTIFACT_IDS.items()
+            for name, identifier in _release_artifact_ids(bundle).items()
         }
         compiler_bindings = compiler.get("hash_bindings")
         if not isinstance(compiler_bindings, dict):
@@ -1686,6 +2294,7 @@ class P07LockedReleaseInputs:
             validation_candidate_development_evidence=_json_copy(
                 development_evidence
             ),
+            writer_settings_sha256=str(evaluation["writer_settings_sha256"]),
             release_native_executable=release_executable,
             production_writer_root=production_writer_root,
             production_writer_executable=production_writer_executable,
@@ -1694,6 +2303,386 @@ class P07LockedReleaseInputs:
                 for key, value in code_identities.items()
             },
         )
+
+
+def _read_release_typed_json_v2(
+    *,
+    release_root: Path,
+    binding: Mapping[str, object],
+    schema_path: Path,
+    label: str,
+) -> Mapping[str, object]:
+    path = _path_under(release_root, binding.get("path"), label)
+    payload, document = _read_json(path, label)
+    schema_payload = _read_regular_file(schema_path, "{} schema".format(label))
+    if (
+        _sha256(payload) != binding.get("sha256")
+        or len(payload) != binding.get("size_bytes")
+        or _sha256(schema_payload) != binding.get("schema_sha256")
+    ):
+        raise P07ProductionError("{} byte or schema binding differs".format(label))
+    try:
+        validate_schema(document, schema_path)
+    except ValueError as error:
+        raise P07ProductionError("{} violates schema".format(label)) from error
+    artifact_sha256 = document.get("artifact_sha256")
+    if artifact_sha256 is not None and artifact_sha256 != canonical_sha256(
+        {
+            key: value
+            for key, value in document.items()
+            if key != "artifact_sha256"
+        }
+    ):
+        raise P07ProductionError("{} self-hash differs".format(label))
+    return document
+
+
+def _locked_release_inputs_from_preflight_v3(
+    *,
+    result_type: type[P07LockedReleaseInputs],
+    preflight: P07Preflight,
+    release_root: Path,
+    bound_inputs: object,
+    calibration_run_support_root: Path,
+    production_writer_support_root: Path,
+) -> P07LockedReleaseInputs:
+    """Normalize only authenticated schema-2 artifacts for the P07 runtime."""
+
+    bundle = preflight.release_bundle
+    try:
+        release_hash = p06_release_bundle_sha256(bundle)
+    except ReleaseLockError as error:
+        raise P07ProductionError("P06 V3 release self-hash differs") from error
+    documents = {
+        name: _read_bound_json(release_root, bundle, identifier)
+        for name, identifier in _release_artifact_ids(bundle).items()
+    }
+    selection = documents["selection"]
+    evaluation = documents["evaluation"]
+    mapping = documents["mapping"]
+    operator = documents["operator_bank"]
+    metric = documents["metric_policy"]
+    compiler = documents["compiler_input"]
+    configuration_lock = documents["configuration_lock"]
+    evidence_closure = documents["evidence_closure"]
+    authority = _read_v3_execution_authority(
+        release_root=release_root,
+        release_bundle=bundle,
+    )
+    runtime_binding = _v3_authority_row(
+        authority,
+        "release_files",
+        "candidate_runtime_manifest_v2",
+    )
+    runtime_manifest = _read_release_typed_json_v2(
+        release_root=release_root,
+        binding={
+            **runtime_binding,
+            "schema_sha256": _sha256(
+                _read_regular_file(
+                    CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA,
+                    "candidate runtime manifest V2 schema",
+                )
+            ),
+        },
+        schema_path=CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA,
+        label="P06 V3 candidate runtime manifest",
+    )
+    if runtime_manifest.get("manifest_sha256") != canonical_sha256(
+        {
+            key: value
+            for key, value in runtime_manifest.items()
+            if key != "manifest_sha256"
+        }
+    ):
+        raise P07ProductionError("P06 V3 runtime manifest self-hash differs")
+
+    plan_path = (
+        Path(__file__).resolve().parents[3]
+        / "validation/calibration_v2/contracts/calibration-plan-v2.json"
+    )
+    plan_payload, plan = _read_json(plan_path, "calibration plan V2")
+    degradation = getattr(bound_inputs, "documents", {}).get(
+        "degradation_policy"
+    )
+    analytic = getattr(bound_inputs, "documents", {}).get(
+        "analytic_fixture_manifest"
+    )
+    verify = getattr(bound_inputs, "verify_unchanged", None)
+    if (
+        not isinstance(plan, dict)
+        or plan.get("schema_version") != "2.0.0"
+        or not isinstance(degradation, dict)
+        or not isinstance(analytic, dict)
+        or not callable(verify)
+    ):
+        raise P07ProductionError("direct preregistered P06 V2 inputs are incomplete")
+    candidate_identity = mapping.get("candidate_identity")
+    if (
+        not isinstance(candidate_identity, dict)
+        or _sha256(plan_payload)
+        != candidate_identity.get("calibration_plan_v2_file_sha256")
+    ):
+        raise P07ProductionError(
+            "direct calibration-plan V2 bytes differ from the selected identity"
+        )
+    verify()
+    if (
+        degradation != preflight.degradation_policy
+        or analytic != preflight.analytic_fixture_manifest
+    ):
+        raise P07ProductionError("P07 preflight and direct V2 inputs differ")
+    vector, vector_hash, runtime_identity = _validate_selected_vector_runtime(
+        plan=plan,
+        selection=selection,
+        evaluation=evaluation,
+    )
+    _validate_route_lut_semantics(
+        bundle=bundle,
+        lut_manifest=runtime_manifest,
+        selected_runtime=runtime_identity,
+    )
+
+    selected_control_binding = selection.get(
+        "selected_control_authorization_bundle"
+    )
+    if (
+        not isinstance(selected_control_binding, dict)
+        or selected_control_binding != evaluation.get("control_authorization_bundle")
+    ):
+        raise P07ProductionError("P06 V3 selected control authority differs")
+    control_bundle = _read_release_typed_json_v2(
+        release_root=release_root,
+        binding=selected_control_binding,
+        schema_path=CONTROL_AUTHORIZATION_BUNDLE_V2_SCHEMA,
+        label="P06 V3 control authorization bundle",
+    )
+    if (
+        control_bundle.get("split") != "validation"
+        or control_bundle.get("run_id") != selection.get("run_id")
+        or control_bundle.get("shared_bank_configuration_sha256")
+        != bundle.get("shared_bank_configuration_sha256")
+        or control_bundle.get("degradation_policy_sha256")
+        != degradation.get("policy_sha256")
+    ):
+        raise P07ProductionError("P06 V3 control authorization scope differs")
+    control_rows = control_bundle.get("control_selections")
+    if (
+        not isinstance(control_rows, list)
+        or [row.get("id") if isinstance(row, dict) else None for row in control_rows]
+        != ["best_fixed", "conventional", "non_ash_selector"]
+    ):
+        raise P07ProductionError("P06 V3 selected control set differs")
+    control_envelopes: Dict[str, Mapping[str, object]] = {}
+    for row in control_rows:
+        assert isinstance(row, dict)
+        identifier = str(row["id"])
+        binding = row.get("selection")
+        if not isinstance(binding, dict):
+            raise P07ProductionError("P06 V3 control selection binding is absent")
+        document = _read_release_typed_json_v2(
+            release_root=release_root,
+            binding=binding,
+            schema_path=CONTROL_SELECTION_V2_SCHEMAS[identifier],
+            label="P06 V3 {} selection".format(identifier),
+        )
+        if (
+            document.get("selection_stage") != "validation_final"
+            or document.get("shared_bank_configuration_sha256")
+            != bundle.get("shared_bank_configuration_sha256")
+            or document.get("degradation_policy_sha256")
+            != degradation.get("policy_sha256")
+        ):
+            raise P07ProductionError(
+                "P06 V3 {} selection scope differs".format(identifier)
+            )
+        control_envelopes[identifier] = {
+            "sha256": str(binding["sha256"]),
+            "document": _json_copy(document),
+        }
+
+    development_binding = selection.get(
+        "validation_candidate_development_evidence"
+    )
+    release_development_binding = _artifact_binding(
+        bundle,
+        "validation_candidate_development_evidence",
+    )
+    if (
+        not isinstance(development_binding, dict)
+        or development_binding
+        != {
+            key: release_development_binding[key]
+            for key in ("path", "sha256", "size_bytes")
+        }
+    ):
+        raise P07ProductionError("P06 V3 development freeze binding differs")
+    development_evidence = _read_bound_json(
+        release_root,
+        bundle,
+        "validation_candidate_development_evidence",
+    )
+    try:
+        validate_schema(
+            development_evidence,
+            VALIDATION_CANDIDATE_DEVELOPMENT_V2_SCHEMA,
+        )
+    except ValueError as error:
+        raise P07ProductionError(
+            "P06 V3 development freeze violates schema"
+        ) from error
+    frozen_hash = _require_sha256(
+        development_evidence.get("artifact_sha256"),
+        "P06 V3 development freeze",
+    )
+    if frozen_hash != canonical_sha256(
+        {
+            key: value
+            for key, value in development_evidence.items()
+            if key != "artifact_sha256"
+        }
+    ):
+        raise P07ProductionError("P06 V3 development freeze self-hash differs")
+
+    release_executable_row = _v3_authority_row(
+        authority,
+        "release_files",
+        "production_swift_executable",
+    )
+    release_source_row = _v3_authority_row(
+        authority,
+        "release_files",
+        "production_swift_source_manifest",
+    )
+    executable_path = _path_under(
+        release_root,
+        release_executable_row.get("path"),
+        "P06 V3 production Swift executable",
+    )
+    source_path = _path_under(
+        release_root,
+        release_source_row.get("path"),
+        "P06 V3 production Swift source manifest",
+    )
+    identities = authority.get("macos_code_identities")
+    if not isinstance(identities, dict):
+        raise P07ProductionError("P06 V3 macOS code identities are absent")
+    if (
+        static_code_identity(executable_path)
+        != identities.get("production_swift_executable")
+        or _sha256(_read_regular_file(source_path, "P06 V3 Swift source manifest"))
+        != release_source_row.get("sha256")
+    ):
+        raise P07ProductionError("P06 V3 Swift implementation identity differs")
+    release_executable = NativeExecutable(
+        path=executable_path,
+        sha256=str(release_executable_row["sha256"]),
+        source_manifest_path=source_path,
+        source_manifest_sha256=str(release_source_row["sha256"]),
+        compiled_now=False,
+    )
+
+    production_writer_support_root = _strict_existing_root(
+        production_writer_support_root,
+        "P06 production-writer support root",
+    )
+    writer_tree = _v3_authority_row(
+        authority,
+        "support_evidence_trees",
+        "production_writer_tree",
+    )
+    production_writer_root = _path_under(
+        production_writer_support_root,
+        writer_tree.get("path"),
+        "P06 V3 production-writer support tree",
+    )
+    writer_row = _v3_authority_row(
+        authority,
+        "external_files",
+        "production_writer_executable",
+    )
+    production_writer_executable = _path_under(
+        production_writer_support_root,
+        writer_row.get("path"),
+        "P06 V3 production-writer executable",
+    )
+    try:
+        production_writer_executable.relative_to(production_writer_root)
+    except ValueError as error:
+        raise P07ProductionError(
+            "P06 V3 production-writer executable escapes its support tree"
+        ) from error
+    if (
+        static_code_identity(production_writer_executable)
+        != identities.get("production_writer_executable")
+    ):
+        raise P07ProductionError("P06 V3 production-writer identity differs")
+    settings_row = _v3_authority_row(
+        authority,
+        "external_files",
+        "product_settings_source",
+    )
+    writer_settings_sha256 = canonical_sha256(
+        production_writer_settings_document(
+            executable_sha256=str(writer_row["sha256"]),
+            product_settings_source_sha256=str(settings_row["sha256"]),
+        )
+    )
+    calibration_run_support_root = _strict_existing_root(
+        calibration_run_support_root,
+        "P06 calibration-run support root",
+    )
+    del calibration_run_support_root
+    verify()
+    p06_identity = release_identity_v2(
+        bundle=bundle,
+        selection=selection,
+        evaluation=evaluation,
+        compiler_input=compiler,
+    )
+    return result_type(
+        release_root=release_root,
+        release_bundle=_json_copy(bundle),
+        selection=_json_copy(selection),
+        selected_evaluation=_json_copy(evaluation),
+        mapping=_json_copy(mapping),
+        operator_bank=_json_copy(operator),
+        metric_policy=_json_copy(metric),
+        compiler_input=_json_copy(compiler),
+        lut_manifest=_json_copy(runtime_manifest),
+        configuration_lock=_json_copy(configuration_lock),
+        evidence_closure=_json_copy(evidence_closure),
+        degradation_policy=_json_copy(degradation),
+        analytic_fixture_manifest=_json_copy(analytic),
+        sampling_plan=_json_copy(preflight.plan),
+        corpus_lock=_json_copy(preflight.corpus_lock),
+        selected_vector=_json_copy(vector),
+        selected_vector_sha256=vector_hash,
+        selected_p06_adapter_configuration_sha256=_require_sha256(
+            evaluation.get("adapter_configuration_sha256"),
+            "P06 V3 adapter configuration",
+        ),
+        release_bundle_manifest_sha256=release_hash,
+        configuration_sha256=canonical_sha256(configuration_lock),
+        fixed_selection=control_envelopes["best_fixed"],
+        conventional_selection=control_envelopes["conventional"],
+        non_ash_selection=control_envelopes["non_ash_selector"],
+        full_ash_development_candidates_frozen_sha256=frozen_hash,
+        validation_candidate_development_evidence=_json_copy(
+            development_evidence
+        ),
+        writer_settings_sha256=writer_settings_sha256,
+        release_native_executable=release_executable,
+        production_writer_root=production_writer_root,
+        production_writer_executable=production_writer_executable,
+        macos_code_identities={
+            key: _json_copy(value)
+            for key, value in identities.items()
+            if isinstance(value, dict)
+        },
+        p06_v2_identity=_json_copy(p06_identity),
+        source_gate_semantics=_json_copy(authority["source_gate_semantics"]),
+    )
 
 
 def _directory_record(metadata: os.stat_result) -> Mapping[str, int]:
@@ -2740,7 +3729,7 @@ def _retained_writer_execution(
     )
     settings_source_sha256 = _sha256(settings_payload)
     expected_settings_sha256 = _require_sha256(
-        locked.selected_evaluation.get("writer_settings_sha256"),
+        locked.writer_settings_sha256,
         "selected P06 writer settings",
     )
     inputs = _RetainedInputSet.open(
@@ -3667,6 +4656,18 @@ def _build_release_native_configuration(
 
     cache_root = cache_guard.root
     cache_guard.verify_external_path(cache_root)
+    is_v3 = locked.release_bundle.get("schema_version") == "3.0.1"
+    compiler_artifact_id = _release_artifact_ids(
+        locked.release_bundle
+    )["compiler_input"]
+    compile_validation_options = (
+        {
+            "expected_schema_version": "2.0.0",
+            "expected_compiler_input_v2": locked.compiler_input,
+        }
+        if is_v3
+        else {}
+    )
     identity = canonical_sha256(
         {
             "p06_release_bundle_manifest_sha256": (
@@ -3836,12 +4837,12 @@ def _build_release_native_configuration(
                     _artifact_path(
                         locked.release_root,
                         locked.release_bundle,
-                        "locked_compiler_input",
+                        compiler_artifact_id,
                     ),
                     str(
                         _artifact_binding(
                             locked.release_bundle,
-                            "locked_compiler_input",
+                            compiler_artifact_id,
                         )["sha256"]
                     ),
                     False,
@@ -3950,6 +4951,7 @@ def _build_release_native_configuration(
                     )["sha256"]
                 ),
                 route_paths=staged_paths,
+                **compile_validation_options,
             )
             staged_summary_path = staging_root / "compile-summary.json"
             _write_staged_compiler_summary(
@@ -3997,6 +4999,7 @@ def _build_release_native_configuration(
                 )["sha256"]
             ),
             route_paths=staged_paths,
+            **compile_validation_options,
         )
         staged_payloads = _sync_compiler_staging(
             cache_guard,
@@ -4043,6 +5046,7 @@ def _build_release_native_configuration(
         mapping_hash=str(_artifact_binding(locked.release_bundle, "locked_mapping")["sha256"]),
         operator_hash=str(_artifact_binding(locked.release_bundle, "locked_operator_bank")["sha256"]),
         route_paths=route_paths,
+        **compile_validation_options,
     )
 
     comparisons = []
@@ -4084,6 +5088,176 @@ def _build_release_native_configuration(
         "holdout_accessed": False,
     }
     evidence_store.publish(recompile_evidence)
+
+    if is_v3:
+        authority = _read_v3_execution_authority(
+            release_root=locked.release_root,
+            release_bundle=locked.release_bundle,
+        )
+        runtime_binding = _v3_authority_row(
+            authority,
+            "release_files",
+            "candidate_runtime_manifest_v2",
+        )
+        runtime_manifest_path = _path_under(
+            locked.release_root,
+            runtime_binding.get("path"),
+            "P06 V3 candidate runtime manifest",
+        )
+        runtime_payload, runtime_manifest = _read_json(
+            runtime_manifest_path,
+            "P06 V3 candidate runtime manifest",
+        )
+        try:
+            validate_schema(
+                runtime_manifest,
+                CANDIDATE_RUNTIME_MANIFEST_V2_SCHEMA,
+            )
+        except ValueError as error:
+            raise P07ProductionError(
+                "P06 V3 candidate runtime manifest violates schema"
+            ) from error
+        if (
+            _sha256(runtime_payload) != runtime_binding.get("sha256")
+            or len(runtime_payload) != runtime_binding.get("size_bytes")
+            or runtime_payload != canonical_json_bytes(runtime_manifest) + b"\n"
+            or runtime_manifest.get("manifest_sha256")
+            != canonical_sha256(
+                {
+                    key: value
+                    for key, value in runtime_manifest.items()
+                    if key != "manifest_sha256"
+                }
+            )
+            or runtime_manifest != locked.lut_manifest
+        ):
+            raise P07ProductionError(
+                "P06 V3 candidate runtime manifest identity differs"
+            )
+        raw_output_hash = canonical_sha256(RAW_OUTPUT_CONTRACT)
+        bank = str(locked.mapping["candidate_identity"][
+            "shared_bank_configuration_sha256"
+        ])
+        full_hash = canonical_sha256(
+            {
+                "candidate_vector_sha256": locked.selected_vector_sha256,
+                "shared_bank_configuration_sha256": bank,
+                "mapping_sha256": locked.compiler_input["hash_bindings"][
+                    "mapping_sha256"
+                ],
+                "operator_bank_sha256": locked.compiler_input["hash_bindings"][
+                    "operator_bank_sha256"
+                ],
+                "metric_policy_sha256": locked.compiler_input["hash_bindings"][
+                    "metric_policy_sha256"
+                ],
+                "compiler_inputs_sha256": compiler_hash,
+                "raw_output_contract_sha256": raw_output_hash,
+            }
+        )
+        rows_by_route = dict(zip(ROUTE_ORDER, _runtime_route_rows(locked)))
+        configuration = {
+            "schema_version": "2.0.0",
+            "implementation_role": "production_swift_p07_locked_release_format_1_2",
+            "runtime_status": "servable_calibration_candidate",
+            "configuration_id": locked.mapping["configuration_id"],
+            "serialized_candidate_vector_sha256": locked.selected_vector_sha256,
+            "physical_candidate_vector": dict(locked.selected_vector),
+            "mapping_seed_sha256": locked.mapping["mapping_seed_sha256"],
+            "operator_bank_seed_sha256": locked.operator_bank[
+                "operator_bank_seed_sha256"
+            ],
+            "metric_policy_seed_sha256": native_factory.bound.record(
+                "metric_policy_seed"
+            )["sha256"],
+            "candidate_lut_runtime_manifest_sha256": runtime_manifest[
+                "manifest_sha256"
+            ],
+            "mapping_sha256": locked.compiler_input["hash_bindings"][
+                "mapping_sha256"
+            ],
+            "operator_bank_sha256": locked.compiler_input["hash_bindings"][
+                "operator_bank_sha256"
+            ],
+            "metric_policy_sha256": locked.compiler_input["hash_bindings"][
+                "metric_policy_sha256"
+            ],
+            "compiler_inputs_sha256": compiler_hash,
+            "compiler_input_file_sha256": _artifact_binding(
+                locked.release_bundle,
+                compiler_artifact_id,
+            )["sha256"],
+            "compiler_contract_sha256": native_factory.bound.record(
+                "compiler_contract"
+            )["sha256"],
+            "calibration_plan_sha256": locked.compiler_input["hash_bindings"][
+                "calibration_plan_sha256"
+            ],
+            "corpus_lock_bundle_sha256": locked.compiler_input["hash_bindings"][
+                "corpus_lock_bundle_sha256"
+            ],
+            "shared_bank_configuration_sha256": bank,
+            "raw_output_contract_sha256": raw_output_hash,
+            "full_control_configuration_sha256": full_hash,
+            "candidate_artifacts": {
+                "mapping": dict(locked.mapping),
+                "operator_bank": dict(locked.operator_bank),
+                "metric_policy": dict(locked.metric_policy),
+            },
+            "compiler_input_document": dict(locked.compiler_input),
+            "boundary_mode": locked.selected_vector["boundary_mode"],
+            "route_luts": {
+                route: {
+                    "whole_file_sha256": rows_by_route[route][
+                        "whole_file_sha256"
+                    ],
+                    "payload_sha256": rows_by_route[route]["payload_sha256"],
+                    "luma_coordinate_policy": rows_by_route[route][
+                        "luma_coordinate_policy"
+                    ],
+                    "chroma_coordinate_policy": rows_by_route[route][
+                        "chroma_coordinate_policy"
+                    ],
+                    "analysis_grid_source_step": rows_by_route[route][
+                        "analysis_grid_source_step"
+                    ],
+                }
+                for route in ROUTE_ORDER
+            },
+            "swift_cli": dict(runtime_manifest["swift_cli"]),
+            "p06_release_bundle_manifest_sha256": (
+                locked.release_bundle_manifest_sha256
+            ),
+            "p06_configuration_sha256": locked.configuration_sha256,
+            "selected_p06_adapter_configuration_sha256": (
+                locked.selected_p06_adapter_configuration_sha256
+            ),
+            "release_lut_manifest_sha256": runtime_manifest["manifest_sha256"],
+            "independent_recompile_evidence_sha256": canonical_sha256(
+                recompile_evidence
+            ),
+        }
+        return NativeConfiguration(
+            root=root,
+            compiler_input_path=_artifact_path(
+                locked.release_root,
+                locked.release_bundle,
+                compiler_artifact_id,
+            ),
+            mapping_path=_artifact_path(
+                locked.release_root,
+                locked.release_bundle,
+                "locked_mapping",
+            ),
+            operator_bank_path=_artifact_path(
+                locked.release_root,
+                locked.release_bundle,
+                "locked_operator_bank",
+            ),
+            runtime_manifest_path=runtime_manifest_path,
+            route_paths=released_route_paths,
+            configuration=configuration,
+        ), recompile_evidence
 
     runtime_manifest = {
         "schema_version": "1.0.0",
@@ -4440,6 +5614,18 @@ def _selected_aliases(locked: P07LockedReleaseInputs) -> Mapping[str, str]:
         "best_fixed": "fixed_descriptor_{:02d}".format(descriptor),
         "conventional": CONVENTIONAL_KEY_BY_ID[str(algorithm)],
     }
+    if locked.selection.get("schema_version") == "2.0.2":
+        if (
+            fixed.get("artifact_kind") != "p06_fixed_control_selection_v2"
+            or conventional.get("artifact_kind")
+            != "p06_conventional_control_selection_v2"
+            or fixed.get("selection_stage") != "validation_final"
+            or conventional.get("selection_stage") != "validation_final"
+        ):
+            raise P07ProductionError(
+                "selected V2 aliases differ from control authority"
+            )
+        return aliases
     identities = locked.selection.get("selected_controls")
     if (
         not isinstance(identities, dict)
@@ -4492,38 +5678,56 @@ def _p00_continuity_evidence(
     native_factory: NativeCandidateAdapterFactory,
 ) -> Mapping[str, object]:
     identity = dict(native_factory.p00_builder.executable.identity)
-    selected_identity = locked.selection.get("selected_controls", {}).get(
-        "current_production_ash"
-    )
-    if (
-        not isinstance(selected_identity, dict)
-        or selected_identity.get("configuration_sha256")
-        != canonical_sha256(identity)
-    ):
-        raise P07ProductionError("P00 selected comparison identity differs")
-    expected_parameters = {
-        "control_id": "p00-current-production-ash-baseline-v1",
-        **identity,
-        "p00_backend_reset_before_frame": True,
-        "p00_prior_frame_count": 0,
-    }
-    invocations = locked.selected_evaluation.get("control_runtime_invocations")
-    if not isinstance(invocations, list):
-        raise P07ProductionError("P06 control invocation evidence is absent")
-    p00_requests = [
-        row.get("request")
-        for row in invocations
-        if isinstance(row, dict)
-        and isinstance(row.get("request"), dict)
-        and row["request"].get("control_mode") == "p00_current_production_ash"
-    ]
-    if not p00_requests or any(
-        request.get("parameters") != expected_parameters
-        or request.get("configuration_sha256") != canonical_sha256(identity)
-        for request in p00_requests
-        if isinstance(request, dict)
-    ):
-        raise P07ProductionError("P00 P06 runtime identity differs")
+    p06_v2_identity = _locked_p06_v2_identity(locked)
+    p00_requests: Sequence[Mapping[str, object]] = ()
+    if p06_v2_identity is None:
+        selected_identity = locked.selection.get("selected_controls", {}).get(
+            "current_production_ash"
+        )
+        if (
+            not isinstance(selected_identity, dict)
+            or selected_identity.get("configuration_sha256")
+            != canonical_sha256(identity)
+        ):
+            raise P07ProductionError("P00 selected comparison identity differs")
+        expected_parameters = {
+            "control_id": "p00-current-production-ash-baseline-v1",
+            **identity,
+            "p00_backend_reset_before_frame": True,
+            "p00_prior_frame_count": 0,
+        }
+        invocations = locked.selected_evaluation.get(
+            "control_runtime_invocations"
+        )
+        if not isinstance(invocations, list):
+            raise P07ProductionError("P06 control invocation evidence is absent")
+        p00_requests = [
+            row.get("request")
+            for row in invocations
+            if isinstance(row, dict)
+            and isinstance(row.get("request"), dict)
+            and row["request"].get("control_mode")
+            == "p00_current_production_ash"
+        ]
+        if not p00_requests or any(
+            request.get("parameters") != expected_parameters
+            or request.get("configuration_sha256")
+            != canonical_sha256(identity)
+            for request in p00_requests
+            if isinstance(request, dict)
+        ):
+            raise P07ProductionError("P00 P06 runtime identity differs")
+    else:
+        validate_identity_v2(p06_v2_identity)
+        authorized_identity = locked.macos_code_identities.get(
+            "p00_native_executable"
+        )
+        if (
+            not isinstance(authorized_identity, dict)
+            or identity.get("executable_sha256")
+            != authorized_identity.get("file_sha256")
+        ):
+            raise P07ProductionError("P00 released V2 authority differs")
 
     source_path = native_factory.p00_builder.executable.source_manifest_path
     source_payload, source_manifest = _read_json(source_path, "P00 source manifest")
@@ -4555,6 +5759,26 @@ def _p00_continuity_evidence(
         )
     ):
         raise P07ProductionError("P00 source-tree/adapter evidence is incomplete")
+    if p06_v2_identity is not None:
+        return {
+            "schema_version": "2.0.0",
+            "artifact_kind": "p07_p00_authorized_identity_evidence_v2",
+            "status": "pass",
+            IDENTITY_FIELD: dict(p06_v2_identity),
+            "released_authority_match": True,
+            "commit": identity["commit"],
+            "commit_tree_sha1": source_manifest["commit_tree_sha1"],
+            "backend_source_sha256": identity["backend_source_sha256"],
+            "source_manifest_sha256": identity["source_manifest_sha256"],
+            "adapter_source_sha256": adapter["sha256"],
+            "executable_sha256": identity["executable_sha256"],
+            "configuration_sha256": identity["configuration_sha256"],
+            "compatibility_boundary_normalization": identity[
+                "compatibility_boundary_normalization"
+            ],
+            "selected_p06_runtime_invocation_claimed": False,
+            "holdout_accessed": False,
+        }
     return {
         "schema_version": "1.0.0",
         "artifact_kind": "p07_p00_continuity_evidence",
@@ -5407,6 +6631,33 @@ class P07ProductionEvaluator:
         locked: P07LockedReleaseInputs,
         analytic_rows: Sequence[Mapping[str, object]],
     ) -> Mapping[str, object]:
+        p06_v2_identity = _locked_p06_v2_identity(locked)
+        if p06_v2_identity is not None:
+            identity = validate_identity_v2(p06_v2_identity)
+            selected_projection = selected_evaluation_projection_v2(
+                locked.selected_evaluation,
+                identity=identity,
+            )
+            if len(analytic_rows) != 28:
+                raise P07ProductionError(
+                    "P07 V2 preopen analytic evidence is incomplete"
+                )
+            return {
+                "schema_version": "2.0.0",
+                "artifact_kind": "p07_preopen_analytic_release_evidence_v2",
+                "status": "pass",
+                IDENTITY_FIELD: dict(identity),
+                "reproduction_mode": (
+                    "independently_reproduced_exhaustive_controls"
+                ),
+                "fixture_row_count": 28,
+                "ordered_release_runtime_row_sha256_values": [
+                    canonical_sha256(row) for row in analytic_rows
+                ],
+                "selected_p06_evidence_projection": selected_projection,
+                "p06_per_fixture_comparison_claimed": False,
+                "holdout_accessed": False,
+            }
         p06_rows = locked.selected_evaluation.get("analytic_fixture_results")
         if not isinstance(p06_rows, list) or len(p06_rows) != 28:
             raise P07ProductionError("P06 selected analytic evidence is incomplete")
@@ -5540,6 +6791,14 @@ class P07ProductionEvaluator:
         return tuple(result)
 
     def _locked_performance(self) -> Mapping[str, object]:
+        p06_v2_identity = _locked_p06_v2_identity(self.locked)
+        if p06_v2_identity is not None:
+            return selected_evaluation_projection_v2(
+                self.locked.selected_evaluation,
+                identity=validate_identity_v2(
+                    p06_v2_identity
+                ),
+            )
         performance = self.locked.selected_evaluation.get("performance")
         if not isinstance(performance, dict):
             raise P07ProductionError("selected P06 performance evidence is absent")
@@ -5577,6 +6836,7 @@ class P07ProductionEvaluator:
     def authorized_execution_binding_fragment(self) -> Mapping[str, object]:
         """Return the canonical no-secret identity fragment for execution evidence."""
 
+        p06_v2_identity = _locked_p06_v2_identity(self.locked)
         writer_trees = [
             row
             for row in self.locked.evidence_closure.get(
@@ -5626,6 +6886,12 @@ class P07ProductionEvaluator:
             ),
             p06_release_bundle_manifest_sha256=(
                 self.locked.release_bundle_manifest_sha256
+            ),
+            p06_v2_identity=p06_v2_identity,
+            source_gate_semantics=(
+                getattr(self.locked, "source_gate_semantics", None)
+                if p06_v2_identity is not None
+                else None
             ),
         )
 
@@ -5935,9 +7201,26 @@ class P07ProductionEvaluator:
             rows_by_domain["engine_raw"]
             + rows_by_domain["container_decoded"]
         )
+        p06_v2_identity = _locked_p06_v2_identity(self.locked)
+        is_v2 = p06_v2_identity is not None
+        p06_identity = (
+            validate_identity_v2(p06_v2_identity)
+            if is_v2
+            else None
+        )
+        selected_p06_evidence = self._locked_performance()
         measurement_core = {
-            "schema_version": "1.0.0",
-            "artifact_kind": "p07_spatial_holdout_measurements",
+            "schema_version": "2.0.0" if is_v2 else "1.0.0",
+            "artifact_kind": (
+                "p07_spatial_holdout_measurements_v2"
+                if is_v2
+                else "p07_spatial_holdout_measurements"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(p06_identity)}
+                if p06_identity is not None
+                else {}
+            ),
             "status": "complete",
             "configuration_sha256": self.locked.configuration_sha256,
             "locked_metric_policy_sha256": self.locked.metric_policy[
@@ -5961,16 +7244,44 @@ class P07ProductionEvaluator:
             ),
             "selected_aliases": dict(self.selected_aliases),
             "control_configuration_sha256_by_control": dict(hashes),
-            "locked_p06_performance_evidence": self._locked_performance(),
+            **(
+                {"selected_p06_evidence_projection": selected_p06_evidence}
+                if is_v2
+                else {"locked_p06_performance_evidence": selected_p06_evidence}
+            ),
             "corpus_rows": list(corpus_rows),
             "analytic_fixture_rows": list(self.analytic_rows),
             "holdout_accessed": True,
             "configuration_files_modified_after_holdout": False,
         }
         core_sha256 = canonical_sha256(measurement_core)
+        analytic_preopen_evidence = {
+            "status": "pass",
+            "fixture_count": 14,
+            "row_count": 28,
+            "evaluated_before_guard": True,
+            "reproduction_mode": (
+                "independently_reproduced_exhaustive_controls"
+            ),
+            **(
+                {"selected_p06_evidence": self.analytic_comparison}
+                if is_v2
+                else {"p06_semantic_comparison": self.analytic_comparison}
+            ),
+            "case_evidence": list(self.analytic_runtime_cases),
+        }
         runtime_evidence = {
-            "schema_version": "1.0.0",
-            "artifact_kind": "p07_runtime_evidence",
+            "schema_version": "2.0.0" if is_v2 else "1.0.0",
+            "artifact_kind": (
+                "p07_runtime_evidence_v2"
+                if is_v2
+                else "p07_runtime_evidence"
+            ),
+            **(
+                {IDENTITY_FIELD: dict(p06_identity)}
+                if p06_identity is not None
+                else {}
+            ),
             "status": "complete",
             "configuration_sha256": self.locked.configuration_sha256,
             "p06_release_bundle_manifest_sha256": (
@@ -5996,17 +7307,7 @@ class P07ProductionEvaluator:
             "preopen_cache_unchanged": True,
             "loader_preopen_verification": self.loader_verification,
             "p00_continuity_evidence": self.p00_continuity,
-            "analytic_preopen_evidence": {
-                "status": "pass",
-                "fixture_count": 14,
-                "row_count": 28,
-                "evaluated_before_guard": True,
-                "reproduction_mode": (
-                    "independently_reproduced_exhaustive_controls"
-                ),
-                "p06_semantic_comparison": self.analytic_comparison,
-                "case_evidence": list(self.analytic_runtime_cases),
-            },
+            "analytic_preopen_evidence": analytic_preopen_evidence,
             "corpus_case_evidence": runtime_cases,
             "persistent_holdout_binary_artifact_count": 0,
             "temporary_binary_artifacts_published": False,
@@ -6024,15 +7325,23 @@ class P07ProductionEvaluator:
         try:
             validate_schema(
                 runtime_evidence,
-                self.native_factory.repository_root
-                / "validation/calibration_v2/schemas/"
-                "p07-runtime-evidence-v1.schema.json",
+                (
+                    P07_RUNTIME_EVIDENCE_V2_SCHEMA
+                    if is_v2
+                    else self.native_factory.repository_root
+                    / "validation/calibration_v2/schemas/"
+                    "p07-runtime-evidence-v1.schema.json"
+                ),
             )
             validate_schema(
                 measurements,
-                self.native_factory.repository_root
-                / "validation/calibration_v2/schemas/"
-                "p07-spatial-holdout-measurements-v1.schema.json",
+                (
+                    P07_MEASUREMENTS_V2_SCHEMA
+                    if is_v2
+                    else self.native_factory.repository_root
+                    / "validation/calibration_v2/schemas/"
+                    "p07-spatial-holdout-measurements-v1.schema.json"
+                ),
             )
         except ValueError as error:
             raise P07ProductionError("P07 measurement/runtime schema failed") from error

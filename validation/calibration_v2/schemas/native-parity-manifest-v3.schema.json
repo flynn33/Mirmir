@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/validation/calibration-v2/native-parity-manifest-v3.schema.json",
+  "title": "Mirmir format-1.2 native/reference LUT parity manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "manifest_id", "status", "configuration_id", "compiler_input", "input_hashes", "implementations", "routes", "all_routes_byte_identical", "holdout_accessed", "manifest_sha256"],
+  "properties": {
+    "schema_version": {"const": "3.0.0"},
+    "manifest_id": {"const": "mirmir-native-lut-parity-v3"},
+    "status": {"const": "pass"},
+    "configuration_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+    "compiler_input": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"path": {"const": "locked-compiler-input-v2.json"}}}]},
+    "input_hashes": {"$ref": "#/$defs/hashBindings"},
+    "implementations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production_swift", "independent_test_python"],
+      "properties": {
+        "production_swift": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"path": {"const": "sources/production-swift-source-manifest.json"}}}]},
+        "independent_test_python": {"allOf": [{"$ref": "#/$defs/fileBinding"}, {"properties": {"path": {"const": "sources/independent-python-source-manifest-v2.json"}}}]}
+      }
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/comparison"},
+            {
+              "properties": {
+                "route": {"const": "direct-2x"},
+                "production_swift": {"properties": {"path": {"const": "direct2x.ashlut"}}},
+                "independent_test_python": {"properties": {"path": {"const": "independent/direct2x.ashlut"}}}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/comparison"},
+            {
+              "properties": {
+                "route": {"const": "direct-3over2"},
+                "production_swift": {"properties": {"path": {"const": "direct3over2.ashlut"}}},
+                "independent_test_python": {"properties": {"path": {"const": "independent/direct3over2.ashlut"}}}
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "all_routes_byte_identical": {"const": true},
+    "holdout_accessed": {"const": false},
+    "manifest_sha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^(?!0{64}$)[0-9a-f]{64}$"},
+    "safeRelativePath": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*\\\\)(?!.*//)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*/$)[A-Za-z0-9._/-]+$"},
+    "fileBinding": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "size_bytes"], "properties": {"path": {"$ref": "#/$defs/safeRelativePath"}, "sha256": {"$ref": "#/$defs/sha256"}, "size_bytes": {"type": "integer", "minimum": 1}}},
+    "hashBindings": {"type": "object", "additionalProperties": false, "required": ["mapping_sha256", "operator_bank_sha256", "metric_policy_sha256", "compiler_inputs_sha256", "calibration_plan_sha256", "corpus_lock_bundle_sha256"], "properties": {"mapping_sha256": {"$ref": "#/$defs/sha256"}, "operator_bank_sha256": {"$ref": "#/$defs/sha256"}, "metric_policy_sha256": {"$ref": "#/$defs/sha256"}, "compiler_inputs_sha256": {"$ref": "#/$defs/sha256"}, "calibration_plan_sha256": {"$ref": "#/$defs/sha256"}, "corpus_lock_bundle_sha256": {"$ref": "#/$defs/sha256"}}},
+    "comparison": {"type": "object", "additionalProperties": false, "required": ["route", "production_swift", "independent_test_python", "byte_identical", "payload_hash_identical", "first_differing_byte_offset"], "properties": {"route": {"enum": ["direct-2x", "direct-3over2"]}, "production_swift": {"$ref": "#/$defs/fileBinding"}, "independent_test_python": {"$ref": "#/$defs/fileBinding"}, "byte_identical": {"const": true}, "payload_hash_identical": {"const": true}, "first_differing_byte_offset": {"type": "null"}}}
+  }
+}

@@ -128,6 +128,118 @@ enum ASHLockedControlResamplerV2 {
         )
     }
 
+    static func conventional(
+        source: ASHNV12CodeFrame,
+        route: ASHSpatialRouteV2,
+        configuration: ASHLUTLockedConfigurationV3,
+        algorithm: ASHLockedConventionalAlgorithmV2
+    ) throws -> ASHLockedControlFrameV2 {
+        let selection = configuration.routeSelection(for: route)
+        let luma = try normalizedPlane(source.luma, chroma: false)
+        let cb = try normalizedPlane(source.cb, chroma: true)
+        let cr = try normalizedPlane(source.cr, chroma: true)
+        return ASHLockedControlFrameV2(
+            luma: try resample(
+                plane: luma,
+                outputWidth: route.destinationExtent(for: luma.width),
+                outputHeight: route.destinationExtent(for: luma.height),
+                algorithm: algorithm,
+                boundary: configuration.boundaryMode,
+                coordinatePolicy: selection.lumaCoordinatePolicy,
+                chromaSiting: nil
+            ),
+            cb: try resample(
+                plane: cb,
+                outputWidth: route.destinationExtent(for: cb.width),
+                outputHeight: route.destinationExtent(for: cb.height),
+                algorithm: algorithm,
+                boundary: configuration.boundaryMode,
+                coordinatePolicy: selection.chromaCoordinatePolicy,
+                chromaSiting: source.chromaSiting
+            ),
+            cr: try resample(
+                plane: cr,
+                outputWidth: route.destinationExtent(for: cr.width),
+                outputHeight: route.destinationExtent(for: cr.height),
+                algorithm: algorithm,
+                boundary: configuration.boundaryMode,
+                coordinatePolicy: selection.chromaCoordinatePolicy,
+                chromaSiting: source.chromaSiting
+            )
+        )
+    }
+
+    static func nearest(
+        source: ASHNV12CodeFrame,
+        route: ASHSpatialRouteV2
+    ) throws -> ASHLockedControlFrameV2 {
+        let luma = try normalizedPlane(source.luma, chroma: false)
+        let cb = try normalizedPlane(source.cb, chroma: true)
+        let cr = try normalizedPlane(source.cr, chroma: true)
+        return ASHLockedControlFrameV2(
+            luma: try nearest(
+                plane: luma,
+                outputWidth: route.destinationExtent(for: luma.width),
+                outputHeight: route.destinationExtent(for: luma.height)
+            ),
+            cb: try nearest(
+                plane: cb,
+                outputWidth: route.destinationExtent(for: cb.width),
+                outputHeight: route.destinationExtent(for: cb.height)
+            ),
+            cr: try nearest(
+                plane: cr,
+                outputWidth: route.destinationExtent(for: cr.width),
+                outputHeight: route.destinationExtent(for: cr.height)
+            )
+        )
+    }
+
+    static func h07Lanczos3(
+        direct2x: ASHLockedFrameOutputV3,
+        targetLumaWidth: Int,
+        targetLumaHeight: Int,
+        targetChromaWidth: Int,
+        targetChromaHeight: Int,
+        boundary: ASHSpatialBoundaryModeV2
+    ) throws -> ASHLockedControlFrameV2 {
+        guard targetLumaWidth == targetChromaWidth * 2,
+              targetLumaHeight == targetChromaHeight * 2 else {
+            throw ASHLockedControlResamplerV2Error.invalidGeometry
+        }
+        return ASHLockedControlFrameV2(
+            luma: try resample(
+                plane: spatialPlane(direct2x.luma),
+                outputWidth: targetLumaWidth,
+                outputHeight: targetLumaHeight,
+                algorithm: .lanczos3,
+                boundary: boundary,
+                coordinatePolicy: .halfPixelCenter,
+                chromaSiting: nil
+            ),
+            cb: try resample(
+                plane: spatialPlane(direct2x.cb),
+                outputWidth: targetChromaWidth,
+                outputHeight: targetChromaHeight,
+                algorithm: .lanczos3,
+                boundary: boundary,
+                coordinatePolicy: .halfPixelCenter,
+                chromaSiting: nil
+            ),
+            cr: try resample(
+                plane: spatialPlane(direct2x.cr),
+                outputWidth: targetChromaWidth,
+                outputHeight: targetChromaHeight,
+                algorithm: .lanczos3,
+                boundary: boundary,
+                coordinatePolicy: .halfPixelCenter,
+                chromaSiting: nil
+            )
+        )
+    }
+}
+
+private extension ASHLockedControlResamplerV2 {
     private static func normalizedPlane(
         _ source: ASHVideoAnalyzerV2CodePlane,
         chroma: Bool
@@ -153,6 +265,16 @@ enum ASHLockedControlResamplerV2 {
 
     private static func spatialPlane(
         _ source: ASHLockedReferencePlaneOutputV2
+    ) throws -> ASHSpatialPlaneV2 {
+        try ASHSpatialPlaneV2(
+            width: source.width,
+            height: source.height,
+            samples: source.normalizedSamples
+        )
+    }
+
+    private static func spatialPlane(
+        _ source: ASHSpatialReferencePlaneOutputV2
     ) throws -> ASHSpatialPlaneV2 {
         try ASHSpatialPlaneV2(
             width: source.width,
