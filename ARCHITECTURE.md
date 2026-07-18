@@ -14,11 +14,13 @@ gate finalization. They are not linked into or embedded in `Mirmir.app`.
 
 The preserved source currently consumes Forsetti as a sealed package dependency
 pinned in `project.yml` and the generated Xcode project to revision
-`43eef7a739f3b78253c64aa4b070521ab5b1f43c`. Roadmap R00 must replace that
-repository dependency while retaining the approved Forsetti Pattern B structure:
-one UI module plus cohesive services assembled once in
-`MirmirForsettiBootstrap` and injected through module factories. The complete
-Forsetti repository must not be included in Mirmir.
+`43eef7a739f3b78253c64aa4b070521ab5b1f43c`. Roadmap R00 must remove the
+Forsetti repository as a build or runtime dependency while retaining the approved
+Forsetti Pattern B structure: one UI module plus cohesive services assembled once
+in `MirmirForsettiBootstrap` and injected through module factories. The Forsetti
+repository is reference-only; approved app-owned outputs adapted from its
+templates may be committed to Mirmir, but the repository itself must not be
+included, vendored, or referenced as a package dependency.
 
 Production launch activates the five product modules and renders
 `MirmirProductionRootView` only after the UI module is active. Framework

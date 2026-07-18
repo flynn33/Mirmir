@@ -19,8 +19,9 @@ All notable project changes are recorded here.
 - Reclassified ASH V3 as a retained deterministic reference, control-plane
   substrate, and evidence source rather than the presumptive future reconstruction
   engine. Existing failed and partial evidence remains historical and unchanged.
-- Recorded the target Forsetti boundary: retain approved architecture and templates
-  without including or depending on the complete Forsetti framework repository.
+- Recorded the target Forsetti boundary: the repository is reference-only and may
+  not be included, vendored, or used as a build or runtime dependency; approved
+  app-owned outputs adapted from its templates may be committed to Mirmir.
 
 ### Added
 

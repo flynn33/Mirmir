@@ -1017,11 +1017,13 @@ The repository does not define an iOS or Windows target.
 ## Architecture
 
 The preserved ASH V3 source currently uses Forsetti as a sealed package dependency
-pinned in `project.yml`. The roadmap target retains Forsetti architecture and
-approved templates while removing the full framework-repository dependency and
-prohibiting that repository from being included in Mirmir. The app follows a
-one-UI-module pattern with separate service modules for Metal, model-asset status,
-AVFoundation media IO, and upscale orchestration.
+pinned in `project.yml`. Roadmap R00 removes the Forsetti repository as any build
+or runtime dependency. The repository is reference-only: approved app-owned
+outputs adapted from its templates may be committed to Mirmir, but the repository
+itself must not be included, vendored, or referenced as a package dependency. The
+app retains the approved Forsetti architecture with a one-UI-module pattern and
+separate service modules for Metal, model-asset status, AVFoundation media IO, and
+upscale orchestration.
 
 Production launch activates the product modules directly and opens the Mirmir
 workspace. The developer host is available only in Debug builds when
