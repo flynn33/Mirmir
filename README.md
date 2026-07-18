@@ -22,6 +22,35 @@ evidence-preservation action, not a product release. It does not authorize a tag
 GitHub Release, production Auto mode, holdout access, G08, a quality claim, or a
 market-position claim.
 
+## Roadmap Progress
+
+<!-- BEGIN ROADMAP PROGRESS -->
+**Overall:** `0 / 14` roadmap phases passed (`0%`)
+
+`[----------]`
+
+**Status:** ➡️ Next `1` · ⬜ Planned `12` · ⛔ Blocked `1`
+
+**Current focus:** `R00` — Strategic reset and evidence preservation
+
+| Phase | Roadmap phase | Status | Progress |
+| --- | --- | --- | --- |
+| `R00` | Strategic reset and evidence preservation | `next` | ➡️ Next |
+| `R01` | Apple capability laboratory | `planned` | ⬜ Planned |
+| `R02` | Unified backend and stage architecture | `planned` | ⬜ Planned |
+| `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
+| `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
+| `R05` | MetalFX integration and suitability decision | `planned` | ⬜ Planned |
+| `R06` | ASH orchestration engine v1 | `planned` | ⬜ Planned |
+| `R07` | Temporal stability and artifact governance | `planned` | ⬜ Planned |
+| `R08` | Core AI analysis-only integration | `planned` | ⬜ Planned |
+| `R09` | Core AI bounded residual experiment | `blocked` | ⛔ Blocked |
+| `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
+| `R11` | Competitive benchmark and market-position decision | `planned` | ⬜ Planned |
+| `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
+| `R13` | Release hardening | `planned` | ⬜ Planned |
+<!-- END ROADMAP PROGRESS -->
+
 ## Canonical Roadmap (Complete)
 
 <!-- BEGIN CANONICAL ROADMAP 1.0.0 -->

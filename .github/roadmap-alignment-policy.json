@@ -1,0 +1,231 @@
+{
+  "schema_version": "1.0.0",
+  "canonical": {
+    "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
+    "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
+    "index_path": "docs/roadmaps/README.md",
+    "markdown_sha256": "9fc5fab10b2fb67c8c48c9df3a985c1cb81a42fed19ebc9463bceeaafb9c22b4",
+    "json_sha256": "1b1a8d02dea29391ff8882c258d1b29a689f3d2268178610bdd8fad134a0cd41",
+    "schema_version": "1.0.0",
+    "roadmap_version": "1.0.0",
+    "date": "2026-07-18"
+  },
+  "contract": {
+    "phase_ids": [
+      "R00",
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05",
+      "R06",
+      "R07",
+      "R08",
+      "R09",
+      "R10",
+      "R11",
+      "R12",
+      "R13"
+    ],
+    "apple_method_ids": [
+      "A01",
+      "A02",
+      "A03",
+      "A04",
+      "A05",
+      "A06",
+      "A07",
+      "A08",
+      "A09",
+      "A10",
+      "A11",
+      "A12",
+      "A13",
+      "A14",
+      "A15",
+      "A16",
+      "A17",
+      "A18"
+    ],
+    "authorizations": {
+      "capability_lab": "authorized_after_current_source_inventory",
+      "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
+      "holdout": "blocked",
+      "market_leading_claim": "blocked",
+      "production_auto_mode": "blocked",
+      "strategic_reset": "authorized",
+      "unified_backend_architecture": "authorized_after_capability_contracts"
+    }
+  },
+  "readme": {
+    "path": "README.md",
+    "canonical_start_marker": "<!-- BEGIN CANONICAL ROADMAP 1.0.0 -->",
+    "canonical_end_marker": "<!-- END CANONICAL ROADMAP 1.0.0 -->",
+    "progress_start_marker": "<!-- BEGIN ROADMAP PROGRESS -->",
+    "progress_end_marker": "<!-- END ROADMAP PROGRESS -->"
+  },
+  "progress": {
+    "heading": "## Roadmap Progress",
+    "status_indicators": {
+      "blocked": "⛔ Blocked",
+      "evidence_ready": "🧪 Evidence ready",
+      "in_progress": "🔄 In progress",
+      "next": "➡️ Next",
+      "passed": "✅ Passed",
+      "planned": "⬜ Planned"
+    },
+    "status_order": [
+      "passed",
+      "evidence_ready",
+      "in_progress",
+      "next",
+      "planned",
+      "blocked"
+    ],
+    "completed_statuses": [
+      "passed"
+    ],
+    "bar_width": 10,
+    "phase_order": [
+      "R00",
+      "R01",
+      "R02",
+      "R03",
+      "R04",
+      "R05",
+      "R06",
+      "R07",
+      "R08",
+      "R09",
+      "R10",
+      "R11",
+      "R12",
+      "R13"
+    ]
+  },
+  "required_phrases": {
+    ".github/CODEOWNERS": [
+      "/docs/roadmaps/",
+      "/project.yml",
+      "/Mirmir.xcodeproj/project.pbxproj"
+    ],
+    ".github/PULL_REQUEST_TEMPLATE.md": [
+      "## Roadmap impact",
+      "## Authorization impact",
+      "## Forsetti boundary",
+      "## Non-release boundary"
+    ],
+    ".github/workflows/roadmap-alignment.yml": [
+      "name: Roadmap alignment",
+      "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
+      "python3 Scripts/roadmap_alignment.py --check",
+      "python3 Scripts/roadmap_alignment.py --check-github-metadata"
+    ],
+    "ARCHITECTURE.md": [
+      "Roadmap 1.0.0",
+      "not a release or gate promotion",
+      "repository is reference-only"
+    ],
+    "CHANGELOG.md": [
+      "### Roadmap and Evidence Status",
+      "This is not a product release",
+      "repository is reference-only"
+    ],
+    "README.md": [
+      "## Product Direction and Evidence Status",
+      "## Roadmap Progress",
+      "evidence-preservation action, not a product release",
+      "repository is reference-only"
+    ],
+    "Scripts/verify-mirmir-guardrails.sh": [
+      "python3 Scripts/roadmap_alignment.py --check"
+    ],
+    "docs/governance/roadmap-alignment.md": [
+      "# Roadmap Alignment Governance",
+      "The stable required-check name is",
+      "Branch-protection rules",
+      "before merging to `main`."
+    ],
+    "local-work-plan.md": [
+      "superseded as the forward product plan",
+      "No tag or release is authorized",
+      "R00 strategic reset and current-source inventory: next."
+    ],
+    "project-notes/ash-upscaling-implementation-log.md": [
+      "Historical implementation log",
+      "is the forward product plan"
+    ],
+    "project-notes/ash-v3-production-wiring-design.md": [
+      "Historical design",
+      "This document does not claim a release"
+    ],
+    "validation/calibration_v2/README.md": [
+      "Preserved evidence tooling",
+      "does not authorize legacy P06/P07/P08 execution"
+    ],
+    "validation/quality/README.md": [
+      "Retained validation tooling",
+      "not current product qualification or release authority"
+    ]
+  },
+  "github_repository": {
+    "name_with_owner": "flynn33/Mirmir",
+    "description": "Roadmap-driven native macOS video enhancement and upscaling with Apple frameworks, deterministic ASH orchestration, and optional on-device Core AI.",
+    "topics": [
+      "accelerate",
+      "apple-silicon",
+      "avfoundation",
+      "core-ai",
+      "core-image",
+      "corevideo",
+      "macos",
+      "metal",
+      "metal-performance-shaders",
+      "metalfx",
+      "swift",
+      "swiftui",
+      "video-processing",
+      "video-upscaling",
+      "videotoolbox"
+    ]
+  },
+  "forsetti": {
+    "phase_id": "R00",
+    "mode_by_phase_status": {
+      "blocked": "legacy_exact",
+      "evidence_ready": "legacy_or_absent",
+      "in_progress": "legacy_or_absent",
+      "next": "legacy_exact",
+      "passed": "reference_only",
+      "planned": "legacy_exact"
+    },
+    "project_path": "project.yml",
+    "generated_project_path": "Mirmir.xcodeproj/project.pbxproj",
+    "allowed_dependency_url": "https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git",
+    "allowed_revision": "43eef7a739f3b78253c64aa4b070521ab5b1f43c",
+    "allowed_products": [
+      "ForsettiCore",
+      "ForsettiHostTemplate",
+      "ForsettiPlatform"
+    ],
+    "forbidden_tracked_path_patterns": [
+      "(?i)(^|/)Forsetti-Framework-Mac-iOS(/|$)",
+      "(?i)(^|/)ForsettiFramework(/|$)",
+      "(?i)(^|/)[^/]*forsetti[^/]*\\.(framework|xcframework)(/|$)"
+    ]
+  },
+  "workflows": {
+    "root": ".github/workflows",
+    "forbidden_command_patterns": [
+      "Scripts/inject-ash-p06-release.sh",
+      "Scripts/run-ash-p08-native-evidence.sh",
+      "run_p07_locked_holdout.py",
+      "run_live_holdout",
+      "gh release create",
+      "git tag"
+    ],
+    "forbidden_trigger_patterns": [
+      "pull_request_target"
+    ]
+  }
+}

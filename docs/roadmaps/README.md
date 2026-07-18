@@ -4,6 +4,8 @@ The current product direction is **Mirmir Apple-Native Adaptive Video Enhancemen
 
 - [Canonical Markdown](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
 - [Canonical JSON](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json)
+- [Roadmap Progress](../../README.md#roadmap-progress)
+- [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
