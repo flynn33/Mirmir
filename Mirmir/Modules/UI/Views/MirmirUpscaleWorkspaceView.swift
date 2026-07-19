@@ -250,7 +250,7 @@ private struct MirmirSourceDropTarget: View {
                     }
                     .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
                     .accessibilityLabel("Choose Source")
-                    Text("Supported formats and deterministic upscale options will appear after analysis.")
+                    Text("Roadmap-qualified processing options will appear after capability and baseline work.")
                         .font(theme.typography.caption)
                         .foregroundStyle(theme.textTertiary)
                 }
@@ -348,11 +348,12 @@ private struct MirmirUpscaleInspector: View {
             VStack(alignment: .leading, spacing: theme.spacing.space5) {
                 inspectorSection("Upscale Settings") {
                     MirmirFieldRow("Engine", theme: theme) {
-                        Picker("Engine", selection: Binding.constant("ASH v1.0 (Deterministic)")) {
-                            Text("ASH v1.0 (Deterministic)").tag("ASH v1.0 (Deterministic)")
+                        Picker("Engine", selection: Binding.constant(viewModel.engineSelectionText)) {
+                            Text(viewModel.engineSelectionText).tag(viewModel.engineSelectionText)
                         }
                         .pickerStyle(.menu)
                         .disabled(true)
+                        .help(viewModel.engineAvailabilityReason ?? "Direct reference processing is available.")
                     }
 
                     MirmirFieldRow("Strategy", theme: theme) {
@@ -377,10 +378,13 @@ private struct MirmirUpscaleInspector: View {
                 }
 
                 inspectorSection("Quality Controls") {
-                    Toggle("Temporal Consistency", isOn: Binding.constant(true))
+                    Toggle(
+                        "Temporal Consistency",
+                        isOn: Binding.constant(viewModel.engineAvailabilityReason == nil)
+                    )
                         .font(theme.typography.body)
                         .disabled(true)
-                        .help("Temporal consistency is fixed in the current engine.")
+                        .help("Temporal consistency becomes configurable after a roadmap-qualified engine is available.")
 
                     segmentedLevel("Edge Fidelity", selection: .constant(.medium))
                     segmentedLevel("Detail Recovery", selection: .constant(.medium))
@@ -441,6 +445,9 @@ private struct MirmirUpscaleInspector: View {
     }
 
     private var strategyText: String {
+        if viewModel.engineAvailabilityReason != nil {
+            return "Not available"
+        }
         guard let profile = viewModel.sourceProfile else {
             return "2x Native"
         }

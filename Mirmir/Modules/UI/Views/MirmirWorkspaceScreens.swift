@@ -20,8 +20,8 @@ struct MirmirDashboardScreen: View {
 
             MirmirPanel(theme: theme) {
                 VStack(alignment: .leading, spacing: theme.spacing.space3) {
-                    screenHeader("Quick upscale", "Start from the primary workbench when source media is ready.", theme: theme)
-                    Text("Use the Upscale workspace to choose video, configure settings, and start processing.")
+                    screenHeader("Upscale workflow", "Prepare source and output selections while roadmap capability work continues.", theme: theme)
+                    Text(viewModel.canStartFailureReason ?? "Use the Upscale workspace to configure and start processing.")
                         .font(theme.typography.body)
                         .foregroundStyle(theme.textSecondary)
                 }
@@ -189,7 +189,7 @@ struct MirmirPresetsScreen: View {
     let theme: MirmirThemeTokens
 
     private let presets = [
-        ("Balanced", "Default deterministic reconstruction", "Temporal on, medium edge, medium detail"),
+        ("Balanced", "Prepared balanced processing profile", "Controls remain inactive"),
         ("Detail Max", "Prepared detail recovery profile", "High detail, medium edge"),
         ("Edge Max", "Prepared edge fidelity profile", "High edge, medium detail"),
         ("Smooth", "Prepared low-edge profile", "Temporal on, low edge"),
@@ -280,7 +280,7 @@ struct MirmirSettingsScreen: View {
                         .pickerStyle(.segmented)
                     }
 
-                    settingsNote("Processing", "Hardware acceleration and queue concurrency use safe defaults in this alpha build.")
+                    settingsNote("Processing", viewModel.canStartFailureReason ?? "Processing is available.")
                     settingsNote("Diagnostics", viewModel.engineReadinessText)
                     settingsNote("Advanced", "Advanced controls remain inactive until additional processing options are available.")
                 }
@@ -323,6 +323,9 @@ struct MirmirDiagnosticsScreen: View {
                 VStack(alignment: .leading, spacing: theme.spacing.space4) {
                     screenHeader("Diagnostics", "Local processing readiness and recent state.", theme: theme)
                     diagnosticRow("Processing status", viewModel.engineReadinessText)
+                    if let reason = viewModel.engineAvailabilityReason {
+                        diagnosticRow("Availability", reason)
+                    }
                     diagnosticRow("Model assets", String(describing: viewModel.modelStatus))
                     diagnosticRow("Workflow state", viewModel.state.statusTitle)
                 }

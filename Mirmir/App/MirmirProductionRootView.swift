@@ -1,23 +1,20 @@
 import SwiftUI
-import ForsettiHostTemplate
 
 struct MirmirProductionRootView: View {
-
-    @ObservedObject var bootstrap: MirmirForsettiBootstrap
+    @ObservedObject var bootstrap: MirmirAppBootstrap
 
     var body: some View {
         Group {
             switch bootstrap.productionState {
             case .idle, .booting:
                 bootingView
-                    .task { await bootstrap.bootForProduction() }
+                    .task { bootstrap.bootForProduction() }
             case .ready:
                 readyView
             case .failed(let reason):
                 failureView(reason)
             }
         }
-        .frame(minWidth: 1024, minHeight: 640)
     }
 
     private var bootingView: some View {
@@ -36,7 +33,8 @@ struct MirmirProductionRootView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.red)
             Text("Mirmir failed to start")
-                .font(.title3).bold()
+                .font(.title3)
+                .bold()
             Text(reason)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
@@ -47,7 +45,7 @@ struct MirmirProductionRootView: View {
 
     private var readyView: some View {
         Group {
-            if let view = bootstrap.injectionRegistry.resolve(viewID: MirmirUIConstants.primaryViewID) {
+            if let view = bootstrap.viewRegistry.resolve(viewID: MirmirUIConstants.primaryViewID) {
                 view
             } else {
                 failureView("UI view \(MirmirUIConstants.primaryViewID) is not registered")

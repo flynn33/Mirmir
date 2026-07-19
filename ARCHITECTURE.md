@@ -7,7 +7,7 @@
 > ASH V3 testing, failure evidence, and diagnostic artifacts are retained, but
 > their publication is not a release or gate promotion.
 
-- Roadmap phase `R00`: `in_progress`
+- Roadmap phase `R00`: `evidence_ready`
 - Roadmap phase `R01`: `planned`
 
 Mirmir is a native macOS application. Its application target is implemented in
@@ -16,19 +16,20 @@ VideoToolbox, and Apple platform services. Python modules under `validation/`
 implement offline calibration, evidence production, schema validation, and
 gate finalization. They are not linked into or embedded in `Mirmir.app`.
 
-The R00 baseline source still consumes Forsetti as a sealed package dependency
-pinned in `project.yml` and the generated Xcode project to revision
-`43eef7a739f3b78253c64aa4b070521ab5b1f43c`. Roadmap R00 must remove the
-Forsetti repository as a build or runtime dependency while retaining the approved
-Pattern B structure: one UI module plus cohesive services assembled once through
-an app-owned composition root and injected through Mirmir-owned factories. The Forsetti
-repository is reference-only; approved app-owned outputs adapted from its
-templates may be committed to Mirmir, but the repository itself must not be
-included, vendored, or referenced as a package dependency.
+The R00 source uses an app-owned Pattern B runtime with one UI module and four
+service modules assembled once through `MirmirAppBootstrap` and injected through
+Mirmir-owned factories. The Forsetti repository is reference-only; it is not a
+package, framework, submodule, vendored source, build, or runtime dependency.
 
-Production launch activates the five product modules and renders
-`MirmirProductionRootView` only after the UI module is active. Framework
-developer controls are limited to development deployment mode.
+Production launch activates the exact five-module set in a fixed order and
+renders `MirmirProductionRootView` only after the UI module and primary view are
+registered. Debug launch with `MIRMIR_DEVELOPER_WORKSPACE=1` adds a read-only
+module/status surface. It provides no activation or deactivation controls.
+
+Normal R00 product upscaling is fail-closed. The production composition injects
+an unavailable transition engine, Start remains disabled, and the UI reports:
+“No roadmap-qualified backend is available; capability and baseline work
+continue in R01–R03.”
 
 ## Target Apple-Native Adaptive Architecture
 
@@ -43,58 +44,52 @@ The current module inventory below is retained implementation evidence. Planned
 interfaces and backends are not represented as implemented until their roadmap
 phases produce accepted evidence.
 
-## Current Retained Module Inventory
+## Current App-Owned Module Inventory
 
-| Module ID | Entry point | Responsibility | Capabilities | Isolation |
-| --- | --- | --- | --- | --- |
-| `com.mirmir.app.ui` | `MirmirUIModule` | Product workspace and UI state | `view_injection` | Private |
-| `com.mirmir.app.metal` | `MetalRenderingServiceModule` | Metal device, queue, and texture-cache readiness | None | Private |
-| `com.mirmir.app.model-assets` | `ModelAssetsServiceModule` | VideoToolbox model-asset readiness | `storage`, `telemetry` | Private store |
-| `com.mirmir.app.media-pipeline` | `MediaPipelineServiceModule` | AVFoundation read/write and atomic export | `file_export` | Private store |
-| `com.mirmir.app.upscaler-engine` | `UpscalerEngineServiceModule` | Job orchestration and locked ASH execution | `telemetry` | Private store |
+| Activation | Module ID | Kind | Entry point | Responsibility |
+| ---: | --- | --- | --- | --- |
+| 1 | `com.mirmir.app.metal` | Service | `MetalRenderingServiceModule` | Metal device, queue, and texture-cache readiness |
+| 2 | `com.mirmir.app.model-assets` | Service | `ModelAssetsServiceModule` | Roadmap-transition model availability |
+| 3 | `com.mirmir.app.media-pipeline` | Service | `MediaPipelineServiceModule` | AVFoundation read/write and atomic export |
+| 4 | `com.mirmir.app.upscaler-engine` | Service | `UpscalerEngineServiceModule` | Job orchestration and backend availability |
+| 5 | `com.mirmir.app.ui` | UI | `MirmirUIModule` | Product workspace and UI state |
 
-Bundled manifests use schema/template `1.1`, require Forsetti `0.1.4`, and
-declare their runtime requirements. `ManifestRegistryAlignmentTests` bind the
-Swift descriptors, JSON manifests, and registry factories.
+Static `MirmirModuleDescriptor` values are the single source of truth. The
+factory registry rejects duplicate module IDs and entry points and verifies the
+identity returned by each factory. `MirmirModuleHost` requires the exact set,
+exactly one UI module, and the UI module last; startup failure rolls back every
+started module in reverse order. The former dynamic JSON manifests are removed.
 
-## Preserved ASH V3 Product Composition
-
-`DefaultUpscalerEngineService` depends on `ASHUpscaleBackendFactory`.
-`MirmirForsettiBootstrap` injects
-`ASHLockedUpscaleBackendFactoryV3(bundle: .main, metal: metalService)`. That
-initializer selects the production Metal mode; the resource-root and
-artifact-store-only initializers select the CPU locked-reference mode for
-explicit development and tests.
+## R00 Product Composition and Preserved ASH V3 References
 
 ```text
-MirmirForsettiBootstrap
-  -> DefaultUpscalerEngineService
-       -> ASHLockedUpscaleBackendFactoryV3(bundle:metal:)
-            -> ASHLockedArtifactStoreV3.artifacts
-            -> ASHMetalUpscaleBackendV3
-                 -> ASHMetalSpatialRuntimeV3
-                      -> ash_v3_analyze_luma
-                      -> ash_v3_analyze_chroma_and_pack_state
-                      -> ash_v3_decode_dispatch
-                      -> ash_v3_reconstruct_luma
-                      -> ash_v3_reconstruct_chroma
-                      -> ash_v3_finalize_reduction
-       -> AVFoundationMediaSession
+MirmirAppBootstrap
+  -> DefaultMetalRenderingService
+  -> RoadmapTransitionModelAssetsService
+  -> AVFoundationMediaPipeline
+  -> UnavailableUpscalerEngineService
+       -> backendUnavailable(reason:)
+  -> MirmirModuleFactoryRegistry
+  -> MirmirModuleHost
+  -> MirmirViewRegistry
 ```
 
-`ASHDevelopmentUpscaleBackendFactory` constructs the disposable P05 CPU
-reference only when a development or test caller explicitly injects it. The
-product bootstrap does not reference that factory, and the service does not
-inspect errors to choose another algorithm. Artifact, Metal, or runtime errors
-therefore remain terminal; they cannot switch to P05, a runtime compiler or
-selector, a fixed control, or Lanczos.
+`DefaultUpscalerEngineService`, `ASHLockedUpscaleBackendFactoryV3`, the Metal
+spatial runtime, and the VideoToolbox model-staging scaffold remain compiled as
+retained reference and research code. The normal product composition has no call
+site for those implementations and does not select them as a fallback.
+
+Explicit tests and future qualified phases may construct the retained ASH
+factories directly. `ASHDevelopmentUpscaleBackendFactory` likewise remains an
+explicit development/test reference; neither factory is reachable from
+`MirmirAppBootstrap`.
 
 The offline LUT compiler and all Python calibration components remain outside
 the application call graph. The runtime receives parsed, validated, immutable
 LUT bytes and performs no per-frame JSON parsing, LUT compilation, or tree
 generation.
 
-## Preserved Exact Release-Resource Transaction
+## Historical Exact Release-Resource Transaction
 
 The application bundle lookup root is
 `Contents/Resources/ASH/LockedV3`. `ASHLockedArtifactStoreV3` permits exactly:
@@ -115,24 +110,24 @@ identity, payload hashes, entry/parameter counts, and header/payload CRCs. It
 publishes its cached `ASHLockedArtifactSetV3` only after both route LUTs pass
 against one configuration. A failed transaction publishes no partial cache.
 
-The source tree intentionally has no checked-in `LockedV3` directory. During an
-authorized exact-release build, the `Inject Exact P06 ASH Release` post-build
-phase runs `Scripts/inject-ash-p06-release.sh`. When
-`MIRMIR_P08_P06_RELEASE_ROOT` is set, the script requires:
+The source tree intentionally has no checked-in `LockedV3` directory. The former
+P06 build design used `Scripts/inject-ash-p06-release.sh` to require:
 
 - an absolute, non-symlink source directory;
 - exactly the six authorized names and no hidden or additional entry;
 - a regular, non-symlink, single-hard-link inode for every member; and
 - byte identity after staging and after installation in the app bundle.
 
-The phase stages privately, replaces only the target build's `LockedV3`
-directory, and compares every copied file. When the variable is unset, it
-removes stale injected resources from both the app and target-temporary paths,
-so a reused build directory cannot silently retain an earlier release set.
+That script remains historical tooling, but the P06 post-build phase is removed
+from `project.yml` and the generated Xcode project. Normal R00 builds neither
+invoke the script nor inject a locked release. The historical implementation
+staged privately, replaced only the target build's `LockedV3` directory, and
+compared every copied file.
 
-## Job Transaction
+## Preserved ASH V3 Reference Job Transaction
 
-One product job executes in this order:
+When the retained backend is constructed directly by a test or research caller,
+one reference job executes in this order:
 
 1. Acquire security-scoped input and output access.
 2. Probe the source and select direct 2× or direct 3/2×.
@@ -296,21 +291,23 @@ and P07 execution authority bind those exact bytes and provide the
 format-1.2 LUTs, requires byte identity, closes 23 artifact roles, and exports
 only the six app-consumable files after reopening the immutable release.
 
-`run_p06_production_calibration_v2.py` is the sole authorizing production P06
-entry point. It composes current-source G04/G05/G06 reopening, the concrete
-Apple-native schema-2 provider, V3-only release publication, and exact-six
-publication plus receipt. The historical `run_p06_production_calibration.py`
-entry point performs anchor diagnostics only and returns status `2`; it cannot
-construct a candidate, run calibration, or publish a release. A separate
+`run_p06_production_calibration_v2.py` formerly composed current-source
+G04/G05/G06 reopening, the concrete Apple-native schema-2 provider, V3-only
+release publication, and exact-six publication plus receipt. R00 retires that
+monolithic authority: both the P06 V2 entry point and
+`run_p07_locked_holdout.py` now return status `2` before parsing arguments or
+accessing paths. The earlier `run_p06_production_calibration.py` entry point
+also remains non-authorizing. A separate
 `export_p08_release_resources_v3.py` recovery command can reopen an existing
 authoritative V3 release and idempotently publish/reopen only its exact-six set
 and receipt; it cannot alter the release decision.
 
-P06 seals semantic receipts and complete external-tree identities for G04,
-G05, and G06. Before it creates holdout intent, the schema-2 P07 runner reopens
-the actual external gate trees with their authoritative validators under the
-unchanged clean HEAD and compares freshly derived semantics/tree hashes with
-the P06 execution authority. Copied receipt claims are not sufficient.
+The former P06 design sealed semantic receipts and complete external-tree
+identities for G04, G05, and G06. Before creating holdout intent, the former
+schema-2 P07 design reopened the actual external gate trees with their
+authoritative validators under the unchanged clean HEAD and compared freshly
+derived semantics/tree hashes with the P06 execution authority. Copied receipt
+claims were not sufficient.
 
 ## Preserved P08 Exact-App and G08 Design
 
@@ -337,7 +334,8 @@ writes `p08-pre-g07-manifest.json`. That self-hashed seal binds every file/tree
 and explicitly records `g08_claimed=false`, no G07 hash, and
 `holdout_accessed=false`.
 
-After the one authorized P07/G07 execution, `promote_after_g07` first reopens
+In the retired design, after the one authorized P07/G07 execution,
+`promote_after_g07` first reopens
 the unchanged pre-G07 seal, native document, app/executable/metallib/six-file
 identity, input files, and raw archives. It then adds the exact G07 publication
 and invokes internal finalization. Promotion preserves the canonical pre-G07
@@ -353,13 +351,12 @@ and require no tracked post-gate documentation edit.
 
 ## Activation Boundary
 
-The source implements the product runtime and release-closure machinery, but
-source presence is not a release claim. Activation remains conditional on a
-clean committed source identity, fresh G04/G05, native runtime evidence, G06,
-an immutable P06 V3 release, an ordinary Release app containing the exact six
-authorized bytes, a single P07/G07 execution over those bytes, and a derived
-G08 result over the unchanged app/native/raw evidence. Failed evidence is
-preserved and must not be rewritten as a pass.
+The source implements the app-owned runtime and preserves release-closure
+machinery as historical evidence, but source presence is not a release claim.
+Normal product upscaling remains unavailable until R03 qualifies a backend.
+The P06/P07 commands are fail-closed, P08 remains dormant and absent from normal
+workflows, and no G04-G08, holdout, release, quality, or market claim is
+authorized. Failed evidence is preserved and must not be rewritten as a pass.
 
 See [project-notes/ash-v3-production-wiring-design.md](project-notes/ash-v3-production-wiring-design.md)
 for the dependency-ordered implementation record.

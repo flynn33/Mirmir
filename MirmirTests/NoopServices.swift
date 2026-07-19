@@ -77,6 +77,8 @@ final class StubMediaSession: MediaSession, @unchecked Sendable {
 }
 
 final class NoopUpscalerEngineService: UpscalerEngineService, @unchecked Sendable {
+    let availability: UpscalerEngineAvailability = .available
+
     final class Handle: UpscalerJobHandle, @unchecked Sendable {
         let progressStream: AsyncStream<UpscaleProgress>
         let outputURL: URL

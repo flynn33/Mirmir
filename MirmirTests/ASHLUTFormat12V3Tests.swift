@@ -370,12 +370,13 @@ final class ASHLUTFormat12V3Tests: XCTestCase {
         ]
         let details = [edge & texture & (1 - risk), texture & (1 - risk)]
         let limiters = [aligned & (1 - risk), aligned]
-        return UInt8(
-            kernels[Int(policyID) / 16]
-                | (supports[(Int(policyID) % 16) / 4] << 1)
-                | (details[(Int(policyID) % 4) / 2] << 2)
-                | (limiters[Int(policyID) % 2] << 3)
-        )
+        let policyIndex: Int = Int(policyID)
+        let kernelBits: Int = kernels[policyIndex / 16]
+        let supportBits: Int = supports[(policyIndex % 16) / 4] << 1
+        let detailBits: Int = details[(policyIndex % 4) / 2] << 2
+        let limiterBits: Int = limiters[policyIndex % 2] << 3
+        let descriptor: Int = kernelBits | supportBits | detailBits | limiterBits
+        return UInt8(descriptor)
     }
 
     private func assertLoadError(

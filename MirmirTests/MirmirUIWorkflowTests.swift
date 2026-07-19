@@ -21,7 +21,6 @@ final class MirmirUIWorkflowTests: XCTestCase {
     func test_canStartRequiresValidReadyWorkflowState() {
         let viewModel = makeViewModel()
         let sourceProfile = makeSourceProfile()
-        viewModel.ashBackendStatus = .available
         viewModel.sourceProfile = sourceProfile
         viewModel.targetResolution = .p2160
         viewModel.state = .ready
@@ -36,12 +35,42 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.canStart)
 
         viewModel.targetResolution = .p2160
-        viewModel.ashBackendStatus = .unavailable
-        XCTAssertFalse(viewModel.canStart)
-
-        viewModel.ashBackendStatus = .available
         viewModel.state = .running
         XCTAssertFalse(viewModel.canStart)
+    }
+
+    func test_unavailableEngineDisablesStartAndExplainsRoadmapTransition() {
+        let engine = RecordingUnavailableEngineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService()
+        )
+        let sourceProfile = makeSourceProfile()
+
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertEqual(
+            viewModel.canStartFailureReason,
+            UnavailableUpscalerEngineService.roadmapTransitionReason
+        )
+        XCTAssertEqual(viewModel.engineReadinessText, "Engine Unavailable")
+        XCTAssertEqual(viewModel.engineSelectionText, "No qualified engine")
+
+        viewModel.sourceProfile = sourceProfile
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        XCTAssertTrue(viewModel.acceptOutputURLSelectedByUser(
+            viewModel.defaultOutputURL(for: sourceProfile, target: .p2160)
+        ))
+
+        viewModel.startUpscale()
+
+        XCTAssertEqual(engine.submitCount, 0)
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertEqual(
+            viewModel.canStartFailureReason,
+            UnavailableUpscalerEngineService.roadmapTransitionReason
+        )
     }
 
     func test_defaultOutputFilenameUsesTargetResolution() {
@@ -86,7 +115,6 @@ final class MirmirUIWorkflowTests: XCTestCase {
     func test_sourceCannotBeAcceptedAsOutput() {
         let sourceURL = URL(fileURLWithPath: "/tmp/source.mov")
         let viewModel = makeViewModel()
-        viewModel.ashBackendStatus = .available
         viewModel.sourceProfile = makeSourceProfile(url: sourceURL)
         viewModel.targetResolution = .p2160
         viewModel.state = .ready
@@ -137,7 +165,6 @@ final class MirmirUIWorkflowTests: XCTestCase {
             modelAssets: NoopModelAssetsService()
         )
         let source = makeSourceProfile()
-        viewModel.ashBackendStatus = .available
         viewModel.sourceProfile = source
         viewModel.targetResolution = .p2160
         viewModel.state = .ready
@@ -182,7 +209,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
 
     func test_mainWorkflowSourceDoesNotExposeArchitectureTerms() throws {
         let mainWorkflowSource = try mainWorkspaceSource()
-        let forbiddenTerms = ["Forsetti", "Host Template", "Pattern B", "Model Assets", "backend"]
+        let forbiddenTerms = ["Forsetti", "Host Template", "Pattern B", "Model Assets"]
 
         for term in forbiddenTerms {
             XCTAssertFalse(containsWholeTerm(term, in: mainWorkflowSource), "\(term) leaked into main workflow UI")
@@ -193,8 +220,9 @@ final class MirmirUIWorkflowTests: XCTestCase {
         let source = try settingsViewSource()
 
         XCTAssertTrue(source.contains("Technical Details"))
-        XCTAssertTrue(source.contains("Forsetti"))
-        XCTAssertTrue(source.contains("ASH"))
+        XCTAssertTrue(source.contains("Mirmir module runtime"))
+        XCTAssertTrue(source.contains("ASH remains a directly testable reference"))
+        XCTAssertFalse(source.contains("Forsetti"))
     }
 
     func test_mainWorkflowContainsDetailedWorkspaceShell() throws {
@@ -225,7 +253,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
     func test_mainWorkflowContainsRequiredInspectorControls() throws {
         let source = try detailedWorkspaceSource()
         let requiredControls = [
-            "ASH v1.0 (Deterministic)",
+            "engineSelectionText",
             "Strategy",
             "Profile",
             "Temporal Consistency",
@@ -375,7 +403,32 @@ private final class CountingMediaPipelineService: MediaPipelineService, @uncheck
     func stop() {}
 }
 
+private final class RecordingUnavailableEngineService: UpscalerEngineService, @unchecked Sendable {
+    let availability: UpscalerEngineAvailability = .unavailable(
+        reason: UnavailableUpscalerEngineService.roadmapTransitionReason
+    )
+
+    private let count = NSLock()
+    private var storedSubmitCount = 0
+
+    var submitCount: Int {
+        count.withLock { storedSubmitCount }
+    }
+
+    func submit(_: UpscaleJob) throws -> UpscalerJobHandle {
+        count.withLock { storedSubmitCount += 1 }
+        throw UpscalerEngineError.backendUnavailable(
+            reason: UnavailableUpscalerEngineService.roadmapTransitionReason
+        )
+    }
+
+    func start() {}
+    func stop() {}
+}
+
 private final class DelayedCancellationEngineService: UpscalerEngineService, @unchecked Sendable {
+    let availability: UpscalerEngineAvailability = .available
+
     private let handleLock = NSLock()
     private var storedHandle: DelayedCancellationJobHandle?
 

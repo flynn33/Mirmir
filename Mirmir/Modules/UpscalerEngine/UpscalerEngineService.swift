@@ -1,6 +1,17 @@
 import Foundation
 
+public enum UpscalerEngineAvailability: Equatable, Sendable {
+    case available
+    case unavailable(reason: String)
+
+    public var unavailableReason: String? {
+        guard case .unavailable(let reason) = self else { return nil }
+        return reason
+    }
+}
+
 public enum UpscalerEngineError: Error, CustomStringConvertible {
+    case backendUnavailable(reason: String)
     case modelAssetsNotReady
     case unsupportedSourceResolution(VideoResolution)
     case inputOutputCollision
@@ -10,6 +21,8 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
+        case .backendUnavailable(let reason):
+            return reason
         case .modelAssetsNotReady:
             return "VTFrameProcessor super-resolution model assets are not ready."
         case .unsupportedSourceResolution(let res):
@@ -33,6 +46,8 @@ public protocol UpscalerJobHandle: AnyObject, Sendable {
 }
 
 public protocol UpscalerEngineService: AnyObject, Sendable {
+    var availability: UpscalerEngineAvailability { get }
+
     func submit(_ job: UpscaleJob) throws -> UpscalerJobHandle
     func start()
     func stop()

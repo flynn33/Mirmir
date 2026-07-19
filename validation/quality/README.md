@@ -99,10 +99,11 @@ PYTHONPATH=validation/quality/src /usr/bin/python3 \
 
 The benchmark executes 24 development cases in both `engine_raw` and `container_decoded` domains. Two isolated H.264 common-writer runs provide route-specific low-resolution inputs. Twenty-four separate product-settings HEVC runs provide the post-encode metric inputs, one case per process and container.
 
-## Execute and publish a fresh-current-source G04 closure
+## Preserved fresh-current-source G04 producer
 
-`run_g04_current_source.py` is the authoritative producer for a new G04
-wrapper. It requires a clean committed checkout outside `Artifacts`, checks
+`run_g04_current_source.py` is the preserved historical producer for a G04
+wrapper; R00 does not authorize its execution. Its contract requires a clean
+committed checkout outside `Artifacts`, checks
 the source identity before and after every command, derives the hidden partial
 path from the final publication name, and delegates immutable publication to
 `finalize_g04_current_source.py` only after the complete staged contract
@@ -146,21 +147,20 @@ and never publishes a passing G04 result.
 
 Before publication, the harness reopens and cross-validates every source lock, payload, writer report, decoded payload, result document, checkpoint, bootstrap record, and preserved input. It atomically replaces every artifact pathname with a new owner-read-only inode, makes that inode user-immutable, hashes the detached tree, publishes the manifest through the same detached-inode path, makes every directory nonwritable, atomically renames the run directory, and marks the published directories user-immutable. A descriptor opened against an older inode cannot change the published pathname. A failed finalization is thawed only for preservation under a distinct failed-run name.
 
-## Source checkpoint and downstream identity
+## Historical source checkpoint and downstream identity
 
-G04 is the first gate after the clean release-closure source checkpoint. The
-checkpoint must already contain the Metal runtime, exact P06 injection,
-schema-2 calibration/control composition, P07/P08 contracts, project metadata,
-tests, documentation, and the refreshed quality-harness lock. No tracked edit
-is permitted after the checkpoint without invalidating G04 and every dependent
-gate.
+The former release-closure design made G04 the first gate after a clean source
+checkpoint containing the Metal runtime, exact P06 injection, schema-2
+calibration/control composition, P07/P08 contracts, project metadata, tests,
+documentation, and the refreshed quality-harness lock. Any later tracked edit
+invalidated G04 and every dependent gate.
 
 `run_g04_current_source.py` binds the repository commit and source-tree identity
 before and after every command. Its output is valid only for that exact source;
 it cannot be reused after a code, schema, Xcode project, script, test, or
 documentation change that lies inside the locked source closure.
 
-The downstream order is:
+Its historical downstream order was:
 
 ```text
 fresh G04
@@ -173,14 +173,14 @@ fresh G04
 -> unchanged P08 promotion and derived G08 finalization
 ```
 
-At P06, `run_p06_production_calibration_v2.py` is the sole authorizing
-production command. It reopens the actual G04/G05/G06 trees, runs the
-Apple-native schema-2 measurement path, publishes/reopens only the V3 release,
-and publishes/reopens the exact-six export and receipt. The historical
-`run_p06_production_calibration.py` command is non-authorizing and exits with
-status `2`. Before any later P07 holdout intent, the P07 runner independently
-reopens the same external G04/G05/G06 trees under the unchanged source commit
-and matches their derived semantics and tree identities to the P06 authority.
+R00 removed the P06 injection build phase. The preserved
+`run_p06_production_calibration_v2.py` and
+`run_p07_locked_holdout.py` commands document the former monolithic P06/P07
+design but are no longer authorizing entry points. Each exits with status `2`
+before argument parsing or path access. The earlier
+`run_p06_production_calibration.py` command remains non-authorizing. Reusable
+measurement, schema, validation, and evidence components remain available only
+for future roadmap-authorized work.
 
 G04 has no holdout path. A G04 pass would establish only the current-source
 open-split quality contract and its recorded native/product checks; it would
@@ -195,11 +195,11 @@ The access receipt is protected by the macOS user-immutable flag and stored outs
 
 ## Current gate state
 
-The current-source producer and remediation tests are present. Fresh G04 for the
-release-closure checkpoint is pending until the complete production command
-finishes and the published wrapper reopens with every required command,
-expected skip, manifest, source identity, and gate predicate satisfied. This
-document intentionally does not record a predicted pass.
+The current-source producer and remediation tests remain as retained validation
+tooling. R00 does not authorize a fresh G04-G08 release-closure run, and the
+retired production command cannot complete one. Future roadmap phases may
+repurpose the harness only through their own explicit authorization and evidence
+contracts. This document intentionally records no predicted pass.
 
 Synthetic development output is diagnostic only. Historical G04 evidence is
 not current-source evidence, and neither source unit tests nor a successful app

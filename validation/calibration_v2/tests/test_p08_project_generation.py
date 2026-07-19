@@ -71,14 +71,8 @@ class P08ProjectGenerationTests(unittest.TestCase):
         self.assertIsNotNone(phases)
         phase_text = phases.group("phases")
         self.assertIn("Resources", phase_text)
-        self.assertIn("Inject Exact P06 ASH Release", phase_text)
-        self.assertLess(
-            phase_text.index("Resources"),
-            phase_text.index("Inject Exact P06 ASH Release"),
-        )
-        phase_rows = [line.strip() for line in phase_text.splitlines() if line.strip()]
-        self.assertIn("Inject Exact P06 ASH Release", phase_rows[-1])
-        self.assertIn(
+        self.assertNotIn("Inject Exact P06 ASH Release", phase_text)
+        self.assertNotIn(
             'shellScript = "\\\"${SRCROOT}/Scripts/inject-ash-p06-release.sh\\\"";',
             project,
         )

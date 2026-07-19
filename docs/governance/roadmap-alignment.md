@@ -59,17 +59,16 @@ The metadata command compares GitHub's current description and topic set with th
 exact values in policy; it requires a token with read access to repository
 metadata and does not modify GitHub.
 
-## Current Forsetti legacy mode
+## Current external-runtime boundary
 
-The preserved source still references the exact Forsetti package URL and revision
-recorded in the alignment policy. This is a temporary legacy allowance, not the
-target dependency model. Roadmap R00 must remove the Forsetti repository as a
-build and runtime dependency. The repository remains reference-only: approved
-app-owned outputs adapted from its templates may be committed, but the Forsetti
-repository, packaged framework, or repository dependency must not be included or
-vendored in Mirmir.
+At `R00: evidence_ready`, the app-owned runtime has replaced the former package
+boundary. The Forsetti repository is reference-only: no repository coordinate,
+package product, Swift import, framework, submodule, vendored source, generated
+project reference, or active source/resource path is permitted. Normal builds
+therefore require no network package resolution.
 
-Enforcement follows R00's canonical status:
+The verifier keeps status-sensitive rules so inconsistent or partially removed
+states fail deterministically:
 
 - `planned`, `next`, or `blocked`: both tracked project declarations must retain
   the exact approved legacy URL, revision, and three products;

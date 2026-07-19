@@ -1,22 +1,14 @@
 import SwiftUI
-import ForsettiHostTemplate
 
 struct ContentView: View {
-    @StateObject private var bootstrap = MirmirForsettiBootstrap()
+    @StateObject private var bootstrap = MirmirAppBootstrap()
 
     var body: some View {
-        Group {
-            switch MirmirDeploymentMode.current {
-            case .development:
-                ForsettiHostRootView(
-                    controller: bootstrap.controller,
-                    injectionRegistry: bootstrap.injectionRegistry,
-                    showDeveloperControls: true,
-                    launchActivationStrategy: .activateAllEligibleForDevelopment
-                )
-            case .production:
-                MirmirProductionRootView(bootstrap: bootstrap)
-            }
+        switch MirmirDeploymentMode.current {
+        case .development:
+            MirmirDeveloperRootView(bootstrap: bootstrap)
+        case .production:
+            MirmirProductionRootView(bootstrap: bootstrap)
         }
     }
 }

@@ -14,9 +14,10 @@
 		04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */; };
 		04FBC1BA78166E5A4BFAFED6 /* DefaultModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */; };
 		076AFD3C701678B126245564 /* ASHMetalRuntimeMonitorV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69C7F4320B73812C4F233A2 /* ASHMetalRuntimeMonitorV3.swift */; };
-		0A5FC8B28C21C49BE57059B1 /* ForsettiPlatform in Frameworks */ = {isa = PBXBuildFile; productRef = 6A42A76B3F9113774295A4BD /* ForsettiPlatform */; };
+		0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */; };
 		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
 		0F87E9A2764B3DDFAA4148AD /* ASHLockedReleaseTestSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 539D795BC06CD59AEBD2C183 /* ASHLockedReleaseTestSupportV3.swift */; };
+		11231FA84EFC696F72F15B39 /* MirmirDeveloperRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B52B9856E2998D64D7ADD72 /* MirmirDeveloperRootView.swift */; };
 		11C6CBDE9A57638B48FE8C14 /* VideoSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */; };
 		11E205C2F903E10C756FED37 /* ASHLockedLUTManifestRouteV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90A2330153007D328DE4840 /* ASHLockedLUTManifestRouteV2.swift */; };
 		13A10BA001745C1F4BCA3157 /* ASHLockedReleaseLUTManifestV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38C16FB2959B32009A457C67 /* ASHLockedReleaseLUTManifestV3.swift */; };
@@ -39,7 +40,10 @@
 		2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */; };
 		2F34C45B0ECC1BACD099C243 /* AVFoundationMediaSessionConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */; };
 		3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */; };
+		316EC05E2F3E3AAF0340AB27 /* MirmirModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E2F2E5D47D655887BBF17D1 /* MirmirModule.swift */; };
+		33899520F6995EF6651494E5 /* MirmirViewRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E57D8744A1068882CAD219 /* MirmirViewRegistryTests.swift */; };
 		3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */; };
+		35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C3BE8FFF2C0D5C3C85B71B /* RoadmapTransitionModelAssetsService.swift */; };
 		366CB844822B5367FA5FCB52 /* ASHLUTBinaryFormatV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C64B4A118F1BA7772B6868 /* ASHLUTBinaryFormatV2Tests.swift */; };
 		375E2FC873FC0F7647716AD6 /* ASHSpatialDispatchV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D04663BF68D5631C8A0D5FD6 /* ASHSpatialDispatchV2Tests.swift */; };
 		387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61D3BF1665450FC60B415F7B /* MirmirApp.swift */; };
@@ -50,10 +54,10 @@
 		3AAD090B3C20A06A9CD4F35C /* ASHNV12FrameCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458E8A855A538822618FD0E4 /* ASHNV12FrameCodecTests.swift */; };
 		3AD609BA8490CF4A6E3CFD6D /* ASHMetalSpatialRuntimeSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FA0AAD51D4C541CA33A509 /* ASHMetalSpatialRuntimeSupportV3.swift */; };
 		3B0750EBC6A017F581BFD9F5 /* ASHTileProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BC6A02B2893142326862987 /* ASHTileProcessing.swift */; };
+		3CB665CD5D619971B5D8B9E5 /* UnavailableUpscalerEngineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */; };
 		3E1ECFDDD0B6FD925BC01A6A /* ASHLockedOperatorBankV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 189FA8DD9CF0D0CDFAB0BA30 /* ASHLockedOperatorBankV2.swift */; };
 		3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */; };
 		3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */; };
-		4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */ = {isa = PBXBuildFile; productRef = A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */; };
 		40B42789E1C3A55A8D6E8D55 /* ASHLockedPlaneAwareRuntimeV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45E494E869999A46D167FEA5 /* ASHLockedPlaneAwareRuntimeV3Tests.swift */; };
 		42954C9C2C7A36381AB2C4D9 /* MetalCommandBufferCompletionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */; };
 		43CB281EAA375DB8508D0F7E /* ASHLUTTypesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C04D5E766F69E05567F00F4 /* ASHLUTTypesV2.swift */; };
@@ -64,26 +68,26 @@
 		47663F09A09E676E9C81E557 /* operator_bank_v2.seed.json in Resources */ = {isa = PBXBuildFile; fileRef = 7111AEC9F75CCA9B8F736847 /* operator_bank_v2.seed.json */; };
 		4969FFE15E02CDAADB1EB897 /* ASHCoordinateDiagnosticRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4444573C99DD7948CD688864 /* ASHCoordinateDiagnosticRuntimeV3.swift */; };
 		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
+		4CAC33FF29D2C5D87FC2A2E5 /* MirmirModuleTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E83080111DA62CEFB632B7 /* MirmirModuleTestSupport.swift */; };
 		4DE4402E7413344ADD2AE7B7 /* ASHAssetConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */; };
 		4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */; };
 		4F944A473B2D35378C6D0D56 /* ASHBackendIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E364AB277348398F356F8B9 /* ASHBackendIntegrationTests.swift */; };
 		5069D9180D61069C45E6E2F9 /* ASHSpatialReferencePipelineV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCE8B10908EA943629F95D5D /* ASHSpatialReferencePipelineV2Tests.swift */; };
-		50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */ = {isa = PBXBuildFile; productRef = AA6BAD72661C314938F3CBD2 /* ForsettiCore */; };
 		51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */; };
 		51A802D66A3293C0A21E4B76 /* ASHMetalSpatialKernelsV3.metal in Sources */ = {isa = PBXBuildFile; fileRef = 73437DCE9E7DC1F3D8CAB459 /* ASHMetalSpatialKernelsV3.metal */; };
+		524D902413F6A7007F52971A /* MirmirModuleFactoryRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05E8ACD3B2084FF71CC2D335 /* MirmirModuleFactoryRegistry.swift */; };
 		529103EF8FA22597BD7B70E1 /* ASHSpatialReferencePipelineV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF87D2D34EEE56328850BF4 /* ASHSpatialReferencePipelineV2.swift */; };
 		53C033FE2B934A22C937428F /* ASHLockedReleaseLUTManifestV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */; };
-		554F3FCEA4D932BC00FDE77B /* MirmirForsettiBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */; };
-		565D51FAF6BE1CD0ACD4CAFF /* UpscalerEngineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */; };
 		56ADDA68EF63F3F008D0454E /* ASHReconstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */; };
 		56D856CA170C5D675A339E01 /* ASHLUTTestSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7166136558CF130DE4671155 /* ASHLUTTestSupportV3.swift */; };
+		5889C655E2FB60975B5B4348 /* MirmirAppBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */; };
 		59BF30AD9813582AC7721470 /* ASHCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */; };
 		5A7DD8826D41F26336D15BB4 /* LanczosCPUReference.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */; };
 		5E0CC9E28BB327B3093BD01B /* ASHLockedArtifactStoreV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF581D823FC9A8EED0470932 /* ASHLockedArtifactStoreV3.swift */; };
+		5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */; };
 		615E888266AA6D0BCDDFD348 /* ASHNV12FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9248888702ECE5B7D229B93 /* ASHNV12FrameCodec.swift */; };
 		617259996997C6320A194B96 /* ASHAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE03E89C4215AC3E1C1D01C2 /* ASHAssets.swift */; };
 		61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F211265C8C19173941BE3ACA /* ContentView.swift */; };
-		6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */; };
 		6846EC665799FA6655BBDA26 /* ASHSpatialDispatchV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA2419717E346F88ABFE2C4 /* ASHSpatialDispatchV2.swift */; };
 		690128A77A088C952EFD0EA3 /* ASHLockedReferencePipelineV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06911D354FDA2F754E91475 /* ASHLockedReferencePipelineV2Tests.swift */; };
 		6A89EE015951C10D87D1D1E4 /* ASHP08LauncherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E0737F2C42D353C867EF7 /* ASHP08LauncherTests.swift */; };
@@ -98,9 +102,9 @@
 		77EE40A17728838CB7B1AA50 /* ASHLockedSampleRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452C763D3991A19EE5361937 /* ASHLockedSampleRuntimeV3.swift */; };
 		79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */; };
 		7D0B5F8DEC9E058D10814A21 /* ASHCoreConformance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A625BAC19E969885282117 /* ASHCoreConformance.swift */; };
-		7D1FC619F99A8D67C5ED379C /* ModelAssetsServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */; };
 		7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */; };
 		7E2763A03106C8D79742E157 /* ASHP08DescriptorParityRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DD06BABA4536E3E92BE3F91 /* ASHP08DescriptorParityRuntime.swift */; };
+		7F1382B36C08F1B58C6170B0 /* MirmirModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */; };
 		80BDF6DF1BA08F9F2DD5099C /* ASHCalibrationCLIProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FEF5FDE0529745ECF2CD7D /* ASHCalibrationCLIProtocol.swift */; };
 		80F5E4A5711B3E26AF356E80 /* ASHLockedRuntimeTestSupportV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812295681F2487F358C8A9B /* ASHLockedRuntimeTestSupportV2.swift */; };
 		811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9833C96F05E187004E393DAD /* MirmirRootView.swift */; };
@@ -110,7 +114,6 @@
 		82677F5655648C10572B1742 /* ASHLockedArtifactStoreV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CF0DDBE1B68507DF916E6C4 /* ASHLockedArtifactStoreV3Tests.swift */; };
 		8285DC75CA54BB60CF834504 /* ASHLockedUpscaleBackendV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ED8EEE445AFDB0998B7AE2A /* ASHLockedUpscaleBackendV3.swift */; };
 		82AFE6AEC7C64B5C6CE69ECF /* ASHGenericPhaseCompilerDiagnosticV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA4CD9440CFACC6440136C4 /* ASHGenericPhaseCompilerDiagnosticV3Tests.swift */; };
-		8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */; };
 		83912F4313ED37B674F228B0 /* ASHLUTCompilerV2TestAssertions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 554EE3E2FD45A34FB43B7B3D /* ASHLUTCompilerV2TestAssertions.swift */; };
 		83D185FAF692CB540FEED341 /* ASHP08NativeSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B562B4260EDBFCDB3DAAAF65 /* ASHP08NativeSupportTests.swift */; };
 		84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */; };
@@ -119,6 +122,7 @@
 		87317B509FEB190A2F02FC83 /* ASHImmutableLUTValidationV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F545DFA734A6565A169DFE /* ASHImmutableLUTValidationV3.swift */; };
 		87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132D09C41665FFDB89F81CE /* PreviewView.swift */; };
 		8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E391EBE193D62E60BF842DC1 /* Assets.xcassets */; };
+		892CE61AD070C0F7651F2B86 /* MirmirModuleFactoryRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CD5193BFC08B5B8EB2DD5 /* MirmirModuleFactoryRegistryTests.swift */; };
 		89AFC0D70695293B9451C3C3 /* ASHFeatureBranchReconstructionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */; };
 		89F3384F669D17B3AEE40CD4 /* ASHLUTLockedConfigurationJSONV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F92B3D9D88F0554C76021E8 /* ASHLUTLockedConfigurationJSONV2Tests.swift */; };
 		8A2E3464A97749DD19F6EF21 /* ASHCoordinateModelContractV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813D450EB08F87103C273CE0 /* ASHCoordinateModelContractV3Tests.swift */; };
@@ -142,7 +146,6 @@
 		9E9E27F9781AC0D112D0C697 /* ASHP08PerformanceProfileRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A49C992377E26D447A79EE8 /* ASHP08PerformanceProfileRuntime.swift */; };
 		9FE8F71FB70F05757A2F0895 /* ASHMetalSpatialRuntimePreparationV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445486593D8713F9A75B7FFA /* ASHMetalSpatialRuntimePreparationV3.swift */; };
 		9FF1B3CAC5EEFB3D98346EF4 /* ASHChromaSitingV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F945A189C8ED77D084129D3F /* ASHChromaSitingV2.swift */; };
-		A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */ = {isa = PBXBuildFile; fileRef = 61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */; };
 		A1495737841BB92E5B14840A /* MirmirStatusStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */; };
 		A3EEEF258DD40AAAFF166858 /* AtomicMediaOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */; };
 		A5312DF3C589850628B42108 /* ash-state-reference.csv in Resources */ = {isa = PBXBuildFile; fileRef = F491320002D06F19FC9A8B3D /* ash-state-reference.csv */; };
@@ -166,12 +169,13 @@
 		BB9D1D1F05348B33FEF145D4 /* ASHVideoAnalyzerV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7740B412333DCABCD736E48A /* ASHVideoAnalyzerV2.swift */; };
 		BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */; };
 		BED239DCE7EFB07EE2C3E1E6 /* ASHRuntimeConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A932C98B8380D14BB5584E2 /* ASHRuntimeConfiguration.swift */; };
-		BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */ = {isa = PBXBuildFile; fileRef = D369E9FFB41D568A97978643 /* MirmirUIModule.json */; };
+		C0E576956E54A15022B6EA40 /* MirmirViewRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */; };
 		C28BB22182A1854FBE4EDD2F /* ASHBranchTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31426777560BC1F74C23D422 /* ASHBranchTree.swift */; };
 		C3E235657B060F0D70ECB9A1 /* ASHReferencePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDA70A85DAE0C772B3B6E953 /* ASHReferencePipeline.swift */; };
 		C40EADB1C2852BBD0BBA2D35 /* ASHLockedGeometryRuntimeV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97061306E52D87D153DF8246 /* ASHLockedGeometryRuntimeV2Tests.swift */; };
 		C44025ACCDFE13A865F5FE71 /* ash_mapping_v1.json in Resources */ = {isa = PBXBuildFile; fileRef = C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */; };
 		C5CB94BC594880454865AE7E /* ASHImmutableLUTLoaderV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A323D8BA1BD4E89139A1EF /* ASHImmutableLUTLoaderV3.swift */; };
+		C5D0C68A4C34A1D595F3FFD9 /* MirmirModuleContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = A478ADA5DFA921E2E19C8841 /* MirmirModuleContext.swift */; };
 		C732CD34332C01CECF8CAD54 /* ASHLockedReferencePipelineV2+DispatchProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = D80EEEF7AE537B763EF5D0D3 /* ASHLockedReferencePipelineV2+DispatchProjection.swift */; };
 		C7CD670424FD34DEE1B1C1F9 /* ASHLockedVideoMappingV2+ConfigurationValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5194FC496DF1C9B270EA5D53 /* ASHLockedVideoMappingV2+ConfigurationValidation.swift */; };
 		C7E3B863BFBFF6FA19B2632C /* ASHLumaSpatialOperator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D64D77EB74F69251DAC68E19 /* ASHLumaSpatialOperator.swift */; };
@@ -186,6 +190,7 @@
 		D0E2E53FC343830E3DC40C71 /* ASHCalibrationCLISupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3811D5BF06DDFF4A9D98AC9D /* ASHCalibrationCLISupport.swift */; };
 		D32AB7401A5D9CDB64458DC4 /* codewords.csv in Resources */ = {isa = PBXBuildFile; fileRef = 1CC00CCC5D596A5E02408508 /* codewords.csv */; };
 		D407AC13B67F280366664A21 /* ASHSpatialTelemetryV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85EA190A5E87F2903038F35 /* ASHSpatialTelemetryV2Tests.swift */; };
+		D41017CC25DC9C7D16AC45C1 /* MirmirModuleHostTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86AF5A364ACEADB2F80650AE /* MirmirModuleHostTests.swift */; };
 		D5BD22F9439D9FB6610137AD /* ASHLockedCandidateLUTManifestV1.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C755E90259CC097BF3C2903 /* ASHLockedCandidateLUTManifestV1.swift */; };
 		D61815354A530E7F2BFE97D5 /* LanczosPolishPassTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */; };
 		D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */; };
@@ -208,10 +213,12 @@
 		EC99320F01E719D5C14D1951 /* ASHCalibrationCorrectiveDiagnosticCLITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D59C820268D33A10DE3D040 /* ASHCalibrationCorrectiveDiagnosticCLITests.swift */; };
 		EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */; };
 		EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */; };
+		EF3937DBBB63EC543B8D9D37 /* MirmirAppBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D93FA5E188DC7A7975AC1F /* MirmirAppBootstrapTests.swift */; };
 		EF9AB2669F741D53767D0995 /* ASHLUTCompilerV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8276B4859A95BF7199D44552 /* ASHLUTCompilerV2Tests.swift */; };
 		F135BBD7DD93711131CF8273 /* ASHBitwiseCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7D02E95AFB7F28B3687541 /* ASHBitwiseCoreTests.swift */; };
 		F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */; };
 		F3BE7B9006D9C216CCDE2BEA /* ASHUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB15D19D6B0858B3C1A0E73B /* ASHUpscaleBackend.swift */; };
+		F42BE0860DA22210CF94CFBF /* MirmirModuleDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428B95153FE086CD77B9E519 /* MirmirModuleDescriptor.swift */; };
 		F48A79C26F7CC8C135F575C2 /* ASHVideoProfileContractV1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 380CB84E298AC4A07856F6C3 /* ASHVideoProfileContractV1Tests.swift */; };
 		F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */; };
 		F5EA34B74F40958EA43D7FEA /* ASHLockedLUTManifestV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C5A4F08582DB7B0BB04C2F5 /* ASHLockedLUTManifestV2Tests.swift */; };
@@ -243,20 +250,22 @@
 		02E347AE2D83CC5AF980CF38 /* NoopServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopServices.swift; sourceTree = "<group>"; };
 		037015D5D35CB3C16B898D58 /* ASHCorrectiveCLIEvidenceAssertions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCorrectiveCLIEvidenceAssertions.swift; sourceTree = "<group>"; };
 		0494D66D2CCAAC9E68C2098E /* ASHLockedAffineRuntimeV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedAffineRuntimeV2Tests.swift; sourceTree = "<group>"; };
+		05E8ACD3B2084FF71CC2D335 /* MirmirModuleFactoryRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleFactoryRegistry.swift; sourceTree = "<group>"; };
 		07B74594AEA95A5FF73A6C85 /* ASHCodePlaneNormalizerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCodePlaneNormalizerV2.swift; sourceTree = "<group>"; };
 		0AB7D62D8C7DD0E558E2C9A4 /* ASHLockedRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeV3.swift; sourceTree = "<group>"; };
 		0B4C8014A91668B9F9DF75B6 /* ASHLockedRuntimeTypesV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeTypesV2.swift; sourceTree = "<group>"; };
+		0B52B9856E2998D64D7ADD72 /* MirmirDeveloperRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeveloperRootView.swift; sourceTree = "<group>"; };
 		0BC6A02B2893142326862987 /* ASHTileProcessing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTileProcessing.swift; sourceTree = "<group>"; };
 		0C04D5E766F69E05567F00F4 /* ASHLUTTypesV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTypesV2.swift; sourceTree = "<group>"; };
 		0C1A4D7CC37F2566B844559C /* ASHImageFeatures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImageFeatures.swift; sourceTree = "<group>"; };
 		0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaPipeline.swift; sourceTree = "<group>"; };
 		0E074FD142D9F449D2916FD6 /* ASHPreDiagnosticProductionRuntimeOracleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHPreDiagnosticProductionRuntimeOracleTests.swift; sourceTree = "<group>"; };
 		0ED8EEE445AFDB0998B7AE2A /* ASHLockedUpscaleBackendV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedUpscaleBackendV3.swift; sourceTree = "<group>"; };
+		0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirAppBootstrap.swift; sourceTree = "<group>"; };
 		0FD33793C33FDD6545F97DC5 /* ASHSpatialRuntimeConfigurationV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialRuntimeConfigurationV2.swift; sourceTree = "<group>"; };
 		1095F73BBA5EFBF0F47F8993 /* ASHLockedReferenceTypesV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReferenceTypesV2.swift; sourceTree = "<group>"; };
 		1132D09C41665FFDB89F81CE /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		15242EE2017761A3031ED013 /* ASHLockedVideoMappingV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedVideoMappingV2.swift; sourceTree = "<group>"; };
-		177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirForsettiBootstrap.swift; sourceTree = "<group>"; };
 		178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirStatusStripView.swift; sourceTree = "<group>"; };
 		189FA8DD9CF0D0CDFAB0BA30 /* ASHLockedOperatorBankV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedOperatorBankV2.swift; sourceTree = "<group>"; };
 		1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceScreens.swift; sourceTree = "<group>"; };
@@ -272,6 +281,7 @@
 		2521C8130E241C22C63608BC /* ASHLockedReferencePipelineV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReferencePipelineV2.swift; sourceTree = "<group>"; };
 		26A625BAC19E969885282117 /* ASHCoreConformance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreConformance.swift; sourceTree = "<group>"; };
 		270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameTimingLedgerTests.swift; sourceTree = "<group>"; };
+		27D93FA5E188DC7A7975AC1F /* MirmirAppBootstrapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirAppBootstrapTests.swift; sourceTree = "<group>"; };
 		293AD3C18542FA491256F860 /* ash_video_mapping_v2.seed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_video_mapping_v2.seed.json; sourceTree = "<group>"; };
 		2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewModel.swift; sourceTree = "<group>"; };
 		2D181F4BC9C1B11D842F54E2 /* ASHDevelopmentAssetTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHDevelopmentAssetTypes.swift; sourceTree = "<group>"; };
@@ -301,6 +311,7 @@
 		3FA2FFF4DC0F20B4CDE6B8E0 /* ASHLockedReferencePipelineV2+NonASHCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ASHLockedReferencePipelineV2+NonASHCache.swift"; sourceTree = "<group>"; };
 		405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeploymentMode.swift; sourceTree = "<group>"; };
 		40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleRegistry.swift; sourceTree = "<group>"; };
+		428B95153FE086CD77B9E519 /* MirmirModuleDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleDescriptor.swift; sourceTree = "<group>"; };
 		4444573C99DD7948CD688864 /* ASHCoordinateDiagnosticRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateDiagnosticRuntimeV3.swift; sourceTree = "<group>"; };
 		445486593D8713F9A75B7FFA /* ASHMetalSpatialRuntimePreparationV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimePreparationV3.swift; sourceTree = "<group>"; };
 		44897AC5FAA6E916FC8D868E /* ASHCoordinateDiagnosticRuntimeV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateDiagnosticRuntimeV3Tests.swift; sourceTree = "<group>"; };
@@ -315,16 +326,15 @@
 		4A80E9FCF974C4F40549D8D8 /* ASHSpatialRuntimeConfigurationV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialRuntimeConfigurationV2Tests.swift; sourceTree = "<group>"; };
 		4B45EFEC1056F0FD18D22E97 /* ASHFrameCompletionIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHFrameCompletionIntegrationTests.swift; sourceTree = "<group>"; };
 		4C40D1FEF04763A6CAE004E2 /* ASHP08WriterSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08WriterSession.swift; sourceTree = "<group>"; };
-		4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ModelAssetsServiceModule.json; sourceTree = "<group>"; };
 		4DA024482D4239339C7D7102 /* ASHLockedUpscaleBackendV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedUpscaleBackendV3Tests.swift; sourceTree = "<group>"; };
 		4E10E40DE830A79C6A060B73 /* ASHStrictJSONV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHStrictJSONV2.swift; sourceTree = "<group>"; };
 		4EB0BA59B45AC5957C2CA7A6 /* ASHAssetConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAssetConformanceTests.swift; sourceTree = "<group>"; };
 		50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PixelBufferBridge.swift; sourceTree = "<group>"; };
 		5194FC496DF1C9B270EA5D53 /* ASHLockedVideoMappingV2+ConfigurationValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ASHLockedVideoMappingV2+ConfigurationValidation.swift"; sourceTree = "<group>"; };
+		51E83080111DA62CEFB632B7 /* MirmirModuleTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleTestSupport.swift; sourceTree = "<group>"; };
 		52FA0AAD51D4C541CA33A509 /* ASHMetalSpatialRuntimeSupportV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeSupportV3.swift; sourceTree = "<group>"; };
 		539D795BC06CD59AEBD2C183 /* ASHLockedReleaseTestSupportV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReleaseTestSupportV3.swift; sourceTree = "<group>"; };
 		5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArchitectureGuardrailTests.swift; sourceTree = "<group>"; };
-		55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = UpscalerEngineServiceModule.json; sourceTree = "<group>"; };
 		554EE3E2FD45A34FB43B7B3D /* ASHLUTCompilerV2TestAssertions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTCompilerV2TestAssertions.swift; sourceTree = "<group>"; };
 		55D35E5AC50EE7E8056467A3 /* ASHGenericPhaseCompilerDiagnosticV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHGenericPhaseCompilerDiagnosticV3.swift; sourceTree = "<group>"; };
 		56A323D8BA1BD4E89139A1EF /* ASHImmutableLUTLoaderV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImmutableLUTLoaderV3.swift; sourceTree = "<group>"; };
@@ -335,18 +345,18 @@
 		5CF0DDBE1B68507DF916E6C4 /* ASHLockedArtifactStoreV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedArtifactStoreV3Tests.swift; sourceTree = "<group>"; };
 		5F5E1414611EE7E10C74392B /* computational-certificate.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "computational-certificate.json"; sourceTree = "<group>"; };
 		60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReleaseLUTManifestV2.swift; sourceTree = "<group>"; };
-		60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MediaPipelineServiceModule.json; sourceTree = "<group>"; };
-		61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MetalRenderingServiceModule.json; sourceTree = "<group>"; };
 		61D3BF1665450FC60B415F7B /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
 		652F0A8810D609AC2796020F /* ASHUpscaleBackendFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHUpscaleBackendFactory.swift; sourceTree = "<group>"; };
 		67124D47267BFA394DA4C7E5 /* ASHLockedPlanePolicyDiagnosticV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedPlanePolicyDiagnosticV3Tests.swift; sourceTree = "<group>"; };
 		67B372D4E6B823A8DE3ACE95 /* ASHReconstructionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReconstructionHelpers.swift; sourceTree = "<group>"; };
+		684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnavailableUpscalerEngineService.swift; sourceTree = "<group>"; };
 		691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineServiceModule.swift; sourceTree = "<group>"; };
 		6A1292E6DEE822B1B77362AC /* ASHLockedRuntimeTypesV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeTypesV3.swift; sourceTree = "<group>"; };
 		6C755E90259CC097BF3C2903 /* ASHLockedCandidateLUTManifestV1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedCandidateLUTManifestV1.swift; sourceTree = "<group>"; };
 		6CBE6C1B136F6D2ADB5891B5 /* ASHLUTCompilerSemanticsV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTCompilerSemanticsV3.swift; sourceTree = "<group>"; };
 		6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalCommandBufferCompletionBridge.swift; sourceTree = "<group>"; };
 		6DD06BABA4536E3E92BE3F91 /* ASHP08DescriptorParityRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08DescriptorParityRuntime.swift; sourceTree = "<group>"; };
+		6E2F2E5D47D655887BBF17D1 /* MirmirModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModule.swift; sourceTree = "<group>"; };
 		70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineService.swift; sourceTree = "<group>"; };
 		7111AEC9F75CCA9B8F736847 /* operator_bank_v2.seed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = operator_bank_v2.seed.json; sourceTree = "<group>"; };
 		7166136558CF130DE4671155 /* ASHLUTTestSupportV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTestSupportV3.swift; sourceTree = "<group>"; };
@@ -356,18 +366,19 @@
 		73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicMediaOutput.swift; sourceTree = "<group>"; };
 		743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
 		7740B412333DCABCD736E48A /* ASHVideoAnalyzerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHVideoAnalyzerV2.swift; sourceTree = "<group>"; };
-		77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManifestRegistryAlignmentTests.swift; sourceTree = "<group>"; };
 		79F446DD7B79BC30C9B44A4F /* lanczos-parity-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "lanczos-parity-v1.json"; sourceTree = "<group>"; };
 		7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirProductionRootView.swift; sourceTree = "<group>"; };
 		7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaVerifierTests.swift; sourceTree = "<group>"; };
 		7E364AB277348398F356F8B9 /* ASHBackendIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHBackendIntegrationTests.swift; sourceTree = "<group>"; };
 		7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaSessionFinalization.swift; sourceTree = "<group>"; };
+		806CD5193BFC08B5B8EB2DD5 /* MirmirModuleFactoryRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleFactoryRegistryTests.swift; sourceTree = "<group>"; };
 		813D450EB08F87103C273CE0 /* ASHCoordinateModelContractV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateModelContractV3Tests.swift; sourceTree = "<group>"; };
 		814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaSessionConfiguration.swift; sourceTree = "<group>"; };
 		8276B4859A95BF7199D44552 /* ASHLUTCompilerV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTCompilerV2Tests.swift; sourceTree = "<group>"; };
 		84D2DFAD47221FBF1FE4281E /* ASHCoreConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreConformanceTests.swift; sourceTree = "<group>"; };
 		854DE548F652D39CC9238815 /* ASHMetalFrameResourceRingV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalFrameResourceRingV3Tests.swift; sourceTree = "<group>"; };
 		861811DEE9C87475E62C09EB /* ASHSpatialOperatorBankV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialOperatorBankV2Tests.swift; sourceTree = "<group>"; };
+		86AF5A364ACEADB2F80650AE /* MirmirModuleHostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleHostTests.swift; sourceTree = "<group>"; };
 		87DF56556BD38E52A6939975 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
 		8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTypesV3.swift; sourceTree = "<group>"; };
 		8D59C820268D33A10DE3D040 /* ASHCalibrationCorrectiveDiagnosticCLITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCalibrationCorrectiveDiagnosticCLITests.swift; sourceTree = "<group>"; };
@@ -380,9 +391,13 @@
 		9833C96F05E187004E393DAD /* MirmirRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRootView.swift; sourceTree = "<group>"; };
 		98AC75F856E0D985EF3E8D49 /* ASHLUTLockedConfigurationJSONV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTLockedConfigurationJSONV2.swift; sourceTree = "<group>"; };
 		9F92B3D9D88F0554C76021E8 /* ASHLUTLockedConfigurationJSONV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTLockedConfigurationJSONV2Tests.swift; sourceTree = "<group>"; };
+		9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleCatalog.swift; sourceTree = "<group>"; };
 		A1B36EA28A06FFD3EB403121 /* ASHMetalSpatialRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeV3.swift; sourceTree = "<group>"; };
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCode.swift; sourceTree = "<group>"; };
+		A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewRegistry.swift; sourceTree = "<group>"; };
+		A478ADA5DFA921E2E19C8841 /* MirmirModuleContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleContext.swift; sourceTree = "<group>"; };
+		A7E57D8744A1068882CAD219 /* MirmirViewRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewRegistryTests.swift; sourceTree = "<group>"; };
 		A85EA190A5E87F2903038F35 /* ASHSpatialTelemetryV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialTelemetryV2Tests.swift; sourceTree = "<group>"; };
 		A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAE7BC59E00212787A4BE603 /* ASHRiskStateDiagnosticV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHRiskStateDiagnosticV3.swift; sourceTree = "<group>"; };
@@ -390,6 +405,7 @@
 		AD60E4323EA8CCF726775EDD /* ASHImmutableLUTValidationV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImmutableLUTValidationV2.swift; sourceTree = "<group>"; };
 		B1CF6C028E41DDFD20D482E3 /* ASHLockedNonASHOutputCacheV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedNonASHOutputCacheV2.swift; sourceTree = "<group>"; };
 		B28FFFD7F0FB65554A8E0CE5 /* ASHImmutableLUTLoaderV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImmutableLUTLoaderV2.swift; sourceTree = "<group>"; };
+		B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleHost.swift; sourceTree = "<group>"; };
 		B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPassTests.swift; sourceTree = "<group>"; };
 		B562B4260EDBFCDB3DAAAF65 /* ASHP08NativeSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08NativeSupportTests.swift; sourceTree = "<group>"; };
 		B90A2330153007D328DE4840 /* ASHLockedLUTManifestRouteV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedLUTManifestRouteV2.swift; sourceTree = "<group>"; };
@@ -412,12 +428,13 @@
 		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
 		CC7E35BBB7AF4A4A6ECE5A3B /* ASHLockedControlRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedControlRuntimeV3.swift; sourceTree = "<group>"; };
 		CDBDF33FB1700F8451971484 /* ASHAnalysisGridV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAnalysisGridV2.swift; sourceTree = "<group>"; };
+		CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscalerEngineAvailabilityTests.swift; sourceTree = "<group>"; };
 		D04663BF68D5631C8A0D5FD6 /* ASHSpatialDispatchV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialDispatchV2Tests.swift; sourceTree = "<group>"; };
 		D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceComponents.swift; sourceTree = "<group>"; };
 		D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPass.swift; sourceTree = "<group>"; };
+		D1C3BE8FFF2C0D5C3C85B71B /* RoadmapTransitionModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoadmapTransitionModelAssetsService.swift; sourceTree = "<group>"; };
 		D2B464F053C0B02B9554F661 /* ASHLockedControlResamplerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedControlResamplerV2.swift; sourceTree = "<group>"; };
 		D3525D83A53E49A6523CC2CE /* AtomicMediaOutputTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicMediaOutputTests.swift; sourceTree = "<group>"; };
-		D369E9FFB41D568A97978643 /* MirmirUIModule.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MirmirUIModule.json; sourceTree = "<group>"; };
 		D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleStrategy.swift; sourceTree = "<group>"; };
 		D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategySelectorTests.swift; sourceTree = "<group>"; };
 		D64D77EB74F69251DAC68E19 /* ASHLumaSpatialOperator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLumaSpatialOperator.swift; sourceTree = "<group>"; };
@@ -458,19 +475,6 @@
 		FF581D823FC9A8EED0470932 /* ASHLockedArtifactStoreV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedArtifactStoreV3.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFrameworksBuildPhase section */
-		B4E0E0AE15D58EBBB62310F0 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				50B04EF09BBDC2E0DBED313D /* ForsettiCore in Frameworks */,
-				0A5FC8B28C21C49BE57059B1 /* ForsettiPlatform in Frameworks */,
-				4016588ECE11FBD23AA574E7 /* ForsettiHostTemplate in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXGroup section */
 		014C65A0E7683259859CCAD9 /* Products */ = {
 			isa = PBXGroup;
@@ -496,6 +500,7 @@
 			children = (
 				20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */,
 				D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */,
+				684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */,
 				EF7C909B925C5E765D352A19 /* UpscaleJob.swift */,
 				37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */,
 				691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */,
@@ -511,8 +516,9 @@
 			children = (
 				F211265C8C19173941BE3ACA /* ContentView.swift */,
 				61D3BF1665450FC60B415F7B /* MirmirApp.swift */,
+				0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */,
 				405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */,
-				177E0C0028201F09B12D23CC /* MirmirForsettiBootstrap.swift */,
+				0B52B9856E2998D64D7ADD72 /* MirmirDeveloperRootView.swift */,
 				40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */,
 				7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */,
 			);
@@ -535,6 +541,20 @@
 				79F446DD7B79BC30C9B44A4F /* lanczos-parity-v1.json */,
 			);
 			path = Fixtures;
+			sourceTree = "<group>";
+		};
+		2327D6582830206709A3ABAC /* Runtime */ = {
+			isa = PBXGroup;
+			children = (
+				6E2F2E5D47D655887BBF17D1 /* MirmirModule.swift */,
+				9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */,
+				A478ADA5DFA921E2E19C8841 /* MirmirModuleContext.swift */,
+				428B95153FE086CD77B9E519 /* MirmirModuleDescriptor.swift */,
+				05E8ACD3B2084FF71CC2D335 /* MirmirModuleFactoryRegistry.swift */,
+				B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */,
+				A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */,
+			);
+			path = Runtime;
 			sourceTree = "<group>";
 		};
 		2EFD79979F11AF5CB87C3500 /* calibration_v2 */ = {
@@ -569,6 +589,7 @@
 				1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */,
 				F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */,
 				C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */,
+				D1C3BE8FFF2C0D5C3C85B71B /* RoadmapTransitionModelAssetsService.swift */,
 				31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */,
 			);
 			path = ModelAssets;
@@ -583,6 +604,7 @@
 				17392895A6B286AA06640027 /* App */,
 				932AABCCFB7945CFB26C311B /* Modules */,
 				FBF76D81FC8B5D2A4A396DAD /* Resources */,
+				2327D6582830206709A3ABAC /* Runtime */,
 			);
 			path = Mirmir;
 			sourceTree = "<group>";
@@ -773,18 +795,6 @@
 			path = MirmirP08Tests;
 			sourceTree = "<group>";
 		};
-		EE3AF2C3C0FE79332D53960F /* ForsettiManifests */ = {
-			isa = PBXGroup;
-			children = (
-				60F44CE345E810F6EB2AFFE3 /* MediaPipelineServiceModule.json */,
-				61BD66F5DDE061BEBD5C4B1A /* MetalRenderingServiceModule.json */,
-				D369E9FFB41D568A97978643 /* MirmirUIModule.json */,
-				4C8137342EFD1A1FCEB5D379 /* ModelAssetsServiceModule.json */,
-				55019D9C5C5F4F5B601CD980 /* UpscalerEngineServiceModule.json */,
-			);
-			path = ForsettiManifests;
-			sourceTree = "<group>";
-		};
 		FA21B8BDB013F1DBD46F6EB9 /* UI */ = {
 			isa = PBXGroup;
 			children = (
@@ -801,7 +811,6 @@
 			isa = PBXGroup;
 			children = (
 				B4833E8A9D22A44963A7B4B7 /* ASH */,
-				EE3AF2C3C0FE79332D53960F /* ForsettiManifests */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -862,12 +871,17 @@
 				270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */,
 				C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */,
 				B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */,
-				77A7D37B2FBA14CBB1E68841 /* ManifestRegistryAlignmentTests.swift */,
+				27D93FA5E188DC7A7975AC1F /* MirmirAppBootstrapTests.swift */,
+				806CD5193BFC08B5B8EB2DD5 /* MirmirModuleFactoryRegistryTests.swift */,
+				86AF5A364ACEADB2F80650AE /* MirmirModuleHostTests.swift */,
+				51E83080111DA62CEFB632B7 /* MirmirModuleTestSupport.swift */,
 				BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */,
+				A7E57D8744A1068882CAD219 /* MirmirViewRegistryTests.swift */,
 				02E347AE2D83CC5AF980CF38 /* NoopServices.swift */,
 				7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */,
 				1BA2295DBF246B9B9D40A681 /* OutputMediaVerifierTestSupport.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
+				CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */,
 				22C0B9D429B46777730F6AAA /* Fixtures */,
 			);
 			path = MirmirTests;
@@ -918,8 +932,6 @@
 			buildPhases = (
 				990527538CF3A079568C4936 /* Sources */,
 				E44241DB2D2A48F1740693FF /* Resources */,
-				B4E0E0AE15D58EBBB62310F0 /* Frameworks */,
-				049DAFFEB23F2A30D40ED388 /* Inject Exact P06 ASH Release */,
 			);
 			buildRules = (
 			);
@@ -927,9 +939,6 @@
 			);
 			name = Mirmir;
 			packageProductDependencies = (
-				AA6BAD72661C314938F3CBD2 /* ForsettiCore */,
-				6A42A76B3F9113774295A4BD /* ForsettiPlatform */,
-				A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */,
 			);
 			productName = Mirmir;
 			productReference = 44C397D85806DEA084B8D3D0 /* Mirmir.app */;
@@ -958,17 +967,14 @@
 			);
 			mainGroup = A6D231BC59A5A91BBE159B44;
 			minimizedProjectReferenceProxies = 1;
-			packageReferences = (
-				04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */,
-			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 014C65A0E7683259859CCAD9 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				AAB58EF4B52C8A77279FE17C /* Mirmir */,
-				132D486B4CE2D770CD7CB84B /* MirmirP08Tests */,
 				5CC390BEAF19CC2CBBF634C3 /* MirmirTests */,
+				132D486B4CE2D770CD7CB84B /* MirmirP08Tests */,
 			);
 		};
 /* End PBXProject section */
@@ -987,11 +993,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */,
-				8384146DAA8BD58678F87733 /* MediaPipelineServiceModule.json in Resources */,
-				A1076E95E42EDEB630FEDD00 /* MetalRenderingServiceModule.json in Resources */,
-				BFD74004D368E0BB783DCD19 /* MirmirUIModule.json in Resources */,
-				7D1FC619F99A8D67C5ED379C /* ModelAssetsServiceModule.json in Resources */,
-				565D51FAF6BE1CD0ACD4CAFF /* UpscalerEngineServiceModule.json in Resources */,
 				3914A87ED28BF744D9FFE217 /* ash-asset-manifest.json in Resources */,
 				A5312DF3C589850628B42108 /* ash-state-reference.csv in Resources */,
 				C44025ACCDFE13A865F5FE71 /* ash_mapping_v1.json in Resources */,
@@ -1004,29 +1005,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		049DAFFEB23F2A30D40ED388 /* Inject Exact P06 ASH Release */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/Scripts/inject-ash-p06-release.sh",
-			);
-			name = "Inject Exact P06 ASH Release";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${SRCROOT}/Scripts/inject-ash-p06-release.sh\"";
-		};
-/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		362EC39D7ACE95EF56BA29D0 /* Sources */ = {
@@ -1088,12 +1066,17 @@
 				2B624FE32714063166EE9A32 /* FrameTimingLedgerTests.swift in Sources */,
 				5A7DD8826D41F26336D15BB4 /* LanczosCPUReference.swift in Sources */,
 				D61815354A530E7F2BFE97D5 /* LanczosPolishPassTests.swift in Sources */,
-				6307778C1A9EFFCA01469028 /* ManifestRegistryAlignmentTests.swift in Sources */,
+				EF3937DBBB63EC543B8D9D37 /* MirmirAppBootstrapTests.swift in Sources */,
+				892CE61AD070C0F7651F2B86 /* MirmirModuleFactoryRegistryTests.swift in Sources */,
+				D41017CC25DC9C7D16AC45C1 /* MirmirModuleHostTests.swift in Sources */,
+				4CAC33FF29D2C5D87FC2A2E5 /* MirmirModuleTestSupport.swift in Sources */,
 				29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */,
+				33899520F6995EF6651494E5 /* MirmirViewRegistryTests.swift in Sources */,
 				23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */,
 				E634D54E37C3719CDF0ACCDF /* OutputMediaVerifierTestSupport.swift in Sources */,
 				F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
+				5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1216,8 +1199,15 @@
 				F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */,
 				D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */,
 				387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */,
+				5889C655E2FB60975B5B4348 /* MirmirAppBootstrap.swift in Sources */,
 				3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */,
-				554F3FCEA4D932BC00FDE77B /* MirmirForsettiBootstrap.swift in Sources */,
+				11231FA84EFC696F72F15B39 /* MirmirDeveloperRootView.swift in Sources */,
+				316EC05E2F3E3AAF0340AB27 /* MirmirModule.swift in Sources */,
+				7F1382B36C08F1B58C6170B0 /* MirmirModuleCatalog.swift in Sources */,
+				C5D0C68A4C34A1D595F3FFD9 /* MirmirModuleContext.swift in Sources */,
+				F42BE0860DA22210CF94CFBF /* MirmirModuleDescriptor.swift in Sources */,
+				524D902413F6A7007F52971A /* MirmirModuleFactoryRegistry.swift in Sources */,
+				0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */,
 				FDC4F33E2DA4475E3CA01F9A /* MirmirModuleRegistry.swift in Sources */,
 				51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */,
 				811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */,
@@ -1228,6 +1218,7 @@
 				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
 				EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */,
 				147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */,
+				C0E576956E54A15022B6EA40 /* MirmirViewRegistry.swift in Sources */,
 				04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */,
 				95E4EF31D5FC320E157F1B94 /* MirmirWorkspaceComponents.swift in Sources */,
 				3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */,
@@ -1238,6 +1229,8 @@
 				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
 				87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */,
 				3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */,
+				35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */,
+				3CB665CD5D619971B5D8B9E5 /* UnavailableUpscalerEngineService.swift in Sources */,
 				3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */,
 				FD440AB675F3EF7298C713C7 /* UpscaleJob.swift in Sources */,
 				99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */,
@@ -1537,35 +1530,6 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
-
-/* Begin XCRemoteSwiftPackageReference section */
-		04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git";
-			requirement = {
-				kind = revision;
-				revision = 43eef7a739f3b78253c64aa4b070521ab5b1f43c;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
-/* Begin XCSwiftPackageProductDependency section */
-		6A42A76B3F9113774295A4BD /* ForsettiPlatform */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
-			productName = ForsettiPlatform;
-		};
-		A2D711E991E3FA66888927A8 /* ForsettiHostTemplate */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
-			productName = ForsettiHostTemplate;
-		};
-		AA6BAD72661C314938F3CBD2 /* ForsettiCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 04F9D62D647E3F7CA23C4C4C /* XCRemoteSwiftPackageReference "Forsetti-Framework-Mac-iOS" */;
-			productName = ForsettiCore;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 4718DCAF0509158E807570DD /* Project object */;
 }

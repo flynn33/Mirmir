@@ -1,50 +1,55 @@
 import XCTest
-import ForsettiCore
 @testable import Mirmir
 
 final class ArchitectureGuardrailTests: XCTestCase {
 
-    func test_forsettiDependencyIsRemotePinnedAndDoesNotUseExampleProduct() throws {
+    func test_projectHasNoForsettiDependencyOrP06InjectionPhase() throws {
         let projectSpec = try String(contentsOf: repoRootURL().appendingPathComponent("project.yml"), encoding: .utf8)
         let generatedProject = try String(
             contentsOf: repoRootURL().appendingPathComponent("Mirmir.xcodeproj/project.pbxproj"),
             encoding: .utf8
         )
 
-        XCTAssertFalse(projectSpec.contains("path: ForsettiFramework"))
-        XCTAssertTrue(projectSpec.contains("Forsetti-Framework-Mac-iOS.git"))
-        XCTAssertTrue(projectSpec.contains("43eef7a739f3b78253c64aa4b070521ab5b1f43c"))
-        XCTAssertFalse(projectSpec.contains("ForsettiModulesExample"))
-        XCTAssertFalse(generatedProject.contains("XCLocalSwiftPackageReference"))
-        XCTAssertFalse(generatedProject.contains("ForsettiModulesExample"))
+        let forbiddenValues = [
+            "ForsettiFramework",
+            "Forsetti-Framework-Mac-iOS",
+            "ForsettiCore",
+            "ForsettiPlatform",
+            "ForsettiHostTemplate",
+            "Inject Exact P06 ASH Release",
+            "inject-ash-p06-release.sh"
+        ]
+        for value in forbiddenValues {
+            XCTAssertFalse(projectSpec.contains(value), "project.yml contains \(value)")
+            XCTAssertFalse(generatedProject.contains(value), "generated project contains \(value)")
+        }
     }
 
-    func test_unitTestTargetDoesNotLinkForsettiCoreSeparatelyFromHostedApp() throws {
+    func test_unitTestTargetLinksOnlyTheHostedApplication() throws {
         let projectSpec = try String(contentsOf: repoRootURL().appendingPathComponent("project.yml"), encoding: .utf8)
         let testTargetSection = try targetSection(named: "MirmirTests", in: projectSpec)
 
-        XCTAssertFalse(
-            testTargetSection.contains("product: ForsettiCore"),
-            "MirmirTests must use the hosted app's Forsetti runtime instead of linking a separate Core framework."
-        )
+        XCTAssertTrue(testTargetSection.contains("- target: Mirmir"))
+        XCTAssertFalse(testTargetSection.contains("package:"))
+        XCTAssertFalse(testTargetSection.contains("product:"))
     }
 
     func test_patternBHasExactlyOneUIModuleAndServicesDoNotContributeUI() throws {
-        let manifests = try loadManifestFiles()
-        let uiManifests = manifests.filter { $0.moduleType == .ui || $0.defaultModuleRole == .ui }
-        let serviceManifests = manifests.filter { $0.moduleType == .service }
-
-        XCTAssertEqual(uiManifests.map(\.moduleID), [MirmirUIConstants.moduleID])
-        XCTAssertEqual(serviceManifests.count, 4)
-
-        for manifest in serviceManifests {
-            XCTAssertFalse(
-                manifest.capabilitiesRequested.contains(.viewInjection),
-                "\(manifest.moduleID) must not request UI contribution capabilities"
-            )
-            XCTAssertNil(manifest.defaultModuleRole, "\(manifest.moduleID) must not declare a UI role")
-            XCTAssertNil(manifest.runtimeRequirements.ui, "\(manifest.moduleID) must not declare UI requirements")
-        }
+        let descriptors = MirmirModuleCatalog.activationOrder
+        XCTAssertEqual(descriptors.count, 5)
+        XCTAssertEqual(descriptors.filter { $0.kind == .service }.count, 4)
+        XCTAssertEqual(descriptors.filter { $0.kind == .ui }.map(\.moduleID), [MirmirUIConstants.moduleID])
+        XCTAssertEqual(descriptors.last?.moduleID, MirmirUIConstants.moduleID)
+        XCTAssertEqual(
+            descriptors.map(\.moduleID),
+            [
+                "com.mirmir.app.metal",
+                "com.mirmir.app.model-assets",
+                "com.mirmir.app.media-pipeline",
+                "com.mirmir.app.upscaler-engine",
+                "com.mirmir.app.ui"
+            ]
+        )
     }
 
     func test_serviceModuleSourcesDoNotImportUIFrameworks() throws {
@@ -80,7 +85,7 @@ final class ArchitectureGuardrailTests: XCTestCase {
         }
     }
 
-    func test_v3ProductionUpscalePathUsesLockedFactoryWithoutDevelopmentFallback() throws {
+    func test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager() throws {
         let root = repoRootURL()
         let developmentBackend = try String(
             contentsOf: root.appendingPathComponent(
@@ -108,7 +113,7 @@ final class ArchitectureGuardrailTests: XCTestCase {
         )
         let bootstrap = try String(
             contentsOf: root.appendingPathComponent(
-                "Mirmir/App/MirmirForsettiBootstrap.swift"
+                "Mirmir/App/MirmirAppBootstrap.swift"
             ),
             encoding: .utf8
         )
@@ -122,8 +127,14 @@ final class ArchitectureGuardrailTests: XCTestCase {
         XCTAssertFalse(service.contains("twoXThenLanczosDownsample"))
         XCTAssertFalse(service.contains("ASHDeterministicUpscaleBackend"))
         XCTAssertTrue(service.contains("backendFactory.makeBackend"))
-        XCTAssertTrue(bootstrap.contains("ASHLockedUpscaleBackendFactoryV3"))
+        XCTAssertFalse(bootstrap.contains("ASHLockedUpscaleBackendFactoryV3"))
+        XCTAssertFalse(bootstrap.contains("DefaultUpscalerEngineService"))
+        XCTAssertFalse(bootstrap.contains("DefaultModelAssetsService"))
+        XCTAssertFalse(bootstrap.contains("VTModelStager"))
+        XCTAssertFalse(bootstrap.contains("ASHBackendStartupValidator"))
         XCTAssertFalse(bootstrap.contains("ASHDevelopmentUpscaleBackendFactory"))
+        XCTAssertTrue(bootstrap.contains("UnavailableUpscalerEngineService"))
+        XCTAssertTrue(bootstrap.contains("RoadmapTransitionModelAssetsService"))
         XCTAssertTrue(strategy.contains("case direct3Over2"))
     }
 
@@ -147,23 +158,6 @@ final class ArchitectureGuardrailTests: XCTestCase {
                 XCTFail("\(fileURL.path) contains prohibited attribution in its path")
             }
         }
-    }
-
-    private func loadManifestFiles() throws -> [ModuleManifest] {
-        try manifestFileURLs().map { url in
-            let data = try Data(contentsOf: url)
-            return try JSONDecoder().decode(ModuleManifest.self, from: data)
-        }
-    }
-
-    private func manifestFileURLs() throws -> [URL] {
-        let directory = repoRootURL().appendingPathComponent("Mirmir/Resources/ForsettiManifests")
-        return try FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil
-        )
-        .filter { $0.pathExtension == "json" }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     private func repositoryTextFiles() throws -> [URL] {
