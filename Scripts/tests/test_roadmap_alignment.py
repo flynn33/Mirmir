@@ -126,7 +126,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path = self.root / self.policy["canonical"]["markdown_path"]
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "**Status:** `evidence_ready`", "**Status:** `next`", 1
+                "**Status:** `passed`", "**Status:** `next`", 1
             ),
             encoding="utf-8",
         )
@@ -136,7 +136,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path = self.root / "local-work-plan.md"
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "Roadmap phase `R00`: `evidence_ready`",
+                "Roadmap phase `R00`: `passed`",
                 "Roadmap phase `R00`: `next`",
                 1,
             ),
@@ -147,7 +147,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("🧪 Evidence ready `1`", "🧪 Evidence ready `2`", 1)
+        text = text.replace("✅ Passed `1`", "✅ Passed `2`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
@@ -173,9 +173,16 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path, roadmap = self.roadmap_json()
         phases = roadmap["phases"]
         self.assertIsInstance(phases, list)
-        phases[1]["status"] = "in_progress"
+        phases[2]["status"] = "in_progress"
         self.write_json(path, roadmap)
-        self.assert_error_contains("before dependency R00 is passed")
+        self.assert_error_contains("before dependency R01 is passed")
+
+    def test_r00_passed_requires_accepted_inventory(self) -> None:
+        inventory_path = self.root / self.policy["r00_inventory"]["json_path"]
+        inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+        inventory["status"] = "baseline"
+        self.write_json(inventory_path, inventory)
+        self.assert_error_contains("expected 'accepted', found 'baseline'")
 
     def test_forsetti_dependency_expansion_fails(self) -> None:
         project = self.root / self.policy["forsetti"]["project_path"]

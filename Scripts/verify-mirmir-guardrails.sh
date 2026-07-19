@@ -155,7 +155,34 @@ xcodebuild \
   -disableAutomaticPackageResolution \
   build
 
-echo "==> Testing Debug..."
+hosted_test_shard_one=(
+  "MirmirTests/ASHAnalysisGridV2Tests"
+  "MirmirTests/ASHAssetConformanceTests"
+  "MirmirTests/ASHBackendInputValidationTests"
+  "MirmirTests/ASHBackendIntegrationTests"
+  "MirmirTests/ASHBitwiseCoreTests"
+  "MirmirTests/ASHCoordinateDiagnosticRuntimeV3Tests"
+  "MirmirTests/ASHCoordinateModelContractV3Tests"
+  "MirmirTests/ASHCoreConformanceTests"
+  "MirmirTests/ASHCorrectiveCLITests"
+  "MirmirTests/ASHFeatureBranchReconstructionTests"
+  "MirmirTests/ASHFrameCompletionIntegrationTests"
+  "MirmirTests/ASHGenericPhaseCompilerDiagnosticV3Tests"
+  "MirmirTests/ASHInternalAlphaTests"
+  "MirmirTests/ASHLUTBinaryFormatV2Tests"
+  "MirmirTests/ASHLUTCompilerV2Tests"
+  "MirmirTests/ASHLUTFormat12V3Tests"
+)
+shard_one_arguments=()
+shard_two_arguments=()
+for test_class in "${hosted_test_shard_one[@]}"; do
+  shard_one_arguments+=("-only-testing:$test_class")
+  shard_two_arguments+=("-skip-testing:$test_class")
+done
+
+# Keep the app-host lifetime below the macOS foreground-hang termination window
+# while preserving serial execution and exact, non-overlapping target coverage.
+echo "==> Testing Debug shard 1 of 2..."
 xcodebuild \
   -project "$PROJECT_FILE" \
   -scheme "$SCHEME" \
@@ -163,6 +190,18 @@ xcodebuild \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
   -disableAutomaticPackageResolution \
+  "${shard_one_arguments[@]}" \
+  test
+
+echo "==> Testing Debug shard 2 of 2..."
+xcodebuild \
+  -project "$PROJECT_FILE" \
+  -scheme "$SCHEME" \
+  -configuration Debug \
+  -destination "$DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
+  "${shard_two_arguments[@]}" \
   test
 
 echo "==> Building Release..."

@@ -23,7 +23,9 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   repository documentation;
 - the current Forsetti dependency boundary across tracked package manifests,
   generated project declarations, active paths, and decorated Swift imports;
-- the exact-commit R00 C01-C11 source inventory and its generated Markdown;
+- the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
+  Markdown, its fail-closed evidence boundaries, and candidate drift across every
+  accepted source path;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -61,8 +63,9 @@ metadata and does not modify GitHub.
 
 ## Current external-runtime boundary
 
-At `R00: evidence_ready`, the app-owned runtime has replaced the former package
-boundary. The Forsetti repository is reference-only: no repository coordinate,
+Established at `R00: evidence_ready` and retained at `R00: passed`, the app-owned
+runtime has replaced the former package boundary. The Forsetti repository is
+reference-only: no repository coordinate,
 package product, Swift import, framework, submodule, vendored source, generated
 project reference, or active source/resource path is permitted. Normal builds
 therefore require no network package resolution.

@@ -202,7 +202,7 @@
       "exit": "accepted architecture record and current-source inventory",
       "id": "R00",
       "name": "Strategic reset and evidence preservation",
-      "status": "evidence_ready"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -211,7 +211,7 @@
       "exit": "authoritative compile/runtime capability matrix",
       "id": "R01",
       "name": "Apple capability laboratory",
-      "status": "planned"
+      "status": "next"
     },
     {
       "depends_on": [

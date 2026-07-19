@@ -8,11 +8,11 @@
 
 ## Current Roadmap Execution State
 
-- Roadmap phase `R00`: `evidence_ready`. The accepted architecture decision,
-  app-owned runtime, retired legacy authority, and baseline current-source
-  inventory are awaiting exact-checkpoint acceptance.
-- Roadmap phase `R01`: `planned`. Capability work remains unauthorized until R00
-  passes.
+- Roadmap phase `R00`: `passed`. The architecture decision, app-owned runtime,
+  retired legacy authority, and exact PR #13 source checkpoint are preserved in
+  the accepted current-source inventory.
+- Roadmap phase `R01`: `next`. Capability work is the only next authorized
+  product phase; its own evidence and exit criteria remain outstanding.
 - R02 unified backend architecture: planned after R01 capability contracts.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and

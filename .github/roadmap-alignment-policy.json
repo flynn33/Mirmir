@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "6fc7c86c2bd6b43204f06d9f7ec698eae66d09e0d4755745a933181030db7067",
-    "json_sha256": "1fe58f47e66440e6dac950a63fe2ff0efdd65bae02ad00d06eee66f51b71d9cd",
+    "markdown_sha256": "2aab92bde07d960b55b61cb13a557743e4ee2544e84e93905aed01ea2bdc20be",
+    "json_sha256": "9b8852608b3f4ec3fd28af242bfcc5b06f92b33f11860dd230be355d51e78b18",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -236,6 +236,50 @@
   "r00_inventory": {
     "json_path": "docs/roadmaps/evidence/r00-current-source-inventory.json",
     "markdown_path": "docs/roadmaps/evidence/r00-current-source-inventory.md",
+    "inventory_schema_version": "1.1.0",
+    "inventory_id": "r00-current-source-inventory",
+    "recorded_date": "2026-07-19",
+    "roadmap_version": "1.0.1",
+    "required_top_level_keys": [
+      "schema_version",
+      "inventory_id",
+      "roadmap_version",
+      "status",
+      "recorded_date",
+      "git_object_format",
+      "baseline_checkpoint",
+      "baseline_tree_git_object_id",
+      "source_tree_git_object_id",
+      "source_checkpoint",
+      "source_checkpoint_role",
+      "entries",
+      "retire_or_replace",
+      "missing_roadmap_inputs",
+      "roadmap_input_resolutions",
+      "official_evidence_boundary",
+      "absent_historical_paths",
+      "external_p06_evidence",
+      "historical_preservation",
+      "holdout_boundary",
+      "holdout_verification",
+      "legacy_process_check"
+    ],
+    "required_entry_keys": [
+      "id",
+      "name",
+      "disposition",
+      "retained_role",
+      "future_phase",
+      "baseline_sources",
+      "sources"
+    ],
+    "official_evidence_boundary": "Section 13 names official Apple evidence descriptively but records no tracked URL snapshot or content hash; R00 does not claim repository-local preservation of those external sources.",
+    "holdout_boundary": {
+      "pixel_access_authorized": false,
+      "verification_scope": "tracked no-pixel metadata only",
+      "physical_sparsebundle_verified": false,
+      "keychain_item_verified": false
+    },
     "required_entry_ids": [
       "C01",
       "C02",
@@ -255,7 +299,84 @@
     ],
     "baseline_checkpoint": "d8eb29d9e75fa163e14fc4ca3dec3f7696b388c9",
     "baseline_tree_git_object_id": "a032c6a19a7aa72a805bc4c3dcd6dec8f81dedec",
+    "baseline_sources_sha256": "1c788ace29a7d0e497fca4fc49ac7298108dc2c056fc7a15455e0737e148f3c8",
+    "classification_sha256": "8c2fedc714a1950168e12005f59d449bdf069f9a495df91d7c4c7df76d3ac52f",
+    "retire_or_replace_sha256": "65a7c53cdf76c41469394680ccddc7759698a06460896390827a51003975baa7",
+    "accepted_checkpoint": {
+      "commit": "6b94564dda07acfba25e83876b5bf859d1970f15",
+      "tree_git_object_id": "cf8293148cc1ec4d2552a321f15273bcffd4cd60",
+      "role": "R00 implementation checkpoint: PR 2 merge"
+    },
     "git_object_format": "sha1",
+    "required_accepted_source_paths_by_entry": {
+      "C01": [
+        "project.yml",
+        "Mirmir/App",
+        "Mirmir/Runtime",
+        "Mirmir/Modules/UI",
+        "Mirmir/Modules/MediaPipeline/MediaPipelineServiceModule.swift",
+        "Mirmir/Modules/MetalRendering/MetalRenderingServiceModule.swift",
+        "Mirmir/Modules/ModelAssets/ModelAssetsServiceModule.swift",
+        "Mirmir/Modules/UpscalerEngine/UpscalerEngineServiceModule.swift",
+        "Mirmir/Modules/UI/MirmirUIModule.swift",
+        "Mirmir/Modules/ModelAssets/RoadmapTransitionModelAssetsService.swift",
+        "Mirmir/Modules/UpscalerEngine/UpscalerEngineService.swift",
+        "Mirmir/Modules/UpscalerEngine/UnavailableUpscalerEngineService.swift"
+      ],
+      "C02": [
+        "Mirmir/Modules/MediaPipeline"
+      ],
+      "C03": [
+        "Mirmir/Modules/MetalRendering",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialFrameEncoderV3.swift"
+      ],
+      "C04": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalFrameResourceRingV3.swift"
+      ],
+      "C05": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV3.swift"
+      ],
+      "C06": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeV3.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimePreparationV3.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeSupportV3.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalRuntimeMonitorV3.swift",
+        "Mirmir/Modules/Telemetry"
+      ],
+      "C07": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2+ConfigurationValidation.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2Validation.swift"
+      ],
+      "C08": [
+        "Mirmir/Modules/MediaPipeline/AtomicMediaOutput.swift",
+        "Mirmir/Modules/MediaPipeline/OutputMediaVerificationTypes.swift",
+        "Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift",
+        "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift"
+      ],
+      "C09": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedArtifactStoreV3.swift",
+        "Scripts/inject-ash-p06-release.sh",
+        "project.yml"
+      ],
+      "C10": [
+        "validation",
+        "MirmirP08Tests",
+        "Scripts/run-ash-p08-native-evidence.sh",
+        "validation/calibration_v2/tools/run_p06_production_calibration_v2.py",
+        "validation/calibration_v2/tools/run_p07_locked_holdout.py"
+      ],
+      "C11": [
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV3.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV3.swift",
+        "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV3.swift",
+        "Mirmir/Resources/ASH"
+      ]
+    },
     "status_by_r00_phase_status": {
       "blocked": "baseline",
       "evidence_ready": "baseline",
@@ -288,7 +409,10 @@
       "external_root": "Artifacts/ASH/20260714-current-source-de4feb30-9c90-4706-aaa7-c6dd82cac1fb/p06-current-source-r1/support-calibration-run/p06-current-source-r1.failed",
       "file_count": 818,
       "size_bytes": 3340628824,
-      "tree_sha256": "5d1f22b2467a5caa83b5b7b499389e6577d244721af466c57989d23513b22d76"
+      "tree_sha256": "5d1f22b2467a5caa83b5b7b499389e6577d244721af466c57989d23513b22d76",
+      "local_tree_available": false,
+      "bytes_reopened_for_r00": false,
+      "boundary": "The tracked authenticated receipt is preserved; the external bulk tree is unavailable and is not claimed as locally possessed or reopened."
     },
     "historical_preservation": [
       {
@@ -314,12 +438,31 @@
     ],
     "holdout_verification": {
       "sealed_ledger_path": "validation/quality/locks/holdout-access-ledger.sealed-copy.json",
+      "sealed_ledger_git_object_id": "4d4271226c1dbb5bc5b56da419ae043df1665c7a",
       "attestation_path": "validation/quality/locks/holdout-seal-attestation.no-pixel.json",
+      "attestation_git_object_id": "070de8a803f61d77940fbebf9c9564bac5028a68",
       "mounted": false,
       "status": "unopened",
       "access_count": 0,
+      "pixel_content_included": false,
       "sealed_ledger_sha256": "cbbd5bed6f9c39a7cbff823f3215e3d7c80e6d9b3f540d1b24cdd6ba30533805",
       "attestation_sha256": "32ec99c94d36a6b59d645279778dea4ccd5b583993cd4ed1d817b99c85c1b874"
+    },
+    "legacy_process_check": {
+      "checked_at": "2026-07-19T18:49:25Z",
+      "method": "Read-only LC_ALL=C ps -axo pid=,command= snapshot filtered with self-excluding bracketed grep patterns.",
+      "command_patterns": [
+        "run_p06_production_calibration(_v2)?\\.py",
+        "inject-ash-p06-release\\.sh",
+        "run_p07_locked_holdout\\.py",
+        "run-ash-p08-native-evidence\\.sh",
+        "stage_p08_native_evidence\\.py",
+        "collect_p08_evidence_binding\\.py",
+        "export_p08_release_resources_v3\\.py"
+      ],
+      "matching_process_count": 0,
+      "matching_processes": [],
+      "scope": "One instantaneous local host-visible process-table snapshot; no claim about remote hosts, non-visible containers, or past or future execution."
     }
   },
   "workflows": {

@@ -7,8 +7,8 @@
 > ASH V3 testing, failure evidence, and diagnostic artifacts are retained, but
 > their publication is not a release or gate promotion.
 
-- Roadmap phase `R00`: `evidence_ready`
-- Roadmap phase `R01`: `planned`
+- Roadmap phase `R00`: `passed`
+- Roadmap phase `R01`: `next`
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
@@ -20,6 +20,11 @@ The R00 source uses an app-owned Pattern B runtime with one UI module and four
 service modules assembled once through `MirmirAppBootstrap` and injected through
 Mirmir-owned factories. The Forsetti repository is reference-only; it is not a
 package, framework, submodule, vendored source, build, or runtime dependency.
+
+R00 passed against the exact PR #13 merge checkpoint
+`6b94564dda07acfba25e83876b5bf859d1970f15`. The accepted inventory preserves
+the original baseline identities separately from the post-migration source
+identities and records only tracked no-pixel holdout metadata.
 
 Production launch activates the exact five-module set in a fixed order and
 renders `MirmirProductionRootView` only after the UI module and primary view are

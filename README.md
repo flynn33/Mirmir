@@ -26,18 +26,18 @@ market-position claim.
 ## Roadmap Progress
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `0 / 14` roadmap phases passed (`0%`)
+**Overall:** `1 / 14` roadmap phases passed (`7%`)
 
 `[----------]`
 
-**Status:** 🧪 Evidence ready `1` · ⬜ Planned `12` · ⛔ Blocked `1`
+**Status:** ✅ Passed `1` · ➡️ Next `1` · ⬜ Planned `11` · ⛔ Blocked `1`
 
-**Current focus:** `R00` — Strategic reset and evidence preservation
+**Current focus:** `R01` — Apple capability laboratory
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
-| `R00` | Strategic reset and evidence preservation | `evidence_ready` | 🧪 Evidence ready |
-| `R01` | Apple capability laboratory | `planned` | ⬜ Planned |
+| `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
+| `R01` | Apple capability laboratory | `next` | ➡️ Next |
 | `R02` | Unified backend and stage architecture | `planned` | ⬜ Planned |
 | `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
 | `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
@@ -527,7 +527,7 @@ Developer diagnostics may expose individual backends, but the main UI should not
 
 ## R00 — Strategic reset and evidence preservation
 
-**Status:** `evidence_ready`
+**Status:** `passed`
 
 No new production calibration is authorized.
 
@@ -550,7 +550,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `planned`
+**Status:** `next`
 
 ### Objective
 
