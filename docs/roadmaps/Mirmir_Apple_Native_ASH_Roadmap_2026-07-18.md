@@ -470,7 +470,7 @@ Developer diagnostics may expose individual backends, but the main UI should not
 
 ## R00 — Strategic reset and evidence preservation
 
-**Status:** `evidence_ready`
+**Status:** `passed`
 
 No new production calibration is authorized.
 
@@ -493,7 +493,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `planned`
+**Status:** `next`
 
 ### Objective
 

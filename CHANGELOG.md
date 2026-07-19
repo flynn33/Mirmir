@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Closed R00 with an accepted dual-checkpoint C01-C11 source inventory bound to
+  PR #13 merge commit `6b94564dda07acfba25e83876b5bf859d1970f15`.
+  The inventory independently verifies retained and removed sources, historical
+  object identities, the unavailable external P06 receipt boundary, and only
+  tracked no-pixel holdout metadata. Its closed schema rejects altered boundary
+  claims and candidate drift across every accepted source. R01 is now the next
+  roadmap phase.
+- Split the complete hosted Debug suite into two non-overlapping serial shards
+  to bound each macOS app-host lifetime without suppressing or retrying failures.
 - Advanced R00 to `evidence_ready` after replacing the package-backed runtime
   with an app-owned five-module host, static descriptors, Mirmir-owned factories,
   deterministic lifecycle rollback, and read-only developer diagnostics.
