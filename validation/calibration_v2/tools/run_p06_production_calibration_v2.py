@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Run the sole production P06 V2 calibration and publish its V3 release."""
+"""Retired P06 V2 production-calibration command and retained helpers."""
 
 from __future__ import annotations
+
+if __name__ == "__main__":
+    raise SystemExit(2)
 
 import argparse
 from datetime import datetime, timezone
@@ -262,6 +265,10 @@ def _utc_now() -> str:
 
 
 def main() -> int:
+    """Reject the retired authorization path without parsing or file access."""
+
+    return 2
+
     arguments = _arguments()
     if not arguments.run_id or "/" in arguments.run_id or arguments.run_id in {".", ".."}:
         raise ValueError("run ID is unsafe")

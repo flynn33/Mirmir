@@ -25,7 +25,7 @@ enum MirmirQualityMode: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .balanced:
-            return "Default deterministic reconstruction profile for this alpha build."
+            return "Prepared balanced profile for future roadmap-qualified processing."
         case .quality:
             return "Prepared for higher-detail processing when that mode is available."
         case .fastPreview:
@@ -104,7 +104,7 @@ final class MirmirViewModel: ObservableObject {
     @Published var edgeFidelityLevel: MirmirAdjustmentLevel = .medium
     @Published var detailRecoveryLevel: MirmirAdjustmentLevel = .medium
     @Published var modelStatus: ModelAssetsStatus = .unknown
-    @Published var ashBackendStatus: ASHBackendStatus = .validating
+    @Published private(set) var engineAvailability: UpscalerEngineAvailability
     @Published var progress: UpscaleProgress?
     @Published var state: JobState = .idle
     @Published private(set) var outputURL: URL?
@@ -133,7 +133,7 @@ final class MirmirViewModel: ObservableObject {
         self.mediaPipeline = mediaPipeline
         self.upscalerEngine = upscalerEngine
         self.modelAssets = modelAssets
-        self.ashBackendStatus = ASHBackendStartupValidator.validate()
+        self.engineAvailability = upscalerEngine.availability
         startObservingModelStatus()
     }
 
@@ -152,9 +152,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     var engineReadinessText: String {
-        switch ashBackendStatus {
-        case .validating:
-            return "Checking Engine"
+        switch engineAvailability {
         case .available:
             return "Engine Ready"
         case .unavailable:
@@ -162,7 +160,24 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
+    var engineSelectionText: String {
+        switch engineAvailability {
+        case .available:
+            return "Reference engine"
+        case .unavailable:
+            return "No qualified engine"
+        }
+    }
+
+    var engineAvailabilityReason: String? {
+        engineAvailability.unavailableReason
+    }
+
     var canStartFailureReason: String? {
+        if let engineAvailabilityReason {
+            return engineAvailabilityReason
+        }
+
         switch state {
         case .probing:
             return "Mirmir is reading the source video."
@@ -193,9 +208,6 @@ final class MirmirViewModel: ObservableObject {
         }
         guard !FileURLIdentity.refersToSameFile(sourceProfile.url, outputURL) else {
             return Self.sourceOutputConflictMessage
-        }
-        guard ashBackendStatus == .available else {
-            return "Mirmir's processing engine is not ready."
         }
         guard state == .ready else {
             return "Choose a source video and output location before starting."

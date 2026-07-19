@@ -273,7 +273,7 @@ private struct MirmirWorkspaceHeader: View {
 
     private var subtitle: String {
         guard destination == .upscale else {
-            return "Deterministic upscaling workspace"
+            return "Video enhancement workspace"
         }
         guard let profile = viewModel.sourceProfile else {
             return "Choose video, configure output, and start upscale"
@@ -282,10 +282,20 @@ private struct MirmirWorkspaceHeader: View {
     }
 
     private var engineStatusIcon: String {
-        viewModel.ashBackendStatus == .available ? "checkmark.circle" : "exclamationmark.triangle"
+        switch viewModel.engineAvailability {
+        case .available:
+            return "checkmark.circle"
+        case .unavailable:
+            return "exclamationmark.triangle"
+        }
     }
 
     private var engineStatusColor: Color {
-        viewModel.ashBackendStatus == .available ? theme.success : theme.warning
+        switch viewModel.engineAvailability {
+        case .available:
+            return theme.success
+        case .unavailable:
+            return theme.warning
+        }
     }
 }

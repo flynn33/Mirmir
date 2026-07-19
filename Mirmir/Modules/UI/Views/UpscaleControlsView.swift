@@ -58,6 +58,7 @@ struct UpscaleControlsView: View {
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
                 .disabled(!viewModel.canStart)
+                .help(viewModel.canStartFailureReason ?? "Upscale Video")
 
                 Button(action: viewModel.cancelUpscale) {
                     Image(systemName: "stop.fill")
@@ -67,6 +68,11 @@ struct UpscaleControlsView: View {
                     if case .running = viewModel.state { return false } else { return true }
                 }())
             }
+
+            Text(viewModel.canStartFailureReason ?? "Ready to start processing.")
+                .font(.caption)
+                .foregroundStyle(viewModel.canStart ? Color.secondary : Color.orange)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }

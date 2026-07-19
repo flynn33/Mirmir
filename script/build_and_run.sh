@@ -6,6 +6,8 @@ APP_NAME="Mirmir"
 BUNDLE_ID="com.mirmir.app"
 SCHEME="Mirmir"
 CONFIGURATION="${CONFIGURATION:-Debug}"
+DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+export DEVELOPER_DIR
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/Mirmir.xcodeproj"
@@ -51,6 +53,7 @@ BUILD_ARGUMENTS=(
     -configuration "$CONFIGURATION"
     -destination "platform=macOS"
     -derivedDataPath "$DERIVED_DATA_PATH"
+    -disableAutomaticPackageResolution
     build
 )
 

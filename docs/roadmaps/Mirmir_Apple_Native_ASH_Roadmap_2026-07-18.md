@@ -470,7 +470,7 @@ Developer diagnostics may expose individual backends, but the main UI should not
 
 ## R00 — Strategic reset and evidence preservation
 
-**Status:** `in_progress`
+**Status:** `evidence_ready`
 
 No new production calibration is authorized.
 

@@ -86,6 +86,20 @@ class RoadmapAlignmentTests(unittest.TestCase):
         ):
             (self.root / relative).write_text("// dependency-free\n", encoding="utf-8")
 
+    def add_forsetti_project_declaration(self, revision: str = "") -> None:
+        project = self.root / self.policy["forsetti"]["project_path"]
+        project.write_text(
+            project.read_text(encoding="utf-8")
+            + "\npackages:\n"
+            + "  ForsettiFramework:\n"
+            + f"    url: {self.policy['forsetti']['allowed_dependency_url']}\n"
+            + f"    revision: {revision or self.policy['forsetti']['allowed_revision']}\n"
+            + "dependencies:\n"
+            + "  - package: ForsettiFramework\n"
+            + "    product: ForsettiCore\n",
+            encoding="utf-8",
+        )
+
     @staticmethod
     def write_json(path: Path, value: dict[str, object]) -> None:
         path.write_text(
@@ -112,7 +126,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path = self.root / self.policy["canonical"]["markdown_path"]
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "**Status:** `in_progress`", "**Status:** `next`", 1
+                "**Status:** `evidence_ready`", "**Status:** `next`", 1
             ),
             encoding="utf-8",
         )
@@ -122,7 +136,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path = self.root / "local-work-plan.md"
         path.write_text(
             path.read_text(encoding="utf-8").replace(
-                "Roadmap phase `R00`: `in_progress`",
+                "Roadmap phase `R00`: `evidence_ready`",
                 "Roadmap phase `R00`: `next`",
                 1,
             ),
@@ -133,7 +147,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("🔄 In progress `1`", "🔄 In progress `2`", 1)
+        text = text.replace("🧪 Evidence ready `1`", "🧪 Evidence ready `2`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
@@ -171,7 +185,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             + "url: https://example.com/Forsetti-Framework-Mac-iOS.git\n",
             encoding="utf-8",
         )
-        self.assert_error_contains("additional or alternate Forsetti URL")
+        self.assert_error_contains("repository coordinate remains after R00")
 
     def test_r00_passed_requires_dependency_removal(self) -> None:
         path, roadmap = self.roadmap_json()
@@ -179,6 +193,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assertIsInstance(phases, list)
         phases[0]["status"] = "passed"
         self.write_json(path, roadmap)
+        self.add_forsetti_project_declaration()
         self.assert_error_contains("dependency remains after R00")
 
     def test_r00_in_progress_rejects_partial_dependency_migration(self) -> None:
@@ -187,19 +202,12 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assertIsInstance(phases, list)
         phases[0]["status"] = "in_progress"
         self.write_json(path, roadmap)
-        project = self.root / self.policy["forsetti"]["project_path"]
-        project.write_text(
-            project.read_text(encoding="utf-8").replace(
-                self.policy["forsetti"]["allowed_revision"],
-                "0" * 40,
-                1,
-            ),
-            encoding="utf-8",
-        )
+        self.add_forsetti_project_declaration(revision="0" * 40)
         self.assert_error_contains("neither the exact legacy pin nor complete dependency removal")
 
     def test_r00_evidence_ready_requires_dependency_removal(self) -> None:
         self.set_r00_status("evidence_ready")
+        self.add_forsetti_project_declaration()
         self.assert_error_contains("dependency remains after R00")
 
     def test_alternate_package_swift_declaration_fails(self) -> None:

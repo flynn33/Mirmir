@@ -51,9 +51,12 @@ struct MirmirSettingsView: View {
             Text("Technical Details")
                 .font(.title3.weight(.semibold))
 
-            Text("Runtime: Forsetti module host")
-            Text("Upscaling: ASH deterministic backend")
-            Text("Backend status: \(viewModel.ashBackendStatus.displayText)")
+            Text("Runtime: Mirmir module runtime")
+            Text("Upscaling: \(viewModel.engineSelectionText)")
+            Text("Processing status: \(viewModel.engineReadinessText)")
+            if let reason = viewModel.engineAvailabilityReason {
+                Text(reason)
+            }
             Text("Model assets: \(String(describing: viewModel.modelStatus))")
 
             Spacer()
@@ -71,15 +74,22 @@ struct MirmirAboutView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Mirmir")
                 .font(.title2.weight(.semibold))
-            Text("Mirmir upscales supported video files from 720p to 1080p and 1080p to 4K.")
+            Text("Mirmir is preparing a roadmap-qualified video-enhancement pipeline for supported media.")
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let reason = viewModel.engineAvailabilityReason {
+                Text(reason)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             if showsTechnicalDetails {
                 Divider()
                 Text("Technical Details")
                     .font(.headline)
-                Text("Forsetti hosts the module runtime. ASH provides the deterministic upscaling backend.")
-                Text(viewModel.ashBackendStatus.displayText)
+                Text("The Mirmir module runtime owns application composition.")
+                Text("ASH remains a directly testable reference and research implementation.")
+                Text(viewModel.engineReadinessText)
             }
 
             Spacer()

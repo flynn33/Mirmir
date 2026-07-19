@@ -8,8 +8,9 @@
 
 ## Current Roadmap Execution State
 
-- Roadmap phase `R00`: `in_progress`. The accepted architecture decision and
-  baseline current-source inventory are under implementation.
+- Roadmap phase `R00`: `evidence_ready`. The accepted architecture decision,
+  app-owned runtime, retired legacy authority, and baseline current-source
+  inventory are awaiting exact-checkpoint acceptance.
 - Roadmap phase `R01`: `planned`. Capability work remains unauthorized until R00
   passes.
 - R02 unified backend architecture: planned after R01 capability contracts.

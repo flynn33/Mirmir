@@ -285,16 +285,17 @@ python3 -m unittest discover -s validation/calibration_v2/tests -p 'test_*.py'
 python3 -m pytest validation/calibration_v2/tests
 ```
 
-## P06 V2 production and V3 release
+## Preserved P06 V2 production and V3 release contract
 
-`tools/run_p06_production_calibration_v2.py` is the sole production P06 entry
-point. The similarly named `run_p06_production_calibration.py` file is retained
-only for historical V1 preopen-anchor diagnostics: it has no calibration
-factory or executor, returns a non-authorizing status, and cannot publish a
-release.
+`tools/run_p06_production_calibration_v2.py` is a retired historical P06 entry
+point. It returns status `2` before argument parsing or path access and cannot
+run calibration, publish a release, or export resources. The similarly named
+`run_p06_production_calibration.py` file remains historical and non-authorizing.
+The remainder of this section records the former contract; it is not an
+executable authorization.
 
-The V2 command requires one clean Git HEAD and the finalized G04, G05, and G06
-roots. It freshly reopens their semantic contracts, requires each result to
+The former V2 command required one clean Git HEAD and the finalized G04, G05,
+and G06 roots. It freshly reopened their semantic contracts, required each result to
 name the same current commit with `working_tree_clean=true` and
 `holdout_accessed=false`, hashes each complete gate tree, and writes the three
 canonical receipts in exact G04, G05, G06 order under the calibration run. A
@@ -310,8 +311,8 @@ writer. Python owns deterministic search scheduling, strict evidence parsing,
 content addressing, selection replay, transaction control, and tests; it is
 not a product-runtime upscaler and no Python runtime ships in Mirmir.
 
-After validation selection, the command uses the hardened atomic transaction
-shell to publish only release bundle schema `3.0.1`. The selected candidate's
+After validation selection, the former command used the hardened atomic
+transaction shell to publish only release bundle schema `3.0.1`. The selected candidate's
 mapping, operator bank, compiler input, and two LUT files are copied from their
 content-addressed evaluation as exact bytes. Their internal status remains
 `calibration_candidate`; the enclosing selection, evidence closure,
@@ -377,7 +378,7 @@ in the wrapper, not the verifier run root. G06 itself publishes the five
 ordered evidence roles `python_calibration_full_suite`,
 `xcode_native_integration`, `xcode_release_runtime`, `swiftlint`, and
 `release_lock_unit_suite`; the fresh G06 semantic reopener authenticates that
-closure before P06 stages its G06 receipt.
+closure before the former P06 design staged its G06 receipt.
 
 `tools/finalize_evidence_wrapper.py` performs that publication from the exact
 hidden sibling `.<final-name>.partial`. Its version-2 manifest binds every
@@ -408,14 +409,14 @@ manifest file (the raw file digest, not the manifest's internal self-hash):
 The V3 evidence closure tree-hashes six external support authorities:
 `open_split`, `calibration_evidence`, `native_cache`, `production_writer`,
 `dispatch_measurement`, and `calibration_run`. Full release validation requires
-all six roots and transitively reopens the calibration selection. P06 reads
-development and validation pixels only; it does not accept or open a holdout
+all six roots and transitively reopens the calibration selection. The former
+P06 design read development and validation pixels only; it did not accept or open a holdout
 payload path. The live-preopen receipt must remain `unopened`, have zero access
 count, no open-intent anchor, and no pixel content. Its corpus binding is the
 tracked corpus manifest self-hash, which is deliberately distinct from the
 compiler's canonical corpus-lock bundle digest.
 
-On successful V3 publication the production command performs one support-aware
+On successful V3 publication the former production command performed one support-aware
 export of the exact six Apple product resources: `lut-manifest-v3.json`,
 `locked-compiler-input-v2.json`, `locked-mapping.json`, `direct2x.ashlut`,
 `direct3over2.ashlut`, and `native-lut-parity-manifest-v3.json`. The destination
@@ -437,25 +438,27 @@ suffix. A matching `.partial` left by process interruption is exclusively
 quarantined to a collision-safe `.failed` name before recovery proceeds. These
 bytes never qualify as an adoptable or retry-blocking publication.
 
-## P07 locked holdout transaction
+## Preserved P07 locked holdout transaction contract
 
-`tools/run_p07_locked_holdout.py` is the single supported P07 entry point. It
-must be invoked only after the final P06 release and all six support roots are
-frozen. The exact support IDs are `open_split`, `calibration_evidence`,
+`tools/run_p07_locked_holdout.py` is a retired historical P07 entry point. It
+returns status `2` before argument parsing, path access, ledger operations, or
+holdout work. The preserved transaction design required the exact support IDs
+`open_split`, `calibration_evidence`,
 `native_cache`, `production_writer`, `dispatch_measurement`, and
-`calibration_run`; the last path is the canonical calibration output root that
-directly contains the locked run directory.
+`calibration_run`; the last path was the canonical calibration output root that
+directly contained the locked run directory. The remainder of this section
+records the former contract and does not authorize holdout access.
 
-The command also requires the original G04, G05, and G06 roots, the G05
+The former command also required the original G04, G05, and G06 roots, the G05
 instruction-package root and baseline commit, and the G06 execution-run name.
-It reruns the authoritative gate reopeners under one unchanged clean HEAD,
-rehashes the actual external trees, and requires the fresh semantic/tree
+It reran the authoritative gate reopeners under one unchanged clean HEAD,
+rehashed the actual external trees, and required the fresh semantic/tree
 projection to equal the P06-sealed execution authority. Sealed receipt fields
 without that fresh external reopening do not authorize P07.
 
-Before guard intent, the command reopens every direct preregistered input,
-performs support-aware P06 release validation, independently recompiles both
-released LUT routes, builds the Swift extraction loader twice, requires
+Before guard intent, the former command reopened every direct preregistered input,
+performed support-aware P06 release validation, independently recompiled both
+released LUT routes, built the Swift extraction loader twice, required
 byte-identical executables, runs its deterministic media-free self-test twice,
 and independently reproduces all 14 analytic fixtures. The P07 cache must be a
 fresh, empty directory outside the repository, holdout, release, support,
@@ -463,9 +466,9 @@ ledger, and anchor roots. The output directory and temporary publication root
 must also remain outside those protected trees; a dedicated P07 sibling under
 an artifact parent is allowed.
 
-The guard accepts only the release-manifest-bound
-`configuration-lock-v2.json`. It invokes the shared P06 schema/self-hash and
-descriptor-safe nine-file validator, then reopens the exact ordered V3 files
+The former guard accepted only the release-manifest-bound
+`configuration-lock-v2.json`. It invoked the shared P06 schema/self-hash and
+descriptor-safe nine-file validator, then reopened the exact ordered V3 files
 before and after loader delegation. The schema-2 path never imports the legacy
 scalar `_configuration_bindings` helper and does not accept
 `locked-compiler-input.json` or `lut-manifest.json` aliases. A startup failure
@@ -473,8 +476,8 @@ that occurs before the immutable holdout anchor exists is written as an
 exclusive, canonical, fsynced non-opening diagnostic; foreign or changed
 collision state is rejected.
 
-Only `HoldoutAccessGuard.read_once` may mount and read the sealed payloads. The
-loader requires identity orientation, monotonic presentation timestamps,
+Under the former contract, only `HoldoutAccessGuard.read_once` was permitted to
+mount and read the sealed payloads. The loader required identity orientation, monotonic presentation timestamps,
 first-at-or-after exact-midpoint selection, locked BT.709 video-range 420v
 metadata, and the preregistered centered even crop. Temporary NV12 crops and
 all holdout-derived binary work remain in the transaction's temporary tree and

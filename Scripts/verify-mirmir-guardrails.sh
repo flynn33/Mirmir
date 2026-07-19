@@ -7,6 +7,8 @@ PROJECT_FILE="Mirmir.xcodeproj"
 SCHEME="Mirmir"
 DESTINATION="platform=macOS"
 DERIVED_DATA="${DERIVED_DATA:-/tmp/mirmir-guardrails-deriveddata}"
+DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+export DEVELOPER_DIR
 
 cd "$REPO_ROOT"
 
@@ -143,12 +145,6 @@ else
   echo "==> Swift Package checks are not applicable; no app-owned Package.swift exists."
 fi
 
-echo "==> Resolving package dependencies..."
-xcodebuild -resolvePackageDependencies \
-  -project "$PROJECT_FILE" \
-  -scheme "$SCHEME" \
-  -derivedDataPath "$DERIVED_DATA"
-
 echo "==> Building Debug..."
 xcodebuild \
   -project "$PROJECT_FILE" \
@@ -156,6 +152,7 @@ xcodebuild \
   -configuration Debug \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
   build
 
 echo "==> Testing Debug..."
@@ -165,6 +162,7 @@ xcodebuild \
   -configuration Debug \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
   test
 
 echo "==> Building Release..."
@@ -174,6 +172,25 @@ xcodebuild \
   -configuration Release \
   -destination "$DESTINATION" \
   -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
   build
+
+echo "==> Checking built app dependency boundary..."
+for configuration in Debug Release; do
+  app_bundle="$DERIVED_DATA/Build/Products/$configuration/Mirmir.app"
+  app_binary="$app_bundle/Contents/MacOS/Mirmir"
+  if [ ! -x "$app_binary" ]; then
+    echo "Missing built app binary: $app_binary" >&2
+    exit 1
+  fi
+  if find "$app_bundle" -iname '*forsetti*' -print -quit | grep -q .; then
+    echo "Built $configuration app contains a Forsetti-named path." >&2
+    exit 1
+  fi
+  if otool -L "$app_binary" | grep -qi 'forsetti'; then
+    echo "Built $configuration app links a Forsetti product." >&2
+    exit 1
+  fi
+done
 
 echo "==> Mirmir guardrails passed."

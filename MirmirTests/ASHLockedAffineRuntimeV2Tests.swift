@@ -166,9 +166,14 @@ final class ASHLockedAffineRuntimeV2Tests: XCTestCase {
             width: 7,
             height: 7,
             samples: (0..<49).map { index in
-                let row = index / 7
-                let column = index % 7
-                return Double((column * 13 + row * 29 + column * row * 7) % 97) / 96.0
+                let row: Int = index / 7
+                let column: Int = index % 7
+                let weightedColumn: Int = column * 13
+                let weightedRow: Int = row * 29
+                let interaction: Int = column * row * 7
+                let foldedSample: Int = (weightedColumn + weightedRow + interaction) % 97
+                let normalizedSample: Double = Double(foldedSample) / 96.0
+                return normalizedSample
             }
         )
         let base = ASHSpatialDevelopmentParametersV2.p05DevelopmentOnly
@@ -181,9 +186,12 @@ final class ASHLockedAffineRuntimeV2Tests: XCTestCase {
         let expandedValue = try evaluateSupportFixture(plane: plane, parameters: expanded)
 
         XCTAssertEqual(implicitValue, explicitValue, accuracy: 0.0)
-        XCTAssertGreaterThan(abs(contractedValue - implicitValue), 1.0e-9)
-        XCTAssertGreaterThan(abs(expandedValue - implicitValue), 1.0e-9)
-        XCTAssertGreaterThan(abs(expandedValue - contractedValue), 1.0e-9)
+        let contractedDelta: Double = abs(contractedValue - implicitValue)
+        let expandedDelta: Double = abs(expandedValue - implicitValue)
+        let expansionRange: Double = abs(expandedValue - contractedValue)
+        XCTAssertGreaterThan(contractedDelta, 1.0e-9)
+        XCTAssertGreaterThan(expandedDelta, 1.0e-9)
+        XCTAssertGreaterThan(expansionRange, 1.0e-9)
     }
 
     private func assertParameterSemantics(

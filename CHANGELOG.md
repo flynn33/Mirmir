@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Advanced R00 to `evidence_ready` after replacing the package-backed runtime
+  with an app-owned five-module host, static descriptors, Mirmir-owned factories,
+  deterministic lifecycle rollback, and read-only developer diagnostics.
+- Removed the Forsetti dependency, dynamic manifests, generated package
+  references, and P06 release-injection build phase. Normal Debug and Release
+  builds now require no network package resolution.
+- Made normal product upscaling fail closed pending R03 qualification, retained
+  ASH V3 and VideoToolbox scaffolding as directly testable reference/research
+  code, and retired P06/P07 command authority before parsing or path access.
 - Began R00 under Roadmap 1.0.1, accepted the Apple-native adaptive architecture
   decision, and published a Git-object-bound baseline C01-C11 source inventory.
 - Separated the deterministic required roadmap check from the informational live
@@ -98,8 +107,9 @@ All notable project changes are recorded here.
 - Added the P06 V3 release-bundle manifest and exact 23-artifact closure,
   current-source G04/G05 staging, expanded G06 release integration classes,
   and native runtime-correction evidence bindings.
-- Added `run_p06_production_calibration_v2.py` as the sole authorizing P06
-  command. It composes actual G04/G05/G06 reopening, Apple-native schema-2
+- Historically added `run_p06_production_calibration_v2.py` as the sole
+  authorizing P06 command; R00 subsequently retired that authority. Its former
+  contract composed actual G04/G05/G06 reopening, Apple-native schema-2
   measurement, V3-only release publication, and atomic exact-six publication
   with a terminal receipt. Added `export_p08_release_resources_v3.py` for
   idempotent exact-six recovery from an already authoritative V3 release.
@@ -109,8 +119,8 @@ All notable project changes are recorded here.
 
 ### Changed
 
-- The default product composition now passes `DefaultMetalRenderingService` to
-  `ASHLockedUpscaleBackendFactoryV3`; production jobs construct
+- The superseded product composition passed `DefaultMetalRenderingService` to
+  `ASHLockedUpscaleBackendFactoryV3`; its production jobs constructed
   `ASHMetalUpscaleBackendV3`. The CPU locked backend remains an explicit
   development/test reference.
 - Locked artifact validation and Metal backend construction occur after source
@@ -138,17 +148,18 @@ All notable project changes are recorded here.
   `calibration_candidate` bytes covered by evaluation and compiler identities;
   the enclosing release/evidence authority supplies the pre-P07 lock without
   rewriting those bytes or creating a selection-hash cycle.
-- P07 production execution now consumes schema-2 authority only and has no V1
-  fallback path. Before holdout intent it authoritatively reopens the actual
+- The preserved P07 design consumed schema-2 authority only and had no V1
+  fallback path. Before holdout intent it authoritatively reopened the actual
   external G04/G05/G06 trees under the unchanged clean HEAD and requires their
   fresh semantics and tree identities to match the P06-sealed authority.
-- The P07 guard now consumes only the exact V3 `configuration-lock-v2.json`,
-  shares the P06 descriptor-safe nine-file validator, rejects legacy aliases,
-  and preserves pre-intent startup failures in collision-safe non-opening
+- The preserved P07 guard design consumed only the exact V3
+  `configuration-lock-v2.json`, shared the P06 descriptor-safe nine-file
+  validator, rejected legacy aliases, and preserved pre-intent startup failures in collision-safe non-opening
   diagnostics.
-- P08 evidence is collected before holdout access and sealed. G07 is added only
-  during promotion of unchanged bytes, preserving the one-opening P07 order.
-- P08 profile/capture checks now consume measured GPU analysis/reconstruction,
+- The preserved P08 design collected and sealed evidence before holdout access;
+  R00 leaves P08 dormant and unexecuted. Its promotion design added G07 only
+  after sealing unchanged bytes.
+- Preserved P08 profile/capture checks consume measured GPU analysis/reconstruction,
   command completion/status, CPU-loop/tree-generation, candidate/fallback, and
   full-frame-readback counters. End-to-end speed and frame-rate thresholds are
   enforced for both routes.
@@ -161,6 +172,9 @@ All notable project changes are recorded here.
 
 ### Fixed
 
+- Split two complex numeric test expressions into explicitly typed `Int` and
+  `Double` intermediates so the hosted suite compiles under Xcode 26.6 without
+  changing numeric expectations or tolerances.
 - Split Metal analysis and reconstruction normalization. Analysis now preserves
   video-range luma/chroma excursions for CPU-equivalent state derivation, while
   reconstruction clamps every source code before exact, filtered, or fallback
@@ -199,9 +213,9 @@ All notable project changes are recorded here.
 ### Validation Status
 
 - Focused source-level Metal parity, route/plane coverage, two-candidate chroma
-  counting, resource-ring, output-identity, injection, schema-2 coordinator,
-  control-selection, candidate-provider, and P08 evidence tests are part of the
-  current implementation.
+  counting, resource-ring, output-identity, historical injection, schema-2
+  coordinator, control-selection, candidate-provider, and P08 evidence tests
+  remain as retained reference coverage; they are not normal product behavior.
 - The prior merged V3 wiring checkpoint recorded 280 tests: 279 passed, one
   expected skip, and zero failed. It also recorded zero strict SwiftLint
   violations across 172 files, successful Debug and Release builds,
@@ -213,11 +227,10 @@ All notable project changes are recorded here.
 ### Release Boundaries
 
 - No authorized `Mirmir/Resources/ASH/LockedV3` set is checked into source.
-  Exact six-file release bytes are injected only for an authorized build.
-- Fresh G04 and G05, native runtime correction, G06, P06 publication, exact-app
-  integration, the single P07/G07 execution, and derived G08 finalization must
-  complete in dependency order. This changelog does not claim those gates have
-  passed.
+  The injection build phase is removed, so current builds inject no exact-six
+  release bytes.
+- R00 authorizes no G04-G08 execution. P06/P07 commands fail closed, P08 remains
+  dormant, and this changelog claims no release-closure gate has passed.
 - Fixture tests establish contract enforcement for their exact tested bytes;
   they do not authorize a release or establish perceptual superiority.
 - P08 GPU captures cover exhaustive synthetic route/plane/phase/descriptor

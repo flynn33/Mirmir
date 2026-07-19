@@ -13,6 +13,8 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
     private let telemetryFactory: TelemetryFactory
     private let jobIsActive = OSAllocatedUnfairLock(initialState: false)
 
+    var availability: UpscalerEngineAvailability { .available }
+
     init(
         media: MediaPipelineService,
         metal _: MetalRenderingService,

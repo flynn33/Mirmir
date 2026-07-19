@@ -14,11 +14,6 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     DEAD_CODE_STRIPPING: YES
 
-packages:
-  ForsettiFramework:
-    url: https://github.com/flynn33/Forsetti-Framework-Mac-iOS.git
-    revision: 43eef7a739f3b78253c64aa4b070521ab5b1f43c
-
 targets:
   Mirmir:
     type: application
@@ -30,23 +25,8 @@ targets:
           - "**/*.md"
     resources:
       - path: Mirmir/Assets.xcassets
-      - path: Mirmir/Resources/ForsettiManifests
-        type: folder
       - path: Mirmir/Resources/ASH
         type: folder
-    postBuildScripts:
-      - name: Inject Exact P06 ASH Release
-        script: '"${SRCROOT}/Scripts/inject-ash-p06-release.sh"'
-        inputFiles:
-          - "$(SRCROOT)/Scripts/inject-ash-p06-release.sh"
-        basedOnDependencyAnalysis: false
-    dependencies:
-      - package: ForsettiFramework
-        product: ForsettiCore
-      - package: ForsettiFramework
-        product: ForsettiPlatform
-      - package: ForsettiFramework
-        product: ForsettiHostTemplate
     info:
       path: Mirmir/Info.plist
       properties:

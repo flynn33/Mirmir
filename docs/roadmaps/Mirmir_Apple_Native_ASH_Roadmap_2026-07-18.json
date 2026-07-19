@@ -202,7 +202,7 @@
       "exit": "accepted architecture record and current-source inventory",
       "id": "R00",
       "name": "Strategic reset and evidence preservation",
-      "status": "in_progress"
+      "status": "evidence_ready"
     },
     {
       "depends_on": [

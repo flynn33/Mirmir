@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Run the concrete one-use P07 holdout transaction."""
+"""Retired P07 holdout command and retained verification helpers."""
 
 from __future__ import annotations
+
+if __name__ == "__main__":
+    raise SystemExit(2)
 
 import argparse
 import hashlib
@@ -877,6 +880,11 @@ def _protected_directories(
 
 
 def _main(arguments: argparse.Namespace) -> int:
+    """Reject direct imported use before inspecting supplied arguments."""
+
+    del arguments
+    return 2
+
     repository_root = arguments.repository_root.resolve(strict=True)
     if not arguments.p07_cache_root.is_absolute():
         raise ValueError("P07 cache root must be an absolute path")
@@ -1196,28 +1204,9 @@ def _main(arguments: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    arguments = _arguments()
-    try:
-        return _main(arguments)
-    except BaseException as error:
-        anchor_path = Path(arguments.live_anchor_path)
-        output_directory = Path(arguments.output_directory).resolve(strict=False)
-        durable_executor_failure = any(
-            os.path.lexists(path)
-            for path in (
-                output_directory / "failed-version-archive.json",
-                output_directory.with_name(output_directory.name + ".failed")
-                / "failed-version-archive.json",
-                _pre_guard_failure_staging_path(output_directory)
-                / "failed-version-archive.json",
-            )
-        )
-        if not os.path.lexists(anchor_path) and not durable_executor_failure:
-            _publish_startup_nonopening_failure(
-                output_directory=output_directory,
-                error=error,
-            )
-        raise
+    """Reject the retired authorization path without parsing or file access."""
+
+    return 2
 
 
 if __name__ == "__main__":
