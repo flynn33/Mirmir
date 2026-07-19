@@ -29,11 +29,19 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Test roadmap and inventory verifiers
-        run: python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
+      - name: Test roadmap, inventory, and phase-evidence verifiers
+        run: python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_phase_evidence.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
 
       - name: Verify R00 source inventory
         run: python3 Scripts/r00_inventory.py --check
+
+      - name: Verify closed phase evidence
+        shell: bash
+        run: |
+          while IFS= read -r manifest_path; do
+            phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
+            python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+          done < <(find docs/roadmaps/evidence -type f -name 'phase-evidence.json' -print | sort)

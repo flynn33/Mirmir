@@ -84,9 +84,19 @@ find . \
   xargs -0 -n1 python3 -m json.tool >/dev/null
 
 echo "==> Verifying roadmap alignment..."
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
+python3 -m unittest \
+  Scripts/tests/test_roadmap_alignment.py \
+  Scripts/tests/test_r00_inventory.py \
+  Scripts/tests/test_phase_evidence.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
+
+while IFS= read -r manifest_path; do
+  phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
+  echo "==> Verifying ${phase_id} phase evidence..."
+  python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+done < <(find docs/roadmaps/evidence \
+  -type f -name 'phase-evidence.json' -print | sort)
 
 echo "==> Checking text and path hygiene..."
 scan_pattern="$(build_scan_pattern)"

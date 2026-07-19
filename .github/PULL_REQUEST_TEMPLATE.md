@@ -42,5 +42,7 @@
 ## Validation
 
 - [ ] `python3 -m unittest Scripts/tests/test_roadmap_alignment.py`
+- [ ] `python3 -m unittest Scripts/tests/test_phase_evidence.py`
 - [ ] `python3 Scripts/roadmap_alignment.py --check`
+- [ ] Every present `docs/roadmaps/evidence/rNN/phase-evidence.json` passes `python3 Scripts/phase_evidence.py --phase RNN --check`
 - Additional validation performed:
