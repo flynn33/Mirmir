@@ -9,6 +9,7 @@ Current phase state: `R00: passed`; `R01: next`.
 - [Roadmap Progress](../../README.md#roadmap-progress)
 - [Accepted Architecture Decision](../decisions/0001-apple-native-adaptive-architecture.md)
 - [R00 Current-Source Inventory](evidence/r00-current-source-inventory.md)
+- [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
