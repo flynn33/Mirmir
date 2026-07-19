@@ -2,9 +2,13 @@
 
 > **Current status:** This document records the preserved ASH V3 implementation
 > and the Apple-native target architecture defined by
-> [Roadmap 1.0.0](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md).
+> [Roadmap 1.0.1](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
+> and [ADR 0001](docs/decisions/0001-apple-native-adaptive-architecture.md).
 > ASH V3 testing, failure evidence, and diagnostic artifacts are retained, but
 > their publication is not a release or gate promotion.
+
+- Roadmap phase `R00`: `in_progress`
+- Roadmap phase `R01`: `planned`
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
@@ -12,12 +16,12 @@ VideoToolbox, and Apple platform services. Python modules under `validation/`
 implement offline calibration, evidence production, schema validation, and
 gate finalization. They are not linked into or embedded in `Mirmir.app`.
 
-The preserved source currently consumes Forsetti as a sealed package dependency
+The R00 baseline source still consumes Forsetti as a sealed package dependency
 pinned in `project.yml` and the generated Xcode project to revision
 `43eef7a739f3b78253c64aa4b070521ab5b1f43c`. Roadmap R00 must remove the
 Forsetti repository as a build or runtime dependency while retaining the approved
-Forsetti Pattern B structure: one UI module plus cohesive services assembled once
-in `MirmirForsettiBootstrap` and injected through module factories. The Forsetti
+Pattern B structure: one UI module plus cohesive services assembled once through
+an app-owned composition root and injected through Mirmir-owned factories. The Forsetti
 repository is reference-only; approved app-owned outputs adapted from its
 templates may be committed to Mirmir, but the repository itself must not be
 included, vendored, or referenced as a package dependency.

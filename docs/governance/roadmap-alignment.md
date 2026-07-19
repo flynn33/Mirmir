@@ -2,9 +2,10 @@
 
 The `Roadmap alignment` GitHub check keeps the repository's published product
 direction synchronized with the canonical roadmap. It runs for every pull request
-to `main`, every push to `main`, merge-queue validation, manual dispatch, and a
-weekly scheduled audit. The check has read-only repository permission and uses
-only Python's standard library.
+to `main`, every push to `main`, merge-queue validation, and manual dispatch. The
+required check has read-only repository permission, uses only Python's standard
+library, and performs no live network requests after checkout. A separate
+informational `Roadmap metadata audit` runs weekly or by manual dispatch.
 
 ## What the check enforces
 
@@ -20,15 +21,18 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the generated `Roadmap Progress` indicators in the README;
 - required roadmap, evidence-status, and historical-status language in the aligned
   repository documentation;
-- the current Forsetti dependency boundary and pinned legacy dependency identity;
+- the current Forsetti dependency boundary across tracked package manifests,
+  generated project declarations, active paths, and decorated Swift imports;
+- the exact-commit R00 C01-C11 source inventory and its generated Markdown;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
   execution, create a tag or release, or use `pull_request_target`.
 
-Unit tests run before the repository check. The stable required-check name is
-`Roadmap alignment`. The weekly run repeats the repository and metadata checks so
-description or topic changes made outside a pull request become visible as drift.
+Unit tests run before the repository and inventory checks. The stable required-check name is
+`Roadmap alignment`. The separate weekly metadata audit
+uses three bounded attempts so description or topic changes made outside a pull
+request become visible without making the required check network-dependent.
 
 ## Updating progress
 
@@ -39,14 +43,18 @@ Then regenerate the clearly labeled README progress section and verify the
 repository:
 
 ```sh
-python3 Scripts/roadmap_alignment.py --write-progress
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py
+python3 Scripts/roadmap_alignment.py --write-readme
+python3 Scripts/r00_inventory.py --write-markdown
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
 python3 Scripts/roadmap_alignment.py --check
-GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata
+python3 Scripts/r00_inventory.py --check
+GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 
-`--write-progress` changes only the content between the README progress markers;
+`--write-readme` synchronizes only the canonical-roadmap and progress blocks;
 it does not change roadmap policy, phase authorization, or canonical evidence.
+`r00_inventory.py --write-markdown` regenerates only the human-readable summary
+from the canonical inventory JSON.
 The metadata command compares GitHub's current description and topic set with the
 exact values in policy; it requires a token with read access to repository
 metadata and does not modify GitHub.
@@ -65,10 +73,10 @@ Enforcement follows R00's canonical status:
 
 - `planned`, `next`, or `blocked`: both tracked project declarations must retain
   the exact approved legacy URL, revision, and three products;
-- `in_progress` or `evidence_ready`: the dependency must be either exact and
-  unchanged or completely removed; partial or unpinned migration fails; and
-- `passed`: repository coordinates, package products, and package imports must be
-  absent while app-owned adaptations and manifests remain permitted.
+- `in_progress`: the dependency must be either exact and unchanged or completely
+  removed; partial or unpinned migration fails; and
+- `evidence_ready` or `passed`: repository coordinates, package products,
+  package imports, and Forsetti-named active source/resource paths must be absent.
 
 ## Non-release boundaries
 

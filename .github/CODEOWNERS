@@ -1,12 +1,16 @@
 # Roadmap sources, alignment policy, and enforcement
 /docs/roadmaps/                            @flynn33
+/docs/decisions/                           @flynn33
 /docs/governance/roadmap-alignment.md      @flynn33
 /.github/roadmap-alignment-policy.json     @flynn33
 /.github/workflows/roadmap-alignment.yml   @flynn33
+/.github/workflows/roadmap-metadata-audit.yml @flynn33
 /.github/PULL_REQUEST_TEMPLATE.md          @flynn33
 /.github/CODEOWNERS                        @flynn33
 /Scripts/roadmap_alignment.py              @flynn33
 /Scripts/tests/test_roadmap_alignment.py   @flynn33
+/Scripts/r00_inventory.py                  @flynn33
+/Scripts/tests/test_r00_inventory.py       @flynn33
 /project.yml                               @flynn33
 /Mirmir.xcodeproj/project.pbxproj          @flynn33
 

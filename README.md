@@ -1,8 +1,9 @@
 # Mirmir
 
-Mirmir is a native macOS video-upscaling application built with Swift, SwiftUI,
-Foundation, AVFoundation, CoreVideo, Metal, VideoToolbox, and the Forsetti
-Framework for Mac and iOS.
+Mirmir is a native macOS video-enhancement application built with Swift, SwiftUI,
+Foundation, AVFoundation, CoreVideo, Metal, VideoToolbox, and an app-owned
+Pattern B module runtime. The R00 baseline still carries a temporary sealed
+Forsetti package dependency that R00 removes before evidence acceptance.
 
 The shipping application target contains Apple-native code and resources only.
 Python under `validation/` is offline calibration, evidence, and test tooling; it
@@ -12,7 +13,7 @@ application bundle.
 ## Product Direction and Evidence Status
 
 The canonical product direction is the **Mirmir Apple-Native Adaptive Video
-Enhancement Roadmap 1.0.0**, dated 2026-07-18. The canonical source files are
+Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-19. The canonical source files are
 [Markdown](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md) and
 [machine-readable JSON](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json).
 
@@ -29,13 +30,13 @@ market-position claim.
 
 `[----------]`
 
-**Status:** ➡️ Next `1` · ⬜ Planned `12` · ⛔ Blocked `1`
+**Status:** 🔄 In progress `1` · ⬜ Planned `12` · ⛔ Blocked `1`
 
 **Current focus:** `R00` — Strategic reset and evidence preservation
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
-| `R00` | Strategic reset and evidence preservation | `next` | ➡️ Next |
+| `R00` | Strategic reset and evidence preservation | `in_progress` | 🔄 In progress |
 | `R01` | Apple capability laboratory | `planned` | ⬜ Planned |
 | `R02` | Unified backend and stage architecture | `planned` | ⬜ Planned |
 | `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
@@ -53,12 +54,13 @@ market-position claim.
 
 ## Canonical Roadmap (Complete)
 
-<!-- BEGIN CANONICAL ROADMAP 1.0.0 -->
+<!-- BEGIN CANONICAL ROADMAP 1.0.1 -->
 # Mirmir Roadmap: Apple-Native Adaptive Video Enhancement
 
-**Roadmap version:** 1.0.0<br>
-**Date:** 2026-07-18<br>
-**Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and the Forsetti Framework<br>
+**Roadmap version:** 1.0.1<br>
+**Publication date:** 2026-07-18<br>
+**Revision date:** 2026-07-19<br>
+**Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime<br>
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
 ---
@@ -152,7 +154,7 @@ The following inventory is based on the supplied current project documents and r
 
 | Completed capability | Current evidence | Roadmap disposition |
 |---|---|---|
-| Native Swift/SwiftUI macOS application using Forsetti Pattern B | `README.md`, `ARCHITECTURE.md` | Retain. This remains the composition and dependency-injection foundation. |
+| Native Swift/SwiftUI macOS application using an app-owned Pattern B module runtime | `README.md`, `ARCHITECTURE.md` | Retain the five-module shape and replace the external package boundary in R00. This remains the composition and dependency-injection foundation. |
 | Cohesive UI, Metal, model-assets, media-pipeline, and upscaler-engine modules | `ARCHITECTURE.md` | Retain and extend with capability, orchestration, and Core AI services. |
 | AVFoundation ingest, frame sequencing, audio handling, output writing, reopen verification, and atomic publication | Current media-pipeline modules and project documents | Retain. This is the transaction boundary for every new backend. |
 | CVPixelBuffer and Metal texture interoperability | Current media and Metal modules | Retain and generalize for VideoToolbox, MetalFX, MPS, Core Image, and Core AI zero-copy paths. |
@@ -282,7 +284,7 @@ PostflightQualityMonitor
 EnhancementTelemetryRecorder
 ```
 
-The application composition chooses concrete implementations through Forsetti module factories. Backends do not inspect application UI state, mutate global configuration, or silently construct substitutes.
+The application composition chooses concrete implementations through Mirmir-owned module factories. Backends do not inspect application UI state, mutate global configuration, or silently construct substitutes.
 
 ---
 
@@ -525,7 +527,9 @@ Developer diagnostics may expose individual backends, but the main UI should not
 
 ## R00 — Strategic reset and evidence preservation
 
-**Status:** Begin immediately; no new production calibration.
+**Status:** `in_progress`
+
+No new production calibration is authorized.
 
 ### Work
 
@@ -545,6 +549,8 @@ Developer diagnostics may expose individual backends, but the main UI should not
 ---
 
 ## R01 — Apple capability laboratory
+
+**Status:** `planned`
 
 ### Objective
 
@@ -602,6 +608,8 @@ No backend enters Auto mode without an authoritative capability record from the 
 
 ## R02 — Unified backend and stage architecture
 
+**Status:** `planned`
+
 ### Objective
 
 Make every Apple method interchangeable at a controlled object-oriented boundary without coupling application orchestration to a framework.
@@ -624,6 +632,8 @@ A deterministic fixture can run through multiple backends under one common sessi
 ---
 
 ## R03 — Deterministic Apple-native baseline suite
+
+**Status:** `planned`
 
 ### Objective
 
@@ -656,6 +666,8 @@ One baseline matrix establishes the quality/performance/resource envelope of eve
 
 ## R04 — VideoToolbox super-resolution production integration
 
+**Status:** `planned`
+
 ### Objective
 
 Use Apple’s native video-oriented ML super-resolution engine as the primary Quality path.
@@ -683,6 +695,8 @@ Use Apple’s native video-oriented ML super-resolution engine as the primary Qu
 
 ## R05 — MetalFX integration and suitability decision
 
+**Status:** `planned`
+
 ### Objective
 
 Use MetalFX where its public contract fits decoded video, and reject it where required renderer inputs cannot be supplied honestly.
@@ -709,6 +723,8 @@ A rejection is a valid successful result.
 ---
 
 ## R06 — ASH orchestration engine v1
+
+**Status:** `planned`
 
 ### Objective
 
@@ -742,6 +758,8 @@ ASH orchestration must improve at least one primary product dimension over the b
 
 ## R07 — Temporal stability and artifact governance
 
+**Status:** `planned`
+
 ### Objective
 
 Make temporal consistency and artifact avoidance the first major Mirmir differentiator.
@@ -765,13 +783,15 @@ ASH Auto must reduce preregistered temporal artifact and chroma-displacement mea
 
 ## R08 — Core AI analysis-only integration
 
+**Status:** `planned`
+
 ### Objective
 
 Add learned perception where deterministic analysis is weakest, without granting the model control of the final pixels.
 
 ### Work
 
-- Add a Forsetti `CoreAIAnalysisServiceModule` or cohesive model-assets subservice.
+- Add an app-owned `CoreAIAnalysisServiceModule` or cohesive model-assets subservice.
 - Define model and pre/postprocessing contracts.
 - Run the model on proxy frames, keyframes, or ASH-requested intervals.
 - Produce calibrated masks and confidence maps from Section 7.1.
@@ -786,6 +806,8 @@ Core AI analysis must improve backend selection, protection, artifact rate, or r
 ---
 
 ## R09 — Core AI bounded residual experiment
+
+**Status:** `blocked`
 
 ### Objective
 
@@ -813,6 +835,8 @@ The model is not required to ship.
 ---
 
 ## R10 — Auto-policy optimization and bounded calibration
+
+**Status:** `planned`
 
 ### Objective
 
@@ -843,6 +867,8 @@ One frozen Auto policy and a small number of explicit mode policies pass develop
 ---
 
 ## R11 — Competitive benchmark and market-position decision
+
+**Status:** `planned`
 
 ### Objective
 
@@ -896,6 +922,8 @@ Mirmir makes no “market-leading” claim until blind evaluation and reproducib
 
 ## R12 — Format, route, and product expansion
 
+**Status:** `planned`
+
 ### Work
 
 - 10-bit YCbCr/P010-style internal paths where supported;
@@ -914,6 +942,8 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 ---
 
 ## R13 — Release hardening
+
+**Status:** `planned`
 
 ### Work
 
@@ -1029,8 +1059,7 @@ The roadmap succeeds when all of the following are true:
 - Core Image Lanczos, bicubic, and edge-preserve upsample documentation
 - Accelerate/vImage scaling and resampling documentation
 - WWDC25 and WWDC26 sessions covering VideoToolbox ML video effects, MetalFX, Metal 4 neural rendering, and Core AI
-
-<!-- END CANONICAL ROADMAP 1.0.0 -->
+<!-- END CANONICAL ROADMAP 1.0.1 -->
 
 ## Current Scope
 

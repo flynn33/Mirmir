@@ -140,7 +140,7 @@
     {
       "disposition": "retain",
       "id": "C01",
-      "name": "Forsetti modular macOS application architecture"
+      "name": "App-owned Pattern B modular macOS application architecture"
     },
     {
       "disposition": "retain",
@@ -194,6 +194,7 @@
     }
   ],
   "date": "2026-07-18",
+  "revision_date": "2026-07-19",
   "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
   "phases": [
     {
@@ -201,7 +202,7 @@
       "exit": "accepted architecture record and current-source inventory",
       "id": "R00",
       "name": "Strategic reset and evidence preservation",
-      "status": "next"
+      "status": "in_progress"
     },
     {
       "depends_on": [
@@ -322,7 +323,7 @@
       "status": "planned"
     }
   ],
-  "roadmap_version": "1.0.0",
+  "roadmap_version": "1.0.1",
   "schema_version": "1.0.0",
   "title": "Mirmir Apple-Native Adaptive Video Enhancement Roadmap"
 }
