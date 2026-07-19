@@ -1,0 +1,42 @@
+name: Roadmap alignment
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  merge_group:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 9 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roadmap-alignment-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  roadmap-alignment:
+    name: Roadmap alignment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Test roadmap verifier
+        run: python3 -m unittest Scripts/tests/test_roadmap_alignment.py
+
+      - name: Verify roadmap alignment
+        run: python3 Scripts/roadmap_alignment.py --check
+
+      - name: Verify GitHub repository metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 Scripts/roadmap_alignment.py --check-github-metadata

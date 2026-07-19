@@ -6,6 +6,13 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Added a clearly labeled Roadmap Progress dashboard whose indicators are derived
+  from the canonical roadmap JSON and checked for drift.
+- Added an offline roadmap-alignment verifier, mutation-focused unit tests, a
+  least-privilege GitHub check, review ownership, PR guidance, and a versioned
+  repository policy covering canonical hashes, phase dependencies, authorization
+  gates, documentation status, the Forsetti migration boundary, and prohibited
+  legacy workflow actions.
 - Published the complete Mirmir Apple-Native Adaptive Video Enhancement Roadmap
   1.0.0, dated 2026-07-18, as canonical Markdown and machine-readable JSON and
   embedded the complete Markdown roadmap in the repository README.

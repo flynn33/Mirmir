@@ -81,6 +81,9 @@ find . \
   -name '*.json' -print0 |
   xargs -0 -n1 python3 -m json.tool >/dev/null
 
+echo "==> Verifying roadmap alignment..."
+python3 Scripts/roadmap_alignment.py --check
+
 echo "==> Checking text and path hygiene..."
 scan_pattern="$(build_scan_pattern)"
 if rg -n "$scan_pattern" --hidden \
