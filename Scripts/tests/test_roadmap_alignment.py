@@ -6,6 +6,8 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
+from urllib import error as urlerror
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -14,6 +16,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 from roadmap_alignment import (  # noqa: E402
     AlignmentVerifier,
     compare_github_metadata,
+    fetch_github_metadata,
 )
 
 
@@ -34,6 +37,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             self.policy["readme"]["path"],
             self.policy["forsetti"]["project_path"],
             self.policy["forsetti"]["generated_project_path"],
+            self.policy["r00_inventory"]["json_path"],
         }
         paths.update(self.policy["required_phrases"])
         workflow_root = REPOSITORY_ROOT / self.policy["workflows"]["root"]
@@ -68,6 +72,20 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path = self.root / self.policy["canonical"]["json_path"]
         return path, json.loads(path.read_text(encoding="utf-8"))
 
+    def set_r00_status(self, status: str) -> None:
+        path, roadmap = self.roadmap_json()
+        phases = roadmap["phases"]
+        self.assertIsInstance(phases, list)
+        phases[0]["status"] = status
+        self.write_json(path, roadmap)
+
+    def remove_forsetti_project_declarations(self) -> None:
+        for relative in (
+            self.policy["forsetti"]["project_path"],
+            self.policy["forsetti"]["generated_project_path"],
+        ):
+            (self.root / relative).write_text("// dependency-free\n", encoding="utf-8")
+
     @staticmethod
     def write_json(path: Path, value: dict[str, object]) -> None:
         path.write_text(
@@ -83,10 +101,39 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path.write_text(path.read_text(encoding="utf-8") + "drift\n", encoding="utf-8")
         self.assert_error_contains("SHA-256 differs")
 
+    def test_stale_policy_hash_fails(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        policy["canonical"]["json_sha256"] = "0" * 64
+        self.write_json(policy_path, policy)
+        self.assert_error_contains("SHA-256 differs")
+
+    def test_canonical_markdown_status_drift_fails(self) -> None:
+        path = self.root / self.policy["canonical"]["markdown_path"]
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "**Status:** `in_progress`", "**Status:** `next`", 1
+            ),
+            encoding="utf-8",
+        )
+        self.assert_error_contains("Markdown status differs")
+
+    def test_status_document_drift_fails(self) -> None:
+        path = self.root / "local-work-plan.md"
+        path.write_text(
+            path.read_text(encoding="utf-8").replace(
+                "Roadmap phase `R00`: `in_progress`",
+                "Roadmap phase `R00`: `next`",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        self.assert_error_contains("phase status text differs")
+
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("➡️ Next `1`", "➡️ Next `2`", 1)
+        text = text.replace("🔄 In progress `1`", "🔄 In progress `2`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
@@ -151,6 +198,41 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
         self.assert_error_contains("neither the exact legacy pin nor complete dependency removal")
 
+    def test_r00_evidence_ready_requires_dependency_removal(self) -> None:
+        self.set_r00_status("evidence_ready")
+        self.assert_error_contains("dependency remains after R00")
+
+    def test_alternate_package_swift_declaration_fails(self) -> None:
+        self.set_r00_status("passed")
+        self.remove_forsetti_project_declarations()
+        package = self.root / "Package.swift"
+        package.write_text(
+            '.package(url: "https://example.com/forsetti.git", branch: "main")\n',
+            encoding="utf-8",
+        )
+        self.assert_error_contains("repository coordinate remains")
+
+    def test_package_resolved_identity_fails(self) -> None:
+        self.set_r00_status("passed")
+        self.remove_forsetti_project_declarations()
+        resolved = self.root / "Package.resolved"
+        resolved.write_text(
+            '{"pins":[{"identity":"forsetti-framework-mac-ios"}]}\n',
+            encoding="utf-8",
+        )
+        self.assert_error_contains("dependency declaration remains")
+
+    def test_decorated_forsetti_import_fails(self) -> None:
+        self.set_r00_status("passed")
+        self.remove_forsetti_project_declarations()
+        source = self.root / "Mirmir/DecoratedImport.swift"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(
+            "@_implementationOnly import ForsettiCore\n",
+            encoding="utf-8",
+        )
+        self.assert_error_contains("package import remains")
+
     def test_vendored_forsetti_path_fails(self) -> None:
         vendored = self.root / "ForsettiFramework/Source.swift"
         vendored.parent.mkdir(parents=True)
@@ -167,6 +249,15 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
         self.assert_error_contains("forbidden legacy/release workflow command")
 
+    def test_required_workflow_network_metadata_command_fails(self) -> None:
+        workflow = self.root / ".github/workflows/roadmap-alignment.yml"
+        workflow.write_text(
+            workflow.read_text(encoding="utf-8")
+            + "\n# python3 Scripts/roadmap_alignment.py --check-github-metadata\n",
+            encoding="utf-8",
+        )
+        self.assert_error_contains("deterministic required workflow contains")
+
     def test_github_metadata_comparison_is_exact(self) -> None:
         expected = self.policy["github_repository"]
         payload = {
@@ -178,6 +269,17 @@ class RoadmapAlignmentTests(unittest.TestCase):
         payload["topics"] = payload["topics"][:-1]
         errors = compare_github_metadata(payload, expected)
         self.assertTrue(any("topics differ" in error for error in errors))
+
+    def test_github_metadata_retries_are_bounded(self) -> None:
+        expected = self.policy["github_repository"]
+        with mock.patch(
+            "roadmap_alignment.urlrequest.urlopen",
+            side_effect=urlerror.URLError("offline"),
+        ) as urlopen, mock.patch("roadmap_alignment.time.sleep") as sleep:
+            with self.assertRaises(urlerror.URLError):
+                fetch_github_metadata(expected, attempts=3)
+        self.assertEqual(urlopen.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
 
 
 if __name__ == "__main__":

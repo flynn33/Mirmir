@@ -82,7 +82,9 @@ find . \
   xargs -0 -n1 python3 -m json.tool >/dev/null
 
 echo "==> Verifying roadmap alignment..."
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
 python3 Scripts/roadmap_alignment.py --check
+python3 Scripts/r00_inventory.py --check
 
 echo "==> Checking text and path hygiene..."
 scan_pattern="$(build_scan_pattern)"

@@ -1,0 +1,228 @@
+{
+  "schema_version": "1.0.0",
+  "inventory_id": "r00-current-source-inventory",
+  "roadmap_version": "1.0.1",
+  "status": "baseline",
+  "recorded_date": "2026-07-19",
+  "git_object_format": "sha1",
+  "baseline_checkpoint": "d8eb29d9e75fa163e14fc4ca3dec3f7696b388c9",
+  "baseline_tree_git_object_id": "a032c6a19a7aa72a805bc4c3dcd6dec8f81dedec",
+  "source_tree_git_object_id": "a032c6a19a7aa72a805bc4c3dcd6dec8f81dedec",
+  "source_checkpoint": "d8eb29d9e75fa163e14fc4ca3dec3f7696b388c9",
+  "source_checkpoint_role": "pre-R00 implementation baseline",
+  "entries": [
+    {
+      "id": "C01",
+      "name": "Five-module application composition",
+      "disposition": "retain_and_replace_dependency_boundary",
+      "retained_role": "One UI module, four service modules, stable identities, constructor injection, and one composition root",
+      "future_phase": "R00",
+      "sources": [
+        {"path": "project.yml", "object_type": "blob", "git_object_id": "53e4a6889c3cd737d7879c91121ed6b6784003cc"},
+        {"path": "Mirmir/App", "object_type": "tree", "git_object_id": "a0dc06173299e287b35e1f25ccb17d2fce055983"},
+        {"path": "Mirmir/Modules/UI", "object_type": "tree", "git_object_id": "3d011c146cdd61a21d1913e16772c160435d15cc"},
+        {"path": "Mirmir/Modules/MediaPipeline/MediaPipelineServiceModule.swift", "object_type": "blob", "git_object_id": "f762fd7ce397362526bd9d93edb265c27221d50a"},
+        {"path": "Mirmir/Modules/MetalRendering/MetalRenderingServiceModule.swift", "object_type": "blob", "git_object_id": "274037db5269e24a05f79584b646bc6bcd888be3"},
+        {"path": "Mirmir/Modules/ModelAssets/ModelAssetsServiceModule.swift", "object_type": "blob", "git_object_id": "852b5e689a6714da3e40099ce4cea0737e0ffc35"},
+        {"path": "Mirmir/Modules/UpscalerEngine/UpscalerEngineServiceModule.swift", "object_type": "blob", "git_object_id": "0952f65228fd72a0c5b06fd54add802859798471"},
+        {"path": "Mirmir/Modules/UI/MirmirUIModule.swift", "object_type": "blob", "git_object_id": "94f19e45941f92a15b0941f322d7958934c1c263"},
+        {"path": "Mirmir/Resources/ForsettiManifests", "object_type": "tree", "git_object_id": "98cf3c3613c5af615421ce1a8daa7196b0539ab0"}
+      ]
+    },
+    {
+      "id": "C02",
+      "name": "AVFoundation media transaction",
+      "disposition": "retain",
+      "retained_role": "Ingest, sequencing, audio, output, reopen verification, and atomic publication",
+      "future_phase": "R02",
+      "sources": [
+        {"path": "Mirmir/Modules/MediaPipeline", "object_type": "tree", "git_object_id": "9b22e970815878d089845892f872d97daa42412d"}
+      ]
+    },
+    {
+      "id": "C03",
+      "name": "Metal service and completion boundary",
+      "disposition": "retain",
+      "retained_role": "Metal device, queue, texture cache, asynchronous completion, and resource lifetime",
+      "future_phase": "R02",
+      "sources": [
+        {"path": "Mirmir/Modules/MetalRendering", "object_type": "tree", "git_object_id": "8b6989c7a39a02237c4c90c54e522ca74da6af4e"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialFrameEncoderV3.swift", "object_type": "blob", "git_object_id": "becf5ac2766e960180055ab50fd9287ba30cd9ad"}
+      ]
+    },
+    {
+      "id": "C04",
+      "name": "Reusable Metal frame resource ring",
+      "disposition": "retain",
+      "retained_role": "Three-slot cancellable lease and GPU-to-append lifetime boundary",
+      "future_phase": "R02",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalFrameResourceRingV3.swift", "object_type": "blob", "git_object_id": "a3f1c4ad9b6b3364730698aad905010398bfb92f"}
+      ]
+    },
+    {
+      "id": "C05",
+      "name": "Canonical packed ASH core",
+      "disposition": "retain_as_control_plane",
+      "retained_role": "State, code, strict decoding, parity, and conformance reference",
+      "future_phase": "R06",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift", "object_type": "blob", "git_object_id": "fc7c0066c37cad7ed99ba74d4249ce79498cac09"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift", "object_type": "blob", "git_object_id": "c7c61da2acc0e585019fa043cd32946763d7c428"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreConformance.swift", "object_type": "blob", "git_object_id": "ca6a56a69cb6c8a24ca8ea572b44a6bb295d5bec"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHStrictJSONV3.swift", "object_type": "blob", "git_object_id": "8a67674d2c334879c1b2adb7932e6025fc678a45"}
+      ]
+    },
+    {
+      "id": "C06",
+      "name": "ASH V3 Metal runtime and telemetry",
+      "disposition": "retain_as_reference_and_analysis_substrate",
+      "retained_role": "Plane-aware deterministic analysis, dispatch, reconstruction reference, and bounded telemetry",
+      "future_phase": "R03",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeV3.swift", "object_type": "blob", "git_object_id": "6a586fda6613f66fe5cbe9c01cc7c5b92cd6691a"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimePreparationV3.swift", "object_type": "blob", "git_object_id": "7f489b06a0d10661a529e5be78ec0500fb0f9366"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalSpatialRuntimeSupportV3.swift", "object_type": "blob", "git_object_id": "84db629c132ebfbf937b84279ebea24764ae94fb"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalRuntimeMonitorV3.swift", "object_type": "blob", "git_object_id": "afca626e4f1189b4c0f266c86d4c74b5dc525f10"},
+        {"path": "Mirmir/Modules/Telemetry", "object_type": "tree", "git_object_id": "b9a15b1939d144d6628c8481dbbb230051dc248c"}
+      ]
+    },
+    {
+      "id": "C07",
+      "name": "Direct 2x and 3-over-2x NV12 route contracts",
+      "disposition": "retain_first_contract",
+      "retained_role": "Initial locked route, format, range, matrix, and chroma-siting contract",
+      "future_phase": "R03",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2.swift", "object_type": "blob", "git_object_id": "d274cb57bbb670a2fdb63d83facfd45a5ddf3829"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2+ConfigurationValidation.swift", "object_type": "blob", "git_object_id": "506f151ad8ba048348e0f4cd6baefa7bc8b96abc"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedVideoMappingV2Validation.swift", "object_type": "blob", "git_object_id": "3e441bc3e0a9ef0d5b678ea53f0c1856a4921ee7"}
+      ]
+    },
+    {
+      "id": "C08",
+      "name": "Output identity and atomic verification",
+      "disposition": "retain_and_extend",
+      "retained_role": "Output identity, post-encode reopen verification, and atomic publication",
+      "future_phase": "R02",
+      "sources": [
+        {"path": "Mirmir/Modules/MediaPipeline/AtomicMediaOutput.swift", "object_type": "blob", "git_object_id": "db0c648d15f4eee61a95ddb81cb6dd5be83c022e"},
+        {"path": "Mirmir/Modules/MediaPipeline/OutputMediaVerificationTypes.swift", "object_type": "blob", "git_object_id": "28fff7aadffdaf5e57ff16aad2659dee3a397bda"},
+        {"path": "Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift", "object_type": "blob", "git_object_id": "4d605757f9b4733b78e29f8bceb6021601743fc0"},
+        {"path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift", "object_type": "blob", "git_object_id": "3fb51b930455c917686063788d987428f9204092"}
+      ]
+    },
+    {
+      "id": "C09",
+      "name": "Exact resource validation and legacy build injection",
+      "disposition": "retain_validation_retire_p06_injection",
+      "retained_role": "Fail-closed asset validation remains reusable; P06-specific build injection is retired in R00",
+      "future_phase": "R00",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedArtifactStoreV3.swift", "object_type": "blob", "git_object_id": "9cc1eb4e8fde977f3fd0b4a361c65ac8954dd356"},
+        {"path": "Scripts/inject-ash-p06-release.sh", "object_type": "blob", "git_object_id": "c8f9ab8977b47c5f295fb4bff9b36ab60fb7e153"},
+        {"path": "project.yml", "object_type": "blob", "git_object_id": "53e4a6889c3cd737d7879c91121ed6b6784003cc"}
+      ]
+    },
+    {
+      "id": "C10",
+      "name": "Offline calibration and exact-app evidence infrastructure",
+      "disposition": "repurpose",
+      "retained_role": "Schedulers, schemas, validators, metrics, and exact-app measurement infrastructure",
+      "future_phase": "R03",
+      "sources": [
+        {"path": "validation", "object_type": "tree", "git_object_id": "51af382583c657d8c99187a0ddc911d46e5f9171"},
+        {"path": "MirmirP08Tests", "object_type": "tree", "git_object_id": "5d70219b8cbbc90d9fd45c7dc3b4b0a7ff9913ef"},
+        {"path": "Scripts/run-ash-p08-native-evidence.sh", "object_type": "blob", "git_object_id": "3fd6562ea9c8d06f3753a0a57df2d326d0d293ee"}
+      ]
+    },
+    {
+      "id": "C11",
+      "name": "ASH V3 operator bank and LUT assets",
+      "disposition": "repurpose_as_reference_fallback_and_policy_dispatch",
+      "retained_role": "Deterministic operator reference, policy dispatch research, and immutable resource examples",
+      "future_phase": "R06",
+      "sources": [
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHSpatialOperatorBankV2.swift", "object_type": "blob", "git_object_id": "d138c77803ae85f13243d4f23a00d1f5b6bb8a4c"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHImmutableLUTLoaderV3.swift", "object_type": "blob", "git_object_id": "15cc0e0ccd8403976d6d3cc58b66992181c57e11"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTCompilerV3.swift", "object_type": "blob", "git_object_id": "b2e21c46f672141b0b47ee58dae2b92392722aa8"},
+        {"path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLUTBinaryFormatV3.swift", "object_type": "blob", "git_object_id": "ddd3b7940229e01e15993a8ad3ad5982b9570b07"},
+        {"path": "Mirmir/Resources/ASH", "object_type": "tree", "git_object_id": "c5c027817a9568f2a45afaa52b3fdef326208b8f"}
+      ]
+    }
+  ],
+  "retire_or_replace": [
+    {
+      "path": "validation/calibration_v2/tools/run_p06_production_calibration_v2.py",
+      "reason": "Retire the monolithic production coordinator entry point as current authority",
+      "phase": "R00"
+    },
+    {
+      "path": "validation/calibration_v2/tools/run_p07_locked_holdout.py",
+      "reason": "Retire the legacy holdout entry point as current authority",
+      "phase": "R00"
+    },
+    {
+      "path": "Scripts/inject-ash-p06-release.sh",
+      "reason": "Retain as historical tooling but remove its product build-phase authorization",
+      "phase": "R00"
+    },
+    {
+      "path": "Mirmir/Modules/UpscalerEngine/VTSuperResolutionDriver.swift",
+      "reason": "Replace pseudocode and copy fallback with a qualified backend after capability and baseline evidence",
+      "phase": "R04"
+    },
+    {
+      "path": "Mirmir/Modules/ModelAssets/VTModelStager.swift",
+      "reason": "Replace simulated readiness with measured capability and asset state",
+      "phase": "R01"
+    },
+    {
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHLockedUpscaleBackendV3.swift",
+      "reason": "Retain as a reference while retiring the production-primary assumption",
+      "phase": "R03"
+    }
+  ],
+  "missing_roadmap_inputs": [
+    "canonical-computational-specification.md",
+    "Mirmir_Sprint_Evidence_Audit_2026-07-16.md",
+    "Mirmir_P06_Revised_Plan_Assessment_2026-07-17.md",
+    "mirmir-concept-exploration.md",
+    "Mirmir071626.zip"
+  ],
+  "roadmap_input_resolutions": [
+    {
+      "roadmap_reference": "ash-v3-production-wiring-design.md",
+      "tracked_path": "project-notes/ash-v3-production-wiring-design.md",
+      "git_object_id": "bf73f86df0426b66dae36d905d29badd896ddd8e",
+      "resolution": "unambiguous_tracked_candidate"
+    }
+  ],
+  "official_evidence_boundary": "Section 13 names official Apple evidence descriptively but records no tracked URL snapshot or content hash; R00 does not claim repository-local preservation of those external sources.",
+  "absent_historical_paths": [
+    "Artifacts/ASH/20260713-p06-postrepair-8f0de437-3230-421e-8b25-464e2dbbe16e/g06/g06-postrepair-r1.failed"
+  ],
+  "external_p06_evidence": {
+    "receipt_path": "analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json",
+    "receipt_git_object_id": "41df9fd52abe112d52987126d8cf0c7bc947bce1",
+    "external_root": "Artifacts/ASH/20260714-current-source-de4feb30-9c90-4706-aaa7-c6dd82cac1fb/p06-current-source-r1/support-calibration-run/p06-current-source-r1.failed",
+    "file_count": 818,
+    "size_bytes": 3340628824,
+    "tree_sha256": "5d1f22b2467a5caa83b5b7b499389e6577d244721af466c57989d23513b22d76",
+    "local_tree_available": false,
+    "bytes_reopened_for_r00": false,
+    "boundary": "The tracked authenticated receipt is preserved; the external bulk tree is unavailable and is not claimed as locally possessed or reopened."
+  },
+  "historical_preservation": [
+    {"path": "Artifacts/ASH", "object_type": "tree", "git_object_id": "cb0edcfbf74ab0e56915f53436120cbbbeb09e2e"},
+    {"path": "analysis/ash-failure-patterns", "object_type": "tree", "git_object_id": "300273852bed40d53bcdcfaee3caef3b29661997"},
+    {"path": "audit-result.json", "object_type": "blob", "git_object_id": "2040a7d4d5c1d3a13caf9de92a420a440ee7a247"},
+    {"path": "analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json", "object_type": "blob", "git_object_id": "41df9fd52abe112d52987126d8cf0c7bc947bce1"}
+  ],
+  "holdout_boundary": {
+    "pixel_access_authorized": false,
+    "verification_scope": "tracked no-pixel metadata only",
+    "physical_sparsebundle_verified": false,
+    "keychain_item_verified": false
+  }
+}

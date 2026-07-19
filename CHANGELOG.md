@@ -6,6 +6,11 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R00 under Roadmap 1.0.1, accepted the Apple-native adaptive architecture
+  decision, and published a Git-object-bound baseline C01-C11 source inventory.
+- Separated the deterministic required roadmap check from the informational live
+  repository-metadata audit, added phase-status consistency checks, and hardened
+  dependency-boundary and inventory mutation coverage.
 - Added a clearly labeled Roadmap Progress dashboard whose indicators are derived
   from the canonical roadmap JSON and checked for drift.
 - Added an offline roadmap-alignment verifier, mutation-focused unit tests, a

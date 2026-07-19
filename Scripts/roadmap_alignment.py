@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 from typing import Any
 from urllib import error as urlerror
 from urllib import request as urlrequest
@@ -159,7 +160,9 @@ class AlignmentVerifier:
             self._check_readme_canonical_copy()
             self._check_readme_progress()
             self._check_forsetti_boundary()
+            self._check_inventory_status_coupling()
         self._check_required_phrases()
+        self._check_phase_status_documents()
         self._check_forbidden_tracked_paths()
         self._check_workflows()
         return sorted(set(self.errors))
@@ -208,7 +211,7 @@ class AlignmentVerifier:
         contract = self.policy["contract"]
         json_relative = canonical["json_path"]
 
-        for key in ("schema_version", "roadmap_version", "date"):
+        for key in ("schema_version", "roadmap_version", "date", "revision_date"):
             expected = canonical[key]
             if roadmap.get(key) != expected:
                 self.add_error(
@@ -324,6 +327,7 @@ class AlignmentVerifier:
                     )
 
         self._check_dependency_cycles(dependencies, json_relative)
+        self._check_markdown_phase_statuses(phases, canonical["markdown_path"])
         active_statuses = {"next", "in_progress", "evidence_ready", "passed"}
         for phase_id, required in dependencies.items():
             phase = phase_by_id[phase_id]
@@ -337,6 +341,29 @@ class AlignmentVerifier:
                         f"phase {phase_id} is {phase.get('status')!r} before "
                         f"dependency {dependency} is passed",
                     )
+
+    def _check_markdown_phase_statuses(
+        self, phases: list[dict[str, Any]], relative: str
+    ) -> None:
+        if not self.roadmap_markdown:
+            return
+        for phase in phases:
+            phase_id = phase["id"]
+            section = re.search(
+                rf"(?ms)^## {re.escape(phase_id)} —[^\n]*\n"
+                rf"(?P<body>.*?)(?=^## R[0-9]{{2}} —|\Z)",
+                self.roadmap_markdown,
+            )
+            if section is None:
+                self.add_error(relative, f"phase section is missing for {phase_id}")
+                continue
+            expected = f"**Status:** `{phase.get('status')}`"
+            if expected not in section.group("body"):
+                self.add_error(
+                    relative,
+                    f"phase {phase_id} Markdown status differs from canonical JSON; "
+                    f"expected {expected!r}",
+                )
 
     def _check_dependency_cycles(
         self, dependencies: dict[str, list[str]], relative: str
@@ -378,6 +405,7 @@ class AlignmentVerifier:
         expected_values = {
             f"Roadmap {canonical['roadmap_version']}": "roadmap version",
             canonical["date"]: "roadmap date",
+            canonical["revision_date"]: "roadmap revision date",
             canonical["markdown_sha256"]: "Markdown SHA-256",
             canonical["json_sha256"]: "JSON SHA-256",
         }
@@ -471,6 +499,57 @@ class AlignmentVerifier:
             for phrase in phrases:
                 if phrase not in text:
                     self.add_error(relative, f"required alignment text is missing: {phrase!r}")
+
+    def _check_phase_status_documents(self) -> None:
+        if self.roadmap is None:
+            return
+        phase_by_id = {
+            phase["id"]: phase
+            for phase in self.roadmap.get("phases", [])
+            if isinstance(phase, dict) and isinstance(phase.get("id"), str)
+        }
+        for relative, phase_ids in self.policy["phase_status_documents"].items():
+            text = self.read_text(relative)
+            if text is None:
+                continue
+            for phase_id in phase_ids:
+                phase = phase_by_id.get(phase_id)
+                if phase is None:
+                    self.add_error(relative, f"status contract references missing phase {phase_id}")
+                    continue
+                expected = f"Roadmap phase `{phase_id}`: `{phase.get('status')}`"
+                if expected not in text:
+                    self.add_error(
+                        relative,
+                        f"phase status text differs from canonical JSON; expected {expected!r}",
+                    )
+
+    def _check_inventory_status_coupling(self) -> None:
+        assert self.roadmap is not None
+        inventory_policy = self.policy["r00_inventory"]
+        relative = inventory_policy["json_path"]
+        try:
+            inventory = read_json(self.path(relative))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self.add_error(relative, f"inventory status cannot be read: {exc}")
+            return
+        r00 = next(
+            (
+                phase
+                for phase in self.roadmap.get("phases", [])
+                if isinstance(phase, dict) and phase.get("id") == "R00"
+            ),
+            None,
+        )
+        if r00 is None:
+            return
+        expected = inventory_policy["status_by_r00_phase_status"].get(r00.get("status"))
+        if inventory.get("status") != expected:
+            self.add_error(
+                relative,
+                "inventory status differs from R00 phase status: "
+                f"expected {expected!r}, found {inventory.get('status')!r}",
+            )
 
     def tracked_paths(self) -> list[str]:
         if self._tracked_paths_cache is not None:
@@ -690,8 +769,38 @@ class AlignmentVerifier:
                     (relative, "Forsetti package product remains after R00")
                 )
 
+        for relative in self._dependency_manifest_paths():
+            path = self.path(relative)
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            lower = text.lower()
+            forbidden_dependency_literals = {
+                forsetti["allowed_dependency_url"].lower(),
+                "forsettiframework",
+                "forsetti-framework-mac-ios",
+                *(product.lower() for product in products),
+            }
+            if any(value in lower for value in forbidden_dependency_literals):
+                errors.append(
+                    (relative, "Forsetti dependency declaration remains after R00")
+                )
+            if any(
+                "forsetti" in value.lower()
+                for value in re.findall(r"https?://[^\s\"';,)]+", text)
+            ):
+                errors.append(
+                    (relative, "Forsetti repository coordinate remains after R00")
+                )
+
         import_pattern = re.compile(
-            r"(?m)^\s*import\s+Forsetti[A-Za-z0-9_]+\s*$"
+            r"(?m)^\s*"
+            r"(?:(?:@[_A-Za-z][A-Za-z0-9_]*(?:\([^\n)]*\))?)\s+)*"
+            r"(?:(?:public|internal|package|fileprivate|private)\s+)?"
+            r"import\s+"
+            r"(?:(?:class|struct|enum|protocol|typealias|func|var|let)\s+)?"
+            r"Forsetti[A-Za-z0-9_]*(?:\.[A-Za-z0-9_.]+)?\s*$"
         )
         for relative in self.tracked_paths():
             if not relative.endswith(".swift"):
@@ -703,6 +812,15 @@ class AlignmentVerifier:
                 continue
             if import_pattern.search(text):
                 errors.append((relative, "Forsetti package import remains after R00"))
+        active_path_patterns = [
+            re.compile(pattern)
+            for pattern in forsetti["forbidden_active_path_patterns"]
+        ]
+        for relative in self.tracked_paths():
+            if any(pattern.search(relative) for pattern in active_path_patterns):
+                errors.append(
+                    (relative, "Forsetti-named active source or resource path remains after R00")
+                )
         gitmodules = self.path(".gitmodules")
         if gitmodules.is_file() and "forsetti" in gitmodules.read_text(encoding="utf-8").lower():
             errors.append((".gitmodules", "Forsetti submodule remains after R00"))
@@ -740,6 +858,28 @@ class AlignmentVerifier:
                         relative,
                         f"forbidden workflow trigger matches {pattern.pattern!r}",
                     )
+        deterministic_relative = workflow_policy["deterministic_required_path"]
+        deterministic_path = self.path(deterministic_relative)
+        if deterministic_path.is_file():
+            deterministic_text = deterministic_path.read_text(encoding="utf-8")
+            for value in workflow_policy["deterministic_forbidden_patterns"]:
+                if value.lower() in deterministic_text.lower():
+                    self.add_error(
+                        deterministic_relative,
+                        f"deterministic required workflow contains network metadata command {value!r}",
+                    )
+
+    @staticmethod
+    def _replace_between_markers(
+        text: str, start: str, end: str, body: str
+    ) -> str:
+        if text.count(start) != 1 or text.count(end) != 1:
+            raise ValueError("README markers must each occur exactly once")
+        start_index = text.index(start) + len(start)
+        end_index = text.index(end)
+        if start_index >= end_index:
+            raise ValueError("README markers are out of order")
+        return text[:start_index] + body + text[end_index:]
 
     def write_progress(self) -> None:
         canonical = self.policy["canonical"]
@@ -749,18 +889,37 @@ class AlignmentVerifier:
         text = readme_path.read_text(encoding="utf-8")
         start = readme_policy["progress_start_marker"]
         end = readme_policy["progress_end_marker"]
-        if text.count(start) != 1 or text.count(end) != 1:
-            raise ValueError("roadmap progress markers must each occur exactly once")
-        start_index = text.index(start) + len(start)
-        end_index = text.index(end)
-        if start_index >= end_index:
-            raise ValueError("roadmap progress markers are out of order")
         body = "\n" + render_progress(roadmap, self.policy) + "\n"
-        updated = text[:start_index] + body + text[end_index:]
+        updated = self._replace_between_markers(text, start, end, body)
         readme_path.write_text(updated, encoding="utf-8")
 
+    def write_readme(self) -> None:
+        canonical = self.policy["canonical"]
+        roadmap = read_json(self.path(canonical["json_path"]))
+        markdown = self.path(canonical["markdown_path"]).read_text(encoding="utf-8")
+        readme_policy = self.policy["readme"]
+        readme_path = self.path(readme_policy["path"])
+        text = readme_path.read_text(encoding="utf-8")
+        canonical_body = "\n" + markdown.replace("  \n", "<br>\n")
+        text = self._replace_between_markers(
+            text,
+            readme_policy["canonical_start_marker"],
+            readme_policy["canonical_end_marker"],
+            canonical_body,
+        )
+        progress_body = "\n" + render_progress(roadmap, self.policy) + "\n"
+        text = self._replace_between_markers(
+            text,
+            readme_policy["progress_start_marker"],
+            readme_policy["progress_end_marker"],
+            progress_body,
+        )
+        readme_path.write_text(text, encoding="utf-8")
 
-def fetch_github_metadata(expected: dict[str, Any]) -> dict[str, Any]:
+
+def fetch_github_metadata(
+    expected: dict[str, Any], attempts: int = 1
+) -> dict[str, Any]:
     repository = expected["name_with_owner"]
     configured_repository = os.environ.get("GITHUB_REPOSITORY")
     if configured_repository and configured_repository != repository:
@@ -775,12 +934,25 @@ def fetch_github_metadata(expected: dict[str, Any]) -> dict[str, Any]:
     token = os.environ.get("GITHUB_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    request = urlrequest.Request(
-        f"https://api.github.com/repos/{repository}",
-        headers=headers,
-    )
-    with urlrequest.urlopen(request, timeout=30) as response:
-        payload = json.load(response)
+    if attempts < 1 or attempts > 5:
+        raise ValueError("metadata attempts must be between 1 and 5")
+    payload: Any = None
+    for attempt in range(1, attempts + 1):
+        request = urlrequest.Request(
+            f"https://api.github.com/repos/{repository}",
+            headers=headers,
+        )
+        try:
+            with urlrequest.urlopen(request, timeout=30) as response:
+                payload = json.load(response)
+            break
+        except urlerror.HTTPError as exc:
+            if exc.code not in {429, 500, 502, 503, 504} or attempt == attempts:
+                raise
+        except (urlerror.URLError, TimeoutError):
+            if attempt == attempts:
+                raise
+        time.sleep(min(2 ** (attempt - 1), 4))
     if not isinstance(payload, dict):
         raise ValueError("GitHub repository response is not an object")
     return payload
@@ -800,12 +972,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="regenerate only the README Roadmap Progress block",
     )
     operation.add_argument(
+        "--write-readme",
+        action="store_true",
+        help="regenerate the README canonical roadmap and progress blocks",
+    )
+    operation.add_argument(
         "--check-github-metadata",
         action="store_true",
         help="compare live repository description and topics with policy",
     )
     parser.add_argument("--root", type=Path, default=repository_root_from_script())
     parser.add_argument("--policy", type=Path, default=DEFAULT_POLICY_PATH)
+    parser.add_argument(
+        "--metadata-attempts",
+        type=int,
+        default=1,
+        help="bounded attempts for the live metadata audit (1-5)",
+    )
     return parser.parse_args(argv)
 
 
@@ -817,9 +1000,13 @@ def main(argv: list[str] | None = None) -> int:
             verifier.write_progress()
             print("Roadmap Progress updated from canonical JSON.")
             return 0
+        if args.write_readme:
+            verifier.write_readme()
+            print("README roadmap blocks updated from canonical sources.")
+            return 0
         if args.check_github_metadata:
             expected = verifier.policy["github_repository"]
-            payload = fetch_github_metadata(expected)
+            payload = fetch_github_metadata(expected, attempts=args.metadata_attempts)
             errors = compare_github_metadata(payload, expected)
         else:
             errors = verifier.check()

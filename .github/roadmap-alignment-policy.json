@@ -4,11 +4,12 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "9fc5fab10b2fb67c8c48c9df3a985c1cb81a42fed19ebc9463bceeaafb9c22b4",
-    "json_sha256": "1b1a8d02dea29391ff8882c258d1b29a689f3d2268178610bdd8fad134a0cd41",
+    "markdown_sha256": "a32d69e9f1507bb34f551707ccc550482c9676fbe45141ada850a1b98d2c5952",
+    "json_sha256": "6d9aa8544cb86e39be20de90b8757d5c1390463e6ff889345b7a1ff9d4369256",
     "schema_version": "1.0.0",
-    "roadmap_version": "1.0.0",
-    "date": "2026-07-18"
+    "roadmap_version": "1.0.1",
+    "date": "2026-07-18",
+    "revision_date": "2026-07-19"
   },
   "contract": {
     "phase_ids": [
@@ -59,8 +60,8 @@
   },
   "readme": {
     "path": "README.md",
-    "canonical_start_marker": "<!-- BEGIN CANONICAL ROADMAP 1.0.0 -->",
-    "canonical_end_marker": "<!-- END CANONICAL ROADMAP 1.0.0 -->",
+    "canonical_start_marker": "<!-- BEGIN CANONICAL ROADMAP 1.0.1 -->",
+    "canonical_end_marker": "<!-- END CANONICAL ROADMAP 1.0.1 -->",
     "progress_start_marker": "<!-- BEGIN ROADMAP PROGRESS -->",
     "progress_end_marker": "<!-- END ROADMAP PROGRESS -->"
   },
@@ -119,10 +120,14 @@
       "name: Roadmap alignment",
       "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
       "python3 Scripts/roadmap_alignment.py --check",
-      "python3 Scripts/roadmap_alignment.py --check-github-metadata"
+      "python3 Scripts/r00_inventory.py --check"
+    ],
+    ".github/workflows/roadmap-metadata-audit.yml": [
+      "name: Roadmap metadata audit",
+      "python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3"
     ],
     "ARCHITECTURE.md": [
-      "Roadmap 1.0.0",
+      "Roadmap 1.0.1",
       "not a release or gate promotion",
       "repository is reference-only"
     ],
@@ -134,6 +139,7 @@
     "README.md": [
       "## Product Direction and Evidence Status",
       "## Roadmap Progress",
+      "Enhancement Roadmap 1.0.1",
       "evidence-preservation action, not a product release",
       "repository is reference-only"
     ],
@@ -149,7 +155,7 @@
     "local-work-plan.md": [
       "superseded as the forward product plan",
       "No tag or release is authorized",
-      "R00 strategic reset and current-source inventory: next."
+      "## Current Roadmap Execution State"
     ],
     "project-notes/ash-upscaling-implementation-log.md": [
       "Historical implementation log",
@@ -166,6 +172,16 @@
     "validation/quality/README.md": [
       "Retained validation tooling",
       "not current product qualification or release authority"
+    ]
+  },
+  "phase_status_documents": {
+    "ARCHITECTURE.md": [
+      "R00",
+      "R01"
+    ],
+    "local-work-plan.md": [
+      "R00",
+      "R01"
     ]
   },
   "github_repository": {
@@ -193,7 +209,7 @@
     "phase_id": "R00",
     "mode_by_phase_status": {
       "blocked": "legacy_exact",
-      "evidence_ready": "legacy_or_absent",
+      "evidence_ready": "reference_only",
       "in_progress": "legacy_or_absent",
       "next": "legacy_exact",
       "passed": "reference_only",
@@ -212,7 +228,99 @@
       "(?i)(^|/)Forsetti-Framework-Mac-iOS(/|$)",
       "(?i)(^|/)ForsettiFramework(/|$)",
       "(?i)(^|/)[^/]*forsetti[^/]*\\.(framework|xcframework)(/|$)"
+    ],
+    "forbidden_active_path_patterns": [
+      "(?i)^Mirmir/.*forsetti"
     ]
+  },
+  "r00_inventory": {
+    "json_path": "docs/roadmaps/evidence/r00-current-source-inventory.json",
+    "markdown_path": "docs/roadmaps/evidence/r00-current-source-inventory.md",
+    "required_entry_ids": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "C07",
+      "C08",
+      "C09",
+      "C10",
+      "C11"
+    ],
+    "allowed_statuses": [
+      "baseline",
+      "accepted"
+    ],
+    "baseline_checkpoint": "d8eb29d9e75fa163e14fc4ca3dec3f7696b388c9",
+    "baseline_tree_git_object_id": "a032c6a19a7aa72a805bc4c3dcd6dec8f81dedec",
+    "git_object_format": "sha1",
+    "status_by_r00_phase_status": {
+      "blocked": "baseline",
+      "evidence_ready": "baseline",
+      "in_progress": "baseline",
+      "next": "baseline",
+      "passed": "accepted",
+      "planned": "baseline"
+    },
+    "missing_roadmap_inputs": [
+      "canonical-computational-specification.md",
+      "Mirmir_Sprint_Evidence_Audit_2026-07-16.md",
+      "Mirmir_P06_Revised_Plan_Assessment_2026-07-17.md",
+      "mirmir-concept-exploration.md",
+      "Mirmir071626.zip"
+    ],
+    "roadmap_input_resolutions": [
+      {
+        "roadmap_reference": "ash-v3-production-wiring-design.md",
+        "tracked_path": "project-notes/ash-v3-production-wiring-design.md",
+        "git_object_id": "bf73f86df0426b66dae36d905d29badd896ddd8e",
+        "resolution": "unambiguous_tracked_candidate"
+      }
+    ],
+    "absent_historical_paths": [
+      "Artifacts/ASH/20260713-p06-postrepair-8f0de437-3230-421e-8b25-464e2dbbe16e/g06/g06-postrepair-r1.failed"
+    ],
+    "external_p06_evidence": {
+      "receipt_path": "analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json",
+      "receipt_git_object_id": "41df9fd52abe112d52987126d8cf0c7bc947bce1",
+      "external_root": "Artifacts/ASH/20260714-current-source-de4feb30-9c90-4706-aaa7-c6dd82cac1fb/p06-current-source-r1/support-calibration-run/p06-current-source-r1.failed",
+      "file_count": 818,
+      "size_bytes": 3340628824,
+      "tree_sha256": "5d1f22b2467a5caa83b5b7b499389e6577d244721af466c57989d23513b22d76"
+    },
+    "historical_preservation": [
+      {
+        "path": "Artifacts/ASH",
+        "object_type": "tree",
+        "git_object_id": "cb0edcfbf74ab0e56915f53436120cbbbeb09e2e"
+      },
+      {
+        "path": "analysis/ash-failure-patterns",
+        "object_type": "tree",
+        "git_object_id": "300273852bed40d53bcdcfaee3caef3b29661997"
+      },
+      {
+        "path": "audit-result.json",
+        "object_type": "blob",
+        "git_object_id": "2040a7d4d5c1d3a13caf9de92a420a440ee7a247"
+      },
+      {
+        "path": "analysis/ash-failure-patterns/evidence/p06-v1-terminal-failure-analysis-receipt-v1.json",
+        "object_type": "blob",
+        "git_object_id": "41df9fd52abe112d52987126d8cf0c7bc947bce1"
+      }
+    ],
+    "holdout_verification": {
+      "sealed_ledger_path": "validation/quality/locks/holdout-access-ledger.sealed-copy.json",
+      "attestation_path": "validation/quality/locks/holdout-seal-attestation.no-pixel.json",
+      "mounted": false,
+      "status": "unopened",
+      "access_count": 0,
+      "sealed_ledger_sha256": "cbbd5bed6f9c39a7cbff823f3215e3d7c80e6d9b3f540d1b24cdd6ba30533805",
+      "attestation_sha256": "32ec99c94d36a6b59d645279778dea4ccd5b583993cd4ed1d817b99c85c1b874"
+    }
   },
   "workflows": {
     "root": ".github/workflows",
@@ -226,6 +334,13 @@
     ],
     "forbidden_trigger_patterns": [
       "pull_request_target"
+    ],
+    "deterministic_required_path": ".github/workflows/roadmap-alignment.yml",
+    "deterministic_forbidden_patterns": [
+      "--check-github-metadata",
+      "api.github.com",
+      "curl ",
+      "wget "
     ]
   }
 }
