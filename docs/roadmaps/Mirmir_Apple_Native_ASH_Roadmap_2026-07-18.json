@@ -132,6 +132,7 @@
     "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
     "holdout": "blocked",
     "market_leading_claim": "blocked",
+    "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
     "production_auto_mode": "blocked",
     "strategic_reset": "authorized",
     "unified_backend_architecture": "authorized_after_capability_contracts"
@@ -194,7 +195,7 @@
     }
   ],
   "date": "2026-07-18",
-  "revision_date": "2026-07-19",
+  "revision_date": "2026-07-20",
   "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
   "phases": [
     {
@@ -208,7 +209,7 @@
       "depends_on": [
         "R00"
       ],
-      "exit": "authoritative compile/runtime capability matrix",
+      "exit": "closed A01-A18 capability disposition matrix; unavailable hardware, simulator, and operator observation recorded as not_observed",
       "id": "R01",
       "name": "Apple capability laboratory",
       "status": "in_progress"
@@ -226,7 +227,7 @@
       "depends_on": [
         "R02"
       ],
-      "exit": "quality/performance/resource baseline matrix",
+      "exit": "deterministic baseline matrix; unavailable execution recorded as not_observed without performance claims",
       "id": "R03",
       "name": "Deterministic Apple-native baseline suite",
       "status": "planned"
@@ -235,7 +236,7 @@
       "depends_on": [
         "R03"
       ],
-      "exit": "quality and low-latency VT backends qualified",
+      "exit": "quality and low-latency VT integration contracts implemented with qualified, diagnostic-only, rejected, or not_observed dispositions",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
       "status": "planned"
@@ -244,7 +245,7 @@
       "depends_on": [
         "R03"
       ],
-      "exit": "qualified/restricted/rejected disposition for each MetalFX path",
+      "exit": "qualified, restricted, diagnostic-only, rejected, or not_observed disposition for each MetalFX path",
       "id": "R05",
       "name": "MetalFX integration and suitability decision",
       "status": "planned"
@@ -254,7 +255,7 @@
         "R04",
         "R05"
       ],
-      "exit": "positive ASH orchestration ablation",
+      "exit": "verified ASH orchestration contract; unavailable product ablation recorded as not_observed",
       "id": "R06",
       "name": "ASH orchestration engine v1",
       "status": "planned"
@@ -263,7 +264,7 @@
       "depends_on": [
         "R06"
       ],
-      "exit": "measured temporal and chroma improvement",
+      "exit": "verified temporal and artifact-governance contract; unavailable media observation recorded as not_observed",
       "id": "R07",
       "name": "Temporal stability and artifact governance",
       "status": "planned"

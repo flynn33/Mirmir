@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.2
+- **Handoff version:** 1.3
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -22,6 +22,32 @@
 > governance documents control if this handoff conflicts with them. This document changes
 > no phase status, authorization, evidence acceptance, product behavior,
 > repository setting, release authority, or holdout authority.
+
+### Operator observation override — 2026-07-20
+
+The operator explicitly waived every requirement for physical-hardware testing,
+an unavailable simulator, operator-observed simulation, and operator-observed
+hardware operation. None of those conditions is a blocker or a reason to stop
+work. If execution is unavailable or not performed, record the affected
+anchor/capability as `not_observed` and continue through the dependency plan. Do
+not synthesize host, simulator, API, model, performance, memory,
+repeatability, product-qualification, backend-eligibility, or perceptual-quality
+facts.
+
+The current app, worker, and test targets are macOS-only; Xcode advertises no
+Simulator destination for them. The installed iOS/tvOS CoreSimulator runtimes do
+not establish macOS or Mac-hardware capability. Use a compatible simulator
+automatically if one later becomes available, but do not stop when it is absent.
+
+The canonical not-observed path is
+`Scripts/r01_observation_waiver.py`; the existing native-host preregistration,
+runner, raw-report, and aggregate path remains optional supplemental evidence.
+This addendum controls over every conflicting physical-host,
+unavailable-simulator, or operator-observation instruction later in this
+handoff. Native live-run and model-freeze requirements remain applicable only to
+the optional native supplemental path. Non-hardware implementation, deterministic
+tests, safety, privacy, publication, pull-request, merge, holdout, production,
+and release authority are unchanged.
 
 ## 1. Resume instructions
 
@@ -465,9 +491,11 @@ MirmirTests/AppleUpscaleCapabilityProbeTests.swift
 Also add the reusable phase-evidence governance described above and correct
 current governance text that implies either future ordinary source files remain
 permanently hash-frozen or a published branch may be repaired by force-pushing.
-Do not change live rulesets. Keep product upscaling unavailable. R01 passes only
-with complete reports for all four anchors and an explicit disposition for every
-A01-A18 capability.
+Do not change live rulesets. Keep product upscaling unavailable. R01 passes with
+an explicit disposition for every A01-A18 capability. Under the operator
+observation override, the canonical matrix may close all four logical anchors as
+`not_observed`/`diagnostic_only` with performance claims forbidden; the four
+native reports are then supplemental rather than required.
 
 ### R02 - Unified backend and stage architecture
 

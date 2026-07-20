@@ -59,7 +59,7 @@ market-position claim.
 
 **Roadmap version:** 1.0.1<br>
 **Publication date:** 2026-07-18<br>
-**Revision date:** 2026-07-19<br>
+**Revision date:** 2026-07-20<br>
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime<br>
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -101,6 +101,31 @@ Mirmir will not attempt to beat specialized commercial products merely by shippi
 ---
 
 ## 2. Explicit Scope Boundaries
+
+### 2.0 Operator observation override
+
+The operator explicitly waived every roadmap gate that requires physical-hardware
+execution, a simulator that is unavailable for the project, operator-observed
+simulation, or operator-observed hardware operation. None of those conditions is
+a blocker or a reason to stop roadmap work. When an observation is unavailable or
+not performed, the evidence must say `not_observed`; it must not invent hardware,
+API, runtime, model, performance, memory, repeatability, product-qualification,
+backend-eligibility, or perceptual-quality results.
+
+At this amendment, every Mirmir target is macOS-only and Xcode advertises only
+macOS destinations for the app and R01 worker. Installed iOS/tvOS CoreSimulator
+runtimes cannot establish macOS or Mac-hardware capability. A compatible
+simulator may still be used automatically if one becomes available, but its
+absence cannot block the plan.
+
+Locally available static checks, deterministic doubles, unit and mutation tests,
+project generation, builds, and hosted tests remain required when applicable.
+Native host probes remain useful supplemental evidence, but they are not required
+for R01-R07 phase progression. This override does not waive non-hardware
+implementation, static-verification, deterministic-test, safety, privacy,
+publication, holdout, or production-authorization gates. It controls over
+conflicting hardware, unavailable-simulator, or operator-observation language
+elsewhere in this roadmap.
 
 ### 2.1 ASH responsibilities
 
@@ -554,7 +579,9 @@ No new production calibration is authorized.
 
 ### Objective
 
-Determine exactly which Apple APIs are available and practical on target Macs before production wiring.
+Close the A01-A18 capability inventory before production wiring. Record observed
+facts when available and explicit `not_observed` diagnostic dispositions when
+hardware, simulator, or operator observation is unavailable or not performed.
 
 ### Work
 
@@ -573,7 +600,7 @@ Create compile and runtime probes for:
 - Core AI model loading, specialization, zero-copy input, stateful execution, and profiling; and
 - optional Core ML compatibility.
 
-For every capability record:
+For every observed capability record:
 
 - OS and SDK requirement;
 - hardware support;
@@ -602,7 +629,10 @@ MirmirTests/AppleUpscaleCapabilityProbeTests.swift
 
 ### Exit gate
 
-No backend enters Auto mode without an authoritative capability record from the actual target environment.
+Every A01-A18 capability has a closed disposition. A `not_observed` record closes
+inventory coverage under the operator override but never qualifies a backend,
+asserts runtime support, or supplies a performance claim. No backend enters Auto
+mode without later evidence that separately satisfies its production gate.
 
 ---
 
@@ -1012,7 +1042,11 @@ R02  unified backend/stage interfaces
 R03  deterministic Apple-native baseline suite
 ```
 
-It must produce real compile/runtime evidence for the current target Macs and leave production Auto, Core AI, temporal MetalFX, holdout, and release claims blocked.
+It must produce a closed capability disposition matrix. Real compile/runtime
+evidence may be added when available; absent hardware, simulator, or observed
+operation is recorded as `not_observed` and does not block continuation.
+Production Auto, Core AI, temporal MetalFX, holdout, and release claims remain
+blocked unless their separate authorization gates are satisfied.
 
 The second sprint should implement VideoToolbox quality and low-latency super resolution under the unified architecture. The third should implement ASH orchestration over already-qualified backends. Core AI begins only after those baselines are measured.
 
@@ -1022,7 +1056,9 @@ The second sprint should implement VideoToolbox quality and low-latency super re
 
 The roadmap succeeds when all of the following are true:
 
-1. Every Apple-native method in Section 5 has a qualified, restricted, diagnostic-only, or rejected disposition supported by evidence.
+1. Every Apple-native method in Section 5 has a qualified, restricted,
+   diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
+   supplies inventory closure only and carries no availability or quality claim.
 2. At least one strong Apple-native primary SR backend is production-qualified.
 3. ASH causally controls backend/policy decisions and improves a preregistered product dimension.
 4. Temporal stability and artifact governance provide measurable value over the underlying backend alone.

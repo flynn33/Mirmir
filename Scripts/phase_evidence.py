@@ -316,6 +316,12 @@ R01_REQUIRED_OUTPUT_PATHS = frozenset(
         "project-notes/apple-upscale-capabilities.json",
     }
 )
+R01_WAIVER_REQUIRED_OUTPUT_PATHS = frozenset(
+    {
+        "project-notes/apple-upscale-capability-report.md",
+        "project-notes/apple-upscale-capabilities.json",
+    }
+)
 R01_ANCHOR_OUTPUT_PATHS = {
     "oldest-supported": (
         "project-notes/evidence/r01/hosts/anchor-oldest-supported.json"
@@ -352,6 +358,17 @@ R01_REQUIRED_SOURCE_PATHS = (
     "docs/roadmaps/evidence/schema/r01-fixture-catalog-v1.json",
     "docs/roadmaps/evidence/schema/r01-host-report-v1.json",
     "docs/roadmaps/evidence/schema/r01-preregistration-v1.json",
+)
+R01_WAIVER_REQUIRED_SOURCE_PATHS = (
+    "Scripts/r01_observation_waiver.py",
+    "MirmirTests/AppleUpscaleCapabilityProbeTests.swift",
+    "docs/roadmaps/evidence/schema/r01-observation-waiver-v1.json",
+)
+R01_WAIVER_LIMITATION = (
+    "Physical-hardware execution, simulator availability, simulator execution, "
+    "and operator-observed operation were waived as blockers; no hardware, API, "
+    "runtime, model, performance, memory, repeatability, product-qualification, "
+    "backend-eligibility, or perceptual-quality observation is claimed."
 )
 TEXT_EVIDENCE_SUFFIXES = frozenset(
     {".csv", ".json", ".log", ".md", ".plist", ".py", ".sh", ".swift", ".txt", ".yaml", ".yml"}
@@ -1955,6 +1972,234 @@ class PhaseEvidenceVerifier:
         match = re.match(r"^([0-9]+)(?:\.|$)", value)
         return int(match.group(1)) if match is not None else None
 
+    def _r01_waiver_matrix(
+        self,
+        output_paths: dict[str, str],
+        errors: list[str],
+    ) -> dict[str, Any] | None:
+        matrix_path = "project-notes/apple-upscale-capabilities.json"
+        if matrix_path not in output_paths.values():
+            return None
+        try:
+            matrix = read_json(self.root / matrix_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            errors.append(f"R01 capability matrix cannot be read: {error}")
+            return None
+        if matrix.get("evidence_kind") != "operator_observation_waiver":
+            return None
+        if matrix.get("observation_requirement") != "waived_not_a_blocker":
+            errors.append("R01 waiver matrix observation requirement differs")
+        if matrix.get("phase_id") != "R01":
+            errors.append("R01 waiver matrix phase differs")
+        model = matrix.get("model_observation")
+        if model != {"identity": None, "sha256": None, "status": "not_observed"}:
+            errors.append("R01 waiver matrix must not invent a model identity or hash")
+        policy = matrix.get("observation_policy")
+        if policy != {
+            "hardware_required": False,
+            "observed_operation_required": False,
+            "performance_claims": "forbidden",
+            "simulator_required": False,
+        }:
+            errors.append("R01 waiver matrix observation policy differs")
+        anchors = matrix.get("anchors")
+        if not isinstance(anchors, list) or [
+            item.get("anchor") if isinstance(item, dict) else None for item in anchors
+        ] != list(R01_ANCHOR_ROLES):
+            errors.append("R01 waiver matrix must contain the four anchors in closed order")
+        elif any(
+            item.get("hardware_observation") != "not_observed"
+            or item.get("simulator_observation") != "not_observed"
+            for item in anchors
+        ):
+            errors.append("R01 waiver matrix anchors must remain entirely unobserved")
+        capabilities = matrix.get("capabilities")
+        if not isinstance(capabilities, list) or [
+            item.get("id") if isinstance(item, dict) else None
+            for item in capabilities
+        ] != list(R01_CAPABILITY_IDS):
+            errors.append("R01 waiver matrix must contain exactly A01-A18 in order")
+        else:
+            for capability in capabilities:
+                records = capability.get("anchor_records")
+                if not isinstance(records, list) or [
+                    item.get("anchor") if isinstance(item, dict) else None
+                    for item in records
+                ] != list(R01_ANCHOR_ROLES):
+                    errors.append(
+                        f"R01 waiver matrix {capability['id']} anchor order differs"
+                    )
+                    continue
+                if any(
+                    item.get("observation_status") != "not_observed"
+                    or item.get("runtime_disposition") != "diagnostic_only"
+                    or item.get("performance_claims") != "forbidden"
+                    for item in records
+                    if isinstance(item, dict)
+                ):
+                    errors.append(
+                        f"R01 waiver matrix {capability['id']} exceeds unobserved evidence"
+                    )
+        return matrix
+
+    def _check_r01_waiver_contract(
+        self,
+        manifest: dict[str, Any],
+        matrix: dict[str, Any],
+        disposition_subjects: dict[str, set[str]],
+        command_records: dict[str, dict[str, Any]],
+        output_paths: dict[str, str],
+        verification_checks: list[dict[str, Any]],
+        errors: list[str],
+    ) -> None:
+        result = manifest["result"] if isinstance(manifest["result"], dict) else {}
+        nonblocked = result.get("status") != "blocked"
+        try:
+            from r01_observation_waiver import validate_outputs as validate_waiver_outputs
+        except ImportError as error:
+            errors.append(f"R01 waiver validator cannot be imported: {error}")
+        else:
+            errors.extend(
+                f"R01 waiver output validation: {error}"
+                for error in validate_waiver_outputs(self.root)
+            )
+        hosts = manifest["hosts"] if isinstance(manifest["hosts"], list) else []
+        role_hosts = [
+            host
+            for host in hosts
+            if isinstance(host, dict)
+            and host.get("roles") == ["verification-executor"]
+        ]
+        if nonblocked and len(role_hosts) != 1:
+            errors.append(
+                "R01 not-observed closure requires exactly one verification-executor host"
+            )
+        if any(
+            role in R01_ANCHOR_ROLES
+            for host in hosts
+            if isinstance(host, dict) and isinstance(host.get("roles"), list)
+            for role in host["roles"]
+        ):
+            errors.append(
+                "R01 not-observed closure must not represent an executor as an observed anchor"
+            )
+        implementation_commit = matrix.get("source_commit")
+        implementation_tree = matrix.get("source_tree")
+        if (
+            not isinstance(implementation_commit, str)
+            or GIT_OBJECT_PATTERN.fullmatch(implementation_commit) is None
+        ):
+            errors.append("R01 waiver matrix source_commit is invalid")
+        else:
+            observed_tree = self.git(
+                "rev-parse", f"{implementation_commit}^{{tree}}"
+            )
+            if observed_tree.returncode != 0 or observed_tree.stdout.strip() != implementation_tree:
+                errors.append("R01 waiver matrix source commit/tree binding differs")
+            schema_path = "docs/roadmaps/evidence/schema/r01-observation-waiver-v1.json"
+            schema_result = self.git_bytes(
+                "show", f"{implementation_commit}:{schema_path}"
+            )
+            if schema_result.returncode == 0:
+                try:
+                    historical_schema = decode_json(
+                        schema_result.stdout.decode("utf-8")
+                    )
+                except (UnicodeError, ValueError, json.JSONDecodeError) as error:
+                    errors.append(f"R01 waiver schema is invalid at source_commit: {error}")
+                else:
+                    if not isinstance(historical_schema, dict):
+                        errors.append("R01 waiver schema must be an object at source_commit")
+                    else:
+                        errors.extend(
+                            "R01 waiver matrix schema validation: " + error
+                            for error in validate_json_schema_instance(
+                                historical_schema, matrix
+                            )
+                        )
+            for source_path in R01_WAIVER_REQUIRED_SOURCE_PATHS:
+                source_result = self.git_bytes(
+                    "show", f"{implementation_commit}:{source_path}"
+                )
+                if source_result.returncode != 0:
+                    errors.append(
+                        "R01 waiver required source deliverable is absent at "
+                        f"matrix source_commit: {source_path}"
+                    )
+        if role_hosts and role_hosts[0].get("source_commit") != implementation_commit:
+            errors.append(
+                "R01 verification executor must bind the waiver matrix implementation commit"
+            )
+        if set(disposition_subjects) != set(R01_CAPABILITY_IDS):
+            errors.append("R01 disposition subjects must be exactly A01-A18")
+        for subject_id, allowed_values in disposition_subjects.items():
+            if subject_id in R01_CAPABILITY_IDS and allowed_values != set(
+                R01_CAPABILITY_DISPOSITIONS
+            ):
+                errors.append(
+                    f"R01 {subject_id} disposition vocabulary differs from the handoff"
+                )
+        if nonblocked:
+            missing_outputs = sorted(
+                R01_WAIVER_REQUIRED_OUTPUT_PATHS - set(output_paths.values())
+            )
+            if missing_outputs:
+                errors.append(f"R01 waiver required outputs are missing: {missing_outputs!r}")
+            waiver_commands = [
+                command
+                for command in command_records.values()
+                if command.get("argv")
+                == ["python3", "Scripts/r01_observation_waiver.py", "--check"]
+                and command.get("result") == "passed"
+                and command.get("environment_flags") == []
+            ]
+            if len(waiver_commands) != 1:
+                errors.append(
+                    "R01 waiver closure requires exactly one passing observation-waiver check"
+                )
+            elif role_hosts and waiver_commands[0].get("host_id") != role_hosts[0].get(
+                "host_id"
+            ):
+                errors.append(
+                    "R01 observation-waiver check must run on the verification executor"
+                )
+            if any(
+                any(
+                    item.get("name") in {
+                        "MIRMIR_R01_LIVE_PROBES",
+                        "MIRMIR_R01_ALLOW_MODEL_ACQUISITION",
+                    }
+                    for item in command.get("environment_flags", [])
+                    if isinstance(item, dict)
+                )
+                for command in command_records.values()
+            ):
+                errors.append("R01 waiver closure must not enable live or acquisition flags")
+            dispositions = result.get("dispositions")
+            if not isinstance(dispositions, list) or any(
+                not isinstance(item, dict)
+                or item.get("value") != "diagnostic_only"
+                for item in dispositions
+            ):
+                errors.append(
+                    "R01 waiver closure must disposition every capability diagnostic_only"
+                )
+            if R01_WAIVER_LIMITATION not in manifest.get("limitations", []):
+                errors.append("R01 waiver closure is missing the exact no-observation limitation")
+        required_passed_categories = {
+            check.get("category")
+            for check in verification_checks
+            if check.get("required") is True and check.get("status") == "passed"
+        }
+        if nonblocked:
+            missing_categories = sorted(
+                COMMON_REQUIRED_VERIFICATION_CATEGORIES - required_passed_categories
+            )
+            if missing_categories:
+                errors.append(
+                    f"required verification categories are missing: {missing_categories!r}"
+                )
+
     def _check_r01_contract(
         self,
         manifest: dict[str, Any],
@@ -1964,6 +2209,18 @@ class PhaseEvidenceVerifier:
         verification_checks: list[dict[str, Any]],
         errors: list[str],
     ) -> None:
+        waiver_matrix = self._r01_waiver_matrix(output_paths, errors)
+        if waiver_matrix is not None:
+            self._check_r01_waiver_contract(
+                manifest,
+                waiver_matrix,
+                disposition_subjects,
+                command_records,
+                output_paths,
+                verification_checks,
+                errors,
+            )
+            return
         hosts = manifest["hosts"] if isinstance(manifest["hosts"], list) else []
         host_source_commits = {
             host.get("source_commit")

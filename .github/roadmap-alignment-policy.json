@@ -4,12 +4,12 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "75e514329fb54448378d179ac13ccf3c89e2dae1f1242a5b508dac6dd2628e6c",
-    "json_sha256": "d3627a35efb309015aa6532e4811b35c6d0d9e86ef6b615a9861ffc340ed7c11",
+    "markdown_sha256": "290715492d9ed95540404104c7c11b4db5c06938a9a3488332de33a9a70f1c72",
+    "json_sha256": "67dfafc9de4fde56cd55d3487f9b4e0c8b88fc6ba45bd81aba97fb9226901d63",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
-    "revision_date": "2026-07-19"
+    "revision_date": "2026-07-20"
   },
   "contract": {
     "phase_ids": [
@@ -53,6 +53,7 @@
       "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
       "holdout": "blocked",
       "market_leading_claim": "blocked",
+      "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
       "production_auto_mode": "blocked",
       "strategic_reset": "authorized",
       "unified_backend_architecture": "authorized_after_capability_contracts"
@@ -201,10 +202,6 @@
       "paths": [
         "docs/roadmaps/evidence/r01/phase-evidence.json",
         "docs/roadmaps/evidence/r01/phase-evidence.md",
-        "project-notes/evidence/r01/hosts/anchor-oldest-supported.json",
-        "project-notes/evidence/r01/hosts/anchor-m3-air.json",
-        "project-notes/evidence/r01/hosts/anchor-pro-max.json",
-        "project-notes/evidence/r01/hosts/anchor-core-ai.json",
         "project-notes/apple-upscale-capabilities.json",
         "project-notes/apple-upscale-capability-report.md"
       ]

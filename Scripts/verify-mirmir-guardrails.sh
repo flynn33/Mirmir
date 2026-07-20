@@ -90,7 +90,8 @@ python3 -m unittest \
   Scripts/tests/test_json_schema_validator.py \
   Scripts/tests/test_phase_evidence.py \
   Scripts/tests/test_r01_preregistration.py \
-  Scripts/tests/test_r01_capabilities.py
+  Scripts/tests/test_r01_capabilities.py \
+  Scripts/tests/test_r01_observation_waiver.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -114,7 +115,13 @@ for r01_evidence_path in \
   fi
 done
 if [ "$r01_evidence_present" = true ]; then
-  python3 Scripts/r01_capabilities.py --check
+  if [ -f project-notes/apple-upscale-capabilities.json ] && \
+    grep -q '"evidence_kind": "operator_observation_waiver"' \
+      project-notes/apple-upscale-capabilities.json; then
+    python3 Scripts/r01_observation_waiver.py --check
+  else
+    python3 Scripts/r01_capabilities.py --check
+  fi
 fi
 
 while IFS= read -r manifest_path; do

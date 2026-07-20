@@ -1,6 +1,6 @@
 # Mirmir Roadmaps
 
-The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-19.
+The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-20.
 
 Current phase state: `R00: passed`; `R01: in_progress`.
 
@@ -14,7 +14,7 @@ Current phase state: `R00: passed`; `R01: in_progress`.
 
 Verified source hashes:
 
-- Markdown: `75e514329fb54448378d179ac13ccf3c89e2dae1f1242a5b508dac6dd2628e6c`
-- JSON: `d3627a35efb309015aa6532e4811b35c6d0d9e86ef6b615a9861ffc340ed7c11`
+- Markdown: `290715492d9ed95540404104c7c11b4db5c06938a9a3488332de33a9a70f1c72`
+- JSON: `67dfafc9de4fde56cd55d3487f9b4e0c8b88fc6ba45bd81aba97fb9226901d63`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.
