@@ -70,12 +70,364 @@
     ],
     "proposed_decisions": []
   },
-  "commands": [],
-  "hosts": [],
-  "limitations": [
-    "This is a preclosure bootstrap manifest; it records no hardware, simulator, API, runtime, model, performance, memory, repeatability, qualification, eligibility, or perceptual-quality observation."
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "Scripts/r01_observation_waiver.py",
+        "--check"
+      ],
+      "command_id": "capability-waiver-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:20:23Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:20:14Z"
+    },
+    {
+      "argv": [
+        "Scripts/verify-mirmir-guardrails.sh"
+      ],
+      "command_id": "guardrail",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:33:16Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:20:26Z"
+    },
+    {
+      "argv": [
+        "swiftlint",
+        "lint",
+        "--strict",
+        "--config",
+        ".swiftlint.yml"
+      ],
+      "command_id": "swiftlint",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:33:29Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:33:22Z"
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "Scripts/tests/test_roadmap_alignment.py",
+        "Scripts/tests/test_r00_inventory.py",
+        "Scripts/tests/test_json_schema_validator.py",
+        "Scripts/tests/test_phase_evidence.py",
+        "Scripts/tests/test_r01_preregistration.py",
+        "Scripts/tests/test_r01_capabilities.py",
+        "Scripts/tests/test_r01_observation_waiver.py"
+      ],
+      "command_id": "roadmap-evidence-unit-tests",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:38:46Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:33:33Z"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "command_id": "diff-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:38:59Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:38:51Z"
+    },
+    {
+      "argv": [
+        "xcodegen",
+        "generate"
+      ],
+      "command_id": "project-generation-1",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:39:17Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:39:04Z"
+    },
+    {
+      "argv": [
+        "xcodegen",
+        "generate"
+      ],
+      "command_id": "project-generation-2",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:39:59Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:39:46Z"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "--",
+        "Mirmir.xcodeproj/project.pbxproj"
+      ],
+      "command_id": "project-generation-diff",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:40:23Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:40:09Z"
+    },
+    {
+      "argv": [
+        "xcodebuild",
+        "-project",
+        "Mirmir.xcodeproj",
+        "-scheme",
+        "Mirmir",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/mirmir-r01-evidence-deriveddata",
+        "-disableAutomaticPackageResolution",
+        "build"
+      ],
+      "command_id": "debug-build",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:40:55Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:40:30Z"
+    },
+    {
+      "argv": [
+        "xcodebuild",
+        "-project",
+        "Mirmir.xcodeproj",
+        "-scheme",
+        "Mirmir",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/mirmir-r01-evidence-deriveddata",
+        "-disableAutomaticPackageResolution",
+        "build"
+      ],
+      "command_id": "release-build",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:41:44Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:41:00Z"
+    }
   ],
-  "outputs": [],
+  "hosts": [
+    {
+      "chip": "Apple M4 Pro",
+      "hardware_classes": [
+        "apple_silicon",
+        "pro_max_tier"
+      ],
+      "host_id": "r01-verification-executor",
+      "memory_bytes": 51539607552,
+      "model_identifier": "Mac16,7",
+      "os_build": "25F84",
+      "os_version": "26.5.2",
+      "roles": [
+        "verification-executor"
+      ],
+      "sdk_version": "26.2",
+      "source_commit": "8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe",
+      "xcode_build": "17C52",
+      "xcode_version": "26.2"
+    }
+  ],
+  "limitations": [
+    "Physical-hardware execution, simulator availability, simulator execution, and operator-observed operation were waived as blockers; no hardware, API, runtime, model, performance, memory, repeatability, product-qualification, backend-eligibility, or perceptual-quality observation is claimed."
+  ],
+  "outputs": [
+    {
+      "binding": {
+        "path": "project-notes/apple-upscale-capabilities.json",
+        "sha256": "c2a2882dd4c696f34f8d8c9a269ed9f502f14261d4484e90d412ccfa47eb1a1e",
+        "size_bytes": 55520
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "capability-json",
+      "kind": "report",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/apple-upscale-capability-report.md",
+        "sha256": "1cfa6b3f151e6e4313f8176b2b00bb90b7d21924967b3babf6d5f0a21d781c7c",
+        "size_bytes": 13284
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "capability-report",
+      "kind": "report",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/json-result.json",
+        "sha256": "2042b34bae3827e1a51390fc2fbedbf58fef7143397bc6c901695628d58b79b3",
+        "size_bytes": 273
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "json-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/lint-result.json",
+        "sha256": "cb4f13f5d1a73a387163adff34e708cd733231a7193241ab01ff3e100aac5fd3",
+        "size_bytes": 230
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "lint-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/unit_test-result.json",
+        "sha256": "c25b1dfb0241fbb0da4b2e5dfc630500c73cdf19f127737a811f4eddb7079abb",
+        "size_bytes": 315
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "unit-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/mutation_test-result.json",
+        "sha256": "c0e22b765d8a32ff9fed974411fb91ab2cda020ba8e56bace1ad3ad019d3c72d",
+        "size_bytes": 310
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "mutation-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/repository-result.json",
+        "sha256": "1ccc4d6b3027784d7a40794d3e79049c80e2700d4dfc13cf7df51c0fea05cdec",
+        "size_bytes": 244
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "repository-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/dependency_scan-result.json",
+        "sha256": "e61a2396e7b2f25a5f9a7a2804daeabba87c6bce2c28daa9b14c3cf652ff076f",
+        "size_bytes": 317
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "dependency-scan-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/project_generation-result.json",
+        "sha256": "5fd4d11e9ba00d7c5e52d79701e19140813514738aaf0eac168776921a500e87",
+        "size_bytes": 376
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "project-generation-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/build-result.json",
+        "sha256": "05d532a6e572559d0eaf8dab6fb320f293e53a99e47bd7d96aadf3fdc6488d75",
+        "size_bytes": 293
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "build-result",
+      "kind": "build_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/hosted_test-result.json",
+        "sha256": "36c6f08bb1bf5b74f1b13a3b4fd0d319e7fc62d26031f403ceeef59428c03479",
+        "size_bytes": 288
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "hosted-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    }
+  ],
   "phase_id": "R01",
   "preregistration": {
     "disposition_subjects": [
@@ -430,24 +782,135 @@
     "phase_status_after": "in_progress",
     "phase_status_before": "in_progress",
     "status": "blocked",
-    "summary": "R01 remains in progress while source-bound closure verification is collected."
+    "summary": "Preclosure validation binds the waiver outputs and nine completed verification categories without claiming R01 acceptance."
   },
   "roadmap_version": "1.0.1",
   "schema_version": "1.0",
   "source": {
-    "commit": "986c8785f0aaae71b0ad9b4e380ad47008729882",
-    "tree": "9b404ee4b77fc31adceef59bfe8e2f3af6168132"
+    "commit": "ca960770b75397832998daf57953c19723b7e216",
+    "tree": "16af1f9a65b5ff526d3df58fe0051d2c08a4494e"
   },
   "verification": {
     "checks": [
       {
-        "category": "hosted_test",
-        "command_ids": [],
-        "id": "source-bound-verification",
-        "output_ids": [],
-        "reason": "Source-bound closure verification artifacts have not yet been recorded.",
+        "category": "build",
+        "command_ids": [
+          "debug-build",
+          "release-build"
+        ],
+        "id": "build-check",
+        "output_ids": [
+          "build-result"
+        ],
+        "reason": null,
         "required": true,
-        "status": "skipped"
+        "status": "passed"
+      },
+      {
+        "category": "dependency_scan",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "dependency-scan-check",
+        "output_ids": [
+          "dependency-scan-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "hosted_test",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "hosted-test-check",
+        "output_ids": [
+          "hosted-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "json",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "json-check",
+        "output_ids": [
+          "json-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "lint",
+        "command_ids": [
+          "swiftlint"
+        ],
+        "id": "lint-check",
+        "output_ids": [
+          "lint-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "mutation_test",
+        "command_ids": [
+          "roadmap-evidence-unit-tests"
+        ],
+        "id": "mutation-test-check",
+        "output_ids": [
+          "mutation-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "project_generation",
+        "command_ids": [
+          "project-generation-1",
+          "project-generation-2",
+          "project-generation-diff"
+        ],
+        "id": "project-generation-check",
+        "output_ids": [
+          "project-generation-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "repository",
+        "command_ids": [
+          "diff-check"
+        ],
+        "id": "repository-check",
+        "output_ids": [
+          "repository-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "unit_test",
+        "command_ids": [
+          "roadmap-evidence-unit-tests"
+        ],
+        "id": "unit-test-check",
+        "output_ids": [
+          "unit-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
       }
     ]
   }
