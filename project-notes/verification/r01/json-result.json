@@ -1,0 +1,10 @@
+{
+  "category": "json",
+  "command_ids": [
+    "guardrail"
+  ],
+  "exit_status": 0,
+  "schema_version": "1.0",
+  "status": "passed",
+  "summary": "The full guardrail validated repository JSON inputs and completed with exit status zero on the committed preclosure state."
+}

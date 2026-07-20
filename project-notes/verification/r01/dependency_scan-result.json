@@ -1,0 +1,10 @@
+{
+  "category": "dependency_scan",
+  "command_ids": [
+    "guardrail"
+  ],
+  "exit_status": 0,
+  "schema_version": "1.0",
+  "status": "passed",
+  "summary": "The full guardrail completed its repository and built-application dependency-boundary checks with exit status zero; no app-owned Package.swift was present."
+}
