@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.1
+- **Handoff version:** 1.2
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -11,6 +11,10 @@
   `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
   `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`; implementation tree
   `848948c9c38a2d8a382113698fe88059a69e943c`
+- **R01 assignment-export checkpoint:** PR #17 merge
+  `5fce07140602b94d7fbea3e4219866292a4cd99f`; implementation commit
+  `8d5a50bdb616a2973014648475b601c8a7437de6`; implementation tree
+  `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0`
 - **Continuation state:** `R01: in_progress`; `R02: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
@@ -297,12 +301,14 @@ custom Metal; Core AI; and optional Core ML compatibility.
 
 PR #16 was merged after preregistration and implementation but before the four
 host reports, aggregate, phase-evidence closure, and proposed `passed` transition.
-It is the reachable implementation-lineage checkpoint, not R01 closure or
-evidence acceptance. The exact later published commit that contains all four
-frozen assignments must be the common live evidence-source commit and tree;
-`4bce3438a0508c70fd4db845be7e4abc0cc1cf29` cannot authorize a live run because
-its preregistration remains unassigned. R01 stays `in_progress`, and R02 stays
-`planned`, until the continuation evidence and closure are accepted.
+PR #17 then merged the fail-closed assignment-export continuation before any
+assignment was frozen or any live evidence was collected. Both merges are
+reachable implementation checkpoints, not R01 closure or evidence acceptance.
+The exact later published commit that contains all four frozen assignments must
+be the common live evidence-source commit and tree; neither implementation
+checkpoint can authorize a live run because its preregistration remains
+unassigned. R01 stays `in_progress`, and R02 stays `planned`, until the
+continuation evidence and closure are accepted.
 
 Collect an aggregate matrix from four anchor environments:
 

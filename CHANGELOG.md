@@ -6,6 +6,14 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Recorded PR #17 merge commit
+  `5fce07140602b94d7fbea3e4219866292a4cd99f`, implementation commit
+  `8d5a50bdb616a2973014648475b601c8a7437de6`, and tree
+  `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0` as the R01 assignment-export
+  checkpoint, not phase closure. No assignment or live evidence was added;
+  R01 remains `in_progress`, R02 remains `planned`, and the four assignments,
+  common published evidence source, reports, aggregate, closure manifest, and
+  exit decision remain outstanding.
 - Recorded PR #16 merge commit
   `9747a032b24f3d2475f3cead9ebbf5bc87d19548`, implementation commit
   `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`, and tree
