@@ -63,6 +63,18 @@ ANCHOR_CONTRACTS = (
     ),
 )
 
+HOST_FACT_KEYS = (
+    "model_identifier",
+    "chip",
+    "memory_bytes",
+    "os_version",
+    "os_build",
+    "xcode_version",
+    "xcode_build",
+    "sdk_version",
+    "sdk_build",
+)
+
 CAPABILITY_CLASSES = {
     "primary_scaler": (
         "A01",
@@ -162,7 +174,7 @@ STOP_RULES = (
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 APPLE_SILICON_CHIP = re.compile(r"^Apple M[1-9][0-9]*(?: (?:Pro|Max|Ultra))?$")
 PRO_MAX_CHIP = re.compile(r"^Apple M[1-9][0-9]* (?:Pro|Max)$")
-HOST_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+HOST_ID_PATTERN = re.compile(r"^r01-host-[0-9]{2}$")
 LOCAL_MODEL_PATH_PREFIX = ".r01-local-assets/"
 # https://support.apple.com/102869 identifies the 2024 M3 MacBook Air
 # enclosures by these two model identifiers (13-inch and 15-inch, respectively).
@@ -201,6 +213,10 @@ def sha256_file(path: Path) -> str:
 
 class HostFactCollectionError(ValueError):
     """Raised without exposing the underlying command output."""
+
+
+class HostAssignmentError(ValueError):
+    """Raised when allowlisted facts do not satisfy a closed anchor contract."""
 
 
 def collect_host_facts(
@@ -273,6 +289,138 @@ def collect_host_facts(
         "xcode_build": xcode_match.group(2),
         "sdk_version": sdk_version,
         "sdk_build": sdk_build,
+    }
+
+
+def _privacy_errors(value: object, context: str) -> list[str]:
+    errors: list[str] = []
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized_key = str(key).strip().lower().replace("-", "_")
+            if normalized_key in PRIVATE_EVIDENCE_KEYS:
+                errors.append(f"{context}.{key} is a prohibited private field")
+            errors.extend(_privacy_errors(item, f"{context}.{key}"))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            errors.extend(_privacy_errors(item, f"{context}[{index}]"))
+    elif isinstance(value, str):
+        if EMAIL_PATTERN.search(value):
+            errors.append(f"{context} contains an email address")
+        if PRIVATE_PATH_PATTERN.search(value):
+            errors.append(f"{context} contains a private filesystem path")
+        if LABELED_PRIVATE_VALUE_PATTERN.search(value):
+            errors.append(f"{context} contains a labeled private identifier")
+    return errors
+
+
+def _host_profile_errors(
+    anchor: str, profile: dict[str, object], context: str
+) -> list[str]:
+    contract = next((value for value in ANCHOR_CONTRACTS if value[0] == anchor), None)
+    if contract is None:
+        return [f"invalid anchor: {anchor}"]
+    _, _, hardware_class = contract
+    errors = _privacy_errors(profile, context)
+    expected_keys = {"host_id", "hardware_class", *HOST_FACT_KEYS}
+    if set(profile) != expected_keys:
+        errors.append(f"{context} fields differ from the closed host profile")
+        return errors
+    for key in (
+        "model_identifier",
+        "chip",
+        "os_version",
+        "os_build",
+        "xcode_version",
+        "xcode_build",
+        "sdk_version",
+        "sdk_build",
+    ):
+        if not isinstance(profile.get(key), str) or not profile[key]:
+            errors.append(f"{context}.{key} must be a non-empty string")
+    memory_bytes = profile.get("memory_bytes")
+    if (
+        not isinstance(memory_bytes, int)
+        or isinstance(memory_bytes, bool)
+        or memory_bytes < 1
+    ):
+        errors.append(f"{context}.memory_bytes must be a positive integer")
+    host_id = profile.get("host_id")
+    if not isinstance(host_id, str) or HOST_ID_PATTERN.fullmatch(host_id) is None:
+        errors.append(
+            f"anchor {anchor} host_id is not a closed r01-host-NN pseudonym"
+        )
+    if profile.get("hardware_class") != hardware_class:
+        errors.append(f"anchor {anchor} hardware class differs from its role")
+    chip = profile.get("chip")
+    os_version = profile.get("os_version")
+    xcode_version = profile.get("xcode_version")
+    sdk_version = profile.get("sdk_version")
+    if anchor == "oldest-supported":
+        if not isinstance(chip, str) or APPLE_SILICON_CHIP.fullmatch(chip) is None:
+            errors.append("oldest-supported anchor requires an Apple M-series chip")
+        if not (
+            isinstance(os_version, str)
+            and (os_version == "15.4" or os_version.startswith("15.4."))
+        ):
+            errors.append("oldest-supported anchor requires macOS 15.4")
+    if anchor == "m3-air":
+        if chip != "Apple M3":
+            errors.append("m3-air anchor requires chip exactly Apple M3")
+        if profile.get("model_identifier") not in M3_AIR_MODEL_IDENTIFIERS:
+            errors.append(
+                "m3-air anchor requires Apple model identifier Mac15,12 or Mac15,13"
+            )
+        if not (
+            isinstance(os_version, str)
+            and (os_version == "26" or os_version.startswith("26."))
+        ):
+            errors.append("m3-air anchor requires macOS 26")
+    if anchor == "pro-max" and (
+        not isinstance(chip, str) or PRO_MAX_CHIP.fullmatch(chip) is None
+    ):
+        errors.append("pro-max anchor requires an Apple Pro or Max chip")
+    if anchor == "core-ai":
+        for value_name, value in (
+            ("macOS", os_version),
+            ("Xcode", xcode_version),
+            ("SDK", sdk_version),
+        ):
+            try:
+                major = int(str(value).split(".", 1)[0])
+            except ValueError:
+                major = -1
+            if major < 27:
+                errors.append(f"core-ai anchor requires {value_name} major 27 or newer")
+    return errors
+
+
+def build_host_assignment(
+    anchor: str,
+    host_id: str,
+    host_facts: dict[str, object] | None = None,
+) -> dict[str, object]:
+    """Build one sanitized, role-validated assignment without changing repository state."""
+    contract = next((value for value in ANCHOR_CONTRACTS if value[0] == anchor), None)
+    if contract is None:
+        raise HostAssignmentError(f"invalid anchor: {anchor}")
+    facts = collect_host_facts() if host_facts is None else dict(host_facts)
+    if set(facts) != set(HOST_FACT_KEYS):
+        raise HostAssignmentError(
+            "allowlisted host facts differ from the closed R01 host fact fields"
+        )
+    profile: dict[str, object] = {
+        "host_id": host_id,
+        "hardware_class": contract[2],
+        **facts,
+    }
+    errors = _host_profile_errors(anchor, profile, f"anchor {anchor} host_profile")
+    if errors:
+        raise HostAssignmentError("; ".join(sorted(set(errors))))
+    return {
+        "anchor": anchor,
+        "contract": contract[1],
+        "assignment_state": "assigned",
+        "host_profile": profile,
     }
 
 
@@ -895,32 +1043,7 @@ class PreregistrationVerifier:
 
     @staticmethod
     def _privacy_errors(value: object, context: str) -> list[str]:
-        errors: list[str] = []
-        if isinstance(value, dict):
-            for key, item in value.items():
-                normalized_key = str(key).strip().lower().replace("-", "_")
-                if normalized_key in PRIVATE_EVIDENCE_KEYS:
-                    errors.append(f"{context}.{key} is a prohibited private field")
-                errors.extend(
-                    PreregistrationVerifier._privacy_errors(
-                        item, f"{context}.{key}"
-                    )
-                )
-        elif isinstance(value, list):
-            for index, item in enumerate(value):
-                errors.extend(
-                    PreregistrationVerifier._privacy_errors(
-                        item, f"{context}[{index}]"
-                    )
-                )
-        elif isinstance(value, str):
-            if EMAIL_PATTERN.search(value):
-                errors.append(f"{context} contains an email address")
-            if PRIVATE_PATH_PATTERN.search(value):
-                errors.append(f"{context} contains a private filesystem path")
-            if LABELED_PRIVATE_VALUE_PATTERN.search(value):
-                errors.append(f"{context} contains a labeled private identifier")
-        return errors
+        return _privacy_errors(value, context)
 
     def check(self) -> list[str]:
         errors: list[str] = []
@@ -1046,7 +1169,8 @@ class PreregistrationVerifier:
             errors.append("anchor IDs/order differ from the four closed R01 anchors")
             return errors
         assigned_count = 0
-        for value, (anchor, contract, hardware_class) in zip(
+        host_facts_by_id: dict[str, dict[str, object]] = {}
+        for value, (anchor, contract, _) in zip(
             assignments, ANCHOR_CONTRACTS
         ):
             if not isinstance(value, dict):
@@ -1064,52 +1188,19 @@ class PreregistrationVerifier:
                 errors.append(f"anchor {anchor} assignment state/profile is invalid")
                 continue
             assigned_count += 1
-            errors.extend(self._privacy_errors(profile, f"anchor {anchor} host_profile"))
+            errors.extend(
+                _host_profile_errors(anchor, profile, f"anchor {anchor} host_profile")
+            )
             host_id = profile.get("host_id")
-            if not isinstance(host_id, str) or HOST_ID_PATTERN.fullmatch(host_id) is None:
-                errors.append(f"anchor {anchor} host_id is not a closed identifier")
-            if profile.get("hardware_class") != hardware_class:
-                errors.append(f"anchor {anchor} hardware class differs from its role")
-            chip = profile.get("chip")
-            os_version = profile.get("os_version")
-            xcode_version = profile.get("xcode_version")
-            sdk_version = profile.get("sdk_version")
-            if anchor == "oldest-supported":
-                if not isinstance(chip, str) or APPLE_SILICON_CHIP.fullmatch(chip) is None:
-                    errors.append("oldest-supported anchor requires an Apple M-series chip")
-                if not (
-                    isinstance(os_version, str)
-                    and (os_version == "15.4" or os_version.startswith("15.4."))
-                ):
-                    errors.append("oldest-supported anchor requires macOS 15.4")
-            if anchor == "m3-air":
-                if chip != "Apple M3":
-                    errors.append("m3-air anchor requires chip exactly Apple M3")
-                if profile.get("model_identifier") not in M3_AIR_MODEL_IDENTIFIERS:
+            if isinstance(host_id, str) and HOST_ID_PATTERN.fullmatch(host_id):
+                host_facts = {key: profile.get(key) for key in HOST_FACT_KEYS}
+                prior_facts = host_facts_by_id.get(host_id)
+                if prior_facts is None:
+                    host_facts_by_id[host_id] = host_facts
+                elif prior_facts != host_facts:
                     errors.append(
-                        "m3-air anchor requires Apple model identifier Mac15,12 or Mac15,13"
+                        f"host_id {host_id!r} identifies different host/toolchain profiles"
                     )
-                if not (
-                    isinstance(os_version, str)
-                    and (os_version == "26" or os_version.startswith("26."))
-                ):
-                    errors.append("m3-air anchor requires macOS 26")
-            if anchor == "pro-max" and (
-                not isinstance(chip, str) or PRO_MAX_CHIP.fullmatch(chip) is None
-            ):
-                errors.append("pro-max anchor requires an Apple Pro or Max chip")
-            if anchor == "core-ai":
-                for value_name, value in (
-                    ("macOS", os_version),
-                    ("Xcode", xcode_version),
-                    ("SDK", sdk_version),
-                ):
-                    try:
-                        major = int(str(value).split(".", 1)[0])
-                    except ValueError:
-                        major = -1
-                    if major < 27:
-                        errors.append(f"core-ai anchor requires {value_name} major 27 or newer")
         state = preregistration.get("preregistration_state")
         if state == "offline_contract_frozen_live_blocked" and assigned_count != 0:
             errors.append("offline preregistration state requires all anchors unassigned")
@@ -1150,17 +1241,7 @@ class PreregistrationVerifier:
                     except HostFactCollectionError as error:
                         errors.append(str(error))
                 if host_facts is not None:
-                    for key in (
-                        "model_identifier",
-                        "chip",
-                        "memory_bytes",
-                        "os_version",
-                        "os_build",
-                        "xcode_version",
-                        "xcode_build",
-                        "sdk_version",
-                        "sdk_build",
-                    ):
+                    for key in HOST_FACT_KEYS:
                         if host_facts.get(key) != profile.get(key):
                             errors.append(
                                 f"current host/toolchain {key} differs from anchor {anchor} assignment"
@@ -1222,19 +1303,49 @@ def build_parser() -> argparse.ArgumentParser:
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--check", action="store_true")
     action.add_argument("--check-live-readiness", action="store_true")
+    action.add_argument("--emit-host-assignment", action="store_true")
     action.add_argument("--emit-fixture-catalog", action="store_true")
     action.add_argument("--materialize-fixtures", action="store_true")
     action.add_argument("--check-fixtures", action="store_true")
     parser.add_argument(
         "--anchor",
         choices=[value[0] for value in ANCHOR_CONTRACTS],
-        help="Anchor checked by --check-live-readiness.",
+        help="Anchor checked or exported by the selected action.",
+    )
+    parser.add_argument(
+        "--host-id",
+        help="Phase-scoped r01-host-NN pseudonym used by --emit-host-assignment.",
     )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
+    if arguments.anchor is not None and not (
+        arguments.check_live_readiness or arguments.emit_host_assignment
+    ):
+        print(
+            "ERROR: --anchor requires --check-live-readiness or --emit-host-assignment",
+            file=sys.stderr,
+        )
+        return 2
+    if arguments.emit_host_assignment:
+        if arguments.anchor is None or arguments.host_id is None:
+            print(
+                "ERROR: --emit-host-assignment requires --anchor and --host-id",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            assignment = build_host_assignment(arguments.anchor, arguments.host_id)
+        except (HostAssignmentError, HostFactCollectionError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 1
+        print(json.dumps(assignment, indent=2, sort_keys=True))
+        return 0
+    if arguments.host_id is not None:
+        print("ERROR: --host-id requires --emit-host-assignment", file=sys.stderr)
+        return 2
     if arguments.emit_fixture_catalog:
         print(json.dumps(build_fixture_catalog(), indent=2, sort_keys=True))
         return 0

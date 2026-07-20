@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Recorded PR #16 merge commit
+  `9747a032b24f3d2475f3cead9ebbf5bc87d19548`, implementation commit
+  `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`, and tree
+  `848948c9c38a2d8a382113698fe88059a69e943c` as the R01 implementation
+  checkpoint, not phase closure. Added a fail-closed continuation path and a
+  non-mutating, role-validating exporter for pseudonymous multi-host assignment
+  records. R01 remains `in_progress`; all four frozen assignments, the common
+  published evidence-source checkpoint, reports, aggregate, closure manifest,
+  and exit decision remain outstanding. R02 remains `planned`.
 - Began R01 with a closed A01-A18 preregistration, deterministic fixture
   generator/catalog, measurement and stop rules, and fail-closed live controls;
   synchronized the canonical roadmap status to `in_progress`. Actual anchor

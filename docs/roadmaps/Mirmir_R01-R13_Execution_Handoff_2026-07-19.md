@@ -1,11 +1,17 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.0
+- **Handoff version:** 1.1
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
+- **Revision date:** 2026-07-20
 - **Repository:** `flynn33/Mirmir`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
-- **Starting state:** `R00: passed`; `R01: next`
+- **Original starting state:** `R00: passed`; `R01: next`
+- **R01 implementation checkpoint:** PR #16 merge
+  `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
+  `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`; implementation tree
+  `848948c9c38a2d8a382113698fe88059a69e943c`
+- **Continuation state:** `R01: in_progress`; `R02: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -22,8 +28,9 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed` and `R01: next` remain canonical. If either changed,
-   stop and reconcile the newer accepted roadmap before proceeding.
+4. Confirm `R00: passed`, `R01: in_progress`, and `R02: planned` remain
+   canonical. If any changed, stop and reconcile the newer accepted roadmap
+   before proceeding.
 5. Begin with R01 only. Later phases become actionable only through their
    accepted dependencies, evidence, roadmap state, and operator controls.
 
@@ -95,6 +102,25 @@ evidence, and closure commits as reachable history and therefore do not satisfy
 phase acceptance. The merge commit and all bound commits/trees remain reachable
 from `main`, including for R13. This is a review requirement, not permission for
 the implementation task to perform the merge.
+
+#### Fail-closed recovery from an incomplete phase merge
+
+If a phase pull request is merged before it contains runtime evidence, its closure
+manifest, and its proposed `passed` transition, the merge does not override the
+canonical roadmap or manufacture phase acceptance. Treat the merge as a reachable
+implementation checkpoint, keep the current phase `in_progress`, keep its dependent
+phases unchanged, and do not begin later-phase implementation.
+
+Record the pull request, implementation commit/tree, merge commit, and missing
+closure items in the roadmap progress history. After direct operator direction,
+continue the same phase on one additive recovery branch from that merge commit.
+The recovery pull request is the narrow exception to the one-pull-request-per-phase
+rule: it must carry the remaining frozen execution assignments, runtime evidence,
+closure manifest, and evidence-supported roadmap transition. Every evidence host
+must use the same exact published recovery checkpoint. The operator's merge of the
+recovery pull request is phase acceptance, and the following phase records that
+recovery merge commit as the accepted preceding-phase merge. Do not revert or
+rewrite the reachable implementation history to simulate the original sequence.
 
 Multi-host phases use this fixed transport sequence:
 
@@ -269,6 +295,15 @@ frame interpolation; MPS Lanczos, bilinear and support filters; Core Image
 Lanczos, bicubic and edge-preserve upsample; vImage Lanczos/custom resampling;
 custom Metal; Core AI; and optional Core ML compatibility.
 
+PR #16 was merged after preregistration and implementation but before the four
+host reports, aggregate, phase-evidence closure, and proposed `passed` transition.
+It is the reachable implementation-lineage checkpoint, not R01 closure or
+evidence acceptance. The exact later published commit that contains all four
+frozen assignments must be the common live evidence-source commit and tree;
+`4bce3438a0508c70fd4db845be7e4abc0cc1cf29` cannot authorize a live run because
+its preregistration remains unassigned. R01 stays `in_progress`, and R02 stays
+`planned`, until the continuation evidence and closure are accepted.
+
 Collect an aggregate matrix from four anchor environments:
 
 1. oldest-supported Apple Silicon on macOS 15.4;
@@ -296,6 +331,22 @@ anchor and freeze the assignment in preregistration. A stronger machine does not
 automatically satisfy the macOS 15.4, M3 Air, or macOS/Xcode 27 anchors. If an
 assigned host changes, invalidate its prior report and preregister the replacement
 before rerunning.
+
+Each candidate host exports its allowlisted assignment record without changing
+repository state or starting a live probe:
+
+```sh
+python3 Scripts/r01_preregistration.py \
+  --emit-host-assignment \
+  --anchor <anchor> \
+  --host-id <r01-host-NN>
+```
+
+Transfer the four records through the operator-controlled path in section 3.1,
+review them together, then freeze all four assignments atomically in the
+preregistration. The exporter rejects private identifiers, extra fields, malformed
+facts, and hosts that do not satisfy the selected anchor; it does not itself assign
+a host or authorize a live run.
 
 Use these closed probe controls:
 

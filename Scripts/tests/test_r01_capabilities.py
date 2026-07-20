@@ -121,7 +121,7 @@ class R01CapabilityTests(unittest.TestCase):
         suffix: str,
     ) -> dict[str, object]:
         return {
-            "host_id": f"assigned-host-{suffix}",
+            "host_id": f"r01-host-{int(suffix):02d}",
             "model_identifier": model,
             "hardware_class": hardware_class,
             "chip": chip,

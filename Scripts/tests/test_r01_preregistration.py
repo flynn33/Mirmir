@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+from contextlib import redirect_stderr, redirect_stdout
 import hashlib
+import io
 import json
 from pathlib import Path
 import shutil
@@ -9,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -18,14 +21,18 @@ from r01_preregistration import (  # noqa: E402
     ANCHOR_CONTRACTS,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
+    HOST_FACT_KEYS,
     PREREGISTRATION_PATH,
     PREREGISTRATION_SCHEMA_PATH,
     ROADMAP_PATH,
     HostFactCollectionError,
+    HostAssignmentError,
     PreregistrationVerifier,
     _fixture_digest,
+    build_host_assignment,
     check_materialized_fixtures,
     collect_host_facts,
+    main,
     materialize_fixtures,
 )
 
@@ -109,7 +116,7 @@ class R01PreregistrationTests(unittest.TestCase):
         suffix: str,
     ) -> dict[str, object]:
         return {
-            "host_id": f"host-{suffix}",
+            "host_id": f"r01-host-{int(suffix):02d}",
             "model_identifier": f"Mac{suffix}",
             "hardware_class": hardware_class,
             "chip": chip,
@@ -120,6 +127,20 @@ class R01PreregistrationTests(unittest.TestCase):
             "xcode_build": f"XC{suffix}",
             "sdk_version": sdk_version,
             "sdk_build": f"SDK{suffix}",
+        }
+
+    @staticmethod
+    def pro_max_host_facts() -> dict[str, object]:
+        return {
+            "model_identifier": "Mac16,7",
+            "chip": "Apple M4 Pro",
+            "memory_bytes": 51539607552,
+            "os_version": "26.5.2",
+            "os_build": "25F84",
+            "xcode_version": "26.2",
+            "xcode_build": "17C52",
+            "sdk_version": "26.2",
+            "sdk_build": "25C58",
         }
 
     def assign_all_anchors(self) -> None:
@@ -380,6 +401,16 @@ class R01PreregistrationTests(unittest.TestCase):
         self.assign_all_anchors()
         self.assertEqual(self.verifier().check(), [])
 
+    def test_reused_host_pseudonym_requires_identical_host_facts(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        assignments = self.preregistration["anchor_assignments"]
+        assignments[1]["host_profile"]["host_id"] = assignments[0]["host_profile"][
+            "host_id"
+        ]
+        self.write_preregistration()
+        self.assert_error_contains("identifies different host/toolchain profiles")
+
     def test_wrong_m3_chip_fails_role_contract(self) -> None:
         self.assign_all_anchors()
         self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
@@ -406,7 +437,9 @@ class R01PreregistrationTests(unittest.TestCase):
         )
         self.write_preregistration()
         errors = self.verifier().check()
-        self.assertTrue(any("host_id is not a closed identifier" in error for error in errors))
+        self.assertTrue(
+            any("host_id is not a closed r01-host-NN pseudonym" in error for error in errors)
+        )
         self.assertTrue(any("email address" in error for error in errors))
 
     def test_core_ai_requires_os_xcode_and_sdk_major_27(self) -> None:
@@ -565,6 +598,88 @@ class R01PreregistrationTests(unittest.TestCase):
         self.assertEqual(facts["chip"], "Apple M4 Pro")
         self.assertEqual(facts["memory_bytes"], 51539607552)
         self.assertEqual(set(observed), set(outputs))
+
+    def test_host_assignment_export_is_closed_and_role_bound(self) -> None:
+        facts = self.pro_max_host_facts()
+        assignment = build_host_assignment("pro-max", "r01-host-03", facts)
+        self.assertEqual(
+            assignment,
+            {
+                "anchor": "pro-max",
+                "contract": "current Pro/Max performance tier",
+                "assignment_state": "assigned",
+                "host_profile": {
+                    "host_id": "r01-host-03",
+                    "hardware_class": "pro_max_tier",
+                    **facts,
+                },
+            },
+        )
+        self.assertEqual(
+            set(assignment["host_profile"]),
+            {"host_id", "hardware_class", *HOST_FACT_KEYS},
+        )
+
+    def test_host_assignment_export_rejects_ineligible_anchor(self) -> None:
+        facts = self.pro_max_host_facts()
+        with self.assertRaisesRegex(HostAssignmentError, "chip exactly Apple M3"):
+            build_host_assignment("m3-air", "r01-host-02", facts)
+
+    def test_host_assignment_export_rejects_private_or_extra_input(self) -> None:
+        facts = self.pro_max_host_facts()
+        with self.assertRaisesRegex(HostAssignmentError, "email address"):
+            build_host_assignment("pro-max", "operator@example.com", facts)
+        with self.assertRaisesRegex(HostAssignmentError, "r01-host-NN pseudonym"):
+            build_host_assignment("pro-max", "operator-name", facts)
+        facts["serial_number"] = "PRIVATE"
+        with self.assertRaisesRegex(HostAssignmentError, "closed R01 host fact fields"):
+            build_host_assignment("pro-max", "r01-host-03", facts)
+
+    def test_host_assignment_export_rejects_invalid_allowlisted_fact_shape(self) -> None:
+        facts = self.pro_max_host_facts()
+        facts["memory_bytes"] = 0
+        with self.assertRaisesRegex(HostAssignmentError, "positive integer"):
+            build_host_assignment("pro-max", "r01-host-03", facts)
+
+    def test_cli_rejects_unused_anchor_and_host_id_arguments(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            result = main(["--check", "--anchor", "pro-max"])
+        self.assertEqual(result, 2)
+        self.assertIn("--anchor requires", stderr.getvalue())
+
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            result = main(["--check", "--host-id", "r01-host-03"])
+        self.assertEqual(result, 2)
+        self.assertIn("--host-id requires", stderr.getvalue())
+
+    def test_cli_requires_complete_host_assignment_arguments(self) -> None:
+        stderr = io.StringIO()
+        with redirect_stderr(stderr):
+            result = main(["--emit-host-assignment", "--anchor", "pro-max"])
+        self.assertEqual(result, 2)
+        self.assertIn("requires --anchor and --host-id", stderr.getvalue())
+
+    def test_cli_emits_closed_host_assignment_json(self) -> None:
+        stdout = io.StringIO()
+        with mock.patch(
+            "r01_preregistration.collect_host_facts",
+            return_value=self.pro_max_host_facts(),
+        ), redirect_stdout(stdout):
+            result = main(
+                [
+                    "--emit-host-assignment",
+                    "--anchor",
+                    "pro-max",
+                    "--host-id",
+                    "r01-host-03",
+                ]
+            )
+        self.assertEqual(result, 0)
+        assignment = json.loads(stdout.getvalue())
+        self.assertEqual(assignment["anchor"], "pro-max")
+        self.assertEqual(assignment["host_profile"]["host_id"], "r01-host-03")
 
     def test_host_fact_collection_failure_does_not_echo_command_output(self) -> None:
         def run(command: tuple[str, ...], **_: object) -> subprocess.CompletedProcess[str]:

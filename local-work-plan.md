@@ -11,8 +11,14 @@
 - Roadmap phase `R00`: `passed`. The architecture decision, app-owned runtime,
   retired legacy authority, and exact PR #13 source checkpoint are preserved in
   the accepted current-source inventory.
-- Roadmap phase `R01`: `in_progress`. Capability work is the active authorized
-  product phase; its own evidence and exit criteria remain outstanding.
+- Roadmap phase `R01`: `in_progress`. PR #16 merged the preregistration and
+  implementation checkpoint at merge commit
+  `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
+  `4bce3438a0508c70fd4db845be7e4abc0cc1cf29` and the merge commit share tree
+  `848948c9c38a2d8a382113698fe88059a69e943c`. The merge did not contain the four
+  frozen host assignments, runtime reports, aggregate, closure manifest, or
+  proposed `passed` transition, so capability evidence and exit criteria remain
+  outstanding.
 - R02 unified backend architecture: planned after R01 capability contracts.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and
