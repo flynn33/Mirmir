@@ -48,6 +48,10 @@
                     ],
                     "type": "string"
                   },
+                  "host_id": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                    "type": "string"
+                  },
                   "memory_bytes": {
                     "minimum": 1,
                     "type": "integer"
@@ -82,6 +86,7 @@
                   }
                 },
                 "required": [
+                  "host_id",
                   "model_identifier",
                   "hardware_class",
                   "chip",

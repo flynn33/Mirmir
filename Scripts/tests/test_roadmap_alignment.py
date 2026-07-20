@@ -79,6 +79,14 @@ class RoadmapAlignmentTests(unittest.TestCase):
         phases[0]["status"] = status
         self.write_json(path, roadmap)
 
+    def set_phase_status(self, phase_id: str, status: str) -> None:
+        path, roadmap = self.roadmap_json()
+        phases = roadmap["phases"]
+        self.assertIsInstance(phases, list)
+        phase = next(value for value in phases if value["id"] == phase_id)
+        phase["status"] = status
+        self.write_json(path, roadmap)
+
     def remove_forsetti_project_declarations(self) -> None:
         for relative in (
             self.policy["forsetti"]["project_path"],
@@ -109,6 +117,37 @@ class RoadmapAlignmentTests(unittest.TestCase):
 
     def test_repository_fixture_is_aligned(self) -> None:
         self.assertEqual(self.errors(), [])
+
+    def test_passed_r01_requires_every_authorizing_evidence_file(self) -> None:
+        self.set_phase_status("R01", "passed")
+        self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
+
+    def test_preclosure_r01_does_not_require_runtime_evidence_files(self) -> None:
+        missing = [
+            relative
+            for relative in self.policy["phase_evidence_requirements"]["R01"]["paths"]
+            if not (self.root / relative).exists()
+        ]
+        self.assertTrue(missing)
+        self.assertFalse(
+            any("phase R01 status" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_passed_r01_rejects_symlinked_authorizing_evidence(self) -> None:
+        for relative in self.policy["phase_evidence_requirements"]["R01"]["paths"]:
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("evidence\n", encoding="utf-8")
+        symlink_path = self.root / self.policy["phase_evidence_requirements"]["R01"][
+            "paths"
+        ][0]
+        target = self.root / "evidence-target.json"
+        target.write_text("{}\n", encoding="utf-8")
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.set_phase_status("R01", "passed")
+        self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
 
     def test_canonical_markdown_hash_drift_fails(self) -> None:
         path = self.root / self.policy["canonical"]["markdown_path"]

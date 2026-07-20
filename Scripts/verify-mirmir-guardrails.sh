@@ -89,10 +89,33 @@ python3 -m unittest \
   Scripts/tests/test_r00_inventory.py \
   Scripts/tests/test_json_schema_validator.py \
   Scripts/tests/test_phase_evidence.py \
-  Scripts/tests/test_r01_preregistration.py
+  Scripts/tests/test_r01_preregistration.py \
+  Scripts/tests/test_r01_capabilities.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
+python3 Scripts/r01_preregistration.py --check-fixtures
+
+if git ls-files -- '.r01-local-assets' | grep -q .; then
+  echo "R01 local system/model assets must never be tracked." >&2
+  exit 1
+fi
+
+r01_evidence_present=false
+for r01_evidence_path in \
+  project-notes/evidence/r01/hosts/anchor-oldest-supported.json \
+  project-notes/evidence/r01/hosts/anchor-m3-air.json \
+  project-notes/evidence/r01/hosts/anchor-pro-max.json \
+  project-notes/evidence/r01/hosts/anchor-core-ai.json \
+  project-notes/apple-upscale-capabilities.json \
+  project-notes/apple-upscale-capability-report.md; do
+  if [ -e "$r01_evidence_path" ] || [ -L "$r01_evidence_path" ]; then
+    r01_evidence_present=true
+  fi
+done
+if [ "$r01_evidence_present" = true ]; then
+  python3 Scripts/r01_capabilities.py --check
+fi
 
 while IFS= read -r manifest_path; do
   phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
@@ -157,6 +180,17 @@ if [ -f Package.swift ]; then
 else
   echo "==> Swift Package checks are not applicable; no app-owned Package.swift exists."
 fi
+
+echo "==> Building R01 isolated capability worker..."
+xcodebuild \
+  -project "$PROJECT_FILE" \
+  -scheme R01CapabilityWorker \
+  -configuration Debug \
+  -destination "$DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
+  CODE_SIGNING_ALLOWED=NO \
+  build
 
 echo "==> Building Debug..."
 xcodebuild \

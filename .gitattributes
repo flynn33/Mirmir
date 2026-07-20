@@ -1,4 +1,5 @@
 Mirmir/Resources/ASH/*.csv binary
+project-notes/evidence/r01/fixtures/*.bin binary
 Artifacts/ASH/**/*.log binary
 Artifacts/ASH/**/avmediainfo.txt binary
 Artifacts/ASH/**/reference-audit-reproduced.md binary

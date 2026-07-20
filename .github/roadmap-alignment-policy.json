@@ -116,12 +116,18 @@
       "## Forsetti boundary",
       "## Non-release boundary"
     ],
+    ".gitignore": [
+      "/.r01-local-assets/"
+    ],
     ".github/workflows/roadmap-alignment.yml": [
       "name: Roadmap alignment",
       "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
       "python3 Scripts/roadmap_alignment.py --check",
       "python3 Scripts/r00_inventory.py --check",
-      "python3 Scripts/r01_preregistration.py --check"
+      "python3 Scripts/r01_preregistration.py --check",
+      "python3 Scripts/r01_preregistration.py --check-fixtures",
+      "python3 Scripts/r01_capabilities.py --check",
+      "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
       "name: Roadmap metadata audit",
@@ -146,7 +152,10 @@
     ],
     "Scripts/verify-mirmir-guardrails.sh": [
       "python3 Scripts/roadmap_alignment.py --check",
-      "python3 Scripts/r01_preregistration.py --check"
+      "python3 Scripts/r01_preregistration.py --check",
+      "python3 Scripts/r01_preregistration.py --check-fixtures",
+      "python3 Scripts/r01_capabilities.py --check",
+      "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
       "# Roadmap Alignment Governance",
@@ -185,6 +194,21 @@
       "R00",
       "R01"
     ]
+  },
+  "phase_evidence_requirements": {
+    "R01": {
+      "required_status": "passed",
+      "paths": [
+        "docs/roadmaps/evidence/r01/phase-evidence.json",
+        "docs/roadmaps/evidence/r01/phase-evidence.md",
+        "project-notes/evidence/r01/hosts/anchor-oldest-supported.json",
+        "project-notes/evidence/r01/hosts/anchor-m3-air.json",
+        "project-notes/evidence/r01/hosts/anchor-pro-max.json",
+        "project-notes/evidence/r01/hosts/anchor-core-ai.json",
+        "project-notes/apple-upscale-capabilities.json",
+        "project-notes/apple-upscale-capability-report.md"
+      ]
+    }
   },
   "github_repository": {
     "name_with_owner": "flynn33/Mirmir",

@@ -161,6 +161,7 @@ class AlignmentVerifier:
             self._check_readme_progress()
             self._check_forsetti_boundary()
             self._check_inventory_status_coupling()
+            self._check_phase_evidence_requirements()
         self._check_required_phrases()
         self._check_phase_status_documents()
         self._check_forbidden_tracked_paths()
@@ -522,6 +523,48 @@ class AlignmentVerifier:
                     self.add_error(
                         relative,
                         f"phase status text differs from canonical JSON; expected {expected!r}",
+                    )
+
+    def _check_phase_evidence_requirements(self) -> None:
+        assert self.roadmap is not None
+        phase_by_id = {
+            phase["id"]: phase
+            for phase in self.roadmap.get("phases", [])
+            if isinstance(phase, dict) and isinstance(phase.get("id"), str)
+        }
+        requirements = self.policy.get("phase_evidence_requirements")
+        if not isinstance(requirements, dict):
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "phase_evidence_requirements must be an object",
+            )
+            return
+        for phase_id, requirement in requirements.items():
+            phase = phase_by_id.get(phase_id)
+            if phase is None or not isinstance(requirement, dict):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase evidence requirement is invalid for {phase_id}",
+                )
+                continue
+            required_status = requirement.get("required_status")
+            paths = requirement.get("paths")
+            if not isinstance(required_status, str) or not isinstance(paths, list) or not all(
+                isinstance(path, str) and path for path in paths
+            ):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase evidence requirement fields are invalid for {phase_id}",
+                )
+                continue
+            if phase.get("status") != required_status:
+                continue
+            for relative in paths:
+                path = self.path(relative)
+                if path.is_symlink() or not path.is_file():
+                    self.add_error(
+                        relative,
+                        f"phase {phase_id} status {required_status!r} requires a regular evidence file",
                     )
 
     def _check_inventory_status_coupling(self) -> None:

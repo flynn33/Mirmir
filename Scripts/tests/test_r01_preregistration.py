@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -23,7 +24,9 @@ from r01_preregistration import (  # noqa: E402
     HostFactCollectionError,
     PreregistrationVerifier,
     _fixture_digest,
+    check_materialized_fixtures,
     collect_host_facts,
+    materialize_fixtures,
 )
 
 
@@ -64,6 +67,28 @@ class R01PreregistrationTests(unittest.TestCase):
     def write_catalog(self) -> None:
         self.write_json(self.root / FIXTURE_CATALOG_PATH, self.catalog)
 
+    def freeze_analysis_model(
+        self,
+        path: str = ".r01-local-assets/probe-model.bin",
+        model_identity: str = "r01-core-ai-probe-model-v1",
+    ) -> None:
+        model = self.catalog["fixtures"][-1]
+        model.update(
+            {
+                "status": "frozen",
+                "materialization_path": path,
+                "byte_count": 7,
+                "content_sha256": hashlib.sha256(b"model-v1").hexdigest(),
+                "model_identity": model_identity,
+            }
+        )
+        self.write_catalog()
+        catalog_payload = (self.root / FIXTURE_CATALOG_PATH).read_bytes()
+        self.preregistration["fixture_catalog"]["sha256"] = hashlib.sha256(
+            catalog_payload
+        ).hexdigest()
+        self.write_preregistration()
+
     def verifier(self) -> PreregistrationVerifier:
         return PreregistrationVerifier(self.root)
 
@@ -84,6 +109,7 @@ class R01PreregistrationTests(unittest.TestCase):
         suffix: str,
     ) -> dict[str, object]:
         return {
+            "host_id": f"host-{suffix}",
             "model_identifier": f"Mac{suffix}",
             "hardware_class": hardware_class,
             "chip": chip,
@@ -103,6 +129,7 @@ class R01PreregistrationTests(unittest.TestCase):
             self.profile("pro_max_tier", "Apple M4 Pro", "26.5", "26.2", "26.2", "3"),
             self.profile("core_ai_capable", "Apple M4 Max", "27.0", "27.0", "27.0", "4"),
         )
+        profiles[1]["model_identifier"] = "Mac15,12"
         assignments = self.preregistration["anchor_assignments"]
         self.assertIsInstance(assignments, list)
         for assignment, profile in zip(assignments, profiles):
@@ -170,6 +197,52 @@ class R01PreregistrationTests(unittest.TestCase):
         observed_size, observed_hash = _fixture_digest("nv12_frame", 1280, 720, 0)
         self.assertEqual(fixture["byte_count"], observed_size)
         self.assertEqual(fixture["content_sha256"], observed_hash)
+
+    def small_fixture_catalog(self) -> dict[str, object]:
+        byte_count, content_sha256 = _fixture_digest("nv12_frame", 4, 2, 0)
+        return {
+            "fixtures": [
+                {
+                    "id": "small-fixture",
+                    "status": "frozen",
+                    "media_kind": "nv12_frame",
+                    "dimensions": {"width": 4, "height": 2},
+                    "frame_index": 0,
+                    "materialization_path": "fixtures/small.bin",
+                    "byte_count": byte_count,
+                    "content_sha256": content_sha256,
+                },
+                {
+                    "id": "unassigned-model",
+                    "status": "unassigned",
+                    "materialization_path": None,
+                },
+            ]
+        }
+
+    def test_materialize_and_check_fixture_bytes(self) -> None:
+        catalog = self.small_fixture_catalog()
+        paths = materialize_fixtures(self.root, catalog)
+        self.assertEqual(paths, [self.root.resolve() / "fixtures/small.bin"])
+        self.assertEqual(check_materialized_fixtures(self.root, catalog), [])
+        self.assertEqual(materialize_fixtures(self.root, catalog), paths)
+
+    def test_materializer_refuses_to_overwrite_drifted_bytes(self) -> None:
+        catalog = self.small_fixture_catalog()
+        path = self.root / "fixtures/small.bin"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"drift")
+        with self.assertRaisesRegex(ValueError, "byte count differs"):
+            materialize_fixtures(self.root, catalog)
+        self.assertEqual(path.read_bytes(), b"drift")
+
+    def test_materializer_rejects_symbolic_link_components(self) -> None:
+        catalog = self.small_fixture_catalog()
+        outside = self.root / "outside"
+        outside.mkdir()
+        (self.root / "fixtures").symlink_to(outside, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "symbolic link"):
+            materialize_fixtures(self.root, catalog)
 
     def test_scaler_and_analysis_dimensions_are_frozen(self) -> None:
         fixtures = {item["id"]: item for item in self.catalog["fixtures"]}
@@ -316,6 +389,26 @@ class R01PreregistrationTests(unittest.TestCase):
         self.write_preregistration()
         self.assert_error_contains("chip exactly Apple M3")
 
+    def test_m3_air_requires_official_air_model_identifier(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.preregistration["anchor_assignments"][1]["host_profile"][
+            "model_identifier"
+        ] = "Mac15,3"
+        self.write_preregistration()
+        self.assert_error_contains("model identifier Mac15,12 or Mac15,13")
+
+    def test_assigned_host_id_uses_closed_sanitized_identifier(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.preregistration["anchor_assignments"][0]["host_profile"]["host_id"] = (
+            "operator@example.com"
+        )
+        self.write_preregistration()
+        errors = self.verifier().check()
+        self.assertTrue(any("host_id is not a closed identifier" in error for error in errors))
+        self.assertTrue(any("email address" in error for error in errors))
+
     def test_core_ai_requires_os_xcode_and_sdk_major_27(self) -> None:
         self.assign_all_anchors()
         self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
@@ -364,6 +457,91 @@ class R01PreregistrationTests(unittest.TestCase):
         profile.pop("hardware_class")
         errors = self.verifier().check_live_readiness("core-ai", host_facts=profile)
         self.assertTrue(any("frozen analysis-probe-model" in error for error in errors))
+
+    def test_core_ai_missing_ignored_model_allows_negative_probe(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.freeze_analysis_model()
+        profile = copy.deepcopy(
+            self.preregistration["anchor_assignments"][3]["host_profile"]
+        )
+        profile.pop("hardware_class")
+        self.assertEqual(
+            self.verifier().check_live_readiness("core-ai", host_facts=profile), []
+        )
+
+    def test_core_ai_present_model_must_match_frozen_bytes(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.freeze_analysis_model()
+        model_path = self.root / ".r01-local-assets/probe-model.bin"
+        model_path.parent.mkdir()
+        model_path.write_bytes(b"drift")
+        profile = copy.deepcopy(
+            self.preregistration["anchor_assignments"][3]["host_profile"]
+        )
+        profile.pop("hardware_class")
+        errors = self.verifier().check_live_readiness("core-ai", host_facts=profile)
+        self.assertTrue(any("byte count differs" in error for error in errors), errors)
+
+    def test_core_ai_model_path_must_use_ignored_local_asset_directory(self) -> None:
+        self.assign_all_anchors()
+        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.freeze_analysis_model("project-notes/probe-model.bin")
+        self.assert_error_contains("ignored .r01-local-assets directory")
+
+    def test_core_ai_model_path_must_be_normalized_and_contained(self) -> None:
+        invalid_paths = (
+            ".r01-local-assets/../tracked-model.bin",
+            ".r01-local-assets//probe.bin",
+            ".r01-local-assets/./probe.bin",
+            ".r01-local-assets\\probe.bin",
+        )
+        base_catalog = copy.deepcopy(self.catalog)
+        base_preregistration = copy.deepcopy(self.preregistration)
+        for path in invalid_paths:
+            with self.subTest(path=path):
+                self.catalog = copy.deepcopy(base_catalog)
+                self.preregistration = copy.deepcopy(base_preregistration)
+                self.freeze_analysis_model(path)
+                self.assert_error_contains("normalized within the ignored .r01-local-assets")
+
+    def test_analysis_model_identity_is_privacy_scanned_before_commit(self) -> None:
+        mutations = (
+            ("operator@example.com", "email address"),
+            ("/Users/operator/model", "private filesystem path"),
+            ("serial number: SECRET", "labeled private identifier"),
+            ("hardware UUID=ABC", "labeled private identifier"),
+        )
+        base_catalog = copy.deepcopy(self.catalog)
+        base_preregistration = copy.deepcopy(self.preregistration)
+        for identity, fragment in mutations:
+            with self.subTest(identity=identity):
+                self.catalog = copy.deepcopy(base_catalog)
+                self.preregistration = copy.deepcopy(base_preregistration)
+                self.freeze_analysis_model(model_identity=identity)
+                self.assert_error_contains(fragment)
+
+    def test_core_ai_model_path_rejects_symbolic_link_components(self) -> None:
+        outside = self.root / "outside-model-assets"
+        outside.mkdir()
+        (self.root / ".r01-local-assets").symlink_to(
+            outside, target_is_directory=True
+        )
+        self.freeze_analysis_model()
+        self.assert_error_contains("symbolic-link component")
+
+    def test_frozen_analysis_model_rejects_all_zero_hash(self) -> None:
+        self.freeze_analysis_model()
+        self.catalog = self.read_json(self.root / FIXTURE_CATALOG_PATH)
+        self.catalog["fixtures"][-1]["content_sha256"] = "0" * 64
+        self.write_catalog()
+        catalog_payload = (self.root / FIXTURE_CATALOG_PATH).read_bytes()
+        self.preregistration["fixture_catalog"]["sha256"] = hashlib.sha256(
+            catalog_payload
+        ).hexdigest()
+        self.write_preregistration()
+        self.assert_error_contains("SHA-256 is invalid")
 
     def test_host_fact_collector_uses_only_allowlisted_commands(self) -> None:
         outputs = {

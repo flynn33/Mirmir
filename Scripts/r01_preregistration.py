@@ -7,6 +7,7 @@ import argparse
 from functools import lru_cache
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
@@ -104,29 +105,28 @@ COLOR_CONTRACT = {
 }
 
 COMMON_METRICS = (
-    "initialization_time_monotonic",
-    "acquisition_time_monotonic",
-    "median_wall_time",
-    "p95_wall_time",
-    "throughput",
-    "peak_resident_memory_delta",
-    "repeatability_hash_or_tolerance",
+    "initialization_seconds",
+    "acquisition_seconds",
+    "median_wall_seconds",
+    "p95_wall_seconds",
+    "throughput_units_per_second",
+    "peak_resident_memory_delta_bytes",
 )
 
 CLASS_METRICS = {
     "primary_scaler": COMMON_METRICS
-    + ("scale", "output_dimensions", "output_format", "frame_rate"),
+    + ("primary_scaler_observations", "frame_rate"),
     "support_filter": COMMON_METRICS
     + ("preserved_dimensions", "preserved_format", "required_guidance"),
     "temporal_analyzer": COMMON_METRICS
-    + ("flow_dimensions", "flow_format", "confidence_availability"),
+    + ("flow_dimensions", "flow_format", "confidence_available"),
     "cadence_transform": COMMON_METRICS
     + ("generated_frame_count", "output_cadence", "timestamp_contract"),
     "analysis_runtime": COMMON_METRICS
     + (
-        "load_time",
-        "specialization_time",
-        "inference_time",
+        "load_seconds",
+        "specialization_seconds",
+        "inference_seconds",
         "zero_copy_disposition",
         "stateful_execution_disposition",
     ),
@@ -162,6 +162,11 @@ STOP_RULES = (
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 APPLE_SILICON_CHIP = re.compile(r"^Apple M[1-9][0-9]*(?: (?:Pro|Max|Ultra))?$")
 PRO_MAX_CHIP = re.compile(r"^Apple M[1-9][0-9]* (?:Pro|Max)$")
+HOST_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+LOCAL_MODEL_PATH_PREFIX = ".r01-local-assets/"
+# https://support.apple.com/102869 identifies the 2024 M3 MacBook Air
+# enclosures by these two model identifiers (13-inch and 15-inch, respectively).
+M3_AIR_MODEL_IDENTIFIERS = frozenset({"Mac15,12", "Mac15,13"})
 LABELED_PRIVATE_VALUE_PATTERN = re.compile(
     r"(?i)(?:serial(?: number)?|hardware uuid|account(?: id)?|user(?:name)?|user name)\s*[:=]"
 )
@@ -323,10 +328,9 @@ def _bgra_rows(width: int, height: int, frame_index: int) -> Iterable[bytes]:
         yield bytes(row)
 
 
-@lru_cache(maxsize=None)
-def _fixture_digest(
+def _fixture_rows_and_size(
     media_kind: str, width: int, height: int, frame_index: int
-) -> tuple[int, str]:
+) -> tuple[Iterable[bytes], int]:
     if media_kind == "nv12_frame":
         rows = _nv12_rows(width, height, frame_index)
         byte_count = width * height * 3 // 2
@@ -338,6 +342,16 @@ def _fixture_digest(
         byte_count = width * height * 4
     else:
         raise ValueError(f"unsupported deterministic media kind: {media_kind}")
+    return rows, byte_count
+
+
+@lru_cache(maxsize=None)
+def _fixture_digest(
+    media_kind: str, width: int, height: int, frame_index: int
+) -> tuple[int, str]:
+    rows, byte_count = _fixture_rows_and_size(
+        media_kind, width, height, frame_index
+    )
     digest = hashlib.sha256()
     observed = 0
     for row in rows:
@@ -348,6 +362,148 @@ def _fixture_digest(
             f"generated {observed} bytes for {media_kind}; expected {byte_count}"
         )
     return byte_count, digest.hexdigest()
+
+
+def _safe_fixture_path(repository_root: Path, value: object) -> Path:
+    if not isinstance(value, str) or not value:
+        raise ValueError("fixture materialization path must be a non-empty string")
+    relative = PurePosixPath(value)
+    if relative.is_absolute() or ".." in relative.parts or value != relative.as_posix():
+        raise ValueError(
+            "fixture materialization path must be normalized and repository-relative"
+        )
+    root = repository_root.resolve()
+    component = root
+    for part in relative.parts:
+        component = component / part
+        if component.is_symlink():
+            raise ValueError(
+                f"fixture materialization path contains a symbolic link: {value}"
+            )
+    path = root / relative
+    try:
+        path.resolve().relative_to(root)
+    except ValueError as error:
+        raise ValueError(
+            f"fixture materialization path escapes the repository: {value}"
+        ) from error
+    return path
+
+
+def _materialized_fixture_errors(
+    repository_root: Path,
+    fixture: dict[str, Any],
+) -> list[str]:
+    fixture_id = fixture.get("id")
+    if fixture.get("status") != "frozen":
+        return []
+    try:
+        path = _safe_fixture_path(
+            repository_root, fixture.get("materialization_path")
+        )
+    except ValueError as error:
+        return [f"fixture {fixture_id}: {error}"]
+    if not path.is_file():
+        return [f"fixture {fixture_id}: materialized file is missing"]
+    if path.is_symlink():
+        return [f"fixture {fixture_id}: materialized file must not be a symbolic link"]
+    expected_size = fixture.get("byte_count")
+    if path.stat().st_size != expected_size:
+        return [f"fixture {fixture_id}: materialized byte count differs"]
+    expected_hash = fixture.get("content_sha256")
+    if sha256_file(path) != expected_hash:
+        return [f"fixture {fixture_id}: materialized SHA-256 differs"]
+    return []
+
+
+def check_materialized_fixtures(
+    repository_root: Path,
+    catalog: dict[str, Any] | None = None,
+) -> list[str]:
+    fixture_catalog = catalog if catalog is not None else build_fixture_catalog()
+    fixtures = fixture_catalog.get("fixtures")
+    if not isinstance(fixtures, list):
+        return ["fixture catalog fixtures must be an array"]
+    errors: list[str] = []
+    for fixture in fixtures:
+        if not isinstance(fixture, dict):
+            errors.append("fixture catalog entries must be objects")
+            continue
+        errors.extend(_materialized_fixture_errors(repository_root, fixture))
+    return sorted(set(errors))
+
+
+def materialize_fixtures(
+    repository_root: Path,
+    catalog: dict[str, Any] | None = None,
+) -> list[Path]:
+    fixture_catalog = catalog if catalog is not None else build_fixture_catalog()
+    fixtures = fixture_catalog.get("fixtures")
+    if not isinstance(fixtures, list):
+        raise ValueError("fixture catalog fixtures must be an array")
+    materialized: list[Path] = []
+    for fixture in fixtures:
+        if not isinstance(fixture, dict):
+            raise ValueError("fixture catalog entries must be objects")
+        if fixture.get("status") != "frozen":
+            continue
+        path = _safe_fixture_path(
+            repository_root, fixture.get("materialization_path")
+        )
+        existing_errors = _materialized_fixture_errors(repository_root, fixture)
+        if path.exists():
+            if existing_errors:
+                raise ValueError(existing_errors[0])
+            materialized.append(path)
+            continue
+        dimensions = fixture.get("dimensions")
+        if not isinstance(dimensions, dict):
+            raise ValueError(f"fixture {fixture.get('id')}: dimensions are missing")
+        width = dimensions.get("width")
+        height = dimensions.get("height")
+        frame_index = fixture.get("frame_index")
+        media_kind = fixture.get("media_kind")
+        if not (
+            isinstance(width, int)
+            and isinstance(height, int)
+            and isinstance(frame_index, int)
+            and isinstance(media_kind, str)
+        ):
+            raise ValueError(
+                f"fixture {fixture.get('id')}: generator inputs are invalid"
+            )
+        rows, expected_size = _fixture_rows_and_size(
+            media_kind, width, height, frame_index
+        )
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_fixture_path(repository_root, fixture.get("materialization_path"))
+        descriptor: int | None = None
+        try:
+            descriptor = os.open(
+                path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o644,
+            )
+            with os.fdopen(descriptor, "wb") as destination:
+                descriptor = None
+                for row in rows:
+                    destination.write(row)
+        except Exception:
+            if descriptor is not None:
+                os.close(descriptor)
+            path.unlink(missing_ok=True)
+            raise
+        if path.stat().st_size != expected_size:
+            path.unlink(missing_ok=True)
+            raise ValueError(
+                f"fixture {fixture.get('id')}: generated byte count is invalid"
+            )
+        generated_errors = _materialized_fixture_errors(repository_root, fixture)
+        if generated_errors:
+            path.unlink(missing_ok=True)
+            raise ValueError(generated_errors[0])
+        materialized.append(path)
+    return materialized
 
 
 def _frozen_fixture(
@@ -658,13 +814,30 @@ def _catalog_model_errors(model: object) -> list[str]:
             if model[key] is not None:
                 errors.append(f"unassigned analysis-probe-model {key} must be null")
     elif model["status"] == "frozen":
-        if not isinstance(model["materialization_path"], str):
-            errors.append("frozen analysis-probe-model path must be a string")
+        materialization_path = model["materialization_path"]
+        if not isinstance(materialization_path, str):
+            errors.append(
+                "frozen analysis-probe-model path must use the ignored .r01-local-assets directory"
+            )
+        else:
+            pure_path = PurePosixPath(materialization_path)
+            if (
+                pure_path.is_absolute()
+                or materialization_path != pure_path.as_posix()
+                or ".." in pure_path.parts
+                or "\\" in materialization_path
+                or "\x00" in materialization_path
+                or len(pure_path.parts) < 2
+                or pure_path.parts[0] != LOCAL_MODEL_PATH_PREFIX.rstrip("/")
+            ):
+                errors.append(
+                    "frozen analysis-probe-model path must be normalized within the ignored .r01-local-assets directory"
+                )
         if not isinstance(model["byte_count"], int) or model["byte_count"] < 1:
             errors.append("frozen analysis-probe-model byte_count must be positive")
         if not isinstance(model["content_sha256"], str) or not HEX_64.fullmatch(
             model["content_sha256"]
-        ):
+        ) or model["content_sha256"] == "0" * 64:
             errors.append("frozen analysis-probe-model SHA-256 is invalid")
         if not isinstance(model["model_identity"], str) or not model[
             "model_identity"
@@ -760,6 +933,7 @@ class PreregistrationVerifier:
             return [str(error)]
 
         errors.extend(validate_json_schema_instance(schema, preregistration))
+        errors.extend(self._privacy_errors(preregistration, "preregistration"))
 
         catalog_binding = preregistration.get("fixture_catalog")
         catalog: dict[str, Any] | None = None
@@ -781,8 +955,28 @@ class PreregistrationVerifier:
                     if catalog_binding.get("sha256") != observed_hash:
                         errors.append("fixture catalog SHA-256 differs from its binding")
         if catalog is not None:
+            errors.extend(self._privacy_errors(catalog, "fixture_catalog"))
             errors.extend(validate_json_schema_instance(fixture_schema, catalog))
             errors.extend(self._check_catalog(catalog))
+            fixtures = catalog.get("fixtures")
+            if isinstance(fixtures, list):
+                model = next(
+                    (
+                        fixture
+                        for fixture in fixtures
+                        if isinstance(fixture, dict)
+                        and fixture.get("id") == "analysis-probe-model"
+                    ),
+                    None,
+                )
+                if isinstance(model, dict) and model.get("status") == "frozen":
+                    _, model_path_error = self._safe_repository_path(
+                        model.get("materialization_path"),
+                        "analysis-probe-model.materialization_path",
+                        require_regular_file=False,
+                    )
+                    if model_path_error is not None:
+                        errors.append(model_path_error)
 
         try:
             expected_capabilities = build_capabilities(roadmap)
@@ -871,6 +1065,9 @@ class PreregistrationVerifier:
                 continue
             assigned_count += 1
             errors.extend(self._privacy_errors(profile, f"anchor {anchor} host_profile"))
+            host_id = profile.get("host_id")
+            if not isinstance(host_id, str) or HOST_ID_PATTERN.fullmatch(host_id) is None:
+                errors.append(f"anchor {anchor} host_id is not a closed identifier")
             if profile.get("hardware_class") != hardware_class:
                 errors.append(f"anchor {anchor} hardware class differs from its role")
             chip = profile.get("chip")
@@ -888,6 +1085,10 @@ class PreregistrationVerifier:
             if anchor == "m3-air":
                 if chip != "Apple M3":
                     errors.append("m3-air anchor requires chip exactly Apple M3")
+                if profile.get("model_identifier") not in M3_AIR_MODEL_IDENTIFIERS:
+                    errors.append(
+                        "m3-air anchor requires Apple model identifier Mac15,12 or Mac15,13"
+                    )
                 if not (
                     isinstance(os_version, str)
                     and (os_version == "26" or os_version.startswith("26."))
@@ -996,16 +1197,20 @@ class PreregistrationVerifier:
                         model_path, model_path_error = self._safe_repository_path(
                             model["materialization_path"],
                             "analysis-probe-model.materialization_path",
-                            require_regular_file=True,
+                            require_regular_file=False,
                         )
                         if model_path_error is not None:
                             errors.append(model_path_error)
-                        elif model_path is not None:
-                            if model_path.stat().st_size != model.get("byte_count"):
+                        elif model_path is not None and model_path.exists():
+                            if not model_path.is_file():
+                                errors.append(
+                                    "analysis-probe-model path must be a regular file when present"
+                                )
+                            elif model_path.stat().st_size != model.get("byte_count"):
                                 errors.append(
                                     "analysis-probe-model byte count differs from preregistration"
                                 )
-                            if sha256_file(model_path) != model.get("content_sha256"):
+                            elif sha256_file(model_path) != model.get("content_sha256"):
                                 errors.append(
                                     "analysis-probe-model SHA-256 differs from preregistration"
                                 )
@@ -1018,6 +1223,8 @@ def build_parser() -> argparse.ArgumentParser:
     action.add_argument("--check", action="store_true")
     action.add_argument("--check-live-readiness", action="store_true")
     action.add_argument("--emit-fixture-catalog", action="store_true")
+    action.add_argument("--materialize-fixtures", action="store_true")
+    action.add_argument("--check-fixtures", action="store_true")
     parser.add_argument(
         "--anchor",
         choices=[value[0] for value in ANCHOR_CONTRACTS],
@@ -1030,6 +1237,23 @@ def main(argv: list[str] | None = None) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.emit_fixture_catalog:
         print(json.dumps(build_fixture_catalog(), indent=2, sort_keys=True))
+        return 0
+    if arguments.materialize_fixtures:
+        try:
+            paths = materialize_fixtures(REPOSITORY_ROOT)
+        except (OSError, ValueError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 1
+        for path in paths:
+            print(path.relative_to(REPOSITORY_ROOT).as_posix())
+        return 0
+    if arguments.check_fixtures:
+        errors = check_materialized_fixtures(REPOSITORY_ROOT)
+        if errors:
+            for error in errors:
+                print(f"ERROR: {error}", file=sys.stderr)
+            return 1
+        print("R01 materialized fixtures: PASS")
         return 0
     if arguments.check_live_readiness and arguments.anchor is None:
         print("ERROR: --check-live-readiness requires --anchor", file=sys.stderr)

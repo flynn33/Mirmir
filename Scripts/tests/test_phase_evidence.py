@@ -20,6 +20,7 @@ from phase_evidence import (  # noqa: E402
     PhaseEvidenceVerifier,
     R01_CAPABILITY_DISPOSITIONS,
     R01_CAPABILITY_IDS,
+    R01_REQUIRED_SOURCE_PATHS,
     VERIFICATION_CATEGORY_OUTPUT_KINDS,
     main,
     render_phase_evidence,
@@ -83,6 +84,9 @@ class PhaseEvidenceTests(unittest.TestCase):
         self.swift_probe_test_path = (
             self.root / "MirmirTests/AppleUpscaleCapabilityProbeTests.swift"
         )
+        self.required_r01_source_paths = tuple(
+            self.root / relative for relative in R01_REQUIRED_SOURCE_PATHS
+        )
         self.command_source_paths = (
             self.root / "Scripts/phase_evidence.py",
             self.root / "Scripts/r01_capabilities.py",
@@ -114,7 +118,7 @@ class PhaseEvidenceTests(unittest.TestCase):
             self.lfs_pointer_path,
             self.private_record_path,
             self.consent_receipt_path,
-            self.swift_probe_test_path,
+            *self.required_r01_source_paths,
             *self.command_source_paths,
             *self.output_paths.values(),
             *self.verification_output_paths.values(),
@@ -157,6 +161,9 @@ class PhaseEvidenceTests(unittest.TestCase):
         for path in self.command_source_paths:
             path.write_text("#!/usr/bin/env sh\nexit 0\n", encoding="utf-8")
             path.chmod(0o755)
+        for path in self.required_r01_source_paths:
+            if not path.exists():
+                path.write_text("// deterministic R01 source fixture\n", encoding="utf-8")
         for category, path in self.verification_output_paths.items():
             path.write_text(
                 json.dumps(
@@ -857,6 +864,18 @@ class PhaseEvidenceTests(unittest.TestCase):
         self.swift_probe_test_path.unlink()
         self.git("add", "-u")
         self.git("commit", "-q", "-m", "remove required probe test")
+        commit = self.git("rev-parse", "HEAD").stdout.strip()
+        tree = self.git("rev-parse", "HEAD^{tree}").stdout.strip()
+        self.manifest["source"] = {"commit": commit, "tree": tree}
+        for host in self.manifest["hosts"]:
+            host["source_commit"] = commit
+        self.assert_error_contains("required source deliverable is absent")
+
+    def test_r01_required_runner_must_exist_at_source(self) -> None:
+        runner_path = self.root / "Scripts/run-r01-capability-probe.sh"
+        runner_path.unlink()
+        self.git("add", "-u")
+        self.git("commit", "-q", "-m", "remove required runner")
         commit = self.git("rev-parse", "HEAD").stdout.strip()
         tree = self.git("rev-parse", "HEAD^{tree}").stdout.strip()
         self.manifest["source"] = {"commit": commit, "tree": tree}

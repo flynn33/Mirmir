@@ -325,7 +325,33 @@ R01_ANCHOR_OUTPUT_PATHS = {
     "core-ai": "project-notes/evidence/r01/hosts/anchor-core-ai.json",
 }
 R01_REQUIRED_SOURCE_PATHS = (
+    "project.yml",
+    "Mirmir.xcodeproj/project.pbxproj",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityCompileProbe.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityExecutor.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityFixtureContract.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLegacyAdapters.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveContext.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveErrors.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveProducer.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityWorker.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityNativeAdapters.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityProbe.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityRawReport.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportModels.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportWriter.swift",
+    "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilitySupportProbe.swift",
     "MirmirTests/AppleUpscaleCapabilityProbeTests.swift",
+    "MirmirTests/AppleUpscaleCapabilityLiveProbeTests.swift",
+    "Scripts/r01_capabilities.py",
+    "Scripts/r01_preregistration.py",
+    "Scripts/phase_evidence.py",
+    "Scripts/run-r01-capability-probe.sh",
+    "R01CapabilityWorker/main.swift",
+    "docs/roadmaps/evidence/schema/r01-capability-aggregate-v1.json",
+    "docs/roadmaps/evidence/schema/r01-fixture-catalog-v1.json",
+    "docs/roadmaps/evidence/schema/r01-host-report-v1.json",
+    "docs/roadmaps/evidence/schema/r01-preregistration-v1.json",
 )
 TEXT_EVIDENCE_SUFFIXES = frozenset(
     {".csv", ".json", ".log", ".md", ".plist", ".py", ".sh", ".swift", ".txt", ".yaml", ".yml"}

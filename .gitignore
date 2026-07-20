@@ -39,3 +39,6 @@ Pods/
 
 # Local patch exports
 mirmir-*.patch
+
+# R01 local system/model assets (identity and hash only belong in Git)
+/.r01-local-assets/

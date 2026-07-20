@@ -39,6 +39,95 @@
       },
       "additionalProperties": false
     },
+    "implementationBindings": {
+      "type": "array",
+      "minItems": 27,
+      "maxItems": 27,
+      "prefixItems": [
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Scripts/r01_capabilities.py"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Scripts/r01_preregistration.py"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Scripts/phase_evidence.py"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Scripts/run-r01-capability-probe.sh"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "R01CapabilityWorker/main.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityProbe.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilitySupportProbe.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityCompileProbe.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityExecutor.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityFixtureContract.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveContext.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveErrors.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityNativeAdapters.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityRawReport.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportModels.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLegacyAdapters.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportWriter.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveProducer.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityWorker.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "MirmirTests/AppleUpscaleCapabilityProbeTests.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "MirmirTests/AppleUpscaleCapabilityLiveProbeTests.swift"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "project.yml"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "Mirmir.xcodeproj/project.pbxproj"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "docs/roadmaps/evidence/schema/r01-host-report-v1.json"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "docs/roadmaps/evidence/schema/r01-capability-aggregate-v1.json"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "docs/roadmaps/evidence/schema/r01-preregistration-v1.json"}}}]},
+        {"allOf": [{"$ref": "#/$defs/repositoryBinding"}, {"properties": {"path": {"const": "docs/roadmaps/evidence/schema/r01-fixture-catalog-v1.json"}}}]}
+      ],
+      "items": false
+    },
+    "primaryScalerObservation": {
+      "type": "object",
+      "required": [
+        "fixture_id",
+        "input_dimensions",
+        "output_dimensions",
+        "scale",
+        "output_format"
+      ],
+      "properties": {
+        "fixture_id": {"enum": ["scaler-720p", "scaler-1080p"]},
+        "input_dimensions": {"type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"},
+        "output_dimensions": {"type": "string", "pattern": "^[1-9][0-9]*x[1-9][0-9]*$"},
+        "scale": {"type": "number", "exclusiveMinimum": 0},
+        "output_format": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false
+    },
+    "primaryScalerObservations": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/primaryScalerObservation"},
+            {
+              "properties": {
+                "fixture_id": {"const": "scaler-720p"},
+                "input_dimensions": {"const": "1280x720"},
+                "output_dimensions": {"const": "1920x1080"},
+                "scale": {"const": 1.5},
+                "output_format": {"const": "420v"}
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/primaryScalerObservation"},
+            {
+              "properties": {
+                "fixture_id": {"const": "scaler-1080p"},
+                "input_dimensions": {"const": "1920x1080"},
+                "output_dimensions": {"const": "3840x2160"},
+                "scale": {"const": 2.0},
+                "output_format": {"const": "420v"}
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
     "repositoryFixtureBinding": {
       "type": "object",
       "required": ["id", "kind", "identity", "path", "size_bytes", "sha256"],
@@ -376,9 +465,6 @@
         "p95_wall_seconds",
         "throughput_units_per_second",
         "peak_resident_memory_delta_bytes",
-        "scale",
-        "output_dimensions",
-        "output_format",
         "frame_rate",
         "preserved_dimensions",
         "preserved_format",
@@ -402,9 +488,6 @@
         "p95_wall_seconds": {"$ref": "#/$defs/metricObservation"},
         "throughput_units_per_second": {"$ref": "#/$defs/metricObservation"},
         "peak_resident_memory_delta_bytes": {"$ref": "#/$defs/metricObservation"},
-        "scale": {"$ref": "#/$defs/metricObservation"},
-        "output_dimensions": {"$ref": "#/$defs/metricObservation"},
-        "output_format": {"$ref": "#/$defs/metricObservation"},
         "frame_rate": {"$ref": "#/$defs/metricObservation"},
         "preserved_dimensions": {"$ref": "#/$defs/metricObservation"},
         "preserved_format": {"$ref": "#/$defs/metricObservation"},
@@ -562,6 +645,176 @@
       },
       "additionalProperties": false
     },
+    "reasonStateClosure": {
+      "allOf": [
+        {
+          "if": {"properties": {"reason_code": {"const": "api_absent"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"const": "unavailable"},
+              "runtime_disposition": {"enum": ["unavailable", "unsupported"]},
+              "public_api_status": {"const": "absent"},
+              "support_query": {"properties": {"observed": {"const": "not_available"}, "reason_code": {"const": "api_absent"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "not_public_api"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["unsupported", "diagnostic_only", "rejected"]},
+              "public_api_status": {"const": "not_public"},
+              "support_query": {"properties": {"observed": {"const": "not_available"}, "reason_code": {"const": "not_public_api"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "os_too_old"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["unavailable", "unsupported", "restricted"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": false}, "reason_code": {"const": "os_too_old"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "sdk_too_old"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["unavailable", "conditional"]},
+              "runtime_disposition": {"enum": ["unavailable", "unsupported"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": "not_available"}, "reason_code": {"const": "sdk_too_old"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "hardware_unsupported"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["unavailable", "unsupported", "restricted"]},
+              "public_api_status": {"const": "public"},
+              "hardware_eligibility": {"const": "ineligible"},
+              "support_query": {"properties": {"observed": {"const": false}, "reason_code": {"const": "hardware_unsupported"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "model_unavailable"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["unavailable", "unsupported", "restricted"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}},
+              "model_readiness": {"const": "unavailable"},
+              "offline_suitability": {"enum": ["requires_acquisition", "unavailable"]}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "model_acquisition_failed"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["unavailable", "rejected"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}},
+              "model_readiness": {"const": "acquisition_failed"},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "input_contract_unsatisfied"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["restricted", "unsupported", "rejected"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "runtime_probe_failed"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["rejected", "unavailable", "diagnostic_only"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "resource_limit"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "compile_state": {"enum": ["available", "conditional"]},
+              "runtime_disposition": {"enum": ["restricted", "rejected", "unavailable"]},
+              "public_api_status": {"const": "public"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"reason_code": {"const": "not_applicable"}}, "required": ["reason_code"]},
+          "then": {
+            "properties": {
+              "runtime_disposition": {"enum": ["unsupported", "diagnostic_only"]},
+              "support_query": {"properties": {"observed": {"const": "not_available"}, "reason_code": {"const": "not_applicable"}}},
+              "offline_suitability": {"const": "unavailable"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"public_api_status": {"const": "absent"}}, "required": ["public_api_status"]},
+          "then": {"properties": {"reason_code": {"const": "api_absent"}}}
+        },
+        {
+          "if": {"properties": {"public_api_status": {"const": "not_public"}}, "required": ["public_api_status"]},
+          "then": {"properties": {"reason_code": {"const": "not_public_api"}}}
+        },
+        {
+          "if": {"properties": {"hardware_eligibility": {"const": "ineligible"}}, "required": ["hardware_eligibility"]},
+          "then": {"properties": {"reason_code": {"const": "hardware_unsupported"}}}
+        },
+        {
+          "if": {"properties": {"model_readiness": {"const": "unavailable"}}, "required": ["model_readiness"]},
+          "then": {"properties": {"reason_code": {"const": "model_unavailable"}}}
+        },
+        {
+          "if": {"properties": {"model_readiness": {"const": "acquisition_failed"}}, "required": ["model_readiness"]},
+          "then": {"properties": {"reason_code": {"const": "model_acquisition_failed"}}}
+        },
+        {
+          "if": {"properties": {"offline_suitability": {"const": "requires_acquisition"}}, "required": ["offline_suitability"]},
+          "then": {"properties": {"reason_code": {"const": "model_unavailable"}, "model_readiness": {"const": "unavailable"}}}
+        },
+        {
+          "if": {"properties": {"support_query": {"properties": {"observed": {"const": false}}}}, "required": ["support_query"]},
+          "then": {"properties": {"reason_code": {"enum": ["os_too_old", "hardware_unsupported"]}}}
+        },
+        {
+          "if": {"properties": {"support_query": {"properties": {"observed": {"const": "not_available"}}}}, "required": ["support_query"]},
+          "then": {"properties": {"reason_code": {"enum": ["api_absent", "sdk_too_old", "not_public_api", "not_applicable"]}}}
+        },
+        {
+          "if": {"properties": {"support_query": {"properties": {"observed": {"const": true}}}}, "required": ["support_query"]},
+          "then": {"properties": {"reason_code": {"enum": ["none", "model_unavailable", "model_acquisition_failed", "input_contract_unsatisfied", "runtime_probe_failed", "resource_limit"]}}}
+        }
+      ]
+    },
     "capability": {
       "type": "object",
       "required": [
@@ -572,6 +825,7 @@
         "compile_state",
         "runtime_disposition",
         "reason_code",
+        "failure_class",
         "public_api_status",
         "hardware_eligibility",
         "platform_requirements",
@@ -580,6 +834,7 @@
         "state_history",
         "model_readiness",
         "offline_suitability",
+        "primary_scaler_observations",
         "measurements",
         "product_qualification",
         "backend_eligibility",
@@ -613,6 +868,16 @@
             "not_applicable"
           ]
         },
+        "failure_class": {
+          "enum": [
+            "none",
+            "timeout",
+            "unsupported_contract",
+            "setup_failure",
+            "processing_failure",
+            "resource_failure"
+          ]
+        },
         "public_api_status": {"enum": ["public", "not_public", "absent"]},
         "hardware_eligibility": {"enum": ["eligible", "ineligible", "unknown"]},
         "platform_requirements": {"$ref": "#/$defs/platformRequirements"},
@@ -621,6 +886,12 @@
         "state_history": {"enum": ["stateless", "stateful", "requires_history", "unavailable"]},
         "model_readiness": {"enum": ["not_required", "ready", "unavailable", "acquisition_failed"]},
         "offline_suitability": {"enum": ["suitable", "requires_acquisition", "unavailable", "unknown"]},
+        "primary_scaler_observations": {
+          "oneOf": [
+            {"$ref": "#/$defs/primaryScalerObservations"},
+            {"type": "array", "maxItems": 0}
+          ]
+        },
         "measurements": {"$ref": "#/$defs/measurements"},
         "product_qualification": {"const": "not_evaluated_in_r01"},
         "backend_eligibility": {"const": "not_evaluated_in_r01"},
@@ -632,11 +903,18 @@
         }
       },
       "allOf": [
+        {"$ref": "#/$defs/reasonStateClosure"},
         {
           "if": {"properties": {"runtime_disposition": {"const": "runnable"}}},
           "then": {
             "properties": {
               "reason_code": {"const": "none"},
+              "failure_class": {"const": "none"},
+              "public_api_status": {"const": "public"},
+              "hardware_eligibility": {"const": "eligible"},
+              "support_query": {"properties": {"observed": {"const": true}, "reason_code": {"type": "null"}}},
+              "model_readiness": {"enum": ["not_required", "ready"]},
+              "offline_suitability": {"const": "suitable"},
               "measurements": {
                 "properties": {
                   "session_count": {"const": 3},
@@ -656,7 +934,8 @@
           },
           "else": {
             "properties": {
-              "reason_code": {"not": {"const": "none"}}
+              "reason_code": {"not": {"const": "none"}},
+              "failure_class": {"not": {"const": "none"}}
             }
           }
         },
@@ -665,6 +944,25 @@
           "then": {
             "properties": {
               "runtime_disposition": {"not": {"const": "runnable"}}
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "probe_class": {"const": "primary_scaler"},
+              "runtime_disposition": {"const": "runnable"}
+            },
+            "required": ["probe_class", "runtime_disposition"]
+          },
+          "then": {
+            "properties": {
+              "primary_scaler_observations": {"$ref": "#/$defs/primaryScalerObservations"}
+            }
+          },
+          "else": {
+            "properties": {
+              "primary_scaler_observations": {"type": "array", "maxItems": 0}
             }
           }
         }
@@ -708,6 +1006,7 @@
     "generated_at",
     "anchor",
     "host",
+    "implementation_bindings",
     "preregistration_binding",
     "fixture_bindings",
     "capabilities",
@@ -726,6 +1025,7 @@
     },
     "anchor": {"enum": ["oldest-supported", "m3-air", "pro-max", "core-ai"]},
     "host": {"$ref": "#/$defs/host"},
+    "implementation_bindings": {"$ref": "#/$defs/implementationBindings"},
     "preregistration_binding": {
       "allOf": [
         {"$ref": "#/$defs/repositoryBinding"},
@@ -762,7 +1062,7 @@
           "host": {
             "properties": {
               "chip": {"const": "Apple M3"},
-              "model_identifier": {"pattern": "^Mac[0-9]+,[0-9]+$"},
+              "model_identifier": {"enum": ["Mac15,12", "Mac15,13"]},
               "os_version": {"pattern": "^26(?:\\.[0-9]+)*$"},
               "hardware_classes": {
                 "allOf": [
@@ -804,6 +1104,33 @@
               "sdk_version": {"pattern": "^(?:2[7-9]|[3-9][0-9]|[1-9][0-9]{2,})(?:\\.[0-9]+)*$"},
               "hardware_classes": {"contains": {"const": "core_ai_capable"}}
             }
+          },
+          "capabilities": {
+            "prefixItems": [
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              true,
+              {
+                "properties": {
+                  "compile_state": {"enum": ["available", "conditional"]},
+                  "public_api_status": {"const": "public"}
+                }
+              }
+            ]
           }
         }
       }
