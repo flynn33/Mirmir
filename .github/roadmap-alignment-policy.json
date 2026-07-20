@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "290715492d9ed95540404104c7c11b4db5c06938a9a3488332de33a9a70f1c72",
-    "json_sha256": "67dfafc9de4fde56cd55d3487f9b4e0c8b88fc6ba45bd81aba97fb9226901d63",
+    "markdown_sha256": "571fa10b85676cc22fa0e8d7c9f90d7cd46978871af8b1144a70ba73d4b622be",
+    "json_sha256": "242b91e6f2dfaa52322976bf04576a42a23cab18649030d2bc892270079c3aaa",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -189,11 +189,13 @@
   "phase_status_documents": {
     "ARCHITECTURE.md": [
       "R00",
-      "R01"
+      "R01",
+      "R02"
     ],
     "local-work-plan.md": [
       "R00",
-      "R01"
+      "R01",
+      "R02"
     ]
   },
   "phase_evidence_requirements": {

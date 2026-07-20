@@ -257,6 +257,24 @@
       "result": "passed",
       "skip_reason": null,
       "started_at": "2026-07-20T23:41:00Z"
+    },
+    {
+      "argv": [
+        "python3",
+        "Scripts/phase_evidence.py",
+        "--phase",
+        "R01",
+        "--check"
+      ],
+      "command_id": "preclosure-phase-evidence-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:47:02Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:46:53Z"
     }
   ],
   "hosts": [
@@ -424,6 +442,19 @@
       "generated_summary": false,
       "id": "hosted-test-result",
       "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/evidence_integrity-result.json",
+        "sha256": "b6b00efbb7e9f1b08d06a406cf5ba6aeacba3f772e6f40ad1290914363a157f4",
+        "size_bytes": 349
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "evidence-integrity-result",
+      "kind": "command_log",
       "redistributable": true,
       "system_asset": false
     }
@@ -777,18 +808,109 @@
     ]
   },
   "result": {
-    "disposition": "blocked",
-    "dispositions": [],
-    "phase_status_after": "in_progress",
+    "disposition": "passed",
+    "dispositions": [
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A01",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A02",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A03",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A04",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A05",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A06",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A07",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A08",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A09",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A10",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A11",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A12",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A13",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A14",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A15",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A16",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A17",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A18",
+        "value": "diagnostic_only"
+      }
+    ],
+    "phase_status_after": "passed",
     "phase_status_before": "in_progress",
-    "status": "blocked",
-    "summary": "Preclosure validation binds the waiver outputs and nine completed verification categories without claiming R01 acceptance."
+    "status": "passed",
+    "summary": "R01 inventory closure records A01-A18 across all four logical anchors as not_observed and diagnostic_only without capability or qualification claims."
   },
   "roadmap_version": "1.0.1",
   "schema_version": "1.0",
   "source": {
-    "commit": "ca960770b75397832998daf57953c19723b7e216",
-    "tree": "16af1f9a65b5ff526d3df58fe0051d2c08a4494e"
+    "commit": "bd963fbd034734e92f488549c6e1c0cd8b246363",
+    "tree": "6009c40b775e252a05ff83d436d90f0422498245"
   },
   "verification": {
     "checks": [
@@ -907,6 +1029,19 @@
         "id": "unit-test-check",
         "output_ids": [
           "unit-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "evidence_integrity",
+        "command_ids": [
+          "preclosure-phase-evidence-check"
+        ],
+        "id": "evidence-integrity-check",
+        "output_ids": [
+          "evidence-integrity-result"
         ],
         "reason": null,
         "required": true,

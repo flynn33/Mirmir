@@ -212,7 +212,7 @@
       "exit": "closed A01-A18 capability disposition matrix; unavailable hardware, simulator, and operator observation recorded as not_observed",
       "id": "R01",
       "name": "Apple capability laboratory",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -221,7 +221,7 @@
       "exit": "common session contract across multiple backends",
       "id": "R02",
       "name": "Unified backend and stage architecture",
-      "status": "planned"
+      "status": "next"
     },
     {
       "depends_on": [

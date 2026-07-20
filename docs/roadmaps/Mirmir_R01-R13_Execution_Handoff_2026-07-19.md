@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.3
+- **Handoff version:** 1.4
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -15,7 +15,12 @@
   `5fce07140602b94d7fbea3e4219866292a4cd99f`; implementation commit
   `8d5a50bdb616a2973014648475b601c8a7437de6`; implementation tree
   `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0`
-- **Continuation state:** `R01: in_progress`; `R02: planned`
+- **R01 not-observed implementation:**
+  `8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe`
+- **R01 completed evidence source:**
+  `bd963fbd034734e92f488549c6e1c0cd8b246363`; tree
+  `6009c40b775e252a05ff83d436d90f0422498245`
+- **Continuation state:** `R01: passed`; `R02: next`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -58,11 +63,12 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: in_progress`, and `R02: planned` remain
+4. Confirm `R00: passed`, `R01: passed`, and `R02: next` remain
    canonical. If any changed, stop and reconcile the newer accepted roadmap
    before proceeding.
-5. Begin with R01 only. Later phases become actionable only through their
-   accepted dependencies, evidence, roadmap state, and operator controls.
+5. Begin with the R02 preregistration/start transition. Later phases become
+   actionable only through their accepted dependencies, evidence, roadmap
+   state, and operator controls.
 
 The source checkpoint records the accepted R00 state. A receiving environment
 must record its own exact starting commit rather than claiming that its working
@@ -325,16 +331,17 @@ frame interpolation; MPS Lanczos, bilinear and support filters; Core Image
 Lanczos, bicubic and edge-preserve upsample; vImage Lanczos/custom resampling;
 custom Metal; Core AI; and optional Core ML compatibility.
 
-PR #16 was merged after preregistration and implementation but before the four
-host reports, aggregate, phase-evidence closure, and proposed `passed` transition.
-PR #17 then merged the fail-closed assignment-export continuation before any
-assignment was frozen or any live evidence was collected. Both merges are
-reachable implementation checkpoints, not R01 closure or evidence acceptance.
-The exact later published commit that contains all four frozen assignments must
-be the common live evidence-source commit and tree; neither implementation
-checkpoint can authorize a live run because its preregistration remains
-unassigned. R01 stays `in_progress`, and R02 stays `planned`, until the
-continuation evidence and closure are accepted.
+PR #16 and PR #17 remain reachable implementation checkpoints. The current
+closure uses the explicit operator observation override rather than inventing
+native anchor reports: implementation commit
+`8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe` generates the closed waiver matrix,
+and evidence commit `bd963fbd034734e92f488549c6e1c0cd8b246363`
+binds ten passing verification categories. Every A01-A18 anchor cell remains
+`not_observed`/`diagnostic_only`; no runtime support, performance, product
+qualification, backend eligibility, or perceptual-quality result is claimed.
+The native assignment/model/live-run path remains optional supplemental
+evidence. R01 is `passed`, and R02 is `next`; publication and merge authority
+remain unchanged.
 
 Collect an aggregate matrix from four anchor environments:
 

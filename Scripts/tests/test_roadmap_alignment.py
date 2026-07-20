@@ -40,6 +40,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             self.policy["r00_inventory"]["json_path"],
         }
         paths.update(self.policy["required_phrases"])
+        for requirement in self.policy["phase_evidence_requirements"].values():
+            paths.update(requirement["paths"])
         workflow_root = REPOSITORY_ROOT / self.policy["workflows"]["root"]
         paths.update(
             path.relative_to(REPOSITORY_ROOT).as_posix()
@@ -119,26 +121,22 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assertEqual(self.errors(), [])
 
     def test_passed_r01_requires_every_authorizing_evidence_file(self) -> None:
-        self.set_phase_status("R01", "passed")
+        evidence_path = self.root / self.policy["phase_evidence_requirements"]["R01"][
+            "paths"
+        ][0]
+        evidence_path.unlink()
         self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
 
     def test_preclosure_r01_does_not_require_runtime_evidence_files(self) -> None:
-        missing = [
-            relative
-            for relative in self.policy["phase_evidence_requirements"]["R01"]["paths"]
-            if not (self.root / relative).exists()
-        ]
-        self.assertTrue(missing)
+        self.set_phase_status("R01", "in_progress")
+        for relative in self.policy["phase_evidence_requirements"]["R01"]["paths"]:
+            (self.root / relative).unlink()
         self.assertFalse(
             any("phase R01 status" in error for error in self.errors()),
             self.errors(),
         )
 
     def test_passed_r01_rejects_symlinked_authorizing_evidence(self) -> None:
-        for relative in self.policy["phase_evidence_requirements"]["R01"]["paths"]:
-            path = self.root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text("evidence\n", encoding="utf-8")
         symlink_path = self.root / self.policy["phase_evidence_requirements"]["R01"][
             "paths"
         ][0]
@@ -146,7 +144,6 @@ class RoadmapAlignmentTests(unittest.TestCase):
         target.write_text("{}\n", encoding="utf-8")
         symlink_path.unlink()
         symlink_path.symlink_to(target)
-        self.set_phase_status("R01", "passed")
         self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
 
     def test_canonical_markdown_hash_drift_fails(self) -> None:
@@ -186,7 +183,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("✅ Passed `1`", "✅ Passed `2`", 1)
+        text = text.replace("✅ Passed `2`", "✅ Passed `3`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
@@ -212,6 +209,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path, roadmap = self.roadmap_json()
         phases = roadmap["phases"]
         self.assertIsInstance(phases, list)
+        phases[1]["status"] = "in_progress"
         phases[2]["status"] = "in_progress"
         self.write_json(path, roadmap)
         self.assert_error_contains("before dependency R01 is passed")

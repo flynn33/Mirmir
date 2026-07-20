@@ -518,7 +518,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -581,7 +581,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `planned`
+**Status:** `next`
 
 ### Objective
 

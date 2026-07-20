@@ -26,19 +26,19 @@ market-position claim.
 ## Roadmap Progress
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `1 / 14` roadmap phases passed (`7%`)
+**Overall:** `2 / 14` roadmap phases passed (`14%`)
 
-`[----------]`
+`[#---------]`
 
-**Status:** ✅ Passed `1` · 🔄 In progress `1` · ⬜ Planned `11` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · ➡️ Next `1` · ⬜ Planned `10` · ⛔ Blocked `1`
 
-**Current focus:** `R01` — Apple capability laboratory
+**Current focus:** `R02` — Unified backend and stage architecture
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
-| `R01` | Apple capability laboratory | `in_progress` | 🔄 In progress |
-| `R02` | Unified backend and stage architecture | `planned` | ⬜ Planned |
+| `R01` | Apple capability laboratory | `passed` | ✅ Passed |
+| `R02` | Unified backend and stage architecture | `next` | ➡️ Next |
 | `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
 | `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
 | `R05` | MetalFX integration and suitability decision | `planned` | ⬜ Planned |
@@ -575,7 +575,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -638,7 +638,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `planned`
+**Status:** `next`
 
 ### Objective
 

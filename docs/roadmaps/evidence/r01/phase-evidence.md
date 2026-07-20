@@ -2,12 +2,12 @@
 
 - **Schema version:** `1.0`
 - **Roadmap version:** `1.0.1`
-- **Source commit:** `ca960770b75397832998daf57953c19723b7e216`
-- **Source tree:** `16af1f9a65b5ff526d3df58fe0051d2c08a4494e`
-- **Result status:** `blocked`
-- **Result disposition:** `blocked`
+- **Source commit:** `bd963fbd034734e92f488549c6e1c0cd8b246363`
+- **Source tree:** `6009c40b775e252a05ff83d436d90f0422498245`
+- **Result status:** `passed`
+- **Result disposition:** `passed`
 - **Phase status before:** `in_progress`
-- **Phase status after:** `in_progress`
+- **Phase status after:** `passed`
 
 This summary is generated from `phase-evidence.json`; the JSON manifest is canonical.
 
@@ -42,6 +42,7 @@ This summary is generated from `phase-evidence.json`; the JSON manifest is canon
 | `project-generation-diff` | `r01-verification-executor` | `passed` | 0 | `git diff --exit-code -- Mirmir.xcodeproj/project.pbxproj` |
 | `debug-build` | `r01-verification-executor` | `passed` | 0 | `xcodebuild -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS -derivedDataPath /tmp/mirmir-r01-evidence-deriveddata -disableAutomaticPackageResolution build` |
 | `release-build` | `r01-verification-executor` | `passed` | 0 | `xcodebuild -project Mirmir.xcodeproj -scheme Mirmir -configuration Release -destination platform=macOS -derivedDataPath /tmp/mirmir-r01-evidence-deriveddata -disableAutomaticPackageResolution build` |
+| `preclosure-phase-evidence-check` | `r01-verification-executor` | `passed` | 0 | `python3 Scripts/phase_evidence.py --phase R01 --check` |
 
 ## Outputs
 
@@ -58,6 +59,7 @@ This summary is generated from `phase-evidence.json`; the JSON manifest is canon
 | `project-generation-result` | `command_log` | `project-notes/verification/r01/project_generation-result.json` | 376 | `5fd4d11e9ba00d7c5e52d79701e19140813514738aaf0eac168776921a500e87` |
 | `build-result` | `build_result` | `project-notes/verification/r01/build-result.json` | 293 | `05d532a6e572559d0eaf8dab6fb320f293e53a99e47bd7d96aadf3fdc6488d75` |
 | `hosted-test-result` | `test_result` | `project-notes/verification/r01/hosted_test-result.json` | 288 | `36c6f08bb1bf5b74f1b13a3b4fd0d319e7fc62d26031f403ceeef59428c03479` |
+| `evidence-integrity-result` | `command_log` | `project-notes/verification/r01/evidence_integrity-result.json` | 349 | `b6b00efbb7e9f1b08d06a406cf5ba6aeacba3f772e6f40ad1290914363a157f4` |
 
 ## Verification
 
@@ -70,15 +72,34 @@ This summary is generated from `phase-evidence.json`; the JSON manifest is canon
 - `project-generation-check` (`project_generation`, required): `passed`
 - `repository-check` (`repository`, required): `passed`
 - `unit-test-check` (`unit_test`, required): `passed`
+- `evidence-integrity-check` (`evidence_integrity`, required): `passed`
 
 ## Capability or Experimental Dispositions
 
 | Subject | Disposition | Reason |
 | --- | --- | --- |
+| `A01` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A02` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A03` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A04` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A05` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A06` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A07` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A08` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A09` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A10` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A11` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A12` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A13` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A14` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A15` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A16` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A17` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
+| `A18` | `diagnostic_only` | Operation was not observed under the explicit operator waiver; diagnostic inventory only. |
 
 ## Result
 
-Preclosure validation binds the waiver outputs and nine completed verification categories without claiming R01 acceptance.
+R01 inventory closure records A01-A18 across all four logical anchors as not_observed and diagnostic_only without capability or qualification claims.
 
 ## Authorization State
 

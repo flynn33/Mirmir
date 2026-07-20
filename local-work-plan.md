@@ -11,29 +11,19 @@
 - Roadmap phase `R00`: `passed`. The architecture decision, app-owned runtime,
   retired legacy authority, and exact PR #13 source checkpoint are preserved in
   the accepted current-source inventory.
-- Roadmap phase `R01`: `in_progress`. PR #16 merged the preregistration and
-  implementation checkpoint at merge commit
-  `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
-  `4bce3438a0508c70fd4db845be7e4abc0cc1cf29` and the merge commit share tree
-  `848948c9c38a2d8a382113698fe88059a69e943c`. PR #17 merged the assignment-export
-  checkpoint at merge commit `5fce07140602b94d7fbea3e4219866292a4cd99f`;
-  implementation commit `8d5a50bdb616a2973014648475b601c8a7437de6` and the
-  merge commit share tree `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0`.
-  Neither merge contained the four frozen host assignments, frozen shared probe
-  model identity/hash, runtime reports, aggregate, closure manifest, or proposed
-  `passed` transition, so capability evidence and exit criteria remain
-  outstanding.
-- R01 assignment intake validates exactly four transferred exporter records as
-  one closed set and atomically freezes them in canonical anchor order. Partial,
-  duplicate, malformed, private, symlinked, inconsistent, or different
-  already-frozen inputs are rejected without starting a live probe. Cooperative
-  freeze invocations are serialized, canonical drift detected before replacement
-  aborts, and an exact replay is a no-write success.
-- Every R01 anchor now requires the same frozen `analysis-probe-model`
-  identity/hash before live readiness can pass, matching the producer and
-  aggregate contract. The current runner remains fail-closed on model acquisition
-  until its closed consent-receipt contract and acquisition path are implemented.
-- R02 unified backend architecture: planned after R01 capability contracts.
+- Roadmap phase `R01`: `passed`. The source-bound closure manifest records every
+  A01-A18 capability across all four logical anchors as `not_observed` and
+  `diagnostic_only`, with performance and qualification claims forbidden. The
+  completed evidence commit is
+  `bd963fbd034734e92f488549c6e1c0cd8b246363`; required anchor hardware and a
+  compatible simulator destination were unavailable for capability observation,
+  and operator-observed execution was waived as a blocker.
+- The earlier PR #16 implementation and PR #17 assignment-export merges remain
+  reachable historical checkpoints. Their native assignment, model-freeze, and
+  live-run path remains optional supplemental evidence and does not alter the
+  accepted not-observed inventory disposition.
+- Roadmap phase `R02`: `next`. Unified backend and stage architecture is the next
+  dependency-satisfied phase; production upscaling remains unavailable.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
