@@ -1,0 +1,454 @@
+{
+  "authorizations": {
+    "after": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "before": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "proposed_decisions": []
+  },
+  "commands": [],
+  "hosts": [],
+  "limitations": [
+    "This is a preclosure bootstrap manifest; it records no hardware, simulator, API, runtime, model, performance, memory, repeatability, qualification, eligibility, or perceptual-quality observation."
+  ],
+  "outputs": [],
+  "phase_id": "R01",
+  "preregistration": {
+    "disposition_subjects": [
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A01"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A02"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A03"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A04"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A05"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A06"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A07"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A08"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A09"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A10"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A11"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A12"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A13"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A14"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A15"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A16"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A17"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A18"
+      }
+    ],
+    "fixtures": [
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/scaler-720p.bin",
+          "sha256": "77b432c2d459fa662d06f3086b2ac7c051a16e492da8783472917224aa96c73e",
+          "size_bytes": 1382400
+        },
+        "id": "scaler-720p",
+        "redistributable": true,
+        "role": "primary scaler 720p fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/scaler-1080p.bin",
+          "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15",
+          "size_bytes": 3110400
+        },
+        "id": "scaler-1080p",
+        "redistributable": true,
+        "role": "primary scaler 1080p fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-frame.bin",
+          "sha256": "b0a20a11875a4b977bf20db4d34367404b907a50374b99faa545a70c7c01eb6e",
+          "size_bytes": 3110400
+        },
+        "id": "support-frame",
+        "redistributable": true,
+        "role": "support filter current-frame fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-guidance.bin",
+          "sha256": "fc181d1538aefa5f635b334f778ed4210aca5bb799b249931ced024551a2ec91",
+          "size_bytes": 2073600
+        },
+        "id": "support-guidance",
+        "redistributable": true,
+        "role": "support filter guidance fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-history.bin",
+          "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15",
+          "size_bytes": 3110400
+        },
+        "id": "support-history",
+        "redistributable": true,
+        "role": "support filter history fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/temporal-frame-0.bin",
+          "sha256": "e62159913ef91af0784820cc71edea1d5db6014fe8853ea012f20a461c359bbd",
+          "size_bytes": 3110400
+        },
+        "id": "temporal-frame-0",
+        "redistributable": true,
+        "role": "temporal analyzer ordered frame 0"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/temporal-frame-1.bin",
+          "sha256": "503a754a679221dc5a2a29b4a0d3b1382b6084ab7f886cb9760356310335f168",
+          "size_bytes": 3110400
+        },
+        "id": "temporal-frame-1",
+        "redistributable": true,
+        "role": "temporal analyzer ordered frame 1"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/cadence-frame-0.bin",
+          "sha256": "fe379f6d59239c0cb0bcaf87f3db4eac3f98d576d6a69fc8cb950bbbbae30fdd",
+          "size_bytes": 3110400
+        },
+        "id": "cadence-frame-0",
+        "redistributable": true,
+        "role": "cadence transform ordered frame 0"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/cadence-frame-1.bin",
+          "sha256": "4ee27a60ec169b22295c9dbbffde9b9532e9e88ac313c51d26c5c8cd5bd01a0d",
+          "size_bytes": 3110400
+        },
+        "id": "cadence-frame-1",
+        "redistributable": true,
+        "role": "cadence transform ordered frame 1"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/analysis-proxy.bin",
+          "sha256": "bfcae4462f1720afc1c36fc5660130442dcd28f9bd55f46c041b6274fb6b3590",
+          "size_bytes": 589824
+        },
+        "id": "analysis-proxy",
+        "redistributable": true,
+        "role": "analysis runtime proxy fixture"
+      }
+    ],
+    "floors": [
+      {
+        "comparison": "not_applicable",
+        "metric_id": "evidence-completeness",
+        "scope": "preclosure bootstrap only",
+        "value": null
+      }
+    ],
+    "inputs": [
+      {
+        "binding": {
+          "path": "docs/roadmaps/evidence/r01/records/fixtures/fixture-catalog.json",
+          "sha256": "ae8241f5d69ce64ed143e8bbb39ab80a996f6923f1ddc83ebfbaec58d9689182",
+          "size_bytes": 9656
+        },
+        "id": "fixture-catalog",
+        "identity": "R01 frozen fixture and model catalog",
+        "kind": "repository_fixture",
+        "limitations": [
+          "The analysis probe model remains unassigned."
+        ]
+      }
+    ],
+    "metrics": [
+      {
+        "applicability": "preclosure evidence collection",
+        "direction": "observation_only",
+        "id": "evidence-completeness",
+        "unit": null
+      }
+    ],
+    "parameters": [],
+    "record": {
+      "path": "docs/roadmaps/evidence/r01/records/preregistration.json",
+      "sha256": "8651ce7a52cd2c80a86e42480cbfbf78474e07dfea8685851138583e3760c69f",
+      "size_bytes": 7256
+    },
+    "stop_rules": [
+      {
+        "description": "Do not claim R01 closure until every required verification artifact is source-bound and independently validated.",
+        "id": "source-bound-closure"
+      }
+    ]
+  },
+  "result": {
+    "disposition": "blocked",
+    "dispositions": [],
+    "phase_status_after": "in_progress",
+    "phase_status_before": "in_progress",
+    "status": "blocked",
+    "summary": "R01 remains in progress while source-bound closure verification is collected."
+  },
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0",
+  "source": {
+    "commit": "986c8785f0aaae71b0ad9b4e380ad47008729882",
+    "tree": "9b404ee4b77fc31adceef59bfe8e2f3af6168132"
+  },
+  "verification": {
+    "checks": [
+      {
+        "category": "hosted_test",
+        "command_ids": [],
+        "id": "source-bound-verification",
+        "output_ids": [],
+        "reason": "Source-bound closure verification artifacts have not yet been recorded.",
+        "required": true,
+        "status": "skipped"
+      }
+    ]
+  }
+}
