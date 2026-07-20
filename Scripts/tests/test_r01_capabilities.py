@@ -1096,6 +1096,31 @@ class R01CapabilityTests(unittest.TestCase):
         _, errors = self.verifier().load_and_validate_raw_reports()
         self.assertEqual(errors, [])
 
+    def test_non_core_ai_a18_api_absent_record_can_enter_aggregate(self) -> None:
+        for anchor in ("oldest-supported", "m3-air", "pro-max"):
+            capability = self.reports[anchor]["capabilities"][17]
+            self.make_nonrunnable(
+                capability,
+                reason_code="api_absent",
+                **self.reason_contracts_for_tests()["api_absent"],
+            )
+            capability["platform_requirements"] = {
+                "minimum_os_version": "27.0",
+                "minimum_sdk_version": "27.0",
+                "unavailable_reason": None,
+            }
+            capability["support_query"]["api_or_equivalent_name"] = (
+                "CoreAI module and frozen model"
+            )
+            capability["state_history"] = "unavailable"
+            capability["limitations"] = [
+                "The isolated Swift compiler unit did not typecheck this capability.",
+                "isolated_swiftc_nonzero_exit",
+            ]
+
+        self.write_reports()
+        self.assertEqual(main(["--aggregate", "--root", str(self.root)]), 0)
+
     def test_core_ai_a18_model_unavailable_retains_public_compile_surface(self) -> None:
         capability = self.reports["core-ai"]["capabilities"][17]
         self.make_nonrunnable(

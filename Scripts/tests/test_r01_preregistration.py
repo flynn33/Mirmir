@@ -19,6 +19,8 @@ from unittest import mock
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 
+ANALYSIS_MODEL_PAYLOAD = b"model-v1"
+
 import r01_preregistration as r01_module  # noqa: E402
 
 from r01_preregistration import (  # noqa: E402
@@ -89,8 +91,8 @@ class R01PreregistrationTests(unittest.TestCase):
             {
                 "status": "frozen",
                 "materialization_path": path,
-                "byte_count": 7,
-                "content_sha256": hashlib.sha256(b"model-v1").hexdigest(),
+                "byte_count": len(ANALYSIS_MODEL_PAYLOAD),
+                "content_sha256": hashlib.sha256(ANALYSIS_MODEL_PAYLOAD).hexdigest(),
                 "model_identity": model_identity,
             }
         )
@@ -491,6 +493,7 @@ class R01PreregistrationTests(unittest.TestCase):
 
     def test_live_readiness_matches_injected_host_facts(self) -> None:
         self.assign_all_anchors()
+        self.freeze_analysis_model()
         preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
         profile = copy.deepcopy(
             preregistration["anchor_assignments"][2]["host_profile"]
@@ -502,6 +505,7 @@ class R01PreregistrationTests(unittest.TestCase):
 
     def test_live_readiness_rejects_host_mismatch(self) -> None:
         self.assign_all_anchors()
+        self.freeze_analysis_model()
         preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
         profile = copy.deepcopy(
             preregistration["anchor_assignments"][2]["host_profile"]
@@ -511,41 +515,90 @@ class R01PreregistrationTests(unittest.TestCase):
         errors = self.verifier().check_live_readiness("pro-max", host_facts=profile)
         self.assertTrue(any("memory_bytes differs" in error for error in errors), errors)
 
-    def test_core_ai_live_readiness_requires_frozen_model(self) -> None:
+    def test_every_anchor_live_readiness_requires_frozen_model(self) -> None:
         self.assign_all_anchors()
         preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
-        profile = copy.deepcopy(
-            preregistration["anchor_assignments"][3]["host_profile"]
-        )
-        profile.pop("hardware_class")
-        errors = self.verifier().check_live_readiness("core-ai", host_facts=profile)
-        self.assertTrue(any("frozen analysis-probe-model" in error for error in errors))
+        for assignment in preregistration["anchor_assignments"]:
+            with self.subTest(anchor=assignment["anchor"]):
+                profile = copy.deepcopy(assignment["host_profile"])
+                profile.pop("hardware_class")
+                errors = self.verifier().check_live_readiness(
+                    assignment["anchor"], host_facts=profile
+                )
+                self.assertTrue(
+                    any("frozen analysis-probe-model" in error for error in errors),
+                    errors,
+                )
 
-    def test_core_ai_missing_ignored_model_allows_negative_probe(self) -> None:
+    def test_every_anchor_allows_absent_bytes_for_frozen_model(self) -> None:
         self.assign_all_anchors()
-        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
         self.freeze_analysis_model()
-        profile = copy.deepcopy(
-            self.preregistration["anchor_assignments"][3]["host_profile"]
-        )
-        profile.pop("hardware_class")
-        self.assertEqual(
-            self.verifier().check_live_readiness("core-ai", host_facts=profile), []
-        )
+        preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        for assignment in preregistration["anchor_assignments"]:
+            with self.subTest(anchor=assignment["anchor"]):
+                profile = copy.deepcopy(assignment["host_profile"])
+                profile.pop("hardware_class")
+                self.assertEqual(
+                    self.verifier().check_live_readiness(
+                        assignment["anchor"], host_facts=profile
+                    ),
+                    [],
+                )
 
-    def test_core_ai_present_model_must_match_frozen_bytes(self) -> None:
+    def test_every_anchor_accepts_matching_present_model_bytes(self) -> None:
         self.assign_all_anchors()
-        self.preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        self.freeze_analysis_model()
+        model_path = self.root / ".r01-local-assets/probe-model.bin"
+        model_path.parent.mkdir()
+        model_path.write_bytes(ANALYSIS_MODEL_PAYLOAD)
+        preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        for assignment in preregistration["anchor_assignments"]:
+            with self.subTest(anchor=assignment["anchor"]):
+                profile = copy.deepcopy(assignment["host_profile"])
+                profile.pop("hardware_class")
+                self.assertEqual(
+                    self.verifier().check_live_readiness(
+                        assignment["anchor"], host_facts=profile
+                    ),
+                    [],
+                )
+
+    def test_every_anchor_rejects_wrong_size_present_model_bytes(self) -> None:
+        self.assign_all_anchors()
         self.freeze_analysis_model()
         model_path = self.root / ".r01-local-assets/probe-model.bin"
         model_path.parent.mkdir()
         model_path.write_bytes(b"drift")
-        profile = copy.deepcopy(
-            self.preregistration["anchor_assignments"][3]["host_profile"]
-        )
-        profile.pop("hardware_class")
-        errors = self.verifier().check_live_readiness("core-ai", host_facts=profile)
-        self.assertTrue(any("byte count differs" in error for error in errors), errors)
+        preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        for assignment in preregistration["anchor_assignments"]:
+            with self.subTest(anchor=assignment["anchor"]):
+                profile = copy.deepcopy(assignment["host_profile"])
+                profile.pop("hardware_class")
+                errors = self.verifier().check_live_readiness(
+                    assignment["anchor"], host_facts=profile
+                )
+                self.assertTrue(
+                    any("byte count differs" in error for error in errors), errors
+                )
+
+    def test_every_anchor_rejects_same_size_model_hash_drift(self) -> None:
+        self.assign_all_anchors()
+        self.freeze_analysis_model()
+        model_path = self.root / ".r01-local-assets/probe-model.bin"
+        model_path.parent.mkdir()
+        model_path.write_bytes(b"model-v2")
+        self.assertEqual(model_path.stat().st_size, len(ANALYSIS_MODEL_PAYLOAD))
+        preregistration = self.read_json(self.root / PREREGISTRATION_PATH)
+        for assignment in preregistration["anchor_assignments"]:
+            with self.subTest(anchor=assignment["anchor"]):
+                profile = copy.deepcopy(assignment["host_profile"])
+                profile.pop("hardware_class")
+                errors = self.verifier().check_live_readiness(
+                    assignment["anchor"], host_facts=profile
+                )
+                self.assertTrue(
+                    any("SHA-256 differs" in error for error in errors), errors
+                )
 
     def test_core_ai_model_path_must_use_ignored_local_asset_directory(self) -> None:
         self.assign_all_anchors()

@@ -6,6 +6,14 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Closed an R01 live-readiness mismatch by requiring the shared frozen
+  `analysis-probe-model` identity/hash before every anchor, matching the live
+  producer and four-report aggregate contract. Frozen identity with absent local
+  bytes remains valid for a negative probe; unassigned identity and drifted
+  present bytes fail closed. Compile-unavailable A18 records now normalize model
+  readiness and offline suitability to the aggregate's closed `api_absent`
+  contract. The acquisition flag remains rejected until the documented
+  consent-receipt contract and acquisition path are implemented.
 - Added fail-closed R01 assignment intake for the primary checkout. Exactly four
   transferred exporter records are privacy- and role-validated together before
   the canonical preregistration is atomically moved from fully unassigned to

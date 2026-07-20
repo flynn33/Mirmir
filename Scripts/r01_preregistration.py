@@ -1683,32 +1683,32 @@ class PreregistrationVerifier:
                     ),
                     None,
                 )
-                if anchor == "core-ai":
-                    if not isinstance(model, dict) or model.get("status") != "frozen":
-                        errors.append(
-                            "core-ai live probe requires a frozen analysis-probe-model identity/hash"
-                        )
-                    elif isinstance(model.get("materialization_path"), str):
-                        model_path, model_path_error = self._safe_repository_path(
-                            model["materialization_path"],
-                            "analysis-probe-model.materialization_path",
-                            require_regular_file=False,
-                        )
-                        if model_path_error is not None:
-                            errors.append(model_path_error)
-                        elif model_path is not None and model_path.exists():
-                            if not model_path.is_file():
-                                errors.append(
-                                    "analysis-probe-model path must be a regular file when present"
-                                )
-                            elif model_path.stat().st_size != model.get("byte_count"):
-                                errors.append(
-                                    "analysis-probe-model byte count differs from preregistration"
-                                )
-                            elif sha256_file(model_path) != model.get("content_sha256"):
-                                errors.append(
-                                    "analysis-probe-model SHA-256 differs from preregistration"
-                                )
+                if not isinstance(model, dict) or model.get("status") != "frozen":
+                    errors.append(
+                        "every live probe requires a frozen "
+                        "analysis-probe-model identity/hash"
+                    )
+                elif isinstance(model.get("materialization_path"), str):
+                    model_path, model_path_error = self._safe_repository_path(
+                        model["materialization_path"],
+                        "analysis-probe-model.materialization_path",
+                        require_regular_file=False,
+                    )
+                    if model_path_error is not None:
+                        errors.append(model_path_error)
+                    elif model_path is not None and model_path.exists():
+                        if not model_path.is_file():
+                            errors.append(
+                                "analysis-probe-model path must be a regular file when present"
+                            )
+                        elif model_path.stat().st_size != model.get("byte_count"):
+                            errors.append(
+                                "analysis-probe-model byte count differs from preregistration"
+                            )
+                        elif sha256_file(model_path) != model.get("content_sha256"):
+                            errors.append(
+                                "analysis-probe-model SHA-256 differs from preregistration"
+                            )
         return sorted(set(errors))
 
 

@@ -19,15 +19,20 @@
   checkpoint at merge commit `5fce07140602b94d7fbea3e4219866292a4cd99f`;
   implementation commit `8d5a50bdb616a2973014648475b601c8a7437de6` and the
   merge commit share tree `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0`.
-  Neither merge contained the four frozen host assignments, runtime reports,
-  aggregate, closure manifest, or proposed `passed` transition, so capability
-  evidence and exit criteria remain outstanding.
+  Neither merge contained the four frozen host assignments, frozen shared probe
+  model identity/hash, runtime reports, aggregate, closure manifest, or proposed
+  `passed` transition, so capability evidence and exit criteria remain
+  outstanding.
 - R01 assignment intake validates exactly four transferred exporter records as
   one closed set and atomically freezes them in canonical anchor order. Partial,
   duplicate, malformed, private, symlinked, inconsistent, or different
   already-frozen inputs are rejected without starting a live probe. Cooperative
   freeze invocations are serialized, canonical drift detected before replacement
   aborts, and an exact replay is a no-write success.
+- Every R01 anchor now requires the same frozen `analysis-probe-model`
+  identity/hash before live readiness can pass, matching the producer and
+  aggregate contract. The current runner remains fail-closed on model acquisition
+  until its closed consent-receipt contract and acquisition path are implemented.
 - R02 unified backend architecture: planned after R01 capability contracts.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and

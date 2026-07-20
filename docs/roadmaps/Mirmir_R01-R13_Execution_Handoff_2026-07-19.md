@@ -327,10 +327,13 @@ For every capability record compile availability separately from runtime support
 public API status, hardware eligibility, scales, dimensions, formats, color
 expectations, state/history, model readiness, offline suitability, repeatability,
 initialization latency, warm throughput, memory, and exact rejection/restriction
-reason. The accepted R01 execution choice permits model acquisition during these
-probes, subject to consent on the host performing the network/download action.
-It must be explicit, isolated from ordinary app boot, and excluded from Git. This
-document does not grant publication authority or later product use.
+reason. The accepted R01 execution choice permits model acquisition in principle
+during these probes, subject to consent on the host performing the
+network/download action. The current runner remains fail-closed and rejects the
+acquisition flag until an additive reviewed implementation defines the closed
+consent-receipt contract and acquisition path. Acquisition must be explicit,
+isolated from ordinary app boot, and excluded from Git. This document does not
+grant publication authority or later product use.
 
 Before the first live run, assign one actual host/toolchain combination to every
 anchor and freeze the assignment in preregistration. A stronger machine does not
@@ -382,8 +385,12 @@ Use these closed probe controls:
   only live runner;
 - valid anchors are `oldest-supported`, `m3-air`, `pro-max`, and `core-ai`;
 - live probes require `MIRMIR_R01_LIVE_PROBES=1`;
-- any acquisition additionally requires
-  `MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1`;
+- every live anchor requires one frozen `analysis-probe-model` identity/hash so
+  all four reports bind the same probe contract; absent local model bytes remain
+  valid for a negative/unavailable result, but an unassigned identity does not;
+- a future acquisition path additionally requires
+  `MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1`, but the current runner rejects that
+  flag until the closed consent-receipt contract is implemented and reviewed;
 - ordinary app boot and ordinary hosted tests set neither variable and perform
   no downloads or live capability mutation;
 - `AppleUpscaleCapabilityProbeTests` always runs side-effect-free schema and
