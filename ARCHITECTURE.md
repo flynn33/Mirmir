@@ -8,7 +8,7 @@
 > their publication is not a release or gate promotion.
 
 - Roadmap phase `R00`: `passed`
-- Roadmap phase `R01`: `next`
+- Roadmap phase `R01`: `in_progress`
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,

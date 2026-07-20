@@ -30,14 +30,14 @@ market-position claim.
 
 `[----------]`
 
-**Status:** ✅ Passed `1` · ➡️ Next `1` · ⬜ Planned `11` · ⛔ Blocked `1`
+**Status:** ✅ Passed `1` · 🔄 In progress `1` · ⬜ Planned `11` · ⛔ Blocked `1`
 
 **Current focus:** `R01` — Apple capability laboratory
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
-| `R01` | Apple capability laboratory | `next` | ➡️ Next |
+| `R01` | Apple capability laboratory | `in_progress` | 🔄 In progress |
 | `R02` | Unified backend and stage architecture | `planned` | ⬜ Planned |
 | `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
 | `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
@@ -550,7 +550,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `next`
+**Status:** `in_progress`
 
 ### Objective
 

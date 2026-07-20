@@ -6,6 +6,11 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R01 with a closed A01-A18 preregistration, deterministic fixture
+  generator/catalog, measurement and stop rules, and fail-closed live controls;
+  synchronized the canonical roadmap status to `in_progress`. Actual anchor
+  assignments and the Core AI probe-model identity remain blocked before any
+  live run.
 - Closed R00 with an accepted dual-checkpoint C01-C11 source inventory bound to
   PR #13 merge commit `6b94564dda07acfba25e83876b5bf859d1970f15`.
   The inventory independently verifies retained and removed sources, historical

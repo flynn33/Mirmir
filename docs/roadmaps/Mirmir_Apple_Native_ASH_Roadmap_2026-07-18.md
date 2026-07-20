@@ -493,7 +493,7 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `next`
+**Status:** `in_progress`
 
 ### Objective
 

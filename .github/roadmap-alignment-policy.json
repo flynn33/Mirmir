@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "2aab92bde07d960b55b61cb13a557743e4ee2544e84e93905aed01ea2bdc20be",
-    "json_sha256": "9b8852608b3f4ec3fd28af242bfcc5b06f92b33f11860dd230be355d51e78b18",
+    "markdown_sha256": "75e514329fb54448378d179ac13ccf3c89e2dae1f1242a5b508dac6dd2628e6c",
+    "json_sha256": "d3627a35efb309015aa6532e4811b35c6d0d9e86ef6b615a9861ffc340ed7c11",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -116,11 +116,18 @@
       "## Forsetti boundary",
       "## Non-release boundary"
     ],
+    ".gitignore": [
+      "/.r01-local-assets/"
+    ],
     ".github/workflows/roadmap-alignment.yml": [
       "name: Roadmap alignment",
       "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
       "python3 Scripts/roadmap_alignment.py --check",
-      "python3 Scripts/r00_inventory.py --check"
+      "python3 Scripts/r00_inventory.py --check",
+      "python3 Scripts/r01_preregistration.py --check",
+      "python3 Scripts/r01_preregistration.py --check-fixtures",
+      "python3 Scripts/r01_capabilities.py --check",
+      "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
       "name: Roadmap metadata audit",
@@ -144,7 +151,11 @@
       "repository is reference-only"
     ],
     "Scripts/verify-mirmir-guardrails.sh": [
-      "python3 Scripts/roadmap_alignment.py --check"
+      "python3 Scripts/roadmap_alignment.py --check",
+      "python3 Scripts/r01_preregistration.py --check",
+      "python3 Scripts/r01_preregistration.py --check-fixtures",
+      "python3 Scripts/r01_capabilities.py --check",
+      "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
       "# Roadmap Alignment Governance",
@@ -183,6 +194,21 @@
       "R00",
       "R01"
     ]
+  },
+  "phase_evidence_requirements": {
+    "R01": {
+      "required_status": "passed",
+      "paths": [
+        "docs/roadmaps/evidence/r01/phase-evidence.json",
+        "docs/roadmaps/evidence/r01/phase-evidence.md",
+        "project-notes/evidence/r01/hosts/anchor-oldest-supported.json",
+        "project-notes/evidence/r01/hosts/anchor-m3-air.json",
+        "project-notes/evidence/r01/hosts/anchor-pro-max.json",
+        "project-notes/evidence/r01/hosts/anchor-core-ai.json",
+        "project-notes/apple-upscale-capabilities.json",
+        "project-notes/apple-upscale-capability-report.md"
+      ]
+    }
   },
   "github_repository": {
     "name_with_owner": "flynn33/Mirmir",

@@ -1,0 +1,367 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r01-preregistration-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "anchor_assignments": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "enum": [
+              "oldest-supported",
+              "m3-air",
+              "pro-max",
+              "core-ai"
+            ],
+            "type": "string"
+          },
+          "assignment_state": {
+            "enum": [
+              "unassigned",
+              "assigned"
+            ],
+            "type": "string"
+          },
+          "contract": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "host_profile": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chip": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "hardware_class": {
+                    "enum": [
+                      "apple_silicon",
+                      "macbook_air",
+                      "pro_max_tier",
+                      "core_ai_capable"
+                    ],
+                    "type": "string"
+                  },
+                  "host_id": {
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+                    "type": "string"
+                  },
+                  "memory_bytes": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "model_identifier": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "os_build": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "os_version": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "sdk_build": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "sdk_version": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "xcode_build": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "xcode_version": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "host_id",
+                  "model_identifier",
+                  "hardware_class",
+                  "chip",
+                  "memory_bytes",
+                  "os_version",
+                  "os_build",
+                  "xcode_version",
+                  "xcode_build",
+                  "sdk_version",
+                  "sdk_build"
+                ],
+                "type": "object"
+              }
+            ]
+          }
+        },
+        "required": [
+          "anchor",
+          "contract",
+          "assignment_state",
+          "host_profile"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    },
+    "capabilities": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^A(0[1-9]|1[0-8])$",
+            "type": "string"
+          },
+          "method": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "probe_class": {
+            "enum": [
+              "primary_scaler",
+              "support_filter",
+              "temporal_analyzer",
+              "cadence_transform",
+              "analysis_runtime"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "family",
+          "method",
+          "probe_class"
+        ],
+        "type": "object"
+      },
+      "maxItems": 18,
+      "minItems": 18,
+      "type": "array"
+    },
+    "class_metrics": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_runtime": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "cadence_transform": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "primary_scaler": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "support_filter": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "temporal_analyzer": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "primary_scaler",
+        "support_filter",
+        "temporal_analyzer",
+        "cadence_transform",
+        "analysis_runtime"
+      ],
+      "type": "object"
+    },
+    "execution_controls": {
+      "additionalProperties": false,
+      "properties": {
+        "clock": {
+          "const": "monotonic",
+          "type": "string"
+        },
+        "measured_units_per_session": {
+          "const": 30,
+          "type": "integer"
+        },
+        "repeatability_observations": {
+          "const": 3,
+          "type": "integer"
+        },
+        "sessions": {
+          "const": 3,
+          "type": "integer"
+        },
+        "timeout_seconds_per_session": {
+          "const": 120,
+          "type": "integer"
+        },
+        "warm_up_units_per_session": {
+          "const": 5,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sessions",
+        "warm_up_units_per_session",
+        "measured_units_per_session",
+        "timeout_seconds_per_session",
+        "repeatability_observations",
+        "clock"
+      ],
+      "type": "object"
+    },
+    "failure_classes": {
+      "items": {
+        "enum": [
+          "timeout",
+          "unsupported_contract",
+          "setup_failure",
+          "processing_failure",
+          "resource_failure"
+        ],
+        "type": "string"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array"
+    },
+    "fixture_catalog": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "const": "docs/roadmaps/evidence/r01/records/fixtures/fixture-catalog.json",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "live_controls": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_environment": {
+          "const": "MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1",
+          "type": "string"
+        },
+        "live_environment": {
+          "const": "MIRMIR_R01_LIVE_PROBES=1",
+          "type": "string"
+        },
+        "runner": {
+          "const": "Scripts/run-r01-capability-probe.sh --anchor <anchor> --output <path>",
+          "type": "string"
+        }
+      },
+      "required": [
+        "runner",
+        "live_environment",
+        "acquisition_environment"
+      ],
+      "type": "object"
+    },
+    "measurement_boundary": {
+      "const": "capability_and_repeatability_only_not_perceptual_superiority_or_product_qualification",
+      "type": "string"
+    },
+    "nonapplicable_metric_policy": {
+      "const": "present_with_not_applicable_and_class_derived_reason",
+      "type": "string"
+    },
+    "phase_id": {
+      "const": "R01",
+      "type": "string"
+    },
+    "preregistration_state": {
+      "enum": [
+        "offline_contract_frozen_live_blocked",
+        "live_assignments_frozen"
+      ],
+      "type": "string"
+    },
+    "roadmap_version": {
+      "const": "1.0.1",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "stop_rules": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "description"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "anchor_assignments",
+    "capabilities",
+    "fixture_catalog",
+    "execution_controls",
+    "class_metrics",
+    "failure_classes",
+    "stop_rules",
+    "nonapplicable_metric_policy",
+    "measurement_boundary",
+    "live_controls"
+  ],
+  "title": "Mirmir R01 Preregistration",
+  "type": "object"
+}

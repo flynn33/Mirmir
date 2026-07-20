@@ -29,11 +29,59 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Test roadmap and inventory verifiers
-        run: python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
+      - name: Test roadmap, inventory, and evidence verifiers
+        run: >-
+          python3 -m unittest
+          Scripts/tests/test_roadmap_alignment.py
+          Scripts/tests/test_r00_inventory.py
+          Scripts/tests/test_json_schema_validator.py
+          Scripts/tests/test_phase_evidence.py
+          Scripts/tests/test_r01_preregistration.py
+          Scripts/tests/test_r01_capabilities.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
 
       - name: Verify R00 source inventory
         run: python3 Scripts/r00_inventory.py --check
+
+      - name: Verify R01 preregistration
+        run: python3 Scripts/r01_preregistration.py --check
+
+      - name: Verify R01 deterministic fixtures
+        run: python3 Scripts/r01_preregistration.py --check-fixtures
+
+      - name: Verify R01 system assets remain untracked
+        shell: bash
+        run: |
+          if git ls-files -- '.r01-local-assets' | grep -q .; then
+            echo "R01 local system/model assets must never be tracked." >&2
+            exit 1
+          fi
+
+      - name: Verify R01 capability aggregate when evidence is present
+        shell: bash
+        run: |
+          evidence_present=false
+          for evidence_path in \
+            project-notes/evidence/r01/hosts/anchor-oldest-supported.json \
+            project-notes/evidence/r01/hosts/anchor-m3-air.json \
+            project-notes/evidence/r01/hosts/anchor-pro-max.json \
+            project-notes/evidence/r01/hosts/anchor-core-ai.json \
+            project-notes/apple-upscale-capabilities.json \
+            project-notes/apple-upscale-capability-report.md; do
+            if [ -e "$evidence_path" ] || [ -L "$evidence_path" ]; then
+              evidence_present=true
+            fi
+          done
+          if [ "$evidence_present" = true ]; then
+            python3 Scripts/r01_capabilities.py --check
+          fi
+
+      - name: Verify closed phase evidence
+        shell: bash
+        run: |
+          while IFS= read -r manifest_path; do
+            phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
+            python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+          done < <(find docs/roadmaps/evidence -type f -name 'phase-evidence.json' -print | sort)

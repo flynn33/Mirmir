@@ -50,6 +50,20 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.video
 
+  R01CapabilityWorker:
+    type: tool
+    platform: macOS
+    deploymentTarget: "15.4"
+    sources:
+      - path: R01CapabilityWorker
+      - path: Mirmir/Modules/UpscalerEngine
+        includes:
+          - "AppleUpscaleCapability*.swift"
+    settings:
+      base:
+        PRODUCT_NAME: R01CapabilityWorker
+        CODE_SIGNING_ALLOWED: NO
+
   MirmirTests:
     type: bundle.unit-test
     platform: macOS
