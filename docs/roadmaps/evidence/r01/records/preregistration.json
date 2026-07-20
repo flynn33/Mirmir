@@ -1,0 +1,259 @@
+{
+  "anchor_assignments": [
+    {
+      "anchor": "oldest-supported",
+      "assignment_state": "unassigned",
+      "contract": "oldest-supported Apple Silicon on macOS 15.4",
+      "host_profile": null
+    },
+    {
+      "anchor": "m3-air",
+      "assignment_state": "unassigned",
+      "contract": "current M3 MacBook Air class on macOS 26",
+      "host_profile": null
+    },
+    {
+      "anchor": "pro-max",
+      "assignment_state": "unassigned",
+      "contract": "current Pro/Max performance tier",
+      "host_profile": null
+    },
+    {
+      "anchor": "core-ai",
+      "assignment_state": "unassigned",
+      "contract": "macOS/Xcode 27 host capable of probing Core AI",
+      "host_profile": null
+    }
+  ],
+  "capabilities": [
+    {
+      "family": "VideoToolbox",
+      "id": "A01",
+      "method": "VTSuperResolutionScaler",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A02",
+      "method": "VTLowLatencySuperResolutionScaler",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A03",
+      "method": "VTLowLatencyFrameInterpolation spatial scaling",
+      "probe_class": "cadence_transform"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A04",
+      "method": "VTTemporalNoiseFilter",
+      "probe_class": "support_filter"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A05",
+      "method": "VTOpticalFlow",
+      "probe_class": "temporal_analyzer"
+    },
+    {
+      "family": "VideoToolbox",
+      "id": "A06",
+      "method": "VTPixelTransferSession",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A07",
+      "method": "Spatial scaler",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A08",
+      "method": "Temporal scaler",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A09",
+      "method": "Temporal denoised scaler",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MetalFX",
+      "id": "A10",
+      "method": "Frame interpolator",
+      "probe_class": "cadence_transform"
+    },
+    {
+      "family": "MPS",
+      "id": "A11",
+      "method": "MPSImageLanczosScale",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MPS",
+      "id": "A12",
+      "method": "MPSImageBilinearScale",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "MPS",
+      "id": "A13",
+      "method": "Guided/detail/artifact filters",
+      "probe_class": "support_filter"
+    },
+    {
+      "family": "CoreImage",
+      "id": "A14",
+      "method": "Lanczos/Bicubic scale",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "CoreImage",
+      "id": "A15",
+      "method": "EdgePreserveUpsample",
+      "probe_class": "support_filter"
+    },
+    {
+      "family": "Accelerate",
+      "id": "A16",
+      "method": "vImage Lanczos-3/Lanczos-5/custom",
+      "probe_class": "primary_scaler"
+    },
+    {
+      "family": "Metal",
+      "id": "A17",
+      "method": "Custom compute",
+      "probe_class": "support_filter"
+    },
+    {
+      "family": "CoreAI",
+      "id": "A18",
+      "method": "Custom model runtime",
+      "probe_class": "analysis_runtime"
+    }
+  ],
+  "class_metrics": {
+    "analysis_runtime": [
+      "initialization_time_monotonic",
+      "acquisition_time_monotonic",
+      "median_wall_time",
+      "p95_wall_time",
+      "throughput",
+      "peak_resident_memory_delta",
+      "repeatability_hash_or_tolerance",
+      "load_time",
+      "specialization_time",
+      "inference_time",
+      "zero_copy_disposition",
+      "stateful_execution_disposition"
+    ],
+    "cadence_transform": [
+      "initialization_time_monotonic",
+      "acquisition_time_monotonic",
+      "median_wall_time",
+      "p95_wall_time",
+      "throughput",
+      "peak_resident_memory_delta",
+      "repeatability_hash_or_tolerance",
+      "generated_frame_count",
+      "output_cadence",
+      "timestamp_contract"
+    ],
+    "primary_scaler": [
+      "initialization_time_monotonic",
+      "acquisition_time_monotonic",
+      "median_wall_time",
+      "p95_wall_time",
+      "throughput",
+      "peak_resident_memory_delta",
+      "repeatability_hash_or_tolerance",
+      "scale",
+      "output_dimensions",
+      "output_format",
+      "frame_rate"
+    ],
+    "support_filter": [
+      "initialization_time_monotonic",
+      "acquisition_time_monotonic",
+      "median_wall_time",
+      "p95_wall_time",
+      "throughput",
+      "peak_resident_memory_delta",
+      "repeatability_hash_or_tolerance",
+      "preserved_dimensions",
+      "preserved_format",
+      "required_guidance"
+    ],
+    "temporal_analyzer": [
+      "initialization_time_monotonic",
+      "acquisition_time_monotonic",
+      "median_wall_time",
+      "p95_wall_time",
+      "throughput",
+      "peak_resident_memory_delta",
+      "repeatability_hash_or_tolerance",
+      "flow_dimensions",
+      "flow_format",
+      "confidence_availability"
+    ]
+  },
+  "execution_controls": {
+    "clock": "monotonic",
+    "measured_units_per_session": 30,
+    "repeatability_observations": 3,
+    "sessions": 3,
+    "timeout_seconds_per_session": 120,
+    "warm_up_units_per_session": 5
+  },
+  "failure_classes": [
+    "timeout",
+    "unsupported_contract",
+    "setup_failure",
+    "processing_failure",
+    "resource_failure"
+  ],
+  "fixture_catalog": {
+    "path": "docs/roadmaps/evidence/r01/records/fixtures/fixture-catalog.json",
+    "sha256": "ae8241f5d69ce64ed143e8bbb39ab80a996f6923f1ddc83ebfbaec58d9689182"
+  },
+  "live_controls": {
+    "acquisition_environment": "MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1",
+    "live_environment": "MIRMIR_R01_LIVE_PROBES=1",
+    "runner": "Scripts/run-r01-capability-probe.sh --anchor <anchor> --output <path>"
+  },
+  "measurement_boundary": "capability_and_repeatability_only_not_perceptual_superiority_or_product_qualification",
+  "nonapplicable_metric_policy": "present_with_not_applicable_and_class_derived_reason",
+  "phase_id": "R01",
+  "preregistration_state": "offline_contract_frozen_live_blocked",
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "stop_rules": [
+    {
+      "description": "Stop when the implementation commit, source tree, host identity, or toolchain identity differs from the frozen assignment.",
+      "id": "identity_drift"
+    },
+    {
+      "description": "Invalidate the prior host report and preregister a replacement before any rerun when an assigned host changes.",
+      "id": "assignment_change"
+    },
+    {
+      "description": "Stop rather than alter a frozen fixture or probe model; an incompatible public contract receives a restricted or unsupported disposition.",
+      "id": "fixture_or_model_change"
+    },
+    {
+      "description": "Stop when the preregistration schema, fixture catalog binding, fixture order, or capability assignment does not validate exactly.",
+      "id": "schema_or_catalog_drift"
+    },
+    {
+      "description": "Stop a session at 120 seconds and classify timeout, unsupported contract, setup failure, processing failure, and resource failure separately.",
+      "id": "session_failure"
+    },
+    {
+      "description": "Stop any interpretation of R01 runnable evidence as perceptual superiority, product qualification, or backend eligibility.",
+      "id": "qualification_boundary"
+    }
+  ]
+}

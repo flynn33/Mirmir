@@ -432,20 +432,45 @@ def validate_json_schema_instance(
 
     def validate(schema: object, value: object, path: str) -> list[str]:
         local_errors: list[str] = []
+        if schema is True:
+            return []
+        if schema is False:
+            return [f"{path}: value is not allowed by the schema"]
         if not isinstance(schema, dict):
             return [f"{path}: schema node must be an object"]
         if "$ref" in schema:
             target = resolve(schema["$ref"], path)
-            if target is None:
-                return []
-            return validate(target, value, path)
+            if target is not None:
+                local_errors.extend(validate(target, value, path))
+
+        all_of = schema.get("allOf")
+        if all_of is not None:
+            if not isinstance(all_of, list):
+                local_errors.append(f"{path}: allOf schema must be an array")
+            else:
+                for branch in all_of:
+                    local_errors.extend(validate(branch, value, path))
         if "oneOf" in schema:
             branches = schema["oneOf"]
             if not isinstance(branches, list):
-                return [f"{path}: oneOf schema must be an array"]
-            matches = sum(not validate(branch, value, path) for branch in branches)
-            if matches != 1:
-                return [f"{path}: value must match exactly one allowed schema"]
+                local_errors.append(f"{path}: oneOf schema must be an array")
+            else:
+                matches = sum(not validate(branch, value, path) for branch in branches)
+                if matches != 1:
+                    local_errors.append(
+                        f"{path}: value must match exactly one allowed schema"
+                    )
+
+        not_schema = schema.get("not")
+        if not_schema is not None and not validate(not_schema, value, path):
+            local_errors.append(f"{path}: value matches a forbidden schema")
+
+        conditional = schema.get("if")
+        if conditional is not None:
+            branch_name = "then" if not validate(conditional, value, path) else "else"
+            branch = schema.get(branch_name)
+            if branch is not None:
+                local_errors.extend(validate(branch, value, path))
 
         expected_type = schema.get("type")
         if expected_type is not None:
@@ -455,7 +480,8 @@ def validate_json_schema_instance(
             if not all(isinstance(item, str) for item in allowed_types) or not any(
                 _json_schema_type_matches(value, item) for item in allowed_types
             ):
-                return [f"{path}: value has the wrong JSON type"]
+                local_errors.append(f"{path}: value has the wrong JSON type")
+                return local_errors
 
         if "const" in schema and not _json_schema_equal(value, schema["const"]):
             local_errors.append(f"{path}: value differs from the required constant")
@@ -488,6 +514,11 @@ def validate_json_schema_instance(
                 local_errors.append(
                     f"{path}: array contains fewer than {minimum_items} items"
                 )
+            maximum_items = schema.get("maxItems")
+            if isinstance(maximum_items, int) and len(value) > maximum_items:
+                local_errors.append(
+                    f"{path}: array contains more than {maximum_items} items"
+                )
             if schema.get("uniqueItems") is True:
                 tokens = [
                     json.dumps(item, sort_keys=True, separators=(",", ":"))
@@ -495,11 +526,46 @@ def validate_json_schema_instance(
                 ]
                 if len(tokens) != len(set(tokens)):
                     local_errors.append(f"{path}: array items must be unique")
+
+            prefix_items = schema.get("prefixItems")
+            prefix_count = 0
+            if prefix_items is not None:
+                if not isinstance(prefix_items, list):
+                    local_errors.append(f"{path}: prefixItems schema must be an array")
+                else:
+                    prefix_count = len(prefix_items)
+                    for index, (item, item_schema) in enumerate(
+                        zip(value, prefix_items)
+                    ):
+                        local_errors.extend(
+                            validate(item_schema, item, f"{path}[{index}]")
+                        )
             item_schema = schema.get("items")
-            if isinstance(item_schema, dict):
-                for index, item in enumerate(value):
+            if item_schema is False and len(value) > prefix_count:
+                local_errors.append(
+                    f"{path}: array contains items beyond the closed prefix"
+                )
+            elif isinstance(item_schema, (dict, bool)):
+                for index, item in enumerate(value[prefix_count:], start=prefix_count):
                     local_errors.extend(
                         validate(item_schema, item, f"{path}[{index}]")
+                    )
+
+            contains_schema = schema.get("contains")
+            if contains_schema is not None:
+                matches = sum(
+                    not validate(contains_schema, item, f"{path}[{index}]")
+                    for index, item in enumerate(value)
+                )
+                minimum_contains = schema.get("minContains", 1)
+                maximum_contains = schema.get("maxContains")
+                if isinstance(minimum_contains, int) and matches < minimum_contains:
+                    local_errors.append(
+                        f"{path}: array contains fewer than {minimum_contains} matching items"
+                    )
+                if isinstance(maximum_contains, int) and matches > maximum_contains:
+                    local_errors.append(
+                        f"{path}: array contains more than {maximum_contains} matching items"
                     )
 
         if isinstance(value, str):
@@ -507,6 +573,11 @@ def validate_json_schema_instance(
             if isinstance(minimum_length, int) and len(value) < minimum_length:
                 local_errors.append(
                     f"{path}: string is shorter than {minimum_length} characters"
+                )
+            maximum_length = schema.get("maxLength")
+            if isinstance(maximum_length, int) and len(value) > maximum_length:
+                local_errors.append(
+                    f"{path}: string is longer than {maximum_length} characters"
                 )
             pattern = schema.get("pattern")
             if isinstance(pattern, str) and re.search(pattern, value) is None:
@@ -523,6 +594,24 @@ def validate_json_schema_instance(
                 local_errors.append(f"{path}: number is below the minimum")
             if isinstance(maximum, (int, float)) and value > maximum:
                 local_errors.append(f"{path}: number exceeds the maximum")
+            exclusive_minimum = schema.get("exclusiveMinimum")
+            if (
+                isinstance(exclusive_minimum, (int, float))
+                and not isinstance(exclusive_minimum, bool)
+                and value <= exclusive_minimum
+            ):
+                local_errors.append(
+                    f"{path}: number does not exceed the exclusive minimum"
+                )
+            exclusive_maximum = schema.get("exclusiveMaximum")
+            if (
+                isinstance(exclusive_maximum, (int, float))
+                and not isinstance(exclusive_maximum, bool)
+                and value >= exclusive_maximum
+            ):
+                local_errors.append(
+                    f"{path}: number does not precede the exclusive maximum"
+                )
         return local_errors
 
     errors.extend(validate(schema_root, instance, "$"))

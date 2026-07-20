@@ -211,7 +211,7 @@
       "exit": "authoritative compile/runtime capability matrix",
       "id": "R01",
       "name": "Apple capability laboratory",
-      "status": "next"
+      "status": "in_progress"
     },
     {
       "depends_on": [

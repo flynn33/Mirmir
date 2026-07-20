@@ -1,0 +1,391 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r01-fixture-catalog-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "fixture_sets": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_runtime": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "cadence_transform": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "primary_scaler": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "support_filter": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "temporal_analyzer": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "primary_scaler",
+        "support_filter",
+        "temporal_analyzer",
+        "cadence_transform",
+        "analysis_runtime"
+      ],
+      "type": "object"
+    },
+    "fixtures": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_count": {
+            "oneOf": [
+              {
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "color_contract": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "chroma_siting": {
+                    "const": "left",
+                    "type": "string"
+                  },
+                  "color_primaries": {
+                    "const": "ITU_R_709_2",
+                    "type": "string"
+                  },
+                  "matrix": {
+                    "const": "ITU_R_709_2",
+                    "type": "string"
+                  },
+                  "range": {
+                    "const": "video",
+                    "type": "string"
+                  },
+                  "transfer_function": {
+                    "const": "ITU_R_709_2",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "color_primaries",
+                  "transfer_function",
+                  "matrix",
+                  "range",
+                  "chroma_siting"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_sha256": {
+            "oneOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dimensions": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "height": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "width": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "frame_index": {
+            "oneOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "generator": {
+            "oneOf": [
+              {
+                "const": "r01-analytic-pixel-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "enum": [
+              "scaler-720p",
+              "scaler-1080p",
+              "support-frame",
+              "support-guidance",
+              "support-history",
+              "temporal-frame-0",
+              "temporal-frame-1",
+              "cadence-frame-0",
+              "cadence-frame-1",
+              "analysis-proxy",
+              "analysis-probe-model"
+            ],
+            "type": "string"
+          },
+          "materialization_path": {
+            "oneOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "media_kind": {
+            "enum": [
+              "nv12_frame",
+              "gray8_plane",
+              "bgra_frame",
+              "model_artifact"
+            ],
+            "type": "string"
+          },
+          "model_identity": {
+            "oneOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pixel_format": {
+            "oneOf": [
+              {
+                "enum": [
+                  "420v",
+                  "L008",
+                  "BGRA"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "role": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "scale_output": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "height": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "width": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "frozen",
+              "unassigned"
+            ],
+            "type": "string"
+          },
+          "timing": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "duration": {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "pts": {
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "timescale": {
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "pts",
+                  "duration",
+                  "timescale"
+                ],
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "role",
+          "media_kind",
+          "dimensions",
+          "pixel_format",
+          "color_contract",
+          "frame_index",
+          "scale_output",
+          "timing",
+          "generator",
+          "materialization_path",
+          "byte_count",
+          "content_sha256",
+          "model_identity"
+        ],
+        "type": "object"
+      },
+      "maxItems": 11,
+      "minItems": 11,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "generator_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "bgra_formula": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "byte_order": {
+          "const": "row_major_planes_in_declared_pixel_format_order",
+          "type": "string"
+        },
+        "gray8_formula": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "const": "r01-analytic-pixel-v1",
+          "type": "string"
+        },
+        "nv12_cb_formula": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "nv12_cr_formula": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "nv12_luma_formula": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "byte_order",
+        "nv12_luma_formula",
+        "nv12_cb_formula",
+        "nv12_cr_formula",
+        "gray8_formula",
+        "bgra_formula"
+      ],
+      "type": "object"
+    },
+    "phase_id": {
+      "const": "R01",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "phase_id",
+    "generator_contract",
+    "fixture_sets",
+    "fixtures"
+  ],
+  "title": "Mirmir R01 Deterministic Fixture Catalog",
+  "type": "object"
+}

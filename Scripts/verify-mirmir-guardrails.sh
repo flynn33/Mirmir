@@ -87,9 +87,12 @@ echo "==> Verifying roadmap alignment..."
 python3 -m unittest \
   Scripts/tests/test_roadmap_alignment.py \
   Scripts/tests/test_r00_inventory.py \
-  Scripts/tests/test_phase_evidence.py
+  Scripts/tests/test_json_schema_validator.py \
+  Scripts/tests/test_phase_evidence.py \
+  Scripts/tests/test_r01_preregistration.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
+python3 Scripts/r01_preregistration.py --check
 
 while IFS= read -r manifest_path; do
   phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"

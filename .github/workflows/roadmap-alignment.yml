@@ -29,14 +29,23 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Test roadmap, inventory, and phase-evidence verifiers
-        run: python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_phase_evidence.py
+      - name: Test roadmap, inventory, and evidence verifiers
+        run: >-
+          python3 -m unittest
+          Scripts/tests/test_roadmap_alignment.py
+          Scripts/tests/test_r00_inventory.py
+          Scripts/tests/test_json_schema_validator.py
+          Scripts/tests/test_phase_evidence.py
+          Scripts/tests/test_r01_preregistration.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
 
       - name: Verify R00 source inventory
         run: python3 Scripts/r00_inventory.py --check
+
+      - name: Verify R01 preregistration
+        run: python3 Scripts/r01_preregistration.py --check
 
       - name: Verify closed phase evidence
         shell: bash
