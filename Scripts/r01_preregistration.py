@@ -4,14 +4,18 @@
 from __future__ import annotations
 
 import argparse
+import copy
+import fcntl
 from functools import lru_cache
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import stat
 import subprocess
 import sys
+import tempfile
 from typing import Any, Iterable
 
 from phase_evidence import (
@@ -175,6 +179,12 @@ HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 APPLE_SILICON_CHIP = re.compile(r"^Apple M[1-9][0-9]*(?: (?:Pro|Max|Ultra))?$")
 PRO_MAX_CHIP = re.compile(r"^Apple M[1-9][0-9]* (?:Pro|Max)$")
 HOST_ID_PATTERN = re.compile(r"^r01-host-[0-9]{2}$")
+HOST_ASSIGNMENT_KEYS = {
+    "anchor",
+    "assignment_state",
+    "contract",
+    "host_profile",
+}
 LOCAL_MODEL_PATH_PREFIX = ".r01-local-assets/"
 # https://support.apple.com/102869 identifies the 2024 M3 MacBook Air
 # enclosures by these two model identifiers (13-inch and 15-inch, respectively).
@@ -422,6 +432,410 @@ def build_host_assignment(
         "assignment_state": "assigned",
         "host_profile": profile,
     }
+
+
+def _read_host_assignment_candidate(path: Path, index: int) -> dict[str, Any]:
+    """Read one fully resolved regular candidate without echoing its local path."""
+    absolute_path = path.absolute()
+    try:
+        resolved_path = absolute_path.resolve(strict=True)
+    except OSError as error:
+        raise HostAssignmentError(
+            f"assignment file {index} must be a readable regular file"
+        ) from error
+    if resolved_path != absolute_path:
+        raise HostAssignmentError(
+            f"assignment file {index} must not use symbolic-link components"
+        )
+    try:
+        path_stat = os.lstat(resolved_path)
+    except OSError as error:
+        raise HostAssignmentError(
+            f"assignment file {index} must be a readable regular file"
+        ) from error
+    if not stat.S_ISREG(path_stat.st_mode):
+        raise HostAssignmentError(
+            f"assignment file {index} must be a readable regular file"
+        )
+
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            resolved_path,
+            os.O_RDONLY
+            | getattr(os, "O_CLOEXEC", 0)
+            | getattr(os, "O_NOFOLLOW", 0)
+            | getattr(os, "O_NONBLOCK", 0),
+        )
+        opened_stat = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened_stat.st_mode)
+            or _stat_identity(opened_stat) != _stat_identity(path_stat)
+        ):
+            raise HostAssignmentError(
+                f"assignment file {index} changed before it could be read"
+            )
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        if _stat_identity(os.fstat(descriptor)) != _stat_identity(opened_stat):
+            raise HostAssignmentError(
+                f"assignment file {index} changed while it was read"
+            )
+        try:
+            final_resolved_path = absolute_path.resolve(strict=True)
+            final_path_stat = os.lstat(final_resolved_path)
+        except OSError as error:
+            raise HostAssignmentError(
+                f"assignment file {index} changed while it was read"
+            ) from error
+        if (
+            final_resolved_path != absolute_path
+            or _stat_identity(final_path_stat) != _stat_identity(opened_stat)
+        ):
+            raise HostAssignmentError(
+                f"assignment file {index} changed while it was read"
+            )
+        text = b"".join(chunks).decode("utf-8")
+    except HostAssignmentError:
+        raise
+    except (OSError, UnicodeError) as error:
+        raise HostAssignmentError(
+            f"assignment file {index} could not be read as UTF-8"
+        ) from error
+    finally:
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+    try:
+        value = decode_json(text)
+    except ValueError as error:
+        raise HostAssignmentError(
+            f"assignment file {index} contains invalid JSON or a duplicate JSON key"
+        ) from error
+    if not isinstance(value, dict):
+        raise HostAssignmentError(
+            f"assignment file {index} top-level JSON value must be an object"
+        )
+    return value
+
+
+def _host_assignment_candidate_errors(
+    candidate: dict[str, Any], context: str
+) -> list[str]:
+    errors = _privacy_errors(candidate, context)
+    if set(candidate) != HOST_ASSIGNMENT_KEYS:
+        errors.append(f"{context} fields differ from the closed host assignment")
+        return sorted(set(errors))
+    anchor = candidate.get("anchor")
+    contract = next(
+        (value for value in ANCHOR_CONTRACTS if value[0] == anchor),
+        None,
+    )
+    if contract is None:
+        errors.append(f"{context}.anchor is not one of the four closed R01 anchors")
+        return sorted(set(errors))
+    if candidate.get("contract") != contract[1]:
+        errors.append(f"{context}.contract differs from the closed anchor contract")
+    if candidate.get("assignment_state") != "assigned":
+        errors.append(f"{context}.assignment_state must be assigned")
+    profile = candidate.get("host_profile")
+    if not isinstance(profile, dict):
+        errors.append(f"{context}.host_profile must be an object")
+    else:
+        errors.extend(_host_profile_errors(anchor, profile, f"{context}.host_profile"))
+    return sorted(set(errors))
+
+
+def _repository_regular_file(
+    root: Path, relative_path: Path, context: str
+) -> Path:
+    """Resolve one regular file while rejecting every repository-local symlink."""
+    try:
+        resolved_root = root.resolve(strict=True)
+    except OSError as error:
+        raise HostAssignmentError(f"{context} repository root is unavailable") from error
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise HostAssignmentError(f"{context} path is not repository-relative")
+    candidate = resolved_root
+    for part in relative_path.parts:
+        candidate = candidate / part
+        if candidate.is_symlink():
+            raise HostAssignmentError(
+                f"{context} must not use symbolic-link components"
+            )
+    try:
+        resolved = candidate.resolve(strict=True)
+        resolved.relative_to(resolved_root)
+        candidate_stat = os.lstat(resolved)
+    except (OSError, ValueError) as error:
+        raise HostAssignmentError(
+            f"{context} must be an existing repository-owned regular file"
+        ) from error
+    if resolved != candidate or not stat.S_ISREG(candidate_stat.st_mode):
+        raise HostAssignmentError(
+            f"{context} must be an existing repository-owned regular file"
+        )
+    return resolved
+
+
+def _stat_identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_size,
+        value.st_mtime_ns,
+    )
+
+
+def _open_locked_preregistration(
+    root: Path,
+) -> tuple[Path, int, bytes, tuple[int, int, int, int, int]]:
+    path = _repository_regular_file(
+        root,
+        PREREGISTRATION_PATH,
+        "canonical R01 preregistration",
+    )
+    descriptor = -1
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+        opened_stat = os.fstat(descriptor)
+        if not stat.S_ISREG(opened_stat.st_mode):
+            raise HostAssignmentError(
+                "canonical R01 preregistration must be a regular file"
+            )
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise HostAssignmentError(
+                "another R01 assignment freeze holds the preregistration lock"
+            ) from error
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        return path, descriptor, b"".join(chunks), _stat_identity(opened_stat)
+    except HostAssignmentError:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise
+    except OSError as error:
+        if descriptor >= 0:
+            os.close(descriptor)
+        raise HostAssignmentError(
+            "unable to lock canonical R01 preregistration"
+        ) from error
+
+
+def _atomic_write_json(
+    root: Path,
+    value: object,
+    expected_bytes: bytes,
+    expected_identity: tuple[int, int, int, int, int],
+) -> None:
+    """Replace unchanged canonical JSON without exposing a partial write."""
+    path = _repository_regular_file(
+        root,
+        PREREGISTRATION_PATH,
+        "canonical R01 preregistration",
+    )
+    payload = json.dumps(value, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    mode = expected_identity[2] & 0o777
+    descriptor = -1
+    temporary_path: Path | None = None
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(
+            dir=path.parent,
+            prefix=f".{path.name}.",
+            suffix=".tmp",
+        )
+        temporary_path = Path(temporary_name)
+        with os.fdopen(descriptor, "wb") as destination:
+            descriptor = -1
+            destination.write(payload)
+            destination.flush()
+            os.fsync(destination.fileno())
+        os.chmod(temporary_path, mode)
+        _assert_preregistration_unchanged(
+            root,
+            expected_bytes,
+            expected_identity,
+        )
+        os.replace(temporary_path, path)
+        temporary_path = None
+    except HostAssignmentError:
+        raise
+    except OSError as error:
+        raise HostAssignmentError(
+            "unable to atomically update canonical R01 preregistration"
+        ) from error
+    finally:
+        if descriptor >= 0:
+            try:
+                os.close(descriptor)
+            except OSError:
+                pass
+        if temporary_path is not None:
+            try:
+                temporary_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
+def _assert_preregistration_unchanged(
+    root: Path,
+    expected_bytes: bytes,
+    expected_identity: tuple[int, int, int, int, int],
+) -> None:
+    current_path = _repository_regular_file(
+        root,
+        PREREGISTRATION_PATH,
+        "canonical R01 preregistration",
+    )
+    current_stat = os.lstat(current_path)
+    if (
+        _stat_identity(current_stat) != expected_identity
+        or current_path.read_bytes() != expected_bytes
+    ):
+        raise HostAssignmentError(
+            "canonical R01 preregistration changed during assignment freeze"
+        )
+
+
+def freeze_host_assignments(root: Path, assignment_paths: list[Path]) -> bool:
+    """Freeze the complete set, or accept an identical already-frozen replay."""
+    if len(assignment_paths) != len(ANCHOR_CONTRACTS):
+        raise HostAssignmentError("exactly four assignment files are required")
+
+    _, lock_descriptor, original_bytes, original_identity = (
+        _open_locked_preregistration(root)
+    )
+    try:
+        verifier = PreregistrationVerifier(root)
+        existing_errors = verifier.check()
+        if existing_errors:
+            raise HostAssignmentError(
+                "canonical R01 preregistration must validate before assignment freeze: "
+                + "; ".join(existing_errors)
+            )
+        try:
+            preregistration = decode_json(original_bytes.decode("utf-8"))
+        except (UnicodeError, ValueError) as error:
+            raise HostAssignmentError(
+                "locked canonical R01 preregistration is invalid JSON"
+            ) from error
+        if not isinstance(preregistration, dict):
+            raise HostAssignmentError(
+                "locked canonical R01 preregistration must be an object"
+            )
+
+        candidates: list[dict[str, Any]] = []
+        candidate_errors: list[str] = []
+        for index, path in enumerate(assignment_paths, start=1):
+            try:
+                candidate = _read_host_assignment_candidate(path, index)
+            except HostAssignmentError as error:
+                candidate_errors.append(str(error))
+                continue
+            candidates.append(candidate)
+            candidate_errors.extend(
+                _host_assignment_candidate_errors(
+                    candidate, f"assignment file {index}"
+                )
+            )
+        if candidate_errors:
+            raise HostAssignmentError("; ".join(sorted(set(candidate_errors))))
+
+        candidates_by_anchor: dict[str, dict[str, Any]] = {}
+        duplicate_anchors: set[str] = set()
+        for candidate in candidates:
+            anchor = candidate["anchor"]
+            if anchor in candidates_by_anchor:
+                duplicate_anchors.add(anchor)
+            else:
+                candidates_by_anchor[anchor] = candidate
+        expected_anchors = [anchor for anchor, _, _ in ANCHOR_CONTRACTS]
+        missing_anchors = [
+            anchor for anchor in expected_anchors if anchor not in candidates_by_anchor
+        ]
+        completeness_errors: list[str] = []
+        if duplicate_anchors:
+            completeness_errors.append(
+                "duplicate assignment anchors: "
+                + ", ".join(sorted(duplicate_anchors))
+            )
+        if missing_anchors:
+            completeness_errors.append(
+                "missing assignment anchors: " + ", ".join(missing_anchors)
+            )
+        if completeness_errors:
+            raise HostAssignmentError("; ".join(completeness_errors))
+
+        canonical_candidates = [
+            copy.deepcopy(candidates_by_anchor[anchor]) for anchor in expected_anchors
+        ]
+        state = preregistration.get("preregistration_state")
+        assignments = preregistration.get("anchor_assignments")
+        if state == "live_assignments_frozen":
+            if assignments == canonical_candidates:
+                _assert_preregistration_unchanged(
+                    root,
+                    original_bytes,
+                    original_identity,
+                )
+                return False
+            raise HostAssignmentError(
+                "canonical R01 preregistration already contains a different "
+                "frozen assignment set"
+            )
+        if (
+            state != "offline_contract_frozen_live_blocked"
+            or not isinstance(assignments, list)
+            or any(
+                not isinstance(assignment, dict)
+                or assignment.get("assignment_state") != "unassigned"
+                or assignment.get("host_profile") is not None
+                for assignment in assignments
+            )
+        ):
+            raise HostAssignmentError(
+                "canonical R01 preregistration is not in the fully unassigned "
+                "offline state"
+            )
+
+        updated = copy.deepcopy(preregistration)
+        updated["anchor_assignments"] = canonical_candidates
+        updated["preregistration_state"] = "live_assignments_frozen"
+        schema = read_json(verifier.schema_path)
+        updated_errors = validate_json_schema_instance(schema, updated)
+        updated_errors.extend(_privacy_errors(updated, "preregistration"))
+        updated_errors.extend(verifier._check_assignments(updated))
+        if updated_errors:
+            raise HostAssignmentError(
+                "complete assignment set does not satisfy R01 preregistration: "
+                + "; ".join(sorted(set(updated_errors)))
+            )
+
+        _atomic_write_json(
+            root,
+            updated,
+            original_bytes,
+            original_identity,
+        )
+        return True
+    finally:
+        try:
+            fcntl.flock(lock_descriptor, fcntl.LOCK_UN)
+        finally:
+            os.close(lock_descriptor)
 
 
 def _nv12_rows(width: int, height: int, frame_index: int) -> Iterable[bytes]:
@@ -1304,6 +1718,7 @@ def build_parser() -> argparse.ArgumentParser:
     action.add_argument("--check", action="store_true")
     action.add_argument("--check-live-readiness", action="store_true")
     action.add_argument("--emit-host-assignment", action="store_true")
+    action.add_argument("--freeze-host-assignments", action="store_true")
     action.add_argument("--emit-fixture-catalog", action="store_true")
     action.add_argument("--materialize-fixtures", action="store_true")
     action.add_argument("--check-fixtures", action="store_true")
@@ -1316,6 +1731,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--host-id",
         help="Phase-scoped r01-host-NN pseudonym used by --emit-host-assignment.",
     )
+    parser.add_argument(
+        "--assignment-file",
+        action="append",
+        type=Path,
+        default=[],
+        help=(
+            "One exported host-assignment JSON file; repeat exactly four times with "
+            "--freeze-host-assignments."
+        ),
+    )
     return parser
 
 
@@ -1326,6 +1751,12 @@ def main(argv: list[str] | None = None) -> int:
     ):
         print(
             "ERROR: --anchor requires --check-live-readiness or --emit-host-assignment",
+            file=sys.stderr,
+        )
+        return 2
+    if arguments.assignment_file and not arguments.freeze_host_assignments:
+        print(
+            "ERROR: --assignment-file requires --freeze-host-assignments",
             file=sys.stderr,
         )
         return 2
@@ -1342,6 +1773,33 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: {error}", file=sys.stderr)
             return 1
         print(json.dumps(assignment, indent=2, sort_keys=True))
+        return 0
+    if arguments.freeze_host_assignments:
+        if arguments.anchor is not None or arguments.host_id is not None:
+            print(
+                "ERROR: --freeze-host-assignments accepts only --assignment-file inputs",
+                file=sys.stderr,
+            )
+            return 2
+        if len(arguments.assignment_file) != len(ANCHOR_CONTRACTS):
+            print(
+                "ERROR: --freeze-host-assignments requires exactly four "
+                "--assignment-file inputs",
+                file=sys.stderr,
+            )
+            return 2
+        try:
+            changed = freeze_host_assignments(
+                REPOSITORY_ROOT, arguments.assignment_file
+            )
+        except (HostAssignmentError, OSError, ValueError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 1
+        print(
+            "R01 host assignments: FROZEN"
+            if changed
+            else "R01 host assignments: ALREADY FROZEN"
+        )
         return 0
     if arguments.host_id is not None:
         print("ERROR: --host-id requires --emit-host-assignment", file=sys.stderr)

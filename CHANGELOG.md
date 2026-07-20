@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Added fail-closed R01 assignment intake for the primary checkout. Exactly four
+  transferred exporter records are privacy- and role-validated together before
+  the canonical preregistration is atomically moved from fully unassigned to
+  `live_assignments_frozen`. Partial, duplicate, malformed, inconsistent,
+  symlinked, or different already-frozen input is rejected; cooperative freeze
+  invocations are serialized, canonical drift detected before replacement
+  aborts, and an exact replay succeeds without rewriting. This is preparation
+  only: no assignment was fabricated, no live probe was run, and R01 remains
+  `in_progress`.
 - Recorded PR #17 merge commit
   `5fce07140602b94d7fbea3e4219866292a4cd99f`, implementation commit
   `8d5a50bdb616a2973014648475b601c8a7437de6`, and tree

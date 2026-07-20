@@ -354,6 +354,28 @@ preregistration. The exporter rejects private identifiers, extra fields, malform
 facts, and hosts that do not satisfy the selected anchor; it does not itself assign
 a host or authorize a live run.
 
+Only the primary checkout freezes the reviewed records. Supply each transferred
+file explicitly; input order does not change the canonical anchor order:
+
+```sh
+python3 Scripts/r01_preregistration.py \
+  --freeze-host-assignments \
+  --assignment-file <anchor-oldest-supported-assignment.json> \
+  --assignment-file <anchor-m3-air-assignment.json> \
+  --assignment-file <anchor-pro-max-assignment.json> \
+  --assignment-file <anchor-core-ai-assignment.json>
+```
+
+The freeze command accepts exactly one valid record for every anchor, validates
+privacy and role contracts together, rejects inconsistent pseudonym reuse, and
+atomically replaces only the canonical preregistration. It refuses partial,
+duplicate, malformed, symbolic-link, or different already-frozen input and never
+starts a probe. Cooperative freeze invocations are serialized, and canonical
+state drift detected before replacement aborts the write. An exact replay
+succeeds without rewriting the frozen record. Commit the resulting
+preregistration before requesting publication of the common live evidence-source
+checkpoint.
+
 Use these closed probe controls:
 
 - `Scripts/run-r01-capability-probe.sh --anchor <anchor> --output <path>` is the

@@ -22,6 +22,12 @@
   Neither merge contained the four frozen host assignments, runtime reports,
   aggregate, closure manifest, or proposed `passed` transition, so capability
   evidence and exit criteria remain outstanding.
+- R01 assignment intake validates exactly four transferred exporter records as
+  one closed set and atomically freezes them in canonical anchor order. Partial,
+  duplicate, malformed, private, symlinked, inconsistent, or different
+  already-frozen inputs are rejected without starting a live probe. Cooperative
+  freeze invocations are serialized, canonical drift detected before replacement
+  aborts, and an exact replay is a no-write success.
 - R02 unified backend architecture: planned after R01 capability contracts.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and
