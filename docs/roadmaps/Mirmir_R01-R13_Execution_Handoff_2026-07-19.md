@@ -1,9 +1,9 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.8
+- **Handoff version:** 1.9
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
-- **Revision date:** 2026-07-20
+- **Revision date:** 2026-07-21
 - **Repository:** `flynn33/Mirmir`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
@@ -42,8 +42,13 @@
 - **R04 local diagnostic-only closure:**
   `88e26f5967f7eb35a54791017ca0c2b888f2fbf5`; tree
   `4a7cc588b6fa51c21f2293e56cf3dea389acd908`; acceptance not claimed
-- **R05 local preregistration source:** R04 diagnostic-only closure above;
-  `accepted_merge_commit: null`
+- **R05 local preregistration:**
+  `6a327428c88f32517bf5cf931e6f18a65a24b5c2`; tree
+  `bfc53e9077fcb7bcab233ca79c4575ef1f69fda2`; R04 diagnostic-only closure
+  above is the source and `accepted_merge_commit: null`
+- **R05 implementation source:**
+  `3e5188ece317d3ebc492c7a8e26345837836fc67`; tree
+  `92b15f3948ffa38dc787136177551187bfb2fbbf`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
   `R04: in_progress`; `R05: in_progress`
 
@@ -144,6 +149,25 @@ fabricate those inputs. Native execution, quality, performance, comparison, and
 media-reopen evidence remain `not_observed` until actually observed; their
 absence is non-blocking under the operator override and makes no qualification,
 default, acceptance, publication, or release claim.
+
+### R05 diagnostic-only implementation checkpoint — 2026-07-21
+
+R05 implementation commit `3e5188ece317d3ebc492c7a8e26345837836fc67`,
+tree `92b15f3948ffa38dc787136177551187bfb2fbbf`, implements the two frozen A07
+fixture routes, the exact NV12/linear bridge, support-before-construction,
+private-texture staging, ordered completion and publication, retained FIFO
+ownership, cancellation, typed failures, and no silent fallback. A08-A10 reject
+decoded-video admission before any native factory call.
+
+All 44 focused macOS Xcode tests pass and strict SwiftLint is clean. Metal
+shader compilation was excluded because the optional Metal Toolchain was
+unavailable; R05 adds no Metal shader. The commit-bound R05 conformance result
+is `diagnostic_only`: both A07 runtime subjects are `not_observed`, and all
+A08-A10 subjects retain their exact `rejected_for_decoded_video` dispositions.
+Native MetalFX execution, hardware, simulator, operator observation, media
+reopen, quality, performance, and baseline comparison remain `not_observed`.
+R05 remains canonical `in_progress`, local unpublished, disabled as a
+production default, and unaccepted.
 
 ## 1. Resume instructions
 
@@ -746,6 +770,14 @@ support query. A08-A10 are deterministic decoded-video contract rejections.
 R05 remains `in_progress`, local unpublished, and unaccepted; no runtime,
 quality, performance, qualification, default, publication, or release claim is
 made.
+
+Local checkpoint: implementation commit
+`3e5188ece317d3ebc492c7a8e26345837836fc67`, tree
+`92b15f3948ffa38dc787136177551187bfb2fbbf`, passes 44 focused macOS Xcode
+tests and strict lint. Its commit-bound result is `diagnostic_only`: A07 native
+execution and media-reopen evidence are `not_observed`, A08-A10 retain their
+typed decoded-video rejections, and no product, quality, performance,
+acceptance, publication, or release claim follows.
 
 ### R06 - ASH orchestration engine v1
 

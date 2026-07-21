@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0.1  
 **Publication date:** 2026-07-18  
-**Revision date:** 2026-07-20  
+**Revision date:** 2026-07-21  
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime  
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -779,6 +779,38 @@ operator override. Any unavailable native execution, quality, performance,
 baseline comparison, or reopen result must remain `not_observed`. This local
 start makes no product-qualification, production-default, quality, performance,
 acceptance, publication, or release claim.
+
+### Local implementation and diagnostic-only checkpoint — 2026-07-21
+
+The frozen R05 contract was preregistered in local commit
+`6a327428c88f32517bf5cf931e6f18a65a24b5c2`, tree
+`bfc53e9077fcb7bcab233ca79c4575ef1f69fda2`. The implementation source is local
+commit `3e5188ece317d3ebc492c7a8e26345837836fc67`, tree
+`92b15f3948ffa38dc787136177551187bfb2fbbf`.
+
+That implementation provides exact A07 spatial 1.5× and 2× fixture routes, a
+left-sited video-range BT.709 NV12/linear RGBA16Float bridge, support-before-
+construction guards, shared staging around private MetalFX textures, ordered
+completion and publication, retained FIFO ownership, cancellation, typed
+failure outcomes, and no silent fallback. A08, A09, and A10 reject decoded-video
+admission before any native factory call because their renderer-semantic inputs
+are not evidence-backed. Production bootstrap behavior remains unchanged and
+unavailable.
+
+All 44 focused macOS Xcode tests passed, the Swift source and test targets
+compiled with strict concurrency enabled, and strict SwiftLint reported zero
+violations. Metal shader compilation was excluded because the optional Metal
+Toolchain was unavailable; R05 adds no Metal shader. The commit-bound
+`evidence/r05/records/suitability-conformance.json` result is
+`diagnostic_only`: both A07 native runtime subjects are `not_observed`, while
+all A08 through A10 subjects carry their frozen
+`rejected_for_decoded_video` dispositions. Native MetalFX execution, hardware,
+simulator, operator-observed operation, end-to-end media reopen, baseline
+comparison, quality, and performance were not observed.
+
+R05 remains canonical `in_progress`, local unpublished, and unaccepted. No
+backend is selected as a production default; product qualification, quality and
+performance claims, acceptance, publication, and release remain unauthorized.
 
 ### Exit outcomes
 

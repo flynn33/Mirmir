@@ -41,6 +41,12 @@ R04_CONFORMANCE_PATH = Path(
     "docs/roadmaps/evidence/r04/records/integration-conformance.json"
 )
 
+PREREGISTRATION_COMMIT = "6a327428c88f32517bf5cf931e6f18a65a24b5c2"
+IMPLEMENTATION_SOURCE = {
+    "commit": "3e5188ece317d3ebc492c7a8e26345837836fc67",
+    "tree": "92b15f3948ffa38dc787136177551187bfb2fbbf",
+}
+
 PREDECESSOR = {
     "phase_id": "R04",
     "closure_state": "local_unpublished_diagnostic_only_closure",
@@ -138,6 +144,13 @@ CHECK_IDS = (
     "no_quality_or_performance_claim",
     "production_default_disabled",
 )
+NOT_OBSERVED_CHECK_IDS = frozenset(
+    {
+        "spatial_native_execution",
+        "baseline_quality_performance_comparison",
+        "exact_media_identity",
+    }
+)
 STOP_RULE_IDS = (
     "predecessor_identity_drift",
     "contract_byte_drift",
@@ -189,6 +202,41 @@ SOURCE_BINDINGS = {
 }
 PREREGISTRATION_SEMANTIC_SHA256 = "4c63c48834836546917fce65bb36a2072bd6fa0d58bc1de516b7f79fa2d3f066"
 FIXTURE_CATALOG_SEMANTIC_SHA256 = "4610f117f4600235687f5f15ab2ca781db1fce6c1d474aa229b7ff338154b29c"
+AGGREGATE_PROJECT_PATH = Path("Mirmir.xcodeproj/project.pbxproj")
+SOURCE_CONTRACT_PATHS = (
+    PREREGISTRATION_PATH,
+    FIXTURE_CATALOG_PATH,
+    PREREGISTRATION_SCHEMA_PATH,
+    FIXTURE_CATALOG_SCHEMA_PATH,
+    CONFORMANCE_SCHEMA_PATH,
+    AGGREGATE_PROJECT_PATH,
+    Path("Mirmir/Modules/UpscalerEngine/R05MetalFXContracts.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R05MetalFXColorBridge.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R05MetalFXSpatialDriver.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R05MetalFXSpatialBackend.swift"),
+    Path("MirmirTests/R05MetalFXContractsTests.swift"),
+    Path("MirmirTests/R05MetalFXColorBridgeTests.swift"),
+    Path("MirmirTests/R05MetalFXSpatialDriverTests.swift"),
+    Path("MirmirTests/R05MetalFXSpatialBackendTests.swift"),
+)
+CURRENT_BYTE_SOURCE_CONTRACT_PATHS = frozenset(SOURCE_CONTRACT_PATHS) - {
+    AGGREGATE_PROJECT_PATH
+}
+CONFORMANCE_RESULT = {
+    "status": "diagnostic_only",
+    "disposition": "diagnostic_only",
+    "default_backend_id": None,
+    "product_qualification": "not_claimed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "acceptance": "not_claimed",
+}
+CONFORMANCE_LIMITATIONS = (
+    "Focused macOS software conformance passed with Xcode 26.2 and Swift 6.2.3; Metal shader compilation was excluded because the optional Metal Toolchain was unavailable.",
+    "Native MetalFX spatial support, scaler construction, private-texture staging and blit execution, quality, performance, hardware, simulator, and operator-observed operation were not observed.",
+    "End-to-end MetalFX media reopen preservation, including audio and metadata, and baseline quality/performance comparison against VideoToolbox low latency and MPS Lanczos were not observed.",
+    "The R05 implementation remains disabled as the production default and makes no product qualification or acceptance claim.",
+)
 
 
 def _sha256(payload: bytes) -> str:
@@ -238,6 +286,14 @@ class R05ContractVerifier:
             capture_output=True,
             check=False,
             text=True,
+        )
+
+    def git_bytes(self, *arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=self.root,
+            capture_output=True,
+            check=False,
         )
 
     def _safe_path(
@@ -321,6 +377,60 @@ class R05ContractVerifier:
             errors.append(f"{context}.size_bytes differs")
         if binding.get("sha256") != _sha256(payload):
             errors.append(f"{context}.sha256 differs")
+
+    def _check_source(
+        self, source: object, context: str, errors: list[str]
+    ) -> None:
+        if not isinstance(source, dict) or set(source) != {"commit", "tree"}:
+            errors.append(f"{context} must contain only commit and tree")
+            return
+        commit = source.get("commit")
+        tree = source.get("tree")
+        if not isinstance(commit, str) or not isinstance(tree, str):
+            errors.append(f"{context} commit and tree must be strings")
+            return
+        if source != IMPLEMENTATION_SOURCE:
+            errors.append(f"{context} differs from the frozen R05 implementation source")
+        if self.git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+            errors.append(f"{context} commit is unavailable")
+            return
+        if commit == PREREGISTRATION_COMMIT or self.git(
+            "merge-base", "--is-ancestor", PREREGISTRATION_COMMIT, commit
+        ).returncode != 0:
+            errors.append(
+                f"{context} must be a strict descendant of the R05 preregistration"
+            )
+        observed_tree = self.git("rev-parse", f"{commit}^{{tree}}")
+        if observed_tree.returncode != 0 or observed_tree.stdout.strip() != tree:
+            errors.append(f"{context} tree differs from its commit")
+        if self.git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+            errors.append(f"{context} commit must be an ancestor of HEAD")
+        for relative in SOURCE_CONTRACT_PATHS:
+            historical = self.git_bytes("show", f"{commit}:{relative.as_posix()}")
+            current = self.root / relative
+            if historical.returncode != 0 or current.is_symlink() or not current.is_file():
+                errors.append(
+                    f"{context} does not contain the frozen R05 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
+            elif (
+                relative in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                and historical.stdout != current.read_bytes()
+            ):
+                errors.append(
+                    f"{context} does not contain the frozen R05 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
+
+        project = self.root / AGGREGATE_PROJECT_PATH
+        if not project.is_symlink() and project.is_file():
+            project_payload = project.read_bytes()
+            for relative in SOURCE_CONTRACT_PATHS:
+                if relative.suffix == ".swift" and relative.name.encode() not in project_payload:
+                    errors.append(
+                        f"{context} current project omits the frozen R05 source reference: "
+                        f"{relative.name}"
+                    )
 
     def _check_predecessor(
         self, preregistration: dict[str, Any], errors: list[str]
@@ -568,6 +678,7 @@ class R05ContractVerifier:
         if set(value) != expected_keys:
             errors.append("R05 conformance top-level keys differ")
         errors.extend(_privacy_errors(value, "R05 conformance"))
+        self._check_source(value.get("source"), "R05 conformance source", errors)
         self._check_binding(
             value.get("preregistration_binding"),
             PREREGISTRATION_PATH,
@@ -580,14 +691,26 @@ class R05ContractVerifier:
             "fixture_catalog_binding",
             errors,
         )
-        subjects = value.get("subject_results")
-        ids = (
-            [item.get("subject_id") for item in subjects if isinstance(item, dict)]
-            if isinstance(subjects, list)
-            else []
-        )
+        subject_results = value.get("subject_results")
+        subject_values = subject_results if isinstance(subject_results, list) else []
+        ids = [
+            item.get("subject_id")
+            for item in subject_values
+            if isinstance(item, dict)
+        ]
         if ids != list(SUBJECT_IDS):
             errors.append("R05 conformance subject matrix differs")
+        expected_subject_results = [
+            {
+                "subject_id": identity[0],
+                "execution_status": identity[5],
+                "disposition": identity[6],
+                "reason": identity[7],
+            }
+            for identity in SUBJECT_IDENTITIES
+        ]
+        if subject_values != expected_subject_results:
+            errors.append("R05 conformance subject results differ from the frozen closure")
         checks = value.get("checks")
         check_ids = (
             [item.get("id") for item in checks if isinstance(item, dict)]
@@ -596,6 +719,19 @@ class R05ContractVerifier:
         )
         if check_ids != list(CHECK_IDS):
             errors.append("R05 conformance check matrix differs")
+        expected_checks = [
+            {
+                "id": check_id,
+                "status": (
+                    "not_observed"
+                    if check_id in NOT_OBSERVED_CHECK_IDS
+                    else "passed"
+                ),
+            }
+            for check_id in CHECK_IDS
+        ]
+        if checks != expected_checks:
+            errors.append("R05 conformance check results differ from the frozen closure")
         expected_observation = {
             "hardware_capability_observation": "not_observed",
             "simulator_execution": "not_observed",
@@ -605,17 +741,10 @@ class R05ContractVerifier:
         }
         if value.get("observation_status") != expected_observation:
             errors.append("R05 conformance observation boundary differs")
-        result = value.get("result")
-        if not isinstance(result, dict) or any(
-            (
-                result.get("default_backend_id") is not None,
-                result.get("product_qualification") != "not_claimed",
-                result.get("quality_claims") != "forbidden",
-                result.get("performance_claims") != "forbidden",
-                result.get("acceptance") != "not_claimed",
-            )
-        ):
+        if value.get("result") != CONFORMANCE_RESULT:
             errors.append("R05 conformance result exceeds the authorization boundary")
+        if value.get("limitations") != list(CONFORMANCE_LIMITATIONS):
+            errors.append("R05 conformance limitations differ from the frozen closure")
 
     def check_conformance(self) -> list[str]:
         errors: list[str] = []

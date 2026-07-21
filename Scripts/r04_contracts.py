@@ -208,13 +208,14 @@ SOURCE_BINDINGS = {
 }
 PREREGISTRATION_SEMANTIC_SHA256 = "7a804c718010b7d2764ced62c400b505ad217bbaec821f080e811dd2019dd0fc"
 FIXTURE_CATALOG_SEMANTIC_SHA256 = "4025538c3ca61d087d8ef3a03019c2f8f3c4bcc1178acdff4af54128ccba2196"
+AGGREGATE_PROJECT_PATH = Path("Mirmir.xcodeproj/project.pbxproj")
 SOURCE_CONTRACT_PATHS = (
     PREREGISTRATION_PATH,
     FIXTURE_CATALOG_PATH,
     PREREGISTRATION_SCHEMA_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
     CONFORMANCE_SCHEMA_PATH,
-    Path("Mirmir.xcodeproj/project.pbxproj"),
+    AGGREGATE_PROJECT_PATH,
     Path("Mirmir/Modules/ModelAssets/DefaultModelAssetsService.swift"),
     Path("Mirmir/Modules/ModelAssets/ModelAssetsService.swift"),
     Path("Mirmir/Modules/ModelAssets/VTModelStager.swift"),
@@ -225,6 +226,9 @@ SOURCE_CONTRACT_PATHS = (
     Path("MirmirTests/R04VideoToolboxSessionAdapterTests.swift"),
     Path("MirmirTests/UpscalerEngineAvailabilityTests.swift"),
 )
+CURRENT_BYTE_SOURCE_CONTRACT_PATHS = frozenset(SOURCE_CONTRACT_PATHS) - {
+    AGGREGATE_PROJECT_PATH
+}
 CONFORMANCE_RESULT = {
     "status": "diagnostic_only",
     "default_backend_id": None,
@@ -415,16 +419,29 @@ class R04ContractVerifier:
         for relative in SOURCE_CONTRACT_PATHS:
             historical = self.git_bytes("show", f"{commit}:{relative.as_posix()}")
             current = self.root / relative
-            if (
-                historical.returncode != 0
-                or current.is_symlink()
-                or not current.is_file()
-                or historical.stdout != current.read_bytes()
+            if historical.returncode != 0 or current.is_symlink() or not current.is_file():
+                errors.append(
+                    f"{context} does not contain the frozen R04 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
+            elif (
+                relative in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                and historical.stdout != current.read_bytes()
             ):
                 errors.append(
                     f"{context} does not contain the frozen R04 implementation bytes: "
                     f"{relative.as_posix()}"
                 )
+
+        project = self.root / AGGREGATE_PROJECT_PATH
+        if not project.is_symlink() and project.is_file():
+            project_payload = project.read_bytes()
+            for relative in SOURCE_CONTRACT_PATHS:
+                if relative.suffix == ".swift" and relative.name.encode() not in project_payload:
+                    errors.append(
+                        f"{context} current project omits the frozen R04 source reference: "
+                        f"{relative.name}"
+                    )
 
     def _check_predecessor(
         self, preregistration: dict[str, Any], errors: list[str]

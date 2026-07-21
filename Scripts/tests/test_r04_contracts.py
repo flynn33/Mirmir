@@ -13,12 +13,14 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 
 from phase_evidence import validate_json_schema_instance  # noqa: E402
 from r04_contracts import (  # noqa: E402
+    AGGREGATE_PROJECT_PATH,
     AUTHORIZATION_BOUNDARY,
     CHECK_IDS,
     CONFORMANCE_LIMITATIONS,
     CONFORMANCE_PATH,
     CONFORMANCE_RESULT,
     CONFORMANCE_SCHEMA_PATH,
+    CURRENT_BYTE_SOURCE_CONTRACT_PATHS,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
     IMPLEMENTATION_SOURCE,
@@ -170,6 +172,15 @@ class R04ContractTests(unittest.TestCase):
         self.assertIn(
             Path("MirmirTests/R04VideoToolboxSessionAdapterTests.swift"),
             SOURCE_CONTRACT_PATHS,
+        )
+        self.assertIn(AGGREGATE_PROJECT_PATH, SOURCE_CONTRACT_PATHS)
+        self.assertNotIn(AGGREGATE_PROJECT_PATH, CURRENT_BYTE_SOURCE_CONTRACT_PATHS)
+        self.assertTrue(
+            all(
+                path in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                for path in SOURCE_CONTRACT_PATHS
+                if path != AGGREGATE_PROJECT_PATH
+            )
         )
 
     def test_conformance_binding_path_is_not_self_selected(self) -> None:
