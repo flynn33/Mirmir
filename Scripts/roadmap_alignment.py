@@ -56,6 +56,52 @@ R03_LOCAL_CONTINUATION_EXCEPTION = {
         "stop_rules",
     ],
 }
+R04_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
+    "dependency_phase_id": "R03",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "947983a8414c60e4f5f4246e6cb658792fc7c357",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_tree": "d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R03",
+        "predecessor_result": "blocked",
+    },
+    "preregistration_identity": {
+        "phase_id": "R04",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r04/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
+R04_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r04/records/preregistration.json",
+        "docs/roadmaps/evidence/r04/records/fixtures/fixture-catalog.json",
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -473,7 +519,7 @@ class AlignmentVerifier:
                 f"local continuation identity keys differ for {phase_id}",
             )
             return False
-        if set(predecessor) != {
+        expected_predecessor_keys = {
             "phase_id",
             "closure_state",
             "closure_commit",
@@ -481,7 +527,10 @@ class AlignmentVerifier:
             "accepted_merge_commit",
             "acceptance_state",
             "continuation_scope",
-        }:
+        }
+        if phase_id == "R04":
+            expected_predecessor_keys.add("predecessor_result")
+        if set(predecessor) != expected_predecessor_keys:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 f"local continuation predecessor keys differ for {phase_id}",
@@ -543,11 +592,14 @@ class AlignmentVerifier:
 
     def _local_continuation_exception_contract_is_exact(self) -> bool:
         exceptions = self.policy.get("local_continuation_exceptions")
-        expected = {"R03": R03_LOCAL_CONTINUATION_EXCEPTION}
+        expected = {
+            "R03": R03_LOCAL_CONTINUATION_EXCEPTION,
+            "R04": R04_LOCAL_CONTINUATION_EXCEPTION,
+        }
         if exceptions != expected:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
-                "local_continuation_exceptions differ from the sole frozen R03 exception",
+                "local_continuation_exceptions differ from the frozen R03/R04 exceptions",
             )
             return False
         return True
@@ -790,6 +842,11 @@ class AlignmentVerifier:
                 "phase_start_requirements must be an object",
             )
             return
+        if requirements.get("R04") != R04_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R04 phase_start_requirements differ from the frozen contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):

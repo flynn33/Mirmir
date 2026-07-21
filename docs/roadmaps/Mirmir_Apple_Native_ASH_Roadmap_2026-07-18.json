@@ -239,7 +239,7 @@
       "exit": "quality and low-latency VT integration contracts implemented with qualified, diagnostic-only, rejected, or not_observed dispositions",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [

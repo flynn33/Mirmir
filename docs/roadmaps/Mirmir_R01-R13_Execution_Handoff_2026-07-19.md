@@ -167,7 +167,8 @@ change it.
 The operator's direct instruction to continue locally through R07 creates one
 narrow exception to the preceding implementation-start rule. A dependent phase
 may begin local implementation only after a preregistration binds the exact
-preceding `local_unpublished_closure` commit and tree, records
+preceding policy-frozen local closure commit and tree, records the exact closure
+state and predecessor result required for that phase,
 `accepted_merge_commit: null`, and states that acceptance is not claimed. This
 exception does not accept the preceding phase and does not authorize a push,
 pull request, approval, merge, tag, release, holdout access, production enablement,
@@ -178,6 +179,18 @@ merged, record the actual operator-created merge commit and tree additively in a
 separate predecessor-acceptance receipt before claiming an accepted predecessor
 or publishing/closing the dependent phase. Never rewrite the preregistration or
 infer merge acceptance from a local branch or remote-tracking ref.
+
+The R04 local-continuation preregistration must bind R03 closure commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. That closure records a fail-closed
+`blocked` R03 result as `local_unpublished_blocked_closure`. The R04 exception
+permits only `in_progress` local implementation while R03 remains `in_progress`;
+it records
+`predecessor_result: blocked`, `accepted_merge_commit: null`,
+`acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. It does not reinterpret R03
+evidence as success or authorize R04 evidence readiness, passing status,
+publication, production enablement, or a quality/performance claim.
 
 Phase pull requests require the operator to use GitHub's merge-commit method.
 Squash and rebase merges do not preserve the preregistration, implementation,

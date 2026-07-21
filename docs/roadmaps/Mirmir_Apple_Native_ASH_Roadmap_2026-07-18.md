@@ -659,7 +659,7 @@ One baseline matrix establishes the quality/performance/resource envelope of eve
 
 ## R04 — VideoToolbox super-resolution production integration
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -676,6 +676,24 @@ Use Apple’s native video-oriented ML super-resolution engine as the primary Qu
 - Implement explicit sequential/random submission semantics.
 - Implement low-latency SR as a separate backend, not a flag hidden inside Quality.
 - Record configuration revision, scale, quality priority, supported formats, model status, and processing mode.
+
+### Local implementation start — 2026-07-20
+
+R04 begins only under the operator-directed local-continuation boundary. Its
+frozen preregistration binds the exact unpublished R03 closure commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`, records
+`closure_state: local_unpublished_blocked_closure`, `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and limits the
+continuation to local implementation.
+
+The bound R03 record is fail-closed and `blocked`; R03 remains `in_progress` and
+unaccepted. Starting R04 neither repairs nor accepts that negative evidence.
+Hardware, simulator, and operator observation remain non-blocking under the
+operator override, while any unavailable runtime result must be recorded as
+`not_observed`. No runtime support, quality, performance, product qualification,
+production enablement, publication, or release claim follows from this local
+start.
 
 ### Exit gate
 
