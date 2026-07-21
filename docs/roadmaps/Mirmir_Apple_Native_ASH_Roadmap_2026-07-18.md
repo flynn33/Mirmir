@@ -881,6 +881,26 @@ primary backend, not by hardware, simulator, or operator observation. Those
 observations remain non-blocking `not_observed`. This start makes no product,
 quality, performance, default, acceptance, publication, or release claim.
 
+### Local implementation and blocked conformance checkpoint — 2026-07-21
+
+The R06 implementation source is local commit
+`9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
+`1235596387d4eabd2ecb4ea1a29221c44ec425fe`. It implements the frozen
+fixture-only decision context, policy catalog, deterministic whole-frame
+orchestration, transition handling, bounded masks, and required ablation
+controls without enabling a production route.
+
+All 32 focused Xcode tests passed, strict SwiftLint passed across 275 files, all
+529 Python governance tests passed, and deterministic software conformance
+passed. Product admission nevertheless remains fail-closed `blocked` for
+`reason: no_product_qualified_primary_backend`, with
+`eligible_backend_count: 0` and null selected route, plan, and output. All
+product, hardware, simulator, and operator observations remain `not_observed`.
+
+This is a local unpublished blocked closure, not phase acceptance. R06 remains
+canonical `in_progress`. No quality, performance, product, production-default,
+acceptance, publication, or release claim follows from this checkpoint.
+
 ### Exit gate
 
 ASH orchestration must improve at least one primary product dimension over the best fixed or continuous router without violating locked quality floors.

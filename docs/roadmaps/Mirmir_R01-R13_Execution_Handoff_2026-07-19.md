@@ -54,6 +54,9 @@
   `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`; acceptance not claimed
 - **R06 local preregistration source:** R05 diagnostic-only closure above;
   `accepted_merge_commit: null`
+- **R06 implementation source for the local unpublished blocked closure:**
+  `9246934c027e97f2b2ae3af35b0c4892154d761c`; tree
+  `1235596387d4eabd2ecb4ea1a29221c44ec425fe`; acceptance not claimed
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`
 
@@ -834,6 +837,18 @@ may proceed, but product admission is frozen to
 `no_product_qualified_primary_backend` with zero eligible backends and no
 selected route, plan, or output. All six product ablations remain
 `not_observed`; R06 remains `in_progress`, local unpublished, and unaccepted.
+
+Local blocked checkpoint: implementation commit
+`9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
+`1235596387d4eabd2ecb4ea1a29221c44ec425fe`, passed all 32 focused Xcode tests,
+strict SwiftLint across 275 files, all 529 Python governance tests, and
+deterministic software conformance. The product gate remains fail-closed
+`blocked` for `no_product_qualified_primary_backend`, with zero eligible
+backends and null selected route, plan, and output. All product, hardware,
+simulator, and operator observations remain `not_observed`. This is a local
+unpublished blocked closure; canonical R06 stays `in_progress`, and no quality,
+performance, product, production-default, acceptance, publication, or release
+claim follows.
 
 ### R07 - Temporal stability and artifact governance
 

@@ -1,0 +1,218 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R06",
+  "evidence_kind": "r06_ash_orchestration_contract",
+  "source": {
+    "commit": "9246934c027e97f2b2ae3af35b0c4892154d761c",
+    "tree": "1235596387d4eabd2ecb4ea1a29221c44ec425fe"
+  },
+  "preregistration_binding": {
+    "path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+    "size_bytes": 15319,
+    "sha256": "2b430d75ae1692067a4c1d6e3f6def8bc553c171f30396e0896ae0a3be49beaf"
+  },
+  "fixture_catalog_binding": {
+    "path": "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json",
+    "size_bytes": 10786,
+    "sha256": "2f06fff3a214019ba5f871c918a2ceba9e1019a89342988cf7e8866d929e11a1"
+  },
+  "observation_status": {
+    "hardware_capability_observation": "not_observed",
+    "simulator_execution": "not_observed",
+    "operator_observed_operation": "not_observed",
+    "product_ablation_execution": "not_observed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden"
+  },
+  "product_gate_result": {
+    "reason": "no_product_qualified_primary_backend",
+    "eligible_backend_count": 0,
+    "selected_route_id": null,
+    "selected_plan_id": null,
+    "output_identity": null,
+    "disposition": "blocked"
+  },
+  "fixture_checks": [
+    {
+      "id": "decision_context_invariants",
+      "status": "passed"
+    },
+    {
+      "id": "sixteen_message_policy_profiles",
+      "status": "passed"
+    },
+    {
+      "id": "checked_integer_fixed_point_scoring",
+      "status": "passed"
+    },
+    {
+      "id": "candidate_order_and_lexical_tie_break",
+      "status": "passed"
+    },
+    {
+      "id": "whole_frame_transition_controls",
+      "status": "passed"
+    },
+    {
+      "id": "bounded_protection_masks",
+      "status": "passed"
+    },
+    {
+      "id": "six_ablation_fixture_matrix",
+      "status": "passed"
+    },
+    {
+      "id": "product_eligibility_prefilter",
+      "status": "passed"
+    }
+  ],
+  "product_ablations": [
+    {
+      "id": "best_fixed_eligible_apple_backend",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    },
+    {
+      "id": "simple_continuous_router_without_ash",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    },
+    {
+      "id": "ash_state_only_router",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    },
+    {
+      "id": "ash_plus_continuous_sidecar",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    },
+    {
+      "id": "ash_without_hysteresis",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    },
+    {
+      "id": "ash_without_postflight_feedback",
+      "status": "not_observed",
+      "reason": "no_product_qualified_primary_backend"
+    }
+  ],
+  "checks": [
+    {
+      "id": "predecessor_closure_exact",
+      "status": "passed"
+    },
+    {
+      "id": "frozen_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "canonical_nine_bit_state_unchanged",
+      "status": "passed"
+    },
+    {
+      "id": "decision_context_immutable_and_versioned",
+      "status": "passed"
+    },
+    {
+      "id": "sixteen_message_profiles_complete",
+      "status": "passed"
+    },
+    {
+      "id": "one_bit_one_policy_axis_causality",
+      "status": "passed"
+    },
+    {
+      "id": "integer_fixed_point_scoring_exact",
+      "status": "passed"
+    },
+    {
+      "id": "constructor_parameters_bound",
+      "status": "passed"
+    },
+    {
+      "id": "product_eligibility_prefilter_first",
+      "status": "passed"
+    },
+    {
+      "id": "candidate_order_invariance",
+      "status": "passed"
+    },
+    {
+      "id": "lexical_route_tie_break",
+      "status": "passed"
+    },
+    {
+      "id": "one_whole_frame_route",
+      "status": "passed"
+    },
+    {
+      "id": "hysteresis_exact",
+      "status": "passed"
+    },
+    {
+      "id": "minimum_dwell_exact",
+      "status": "passed"
+    },
+    {
+      "id": "scene_cut_reset_exact",
+      "status": "passed"
+    },
+    {
+      "id": "fatal_failover_exact",
+      "status": "passed"
+    },
+    {
+      "id": "bounded_masks_exact",
+      "status": "passed"
+    },
+    {
+      "id": "ablation_matrix_complete",
+      "status": "passed"
+    },
+    {
+      "id": "product_gate_closed",
+      "status": "passed"
+    },
+    {
+      "id": "product_ablations_not_observed",
+      "status": "passed"
+    },
+    {
+      "id": "observation_override_nonblocking",
+      "status": "passed"
+    },
+    {
+      "id": "no_quality_or_performance_claim",
+      "status": "passed"
+    },
+    {
+      "id": "no_silent_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "production_default_disabled",
+      "status": "passed"
+    }
+  ],
+  "result": {
+    "status": "blocked",
+    "reason": "no_product_qualified_primary_backend",
+    "default_backend_id": null,
+    "selected_route_id": null,
+    "selected_plan_id": null,
+    "output_identity": null,
+    "product_qualification": "not_claimed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "acceptance": "not_claimed"
+  },
+  "limitations": [
+    "Focused deterministic R06 software conformance passed; fixture execution does not establish product qualification, quality, or performance.",
+    "No R03-R05 backend has an explicit product-qualification record, so product routing, plan construction, output, and every product ablation remain not observed.",
+    "Hardware capability, simulator execution, and operator-observed operation were not observed under the operator override and are not the blocked cause.",
+    "R06 remains disabled as the production default and makes no product qualification, quality, performance, acceptance, publication, or release claim."
+  ]
+}

@@ -14,17 +14,26 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 
 from phase_evidence import validate_json_schema_instance  # noqa: E402
 from r06_contracts import (  # noqa: E402
+    AGGREGATE_PROJECT_PATH,
     ABLATION_IDS,
     AUTHORIZATION_BOUNDARY,
     CHECK_IDS,
+    CONFORMANCE_LIMITATIONS,
+    CONFORMANCE_OBSERVATION,
     CONFORMANCE_PATH,
+    CONFORMANCE_PRODUCT_GATE_RESULT,
+    CONFORMANCE_RESULT,
     CONFORMANCE_SCHEMA_PATH,
     CONSTRUCTOR_PARAMETERS,
+    CURRENT_BYTE_SOURCE_CONTRACT_PATHS,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
+    FIXTURE_CHECK_IDS,
+    IMPLEMENTATION_SOURCE,
     MESSAGE_AXES,
     OBSERVATION_POLICY,
     PREDECESSOR,
+    PREREGISTRATION_COMMIT,
     PREREGISTRATION_PATH,
     PREREGISTRATION_SCHEMA_PATH,
     PRODUCT_GATE,
@@ -32,6 +41,7 @@ from r06_contracts import (  # noqa: E402
     SCORING_CONTRACT,
     SIDECAR_FIELDS,
     SOURCE_BINDINGS,
+    SOURCE_CONTRACT_PATHS,
     STOP_RULE_IDS,
     TRANSITION_REASON_IDS,
     expected_policy_profiles,
@@ -49,6 +59,7 @@ class R06ContractTests(unittest.TestCase):
         self.verifier = R06ContractVerifier(REPOSITORY_ROOT)
         self.preregistration = read_json(PREREGISTRATION_PATH)
         self.catalog = read_json(FIXTURE_CATALOG_PATH)
+        self.conformance = read_json(CONFORMANCE_PATH)
 
     def preregistration_errors(self, value: dict[str, object]) -> list[str]:
         errors: list[str] = []
@@ -60,6 +71,11 @@ class R06ContractTests(unittest.TestCase):
         self.verifier._check_fixture_semantics(value, errors)
         return errors
 
+    def conformance_errors(self, value: dict[str, object]) -> list[str]:
+        errors: list[str] = []
+        self.verifier._check_conformance_semantics(value, errors)
+        return errors
+
     @staticmethod
     def file_binding(relative: Path) -> dict[str, object]:
         payload = (REPOSITORY_ROOT / relative).read_bytes()
@@ -69,32 +85,21 @@ class R06ContractTests(unittest.TestCase):
             "sha256": hashlib.sha256(payload).hexdigest(),
         }
 
-    def future_conformance(self) -> dict[str, object]:
+    def valid_conformance(self) -> dict[str, object]:
         return {
             "schema_version": "1.0.0",
             "roadmap_version": "1.0.1",
             "phase_id": "R06",
             "evidence_kind": "r06_ash_orchestration_contract",
-            "source": {"commit": "1" * 40, "tree": "2" * 40},
+            "source": dict(IMPLEMENTATION_SOURCE),
             "preregistration_binding": self.file_binding(PREREGISTRATION_PATH),
             "fixture_catalog_binding": self.file_binding(FIXTURE_CATALOG_PATH),
-            "observation_status": {
-                "hardware_capability_observation": "not_observed",
-                "simulator_execution": "not_observed",
-                "operator_observed_operation": "not_observed",
-                "product_ablation_execution": "not_observed",
-                "quality_claims": "forbidden",
-                "performance_claims": "forbidden",
-            },
-            "product_gate_result": {
-                "reason": "no_product_qualified_primary_backend",
-                "eligible_backend_count": 0,
-                "selected_route_id": None,
-                "selected_plan_id": None,
-                "output_identity": None,
-                "disposition": "blocked",
-            },
-            "fixture_checks": [{"id": "deterministic_fixture_contract", "status": "passed"}],
+            "observation_status": dict(CONFORMANCE_OBSERVATION),
+            "product_gate_result": dict(CONFORMANCE_PRODUCT_GATE_RESULT),
+            "fixture_checks": [
+                {"id": identifier, "status": "passed"}
+                for identifier in FIXTURE_CHECK_IDS
+            ],
             "product_ablations": [
                 {
                     "id": identifier,
@@ -103,34 +108,24 @@ class R06ContractTests(unittest.TestCase):
                 }
                 for identifier in ABLATION_IDS
             ],
-            "checks": [{"id": "product_gate_closed", "status": "blocked"}],
-            "result": {
-                "status": "blocked",
-                "reason": "no_product_qualified_primary_backend",
-                "default_backend_id": None,
-                "selected_route_id": None,
-                "selected_plan_id": None,
-                "output_identity": None,
-                "product_qualification": "not_claimed",
-                "quality_claims": "forbidden",
-                "performance_claims": "forbidden",
-                "acceptance": "not_claimed",
-            },
-            "limitations": [
-                "No R03-R05 backend has an explicit product-qualification record."
+            "checks": [
+                {"id": identifier, "status": "passed"}
+                for identifier in CHECK_IDS
             ],
+            "result": dict(CONFORMANCE_RESULT),
+            "limitations": list(CONFORMANCE_LIMITATIONS),
         }
 
-    def test_repository_preregistration_fixtures_and_absence_pass(self) -> None:
+    def test_repository_preregistration_fixtures_and_conformance_pass(self) -> None:
         self.assertEqual(self.verifier.check_preregistration(), [])
         self.assertEqual(self.verifier.check_fixtures(), [])
-        self.assertEqual(self.verifier.check_conformance_absent(), [])
+        self.assertEqual(self.verifier.check_conformance(), [])
 
     def test_records_and_future_conformance_validate_against_schemas(self) -> None:
         cases = (
             (PREREGISTRATION_SCHEMA_PATH, self.preregistration),
             (FIXTURE_CATALOG_SCHEMA_PATH, self.catalog),
-            (CONFORMANCE_SCHEMA_PATH, self.future_conformance()),
+            (CONFORMANCE_SCHEMA_PATH, self.conformance),
         )
         for schema_path, value in cases:
             with self.subTest(schema=schema_path.as_posix()):
@@ -139,18 +134,161 @@ class R06ContractTests(unittest.TestCase):
                     [],
                 )
 
-    def test_conformance_must_remain_absent_during_preregistration(self) -> None:
-        with mock.patch.object(Path, "is_symlink", return_value=False), mock.patch.object(
-            Path, "exists", return_value=True
+    def test_conformance_is_materialized_after_implementation(self) -> None:
+        self.assertTrue((REPOSITORY_ROOT / CONFORMANCE_PATH).is_file())
+        self.assertEqual(self.conformance, self.valid_conformance())
+        self.assertEqual(self.verifier.check_conformance(), [])
+
+    def test_conformance_source_is_exact_and_git_bound(self) -> None:
+        errors: list[str] = []
+        self.verifier._check_source(
+            dict(IMPLEMENTATION_SOURCE), "R06 conformance source", errors
+        )
+        self.assertEqual(errors, [])
+
+        errors = []
+        self.verifier._check_source(
+            {"commit": IMPLEMENTATION_SOURCE["commit"], "tree": "1" * 40},
+            "R06 conformance source",
+            errors,
+        )
+        self.assertTrue(any("tree differs" in error for error in errors))
+
+        errors = []
+        self.verifier._check_source(
+            {
+                "commit": PREREGISTRATION_COMMIT,
+                "tree": IMPLEMENTATION_SOURCE["tree"],
+            },
+            "R06 conformance source",
+            errors,
+        )
+        self.assertTrue(any("strict descendant" in error for error in errors))
+
+    def test_immutable_source_test_and_docs_current_byte_drift_fails_closed(self) -> None:
+        targets = (
+            PREREGISTRATION_PATH,
+            Path("Mirmir/Modules/UpscalerEngine/R06ASHDecisionContext.swift"),
+            Path("MirmirTests/UpscalerEngine/R06ASHDecisionContextTests.swift"),
+        )
+        for target in targets:
+            with self.subTest(target=target.as_posix()):
+                original_git_bytes = self.verifier.git_bytes
+
+                def drift_target(*arguments: str) -> object:
+                    result = original_git_bytes(*arguments)
+                    if arguments == (
+                        "show",
+                        f"{IMPLEMENTATION_SOURCE['commit']}:{target.as_posix()}",
+                    ):
+                        return mock.Mock(returncode=0, stdout=b"drift")
+                    return result
+
+                errors: list[str] = []
+                with mock.patch.object(
+                    self.verifier,
+                    "git_bytes",
+                    side_effect=drift_target,
+                ):
+                    self.verifier._check_source(
+                        dict(IMPLEMENTATION_SOURCE),
+                        "R06 conformance source",
+                        errors,
+                    )
+                self.assertTrue(
+                    any(target.as_posix() in error for error in errors)
+                )
+
+    def test_bound_commit_must_contain_exact_project_bytes(self) -> None:
+        original_git_bytes = self.verifier.git_bytes
+
+        def omit_project(*arguments: str) -> object:
+            if arguments == (
+                "show",
+                f"{IMPLEMENTATION_SOURCE['commit']}:{AGGREGATE_PROJECT_PATH.as_posix()}",
+            ):
+                return mock.Mock(returncode=1, stdout=b"")
+            return original_git_bytes(*arguments)
+
+        errors: list[str] = []
+        with mock.patch.object(
+            self.verifier,
+            "git_bytes",
+            side_effect=omit_project,
         ):
-            self.assertEqual(
-                self.verifier.check_conformance_absent(),
-                [
-                    "R06 orchestration conformance must be absent before the "
-                    "implementation source is frozen"
-                ],
+            self.verifier._check_source(
+                dict(IMPLEMENTATION_SOURCE), "R06 conformance source", errors
             )
-        self.assertFalse((REPOSITORY_ROOT / CONFORMANCE_PATH).exists())
+        self.assertTrue(
+            any(AGGREGATE_PROJECT_PATH.as_posix() in error for error in errors)
+        )
+
+    def test_generated_project_is_the_only_current_byte_exception(self) -> None:
+        self.assertIn(AGGREGATE_PROJECT_PATH, SOURCE_CONTRACT_PATHS)
+        self.assertNotIn(
+            AGGREGATE_PROJECT_PATH,
+            CURRENT_BYTE_SOURCE_CONTRACT_PATHS,
+        )
+        self.assertTrue(
+            all(
+                path in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                for path in SOURCE_CONTRACT_PATHS
+                if path != AGGREGATE_PROJECT_PATH
+            )
+        )
+
+    def test_current_project_references_every_bound_swift_file(self) -> None:
+        project_payload = (REPOSITORY_ROOT / AGGREGATE_PROJECT_PATH).read_bytes()
+        for path in SOURCE_CONTRACT_PATHS:
+            if path.suffix == ".swift":
+                self.assertIn(path.name.encode(), project_payload)
+
+    def test_current_project_reference_drift_fails_closed(self) -> None:
+        project_path = (REPOSITORY_ROOT / AGGREGATE_PROJECT_PATH).resolve()
+        omitted_name = b"R06ASHDecisionContext.swift"
+        original_read_bytes = Path.read_bytes
+
+        def omit_reference(path: Path) -> bytes:
+            payload = original_read_bytes(path)
+            if path.resolve() == project_path:
+                return payload.replace(omitted_name, b"R06ASHDecisionContext.missing")
+            return payload
+
+        errors: list[str] = []
+        with mock.patch.object(Path, "read_bytes", new=omit_reference):
+            self.verifier._check_source(
+                dict(IMPLEMENTATION_SOURCE), "R06 conformance source", errors
+            )
+        self.assertTrue(
+            any(
+                "current project omits" in error
+                and omitted_name.decode() in error
+                for error in errors
+            )
+        )
+
+    def test_source_path_set_includes_all_r06_sources_and_tests(self) -> None:
+        expected_swift_paths = {
+            Path("Mirmir/Modules/UpscalerEngine/R06ASHDecisionContext.swift"),
+            Path("Mirmir/Modules/UpscalerEngine/R06ASHMasksAndAblations.swift"),
+            Path("Mirmir/Modules/UpscalerEngine/R06ASHOrchestrator.swift"),
+            Path("Mirmir/Modules/UpscalerEngine/R06ASHPolicyCatalog.swift"),
+            Path("MirmirTests/UpscalerEngine/R06ASHDecisionContextTests.swift"),
+            Path("MirmirTests/UpscalerEngine/R06ASHMasksAndAblationsTests.swift"),
+            Path("MirmirTests/UpscalerEngine/R06ASHOrchestratorTests.swift"),
+            Path("MirmirTests/UpscalerEngine/R06ASHPolicyCatalogTests.swift"),
+        }
+        self.assertEqual(
+            {path for path in SOURCE_CONTRACT_PATHS if path.suffix == ".swift"},
+            expected_swift_paths,
+        )
+
+    def test_conformance_binding_paths_are_not_self_selected(self) -> None:
+        value = self.valid_conformance()
+        value["preregistration_binding"] = self.file_binding(FIXTURE_CATALOG_PATH)
+        self.assertTrue(
+            any("frozen path" in error for error in self.conformance_errors(value))
+        )
 
     def test_predecessor_identity_result_and_acceptance_are_exact(self) -> None:
         self.assertEqual(self.preregistration["predecessor_binding"], PREDECESSOR)
@@ -336,6 +474,115 @@ class R06ContractTests(unittest.TestCase):
         errors = self.preregistration_errors(value)
         self.assertTrue(any("frozen path" in item for item in errors))
 
+    def test_valid_conformance_is_exactly_blocked_by_product_gate(self) -> None:
+        self.assertEqual(self.conformance_errors(self.valid_conformance()), [])
+        self.assertEqual(self.conformance["result"], CONFORMANCE_RESULT)
+        self.assertEqual(
+            self.conformance["product_gate_result"],
+            CONFORMANCE_PRODUCT_GATE_RESULT,
+        )
+        self.assertEqual(
+            CONFORMANCE_RESULT["reason"],
+            "no_product_qualified_primary_backend",
+        )
+
+    def test_deterministic_fixture_checks_and_contract_checks_all_passed(self) -> None:
+        self.assertEqual(
+            self.conformance["fixture_checks"],
+            [
+                {"id": identifier, "status": "passed"}
+                for identifier in FIXTURE_CHECK_IDS
+            ],
+        )
+        self.assertEqual(
+            self.conformance["checks"],
+            [{"id": identifier, "status": "passed"} for identifier in CHECK_IDS],
+        )
+        value = self.valid_conformance()
+        value["fixture_checks"][0]["status"] = "not_observed"
+        self.assertIn(
+            "R06 conformance fixture checks differ",
+            self.conformance_errors(value),
+        )
+        value = self.valid_conformance()
+        value["checks"][0]["status"] = "blocked"
+        self.assertIn(
+            "R06 conformance check results differ",
+            self.conformance_errors(value),
+        )
+
+    def test_all_six_product_ablations_are_not_observed_for_exact_reason(self) -> None:
+        ablations = self.conformance["product_ablations"]
+        self.assertEqual([item["id"] for item in ablations], list(ABLATION_IDS))
+        self.assertTrue(all(item["status"] == "not_observed" for item in ablations))
+        self.assertTrue(
+            all(
+                item["reason"] == "no_product_qualified_primary_backend"
+                for item in ablations
+            )
+        )
+        value = self.valid_conformance()
+        value["product_ablations"][0]["reason"] = "simulator_unavailable"
+        self.assertIn(
+            "R06 conformance product ablations differ",
+            self.conformance_errors(value),
+        )
+
+    def test_observations_remain_not_observed_and_are_not_blocked_causes(self) -> None:
+        self.assertEqual(
+            self.conformance["observation_status"],
+            CONFORMANCE_OBSERVATION,
+        )
+        value = self.valid_conformance()
+        value["observation_status"]["simulator_execution"] = "observed"
+        self.assertIn(
+            "R06 conformance observation boundary differs",
+            self.conformance_errors(value),
+        )
+        value = self.valid_conformance()
+        value["product_gate_result"]["reason"] = "hardware_not_observed"
+        self.assertIn(
+            "R06 conformance product gate differs",
+            self.conformance_errors(value),
+        )
+
+    def test_conformance_cannot_claim_product_default_quality_or_acceptance(self) -> None:
+        mutations = (
+            ("status", "passed"),
+            ("reason", "simulator_unavailable"),
+            ("default_backend_id", "fixture.apple.mps_lanczos"),
+            ("product_qualification", "claimed"),
+            ("quality_claims", "claimed"),
+            ("performance_claims", "claimed"),
+            ("acceptance", "claimed"),
+        )
+        for field, replacement in mutations:
+            with self.subTest(field=field):
+                value = self.valid_conformance()
+                value["result"][field] = replacement
+                self.assertIn(
+                    "R06 conformance result exceeds the authorization boundary",
+                    self.conformance_errors(value),
+                )
+
+    def test_conformance_limitations_and_top_level_keys_are_closed(self) -> None:
+        self.assertEqual(
+            self.conformance["limitations"],
+            list(CONFORMANCE_LIMITATIONS),
+        )
+        value = self.valid_conformance()
+        value["limitations"].pop()
+        self.assertIn(
+            "R06 conformance limitations differ from the frozen closure",
+            self.conformance_errors(value),
+        )
+        value = self.valid_conformance()
+        value["publication"] = "authorized"
+        self.assertIn(
+            "R06 conformance top-level keys differ",
+            self.conformance_errors(value),
+        )
+
     def test_privacy_fields_and_private_paths_fail_closed(self) -> None:
         value = copy.deepcopy(self.preregistration)
         value["account_id"] = "private"
@@ -345,6 +592,13 @@ class R06ContractTests(unittest.TestCase):
         value["contract_id"] = "/Users/private/fixture"
         errors = self.fixture_errors(value)
         self.assertTrue(any("private path" in item for item in errors))
+
+    def test_nul_and_traversal_paths_are_rejected(self) -> None:
+        errors: list[str] = []
+        self.assertIsNone(self.verifier._safe_path("bad\x00path", "test", errors))
+        self.assertIsNone(self.verifier._safe_path("../escape", "test", errors))
+        self.assertTrue(any("NUL" in error for error in errors))
+        self.assertTrue(any("repository-relative" in error for error in errors))
 
 
 if __name__ == "__main__":

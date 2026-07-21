@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the frozen R06 ASH orchestration preregistration contract."""
+"""Validate the frozen R06 ASH orchestration contracts and closure evidence."""
 
 from __future__ import annotations
 
@@ -40,6 +40,12 @@ CONFORMANCE_SCHEMA_PATH = Path(
 R05_CONFORMANCE_PATH = Path(
     "docs/roadmaps/evidence/r05/records/suitability-conformance.json"
 )
+
+PREREGISTRATION_COMMIT = "3f0e5558123f582e7a3c6db085c1e58996ff253d"
+IMPLEMENTATION_SOURCE = {
+    "commit": "9246934c027e97f2b2ae3af35b0c4892154d761c",
+    "tree": "1235596387d4eabd2ecb4ea1a29221c44ec425fe",
+}
 
 PREDECESSOR = {
     "phase_id": "R05",
@@ -380,6 +386,76 @@ PREREGISTRATION_SEMANTIC_SHA256 = (
 FIXTURE_CATALOG_SEMANTIC_SHA256 = (
     "b3d4b93ad52c63597bb326767b3543db4db9d8ef8905f95ec6747ea053574ca3"
 )
+AGGREGATE_PROJECT_PATH = Path("Mirmir.xcodeproj/project.pbxproj")
+SOURCE_CONTRACT_PATHS = (
+    PREREGISTRATION_PATH,
+    FIXTURE_CATALOG_PATH,
+    PREREGISTRATION_SCHEMA_PATH,
+    FIXTURE_CATALOG_SCHEMA_PATH,
+    CONFORMANCE_SCHEMA_PATH,
+    AGGREGATE_PROJECT_PATH,
+    Path("Mirmir/Modules/UpscalerEngine/R06ASHDecisionContext.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R06ASHMasksAndAblations.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R06ASHOrchestrator.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R06ASHPolicyCatalog.swift"),
+    Path("MirmirTests/UpscalerEngine/R06ASHDecisionContextTests.swift"),
+    Path("MirmirTests/UpscalerEngine/R06ASHMasksAndAblationsTests.swift"),
+    Path("MirmirTests/UpscalerEngine/R06ASHOrchestratorTests.swift"),
+    Path("MirmirTests/UpscalerEngine/R06ASHPolicyCatalogTests.swift"),
+)
+CURRENT_BYTE_SOURCE_CONTRACT_PATHS = frozenset(SOURCE_CONTRACT_PATHS) - {
+    AGGREGATE_PROJECT_PATH
+}
+FIXTURE_CHECK_IDS = (
+    "decision_context_invariants",
+    "sixteen_message_policy_profiles",
+    "checked_integer_fixed_point_scoring",
+    "candidate_order_and_lexical_tie_break",
+    "whole_frame_transition_controls",
+    "bounded_protection_masks",
+    "six_ablation_fixture_matrix",
+    "product_eligibility_prefilter",
+)
+CONFORMANCE_OBSERVATION = {
+    "hardware_capability_observation": "not_observed",
+    "simulator_execution": "not_observed",
+    "operator_observed_operation": "not_observed",
+    "product_ablation_execution": "not_observed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+}
+CONFORMANCE_PRODUCT_GATE_RESULT = {
+    "reason": "no_product_qualified_primary_backend",
+    "eligible_backend_count": 0,
+    "selected_route_id": None,
+    "selected_plan_id": None,
+    "output_identity": None,
+    "disposition": "blocked",
+}
+CONFORMANCE_RESULT = {
+    "status": "blocked",
+    "reason": "no_product_qualified_primary_backend",
+    "default_backend_id": None,
+    "selected_route_id": None,
+    "selected_plan_id": None,
+    "output_identity": None,
+    "product_qualification": "not_claimed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "acceptance": "not_claimed",
+}
+CONFORMANCE_LIMITATIONS = (
+    "Focused deterministic R06 software conformance passed; fixture execution "
+    "does not establish product qualification, quality, or performance.",
+    "No R03-R05 backend has an explicit product-qualification record, so product "
+    "routing, plan construction, output, and every product ablation remain not "
+    "observed.",
+    "Hardware capability, simulator execution, and operator-observed operation "
+    "were not observed under the operator override and are not the blocked cause.",
+    "R06 remains disabled as the production default and makes no product "
+    "qualification, quality, performance, acceptance, publication, or release "
+    "claim.",
+)
 
 
 def _sha256(payload: bytes) -> str:
@@ -448,6 +524,14 @@ class R06ContractVerifier:
             capture_output=True,
             check=False,
             text=True,
+        )
+
+    def git_bytes(self, *arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=self.root,
+            capture_output=True,
+            check=False,
         )
 
     def _safe_path(
@@ -531,6 +615,60 @@ class R06ContractVerifier:
             errors.append(f"{context}.size_bytes differs")
         if binding.get("sha256") != _sha256(payload):
             errors.append(f"{context}.sha256 differs")
+
+    def _check_source(
+        self, source: object, context: str, errors: list[str]
+    ) -> None:
+        if not isinstance(source, dict) or set(source) != {"commit", "tree"}:
+            errors.append(f"{context} must contain only commit and tree")
+            return
+        commit = source.get("commit")
+        tree = source.get("tree")
+        if not isinstance(commit, str) or not isinstance(tree, str):
+            errors.append(f"{context} commit and tree must be strings")
+            return
+        if source != IMPLEMENTATION_SOURCE:
+            errors.append(f"{context} differs from the frozen R06 implementation source")
+        if self.git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+            errors.append(f"{context} commit is unavailable")
+            return
+        if commit == PREREGISTRATION_COMMIT or self.git(
+            "merge-base", "--is-ancestor", PREREGISTRATION_COMMIT, commit
+        ).returncode != 0:
+            errors.append(
+                f"{context} must be a strict descendant of the R06 preregistration"
+            )
+        observed_tree = self.git("rev-parse", f"{commit}^{{tree}}")
+        if observed_tree.returncode != 0 or observed_tree.stdout.strip() != tree:
+            errors.append(f"{context} tree differs from its commit")
+        if self.git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+            errors.append(f"{context} commit must be an ancestor of HEAD")
+        for relative in SOURCE_CONTRACT_PATHS:
+            historical = self.git_bytes("show", f"{commit}:{relative.as_posix()}")
+            current = self.root / relative
+            if historical.returncode != 0 or current.is_symlink() or not current.is_file():
+                errors.append(
+                    f"{context} does not contain the frozen R06 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
+            elif (
+                relative in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                and historical.stdout != current.read_bytes()
+            ):
+                errors.append(
+                    f"{context} does not contain the frozen R06 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
+
+        project = self.root / AGGREGATE_PROJECT_PATH
+        if not project.is_symlink() and project.is_file():
+            project_payload = project.read_bytes()
+            for relative in SOURCE_CONTRACT_PATHS:
+                if relative.suffix == ".swift" and relative.name.encode() not in project_payload:
+                    errors.append(
+                        f"{context} current project omits the frozen R06 source reference: "
+                        f"{relative.name}"
+                    )
 
     def _check_predecessor(
         self, preregistration: dict[str, Any], errors: list[str]
@@ -907,14 +1045,95 @@ class R06ContractVerifier:
             self._check_fixture_semantics(value, errors)
         return errors
 
-    def check_conformance_absent(self) -> list[str]:
+    def _check_conformance_semantics(
+        self, value: dict[str, Any], errors: list[str]
+    ) -> None:
+        expected_keys = {
+            "schema_version",
+            "roadmap_version",
+            "phase_id",
+            "evidence_kind",
+            "source",
+            "preregistration_binding",
+            "fixture_catalog_binding",
+            "observation_status",
+            "product_gate_result",
+            "fixture_checks",
+            "product_ablations",
+            "checks",
+            "result",
+            "limitations",
+        }
+        if set(value) != expected_keys:
+            errors.append("R06 conformance top-level keys differ")
+        errors.extend(_privacy_errors(value, "R06 conformance"))
+        self._check_source(value.get("source"), "R06 conformance source", errors)
+        self._check_binding(
+            value.get("preregistration_binding"),
+            PREREGISTRATION_PATH,
+            "preregistration_binding",
+            errors,
+        )
+        self._check_binding(
+            value.get("fixture_catalog_binding"),
+            FIXTURE_CATALOG_PATH,
+            "fixture_catalog_binding",
+            errors,
+        )
+        if value.get("observation_status") != CONFORMANCE_OBSERVATION:
+            errors.append("R06 conformance observation boundary differs")
+        if value.get("product_gate_result") != CONFORMANCE_PRODUCT_GATE_RESULT:
+            errors.append("R06 conformance product gate differs")
+
+        expected_fixture_checks = [
+            {"id": identifier, "status": "passed"}
+            for identifier in FIXTURE_CHECK_IDS
+        ]
+        if value.get("fixture_checks") != expected_fixture_checks:
+            errors.append("R06 conformance fixture checks differ")
+        expected_ablations = [
+            {
+                "id": identifier,
+                "status": "not_observed",
+                "reason": "no_product_qualified_primary_backend",
+            }
+            for identifier in ABLATION_IDS
+        ]
+        if value.get("product_ablations") != expected_ablations:
+            errors.append("R06 conformance product ablations differ")
+        expected_checks = [
+            {"id": identifier, "status": "passed"} for identifier in CHECK_IDS
+        ]
+        if value.get("checks") != expected_checks:
+            errors.append("R06 conformance check results differ")
+        if value.get("result") != CONFORMANCE_RESULT:
+            errors.append("R06 conformance result exceeds the authorization boundary")
+        if value.get("limitations") != list(CONFORMANCE_LIMITATIONS):
+            errors.append("R06 conformance limitations differ from the frozen closure")
+
+    def check_conformance(self) -> list[str]:
+        errors: list[str] = []
+        schema = self._read_json(
+            CONFORMANCE_SCHEMA_PATH, "R06 conformance schema", errors
+        )
         path = self.root / CONFORMANCE_PATH
-        if path.is_symlink() or path.exists():
-            return [
-                "R06 orchestration conformance must be absent before the "
+        if path.is_symlink() or path.exists() and not path.is_file():
+            errors.append("R06 conformance must be a regular non-symlink file")
+            return errors
+        if not path.exists():
+            errors.append(
+                "R06 orchestration conformance must be materialized after the "
                 "implementation source is frozen"
-            ]
-        return []
+            )
+            return errors
+        value = self._read_json(CONFORMANCE_PATH, "R06 conformance", errors)
+        if value is not None and schema is not None:
+            errors.extend(
+                f"R06 conformance schema: {error}"
+                for error in validate_json_schema_instance(schema, value)
+            )
+            self._check_conformance_semantics(value, errors)
+        return errors
 
 
 def emit_errors(errors: Iterable[str]) -> int:
@@ -928,21 +1147,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check-preregistration", action="store_true")
     parser.add_argument("--check-fixtures", action="store_true")
-    parser.add_argument("--check-conformance-absent", action="store_true")
+    parser.add_argument("--check-conformance", action="store_true")
     parser.add_argument("--all", action="store_true")
     arguments = parser.parse_args(argv)
     selected = any(
         (
             arguments.check_preregistration,
             arguments.check_fixtures,
-            arguments.check_conformance_absent,
+            arguments.check_conformance,
             arguments.all,
         )
     )
     if not selected:
         parser.error(
             "select --check-preregistration, --check-fixtures, "
-            "--check-conformance-absent, or --all"
+            "--check-conformance, or --all"
         )
     verifier = R06ContractVerifier(REPOSITORY_ROOT)
     errors: list[str] = []
@@ -950,18 +1169,15 @@ def main(argv: list[str] | None = None) -> int:
         errors.extend(verifier.check_preregistration())
     if arguments.all or arguments.check_fixtures:
         errors.extend(verifier.check_fixtures())
-    if arguments.all or arguments.check_conformance_absent:
-        errors.extend(verifier.check_conformance_absent())
+    if arguments.all or arguments.check_conformance:
+        errors.extend(verifier.check_conformance())
     if not errors:
         if arguments.all or arguments.check_preregistration:
             print("R06 preregistration: PASS")
         if arguments.all or arguments.check_fixtures:
             print("R06 fixtures: PASS")
-        if arguments.all or arguments.check_conformance_absent:
-            print(
-                "R06 conformance: NOT MATERIALIZED "
-                "(required absent before implementation)"
-            )
+        if arguments.all or arguments.check_conformance:
+            print("R06 conformance: PASS")
     return emit_errors(errors)
 
 

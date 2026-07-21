@@ -12,9 +12,14 @@ runtime, hardware, simulator, and operator observations remain `not_observed`;
 R05 has a local unpublished commit-bound `diagnostic_only` checkpoint. Native
 MetalFX execution, hardware, simulator, operator observation, media reopen,
 quality, performance, and phase acceptance remain unclaimed. R06 is
-preregistered for deterministic fixture-only orchestration; its product gate is
-fail-closed because there is no product-qualified primary backend, while
-hardware and simulator observation remain non-blocking.
+preregistered for deterministic fixture-only orchestration; the implementation
+source for its local unpublished blocked checkpoint is commit
+`9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
+`1235596387d4eabd2ecb4ea1a29221c44ec425fe`. Its deterministic software
+conformance passed, but its product gate remains fail-closed for
+`no_product_qualified_primary_backend`. Product, hardware, simulator, and
+operator observations remain `not_observed`; quality, performance, product,
+production-default, acceptance, publication, and release claims remain unmade.
 
 - [Canonical Markdown](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
 - [Canonical JSON](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json)
@@ -41,7 +46,7 @@ hardware and simulator observation remain non-blocking.
 
 Verified source hashes:
 
-- Markdown: `4360879c322773fa968d1f403283ea6aabdb327a756847c0cf1a6bf36f8ad96c`
+- Markdown: `e55495523117cdc1659a3118ffba498e62e5e3c4b540dab08ec088b45376c561`
 - JSON: `cbdb6448193e18dd9cde2779feec093b3b05de716a23e65a26c11de7e1782d8f`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.
