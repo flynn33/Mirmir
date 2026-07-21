@@ -1,0 +1,169 @@
+{
+  "schema_version": "2.0.0",
+  "phase_id": "R03",
+  "contract_id": "r03-a11-product-qualification-fixtures-v2",
+  "candidate_identity": {
+    "backend_id": "r03.mps.lanczos",
+    "capability_id": "A11",
+    "framework": "MetalPerformanceShaders",
+    "framework_symbol": "MPSImageLanczosScale",
+    "policy_identity": "r03.a11.product-qualified.no-fallback.v1",
+    "material_decision_identity": "r03.a11.genuine-mps-lanczos-product-admission.v1"
+  },
+  "color_contract": {
+    "pixel_format": "420v",
+    "bit_depth": 8,
+    "primaries": "ITU_R_709_2",
+    "transfer_function": "ITU_R_709_2",
+    "matrix": "ITU_R_709_2",
+    "range": "video",
+    "chroma_location": "left"
+  },
+  "source_bindings": [
+    {
+      "id": "r03_v1_preregistration",
+      "path": "docs/roadmaps/evidence/r03/records/preregistration.json",
+      "size_bytes": 14779,
+      "sha256": "bf883a6324de160381dc426af85f5dc1dcadcbc0bd3115df3bfc190c4d01eb1c"
+    },
+    {
+      "id": "r03_v1_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r03/records/fixtures/fixture-catalog.json",
+      "size_bytes": 13705,
+      "sha256": "ce44164b23f7fba765fe5c37c24d55dfb7d796043011d02e945704dff10c5602"
+    },
+    {
+      "id": "r03_v1_blocked_conformance",
+      "path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
+      "size_bytes": 57826,
+      "sha256": "9dab73f07b3b4e0d41c9f6ac0056fe7f3a36219754a55e91ef9fc74271ee67bd"
+    },
+    {
+      "id": "r02_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json",
+      "size_bytes": 8865,
+      "sha256": "245d3f73186322503aa1ebfaf5a5865994063997cda240374340427f4a3bebf3"
+    },
+    {
+      "id": "r02_fixture_generator",
+      "path": "Scripts/r02_fixture_generator.py",
+      "size_bytes": 1849,
+      "sha256": "6155e72eaeac221bcf88c6fcac48bd45aecaa0043046bf1b6dfd46fb68e53b3e"
+    },
+    {
+      "id": "r01_scaler_720p",
+      "path": "project-notes/evidence/r01/fixtures/scaler-720p.bin",
+      "size_bytes": 1382400,
+      "sha256": "77b432c2d459fa662d06f3086b2ac7c051a16e492da8783472917224aa96c73e"
+    },
+    {
+      "id": "r01_scaler_1080p",
+      "path": "project-notes/evidence/r01/fixtures/scaler-1080p.bin",
+      "size_bytes": 3110400,
+      "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15"
+    },
+    {
+      "id": "analytic_fixture_manifest",
+      "path": "validation/quality/reference/analytic-fixtures-v2.json",
+      "size_bytes": 15978,
+      "sha256": "4bc11e0b0b074be2a6bfcf509a62181220249f4e107e1ee920170c78b0eb47aa"
+    },
+    {
+      "id": "metric_policy",
+      "path": "validation/quality/policies/metric-policy.json",
+      "size_bytes": 3375,
+      "sha256": "cf1be5cd4fce0bc81665146b1638f7b80043aed6506f3c9276170ab638648ec1"
+    },
+    {
+      "id": "metric_tolerances",
+      "path": "validation/calibration_v2/contracts/metric-performance-tolerances-v1.json",
+      "size_bytes": 4337,
+      "sha256": "45f6c4fe193510ef046826f98ea8ffba8541f64284758c59317e4a6de09cd91a"
+    }
+  ],
+  "routes": [
+    {
+      "id": "scale_3_over_2",
+      "input_dimensions": {"width": 1280, "height": 720},
+      "output_dimensions": {"width": 1920, "height": 1080},
+      "scale_numerator": 3,
+      "scale_denominator": 2,
+      "fixture_binding_id": "r01_scaler_720p",
+      "configuration_identity": "r03.mps.lanczos.scale_3_over_2.420v-bt709-video-left.v1"
+    },
+    {
+      "id": "scale_2x",
+      "input_dimensions": {"width": 1920, "height": 1080},
+      "output_dimensions": {"width": 3840, "height": 2160},
+      "scale_numerator": 2,
+      "scale_denominator": 1,
+      "fixture_binding_id": "r01_scaler_1080p",
+      "configuration_identity": "r03.mps.lanczos.scale_2x.420v-bt709-video-left.v1"
+    }
+  ],
+  "media_transaction": {
+    "id": "r03-v2-media-transaction-2x",
+    "ownership": "r03_owned_dimension_corrective_fixture",
+    "route_id": "scale_2x",
+    "generator_contract": "r02-deterministic-contract-fixtures-v1",
+    "generator_id": "r02-deterministic-nv12-v1",
+    "materialization": "runtime_ephemeral",
+    "seed": 303,
+    "pixel_format": "420v",
+    "source_dimensions": {"width": 1920, "height": 1080},
+    "target_dimensions": {"width": 3840, "height": 2160},
+    "container_contract": {
+      "file_type": "mp4",
+      "video_codec": "h264",
+      "reopen_required": true,
+      "atomic_publication_required": true
+    },
+    "audio_contract": {
+      "codec": "aac",
+      "track_count": 1,
+      "sample_rate": 48000,
+      "channel_count": 2,
+      "source_sample_frames": 480,
+      "source_generator_id": "r02-deterministic-pcm-s16le-v1",
+      "source_pcm_sha256": "d9c0cdd3c0a79ff8fce1ae71b1e00ee8047de3243d6403b73d3d53cf6094b06a",
+      "semantic_sha256": "db9e6e337c0359715f730a6ef39eb44269290390a42a1044b4e481fb61092cef"
+    },
+    "frames": [
+      {
+        "sequence_number": 0,
+        "pts": {"value": 0, "timescale": 30000},
+        "duration": {"value": 1001, "timescale": 30000},
+        "metadata_identity": "r03-v2-media-transaction.frame-0",
+        "resource_token_id": "r03-v2-media-transaction.token-0",
+        "generated_content_sha256": "5eb9ebee68ffa7332ead8ed91af4223ab1ecd14eca9d4accde36d06fdfc9af4c"
+      },
+      {
+        "sequence_number": 1,
+        "pts": {"value": 1001, "timescale": 30000},
+        "duration": {"value": 1001, "timescale": 30000},
+        "metadata_identity": "r03-v2-media-transaction.frame-1",
+        "resource_token_id": "r03-v2-media-transaction.token-1",
+        "generated_content_sha256": "559a50c0d3c8b0d4dd615b55a6c8ea7a2da99a48e1fbfb3487de9f8f7ad50647"
+      },
+      {
+        "sequence_number": 2,
+        "pts": {"value": 2002, "timescale": 30000},
+        "duration": {"value": 1001, "timescale": 30000},
+        "metadata_identity": "r03-v2-media-transaction.frame-2",
+        "resource_token_id": "r03-v2-media-transaction.token-2",
+        "generated_content_sha256": "8b93136825170d78f9ece191703ed79bfa54ebfceebce748e903cf41df7da152"
+      }
+    ],
+    "preserved_r02_semantics": [
+      "three_frame_fifo_order",
+      "exact_pts",
+      "exact_duration",
+      "aac_audio_identity",
+      "timed_metadata_identity",
+      "resource_lifetime_exactly_once",
+      "reopen_before_publication",
+      "atomic_publication",
+      "h264_mp4_container"
+    ]
+  }
+}

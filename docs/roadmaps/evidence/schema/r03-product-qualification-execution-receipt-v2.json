@@ -1,0 +1,229 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r03-product-qualification-execution-receipt-v2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "dimensions": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {"minimum": 1, "type": "integer"},
+        "width": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["width", "height"],
+      "type": "object"
+    },
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "namedFileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "colorObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "chroma_location": {"const": "left", "type": "string"},
+        "matrix": {"const": "ITU_R_709_2", "type": "string"},
+        "pixel_format": {"const": "420v", "type": "string"},
+        "primaries": {"const": "ITU_R_709_2", "type": "string"},
+        "range": {"const": "video", "type": "string"},
+        "transfer_function": {"const": "ITU_R_709_2", "type": "string"}
+      },
+      "required": ["pixel_format", "primaries", "transfer_function", "matrix", "range", "chroma_location"],
+      "type": "object"
+    },
+    "lifecycleObservation": {
+      "additionalProperties": false,
+      "properties": {
+        "cancel_idempotent": {"const": true, "type": "boolean"},
+        "finish_idempotent": {"const": true, "type": "boolean"},
+        "input_release_count": {"const": 1, "type": "integer"},
+        "output_release_count": {"const": 1, "type": "integer"},
+        "reset_generation_advanced": {"const": true, "type": "boolean"},
+        "terminalization_count": {"const": 1, "type": "integer"}
+      },
+      "required": ["input_release_count", "output_release_count", "terminalization_count", "reset_generation_advanced", "finish_idempotent", "cancel_idempotent"],
+      "type": "object"
+    },
+    "routeRun": {
+      "additionalProperties": false,
+      "properties": {
+        "color_observation": {"$ref": "#/$defs/colorObservation"},
+        "duration_preserved": {"const": true, "type": "boolean"},
+        "fallback_history": {"maxItems": 0, "type": "array"},
+        "frame_order_preserved": {"const": true, "type": "boolean"},
+        "lifecycle_observation": {"$ref": "#/$defs/lifecycleObservation"},
+        "logical_output_sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "metadata_preserved": {"const": true, "type": "boolean"},
+        "output_dimensions": {"$ref": "#/$defs/dimensions"},
+        "pts_preserved": {"const": true, "type": "boolean"},
+        "run_ordinal": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["run_ordinal", "logical_output_sha256", "output_dimensions", "color_observation", "frame_order_preserved", "pts_preserved", "duration_preserved", "metadata_preserved", "lifecycle_observation", "fallback_history"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2.0.0", "type": "string"},
+    "phase_id": {"const": "R03", "type": "string"},
+    "evidence_kind": {"const": "r03_a11_genuine_mps_functional_execution_receipt_v2", "type": "string"},
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^[0-9a-f]{40}$", "type": "string"},
+        "tree": {"pattern": "^[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "preregistration_binding": {"$ref": "#/$defs/fileBinding"},
+    "fixture_catalog_binding": {"$ref": "#/$defs/fileBinding"},
+    "source_bindings": {"items": {"$ref": "#/$defs/namedFileBinding"}, "minItems": 3, "type": "array"},
+    "test_bindings": {"items": {"$ref": "#/$defs/namedFileBinding"}, "minItems": 2, "type": "array"},
+    "artifact_bindings": {"items": {"$ref": "#/$defs/namedFileBinding"}, "minItems": 5, "type": "array"},
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {"minLength": 1, "type": "string"},
+        "command": {"minLength": 1, "type": "string"},
+        "destination": {"minLength": 1, "type": "string"},
+        "os_version": {"minLength": 1, "type": "string"},
+        "sdk_name": {"minLength": 1, "type": "string"},
+        "sdk_version": {"minLength": 1, "type": "string"},
+        "swift_version": {"minLength": 1, "type": "string"},
+        "xcode_build_version": {"minLength": 1, "type": "string"},
+        "xcode_version": {"minLength": 1, "type": "string"}
+      },
+      "required": ["xcode_version", "xcode_build_version", "swift_version", "sdk_name", "sdk_version", "destination", "command", "os_version", "architecture"],
+      "type": "object"
+    },
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_execution": {"const": "observed", "type": "string"},
+        "genuine_mps_execution": {"const": "observed", "type": "string"},
+        "hardware_capability_observation": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "platform": {"enum": ["macos_host", "ios_simulator"], "type": "string"},
+        "product_runtime_support": {"const": "not_claimed", "type": "string"},
+        "simulator_execution": {"enum": ["observed", "not_observed"], "type": "string"}
+      },
+      "required": ["platform", "deterministic_software_execution", "genuine_mps_execution", "hardware_capability_observation", "simulator_execution", "operator_observed_operation", "product_runtime_support"],
+      "type": "object"
+    },
+    "processing_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_id": {"const": "r03.mps.lanczos", "type": "string"},
+        "backend_revision": {"minLength": 1, "type": "string"},
+        "capability_id": {"const": "A11", "type": "string"},
+        "fallback_history": {"maxItems": 0, "type": "array"},
+        "framework": {"const": "MetalPerformanceShaders", "type": "string"},
+        "framework_symbol": {"const": "MPSImageLanczosScale", "type": "string"},
+        "material_decision_identity": {"const": "r03.a11.genuine-mps-lanczos-product-admission.v1", "type": "string"},
+        "model_assets_identity": {"const": "notRequired", "type": "string"},
+        "policy_identity": {"const": "r03.a11.product-qualified.no-fallback.v1", "type": "string"}
+      },
+      "required": ["backend_id", "capability_id", "backend_revision", "framework", "framework_symbol", "model_assets_identity", "policy_identity", "material_decision_identity", "fallback_history"],
+      "type": "object"
+    },
+    "route_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration_identity": {"type": "string"},
+          "input_dimensions": {"$ref": "#/$defs/dimensions"},
+          "output_dimensions": {"$ref": "#/$defs/dimensions"},
+          "route_id": {"enum": ["scale_3_over_2", "scale_2x"], "type": "string"},
+          "runs": {"items": {"$ref": "#/$defs/routeRun"}, "maxItems": 3, "minItems": 3, "type": "array"}
+        },
+        "required": ["route_id", "configuration_identity", "input_dimensions", "output_dimensions", "runs"],
+        "type": "object"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "media_transaction_result": {
+      "additionalProperties": false,
+      "properties": {
+        "fixture_id": {"const": "r03-v2-media-transaction-2x", "type": "string"},
+        "runs": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "atomic_publication_succeeded": {"const": true, "type": "boolean"},
+              "audio_codec": {"const": "aac", "type": "string"},
+              "audio_semantic_sha256": {"pattern": "[0-9a-f]{64}", "type": "string"},
+              "fallback_history": {"maxItems": 0, "type": "array"},
+              "frame_observations": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "duration_timescale": {"const": 30000, "type": "integer"},
+                    "duration_value": {"const": 1001, "type": "integer"},
+                    "metadata_identity": {"type": "string"},
+                    "pts_timescale": {"const": 30000, "type": "integer"},
+                    "pts_value": {"minimum": 0, "type": "integer"},
+                    "resource_release_count": {"const": 1, "type": "integer"},
+                    "sequence_number": {"minimum": 0, "type": "integer"}
+                  },
+                  "required": ["sequence_number", "pts_value", "pts_timescale", "duration_value", "duration_timescale", "metadata_identity", "resource_release_count"],
+                  "type": "object"
+                },
+                "maxItems": 3,
+                "minItems": 3,
+                "type": "array"
+              },
+              "logical_frame_sha256s": {"items": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"}, "maxItems": 3, "minItems": 3, "type": "array"},
+              "output_dimensions": {"$ref": "#/$defs/dimensions"},
+              "reopen_succeeded": {"const": true, "type": "boolean"},
+              "run_ordinal": {"minimum": 1, "type": "integer"},
+              "video_codec": {"const": "h264", "type": "string"}
+            },
+            "required": ["run_ordinal", "output_dimensions", "video_codec", "audio_codec", "logical_frame_sha256s", "frame_observations", "audio_semantic_sha256", "reopen_succeeded", "atomic_publication_succeeded", "fallback_history"],
+            "type": "object"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": ["fixture_id", "runs"],
+      "type": "object"
+    },
+    "metric_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "reason": {"type": ["string", "null"]},
+          "status": {"enum": ["measured", "not_applicable"], "type": "string"},
+          "unit": {"type": "string"},
+          "value": {"oneOf": [{"type": "number"}, {"type": "string"}, {"type": "null"}]}
+        },
+        "required": ["id", "unit", "status", "value", "reason"],
+        "type": "object"
+      },
+      "maxItems": 23,
+      "minItems": 23,
+      "type": "array"
+    }
+  },
+  "required": ["schema_version", "phase_id", "evidence_kind", "source", "preregistration_binding", "fixture_catalog_binding", "source_bindings", "test_bindings", "artifact_bindings", "toolchain", "observation_status", "processing_identity", "route_results", "media_transaction_result", "metric_results"],
+  "type": "object"
+}

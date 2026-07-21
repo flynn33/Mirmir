@@ -1,0 +1,98 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r03-product-qualification-decision-v2.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "2.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R03", "type": "string"},
+    "evidence_kind": {"const": "r03_a11_functional_product_qualification_decision_v2", "type": "string"},
+    "preregistration_binding": {"$ref": "#/$defs/fileBinding"},
+    "fixture_catalog_binding": {"$ref": "#/$defs/fileBinding"},
+    "execution_receipt_binding": {"$ref": "#/$defs/fileBinding"},
+    "validator_binding": {"$ref": "#/$defs/fileBinding"},
+    "candidate_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_id": {"const": "r03.mps.lanczos", "type": "string"},
+        "capability_id": {"const": "A11", "type": "string"},
+        "material_decision_identity": {"const": "r03.a11.genuine-mps-lanczos-product-admission.v1", "type": "string"},
+        "policy_identity": {"const": "r03.a11.product-qualified.no-fallback.v1", "type": "string"},
+        "qualification_scope": {"const": "functional_product_eligibility", "type": "string"}
+      },
+      "required": ["backend_id", "capability_id", "qualification_scope", "policy_identity", "material_decision_identity"],
+      "type": "object"
+    },
+    "derived_checks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"const": "passed", "type": "string"}
+        },
+        "required": ["id", "status"],
+        "type": "object"
+      },
+      "minItems": 15,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "metric_evaluations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "passed": {"type": ["boolean", "null"]},
+          "reason": {"type": ["string", "null"]},
+          "status": {"enum": ["measured", "not_applicable"], "type": "string"}
+        },
+        "required": ["id", "status", "passed", "reason"],
+        "type": "object"
+      },
+      "maxItems": 23,
+      "minItems": 23,
+      "type": "array"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {"const": "not_claimed", "type": "string"},
+        "auto_mode": {"const": "blocked", "type": "string"},
+        "default_backend_id": {"type": "null"},
+        "holdout": {"const": "blocked", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "perceptual_quality_claims": {"const": "forbidden", "type": "string"},
+        "phase_status": {"const": "in_progress", "type": "string"},
+        "product_qualification": {"const": "product_qualified", "type": "string"},
+        "product_qualified_backend_id": {"const": "r03.mps.lanczos", "type": "string"},
+        "product_runtime_support": {"const": "not_claimed", "type": "string"},
+        "publication": {"const": "not_authorized_by_this_record", "type": "string"},
+        "qualification_scope": {"const": "functional_product_eligibility", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"},
+        "status": {"const": "passed", "type": "string"}
+      },
+      "required": ["status", "phase_status", "product_qualification", "product_qualified_backend_id", "qualification_scope", "product_runtime_support", "default_backend_id", "auto_mode", "holdout", "acceptance", "perceptual_quality_claims", "performance_claims", "publication", "release"],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"type": "string"},
+      "minItems": 3,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": ["schema_version", "roadmap_version", "phase_id", "evidence_kind", "preregistration_binding", "fixture_catalog_binding", "execution_receipt_binding", "validator_binding", "candidate_identity", "derived_checks", "metric_evaluations", "result", "limitations"],
+  "type": "object"
+}
