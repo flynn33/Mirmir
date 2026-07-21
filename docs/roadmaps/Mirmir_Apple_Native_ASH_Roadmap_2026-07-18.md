@@ -695,6 +695,40 @@ operator override, while any unavailable runtime result must be recorded as
 production enablement, publication, or release claim follows from this local
 start.
 
+### Local implementation and conformance checkpoint — 2026-07-20
+
+The frozen R04 contract was preregistered in local commit
+`2a729f9f641ef949681d81ebb3f98f68d7da29fc`, tree
+`59bfd516ebfa2260fedaf835d0a32a8f8f7cc6ee`. The implementation source is local
+commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`, tree
+`90c45e2c583defc7aa593f9199512719884de0d0`.
+
+That implementation replaces the copy/letterbox placeholder with guarded
+macOS 26 `VTFrameProcessor` quality and low-latency sessions. It implements the
+quality 2× route, the typed `public_contract_unrepresentable` quality 1.5×
+rejection, exact-dimension low-latency admission, configuration-specific model
+status, declared-buffer attribute resolution, ordered retained history,
+discontinuity reset, explicit submission mode, cancellation/drain behavior, and
+optional optical-flow support without promoting it to a primary route. Production
+bootstrap behavior remains unchanged and unavailable.
+
+All 39 focused macOS Xcode tests passed, the Swift 6 source and test typechecks
+passed, and strict SwiftLint reported zero violations. The focused Xcode run
+excluded Metal shader compilation because the optional Metal Toolchain was
+unavailable; R04 adds no Metal shader. The commit-bound
+`evidence/r04/records/integration-conformance.json` result is
+`diagnostic_only`: the quality 2×, both low-latency, and optional optical-flow
+runtime subjects are `not_observed`, while quality 1.5× is the frozen typed
+contract rejection. Model-backed processing, model readiness, hardware,
+simulator, operator-observed operation, quality, and performance were not
+observed.
+
+R04 remains canonical `in_progress`, local unpublished, and unaccepted. No
+backend is selected as a production default; product qualification, quality and
+performance claims, acceptance, publication, and release remain unauthorized.
+The quality, protected-region, temporal, throughput, memory, and perceptual exit
+gates remain unobserved and are not claimed satisfied.
+
 ### Exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.

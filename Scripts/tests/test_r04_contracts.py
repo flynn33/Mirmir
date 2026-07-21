@@ -15,14 +15,20 @@ from phase_evidence import validate_json_schema_instance  # noqa: E402
 from r04_contracts import (  # noqa: E402
     AUTHORIZATION_BOUNDARY,
     CHECK_IDS,
+    CONFORMANCE_LIMITATIONS,
     CONFORMANCE_PATH,
+    CONFORMANCE_RESULT,
     CONFORMANCE_SCHEMA_PATH,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
+    IMPLEMENTATION_SOURCE,
+    NOT_OBSERVED_CHECK_IDS,
     PREDECESSOR,
+    PREREGISTRATION_COMMIT,
     PREREGISTRATION_PATH,
     PREREGISTRATION_SCHEMA_PATH,
     R04ContractVerifier,
+    SOURCE_CONTRACT_PATHS,
     STOP_RULE_IDS,
     SUBJECT_IDS,
     _semantic_sha256,
@@ -76,7 +82,7 @@ class R04ContractTests(unittest.TestCase):
             "roadmap_version": "1.0.1",
             "phase_id": "R04",
             "evidence_kind": "r04_videotoolbox_integration_contract",
-            "source": {"commit": "a" * 40, "tree": "b" * 40},
+            "source": dict(IMPLEMENTATION_SOURCE),
             "preregistration_binding": self.file_binding(PREREGISTRATION_PATH),
             "fixture_catalog_binding": self.file_binding(FIXTURE_CATALOG_PATH),
             "observation_status": {
@@ -88,20 +94,18 @@ class R04ContractTests(unittest.TestCase):
             },
             "subject_results": subject_results,
             "checks": [
-                {"id": check_id, "status": "not_observed"}
+                {
+                    "id": check_id,
+                    "status": (
+                        "not_observed"
+                        if check_id in NOT_OBSERVED_CHECK_IDS
+                        else "passed"
+                    ),
+                }
                 for check_id in CHECK_IDS
             ],
-            "result": {
-                "status": "blocked",
-                "default_backend_id": None,
-                "product_qualification": "not_claimed",
-                "quality_claims": "forbidden",
-                "performance_claims": "forbidden",
-                "acceptance": "not_claimed",
-            },
-            "limitations": [
-                "Runtime, hardware, simulator, and operator execution are not observed."
-            ],
+            "result": dict(CONFORMANCE_RESULT),
+            "limitations": list(CONFORMANCE_LIMITATIONS),
         }
 
     def conformance_errors(self, value: dict[str, object]) -> list[str]:
@@ -128,9 +132,55 @@ class R04ContractTests(unittest.TestCase):
             validate_json_schema_instance(schema, self.valid_conformance()), []
         )
 
-    def test_conformance_record_is_not_required_at_preregistration_start(self) -> None:
-        self.assertFalse((REPOSITORY_ROOT / CONFORMANCE_PATH).exists())
+    def test_conformance_record_is_materialized_after_implementation(self) -> None:
+        self.assertTrue((REPOSITORY_ROOT / CONFORMANCE_PATH).is_file())
         self.assertEqual(self.verifier.check_conformance(), [])
+
+    def test_conformance_source_is_exact_and_git_bound(self) -> None:
+        errors: list[str] = []
+        self.verifier._check_source(
+            dict(IMPLEMENTATION_SOURCE), "R04 conformance source", errors
+        )
+        self.assertEqual(errors, [])
+
+        errors = []
+        self.verifier._check_source(
+            {"commit": IMPLEMENTATION_SOURCE["commit"], "tree": "1" * 40},
+            "R04 conformance source",
+            errors,
+        )
+        self.assertTrue(any("tree differs" in error for error in errors))
+
+        errors = []
+        self.verifier._check_source(
+            {
+                "commit": PREREGISTRATION_COMMIT,
+                "tree": IMPLEMENTATION_SOURCE["tree"],
+            },
+            "R04 conformance source",
+            errors,
+        )
+        self.assertTrue(any("strict descendant" in error for error in errors))
+
+    def test_conformance_source_path_set_includes_implementation(self) -> None:
+        self.assertIn(
+            Path("Mirmir/Modules/UpscalerEngine/R04VideoToolboxContracts.swift"),
+            SOURCE_CONTRACT_PATHS,
+        )
+        self.assertIn(
+            Path("MirmirTests/R04VideoToolboxSessionAdapterTests.swift"),
+            SOURCE_CONTRACT_PATHS,
+        )
+
+    def test_conformance_binding_path_is_not_self_selected(self) -> None:
+        value = self.valid_conformance()
+        value["preregistration_binding"] = self.file_binding(FIXTURE_CATALOG_PATH)
+        self.assertTrue(
+            any(
+                "frozen path" in error
+                for error in self.conformance_errors(value)
+            )
+        )
 
     def test_predecessor_binding_is_exact(self) -> None:
         value = copy.deepcopy(self.preregistration)
@@ -304,6 +354,30 @@ class R04ContractTests(unittest.TestCase):
         value["result"]["default_backend_id"] = SUBJECT_IDS[0]
         self.assertIn(
             "R04 conformance result exceeds the authorization boundary",
+            self.conformance_errors(value),
+        )
+
+    def test_conformance_result_cannot_claim_passed(self) -> None:
+        value = self.valid_conformance()
+        value["result"]["status"] = "passed"
+        self.assertIn(
+            "R04 conformance result exceeds the authorization boundary",
+            self.conformance_errors(value),
+        )
+
+    def test_conformance_check_results_are_frozen(self) -> None:
+        value = self.valid_conformance()
+        value["checks"][0]["status"] = "not_observed"
+        self.assertIn(
+            "R04 conformance check results differ from the frozen closure",
+            self.conformance_errors(value),
+        )
+
+    def test_conformance_limitations_are_frozen(self) -> None:
+        value = self.valid_conformance()
+        value["limitations"].pop()
+        self.assertIn(
+            "R04 conformance limitations differ from the frozen closure",
             self.conformance_errors(value),
         )
 

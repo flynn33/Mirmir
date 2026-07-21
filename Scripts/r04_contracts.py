@@ -41,6 +41,12 @@ R03_CONFORMANCE_PATH = Path(
     "docs/roadmaps/evidence/r03/records/baseline-conformance.json"
 )
 
+PREREGISTRATION_COMMIT = "2a729f9f641ef949681d81ebb3f98f68d7da29fc"
+IMPLEMENTATION_SOURCE = {
+    "commit": "73d6f1df9d9b443209d55a6c9deea29923d49bc4",
+    "tree": "90c45e2c583defc7aa593f9199512719884de0d0",
+}
+
 PREDECESSOR = {
     "phase_id": "R03",
     "closure_state": "local_unpublished_blocked_closure",
@@ -133,6 +139,14 @@ CHECK_IDS = (
     "no_quality_or_performance_claim",
     "production_default_disabled",
 )
+NOT_OBSERVED_CHECK_IDS = frozenset(
+    {
+        "configuration_revision_scale_priority_recorded",
+        "declared_buffer_attributes_used",
+        "model_readiness_lifecycle",
+        "exact_media_identity",
+    }
+)
 STOP_RULE_IDS = (
     "predecessor_identity_drift",
     "contract_byte_drift",
@@ -194,6 +208,37 @@ SOURCE_BINDINGS = {
 }
 PREREGISTRATION_SEMANTIC_SHA256 = "7a804c718010b7d2764ced62c400b505ad217bbaec821f080e811dd2019dd0fc"
 FIXTURE_CATALOG_SEMANTIC_SHA256 = "4025538c3ca61d087d8ef3a03019c2f8f3c4bcc1178acdff4af54128ccba2196"
+SOURCE_CONTRACT_PATHS = (
+    PREREGISTRATION_PATH,
+    FIXTURE_CATALOG_PATH,
+    PREREGISTRATION_SCHEMA_PATH,
+    FIXTURE_CATALOG_SCHEMA_PATH,
+    CONFORMANCE_SCHEMA_PATH,
+    Path("Mirmir.xcodeproj/project.pbxproj"),
+    Path("Mirmir/Modules/ModelAssets/DefaultModelAssetsService.swift"),
+    Path("Mirmir/Modules/ModelAssets/ModelAssetsService.swift"),
+    Path("Mirmir/Modules/ModelAssets/VTModelStager.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R04VideoToolboxContracts.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/R04VideoToolboxSessionAdapter.swift"),
+    Path("Mirmir/Modules/UpscalerEngine/VTSuperResolutionDriver.swift"),
+    Path("MirmirTests/R04VideoToolboxContractsTests.swift"),
+    Path("MirmirTests/R04VideoToolboxSessionAdapterTests.swift"),
+    Path("MirmirTests/UpscalerEngineAvailabilityTests.swift"),
+)
+CONFORMANCE_RESULT = {
+    "status": "diagnostic_only",
+    "default_backend_id": None,
+    "product_qualification": "not_claimed",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "acceptance": "not_claimed",
+}
+CONFORMANCE_LIMITATIONS = (
+    "Focused macOS software conformance passed with Xcode 26.2 and Swift 6.2.3; Metal shader compilation was excluded because the optional Metal Toolchain was unavailable.",
+    "VideoToolbox native configuration selection, declared native buffer attributes, model readiness, model-backed processing, quality, performance, hardware, simulator, and operator-observed operation were not observed.",
+    "End-to-end model-backed media reopen preservation, including audio and metadata, was not observed.",
+    "The R04 implementation remains disabled as the production default and makes no product qualification or acceptance claim.",
+)
 
 
 def _sha256(payload: bytes) -> str:
@@ -243,6 +288,14 @@ class R04ContractVerifier:
             capture_output=True,
             check=False,
             text=True,
+        )
+
+    def git_bytes(self, *arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=self.root,
+            capture_output=True,
+            check=False,
         )
 
     def _safe_path(
@@ -320,6 +373,58 @@ class R04ContractVerifier:
             errors.append(f"{context}.size_bytes differs")
         if binding.get("sha256") != _sha256(payload):
             errors.append(f"{context}.sha256 differs")
+
+    def _check_exact_binding(
+        self,
+        binding: object,
+        expected_path: Path,
+        context: str,
+        errors: list[str],
+    ) -> None:
+        if not isinstance(binding, dict) or binding.get("path") != expected_path.as_posix():
+            errors.append(f"{context}.path differs from the frozen path")
+        self._check_binding(binding, context, errors)
+
+    def _check_source(
+        self, source: object, context: str, errors: list[str]
+    ) -> None:
+        if not isinstance(source, dict) or set(source) != {"commit", "tree"}:
+            errors.append(f"{context} must contain only commit and tree")
+            return
+        commit = source.get("commit")
+        tree = source.get("tree")
+        if not isinstance(commit, str) or not isinstance(tree, str):
+            errors.append(f"{context} commit and tree must be strings")
+            return
+        if source != IMPLEMENTATION_SOURCE:
+            errors.append(f"{context} differs from the frozen R04 implementation source")
+        if self.git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+            errors.append(f"{context} commit is unavailable")
+            return
+        if commit == PREREGISTRATION_COMMIT or self.git(
+            "merge-base", "--is-ancestor", PREREGISTRATION_COMMIT, commit
+        ).returncode != 0:
+            errors.append(
+                f"{context} must be a strict descendant of the R04 preregistration"
+            )
+        observed_tree = self.git("rev-parse", f"{commit}^{{tree}}")
+        if observed_tree.returncode != 0 or observed_tree.stdout.strip() != tree:
+            errors.append(f"{context} tree differs from its commit")
+        if self.git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+            errors.append(f"{context} commit must be an ancestor of HEAD")
+        for relative in SOURCE_CONTRACT_PATHS:
+            historical = self.git_bytes("show", f"{commit}:{relative.as_posix()}")
+            current = self.root / relative
+            if (
+                historical.returncode != 0
+                or current.is_symlink()
+                or not current.is_file()
+                or historical.stdout != current.read_bytes()
+            ):
+                errors.append(
+                    f"{context} does not contain the frozen R04 implementation bytes: "
+                    f"{relative.as_posix()}"
+                )
 
     def _check_predecessor(
         self, preregistration: dict[str, Any], errors: list[str]
@@ -573,13 +678,36 @@ class R04ContractVerifier:
         }
         if set(value) != expected_keys:
             errors.append("R04 conformance top-level keys differ")
-        self._check_binding(value.get("preregistration_binding"), "preregistration_binding", errors)
-        self._check_binding(value.get("fixture_catalog_binding"), "fixture_catalog_binding", errors)
+        errors.extend(_privacy_errors(value, "R04 conformance"))
+        self._check_source(value.get("source"), "R04 conformance source", errors)
+        self._check_exact_binding(
+            value.get("preregistration_binding"),
+            PREREGISTRATION_PATH,
+            "preregistration_binding",
+            errors,
+        )
+        self._check_exact_binding(
+            value.get("fixture_catalog_binding"),
+            FIXTURE_CATALOG_PATH,
+            "fixture_catalog_binding",
+            errors,
+        )
         subject_results = value.get("subject_results")
         subject_values = subject_results if isinstance(subject_results, list) else []
         ids = [item.get("subject_id") for item in subject_values if isinstance(item, dict)]
         if ids != list(SUBJECT_IDS):
             errors.append("R04 conformance subject matrix differs")
+        expected_subject_results = [
+            {
+                "subject_id": identity[0],
+                "execution_status": identity[5],
+                "disposition": identity[6],
+                "reason": identity[7],
+            }
+            for identity in SUBJECT_IDENTITIES
+        ]
+        if subject_values != expected_subject_results:
+            errors.append("R04 conformance subject results differ from the frozen closure")
         for item in subject_values:
             if not isinstance(item, dict):
                 continue
@@ -609,6 +737,19 @@ class R04ContractVerifier:
         check_ids = [item.get("id") for item in checks if isinstance(item, dict)] if isinstance(checks, list) else []
         if check_ids != list(CHECK_IDS):
             errors.append("R04 conformance check matrix differs")
+        expected_checks = [
+            {
+                "id": check_id,
+                "status": (
+                    "not_observed"
+                    if check_id in NOT_OBSERVED_CHECK_IDS
+                    else "passed"
+                ),
+            }
+            for check_id in CHECK_IDS
+        ]
+        if checks != expected_checks:
+            errors.append("R04 conformance check results differ from the frozen closure")
         expected_observation = {
             "hardware_capability_observation": "not_observed",
             "simulator_execution": "not_observed",
@@ -618,16 +759,10 @@ class R04ContractVerifier:
         }
         if value.get("observation_status") != expected_observation:
             errors.append("R04 conformance observation boundary differs")
-        result = value.get("result")
-        if not isinstance(result, dict) or result != {
-            "status": result.get("status") if isinstance(result, dict) else None,
-            "default_backend_id": None,
-            "product_qualification": "not_claimed",
-            "quality_claims": "forbidden",
-            "performance_claims": "forbidden",
-            "acceptance": "not_claimed",
-        }:
+        if value.get("result") != CONFORMANCE_RESULT:
             errors.append("R04 conformance result exceeds the authorization boundary")
+        if value.get("limitations") != list(CONFORMANCE_LIMITATIONS):
+            errors.append("R04 conformance limitations differ from the frozen closure")
 
     def check_conformance(self) -> list[str]:
         errors: list[str] = []

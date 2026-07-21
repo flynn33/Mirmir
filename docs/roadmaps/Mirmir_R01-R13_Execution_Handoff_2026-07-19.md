@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.6
+- **Handoff version:** 1.7
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -30,7 +30,17 @@
   `a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance not claimed
 - **R03 local preregistration source:** R02 local unpublished closure above;
   `accepted_merge_commit: null`
-- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`
+- **R03 local blocked closure:**
+  `947983a8414c60e4f5f4246e6cb658792fc7c357`; tree
+  `d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`; acceptance not claimed
+- **R04 local preregistration:**
+  `2a729f9f641ef949681d81ebb3f98f68d7da29fc`; tree
+  `59bfd516ebfa2260fedaf835d0a32a8f8f7cc6ee`
+- **R04 implementation source:**
+  `73d6f1df9d9b443209d55a6c9deea29923d49bc4`; tree
+  `90c45e2c583defc7aa593f9199512719884de0d0`
+- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
+  `R04: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -82,6 +92,34 @@ analytic-artifact, temporal-repeatability, and media-transaction fixtures.
 Unavailable execution receives `not_observed`; no production default,
 performance claim, or product qualification is enabled.
 
+### R03 blocked closure and R04 implementation checkpoint — 2026-07-20
+
+R03's frozen media route and bound R02 member are incompatible. The local
+fail-closed record is therefore `blocked` in commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357`, tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. R03 remains canonical
+`in_progress`, all runtime subjects and metrics remain `not_observed`, and no
+acceptance or product claim follows.
+
+R04 preregistration commit `2a729f9f641ef949681d81ebb3f98f68d7da29fc`
+binds that exact negative predecessor. R04 implementation commit
+`73d6f1df9d9b443209d55a6c9deea29923d49bc4`, tree
+`90c45e2c583defc7aa593f9199512719884de0d0`, replaces the VideoToolbox
+placeholder with guarded macOS 26 quality and low-latency `VTFrameProcessor`
+sessions, exact route admission, model lifecycle handling, declared buffer
+attributes, retained presentation-order history, reset/submission/cancellation
+semantics, and optional optical-flow support.
+
+The commit-bound R04 conformance result is `diagnostic_only`. All 39 focused
+macOS Xcode tests pass, Swift source/test typechecks pass, and strict SwiftLint
+is clean. The focused Xcode run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R04 adds no Metal shader. Actual
+model-backed processing, model readiness, quality, performance, hardware,
+simulator, and operator-observed operation are `not_observed`. Quality 1.5× is
+the frozen typed `public_contract_unrepresentable` rejection. R04 remains
+`in_progress`, local unpublished, disabled as a production default, and
+unaccepted.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -91,14 +129,16 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`, and
-   `R03: in_progress` remain
+4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
+   `R03: in_progress`, and `R04: in_progress` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
-5. Continue the frozen R03 implementation contract. Except for the narrow
-   operator-directed local-continuation path in Section 3.1, later phases become
-   actionable only through their accepted dependencies, evidence, roadmap
-   state, and operator controls.
+5. Treat the exact R04 implementation/conformance checkpoint above as
+   diagnostic-only local evidence and continue the operator-directed local plan
+   by preregistering the next phase against its exact predecessor. Do not convert
+   R03 or R04 into accepted or product-qualified phases. Except for the narrow
+   local-continuation path in Section 3.1, later phases become actionable only
+   through accepted dependencies, evidence, roadmap state, and operator controls.
 
 The source checkpoint records the accepted R00 state. A receiving environment
 must record its own exact starting commit rather than claiming that its working
@@ -360,7 +400,7 @@ material ASH decisions.
 
 ## 5. Verified implementation baseline
 
-At the source checkpoint:
+At the original source checkpoint:
 
 - the production bootstrap injects an unavailable upscaler service and launches
   normally while explaining that no roadmap-qualified backend exists;
@@ -376,6 +416,13 @@ At the source checkpoint:
 - the current custom Metal Lanczos pass is not `MPSImageLanczosScale`; and
 - the checkpoint toolchain does not contain Core AI, so A18 requires an exact
   unavailable record there rather than simulated support.
+
+The later R04 implementation source `73d6f1df9d9b443209d55a6c9deea29923d49bc4`
+supersedes the two VideoToolbox placeholder bullets above with guarded genuine
+sessions and configuration-specific status-only model staging. It does not
+establish model-backed runtime support, quality, performance, product
+qualification, or a production default; those observations remain
+`not_observed` or unclaimed as recorded in the R04 conformance evidence.
 
 Do not turn any scaffold or retained reference call site into a product fallback
 merely to make a capability appear available.
@@ -641,6 +688,15 @@ identity. Qualify direct 2x and runtime-supported 1.5x routes without assuming
 support. Quality and low-latency paths must independently pass correctness,
 quality, protected-region, temporal, throughput, memory, and reopen gates.
 
+Local checkpoint: commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`,
+tree `90c45e2c583defc7aa593f9199512719884de0d0`, implements the frozen software
+contract. Its 39 focused Xcode tests, Swift typechecks, and strict lint pass.
+The result remains `diagnostic_only`: model-backed runtime subjects are
+`not_observed`, quality 1.5× is rejected by the public contract, production
+bootstrap remains unavailable, and no quality, performance, qualification,
+acceptance, publication, or release claim is made. R04 remains canonical
+`in_progress`.
+
 ### R05 - MetalFX suitability decision
 
 Qualify MetalFX Spatial first against the accepted deterministic and low-latency
@@ -840,14 +896,13 @@ and R09 rejection can be valid phase outcomes. A negative R08 keeps R09 blocked.
 A failed positive R06 or R07 gate blocks dependent product work and requires an
 explicitly reviewed roadmap revision rather than relaxed thresholds.
 
-## 8. R01 kickoff boundary
+## 8. Current local-continuation boundary
 
-The receiving implementation task begins by verifying current `main`, creating
-an R01 branch, preregistering the four-host capability experiment, and
-implementing only R01. It may collect authorized capability/model-readiness
-evidence and commit locally. It must stop with a validated local publication
-candidate unless the operator directly instructs the next push and pull-request
-action. The explicit operator-directed local-continuation exception above now
-authorizes local R02-through-R07 implementation only. It does not authorize
-holdout access, production Auto, a claim, a tag, a release, push, pull request,
-approval, merge, force-push, or repository-setting mutation.
+The original R01 kickoff has been completed. The receiving implementation task
+now begins by verifying current `main` and the exact R03 blocked and R04
+diagnostic-only checkpoints above, then continues the frozen local sequence
+through R07 one preregistered, commit-bound slice at a time. It may collect
+authorized supplemental evidence and commit locally. Publication still requires
+a direct operator instruction. The explicit local-continuation exception does
+not authorize holdout access, production Auto, a claim, a tag, a release, push,
+pull request, approval, merge, force-push, or repository-setting mutation.
