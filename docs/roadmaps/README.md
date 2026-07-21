@@ -41,6 +41,9 @@ production-default, acceptance, publication, and release claims remain unmade.
 - [R05 MetalFX Suitability Conformance](evidence/r05/records/suitability-conformance.json) — local unpublished diagnostic-only evidence; native runtime not observed; phase acceptance not claimed
 - [R06 Preregistration](evidence/r06/records/preregistration.json)
 - [R06 Deterministic Fixture Catalog](evidence/r06/records/fixtures/fixture-catalog.json)
+- [R06 ASH Orchestration Conformance](evidence/r06/records/orchestration-conformance.json) — local unpublished blocked evidence; product and runtime observations not observed; phase acceptance not claimed
+- [R06 Phase Evidence Manifest](evidence/r06/phase-evidence.json)
+- [R06 Phase Evidence Summary](evidence/r06/phase-evidence.md)
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
