@@ -1,0 +1,771 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r07-preregistration-v1.json",
+  "title": "Mirmir R07 temporal and artifact-control preregistration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "predecessor_binding",
+    "observation_policy",
+    "fixture_catalog",
+    "schema_bindings",
+    "numeric_contract",
+    "temporal_analysis_contract",
+    "history_contract",
+    "artifact_contract",
+    "protected_content_contract",
+    "weighted_mae_contract",
+    "support_stage_contract",
+    "postflight_feedback_contract",
+    "product_comparator_contract",
+    "product_gate",
+    "checks",
+    "stop_rules",
+    "authorization_boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "roadmap_version": {
+      "const": "1.0.1"
+    },
+    "phase_id": {
+      "const": "R07"
+    },
+    "preregistration_state": {
+      "const": "contract_frozen_for_local_implementation"
+    },
+    "predecessor_binding": {
+      "$ref": "#/$defs/predecessor"
+    },
+    "observation_policy": {
+      "$ref": "#/$defs/observationPolicy"
+    },
+    "fixture_catalog": {
+      "$ref": "#/$defs/binding"
+    },
+    "schema_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preregistration",
+        "fixture_catalog",
+        "conformance"
+      ],
+      "properties": {
+        "preregistration": {
+          "$ref": "#/$defs/binding"
+        },
+        "fixture_catalog": {
+          "$ref": "#/$defs/binding"
+        },
+        "conformance": {
+          "$ref": "#/$defs/binding"
+        }
+      }
+    },
+    "numeric_contract": {
+      "$ref": "#/$defs/numericContract"
+    },
+    "temporal_analysis_contract": {
+      "$ref": "#/$defs/temporalAnalysisContract"
+    },
+    "history_contract": {
+      "$ref": "#/$defs/historyContract"
+    },
+    "artifact_contract": {
+      "$ref": "#/$defs/artifactContract"
+    },
+    "protected_content_contract": {
+      "$ref": "#/$defs/protectedContentContract"
+    },
+    "weighted_mae_contract": {
+      "$ref": "#/$defs/weightedMAEContract"
+    },
+    "support_stage_contract": {
+      "$ref": "#/$defs/supportStageContract"
+    },
+    "postflight_feedback_contract": {
+      "$ref": "#/$defs/postflightFeedbackContract"
+    },
+    "product_comparator_contract": {
+      "$ref": "#/$defs/productComparatorContract"
+    },
+    "product_gate": {
+      "$ref": "#/$defs/productGate"
+    },
+    "checks": {
+      "const": [
+        {
+          "id": "predecessor_closure_exact",
+          "description": "Require the exact local unpublished blocked R06 closure commit and tree."
+        },
+        {
+          "id": "frozen_bindings_exact",
+          "description": "Require byte-exact schemas, fixture catalog, R01/R03/R04/R06 evidence, and reused Swift surfaces."
+        },
+        {
+          "id": "checked_fixed_point_exact",
+          "description": "Require checked Int64 Q16/Q15 arithmetic with toward-zero division and rejection on overflow."
+        },
+        {
+          "id": "vector_bounds_exact",
+          "description": "Require every deterministic vector or mask to contain at most 4096 samples and reject oversize input without clamping."
+        },
+        {
+          "id": "temporal_contract_exact",
+          "description": "Require exact temporal formulas, nonempty equal lengths, strict ordinals, thresholds, and equality semantics."
+        },
+        {
+          "id": "history_contract_exact",
+          "description": "Require exact capacity, churn windows, threshold equality, reset, rejection, generation, and eviction behavior."
+        },
+        {
+          "id": "artifact_contract_exact",
+          "description": "Require six ordered artifact metrics, exact formulas, domains, thresholds, normalized risk, aggregation, and strict detection."
+        },
+        {
+          "id": "protected_content_exact",
+          "description": "Require all protected kinds, bounds, pixelwise maximum, positive tie precedence, null zero owner, and identical composed masks."
+        },
+        {
+          "id": "weighted_mae_exact",
+          "description": "Require checked weighted MAE with nonzero total mask weight and the exact Q16 threshold."
+        },
+        {
+          "id": "support_stage_policy_exact",
+          "description": "Require exact A04 admission outcomes, A05 analysis-only role, and frozen A13/A15 support parameters."
+        },
+        {
+          "id": "postflight_governance_exact",
+          "description": "Require causal report payload from completed N to same-shot N+1 and deterministic invalid-report disposal without rewriting N."
+        },
+        {
+          "id": "product_comparator_exact",
+          "description": "Require nonvacuous per-used-backend comparisons and exact temporal, chroma, spatial, and protected floors."
+        },
+        {
+          "id": "product_gate_closed",
+          "description": "Block before construction with zero eligible backends and no route, plan, or output."
+        },
+        {
+          "id": "observation_override_nonblocking",
+          "description": "Allow deterministic software work without hardware, simulator, or operator observation."
+        },
+        {
+          "id": "product_comparisons_not_observed",
+          "description": "Record all four product dimensions not_observed while the eligible backend set is empty."
+        },
+        {
+          "id": "no_quality_or_performance_claim",
+          "description": "Forbid quality and performance claims from deterministic fixture conformance."
+        },
+        {
+          "id": "production_default_disabled",
+          "description": "Keep production default, Auto, holdout, acceptance, publication, and release disabled or unclaimed."
+        }
+      ]
+    },
+    "stop_rules": {
+      "const": [
+        {
+          "id": "predecessor_identity_drift",
+          "description": "Stop on any R06 closure commit, tree, result, merge, acceptance, or continuation-boundary drift."
+        },
+        {
+          "id": "contract_byte_drift",
+          "description": "Stop on any schema, catalog, evidence, reused source, or semantic byte drift."
+        },
+        {
+          "id": "arithmetic_contract_violation",
+          "description": "Stop floating-point metric arithmetic, overflow, non-toward-zero division, or Q16/Q15 scale drift."
+        },
+        {
+          "id": "vector_or_mask_bounds_violation",
+          "description": "Stop empty required vectors, unequal required lengths, oversize inputs, invalid masks, or clamping."
+        },
+        {
+          "id": "temporal_or_history_violation",
+          "description": "Stop temporal formula, ordinal, threshold, churn, reset, generation, or eviction drift."
+        },
+        {
+          "id": "artifact_metric_violation",
+          "description": "Stop artifact order, formula, domain, threshold, risk normalization, aggregation, or detection drift."
+        },
+        {
+          "id": "protected_content_violation",
+          "description": "Stop protected kind, mask, composition, tie, ownership, or weighted-MAE drift."
+        },
+        {
+          "id": "support_stage_admission_violation",
+          "description": "Stop A04 status/outcome, A05 role, A13/A15 parameter, or gate-before-construction drift."
+        },
+        {
+          "id": "postflight_causality_violation",
+          "description": "Stop stale, future, duplicate, cross-shot, payload, N+1, or immutable-N drift."
+        },
+        {
+          "id": "vacuous_or_fabricated_comparison",
+          "description": "Stop empty comparisons from passing or any fabricated product observation or backend identity."
+        },
+        {
+          "id": "authorization_boundary",
+          "description": "Stop any production-default, product-qualification, quality, performance, Auto, holdout, acceptance, publication, or release claim."
+        }
+      ]
+    },
+    "authorization_boundary": {
+      "$ref": "#/$defs/authorizationBoundary"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitObject": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "predecessor": {
+      "const": {
+        "phase_id": "R06",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_commit": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+        "closure_tree": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+        "predecessor_result": "blocked",
+        "accepted_merge_commit": null,
+        "acceptance_state": "not_claimed",
+        "continuation_scope": "local_implementation_only"
+      }
+    },
+    "numericContract": {
+      "const": {
+        "q16_scale": 65536,
+        "q15_maximum": 32767,
+        "maximum_vector_or_mask_samples": 4096,
+        "normal_luma_sample_domain_q16": {
+          "minimum": 0,
+          "maximum": 65536
+        },
+        "ringing_candidate_domain_q16": {
+          "minimum": -65536,
+          "maximum": 131072
+        },
+        "ringing_bound_domain_q16": {
+          "minimum": 0,
+          "maximum": 65536,
+          "relation": "lower_less_than_or_equal_upper"
+        },
+        "accumulator": "checked_Int64",
+        "rounding": "toward_zero",
+        "overflow_policy": "reject",
+        "oversize_policy": "reject_never_clamp"
+      }
+    },
+    "productGate": {
+      "const": {
+        "eligibility_source": "R03_R04_R05_R06_product_qualification_records",
+        "qualification_requirement": "explicit_product_qualified_primary_backend",
+        "construction_order": "gate_before_support_stage_construction",
+        "reason": "upstream_no_product_qualified_primary_backend",
+        "eligible_backend_count": 0,
+        "selected_route_id": null,
+        "selected_plan_id": null,
+        "output_identity": null,
+        "disposition": "blocked"
+      }
+    },
+    "statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "observationPolicy": {
+      "const": {
+        "hardware_requirement": "waived_not_a_blocker",
+        "simulator_requirement": "waived_not_a_blocker",
+        "operator_observation_requirement": "waived_not_a_blocker",
+        "hardware_capability_observation": "not_observed",
+        "simulator_execution": "not_observed",
+        "operator_observed_operation": "not_observed",
+        "deterministic_software_conformance": "required",
+        "product_comparison_execution": "not_observed",
+        "product_gate_cause": "upstream_no_product_qualified_primary_backend",
+        "hardware_simulator_operator_as_blocked_cause": "forbidden",
+        "quality_claims": "forbidden",
+        "performance_claims": "forbidden"
+      }
+    },
+    "temporalAnalysisContract": {
+      "const": {
+        "samples": {
+          "minimum_count": 1,
+          "maximum_count": 4096,
+          "length_relation": "all_temporal_vectors_equal",
+          "boundary_fixture_representation": "declared_sample_count_and_constant_fill_generator",
+          "empty_policy": "empty_vector_rejected",
+          "unequal_length_policy": "sample_count_mismatch_rejected",
+          "oversize_policy": "reject_never_clamp"
+        },
+        "scene_cut": {
+          "formula": "mean(abs(current_luma_q16-previous_luma_q16))",
+          "threshold_q16": 49152,
+          "detection_operator": "greater_than_or_equal"
+        },
+        "motion_confidence": {
+          "formula": "65536-mean(abs(current_luma_q16-aligned_previous_luma_q16))_over_nonoccluded_samples",
+          "minimum_valid_samples": 1,
+          "no_valid_samples_policy": "no_valid_motion_samples_rejected",
+          "validity_threshold_q16": 49152,
+          "validity_operator": "greater_than_or_equal"
+        },
+        "occlusion": {
+          "formula": "occluded_count*65536/sample_count",
+          "threshold_q16": 16384,
+          "detection_operator": "greater_than_or_equal"
+        },
+        "frame_ordinals": {
+          "order": "strictly_increasing",
+          "duplicate_policy": "reject",
+          "stale_policy": "reject"
+        }
+      }
+    },
+    "historyContract": {
+      "const": {
+        "capacity_entries": 8,
+        "churn_window": {
+          "maximum_transitions": 4,
+          "maximum_entries": 5,
+          "selection": "most_recent_entries"
+        },
+        "backend_churn": {
+          "formula": "backend_changes*65536/transitions",
+          "threshold_q16": 32768,
+          "within_bound_operator": "less_than_or_equal",
+          "excessive_operator": "greater_than"
+        },
+        "strength_churn": {
+          "formula": "mean(per_transition_mean(abs(pre_delta_q16),abs(post_delta_q16)))",
+          "threshold_q16": 8192,
+          "within_bound_operator": "less_than_or_equal",
+          "excessive_operator": "greater_than"
+        },
+        "artifact_persistence": {
+          "formula": "mean(artifact_risk_q16_over_last_up_to_4_entries)",
+          "maximum_entries": 4,
+          "threshold_q16": 8192,
+          "within_bound_operator": "less_than_or_equal",
+          "excessive_operator": "greater_than"
+        },
+        "initial_values": {
+          "zero_transitions_backend_churn_q16": 0,
+          "zero_transitions_strength_churn_q16": 0,
+          "zero_transition_metrics_excessive": false,
+          "empty_artifact_persistence_q16": 0,
+          "empty_artifact_persistence_excessive": false,
+          "single_entry_artifact_persistence": "entry_artifact_risk_q16"
+        },
+        "insertion": {
+          "frame_ordinal_order": "strictly_increasing",
+          "duplicate_policy": "reject_without_mutation",
+          "stale_policy": "reject_without_mutation"
+        },
+        "reset": {
+          "causes": [
+            "scene_cut",
+            "discontinuity",
+            "caller_requested",
+            "cancellation",
+            "end_of_stream"
+          ],
+          "effect": "clear_history",
+          "generation_increment_per_reset": 1
+        },
+        "eviction": "evict_oldest_when_ninth_entry_is_inserted"
+      }
+    },
+    "artifactContract": {
+      "const": {
+        "artifact_order": [
+          "ringing",
+          "halo",
+          "ghosting",
+          "flicker",
+          "false_texture",
+          "chroma_displacement"
+        ],
+        "metrics": [
+          {
+            "id": "ringing",
+            "formula": "max(overshoot_above_supplied_upper_bound,undershoot_below_supplied_lower_bound)",
+            "threshold": 3277,
+            "unit": "q16",
+            "requirements": [
+              "candidate_signed_q16_domain_-65536_through_131072",
+              "bounds_q16_domain_0_through_65536",
+              "lower_bound_less_than_or_equal_upper_bound"
+            ]
+          },
+          {
+            "id": "halo",
+            "formula": "max(abs(candidate_q16-reference_q16))_where_support_nonzero",
+            "threshold": 3277,
+            "unit": "q16",
+            "requirements": [
+              "support_nonzero_required"
+            ],
+            "invalid_policy": "zero_support_rejected"
+          },
+          {
+            "id": "ghosting",
+            "formula": "mean(abs(current_q16-aligned_previous_q16))_over_nonoccluded_samples",
+            "threshold": 4096,
+            "unit": "q16",
+            "requirements": [
+              "minimum_one_valid_sample"
+            ],
+            "invalid_policy": "no_valid_ghosting_samples_rejected"
+          },
+          {
+            "id": "flicker",
+            "formula": "mean(abs(current_q16-2*previous_q16+before_previous_q16)/2)",
+            "threshold": 4096,
+            "unit": "q16",
+            "requirements": [
+              "three_nonempty_equal_length_vectors"
+            ]
+          },
+          {
+            "id": "false_texture",
+            "formula": "max(0,mean_adjacent_abs_diff_candidate_q16-mean_adjacent_abs_diff_source_q16)",
+            "threshold": 4096,
+            "unit": "q16",
+            "requirements": [
+              "minimum_two_samples"
+            ],
+            "invalid_policy": "insufficient_samples_rejected"
+          },
+          {
+            "id": "chroma_displacement",
+            "formula": "abs(luma_edge_position_q8-chroma_edge_position_q8)",
+            "threshold": 64,
+            "unit": "q8_pixels",
+            "requirements": [
+              "edge_positions_required"
+            ]
+          }
+        ],
+        "normalized_risk": {
+          "formula": "min(65536,raw*65536/threshold)",
+          "arithmetic": "checked_Int64",
+          "rounding": "toward_zero"
+        },
+        "aggregate": {
+          "formula": "maximum_normalized_risk_q16",
+          "required_order": [
+            "ringing",
+            "halo",
+            "ghosting",
+            "flicker",
+            "false_texture",
+            "chroma_displacement"
+          ],
+          "completeness": "exactly_once_each"
+        },
+        "detection": {
+          "operator": "raw_greater_than_threshold",
+          "threshold_equality_detected": false,
+          "threshold_equality_normalized_risk_q16": 65536
+        }
+      }
+    },
+    "protectedContentContract": {
+      "const": {
+        "kinds": [
+          "ui_capture",
+          "subtitle",
+          "text",
+          "face",
+          "line_art",
+          "animation"
+        ],
+        "precedence": [
+          "ui_capture",
+          "subtitle",
+          "text",
+          "face",
+          "line_art",
+          "animation"
+        ],
+        "mask": {
+          "minimum_width": 1,
+          "minimum_height": 1,
+          "maximum_width": 64,
+          "maximum_height": 64,
+          "maximum_samples": 4096,
+          "sample_minimum_q15": 0,
+          "sample_maximum_q15": 32767,
+          "sample_count_relation": "width_times_height",
+          "boundary_fixture_representation": "declared_sample_count_and_constant_fill_generator",
+          "invalid_policy": "reject_never_clamp"
+        },
+        "composition": {
+          "pixel_operator": "maximum",
+          "positive_tie_break": "precedence_order",
+          "zero_owner": null,
+          "empty_region_list": "accepted_all_zero_masks_nil_owners"
+        },
+        "composed_masks": {
+          "luma": "identical_composed_mask",
+          "chroma": "identical_composed_mask",
+          "postprocess": "identical_composed_mask"
+        }
+      }
+    },
+    "weightedMAEContract": {
+      "const": {
+        "formula": "sum(abs(candidate_q16-reference_q16)*mask_q15)/sum(mask_q15)",
+        "arithmetic": "checked_Int64",
+        "rounding": "toward_zero",
+        "nonzero_weight_sum_required": true,
+        "zero_weight_policy": "zero_weight_rejected",
+        "threshold_q16": 1024,
+        "violation_operator": "greater_than"
+      }
+    },
+    "supportStageContract": {
+      "const": {
+        "product_scope_order": "product_gate_before_all_support_stage_construction",
+        "a04": {
+          "capability_id": "A04",
+          "role": "r07_temporal_noise_filter",
+          "configuration_identity": "r07.videotoolbox.temporal-noise-filter.fixture-only.strength-q16-24576.v1",
+          "strength_q16": 24576,
+          "discontinuity": "derived_from_temporal_state_never_hardcoded",
+          "qualification_statuses": [
+            "not_observed",
+            "unsupported",
+            "fixture_admitted"
+          ],
+          "outcomes": {
+            "not_observed": "diagnostic_not_planned",
+            "unsupported": "unavailable_not_planned",
+            "fixture_admitted": "deterministic_fixture_only_descriptor"
+          },
+          "qualification_effect": "never_establishes_runtime_or_product_qualification"
+        },
+        "a05": {
+          "capability_id": "A05",
+          "role": "analysis_only",
+          "support_stage_construction": "forbidden"
+        },
+        "a13": {
+          "capability_id": "A13",
+          "role": "support_stage",
+          "source_dimensions": [
+            64,
+            64
+          ],
+          "guidance_dimensions": [
+            64,
+            64
+          ],
+          "output_dimensions": [
+            64,
+            64
+          ],
+          "source_pixel_format": "R8",
+          "guidance_pixel_format": "R8",
+          "output_pixel_format": "R8",
+          "kernel_size": 5,
+          "epsilon": 0.01,
+          "processing_identity": {
+            "backend_id": "r03.mps.guided-filter",
+            "backend_revision": "1",
+            "model_assets_identity": "notRequired",
+            "route_id": "guided_support_1x",
+            "configuration_identity": "r03.mps.guided-filter.guided_support_1x.r8-to-rgba8-rgba16f.k5-e0p01.v1",
+            "policy_identity": "r03.fixture-only.v1",
+            "material_decision_identity": "r03.preregistered-baseline.v1",
+            "fallback_history": []
+          },
+          "conformance_scope": "descriptor_and_admission_only",
+          "reconstruction_execution": "not_observed",
+          "output_claims": "forbidden"
+        },
+        "a15": {
+          "capability_id": "A15",
+          "role": "support_stage",
+          "mask_dimensions": [
+            32,
+            32
+          ],
+          "guidance_dimensions": [
+            64,
+            64
+          ],
+          "output_dimensions": [
+            64,
+            64
+          ],
+          "mask_pixel_format": "R8",
+          "guidance_pixel_format": "R8",
+          "output_pixel_format": "R8",
+          "spatial_sigma": 3,
+          "luma_sigma": 0.15,
+          "processing_identity": {
+            "backend_id": "r03.core-image.edge-preserve",
+            "backend_revision": "1",
+            "model_assets_identity": "notRequired",
+            "route_id": "edge_preserve_support_2x",
+            "configuration_identity": "r03.core-image.edge-preserve.edge_preserve_support_2x.r8.s3-l0p15.v1",
+            "policy_identity": "r03.fixture-only.v1",
+            "material_decision_identity": "r03.preregistered-baseline.v1",
+            "fallback_history": []
+          },
+          "conformance_scope": "descriptor_and_admission_only",
+          "reconstruction_execution": "not_observed",
+          "output_claims": "forbidden"
+        }
+      }
+    },
+    "postflightFeedbackContract": {
+      "const": {
+        "report_binding": "completed_R06_decision_N_same_shot",
+        "payload": {
+          "artifact_risk_q16": "exact_report_value",
+          "finding_ids": "ordered_exact_report_values"
+        },
+        "application": "same_shot_decision_N_plus_1_only",
+        "completed_decision_N_mutation": "forbidden",
+        "invalid_report_disposition": "rejected_discarded",
+        "invalid_classes": [
+          "duplicate",
+          "stale",
+          "future",
+          "cross_shot"
+        ],
+        "rejection_precedence": [
+          "duplicate",
+          "cross_shot",
+          "stale",
+          "future"
+        ],
+        "duplicate_sequence": [
+          "accepted_scheduled_for_n_plus_1",
+          "duplicate_rejected_discarded"
+        ],
+        "maximum_pending_feedback_per_report_identity": 1
+      }
+    },
+    "productComparatorContract": {
+      "const": {
+        "nonvacuity": "exactly_one_complete_comparison_per_unique_fixture_backend_per_dimension",
+        "backend_identity_rule": "fixture_backend_ids_must_be_nonempty_and_unique_for_executed_fixture_comparisons",
+        "dimensions": [
+          {
+            "id": "temporal_artifact",
+            "metric": "maximum_normalized_risk_q16_over_ringing_halo_ghosting_flicker_false_texture",
+            "unit": "q16",
+            "equation": "baseline_temporal_risk_q16-auto_temporal_risk_q16",
+            "pass_operator": "greater_than_or_equal",
+            "pass_threshold": 1
+          },
+          {
+            "id": "chroma_displacement",
+            "metric": "raw_chroma_displacement_q8_pixels",
+            "unit": "q8_pixels",
+            "equation": "baseline_chroma_displacement_q8_pixels-auto_chroma_displacement_q8_pixels",
+            "pass_operator": "greater_than_or_equal",
+            "pass_threshold": 1
+          },
+          {
+            "id": "spatial_ms_ssim",
+            "metric": "delta_ppm",
+            "unit": "ppm",
+            "equation": "auto_ms_ssim_ppm-baseline_ms_ssim_ppm",
+            "pass_operator": "greater_than_or_equal",
+            "pass_threshold": -5000
+          },
+          {
+            "id": "protected_integrity",
+            "metric": "weighted_mae_q16",
+            "unit": "q16",
+            "equation": "auto_weighted_mae_q16-baseline_weighted_mae_q16",
+            "pass_operator": "less_than_or_equal",
+            "pass_threshold": 0
+          }
+        ],
+        "synthetic_fixture_execution": "deterministic_math_only_not_product_observation",
+        "current_product_status": "not_observed",
+        "empty_backend_set_passes": false,
+        "quality_claim": "forbidden"
+      }
+    },
+    "authorizationBoundary": {
+      "const": {
+        "production_default": "not_enabled",
+        "product_qualification": "not_claimed",
+        "result": "blocked",
+        "result_reason": "upstream_no_product_qualified_primary_backend",
+        "eligible_backend_count": 0,
+        "selected_route_id": null,
+        "selected_plan_id": null,
+        "output_identity": null,
+        "quality_claims": "forbidden",
+        "performance_claims": "forbidden",
+        "hardware_blocked_cause": "forbidden",
+        "simulator_blocked_cause": "forbidden",
+        "operator_blocked_cause": "forbidden",
+        "auto_mode": "blocked",
+        "holdout": "blocked",
+        "acceptance": "not_claimed",
+        "publication": "not_authorized_by_this_record",
+        "release": "not_authorized",
+        "fixture_execution": "local_deterministic_software_only"
+      }
+    }
+  }
+}

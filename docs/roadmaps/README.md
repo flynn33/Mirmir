@@ -4,8 +4,8 @@ The current product direction is **Mirmir Apple-Native Adaptive Video Enhancemen
 
 Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`;
 `R03: in_progress`; `R04: in_progress`; `R05: in_progress`;
-`R06: in_progress` under the exact
-local-continuation exceptions. R03's bound result remains fail-closed and
+`R06: in_progress`; `R07: in_progress` under the exact local-continuation
+exceptions; `R08: planned` without authorization to start. R03's bound result remains fail-closed and
 `blocked`; R04 is local
 implementation only with a commit-bound `diagnostic_only` checkpoint. R04
 runtime, hardware, simulator, and operator observations remain `not_observed`;
@@ -20,6 +20,17 @@ conformance passed, but its product gate remains fail-closed for
 `no_product_qualified_primary_backend`. Product, hardware, simulator, and
 operator observations remain `not_observed`; quality, performance, product,
 production-default, acceptance, publication, and release claims remain unmade.
+R06's policy-frozen local unpublished blocked closure is commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`; its acceptance remains unclaimed.
+R07 has begun fixture-only local implementation from that exact blocked closure.
+Its preregistration and deterministic fixture catalog freeze the temporal,
+artifact, chroma, spatial, aggregation, fixed-point, history, and tuning
+contracts before implementation. Its product gate remains blocked solely for
+`upstream_no_product_qualified_primary_backend`, with no eligible route,
+selected plan, or output. Product metrics and hardware, simulator, and operator
+observations remain `not_observed`; no quality, performance, product,
+production-default, acceptance, publication, or release claim is made.
 
 - [Canonical Markdown](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
 - [Canonical JSON](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json)
@@ -44,12 +55,14 @@ production-default, acceptance, publication, and release claims remain unmade.
 - [R06 ASH Orchestration Conformance](evidence/r06/records/orchestration-conformance.json) — local unpublished blocked evidence; product and runtime observations not observed; phase acceptance not claimed
 - [R06 Phase Evidence Manifest](evidence/r06/phase-evidence.json)
 - [R06 Phase Evidence Summary](evidence/r06/phase-evidence.md)
+- [R07 Preregistration](evidence/r07/records/preregistration.json)
+- [R07 Deterministic Fixture Catalog](evidence/r07/records/fixtures/fixture-catalog.json)
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `e55495523117cdc1659a3118ffba498e62e5e3c4b540dab08ec088b45376c561`
-- JSON: `cbdb6448193e18dd9cde2779feec093b3b05de716a23e65a26c11de7e1782d8f`
+- Markdown: `430ff021665d8b7807e97774d2e6e356df5d8ebdf7caa8526b9471206df7cc05`
+- JSON: `44b2067c12cf0b3323ed60175986c386d08205425354e0bbb6a0f931bbc97e44`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

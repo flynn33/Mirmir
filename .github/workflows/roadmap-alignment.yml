@@ -44,6 +44,7 @@ jobs:
           Scripts/tests/test_r04_contracts.py
           Scripts/tests/test_r05_contracts.py
           Scripts/tests/test_r06_contracts.py
+          Scripts/tests/test_r07_contracts.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -120,6 +121,19 @@ jobs:
         run: |
           if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
             python3 Scripts/r06_contracts.py --check-conformance
+          fi
+
+      - name: Verify R07 preregistration
+        run: python3 Scripts/r07_contracts.py --check-preregistration
+
+      - name: Verify R07 deterministic fixtures
+        run: python3 Scripts/r07_contracts.py --check-fixtures
+
+      - name: Verify R07 conformance when present
+        shell: bash
+        run: |
+          if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
+            python3 Scripts/r07_contracts.py --check-conformance
           fi
 
       - name: Verify R01 system assets remain untracked

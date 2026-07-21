@@ -30,9 +30,9 @@ market-position claim.
 
 `[#---------]`
 
-**Status:** ✅ Passed `2` · 🔄 In progress `5` · ⬜ Planned `6` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · 🔄 In progress `6` · ⬜ Planned `5` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
+**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1; `R07` — Temporal stability and artifact governance
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -43,7 +43,7 @@ market-position claim.
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
-| `R07` | Temporal stability and artifact governance | `planned` | ⬜ Planned |
+| `R07` | Temporal stability and artifact governance | `in_progress` | 🔄 In progress |
 | `R08` | Core AI analysis-only integration | `planned` | ⬜ Planned |
 | `R09` | Core AI bounded residual experiment | `blocked` | ⛔ Blocked |
 | `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
@@ -966,7 +966,7 @@ ASH orchestration must improve at least one primary product dimension over the b
 
 ## R07 — Temporal stability and artifact governance
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -982,6 +982,34 @@ Make temporal consistency and artifact avoidance the first major Mirmir differen
 - Use luma-guided chroma reconstruction and edge-preserving mask upsampling.
 - Add protected-region policies for faces, text, line art, animation, subtitles, and UI captures.
 - Add postflight feedback that influences the next decision without rewriting completed frames.
+
+### Local implementation start — 2026-07-21
+
+R07 starts only under the operator-directed local-continuation boundary. Its
+preregistration binds the exact local R06 blocked closure commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4` and tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7` as
+`local_unpublished_blocked_closure`, with `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 remains canonical
+`in_progress`, local unpublished, and unaccepted; R08 remains `planned`.
+
+The R07 local slice is fixture-only temporal and artifact-governance
+implementation. Exact temporal, chroma, artifact, churn, protected-region,
+spatial-noninferiority, history, fixed-point, threshold, and aggregation
+contracts are frozen in the immutable preregistration and fixture catalog before
+their implementation or tuning. Deterministic software fixtures and locally
+available static, unit, mutation, project, build, and hosted checks remain
+required where applicable.
+
+No upstream phase has a product-qualified primary backend. Product evaluation
+therefore remains fail-closed `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null selected route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements remain `not_observed`. Hardware, simulator, and
+operator-observed operation also remain non-blocking `not_observed` and are not
+the blocked cause. This start makes no quality, performance, product,
+production-default, acceptance, publication, or release claim.
 
 ### Exit gate
 

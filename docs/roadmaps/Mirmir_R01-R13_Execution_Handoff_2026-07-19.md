@@ -57,8 +57,15 @@
 - **R06 implementation source for the local unpublished blocked closure:**
   `9246934c027e97f2b2ae3af35b0c4892154d761c`; tree
   `1235596387d4eabd2ecb4ea1a29221c44ec425fe`; acceptance not claimed
+- **R06 local unpublished blocked closure:**
+  `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`; tree
+  `32365e745dbf53d59213fe2294a6b63ba2642df7`; `predecessor_result: blocked`;
+  acceptance not claimed
+- **R07 local preregistration source:** R06 blocked closure above;
+  `accepted_merge_commit: null`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
-  `R04: in_progress`; `R05: in_progress`; `R06: in_progress`
+  `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
+  `R07: in_progress`; `R08: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -204,6 +211,32 @@ boundary. Hardware, simulator, and operator observation remain non-blocking
 `not_observed` and are not the cause. No product, quality, performance,
 acceptance, publication, or release claim follows.
 
+### R07 local implementation start — 2026-07-21
+
+R07 preregistration binds exact R06 blocked closure commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`, as
+`local_unpublished_blocked_closure` with `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 remains canonical
+`in_progress`, local unpublished, and unaccepted. R07 depends directly on R06;
+R05 and earlier unresolved phases remain transitive dependencies. R08 remains
+`planned` and is not authorized to start.
+
+The R07 slice is fixture-only local temporal and artifact-governance
+implementation. Its immutable preregistration and fixture catalog freeze all
+temporal, chroma, artifact, churn, protected-region, spatial-noninferiority,
+history, fixed-point, threshold, and aggregation contracts before implementation
+or tuning. No numeric formula or threshold is inferred from this handoff.
+
+Product evaluation is fail-closed `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null selected route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements remain `not_observed`. Hardware, simulator, and
+operator-observed operation also remain non-blocking `not_observed` and are not
+the blocked cause. No quality, performance, product, production-default,
+acceptance, publication, or release claim follows.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -214,14 +247,13 @@ Before changing source:
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
-   `R03: in_progress`, `R04: in_progress`, `R05: in_progress`, and
-   `R06: in_progress` remain
+   `R03: in_progress`, `R04: in_progress`, `R05: in_progress`,
+   `R06: in_progress`, `R07: in_progress`, and `R08: planned` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
-5. Treat the exact R05 implementation/conformance checkpoint above as
-   diagnostic-only local evidence and continue the frozen R06 implementation
-   contract. Do not convert
-   R03, R04, or R05 into accepted or product-qualified phases. Except for the narrow
+5. Treat the exact R06 blocked closure above as local negative evidence and
+   continue only the frozen R07 fixture contract. Do not convert R03 through R06
+   into accepted or product-qualified phases. Except for the narrow
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
 
@@ -860,6 +892,22 @@ upsampling, and policies for faces, text, line art, animation, subtitles, and UI
 captures. Postflight feedback may affect later decisions but never rewrite a
 completed frame. Pass only with measured improvement over each used backend alone
 without material spatial-quality loss.
+
+Local start: the R07 preregistration binds R06 blocked closure
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`, with
+`predecessor_result: blocked`, `accepted_merge_commit: null`, and local-only
+continuation. The implementation is fixture-only. Exact formulas, thresholds,
+history bounds, aggregation rules, and spatial-noninferiority criteria are frozen
+in the preregistration and fixture catalog before implementation or tuning.
+
+The product gate remains `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements, plus hardware, simulator, and operator-observed
+operation, remain `not_observed`. R06 and R07 remain `in_progress`; R08 remains
+`planned`. No quality, performance, product, production-default, acceptance,
+publication, or release claim follows.
 
 ### R08 - Core AI analysis-only integration
 

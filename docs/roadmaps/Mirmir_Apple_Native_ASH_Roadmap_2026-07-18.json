@@ -266,7 +266,7 @@
       "exit": "verified temporal and artifact-governance contract; unavailable media observation recorded as not_observed",
       "id": "R07",
       "name": "Temporal stability and artifact governance",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [

@@ -96,7 +96,8 @@ python3 -m unittest \
   Scripts/tests/test_r03_contracts.py \
   Scripts/tests/test_r04_contracts.py \
   Scripts/tests/test_r05_contracts.py \
-  Scripts/tests/test_r06_contracts.py
+  Scripts/tests/test_r06_contracts.py \
+  Scripts/tests/test_r07_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -125,6 +126,11 @@ python3 Scripts/r06_contracts.py --check-preregistration
 python3 Scripts/r06_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
   python3 Scripts/r06_contracts.py --check-conformance
+fi
+python3 Scripts/r07_contracts.py --check-preregistration
+python3 Scripts/r07_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
+  python3 Scripts/r07_contracts.py --check-conformance
 fi
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
