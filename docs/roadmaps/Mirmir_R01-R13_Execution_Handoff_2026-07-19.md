@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.5
+- **Handoff version:** 1.6
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -25,7 +25,12 @@
   `2fbe72d85ace42cc925c45b17d53dd8866a8275b`; acceptance not claimed
 - **R02 local preregistration source:** R01 local unpublished closure above;
   `accepted_merge_commit: null`
-- **Continuation state:** `R01: passed`; `R02: in_progress`
+- **R02 local unpublished closure:**
+  `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`; tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance not claimed
+- **R03 local preregistration source:** R02 local unpublished closure above;
+  `accepted_merge_commit: null`
+- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -59,6 +64,24 @@ the optional native supplemental path. Non-hardware implementation, deterministi
 tests, safety, privacy, publication, pull-request, merge, holdout, production,
 and release authority are unchanged.
 
+### R02 closure and R03 start checkpoint — 2026-07-20
+
+R02 deterministic software conformance is recorded in local unpublished closure
+commit `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
+`a5e95d810abacbdb872ddc6e94125103831e6fba`. The record passes its frozen
+software checks while keeping hardware, simulator, and operator observation
+`not_observed`; it makes no performance, product-qualification, publication, or
+acceptance claim.
+
+R03 local implementation begins only from a frozen preregistration that binds
+that exact commit and tree with `accepted_merge_commit: null`,
+`acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. Its matrix contains eight whole-frame deterministic
+paths and two support stages across exact 720p-to-1080p, 1080p-to-2160p,
+analytic-artifact, temporal-repeatability, and media-transaction fixtures.
+Unavailable execution receives `not_observed`; no production default,
+performance claim, or product qualification is enabled.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -68,10 +91,11 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: passed`, and `R02: in_progress` remain
+4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`, and
+   `R03: in_progress` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
-5. Continue the frozen R02 implementation contract. Except for the narrow
+5. Continue the frozen R03 implementation contract. Except for the narrow
    operator-directed local-continuation path in Section 3.1, later phases become
    actionable only through their accepted dependencies, evidence, roadmap
    state, and operator controls.

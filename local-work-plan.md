@@ -28,7 +28,12 @@
   with `accepted_merge_commit: null` and no acceptance claim. The operator's
   continuation instruction permits local implementation through R07 but does
   not authorize publication or production enablement.
-- R03 deterministic Apple-native baselines: planned after R02.
+- Roadmap phase `R03`: `in_progress`. Its frozen preregistration binds local R02
+  closure commit `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4` and tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`, with
+  `accepted_merge_commit: null` and acceptance not claimed. The local exception
+  authorizes implementation only; production remains unavailable and
+  performance and product-quality claims remain forbidden.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
 

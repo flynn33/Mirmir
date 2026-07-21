@@ -606,7 +606,7 @@ A deterministic fixture can run through multiple backends under one common sessi
 
 ## R03 — Deterministic Apple-native baseline suite
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 

@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R03 local implementation with a closed ten-subject deterministic
+  backend/support-stage matrix, exact 8-bit NV12 SDR BT.709 route and analytic
+  fixtures, frozen correctness/artifact/repeatability/resource checks, and a
+  fail-closed validator. The preregistration binds R02 local closure commit
+  `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`, records
+  `accepted_merge_commit: null`, and claims no acceptance. Unavailable execution
+  remains `not_observed`; production default selection, performance claims, and
+  product qualification remain disabled.
 - Began R02 local implementation with a closed backend/session/stage contract,
   deterministic frame-sequence and AAC media-transaction fixtures, zero-violation
   correctness floors, and fail-closed validation. The preregistration binds R01

@@ -30,16 +30,16 @@ market-position claim.
 
 `[#---------]`
 
-**Status:** ✅ Passed `2` · 🔄 In progress `1` · ⬜ Planned `10` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · 🔄 In progress `2` · ⬜ Planned `9` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture
+**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
 | `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
-| `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
+| `R03` | Deterministic Apple-native baseline suite | `in_progress` | 🔄 In progress |
 | `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
 | `R05` | MetalFX integration and suitability decision | `planned` | ⬜ Planned |
 | `R06` | ASH orchestration engine v1 | `planned` | ⬜ Planned |
@@ -663,7 +663,7 @@ A deterministic fixture can run through multiple backends under one common sessi
 
 ## R03 — Deterministic Apple-native baseline suite
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 

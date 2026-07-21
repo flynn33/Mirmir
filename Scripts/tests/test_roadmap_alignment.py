@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 import shutil
@@ -60,7 +61,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.temporary_directory.cleanup()
 
     def verifier(self) -> AlignmentVerifier:
-        return AlignmentVerifier(self.root)
+        return AlignmentVerifier(self.root, history_root=REPOSITORY_ROOT)
 
     def errors(self) -> list[str]:
         return self.verifier().check()
@@ -176,6 +177,148 @@ class RoadmapAlignmentTests(unittest.TestCase):
         symlink_path.symlink_to(target)
         self.assert_error_contains(
             "phase R02 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
+        self.assertFalse(
+            any("phase R03 is 'in_progress' before dependency R02" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_r03_exception_never_waives_next_or_closure_statuses(self) -> None:
+        for status in ("next", "evidence_ready", "passed"):
+            with self.subTest(status=status):
+                self.set_phase_status("R03", status)
+                self.assert_error_contains(
+                    f"phase R03 is {status!r} before dependency R02 is passed"
+                )
+
+    def test_r03_exception_rejects_predecessor_binding_drift(self) -> None:
+        relative = self.policy["local_continuation_exceptions"]["R03"][
+            "preregistration_path"
+        ]
+        path = self.root / relative
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["predecessor_binding"]["closure_tree"] = "1" * 40
+        self.write_json(path, value)
+        self.assert_error_contains("local continuation predecessor binding differs")
+
+    def test_r03_exception_rejects_symlinked_preregistration(self) -> None:
+        relative = self.policy["local_continuation_exceptions"]["R03"][
+            "preregistration_path"
+        ]
+        path = self.root / relative
+        target = self.root / "r03-preregistration-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains("requires a regular preregistration file")
+
+    def test_r03_exception_policy_keys_are_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["local_continuation_exceptions"]["R03"]["unexpected"] = True
+        self.write_json(path, policy)
+        self.assert_error_contains(
+            "local_continuation_exceptions differ from the sole frozen R03 exception"
+        )
+
+    def test_r03_exception_identity_keys_are_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["local_continuation_exceptions"]["R03"][
+            "preregistration_identity"
+        ]["unexpected"] = True
+        self.write_json(path, policy)
+        self.assert_error_contains(
+            "local_continuation_exceptions differ from the sole frozen R03 exception"
+        )
+
+    def test_r03_exception_predecessor_keys_are_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = json.loads(path.read_text(encoding="utf-8"))
+        policy["local_continuation_exceptions"]["R03"]["predecessor_binding"][
+            "unexpected"
+        ] = True
+        self.write_json(path, policy)
+        self.assert_error_contains(
+            "local_continuation_exceptions differ from the sole frozen R03 exception"
+        )
+
+    def test_r03_exception_rejects_every_frozen_value_drift(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        exception = self.policy["local_continuation_exceptions"]["R03"]
+
+        def leaf_paths(value: object, prefix: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
+            paths: list[tuple[object, ...]] = []
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    paths.extend(leaf_paths(nested, prefix + (key,)))
+            elif isinstance(value, list):
+                for index, nested in enumerate(value):
+                    paths.extend(leaf_paths(nested, prefix + (index,)))
+            else:
+                paths.append(prefix)
+            return paths
+
+        for value_path in leaf_paths(exception):
+            with self.subTest(value_path=value_path):
+                policy = copy.deepcopy(self.policy)
+                target = policy["local_continuation_exceptions"]["R03"]
+                for component in value_path[:-1]:
+                    target = target[component]
+                final = value_path[-1]
+                original = target[final]
+                target[final] = "drift" if original is None else f"{original}-drift"
+                self.write_json(policy_path, policy)
+                self.assert_error_contains(
+                    "local_continuation_exceptions differ from the sole frozen R03 exception"
+                )
+
+    def test_r03_exception_rejects_every_missing_field(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        exception = self.policy["local_continuation_exceptions"]["R03"]
+
+        def field_paths(value: object, prefix: tuple[object, ...] = ()) -> list[tuple[object, ...]]:
+            paths: list[tuple[object, ...]] = []
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    paths.append(prefix + (key,))
+                    paths.extend(field_paths(nested, prefix + (key,)))
+            return paths
+
+        for field_path in field_paths(exception):
+            with self.subTest(field_path=field_path):
+                policy = copy.deepcopy(self.policy)
+                target = policy["local_continuation_exceptions"]["R03"]
+                for component in field_path[:-1]:
+                    target = target[component]
+                target.pop(field_path[-1])
+                self.write_json(policy_path, policy)
+                self.assert_error_contains(
+                    "local_continuation_exceptions differ from the sole frozen R03 exception"
+                )
+
+    def test_r03_exception_rejects_required_key_order_drift(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = copy.deepcopy(self.policy)
+        policy["local_continuation_exceptions"]["R03"][
+            "preregistration_required_keys"
+        ].reverse()
+        self.write_json(path, policy)
+        self.assert_error_contains(
+            "local_continuation_exceptions differ from the sole frozen R03 exception"
+        )
+
+    def test_r03_exception_rejects_an_additional_phase(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = copy.deepcopy(self.policy)
+        policy["local_continuation_exceptions"]["R04"] = copy.deepcopy(
+            policy["local_continuation_exceptions"]["R03"]
+        )
+        self.write_json(path, policy)
+        self.assert_error_contains(
+            "local_continuation_exceptions differ from the sole frozen R03 exception"
         )
 
     def test_canonical_markdown_hash_drift_fails(self) -> None:

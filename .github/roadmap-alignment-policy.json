@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "ad9ed71b0ecad9a6abc62b2d93950513d29d2685412c5d839636ba27f74dc5f4",
-    "json_sha256": "9df246f11d4695fd7d726c6908c593b9f72ad92790fd290508309879f71d4f53",
+    "markdown_sha256": "c181ed784888f082bc5e0d2be4a31041bdceb009ab9de648dbc8f78f8f96fda9",
+    "json_sha256": "c5778e68a1dc822d6cc0a0430e589fa05d2d784a765c5bc19f4b07047211c720",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -131,9 +131,13 @@
       "python3 Scripts/r01_observation_waiver.py --check",
       "Scripts/tests/test_r01_observation_waiver.py",
       "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r03_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r03_contracts.py --check-preregistration",
+      "python3 Scripts/r03_contracts.py --check-fixtures",
+      "python3 Scripts/r03_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -165,9 +169,14 @@
       "python3 Scripts/r01_observation_waiver.py --check",
       "Scripts/tests/test_r01_observation_waiver.py",
       "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r03_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r03_contracts.py --check-preregistration",
+      "python3 Scripts/r03_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then",
+      "python3 Scripts/r03_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -202,12 +211,14 @@
     "ARCHITECTURE.md": [
       "R00",
       "R01",
-      "R02"
+      "R02",
+      "R03"
     ],
     "local-work-plan.md": [
       "R00",
       "R01",
-      "R02"
+      "R02",
+      "R03"
     ]
   },
   "phase_evidence_requirements": {
@@ -231,6 +242,56 @@
       "paths": [
         "docs/roadmaps/evidence/r02/records/preregistration.json",
         "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R03": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r03/records/preregistration.json",
+        "docs/roadmaps/evidence/r03/records/fixtures/fixture-catalog.json"
+      ]
+    }
+  },
+  "local_continuation_exceptions": {
+    "R03": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r02/records/conformance.json",
+      "dependency_phase_id": "R02",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4",
+        "closure_state": "local_unpublished_closure",
+        "closure_tree": "a5e95d810abacbdb872ddc6e94125103831e6fba",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R02"
+      },
+      "preregistration_identity": {
+        "phase_id": "R03",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r03/records/preregistration.json",
+      "preregistration_required_keys": [
+        "authorization_boundary",
+        "checks",
+        "contract",
+        "fixture_catalog",
+        "metrics",
+        "observation_policy",
+        "phase_id",
+        "predecessor_binding",
+        "preregistration_state",
+        "roadmap_version",
+        "schema_bindings",
+        "schema_version",
+        "stop_rules"
       ]
     }
   },
