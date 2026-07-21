@@ -19,6 +19,7 @@
 		091ED902BEA9F4916D5C2138 /* AppleUpscaleFIFOSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB2C67256B4E9E50F55A298 /* AppleUpscaleFIFOSessionTests.swift */; };
 		09533D5C824AD0179779D666 /* AppleUpscaleCapabilitySupportProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */; };
 		0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */; };
+		09E32E402545542E390CAB99 /* R05MetalFXContractsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65407F8B287BD796D0DCA455 /* R05MetalFXContractsTests.swift */; };
 		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
 		0E1CA642F3817B5FA0CB9B69 /* R04VideoToolboxSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */; };
 		0F87E9A2764B3DDFAA4148AD /* ASHLockedReleaseTestSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 539D795BC06CD59AEBD2C183 /* ASHLockedReleaseTestSupportV3.swift */; };
@@ -40,6 +41,7 @@
 		23C9EC52C23DD7104A04AD3A /* NoopServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02E347AE2D83CC5AF980CF38 /* NoopServices.swift */; };
 		287485E73ACFF8D14A9EE8AE /* ASHMetalSpatialRuntimeV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34555FF0EE9591F826189B62 /* ASHMetalSpatialRuntimeV3Tests.swift */; };
 		28755B7301799D0DA094E945 /* ASHTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F705073C74E0938AFE1C4748 /* ASHTelemetryTests.swift */; };
+		28CD56D4E4C75E8C51715B5B /* R05MetalFXColorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AACEE17E79A48FEF8F7B00 /* R05MetalFXColorBridge.swift */; };
 		29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */; };
 		29B23E1AC24F2B1C1267E9D5 /* ASHLockedReferencePipelineV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2521C8130E241C22C63608BC /* ASHLockedReferencePipelineV2.swift */; };
 		2A4A0516F34E316D81926F93 /* ASHTelemetryCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFD66B1F959DAFD165D1DAAB /* ASHTelemetryCatalog.swift */; };
@@ -129,6 +131,7 @@
 		77EE40A17728838CB7B1AA50 /* ASHLockedSampleRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 452C763D3991A19EE5361937 /* ASHLockedSampleRuntimeV3.swift */; };
 		783B5CDBF49534635284FA23 /* AppleUpscaleContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ACA35D5BF8FE518081B2A7F /* AppleUpscaleContracts.swift */; };
 		79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */; };
+		7AE3272E4F03EB0486627537 /* R05MetalFXSpatialBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8479EE600CC854106CCE1FEE /* R05MetalFXSpatialBackend.swift */; };
 		7B1B2A8CBE878D36FFEA633F /* R03ASHComparatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B317C13C36AC6141EAD7557D /* R03ASHComparatorTests.swift */; };
 		7D0B5F8DEC9E058D10814A21 /* ASHCoreConformance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A625BAC19E969885282117 /* ASHCoreConformance.swift */; };
 		7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */; };
@@ -199,6 +202,7 @@
 		AA1707747FD08CE2162ACF23 /* ASHMetalSpatialRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B36EA28A06FFD3EB403121 /* ASHMetalSpatialRuntimeV3.swift */; };
 		AA7D08BCD0C5240D9B4C6291 /* ASHP08WriterSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C40D1FEF04763A6CAE004E2 /* ASHP08WriterSession.swift */; };
 		AB35E432D50981A402F88AD4 /* ASHLUTTestSupportV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E76B3238B739032D63120CB /* ASHLUTTestSupportV2.swift */; };
+		ABFB52E97399E48DCDE5202C /* R05MetalFXSpatialDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9E1F2D77CF585D67296E29F /* R05MetalFXSpatialDriver.swift */; };
 		AD6AA523F701346321805594 /* R02FixtureConformanceTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50924B43EFDC749463147AC8 /* R02FixtureConformanceTestSupport.swift */; };
 		AF83460B3A418087D57008A7 /* ASHLockedReferenceTypesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1095F73BBA5EFBF0F47F8993 /* ASHLockedReferenceTypesV2.swift */; };
 		B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */; };
@@ -241,6 +245,8 @@
 		CF3F2F178A8C798ACF63B3A1 /* ASHP08NativeSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0158FCB56F360A4A3ACDDBA9 /* ASHP08NativeSupport.swift */; };
 		CF9438B84424881722E44CED /* ASHCorrectiveCLIEvidenceAssertions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037015D5D35CB3C16B898D58 /* ASHCorrectiveCLIEvidenceAssertions.swift */; };
 		CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */; };
+		D0A4DFC7189E9EE2A194CE00 /* R05MetalFXColorBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83AC977684BE029B5DA669C0 /* R05MetalFXColorBridgeTests.swift */; };
+		D0B7244B5F6F891A24D76373 /* R05MetalFXSpatialBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 667C03F90DA1AB832D4F74C0 /* R05MetalFXSpatialBackendTests.swift */; };
 		D0E2E53FC343830E3DC40C71 /* ASHCalibrationCLISupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3811D5BF06DDFF4A9D98AC9D /* ASHCalibrationCLISupport.swift */; };
 		D32AB7401A5D9CDB64458DC4 /* codewords.csv in Resources */ = {isa = PBXBuildFile; fileRef = 1CC00CCC5D596A5E02408508 /* codewords.csv */; };
 		D407AC13B67F280366664A21 /* ASHSpatialTelemetryV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85EA190A5E87F2903038F35 /* ASHSpatialTelemetryV2Tests.swift */; };
@@ -251,6 +257,7 @@
 		D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */; };
 		D8A538BE9EC1806FE61DC81A /* ASHDeterministicUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */; };
 		DA1B78C7911C0BA40963E3D1 /* AppleUpscaleCapabilityLiveContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7C63339DECCFCDED19ABE9 /* AppleUpscaleCapabilityLiveContext.swift */; };
+		DB0117072D5B0D700292A1B7 /* R05MetalFXSpatialDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F579C353EE3649D8527DEC24 /* R05MetalFXSpatialDriverTests.swift */; };
 		DB2B03D9B32AA77480CD2560 /* ASHDevelopmentAssetTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D181F4BC9C1B11D842F54E2 /* ASHDevelopmentAssetTypes.swift */; };
 		DB39CBCB905179C470B7F665 /* R03DeterministicBackendTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE75668BAE098B4A7FA24CE4 /* R03DeterministicBackendTestSupport.swift */; };
 		DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */; };
@@ -288,6 +295,7 @@
 		F75E67BE4D2D07E6711BB76A /* ASHUpscaleBackendFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 652F0A8810D609AC2796020F /* ASHUpscaleBackendFactory.swift */; };
 		F8AA1287D112837A92BA7DE6 /* ASHAnalysisGridV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0094B29F70CD99DA3D843C3C /* ASHAnalysisGridV2Tests.swift */; };
 		F96F302739CF142421134BD7 /* AppleUpscaleCapabilityFixtureContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85F6B7D4C72F5BEEC34C057 /* AppleUpscaleCapabilityFixtureContract.swift */; };
+		FACE7D2689BFE78CFB031645 /* R05MetalFXContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87A2D10F701125D55E41E172 /* R05MetalFXContracts.swift */; };
 		FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */; };
 		FD3A32976F23A0FC731664D0 /* ASHLockedControlRuntimeV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = C49D87C134298A1D7EABAC14 /* ASHLockedControlRuntimeV2.swift */; };
 		FD440AB675F3EF7298C713C7 /* UpscaleJob.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7C909B925C5E765D352A19 /* UpscaleJob.swift */; };
@@ -433,6 +441,8 @@
 		60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReleaseLUTManifestV2.swift; sourceTree = "<group>"; };
 		61D3BF1665450FC60B415F7B /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
 		652F0A8810D609AC2796020F /* ASHUpscaleBackendFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHUpscaleBackendFactory.swift; sourceTree = "<group>"; };
+		65407F8B287BD796D0DCA455 /* R05MetalFXContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXContractsTests.swift; sourceTree = "<group>"; };
+		667C03F90DA1AB832D4F74C0 /* R05MetalFXSpatialBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXSpatialBackendTests.swift; sourceTree = "<group>"; };
 		67124D47267BFA394DA4C7E5 /* ASHLockedPlanePolicyDiagnosticV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedPlanePolicyDiagnosticV3Tests.swift; sourceTree = "<group>"; };
 		67B372D4E6B823A8DE3ACE95 /* ASHReconstructionHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReconstructionHelpers.swift; sourceTree = "<group>"; };
 		684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnavailableUpscalerEngineService.swift; sourceTree = "<group>"; };
@@ -465,10 +475,13 @@
 		813D450EB08F87103C273CE0 /* ASHCoordinateModelContractV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateModelContractV3Tests.swift; sourceTree = "<group>"; };
 		814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationMediaSessionConfiguration.swift; sourceTree = "<group>"; };
 		8276B4859A95BF7199D44552 /* ASHLUTCompilerV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTCompilerV2Tests.swift; sourceTree = "<group>"; };
+		83AC977684BE029B5DA669C0 /* R05MetalFXColorBridgeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXColorBridgeTests.swift; sourceTree = "<group>"; };
+		8479EE600CC854106CCE1FEE /* R05MetalFXSpatialBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXSpatialBackend.swift; sourceTree = "<group>"; };
 		84D2DFAD47221FBF1FE4281E /* ASHCoreConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoreConformanceTests.swift; sourceTree = "<group>"; };
 		854DE548F652D39CC9238815 /* ASHMetalFrameResourceRingV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalFrameResourceRingV3Tests.swift; sourceTree = "<group>"; };
 		861811DEE9C87475E62C09EB /* ASHSpatialOperatorBankV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialOperatorBankV2Tests.swift; sourceTree = "<group>"; };
 		86AF5A364ACEADB2F80650AE /* MirmirModuleHostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleHostTests.swift; sourceTree = "<group>"; };
+		87A2D10F701125D55E41E172 /* R05MetalFXContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXContracts.swift; sourceTree = "<group>"; };
 		87DF56556BD38E52A6939975 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
 		8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTypesV3.swift; sourceTree = "<group>"; };
 		8D59C820268D33A10DE3D040 /* ASHCalibrationCorrectiveDiagnosticCLITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCalibrationCorrectiveDiagnosticCLITests.swift; sourceTree = "<group>"; };
@@ -488,6 +501,7 @@
 		A1B36EA28A06FFD3EB403121 /* ASHMetalSpatialRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeV3.swift; sourceTree = "<group>"; };
 		A24461DB7E24A4434349B337 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
 		A37267EE8D222ADE35C143C2 /* R03VTPixelTransferScaling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03VTPixelTransferScaling.swift; sourceTree = "<group>"; };
+		A3AACEE17E79A48FEF8F7B00 /* R05MetalFXColorBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXColorBridge.swift; sourceTree = "<group>"; };
 		A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCode.swift; sourceTree = "<group>"; };
 		A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewRegistry.swift; sourceTree = "<group>"; };
 		A478ADA5DFA921E2E19C8841 /* MirmirModuleContext.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleContext.swift; sourceTree = "<group>"; };
@@ -576,11 +590,13 @@
 		F2462674E65B8FE067AACF16 /* OutputMediaVerificationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaVerificationTypes.swift; sourceTree = "<group>"; };
 		F26204DC9C987BFAA914065E /* R02FixtureConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R02FixtureConformanceTests.swift; sourceTree = "<group>"; };
 		F491320002D06F19FC9A8B3D /* ash-state-reference.csv */ = {isa = PBXFileReference; path = "ash-state-reference.csv"; sourceTree = "<group>"; };
+		F579C353EE3649D8527DEC24 /* R05MetalFXSpatialDriverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXSpatialDriverTests.swift; sourceTree = "<group>"; };
 		F705073C74E0938AFE1C4748 /* ASHTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryTests.swift; sourceTree = "<group>"; };
 		F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsService.swift; sourceTree = "<group>"; };
 		F812295681F2487F358C8A9B /* ASHLockedRuntimeTestSupportV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeTestSupportV2.swift; sourceTree = "<group>"; };
 		F945A189C8ED77D084129D3F /* ASHChromaSitingV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHChromaSitingV2.swift; sourceTree = "<group>"; };
 		F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkflowViews.swift; sourceTree = "<group>"; };
+		F9E1F2D77CF585D67296E29F /* R05MetalFXSpatialDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXSpatialDriver.swift; sourceTree = "<group>"; };
 		FB15D19D6B0858B3C1A0E73B /* ASHUpscaleBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHUpscaleBackend.swift; sourceTree = "<group>"; };
 		FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIModule.swift; sourceTree = "<group>"; };
 		FB8ABFB23733CE5C0F36E29F /* ASHLUTCompilerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTCompilerV2.swift; sourceTree = "<group>"; };
@@ -644,6 +660,10 @@
 				A37267EE8D222ADE35C143C2 /* R03VTPixelTransferScaling.swift */,
 				45C428FDD2CFED85419F850E /* R04VideoToolboxContracts.swift */,
 				C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */,
+				A3AACEE17E79A48FEF8F7B00 /* R05MetalFXColorBridge.swift */,
+				87A2D10F701125D55E41E172 /* R05MetalFXContracts.swift */,
+				8479EE600CC854106CCE1FEE /* R05MetalFXSpatialBackend.swift */,
+				F9E1F2D77CF585D67296E29F /* R05MetalFXSpatialDriver.swift */,
 				684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */,
 				EF7C909B925C5E765D352A19 /* UpscaleJob.swift */,
 				37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */,
@@ -1054,6 +1074,10 @@
 				B562B76C94BCA2E06F74D1E2 /* R03VTPixelTransferScalingTests.swift */,
 				444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */,
 				5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */,
+				83AC977684BE029B5DA669C0 /* R05MetalFXColorBridgeTests.swift */,
+				65407F8B287BD796D0DCA455 /* R05MetalFXContractsTests.swift */,
+				667C03F90DA1AB832D4F74C0 /* R05MetalFXSpatialBackendTests.swift */,
+				F579C353EE3649D8527DEC24 /* R05MetalFXSpatialDriverTests.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
 				CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */,
 				22C0B9D429B46777730F6AAA /* Fixtures */,
@@ -1286,6 +1310,10 @@
 				B19D324A804ECFD73C8FEB1E /* R03VTPixelTransferScalingTests.swift in Sources */,
 				64FDFB83547E2F8BA2A9CFD0 /* R04VideoToolboxContractsTests.swift in Sources */,
 				DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */,
+				D0A4DFC7189E9EE2A194CE00 /* R05MetalFXColorBridgeTests.swift in Sources */,
+				09E32E402545542E390CAB99 /* R05MetalFXContractsTests.swift in Sources */,
+				D0B7244B5F6F891A24D76373 /* R05MetalFXSpatialBackendTests.swift in Sources */,
+				DB0117072D5B0D700292A1B7 /* R05MetalFXSpatialDriverTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
 				5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */,
 			);
@@ -1470,6 +1498,10 @@
 				74E387E0E9535BA9AAD5BC47 /* R03VTPixelTransferScaling.swift in Sources */,
 				43E9B833F5EEF24C8FC76597 /* R04VideoToolboxContracts.swift in Sources */,
 				0E1CA642F3817B5FA0CB9B69 /* R04VideoToolboxSessionAdapter.swift in Sources */,
+				28CD56D4E4C75E8C51715B5B /* R05MetalFXColorBridge.swift in Sources */,
+				FACE7D2689BFE78CFB031645 /* R05MetalFXContracts.swift in Sources */,
+				7AE3272E4F03EB0486627537 /* R05MetalFXSpatialBackend.swift in Sources */,
+				ABFB52E97399E48DCDE5202C /* R05MetalFXSpatialDriver.swift in Sources */,
 				35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */,
 				3CB665CD5D619971B5D8B9E5 /* UnavailableUpscalerEngineService.swift in Sources */,
 				3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */,
