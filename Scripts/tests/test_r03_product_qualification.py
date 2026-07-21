@@ -852,6 +852,36 @@ class R03ProductQualificationTests(unittest.TestCase):
         )
         self.assertEqual(errors, [])
 
+        execute_log = (
+            f"R03_QUALIFICATION_INVOCATION_SHA256={invocation['binding_sha256']}\n"
+            "** TEST EXECUTE SUCCEEDED **\n"
+        )
+        errors = []
+        self.verifier._check_xcodebuild_log_text(
+            execute_log,
+            errors,
+            expected_invocation=invocation,
+        )
+        self.assertEqual(errors, [])
+
+        errors = []
+        self.verifier._check_xcodebuild_log_text(
+            "** TEST SUCCEEDED **\n** TEST EXECUTE SUCCEEDED **\n",
+            errors,
+        )
+        self.assertTrue(
+            any("does not record test success" in error for error in errors)
+        )
+
+        errors = []
+        self.verifier._check_xcodebuild_log_text(
+            "** TEST EXECUTE SUCCEEDED **\n** TEST EXECUTE FAILED **\n",
+            errors,
+        )
+        self.assertTrue(
+            any("does not record test success" in error for error in errors)
+        )
+
         errors = []
         self.verifier._check_xcodebuild_log_text(
             "** TEST SUCCEEDED **\n",

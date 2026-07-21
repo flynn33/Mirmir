@@ -1218,7 +1218,17 @@ class R03ProductQualificationVerifier:
         expected_invocation: dict[str, str] | None = None,
     ) -> None:
         errors.extend(_privacy_errors(value, "R03 v2 xcodebuild log"))
-        if "** TEST SUCCEEDED **" not in value or "** TEST FAILED **" in value:
+        lines = value.splitlines()
+        success_markers = (
+            "** TEST SUCCEEDED **",
+            "** TEST EXECUTE SUCCEEDED **",
+        )
+        failure_markers = (
+            "** TEST FAILED **",
+            "** TEST EXECUTE FAILED **",
+        )
+        success_count = sum(lines.count(marker) for marker in success_markers)
+        if success_count != 1 or any(marker in lines for marker in failure_markers):
             errors.append("R03 v2 xcodebuild log does not record test success")
         if expected_invocation is not None:
             marker = (
