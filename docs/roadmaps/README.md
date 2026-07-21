@@ -12,6 +12,7 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`.
 - [R01 Phase Evidence](evidence/r01/phase-evidence.md)
 - [R02 Preregistration](evidence/r02/records/preregistration.json)
 - [R02 Deterministic Fixture Catalog](evidence/r02/records/fixtures/fixture-catalog.json)
+- [R02 Deterministic Software Conformance](evidence/r02/records/conformance.json) — local unpublished evidence; phase acceptance not claimed
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
