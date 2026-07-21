@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -81,15 +83,15 @@ struct AppleUpscaleCapability: Hashable, Sendable {
             field: "framework_identity"
         )
         if observationStatus == .notObserved,
-           (runtimeDisposition != .diagnosticOnly || backendEligibility != .notEvaluated) {
+           runtimeDisposition != .diagnosticOnly || backendEligibility != .notEvaluated {
             throw AppleUpscaleContractError.invalidCapabilityQualification(id.rawValue)
         }
         if backendEligibility == .fixtureOnly,
-           (observationStatus != .observed || runtimeDisposition != .runnable) {
+           observationStatus != .observed || runtimeDisposition != .runnable {
             throw AppleUpscaleContractError.invalidCapabilityQualification(id.rawValue)
         }
         if backendEligibility == .productQualified,
-           (observationStatus != .observed || runtimeDisposition != .runnable) {
+           observationStatus != .observed || runtimeDisposition != .runnable {
             throw AppleUpscaleContractError.invalidCapabilityQualification(id.rawValue)
         }
 
@@ -647,3 +649,5 @@ private func validateAppleUpscaleFrameTiming(
         throw AppleUpscaleContractError.invalidDuration
     }
 }
+
+// swiftlint:enable file_length

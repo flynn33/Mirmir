@@ -131,7 +131,8 @@ func makeTimingSnapshot(
 func writeOneFrameVideo(
     to url: URL,
     resolution: VideoResolution,
-    duration: CMTime
+    duration: CMTime,
+    pixelFormat: OSType = PixelBufferBridge.preferredFormat
 ) async throws {
     let writer: AVAssetWriter
     do {
@@ -156,7 +157,7 @@ func writeOneFrameVideo(
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
         assetWriterInput: input,
         sourcePixelBufferAttributes: [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
+            kCVPixelBufferPixelFormatTypeKey as String: pixelFormat,
             kCVPixelBufferWidthKey as String: resolution.width,
             kCVPixelBufferHeightKey as String: resolution.height,
             kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()

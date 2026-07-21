@@ -1,6 +1,8 @@
 import AVFoundation
+import AudioToolbox
 import CoreMedia
 import CoreVideo
+import CryptoKit
 import Foundation
 
 struct OutputMediaVerifier: OutputMediaVerifying {
@@ -40,7 +42,8 @@ struct OutputMediaVerifier: OutputMediaVerifying {
             let payload = try OutputMediaVerifier.verifyPlanes(
                 pixelBuffer: pixelBuffer,
                 frameIndex: frameCount,
-                resolution: expectation.resolution
+                resolution: expectation.resolution,
+                colorExpectation: expectation.videoColor
             )
             lumaPayloadBytes += payload.luma
             chromaPayloadBytes += payload.chroma
@@ -70,6 +73,12 @@ struct OutputMediaVerifier: OutputMediaVerifying {
             expected: expectation.timedMetadata,
             expectedEndTime: expectedEndTime
         )
+        if let expectedAAC = expectation.compressedAACIdentity {
+            let actualAAC = try await OutputMediaAACIdentityReader.read(
+                asset: reopened.asset
+            )
+            try Self.verifyCompressedAAC(actualAAC, expected: expectedAAC)
+        }
 
         return OutputMediaVerificationResult(
             codec: reopened.codec,
@@ -120,6 +129,12 @@ private extension OutputMediaVerifier {
                 throw OutputMediaVerificationError.dimensionsMismatch(
                     expected: expectation.resolution,
                     actual: resolution
+                )
+            }
+            if let expectedColor = expectation.videoColor {
+                try verifyVideoColor(
+                    formatDescription: videoFormat,
+                    expected: expectedColor
                 )
             }
             return ReopenedOutput(
@@ -360,13 +375,15 @@ private extension OutputMediaVerifier {
     private static func verifyPlanes(
         pixelBuffer: CVPixelBuffer,
         frameIndex: Int,
-        resolution: VideoResolution
+        resolution: VideoResolution,
+        colorExpectation: OutputMediaVideoColorExpectation?
     ) throws -> (luma: Int, chroma: Int) {
         let actualFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard actualFormat == PixelBufferBridge.preferredFormat else {
+        let expectedFormat = colorExpectation?.pixelFormat ?? PixelBufferBridge.preferredFormat
+        guard actualFormat == expectedFormat else {
             throw OutputMediaVerificationError.pixelFormatMismatch(
                 frameIndex: frameIndex,
-                expected: PixelBufferBridge.preferredFormat,
+                expected: expectedFormat,
                 actual: actualFormat
             )
         }
@@ -378,6 +395,12 @@ private extension OutputMediaVerifier {
             throw OutputMediaVerificationError.dimensionsMismatch(
                 expected: resolution,
                 actual: actualResolution
+            )
+        }
+        if let colorExpectation {
+            try verifyDecodedVideoColor(
+                pixelBuffer: pixelBuffer,
+                expected: colorExpectation
             )
         }
         let planeCount = CVPixelBufferGetPlaneCount(pixelBuffer)

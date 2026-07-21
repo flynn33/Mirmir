@@ -139,14 +139,6 @@ struct EnhancementPipelineStageBinding: Hashable, Sendable {
 struct EnhancementPipelinePrimaryBinding: Hashable, Sendable {
     let stageID: AppleUpscaleStageID
     let routeIdentity: AppleUpscaleRouteIdentity
-
-    init(
-        stageID: AppleUpscaleStageID,
-        routeIdentity: AppleUpscaleRouteIdentity
-    ) {
-        self.stageID = stageID
-        self.routeIdentity = routeIdentity
-    }
 }
 
 struct EnhancementPipelinePlan: Sendable {

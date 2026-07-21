@@ -188,6 +188,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     let outputTransaction: AtomicMediaOutput
     let outputVerifier: any OutputMediaVerifying
     let telemetry: any ASHTelemetryRecording
+    let expectedCompressedAACIdentity: OutputMediaAACIdentity?
     let lifecycleLock = NSLock()
     let timingLock = NSLock()
 
@@ -218,6 +219,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
         let videoTimeRange = try await videoTrack.load(.timeRange)
+        let videoTimeScale = try await videoTrack.load(.naturalTimeScale)
         try await AVFoundationMediaPipeline.validateSupportedColorProfile(
             track: videoTrack,
             formats: videoFormats
@@ -241,6 +243,14 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         } else {
             audioFormatDescription = nil
         }
+        let expectedCompressedAACIdentity: OutputMediaAACIdentity?
+        if audioTrack != nil {
+            expectedCompressedAACIdentity = try await OutputMediaAACIdentityReader().read(
+                url: source.url
+            )
+        } else {
+            expectedCompressedAACIdentity = nil
+        }
 
         return try AVFoundationMediaSession(
             metal: metal,
@@ -251,9 +261,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             asset: asset,
             videoTrack: videoTrack,
             sourceVideoEndTime: CMTimeRangeGetEnd(videoTimeRange),
+            videoTimeScale: videoTimeScale,
             videoTransform: videoTransform,
             audioTrack: audioTrack,
-            audioFormatDescription: audioFormatDescription
+            audioFormatDescription: audioFormatDescription,
+            expectedCompressedAACIdentity: expectedCompressedAACIdentity
         )
     }
 
@@ -266,9 +278,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         asset: AVURLAsset,
         videoTrack: AVAssetTrack,
         sourceVideoEndTime: CMTime,
+        videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform,
         audioTrack: AVAssetTrack?,
-        audioFormatDescription: CMFormatDescription?
+        audioFormatDescription: CMFormatDescription?,
+        expectedCompressedAACIdentity: OutputMediaAACIdentity?
     ) throws {
         guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
             throw MediaPipelineError.inputOutputCollision(source.url)
@@ -287,6 +301,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let writerInputs = try Self.configureWriterInputs(
             writer: writer,
             output: output,
+            videoTimeScale: videoTimeScale,
             videoTransform: videoTransform,
             audioOutput: readerOutputs.audio,
             audioFormatDescription: audioFormatDescription
@@ -315,6 +330,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.outputTransaction = outputTransaction
         self.outputVerifier = outputVerifier
         self.telemetry = telemetry
+        self.expectedCompressedAACIdentity = expectedCompressedAACIdentity
         telemetry.recordMedia(ASHMediaObservation(
             kind: "reader_writer_started",
             details: [

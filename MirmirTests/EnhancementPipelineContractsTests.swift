@@ -1,8 +1,11 @@
+// swiftlint:disable file_length
+
 import CoreMedia
 import CoreVideo
 import XCTest
 @testable import Mirmir
 
+// swiftlint:disable type_body_length
 final class EnhancementPipelineContractsTests: XCTestCase {
     func testFiveStageProtocolsInvokeDistinctTypedOperations() async throws {
         let route = try makeRoute(backendID: "r02.fixture.copy-a")
@@ -413,6 +416,7 @@ final class EnhancementPipelineContractsTests: XCTestCase {
         return pixelBuffer
     }
 }
+// swiftlint:enable type_body_length
 
 private final class PipelinePreprocessingStage: AppleUpscalePreprocessingStage,
     @unchecked Sendable {
@@ -554,3 +558,5 @@ private final class PipelineAnalysisStage: AppleUpscaleAnalysisStage,
         .processed(frame)
     }
 }
+
+// swiftlint:enable file_length

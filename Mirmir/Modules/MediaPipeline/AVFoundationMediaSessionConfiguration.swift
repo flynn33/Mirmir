@@ -60,11 +60,17 @@ extension AVFoundationMediaSession {
     static func configureWriterInputs(
         writer: AVAssetWriter,
         output: OutputProfile,
+        videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform,
         audioOutput: AVAssetReaderTrackOutput?,
         audioFormatDescription: CMFormatDescription?
     ) throws -> WriterInputs {
-        let videoInput = makeVideoInput(output: output, videoTransform: videoTransform)
+        let videoInput = try makeVideoInput(
+            output: output,
+            videoTimeScale: videoTimeScale,
+            videoTransform: videoTransform
+        )
+        writer.movieTimeScale = videoTimeScale
         let adaptor = makeVideoAdaptor(videoInput: videoInput, resolution: output.resolution)
         guard writer.canAdd(videoInput) else {
             throw MediaPipelineError.cannotAddWriterInput("video")
@@ -78,7 +84,8 @@ extension AVFoundationMediaSession {
         )
         let timedMetadata = try makeTimedMetadataWriter(
             writer: writer,
-            template: output.timedMetadataTemplate
+            template: output.timedMetadataTemplate,
+            mediaTimeScale: videoTimeScale
         )
         return WriterInputs(
             video: videoInput,
@@ -159,7 +166,8 @@ extension AVFoundationMediaSession {
 
     private static func makeTimedMetadataWriter(
         writer: AVAssetWriter,
-        template: [String: String]
+        template: [String: String],
+        mediaTimeScale: CMTimeScale
     ) throws -> TimedMetadataWriter? {
         guard !template.isEmpty else { return nil }
         guard template.allSatisfy({ key, value in
@@ -182,6 +190,7 @@ extension AVFoundationMediaSession {
             sourceFormatHint: templateGroup.copyFormatDescription()
         )
         input.expectsMediaDataInRealTime = false
+        input.mediaTimeScale = mediaTimeScale
         guard writer.canAdd(input) else {
             throw MediaPipelineError.cannotAddWriterInput("ASH identity metadata")
         }
@@ -210,14 +219,21 @@ extension AVFoundationMediaSession {
 
     private static func makeVideoInput(
         output: OutputProfile,
+        videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform
-    ) -> AVAssetWriterInput {
+    ) throws -> AVAssetWriterInput {
+        guard videoTimeScale > 0 else {
+            throw MediaPipelineError.invalidFrameTiming(
+                "source video track has a nonpositive natural timescale: \(videoTimeScale)"
+            )
+        }
         let videoOutputSettings = ProductVideoOutputSettings.make(
             resolution: output.resolution,
             codec: output.codec
         )
         let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
         videoInput.expectsMediaDataInRealTime = false
+        videoInput.mediaTimeScale = videoTimeScale
         videoInput.transform = videoTransform
         return videoInput
     }

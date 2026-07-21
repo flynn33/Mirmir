@@ -3,6 +3,7 @@ import CoreVideo
 import XCTest
 @testable import Mirmir
 
+// swiftlint:disable type_body_length
 final class AppleUpscaleContractsTests: XCTestCase {
     func testCapabilityRegistryPreservesOrderAndDoesNotInferEligibility() throws {
         let diagnosticID = try AppleUpscaleCapabilityID("A01")
@@ -389,6 +390,7 @@ final class AppleUpscaleContractsTests: XCTestCase {
         }
     }
 }
+// swiftlint:enable type_body_length
 
 private actor FixtureAppleUpscaleSession: AppleUpscaleSession {
     let identity: AppleUpscaleRouteIdentity
