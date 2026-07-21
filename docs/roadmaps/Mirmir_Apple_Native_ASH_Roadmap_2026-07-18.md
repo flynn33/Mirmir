@@ -631,6 +631,26 @@ Establish trustworthy reference paths before learned super resolution.
 - exact same media transaction behavior; and
 - no quality claim beyond measured evidence.
 
+### Progress update — 2026-07-20
+
+The frozen R03 contract and catalog were preregistered locally in commit
+`21596ebc520ec9bfe604dafa588d16d066f7f492`. The ten-subject implementation is
+bound to commit `767cbc4673678a699c3f98903b6c7801a87e91d4` and tree
+`9c40a216c21eba77a92d5d1240d4b6475ce5fb48`. The focused macOS Xcode suites for
+the shared session, vImage, MPS, Core Image, VideoToolbox pixel transfer,
+guided/edge support stages, and ASH comparator pass; SwiftLint reports zero
+violations.
+
+R03 remains `in_progress` and is not accepted. Contract preflight found that the
+frozen `media-transaction-2x` scenario assigns a 16×8-to-16×8 exact R02 member to
+the 1920×1080-to-3840×2160 R03 route. Those contracts cannot be executed together
+without changing frozen evidence. The fail-closed conformance record is therefore
+`blocked`, the affected media checks fail, and every subject and metric is
+`not_observed`. Hardware, simulator, and operator observation were not performed
+and are not blockers under the operator override. No 2× media coverage, runtime
+support, product qualification, default selection, performance, acceptance,
+publication, or release claim is made.
+
 ### Exit gate
 
 One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.

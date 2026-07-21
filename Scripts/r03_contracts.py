@@ -31,6 +31,9 @@ FIXTURE_CATALOG_SCHEMA_PATH = Path("docs/roadmaps/evidence/schema/r03-fixture-ca
 CONFORMANCE_PATH = Path("docs/roadmaps/evidence/r03/records/baseline-conformance.json")
 CONFORMANCE_SCHEMA_PATH = Path("docs/roadmaps/evidence/schema/r03-baseline-conformance-v1.json")
 R02_CONFORMANCE_PATH = Path("docs/roadmaps/evidence/r02/records/conformance.json")
+R02_FIXTURE_CATALOG_PATH = Path(
+    "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json"
+)
 ROADMAP_PATH = Path("docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json")
 
 PREDECESSOR = {
@@ -74,10 +77,19 @@ CONFORMANCE_OBSERVATION_STATUS_FAILED = {
     "deterministic_software_conformance": "failed",
 }
 CONFORMANCE_LIMITATIONS = (
-    "Hardware capability observation was not performed and is not required for this local closure.",
-    "Simulator execution was not performed and is not required for this local closure.",
-    "Operator-observed operation was not performed and is not required for this local closure.",
-    "Unavailable runtime evidence is recorded per subject as not_observed; no product qualification, production default, publication, acceptance, release, holdout, Auto-mode, or performance claim is authorized.",
+    "The exact bound R02 media transaction is 16x8 to 16x8, while the frozen R03 scale_2x route is 1920x1080 to 3840x2160; the contracts cannot be executed together.",
+    "The R03 evidence run stopped at contract preflight before subject execution; every subject and metric is not_observed.",
+    "Hardware, simulator, and operator observation were not performed; no 2x media-transaction, runtime-support, quality, repeatability, resource, or performance observation is claimed.",
+    "No product qualification, production default, publication, acceptance, release, holdout, Auto-mode, or performance claim is authorized.",
+)
+MEDIA_TRANSACTION_FAILED_CHECK_IDS = frozenset(
+    {
+        "dimensions_exact",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+    }
 )
 DISPOSITION_REASONS = {
     "qualified": "complete_observed_matrix_satisfied_frozen_floors",
@@ -1067,6 +1079,112 @@ class R03ContractVerifier:
         if conformance.get("limitations") != list(CONFORMANCE_LIMITATIONS):
             errors.append("R03 conformance limitations differ from the frozen boundary")
 
+    def _media_transaction_route_is_compatible(
+        self, errors: list[str]
+    ) -> bool:
+        r03_catalog = self._read_json(
+            FIXTURE_CATALOG_PATH,
+            "R03 fixture catalog for media-route preflight",
+            errors,
+        )
+        r02_catalog = self._read_json(
+            R02_FIXTURE_CATALOG_PATH,
+            "R02 fixture catalog for media-route preflight",
+            errors,
+        )
+        if r03_catalog is None or r02_catalog is None:
+            return False
+
+        r03_fixtures = r03_catalog.get("fixtures")
+        r03_routes = r03_catalog.get("routes")
+        r02_fixtures = r02_catalog.get("fixtures")
+        catalog_arrays = (r03_fixtures, r03_routes, r02_fixtures)
+        if not all(isinstance(values, list) for values in catalog_arrays):
+            errors.append("R03 media-route preflight catalogs have invalid arrays")
+            return False
+
+        transaction = next(
+            (
+                item
+                for item in r03_fixtures
+                if isinstance(item, dict) and item.get("id") == "media-transaction-2x"
+            ),
+            None,
+        )
+        if not isinstance(transaction, dict):
+            errors.append("R03 media-route preflight transaction is absent")
+            return False
+        member_ids = transaction.get("member_ids")
+        if not isinstance(member_ids, list) or member_ids != ["fixture-media-transaction"]:
+            errors.append("R03 media-route preflight member differs")
+            return False
+        route = next(
+            (
+                item
+                for item in r03_routes
+                if isinstance(item, dict) and item.get("id") == transaction.get("route_id")
+            ),
+            None,
+        )
+        member = next(
+            (
+                item
+                for item in r02_fixtures
+                if isinstance(item, dict) and item.get("id") == member_ids[0]
+            ),
+            None,
+        )
+        if not isinstance(route, dict) or not isinstance(member, dict):
+            errors.append("R03 media-route preflight route or exact R02 member is absent")
+            return False
+        return (
+            member.get("source_dimensions") == route.get("input_dimensions")
+            and member.get("target_dimensions") == route.get("output_dimensions")
+        )
+
+    def _check_media_transaction_closure(
+        self, conformance: dict[str, Any], errors: list[str]
+    ) -> None:
+        if self._media_transaction_route_is_compatible(errors):
+            return
+
+        result = conformance.get("result")
+        if not isinstance(result, dict) or result.get("status") != "blocked":
+            errors.append("R03 incompatible media route requires a blocked result")
+        checks = conformance.get("checks")
+        failed_checks = {
+            item.get("id")
+            for item in checks
+            if isinstance(item, dict) and item.get("status") == "failed"
+        } if isinstance(checks, list) else set()
+        if failed_checks != MEDIA_TRANSACTION_FAILED_CHECK_IDS:
+            errors.append(
+                "R03 incompatible media route requires the exact failed media check set"
+            )
+        backends = conformance.get("backend_results")
+        backend_values = backends if isinstance(backends, list) else []
+
+        def carries_observation(backend: dict[str, Any]) -> bool:
+            metrics = backend.get("metric_results")
+            if backend.get("execution_status") != "not_observed":
+                return True
+            if not isinstance(metrics, list):
+                return True
+            return any(
+                not isinstance(metric, dict)
+                or metric.get("status") != "not_observed"
+                for metric in metrics
+            )
+
+        if any(
+            carries_observation(backend)
+            for backend in backend_values
+            if isinstance(backend, dict)
+        ):
+            errors.append(
+                "R03 incompatible media route forbids observed subject or metric evidence"
+            )
+
     def check_conformance(self) -> list[str]:
         errors = self.check_preregistration()
         value = self._read_and_validate(
@@ -1090,6 +1208,7 @@ class R03ContractVerifier:
                 errors,
             )
             self._check_conformance_semantics(value, errors)
+            self._check_media_transaction_closure(value, errors)
         return errors
 
 

@@ -590,6 +590,24 @@ support stages, and the retained ASH/custom-Metal comparator. Initial
 qualification remains 8-bit NV12, SDR BT.709, 720p-to-1080p and 1080p-to-4K;
 R12 owns format expansion.
 
+Local implementation progress as of 2026-07-20: preregistration commit
+`21596ebc520ec9bfe604dafa588d16d066f7f492` freezes the ten-subject matrix, and
+implementation commit `767cbc4673678a699c3f98903b6c7801a87e91d4` (tree
+`9c40a216c21eba77a92d5d1240d4b6475ce5fb48`) implements the genuine framework
+adapters and focused contract tests. The complete focused R03 Xcode selection
+passes and SwiftLint is clean.
+
+The frozen evidence preflight is fail-closed: `media-transaction-2x` is assigned
+to the 1920×1080-to-3840×2160 route, but its exact bound R02 member is
+16×8-to-16×8. The phase record is `blocked` with deterministic software
+conformance failed, the affected media checks failed, and all subject executions
+and metrics `not_observed`. R03 remains canonical `in_progress`; no 2× media,
+runtime support, product qualification, default, performance, acceptance,
+publication, or release claim follows. Hardware, simulator, and operator
+observation remain `not_observed` and non-blocking under the explicit override.
+The operator-directed local R02-through-R07 continuation remains implementation
+authority only and does not convert this negative R03 evidence into success.
+
 Preregister correctness, ringing, edge, chroma, temporal, throughput, memory,
 and resource floors. Eliminate nonqualifying and dominated candidates. Among
 remaining qualifying candidates, choose the normal deterministic product default

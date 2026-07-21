@@ -18,12 +18,14 @@ from r03_contracts import (  # noqa: E402
     BACKEND_IDS,
     CHECK_IDS,
     CONFORMANCE_LIMITATIONS,
+    CONFORMANCE_OBSERVATION_STATUS_FAILED,
     CONFORMANCE_OBSERVATION_STATUS_PASSED,
     CONFORMANCE_SCHEMA_PATH,
     DISPOSITION_REASONS,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SEMANTIC_SHA256,
     METRIC_CONTRACTS,
+    MEDIA_TRANSACTION_FAILED_CHECK_IDS,
     PASSING_METRIC_VALUES,
     PREDECESSOR,
     PREREGISTRATION_PATH,
@@ -142,6 +144,15 @@ class R03ContractTests(unittest.TestCase):
             },
             "limitations": list(CONFORMANCE_LIMITATIONS),
         }
+
+    def blocked_conformance(self) -> dict[str, object]:
+        record = self.valid_conformance()
+        record["observation_status"] = dict(CONFORMANCE_OBSERVATION_STATUS_FAILED)
+        record["result"]["status"] = "blocked"
+        for check in record["checks"]:
+            if check["id"] in MEDIA_TRANSACTION_FAILED_CHECK_IDS:
+                check["status"] = "failed"
+        return record
 
     @staticmethod
     def make_observed(backend: dict[str, object], disposition: str) -> None:
@@ -303,11 +314,53 @@ class R03ContractTests(unittest.TestCase):
         metric_result = schema["$defs"]["metricResult"]
         self.assertIs(metric_result["additionalProperties"], False)
 
-    def test_all_runtime_subjects_may_be_not_observed_without_blocking(self) -> None:
+    def test_incompatible_media_route_requires_fail_closed_record(self) -> None:
         record = self.valid_conformance()
         schema = read_json(CONFORMANCE_SCHEMA_PATH)
         self.assertEqual(validate_json_schema_instance(schema, record), [])
         self.assertEqual(self.conformance_errors(record), [])
+        errors: list[str] = []
+        self.verifier._check_media_transaction_closure(record, errors)
+        self.assertTrue(any("requires a blocked result" in error for error in errors))
+
+        blocked = self.blocked_conformance()
+        self.assertEqual(validate_json_schema_instance(schema, blocked), [])
+        self.assertEqual(self.conformance_errors(blocked), [])
+        errors = []
+        self.verifier._check_media_transaction_closure(blocked, errors)
+        self.assertEqual(errors, [])
+
+    def test_media_route_preflight_rejects_observation_and_check_drift(self) -> None:
+        mutations = []
+
+        passed = self.blocked_conformance()
+        passed["result"]["status"] = "passed"
+        mutations.append(("passed_result", passed))
+
+        missing_check = self.blocked_conformance()
+        failed = next(
+            check
+            for check in missing_check["checks"]
+            if check["id"] in MEDIA_TRANSACTION_FAILED_CHECK_IDS
+        )
+        failed["status"] = "passed"
+        mutations.append(("missing_failed_check", missing_check))
+
+        observed = self.blocked_conformance()
+        observed["backend_results"][0]["execution_status"] = "observed"
+        mutations.append(("observed_subject", observed))
+
+        measured = self.blocked_conformance()
+        measured["backend_results"][0]["metric_results"][0].update(
+            status="measured", value=0, passed=True
+        )
+        mutations.append(("measured_metric", measured))
+
+        for name, mutation in mutations:
+            with self.subTest(name=name):
+                errors: list[str] = []
+                self.verifier._check_media_transaction_closure(mutation, errors)
+                self.assertTrue(errors)
 
     def test_conformance_binding_path_is_not_self_selected(self) -> None:
         binding = self.file_binding(FIXTURE_CATALOG_PATH)

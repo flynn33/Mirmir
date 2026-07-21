@@ -20,7 +20,7 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`; `R03: in_
 
 Verified source hashes:
 
-- Markdown: `c181ed784888f082bc5e0d2be4a31041bdceb009ab9de648dbc8f78f8f96fda9`
+- Markdown: `4b81174ffa114d9d5519a4d995a350ba1d61c7459778cc091552fb9e18e5194c`
 - JSON: `c5778e68a1dc822d6cc0a0430e589fa05d2d784a765c5bc19f4b07047211c720`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.
