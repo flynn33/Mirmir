@@ -16,8 +16,9 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   IDs, and authorization values;
 - the phase-status vocabulary and prerequisite rule: a phase marked `next`,
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
-  to be `passed`, except the exact policy-scoped R03, R04, and R05 `in_progress` local
-  continuations from their recorded unpublished predecessor closures;
+  to be `passed`, except the exact policy-scoped R03, R04, R05, and R06
+  `in_progress` local continuations from their recorded unpublished predecessor
+  closures;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
 - required roadmap, evidence-status, and historical-status language in the aligned
@@ -27,7 +28,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
-- status-sensitive phase-start contracts: R02, R03, R04, and R05 `in_progress`,
+- status-sensitive phase-start contracts: R02, R03, R04, R05, and R06 `in_progress`,
   `evidence_ready`, and `passed` states require regular, non-symlink
   preregistration and fixture-catalog files, whose dedicated validators preserve
   exact unpublished predecessor truth and the operator-observation boundary;
@@ -44,7 +45,7 @@ request become visible without making the required check network-dependent.
 ## Updating progress
 
 Change phase statuses only in the canonical roadmap JSON after the corresponding
-roadmap decision and evidence have been accepted. Two narrow exceptions apply
+roadmap decision and evidence have been accepted. Four narrow exceptions apply
 when direct operator instruction authorizes local implementation from an exact,
 recorded phase-specific local closure:
 
@@ -68,8 +69,20 @@ recorded phase-specific local closure:
   `local_unpublished_diagnostic_only_closure` and
   `predecessor_result: diagnostic_only`; product qualification, a production
   default, and acceptance remain unclaimed.
+- R06 may be `in_progress` while R05 remains `in_progress` only when its regular
+  preregistration exactly binds R05 closure commit
+  `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a` and tree
+  `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`. The bound R05 result is
+  `diagnostic_only`, with closure state
+  `local_unpublished_diagnostic_only_closure` and
+  `predecessor_result: diagnostic_only`; product qualification, a production
+  default, and acceptance remain unclaimed. R06 depends directly on R05; R04
+  remains only a transitive unresolved dependency through R05. Hardware,
+  simulator, and operator observation availability is non-blocking; unavailable
+  observations are recorded as `not_observed` and create no runtime, quality, or
+  performance claim.
 
-All three preregistrations record `accepted_merge_commit: null`,
+All four preregistrations record `accepted_merge_commit: null`,
 `acceptance_state: not_claimed`, and
 `continuation_scope: local_implementation_only`; each closure must be an ancestor
 of `HEAD`. The exceptions never apply to `next`, `evidence_ready`, or `passed`.
@@ -82,7 +95,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -97,6 +110,9 @@ test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || pyt
 python3 Scripts/r05_contracts.py --check-preregistration
 python3 Scripts/r05_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance
+python3 Scripts/r06_contracts.py --check-preregistration
+python3 Scripts/r06_contracts.py --check-fixtures
+test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

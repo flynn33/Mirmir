@@ -30,9 +30,9 @@ market-position claim.
 
 `[#---------]`
 
-**Status:** ✅ Passed `2` · 🔄 In progress `4` · ⬜ Planned `7` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · 🔄 In progress `5` · ⬜ Planned `6` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision
+**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -42,7 +42,7 @@ market-position claim.
 | `R03` | Deterministic Apple-native baseline suite | `in_progress` | 🔄 In progress |
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
-| `R06` | ASH orchestration engine v1 | `planned` | ⬜ Planned |
+| `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
 | `R07` | Temporal stability and artifact governance | `planned` | ⬜ Planned |
 | `R08` | Core AI analysis-only integration | `planned` | ⬜ Planned |
 | `R09` | Core AI bounded residual experiment | `blocked` | ⛔ Blocked |
@@ -883,7 +883,7 @@ A rejection is a valid successful result.
 
 ## R06 — ASH orchestration engine v1
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -908,6 +908,35 @@ Move ASH from pixel reconstruction to deterministic pipeline control.
 - ASH plus continuous sidecar;
 - ASH without hysteresis;
 - ASH without postflight feedback.
+
+### Local implementation start — 2026-07-21
+
+R06 starts only under the operator-directed local-continuation boundary. Its
+preregistration binds the exact local R05 diagnostic-only closure commit
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a` and tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, with
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 depends directly on R05;
+R04 remains a transitive unresolved dependency through R05. R03, R04, and R05
+remain canonical `in_progress`, local unpublished, unaccepted, and unqualified.
+
+The frozen R06 software slice is fixture-only. It preserves the existing
+nine-bit `ASHState`, maps all sixteen four-bit `ASHMessage` values to versioned
+policy profiles, uses immutable continuous context, integer score components,
+stable lexical tie-breaking, one whole-frame route, typed transition reasons,
+hysteresis, minimum dwell, scene-cut reset, fatal failover, and bounded luma,
+chroma, and postprocess masks. The six required ablation configurations may be
+exercised only as deterministic software fixtures.
+
+No R03-R05 backend is product-qualified. Product admission must therefore stop
+before scoring or route construction with
+`reason: no_product_qualified_primary_backend`,
+`eligible_backend_count: 0`, and null selected route, plan, and output. All six
+product ablations remain `not_observed`, and the preregistered local result is
+fail-closed `blocked`. That block is caused by the absence of a product-qualified
+primary backend, not by hardware, simulator, or operator observation. Those
+observations remain non-blocking `not_observed`. This start makes no product,
+quality, performance, default, acceptance, publication, or release claim.
 
 ### Exit gate
 

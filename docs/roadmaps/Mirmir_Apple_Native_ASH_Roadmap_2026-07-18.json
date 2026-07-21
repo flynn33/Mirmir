@@ -252,13 +252,12 @@
     },
     {
       "depends_on": [
-        "R04",
         "R05"
       ],
       "exit": "verified ASH orchestration contract; unavailable product ablation recorded as not_observed",
       "id": "R06",
       "name": "ASH orchestration engine v1",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [

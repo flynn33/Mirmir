@@ -246,6 +246,45 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     "R05 phase_start_requirements differ from the frozen contract"
                 )
 
+    def test_in_progress_r06_requires_every_start_contract_file(self) -> None:
+        start_path = self.root / self.policy["phase_start_requirements"]["R06"][
+            "paths"
+        ][1]
+        start_path.unlink()
+        self.assert_error_contains(
+            "phase R06 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_in_progress_r06_rejects_symlinked_start_contract(self) -> None:
+        relative = self.policy["phase_start_requirements"]["R06"]["paths"][1]
+        symlink_path = self.root / relative
+        target = self.root / "r06-start-target.json"
+        target.write_bytes(symlink_path.read_bytes())
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R06 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_r06_phase_start_requirement_is_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_start_requirements"]["R06"]["paths"].pop()
+        mutations.append(missing_path)
+
+        extra_status = copy.deepcopy(self.policy)
+        extra_status["phase_start_requirements"]["R06"]["statuses"].append("planned")
+        mutations.append(extra_status)
+
+        for mutation in mutations:
+            with self.subTest(mutation=mutation["phase_start_requirements"]["R06"]):
+                self.write_json(path, mutation)
+                self.assert_error_contains(
+                    "R06 phase_start_requirements differ from the frozen contract"
+                )
+
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
         self.assertFalse(
             any("phase R03 is 'in_progress' before dependency R02" in error for error in self.errors()),
@@ -300,6 +339,51 @@ class RoadmapAlignmentTests(unittest.TestCase):
         value["predecessor_binding"]["predecessor_result"] = "passed"
         self.write_json(path, value)
         self.assert_error_contains("local continuation predecessor binding differs")
+
+    def test_in_progress_r06_uses_exact_local_continuation_exception(self) -> None:
+        self.assertFalse(
+            any(
+                "phase R06 is 'in_progress' before dependency R05" in error
+                for error in self.errors()
+            ),
+            self.errors(),
+        )
+
+    def test_r06_exception_never_waives_next_or_closure_statuses(self) -> None:
+        for status in ("next", "evidence_ready", "passed"):
+            with self.subTest(status=status):
+                self.set_phase_status("R06", status)
+                self.assert_error_contains(
+                    f"phase R06 is {status!r} before dependency R05 is passed"
+                )
+
+    def test_r06_exception_requires_regular_valid_preregistration(self) -> None:
+        relative = self.policy["local_continuation_exceptions"]["R06"][
+            "preregistration_path"
+        ]
+        (self.root / relative).unlink()
+        self.assert_error_contains("requires a regular preregistration file")
+
+    def test_r06_exception_rejects_predecessor_binding_drift(self) -> None:
+        relative = self.policy["local_continuation_exceptions"]["R06"][
+            "preregistration_path"
+        ]
+        path = self.root / relative
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["predecessor_binding"]["predecessor_result"] = "passed"
+        self.write_json(path, value)
+        self.assert_error_contains("local continuation predecessor binding differs")
+
+    def test_r06_exception_rejects_symlinked_preregistration(self) -> None:
+        relative = self.policy["local_continuation_exceptions"]["R06"][
+            "preregistration_path"
+        ]
+        path = self.root / relative
+        target = self.root / "r06-preregistration-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains("requires a regular preregistration file")
 
     def test_r04_exception_requires_regular_valid_preregistration(self) -> None:
         relative = self.policy["local_continuation_exceptions"]["R04"][
@@ -365,7 +449,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         policy["local_continuation_exceptions"]["R03"]["unexpected"] = True
         self.write_json(path, policy)
         self.assert_error_contains(
-            "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+            "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
         )
 
     def test_r03_exception_identity_keys_are_exact(self) -> None:
@@ -376,7 +460,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         ]["unexpected"] = True
         self.write_json(path, policy)
         self.assert_error_contains(
-            "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+            "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
         )
 
     def test_r03_exception_predecessor_keys_are_exact(self) -> None:
@@ -387,7 +471,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         ] = True
         self.write_json(path, policy)
         self.assert_error_contains(
-            "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+            "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
         )
 
     def test_local_exceptions_reject_every_frozen_value_drift(self) -> None:
@@ -405,7 +489,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 paths.append(prefix)
             return paths
 
-        for phase_id in ("R03", "R04", "R05"):
+        for phase_id in ("R03", "R04", "R05", "R06"):
             exception = self.policy["local_continuation_exceptions"][phase_id]
             for value_path in leaf_paths(exception):
                 with self.subTest(phase_id=phase_id, value_path=value_path):
@@ -418,7 +502,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     target[final] = "drift" if original is None else f"{original}-drift"
                     self.write_json(policy_path, policy)
                     self.assert_error_contains(
-                        "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+                        "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
                     )
 
     def test_local_exceptions_reject_every_missing_field(self) -> None:
@@ -432,7 +516,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     paths.extend(field_paths(nested, prefix + (key,)))
             return paths
 
-        for phase_id in ("R03", "R04", "R05"):
+        for phase_id in ("R03", "R04", "R05", "R06"):
             exception = self.policy["local_continuation_exceptions"][phase_id]
             for field_path in field_paths(exception):
                 with self.subTest(phase_id=phase_id, field_path=field_path):
@@ -443,12 +527,12 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     target.pop(field_path[-1])
                     self.write_json(policy_path, policy)
                     self.assert_error_contains(
-                        "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+                        "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
                     )
 
     def test_local_exceptions_reject_required_key_order_drift(self) -> None:
         path = self.root / ".github/roadmap-alignment-policy.json"
-        for phase_id in ("R03", "R04", "R05"):
+        for phase_id in ("R03", "R04", "R05", "R06"):
             with self.subTest(phase_id=phase_id):
                 policy = copy.deepcopy(self.policy)
                 policy["local_continuation_exceptions"][phase_id][
@@ -456,18 +540,18 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 ].reverse()
                 self.write_json(path, policy)
                 self.assert_error_contains(
-                    "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+                    "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
                 )
 
-    def test_local_exceptions_reject_an_additional_r06_phase(self) -> None:
+    def test_local_exceptions_reject_an_additional_r07_phase(self) -> None:
         path = self.root / ".github/roadmap-alignment-policy.json"
         policy = copy.deepcopy(self.policy)
-        policy["local_continuation_exceptions"]["R06"] = copy.deepcopy(
+        policy["local_continuation_exceptions"]["R07"] = copy.deepcopy(
             policy["local_continuation_exceptions"]["R03"]
         )
         self.write_json(path, policy)
         self.assert_error_contains(
-            "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions"
+            "local_continuation_exceptions differ from the frozen R03/R04/R05/R06 exceptions"
         )
 
     def test_canonical_markdown_hash_drift_fails(self) -> None:
@@ -665,6 +749,44 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     self.assertIn(phrase, original)
                     path.write_text(
                         original.replace(phrase, "removed-r04-contract-command", 1),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
+
+    def test_r06_contract_commands_are_required_in_ci_and_guardrails(self) -> None:
+        common_required = (
+            "Scripts/tests/test_r06_contracts.py",
+            "python3 Scripts/r06_contracts.py --check-preregistration",
+            "python3 Scripts/r06_contracts.py --check-fixtures",
+        )
+        path_specific_required = {
+            ".github/workflows/roadmap-alignment.yml": (
+                "python3 Scripts/r06_contracts.py --check-conformance",
+                "if [[ -f docs/roadmaps/evidence/r06/records/"
+                "orchestration-conformance.json ]]; then",
+            ),
+            "Scripts/verify-mirmir-guardrails.sh": (
+                "python3 Scripts/r06_contracts.py --check-conformance",
+                "if [[ -f docs/roadmaps/evidence/r06/records/"
+                "orchestration-conformance.json ]]; then",
+            ),
+            "docs/governance/roadmap-alignment.md": (
+                "test ! -f docs/roadmaps/evidence/r06/records/"
+                "orchestration-conformance.json || python3 Scripts/r06_contracts.py "
+                "--check-conformance",
+            ),
+        }
+        for relative, path_specific in path_specific_required.items():
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            for phrase in common_required + path_specific:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
+                    path.write_text(
+                        original.replace(phrase, "removed-r06-contract-command", 1),
                         encoding="utf-8",
                     )
                     self.assert_error_contains(

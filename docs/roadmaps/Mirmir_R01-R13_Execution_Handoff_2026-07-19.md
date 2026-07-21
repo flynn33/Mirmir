@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.9
+- **Handoff version:** 2.0
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-21
@@ -49,8 +49,13 @@
 - **R05 implementation source:**
   `3e5188ece317d3ebc492c7a8e26345837836fc67`; tree
   `92b15f3948ffa38dc787136177551187bfb2fbbf`
+- **R05 local diagnostic-only closure:**
+  `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`; tree
+  `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`; acceptance not claimed
+- **R06 local preregistration source:** R05 diagnostic-only closure above;
+  `accepted_merge_commit: null`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
-  `R04: in_progress`; `R05: in_progress`
+  `R04: in_progress`; `R05: in_progress`; `R06: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -169,6 +174,33 @@ reopen, quality, performance, and baseline comparison remain `not_observed`.
 R05 remains canonical `in_progress`, local unpublished, disabled as a
 production default, and unaccepted.
 
+### R06 local implementation start — 2026-07-21
+
+R06 preregistration binds exact R05 diagnostic-only closure commit
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, as
+`local_unpublished_diagnostic_only_closure` with
+`predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
+`continuation_scope: local_implementation_only`. R05 remains canonical
+`in_progress` and unaccepted. R06 depends directly on R05; R04 remains
+transitively unresolved.
+
+The frozen R06 slice is fixture-only and preserves the existing nine-bit
+`ASHState`. It adds immutable continuous context, all sixteen versioned
+four-bit message profiles, integer scoring with stable lexical ties, exact
+eligibility filtering, one whole-frame route, typed hysteresis/dwell/cut/fatal-
+failover transitions, bounded luma/chroma/postprocess masks, and the six frozen
+ablation configurations.
+
+The current R03-R05 pool contains no product-qualified primary backend. Product
+admission must therefore stop before scoring and route construction with exact
+reason `no_product_qualified_primary_backend`, eligible count zero, and no
+route, plan, or output. All six product ablations remain `not_observed`; the
+preregistered local result is fail-closed `blocked` because of that eligibility
+boundary. Hardware, simulator, and operator observation remain non-blocking
+`not_observed` and are not the cause. No product, quality, performance,
+acceptance, publication, or release claim follows.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -179,13 +211,14 @@ Before changing source:
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
-   `R03: in_progress`, `R04: in_progress`, and `R05: in_progress` remain
+   `R03: in_progress`, `R04: in_progress`, `R05: in_progress`, and
+   `R06: in_progress` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
-5. Treat the exact R04 implementation/conformance checkpoint above as
-   diagnostic-only local evidence and continue the frozen R05 implementation
+5. Treat the exact R05 implementation/conformance checkpoint above as
+   diagnostic-only local evidence and continue the frozen R06 implementation
    contract. Do not convert
-   R03 or R04 into accepted or product-qualified phases. Except for the narrow
+   R03, R04, or R05 into accepted or product-qualified phases. Except for the narrow
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
 
@@ -793,6 +826,14 @@ no-hysteresis, and no-postflight ablations. Perturbations must causally affect
 only contracted policy decisions. R06 requires improvement in at least one
 primary product dimension over the best eligible fixed or continuous router
 without breaking any locked floor.
+
+Local start: the R06 preregistration binds R05 closure
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`. Deterministic fixture policy work
+may proceed, but product admission is frozen to
+`no_product_qualified_primary_backend` with zero eligible backends and no
+selected route, plan, or output. All six product ablations remain
+`not_observed`; R06 remains `in_progress`, local unpublished, and unaccepted.
 
 ### R07 - Temporal stability and artifact governance
 

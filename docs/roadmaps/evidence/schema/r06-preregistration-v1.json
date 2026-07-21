@@ -1,0 +1,250 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r06-preregistration-v1.json",
+  "title": "Mirmir R06 ASH orchestration preregistration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "predecessor_binding",
+    "observation_policy",
+    "fixture_catalog",
+    "schema_bindings",
+    "orchestration_contract",
+    "ash_state_contract",
+    "message_policy_contract",
+    "scoring_contract",
+    "transition_contract",
+    "mask_contract",
+    "product_gate",
+    "ablations",
+    "checks",
+    "stop_rules",
+    "authorization_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "roadmap_version": {"const": "1.0.1"},
+    "phase_id": {"const": "R06"},
+    "preregistration_state": {"const": "contract_frozen_for_local_implementation"},
+    "predecessor_binding": {"$ref": "#/$defs/predecessor"},
+    "observation_policy": {"$ref": "#/$defs/stringMap"},
+    "fixture_catalog": {"$ref": "#/$defs/binding"},
+    "schema_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preregistration", "fixture_catalog", "conformance"],
+      "properties": {
+        "preregistration": {"$ref": "#/$defs/binding"},
+        "fixture_catalog": {"$ref": "#/$defs/binding"},
+        "conformance": {"$ref": "#/$defs/binding"}
+      }
+    },
+    "orchestration_contract": {"$ref": "#/$defs/stringMap"},
+    "ash_state_contract": {"$ref": "#/$defs/stateContract"},
+    "message_policy_contract": {"$ref": "#/$defs/messageContract"},
+    "scoring_contract": {"$ref": "#/$defs/scoringContract"},
+    "transition_contract": {"$ref": "#/$defs/transitionContract"},
+    "mask_contract": {"$ref": "#/$defs/maskContract"},
+    "product_gate": {"$ref": "#/$defs/productGate"},
+    "ablations": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/ablation"}
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/namedDescription"}
+    },
+    "stop_rules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/namedDescription"}
+    },
+    "authorization_boundary": {"$ref": "#/$defs/stringOrNullMap"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase_id", "closure_state", "closure_commit", "closure_tree", "predecessor_result", "accepted_merge_commit", "acceptance_state", "continuation_scope"],
+      "properties": {
+        "phase_id": {"const": "R05"},
+        "closure_state": {"const": "local_unpublished_diagnostic_only_closure"},
+        "closure_commit": {"$ref": "#/$defs/gitObject"},
+        "closure_tree": {"$ref": "#/$defs/gitObject"},
+        "predecessor_result": {"const": "diagnostic_only"},
+        "accepted_merge_commit": {"type": "null"},
+        "acceptance_state": {"const": "not_claimed"},
+        "continuation_scope": {"const": "local_implementation_only"}
+      }
+    },
+    "stringMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "string"}
+    },
+    "stringOrNullMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": ["string", "null"]}
+    },
+    "stateContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["packed_state_type", "packed_bit_count", "payload_bit_count", "integrity_coordinate", "integrity_relation", "mutation_policy", "sidecar_type", "sidecar_version", "sidecar_mutability", "sidecar_fields"],
+      "properties": {
+        "packed_state_type": {"const": "ASHState"},
+        "packed_bit_count": {"const": 9},
+        "payload_bit_count": {"const": 8},
+        "integrity_coordinate": {"const": 9},
+        "integrity_relation": {"type": "string", "minLength": 1},
+        "mutation_policy": {"const": "canonical_packed_state_must_not_be_redefined"},
+        "sidecar_type": {"const": "ASHDecisionContext"},
+        "sidecar_version": {"const": "r06.v1"},
+        "sidecar_mutability": {"const": "immutable_value"},
+        "sidecar_fields": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "axis": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bit_index", "zero_policy", "one_policy"],
+      "properties": {
+        "bit_index": {"type": "integer", "minimum": 0, "maximum": 3},
+        "zero_policy": {"type": "string", "minLength": 1},
+        "one_policy": {"type": "string", "minLength": 1}
+      }
+    },
+    "messageContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["message_type", "message_bit_count", "raw_value_domain", "catalog_version", "profile_count", "profile_identity", "bit_axes", "single_bit_causality", "unmapped_policy_axis_mutation"],
+      "properties": {
+        "message_type": {"const": "ASHMessage"},
+        "message_bit_count": {"const": 4},
+        "raw_value_domain": {"const": "0...15"},
+        "catalog_version": {"const": "r06.policy.v1"},
+        "profile_count": {"const": 16},
+        "profile_identity": {"const": "policy_profile_id_equals_zero_padded_message_raw_value"},
+        "bit_axes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["denoise", "primary_backend_preference", "postprocess", "temporal_history"],
+          "properties": {
+            "denoise": {"$ref": "#/$defs/axis"},
+            "primary_backend_preference": {"$ref": "#/$defs/axis"},
+            "postprocess": {"$ref": "#/$defs/axis"},
+            "temporal_history": {"$ref": "#/$defs/axis"}
+          }
+        },
+        "single_bit_causality": {"const": "exactly_one_mapped_policy_axis_changes"},
+        "unmapped_policy_axis_mutation": {"const": "forbidden"}
+      }
+    },
+    "scoringContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arithmetic", "storage", "scale", "rounding", "overflow_policy", "formula", "component_order", "weights_source", "thresholds_source", "tie_break", "candidate_input_order"],
+      "properties": {
+        "arithmetic": {"const": "signed_integer_fixed_point"},
+        "storage": {"const": "Int64"},
+        "scale": {"const": 65536},
+        "rounding": {"const": "toward_zero"},
+        "overflow_policy": {"const": "fail_closed"},
+        "formula": {"type": "string", "minLength": 1},
+        "component_order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "weights_source": {"const": "constructor_bound_fixture_catalog"},
+        "thresholds_source": {"const": "constructor_bound_fixture_catalog"},
+        "tie_break": {"const": "lexical_route_id_ascending"},
+        "candidate_input_order": {"const": "must_not_affect_selection_or_records"}
+      }
+    },
+    "transitionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selection_scope", "maximum_selected_routes", "per_tile_route_selection", "hysteresis", "minimum_dwell", "scene_cut", "fatal_failure", "reason_ids"],
+      "properties": {
+        "selection_scope": {"const": "one_whole_frame_route_per_decision_interval"},
+        "maximum_selected_routes": {"const": 1},
+        "per_tile_route_selection": {"const": "forbidden"},
+        "hysteresis": {"type": "string", "minLength": 1},
+        "minimum_dwell": {"type": "string", "minLength": 1},
+        "scene_cut": {"type": "string", "minLength": 1},
+        "fatal_failure": {"type": "string", "minLength": 1},
+        "reason_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "maskContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mask_ids", "sample_storage", "minimum_sample", "maximum_sample", "maximum_width", "maximum_height", "dimension_policy", "out_of_range_policy"],
+      "properties": {
+        "mask_ids": {"type": "array", "minItems": 3, "maxItems": 3, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "sample_storage": {"const": "UInt16_q0_15"},
+        "minimum_sample": {"const": 0},
+        "maximum_sample": {"const": 32767},
+        "maximum_width": {"type": "integer", "minimum": 1},
+        "maximum_height": {"type": "integer", "minimum": 1},
+        "dimension_policy": {"type": "string", "minLength": 1},
+        "out_of_range_policy": {"const": "reject_never_clamp"}
+      }
+    },
+    "productGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligibility_source", "qualification_requirement", "prefilter_order", "reason", "eligible_backend_count", "selected_route_id", "selected_plan_id", "output_identity", "disposition"],
+      "properties": {
+        "eligibility_source": {"const": "R03_R04_R05_product_qualification_records"},
+        "qualification_requirement": {"const": "explicit_product_qualified_primary_backend"},
+        "prefilter_order": {"const": "before_scoring_routing_plan_construction_and_output"},
+        "reason": {"const": "no_product_qualified_primary_backend"},
+        "eligible_backend_count": {"const": 0},
+        "selected_route_id": {"type": "null"},
+        "selected_plan_id": {"type": "null"},
+        "output_identity": {"type": "null"},
+        "disposition": {"const": "blocked"}
+      }
+    },
+    "ablation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "roadmap_label", "product_execution_status", "fixture_contract_status"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "roadmap_label": {"type": "string", "minLength": 1},
+        "product_execution_status": {"const": "not_observed"},
+        "fixture_contract_status": {"const": "preregistered"}
+      }
+    },
+    "namedDescription": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

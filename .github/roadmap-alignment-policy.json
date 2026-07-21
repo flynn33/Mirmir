@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "15677b8ed4449c50770839041c4b64731435ce3e85d1f4751b647c4cfb41dcf7",
-    "json_sha256": "7aaacf98d2626d45074493b8f0b356eed505950d390cd8f4d9d71243db48dac9",
+    "markdown_sha256": "4360879c322773fa968d1f403283ea6aabdb327a756847c0cf1a6bf36f8ad96c",
+    "json_sha256": "cbdb6448193e18dd9cde2779feec093b3b05de716a23e65a26c11de7e1782d8f",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -134,6 +134,7 @@
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -148,6 +149,10 @@
       "python3 Scripts/r05_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
       "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
+      "python3 Scripts/r06_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -182,6 +187,7 @@
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -197,6 +203,10 @@
       "python3 Scripts/r05_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
       "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
+      "python3 Scripts/r06_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -208,16 +218,21 @@
       "local_unpublished_blocked_closure",
       "predecessor_result: blocked",
       "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+      "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
       "local_unpublished_diagnostic_only_closure",
       "predecessor_result: diagnostic_only",
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
       "python3 Scripts/r04_contracts.py --check-preregistration",
       "python3 Scripts/r04_contracts.py --check-fixtures",
       "test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance",
       "python3 Scripts/r05_contracts.py --check-preregistration",
       "python3 Scripts/r05_contracts.py --check-fixtures",
-      "test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance"
+      "test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance"
     ],
     "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
       "policy-frozen local closure commit and tree",
@@ -225,6 +240,7 @@
       "local_unpublished_blocked_closure",
       "predecessor_result: blocked",
       "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+      "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
       "local_unpublished_diagnostic_only_closure",
       "predecessor_result: diagnostic_only",
       "continuation_scope: local_implementation_only"
@@ -319,6 +335,17 @@
       "paths": [
         "docs/roadmaps/evidence/r05/records/preregistration.json",
         "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R06": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r06/records/preregistration.json",
+        "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json"
       ]
     }
   },
@@ -433,6 +460,50 @@
         "schema_bindings",
         "contract",
         "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary"
+      ]
+    },
+    "R06": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r05/records/suitability-conformance.json",
+      "dependency_phase_id": "R05",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "10a97bd3df7f72834f7afcb7fa3b63c598fa4931",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R05",
+        "predecessor_result": "diagnostic_only"
+      },
+      "preregistration_identity": {
+        "phase_id": "R06",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+      "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "orchestration_contract",
+        "ash_state_contract",
+        "message_policy_contract",
+        "scoring_contract",
+        "transition_contract",
+        "mask_contract",
+        "product_gate",
+        "ablations",
         "checks",
         "stop_rules",
         "authorization_boundary"

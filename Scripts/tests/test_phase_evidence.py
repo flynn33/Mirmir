@@ -17,6 +17,8 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 from phase_evidence import (  # noqa: E402
     COMMON_REQUIRED_VERIFICATION_CATEGORIES,
     MAX_EVIDENCE_FILE_BYTES,
+    PHASE_CLOSURE_PREDECESSORS,
+    PHASE_OUTCOME_DISPOSITIONS,
     PhaseEvidenceVerifier,
     R01_CAPABILITY_DISPOSITIONS,
     R01_CAPABILITY_IDS,
@@ -923,6 +925,18 @@ class PhaseEvidenceTests(unittest.TestCase):
         for host in self.manifest["hosts"]:
             host["source_commit"] = commit
         self.assert_error_contains("phase closure predecessors are not passed")
+
+    def test_r06_closure_has_only_r05_as_direct_predecessor(self) -> None:
+        self.assertEqual(PHASE_CLOSURE_PREDECESSORS["R06"], ("R05",))
+
+    def test_r06_result_vocabulary_remains_passed_or_blocked(self) -> None:
+        self.assertEqual(
+            PHASE_OUTCOME_DISPOSITIONS["R06"],
+            {
+                "passed": frozenset({"passed"}),
+                "blocked": frozenset({"blocked"}),
+            },
+        )
 
     def test_r01_preregistration_requires_every_capability(self) -> None:
         self.manifest["preregistration"]["disposition_subjects"].pop()
