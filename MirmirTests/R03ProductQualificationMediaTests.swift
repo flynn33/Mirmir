@@ -5,18 +5,33 @@ import CoreVideo
 import XCTest
 @testable import Mirmir
 
-// swiftlint:disable type_body_length
+// swiftlint:disable file_length type_body_length
 final class R03ProductQualificationMediaTests: XCTestCase {
     private static let productPolicyIdentity =
         "r03.a11.product-qualified.no-fallback.v1"
     private static let productMaterialDecisionIdentity =
         "r03.a11.genuine-mps-lanczos-product-admission.v1"
 
+    func testProductQualifiedMPSLanczosMediaTransactionRun1() async throws {
+        try await runProductQualifiedMPSLanczosMediaTransaction(runOrdinal: 1)
+    }
+
+    func testProductQualifiedMPSLanczosMediaTransactionRun2() async throws {
+        try await runProductQualifiedMPSLanczosMediaTransaction(runOrdinal: 2)
+    }
+
+    func testProductQualifiedMPSLanczosMediaTransactionRun3() async throws {
+        try await runProductQualifiedMPSLanczosMediaTransaction(runOrdinal: 3)
+    }
+
     // This transaction is intentionally contiguous: its assertions bind decoded
     // input order, backend identity, token lifetime, verification, and publication.
     // swiftlint:disable function_body_length
-    func testProductQualifiedMPSLanczosCompletesExact1080pTo2160pMediaTransaction()
-        async throws {
+    private func runProductQualifiedMPSLanczosMediaTransaction(
+        runOrdinal: Int
+    ) async throws {
+        let observationRequest = try R03PQMediaObservationWriter
+            .preflightIfRequested(runOrdinal: runOrdinal)
         let files = try R03ProductQualificationMediaFiles()
         defer { files.remove() }
         XCTAssertFalse(FileManager.default.fileExists(atPath: files.destination.path))
@@ -111,6 +126,9 @@ final class R03ProductQualificationMediaTests: XCTestCase {
 
         let inputReleaseProbe = R02FixtureReleaseProbe()
         let expectedColor = try R03NV12Contract.makeColorDescription()
+        var logicalFrameSHA256s: [String] = []
+        var frameObservations: [R03PQMediaFrameObservation] = []
+        var allFallbackHistoriesWereEmpty = true
         for frameSpec in R03ProductQualificationMediaFixture.frames {
             let optionalRecord = try await mediaSession.nextSourceFrame()
             let record = try XCTUnwrap(optionalRecord)
@@ -185,6 +203,8 @@ final class R03ProductQualificationMediaTests: XCTestCase {
             )
             XCTAssertEqual(processed.processingIdentity.route, backend.routeIdentity)
             XCTAssertTrue(processed.processingIdentity.fallbackHistory.isEmpty)
+            allFallbackHistoriesWereEmpty = allFallbackHistoriesWereEmpty
+                && processed.processingIdentity.fallbackHistory.isEmpty
             XCTAssertEqual(
                 CVPixelBufferGetWidth(processed.pixelBuffer),
                 R03ProductQualificationMediaFixture.targetResolution.width
@@ -201,10 +221,16 @@ final class R03ProductQualificationMediaTests: XCTestCase {
                 pixelBuffer: processed.pixelBuffer,
                 resolution: R03ProductQualificationMediaFixture.targetResolution
             )
-            XCTAssertEqual(
-                inputReleaseProbe.releaseCount(for: frameSpec.inputTokenIdentity),
-                1
+            let logicalFrameBytes = try R02FixturePixelBuffers.logicalNV12Bytes(
+                from: processed.pixelBuffer
             )
+            logicalFrameSHA256s.append(
+                R02FixtureGenerators.sha256Hex(logicalFrameBytes)
+            )
+            let inputReleaseCount = inputReleaseProbe.releaseCount(
+                for: frameSpec.inputTokenIdentity
+            )
+            XCTAssertEqual(inputReleaseCount, 1)
 
             try await mediaSession.appendOutput(
                 pixelBuffer: processed.pixelBuffer,
@@ -223,9 +249,22 @@ final class R03ProductQualificationMediaTests: XCTestCase {
             processed.resourceLifetimeToken.release()
             processed.resourceLifetimeToken.release()
             XCTAssertTrue(processed.resourceLifetimeToken.isReleased)
-            XCTAssertEqual(
-                outputReleaseProbe.releaseCount(for: outputTokenIdentity),
-                1
+            let outputReleaseCount = outputReleaseProbe.releaseCount(
+                for: outputTokenIdentity
+            )
+            XCTAssertEqual(outputReleaseCount, 1)
+            XCTAssertEqual(inputReleaseCount, outputReleaseCount)
+            frameObservations.append(
+                R03PQMediaFrameObservation(
+                    sequenceNumber: processed.sequenceNumber,
+                    ptsValue: processed.presentationTimestamp.value,
+                    ptsTimescale: processed.presentationTimestamp.timescale,
+                    durationValue: processed.duration.value,
+                    durationTimescale: processed.duration.timescale,
+                    metadataIdentity: processed.metadataIdentity.rawValue,
+                    resourceReleaseCount: inputReleaseCount == outputReleaseCount
+                        ? inputReleaseCount : -1
+                )
             )
         }
         let endOfVideo = try await mediaSession.nextSourceFrame()
@@ -244,8 +283,12 @@ final class R03ProductQualificationMediaTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: files.destination.path))
 
         try await mediaSession.finish(finalMetadata: finalMetadata)
-        XCTAssertTrue(FileManager.default.fileExists(atPath: files.destination.path))
-        XCTAssertTrue(files.partialFiles().isEmpty)
+        let destinationExistsAfterFinish = FileManager.default.fileExists(
+            atPath: files.destination.path
+        )
+        let partialFilesAfterFinish = files.partialFiles()
+        XCTAssertTrue(destinationExistsAfterFinish)
+        XCTAssertTrue(partialFilesAfterFinish.isEmpty)
 
         let verification = prepublicationVerifier.snapshot
         XCTAssertEqual(verification.invocationCount, 1)
@@ -253,6 +296,14 @@ final class R03ProductQualificationMediaTests: XCTestCase {
         XCTAssertTrue(verification.destinationWasAbsent)
         XCTAssertTrue(verification.temporaryInputWasPresent)
         XCTAssertNotEqual(verification.verifiedURL, files.destination)
+        let reopenSucceeded = verification.invocationCount == 1
+            && verification.successfulVerificationCount == 1
+            && verification.result != nil
+        let atomicPublicationSucceeded = destinationExistsAfterFinish
+            && partialFilesAfterFinish.isEmpty
+            && verification.destinationWasAbsent
+            && verification.temporaryInputWasPresent
+            && verification.verifiedURL != files.destination
         let reopened = try XCTUnwrap(verification.result)
         XCTAssertEqual(reopened.codec, "avc1")
         XCTAssertEqual(
@@ -275,6 +326,29 @@ final class R03ProductQualificationMediaTests: XCTestCase {
             url: files.destination
         )
         XCTAssertEqual(outputAACIdentity, sourceAACIdentity)
+
+        try R03PQMediaObservationWriter.emitIfRequested(
+            request: observationRequest,
+            testFailureCount: testRun?.failureCount
+        ) { runOrdinal in
+            R03PQMediaRunObservation(
+                runOrdinal: runOrdinal,
+                outputDimensions: R03PQMediaObservationDimensions(
+                    width: reopened.resolution.width,
+                    height: reopened.resolution.height
+                ),
+                videoCodec: reopened.codec == "avc1"
+                    ? "h264" : "unexpected-\(reopened.codec)",
+                audioCodec: outputAACIdentity.codec == kAudioFormatMPEG4AAC
+                    ? "aac" : "unexpected-\(outputAACIdentity.codec)",
+                logicalFrameSHA256s: logicalFrameSHA256s,
+                frameObservations: frameObservations,
+                audioSemanticSHA256: outputAACIdentity.canonicalSHA256,
+                reopenSucceeded: reopenSucceeded,
+                atomicPublicationSucceeded: atomicPublicationSucceeded,
+                fallbackHistory: allFallbackHistoriesWereEmpty ? [] : ["observed"]
+            )
+        }
     }
     // swiftlint:enable function_body_length
 
@@ -431,4 +505,4 @@ final class R03ProductQualificationMediaTests: XCTestCase {
         ]
     }
 }
-// swiftlint:enable type_body_length
+// swiftlint:enable file_length type_body_length

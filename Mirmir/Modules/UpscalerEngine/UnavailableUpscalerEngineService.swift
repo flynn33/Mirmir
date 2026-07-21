@@ -2,7 +2,7 @@ import Foundation
 
 final class UnavailableUpscalerEngineService: UpscalerEngineService, @unchecked Sendable {
     static let roadmapTransitionReason =
-        "No roadmap-qualified backend is available; capability and baseline work continue in R01–R03."
+        "No production-default backend is enabled; R03 remains in progress."
 
     let availability: UpscalerEngineAvailability
 

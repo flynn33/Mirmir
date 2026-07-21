@@ -146,7 +146,8 @@ enum R03A11ProductAdmission {
 extension R03DeterministicBackend {
     static func makeProductQualifiedMPSLanczos(
         route: R03ScaleRoute,
-        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in },
+        historyGenerationObserver: @escaping R03HistoryGenerationObserver = { _ in }
     ) throws -> R03DeterministicBackend {
         try R03DeterministicBackend(
             subjectID: .mpsLanczos,
@@ -160,7 +161,8 @@ extension R03DeterministicBackend {
                     targetResolution: targetResolution
                 )
             },
-            outputReleaseObserver: outputReleaseObserver
+            outputReleaseObserver: outputReleaseObserver,
+            historyGenerationObserver: historyGenerationObserver
         )
     }
 }

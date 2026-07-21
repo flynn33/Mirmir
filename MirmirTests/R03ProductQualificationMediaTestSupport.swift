@@ -2,14 +2,18 @@ import AVFoundation
 import AudioToolbox
 import CoreMedia
 import CoreVideo
+import CryptoKit
 import Foundation
 import os.lock
 @testable import Mirmir
 
+// swiftlint:disable file_length
 enum R03ProductQualificationMediaTestError: Error, Equatable {
     case invalidFixture(String)
     case mediaFailure(String)
     case nativeMPSUnavailable(String)
+    case invalidObservation(String)
+    case invalidObservationConfiguration(String)
     case sessionCreationFailed(String)
     case frameProcessingFailed(sequenceNumber: Int, reason: String)
 }
@@ -454,3 +458,343 @@ final class R03PQMediaPrepublicationVerifier:
         return result
     }
 }
+
+struct R03PQMediaObservationDimensions: Codable, Equatable {
+    let width: Int
+    let height: Int
+}
+
+struct R03PQMediaFrameObservation: Codable, Equatable {
+    let sequenceNumber: Int
+    let ptsValue: Int64
+    let ptsTimescale: Int32
+    let durationValue: Int64
+    let durationTimescale: Int32
+    let metadataIdentity: String
+    let resourceReleaseCount: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case sequenceNumber = "sequence_number"
+        case ptsValue = "pts_value"
+        case ptsTimescale = "pts_timescale"
+        case durationValue = "duration_value"
+        case durationTimescale = "duration_timescale"
+        case metadataIdentity = "metadata_identity"
+        case resourceReleaseCount = "resource_release_count"
+    }
+}
+
+struct R03PQMediaRunObservation: Codable, Equatable {
+    let runOrdinal: Int
+    let outputDimensions: R03PQMediaObservationDimensions
+    let videoCodec: String
+    let audioCodec: String
+    let logicalFrameSHA256s: [String]
+    let frameObservations: [R03PQMediaFrameObservation]
+    let audioSemanticSHA256: String
+    let reopenSucceeded: Bool
+    let atomicPublicationSucceeded: Bool
+    let fallbackHistory: [String]
+
+    private enum CodingKeys: String, CodingKey {
+        case runOrdinal = "run_ordinal"
+        case outputDimensions = "output_dimensions"
+        case videoCodec = "video_codec"
+        case audioCodec = "audio_codec"
+        case logicalFrameSHA256s = "logical_frame_sha256s"
+        case frameObservations = "frame_observations"
+        case audioSemanticSHA256 = "audio_semantic_sha256"
+        case reopenSucceeded = "reopen_succeeded"
+        case atomicPublicationSucceeded = "atomic_publication_succeeded"
+        case fallbackHistory = "fallback_history"
+    }
+}
+
+struct R03QualificationInvocation: Codable, Equatable {
+    static let contractID = "r03.a11.product-qualification-invocation.v1"
+    static let batchIDEnvironmentKey = "R03_QUALIFICATION_BATCH_ID"
+    static let sourceCommitEnvironmentKey = "R03_QUALIFICATION_SOURCE_COMMIT"
+    static let sourceTreeEnvironmentKey = "R03_QUALIFICATION_SOURCE_TREE"
+    private static let compiledSourceCommitKey =
+        "R03QualificationSourceCommit"
+    private static let compiledSourceTreeKey = "R03QualificationSourceTree"
+
+    let contractID: String
+    let batchID: String
+    let sourceCommit: String
+    let sourceTree: String
+    let bindingSHA256: String
+
+    static func readRequired(
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        bundle: Bundle = Bundle(for: R03QualificationBundleSentinel.self)
+    ) throws -> R03QualificationInvocation {
+        guard let batchID = nonempty(environment[batchIDEnvironmentKey]),
+              let runtimeSourceCommit = nonempty(
+                  environment[sourceCommitEnvironmentKey]
+              ),
+              let runtimeSourceTree = nonempty(environment[sourceTreeEnvironmentKey]),
+              let sourceCommit = nonempty(
+                  bundle.object(forInfoDictionaryKey: compiledSourceCommitKey)
+                      as? String
+              ),
+              let sourceTree = nonempty(
+                  bundle.object(forInfoDictionaryKey: compiledSourceTreeKey)
+                      as? String
+              ),
+              isLowercaseHex(batchID, count: 64),
+              batchID != String(repeating: "0", count: 64),
+              isLowercaseHex(sourceCommit, count: 40),
+              isLowercaseHex(sourceTree, count: 40),
+              runtimeSourceCommit == sourceCommit,
+              runtimeSourceTree == sourceTree else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "runtime invocation differs from compiled source identity"
+                )
+        }
+        let bindingSHA256 = SHA256.hash(
+            data: Data(
+                [contractID, batchID, sourceCommit, sourceTree]
+                    .joined(separator: "\0")
+                    .utf8
+            )
+        ).map { String(format: "%02x", $0) }.joined()
+        return R03QualificationInvocation(
+            contractID: contractID,
+            batchID: batchID,
+            sourceCommit: sourceCommit,
+            sourceTree: sourceTree,
+            bindingSHA256: bindingSHA256
+        )
+    }
+
+    private static func nonempty(_ value: String?) -> String? {
+        value.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    private static func isLowercaseHex(_ value: String, count: Int) -> Bool {
+        value.count == count && value.unicodeScalars.allSatisfy {
+            (48...57).contains($0.value) || (97...102).contains($0.value)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case contractID = "contract_id"
+        case batchID = "batch_id"
+        case sourceCommit = "source_commit"
+        case sourceTree = "source_tree"
+        case bindingSHA256 = "binding_sha256"
+    }
+}
+
+final class R03QualificationBundleSentinel {}
+
+struct R03PQMediaObservationDocument: Codable, Equatable {
+    let schemaVersion: String
+    let evidenceKind: String
+    let fixtureID: String
+    let qualificationInvocation: R03QualificationInvocation
+    let run: R03PQMediaRunObservation
+
+    init(
+        qualificationInvocation: R03QualificationInvocation,
+        run: R03PQMediaRunObservation
+    ) {
+        schemaVersion = "1.0.0"
+        evidenceKind = "r03_a11_media_transaction_observation_v1"
+        fixtureID = R03ProductQualificationMediaFixture.id
+        self.qualificationInvocation = qualificationInvocation
+        self.run = run
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case evidenceKind = "evidence_kind"
+        case fixtureID = "fixture_id"
+        case qualificationInvocation = "qualification_invocation"
+        case run
+    }
+}
+
+struct R03PQMediaObservationRequest: Equatable {
+    fileprivate let outputURL: URL
+    fileprivate let runOrdinal: Int
+    fileprivate let qualificationInvocation: R03QualificationInvocation
+}
+
+enum R03PQMediaObservationWriter {
+    static let directoryEnvironmentKey =
+        "R03_QUALIFICATION_MEDIA_OBSERVATIONS_DIRECTORY"
+
+    static func preflightIfRequested(
+        runOrdinal: Int,
+        environment: [String: String] = ProcessInfo.processInfo.environment,
+        fileManager: FileManager = .default
+    ) throws -> R03PQMediaObservationRequest? {
+        let requestedDirectory = environment[directoryEnvironmentKey].flatMap {
+            $0.isEmpty ? nil : $0
+        }
+        guard let requestedDirectory else {
+            return nil
+        }
+        guard (1...3).contains(runOrdinal) else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration("run ordinal must be in 1...3")
+        }
+        guard NSString(string: requestedDirectory).isAbsolutePath else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation directory must be absolute"
+                )
+        }
+
+        let directoryURL = URL(fileURLWithPath: requestedDirectory)
+            .standardizedFileURL
+        let outputURL = directoryURL.appendingPathComponent(
+            "media-run-\(runOrdinal).json",
+            isDirectory: false
+        )
+        guard !pathEntryExists(at: outputURL, fileManager: fileManager) else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation target must not exist before the test starts"
+                )
+        }
+        var parentIsDirectory = ObjCBool(false)
+        guard fileManager.fileExists(
+            atPath: directoryURL.path,
+            isDirectory: &parentIsDirectory
+        ), parentIsDirectory.boolValue else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation target parent must be an existing directory"
+                )
+        }
+        return R03PQMediaObservationRequest(
+            outputURL: outputURL,
+            runOrdinal: runOrdinal,
+            qualificationInvocation: try R03QualificationInvocation.readRequired(
+                environment: environment
+            )
+        )
+    }
+
+    static func emitIfRequested(
+        request: R03PQMediaObservationRequest?,
+        testFailureCount: Int?,
+        makeObservation: (Int) -> R03PQMediaRunObservation
+    ) throws {
+        guard let request else {
+            return
+        }
+        guard let testFailureCount else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration("XCTest failure count unavailable")
+        }
+        guard testFailureCount == 0 else {
+            return
+        }
+        guard !pathEntryExists(at: request.outputURL, fileManager: .default) else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation target is no longer fresh"
+                )
+        }
+
+        let observation = makeObservation(request.runOrdinal)
+        try validate(observation, requestedOrdinal: request.runOrdinal)
+        let document = R03PQMediaObservationDocument(
+            qualificationInvocation: request.qualificationInvocation,
+            run: observation
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(document)
+        try writeAtomicallyWithoutOverwriting(
+            data,
+            to: request.outputURL,
+            fileManager: .default
+        )
+    }
+
+    private static func writeAtomicallyWithoutOverwriting(
+        _ data: Data,
+        to outputURL: URL,
+        fileManager: FileManager
+    ) throws {
+        let stagingDirectory = try fileManager.url(
+            for: .itemReplacementDirectory,
+            in: .userDomainMask,
+            appropriateFor: outputURL,
+            create: true
+        )
+        defer { try? fileManager.removeItem(at: stagingDirectory) }
+        let stagedURL = stagingDirectory.appendingPathComponent(
+            outputURL.lastPathComponent,
+            isDirectory: false
+        )
+        try data.write(to: stagedURL, options: .atomic)
+        guard !pathEntryExists(at: outputURL, fileManager: fileManager) else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation target is no longer fresh"
+                )
+        }
+        try fileManager.moveItem(at: stagedURL, to: outputURL)
+    }
+
+    private static func pathEntryExists(
+        at url: URL,
+        fileManager: FileManager
+    ) -> Bool {
+        fileManager.fileExists(atPath: url.path)
+            || (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+
+    private static func validate(
+        _ observation: R03PQMediaRunObservation,
+        requestedOrdinal: Int
+    ) throws {
+        let fixture = R03ProductQualificationMediaFixture.self
+        let expectedFrames = fixture.frames.map {
+            R03PQMediaFrameObservation(
+                sequenceNumber: $0.sequenceNumber,
+                ptsValue: $0.presentationTime.value,
+                ptsTimescale: $0.presentationTime.timescale,
+                durationValue: $0.duration.value,
+                durationTimescale: $0.duration.timescale,
+                metadataIdentity: $0.metadataIdentity,
+                resourceReleaseCount: 1
+            )
+        }
+        let exactDimensions = R03PQMediaObservationDimensions(
+            width: fixture.targetResolution.width,
+            height: fixture.targetResolution.height
+        )
+        guard observation.runOrdinal == requestedOrdinal,
+              observation.outputDimensions == exactDimensions,
+              observation.videoCodec == "h264",
+              observation.audioCodec == "aac",
+              observation.logicalFrameSHA256s.count == fixture.frames.count,
+              observation.logicalFrameSHA256s.allSatisfy(isSHA256),
+              observation.frameObservations == expectedFrames,
+              isSHA256(observation.audioSemanticSHA256),
+              observation.reopenSucceeded,
+              observation.atomicPublicationSucceeded,
+              observation.fallbackHistory.isEmpty else {
+            throw R03ProductQualificationMediaTestError.invalidObservation(
+                "media observation differs from the frozen transaction"
+            )
+        }
+    }
+
+    private static func isSHA256(_ value: String) -> Bool {
+        value.count == 64
+            && value != String(repeating: "0", count: 64)
+            && value.unicodeScalars.allSatisfy {
+                (48...57).contains($0.value) || (97...102).contains($0.value)
+            }
+    }
+}
+// swiftlint:enable file_length

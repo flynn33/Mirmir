@@ -1618,6 +1618,8 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_R03QualificationSourceCommit = "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)";
+				INFOPLIST_KEY_R03QualificationSourceTree = "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1848,6 +1850,8 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_R03QualificationSourceCommit = "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)";
+				INFOPLIST_KEY_R03QualificationSourceTree = "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
