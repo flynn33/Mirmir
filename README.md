@@ -26,10 +26,12 @@ market-position claim.
 R03's additive v2 decision passes for source
 `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
 `c3558b90bf647febd900524e7afc40f8c2efbba4`, and qualifies only genuine
-`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. R03 remains
-`in_progress`; product runtime support is not claimed, no production default is
-enabled, and Auto, holdout, acceptance, quality/performance claims, publication,
-and release remain blocked or unauthorized.
+`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. The later
+operator-overridden functional acceptance record binds publication commit
+`b5c19c0040f845b7f32fe98bd5f01249c1b071f2`, rechecks the exact passing software
+evidence, and marks R03 `passed`. No production default is enabled, and Auto,
+holdout, quality/performance claims, product publication, and release remain
+blocked or unauthorized.
 
 ## Roadmap Progress
 
@@ -37,23 +39,25 @@ and release remain blocked or unauthorized.
 
 **Phase status:** `in_progress` — local unpublished work; acceptance is not claimed
 
-**Product gate:** `blocked` — `upstream_no_product_qualified_primary_backend`
+**Frozen R07 product-gate record:** `blocked` — historical
+`upstream_no_product_qualified_primary_backend`; R03 A11 qualification has
+cleared that cause prospectively, and no additive R07 rerun is recorded.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `2 / 14` roadmap phases passed (`14%`)
+**Overall:** `3 / 14` roadmap phases passed (`21%`)
 
-`[#---------]`
+`[##--------]`
 
-**Status:** ✅ Passed `2` · 🔄 In progress `6` · ⬜ Planned `5` · ⛔ Blocked `1`
+**Status:** ✅ Passed `3` · 🔄 In progress `5` · ⬜ Planned `5` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1; `R07` — Temporal stability and artifact governance
+**Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1; `R07` — Temporal stability and artifact governance
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
 | `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
-| `R03` | Deterministic Apple-native baseline suite | `in_progress` | 🔄 In progress |
+| `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
@@ -677,7 +681,7 @@ A deterministic fixture can run through multiple backends under one common sessi
 
 ## R03 — Deterministic Apple-native baseline suite
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -742,12 +746,12 @@ error, lifecycle, and media seams, but it may not impersonate native MPS
 execution. Hardware, simulator, and operator-observed operation remain optional
 and truthfully `not_observed` when unused.
 
-This authorization permits an explicit `product_qualified` capability and
-product-scope session admission for the passing A11 implementation only. It does
-not select or enable a production default, Auto mode, holdout access, phase
-acceptance, a product quality or performance claim, publication, release, or any
-other backend's product admission. R03 remains `in_progress` until its remaining
-phase exit evidence is separately satisfied.
+This authorization permitted an explicit `product_qualified` capability and
+product-scope session admission for the passing A11 implementation only. By
+itself, that narrower authorization did not select or enable a production
+default, Auto mode, holdout access, phase acceptance, a product quality or
+performance claim, publication, release, or any other backend's product
+admission.
 
 ### A11 functional product-qualification checkpoint — 2026-07-21
 
@@ -761,18 +765,48 @@ determinism, the exact 1920×1080-to-3840×2160 H.264/AAC media transaction,
 timing, metadata, reopen verification, resource lifetime, atomic publication,
 and an empty fallback history.
 
-Only `r03.mps.lanczos` (`A11`) is now `product_qualified`, and only for
+Only `r03.mps.lanczos` (`A11`) is `product_qualified`, and only for
 `functional_product_eligibility`. The frozen v1 blocked record remains immutable
-historical evidence. R03 remains `in_progress`; product runtime support is not
-claimed, no production default is enabled, and Auto, holdout, phase acceptance,
-perceptual-quality and performance claims, publication, and release remain
-blocked or unauthorized. This decision removes the absence of a qualified
-primary backend as a prospective cause for a new additive R06 or R07 product-gate
-run; it does not retroactively alter either phase's frozen blocked evidence.
+historical evidence. The v2 decision itself left R03 `in_progress` and did not
+claim product runtime support or authorize a production default, Auto, holdout,
+phase acceptance, perceptual-quality or performance claims, publication, or
+release. It removed the absence of a qualified primary backend as a prospective
+cause for a new additive R06 or R07 product-gate run without retroactively
+altering either phase's frozen blocked evidence.
+
+### Operator-overridden functional phase acceptance — 2026-07-21
+
+The operator determined that the original requirement to compare the
+quality/performance/resource envelope of every deterministic Apple path was not
+an appropriate prerequisite for deciding whether the R03 software performs its
+intended task. That comparison remains useful optional evidence, but it is
+superseded as an R03 phase-acceptance gate.
+
+The additive [functional phase-acceptance record](evidence/r03/records/functional-phase-acceptance.json)
+is bound to qualification publication commit
+`b5c19c0040f845b7f32fe98bd5f01249c1b071f2`, tree
+`74e39285521fe31f9588cff5e43184c8f91f9180`. Its fail-closed validator rechecks
+the passing R02 common-session conformance and the exact R03 v2 receipt and
+decision. It accepts R03 only because genuine `MPSImageLanczosScale` processed
+both canonical routes repeatably while preserving dimensions, color, frame
+order, PTS, duration, audio, metadata, reopen-before-publication, resource
+lifetime, complete processing identity, atomic publication, and an empty
+fallback history. Every applicable functional metric passed.
+
+R03 is therefore `passed` for `functional_software_phase_acceptance`. The frozen
+v1 blocked evidence and narrower v2 decision remain unchanged. This acceptance
+does not select a production default or authorize Auto, holdout,
+perceptual-quality, performance, product-publication, or release claims.
 
 ### Exit gate
 
-One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.
+One genuine Apple-native primary backend must execute the canonical 3/2× and 2×
+routes under the common session contract, repeatably, while preserving
+dimensions, color, frame order, PTS, duration, audio, metadata,
+reopen-before-publication, resource lifetime, complete processing identity,
+atomic publication, and an empty fallback history. Quality/performance/resource
+comparison across every deterministic path is optional comparative evidence and
+is not an R03 phase-acceptance prerequisite.
 
 ---
 
@@ -1415,7 +1449,7 @@ workspace. The developer host is available only in Debug builds when
 
 Normal production upscaling remains deliberately unavailable. Start remains
 disabled and the workspace explains: “No production-default backend is enabled;
-R03 remains in progress.”
+product routing remains unavailable.”
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module inventory and transaction
 boundaries.

@@ -10,7 +10,7 @@
 - Roadmap phase `R00`: `passed`
 - Roadmap phase `R01`: `passed`
 - Roadmap phase `R02`: `in_progress`
-- Roadmap phase `R03`: `in_progress`
+- Roadmap phase `R03`: `passed`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -34,9 +34,9 @@ renders `MirmirProductionRootView` only after the UI module and primary view are
 registered. Debug launch with `MIRMIR_DEVELOPER_WORKSPACE=1` adds a read-only
 module/status surface. It provides no activation or deactivation controls.
 
-Normal R00 product upscaling is fail-closed. The production composition injects
+Normal product upscaling remains fail-closed. The production composition injects
 an unavailable transition engine, Start remains disabled, and the UI reports:
-“No production-default backend is enabled; R03 remains in progress.”
+“No production-default backend is enabled; product routing remains unavailable.”
 
 R02 began from local R01 closure commit
 `555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
@@ -59,10 +59,11 @@ backend, select a production default, or support a performance or quality claim.
 The additive R03 v2 decision binds source
 `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
 `c3558b90bf647febd900524e7afc40f8c2efbba4`, and qualifies only genuine
-`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. R03 remains
-`in_progress`; product runtime support is not claimed, the production composition
-still injects the unavailable service, and no default, Auto, holdout, acceptance,
-quality, performance, publication, or release authority follows.
+`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. The additive
+operator-overridden functional acceptance record then revalidates the passing
+R02 common-session and R03 A11 software evidence and marks R03 `passed`. The
+production composition still injects the unavailable service; no default, Auto,
+holdout, quality, performance, product-publication, or release authority follows.
 
 ## Target Apple-Native Adaptive Architecture
 
@@ -386,7 +387,8 @@ and require no tracked post-gate documentation edit.
 
 The source implements the app-owned runtime and preserves release-closure
 machinery as historical evidence, but source presence is not a release claim.
-Normal product upscaling remains unavailable until R03 qualifies a backend.
+Normal product upscaling remains unavailable because no production-default
+backend has been selected or enabled, so product routing remains unavailable.
 The P06/P07 commands are fail-closed, P08 remains dormant and absent from normal
 workflows, and no G04-G08, holdout, release, quality, or market claim is
 authorized. Failed evidence is preserved and must not be rewritten as a pass.

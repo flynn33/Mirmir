@@ -18,7 +18,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
   to be `passed`, except the exact policy-scoped R03, R04, R05, R06, and R07
   `in_progress` local continuations from their recorded unpublished predecessor
-  closures;
+  closures and the separate evidence-bound R03 functional acceptance override;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
 - required roadmap, evidence-status, and historical-status language in the aligned
@@ -61,7 +61,8 @@ recorded phase-specific local closure:
   fail-closed and `blocked`, with closure state
   `local_unpublished_blocked_closure` and `predecessor_result: blocked`; this
   exception does not interpret it as success. The later additive A11 decision
-  does not mutate this predecessor binding or advance R03's phase status.
+  does not mutate this predecessor binding. It did not by itself advance R03;
+  the later operator-overridden functional acceptance does so separately.
 - R05 may be `in_progress` while R04 remains `in_progress` only when its regular
   preregistration exactly binds R04 closure commit
   `88e26f5967f7eb35a54791017ca0c2b888f2fbf5` and tree
@@ -108,7 +109,21 @@ All five preregistrations record `accepted_merge_commit: null`,
 `continuation_scope: local_implementation_only`; each closure must be an ancestor
 of `HEAD`. The exceptions never apply to `next`, `evidence_ready`, or `passed`.
 They do not authorize publication, phase closure, acceptance, production
-enablement, or release. Update the digest for every changed canonical source and
+enablement, or release.
+
+A separate R03-only functional acceptance override permits canonical R03 to be
+`passed` while R02 remains canonical `in_progress`. It applies only when the
+policy-bound `functional-phase-acceptance.json` bytes and identity are exact, the
+bound R02 common-session conformance passed, and the dedicated
+`r03_phase_acceptance.py` validator rechecks the complete R03 v2 evidence. The
+accepted function is genuine A11 execution on both canonical routes with
+repeatability, complete session/media preservation, reopen, atomic publication,
+lifecycle/resource release, processing identity, no fallback, and all applicable
+functional metrics passing. The override does not mark R02 passed, rewrite any
+historical record, select a production default, or authorize Auto, holdout,
+quality/performance claims, product publication, or release.
+
+Update the digest for every changed canonical source and
 affected contract fields in the alignment policy in the same change.
 Then regenerate the clearly labeled README progress section and verify the
 repository:
@@ -116,7 +131,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -129,6 +144,7 @@ python3 Scripts/r03_product_qualification.py --check-preregistration
 python3 Scripts/r03_product_qualification.py --check-fixtures
 python3 Scripts/r03_product_qualification.py --check-receipt
 python3 Scripts/r03_product_qualification.py --check-decision
+python3 Scripts/r03_phase_acceptance.py --check
 python3 Scripts/r04_contracts.py --check-preregistration
 python3 Scripts/r04_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance

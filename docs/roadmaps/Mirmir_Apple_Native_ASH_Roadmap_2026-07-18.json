@@ -227,10 +227,10 @@
       "depends_on": [
         "R02"
       ],
-      "exit": "deterministic baseline matrix; unavailable execution recorded as not_observed without performance claims",
+      "exit": "operator-overridden functional software gate: one genuine Apple-native primary backend passes both canonical routes, repeatability, session/media preservation, lifecycle, identity, and no-fallback checks",
       "id": "R03",
       "name": "Deterministic Apple-native baseline suite",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [

@@ -6,14 +6,22 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R03 under the operator-overridden software-function gate. The new
+  fail-closed record binds the passing R02 common-session conformance and exact
+  R03 v2 receipt/decision, then independently requires genuine A11 execution on
+  both canonical routes, three-repeat determinism, complete session/media
+  preservation, correct lifecycle/resource release, complete identity, no
+  fallback, and all applicable functional metrics. R03 is now `passed`; the
+  original all-backend quality/performance/resource comparison remains optional
+  comparative evidence. No production default, Auto, holdout, quality,
+  performance, product-publication, or release authority follows.
 - Passed the additive R03 v2 functional product-qualification decision for
   genuine `r03.mps.lanczos` (`A11`) at source
   `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
   `c3558b90bf647febd900524e7afc40f8c2efbba4`. The bound run passed all 14
   preregistered tests with exact route, lifecycle, media, repeatability, and
-  no-fallback evidence. R03 remains `in_progress`; no production default, Auto,
-  holdout, acceptance, quality/performance claim, publication, or release is
-  authorized. Earlier R03 v1, R06, and R07 blocked records remain historical.
+  no-fallback evidence. This narrower v2 decision remains immutable historical
+  evidence. Earlier R03 v1, R06, and R07 blocked records also remain historical.
   R07 source-authority bindings are now verified from their exact bound R06
   closure commit, preserving those frozen bytes while allowing successor source
   corrections to be checked by current architecture and build guardrails.

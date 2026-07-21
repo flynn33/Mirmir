@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "7acd4be29f8c7db420fa58480f1c7ab55788cbad0989f12da8b95cb0146223eb",
-    "json_sha256": "44b2067c12cf0b3323ed60175986c386d08205425354e0bbb6a0f931bbc97e44",
+    "markdown_sha256": "3cd80363786184b9dd3f1347f940db6d97fba25ed0850c2c743212597f3e36e8",
+    "json_sha256": "c46fa670bcdd58becc705f0f7421833c4109fbf3b092cf67be74f9ef9ff26735",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -133,6 +133,7 @@
       "Scripts/tests/test_r02_contracts.py",
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
+      "Scripts/tests/test_r03_phase_acceptance.py",
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r05_contracts.py",
       "Scripts/tests/test_r06_contracts.py",
@@ -147,6 +148,7 @@
       "python3 Scripts/r03_product_qualification.py --check-fixtures",
       "python3 Scripts/r03_product_qualification.py --check-receipt",
       "python3 Scripts/r03_product_qualification.py --check-decision",
+      "python3 Scripts/r03_phase_acceptance.py --check",
       "python3 Scripts/r04_contracts.py --check-preregistration",
       "python3 Scripts/r04_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then",
@@ -196,6 +198,7 @@
       "Scripts/tests/test_r02_contracts.py",
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
+      "Scripts/tests/test_r03_phase_acceptance.py",
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r05_contracts.py",
       "Scripts/tests/test_r06_contracts.py",
@@ -211,6 +214,7 @@
       "python3 Scripts/r03_product_qualification.py --check-fixtures",
       "python3 Scripts/r03_product_qualification.py --check-receipt",
       "python3 Scripts/r03_product_qualification.py --check-decision",
+      "python3 Scripts/r03_phase_acceptance.py --check",
       "python3 Scripts/r04_contracts.py --check-preregistration",
       "python3 Scripts/r04_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then",
@@ -248,10 +252,12 @@
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
+      "Scripts/tests/test_r03_phase_acceptance.py",
       "python3 Scripts/r03_product_qualification.py --check-preregistration",
       "python3 Scripts/r03_product_qualification.py --check-fixtures",
       "python3 Scripts/r03_product_qualification.py --check-receipt",
       "python3 Scripts/r03_product_qualification.py --check-decision",
+      "python3 Scripts/r03_phase_acceptance.py --check",
       "python3 Scripts/r04_contracts.py --check-preregistration",
       "python3 Scripts/r04_contracts.py --check-fixtures",
       "test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance",
@@ -280,7 +286,9 @@
       "continuation_scope: local_implementation_only",
       "dfdf1f12ecb22be1c6395d57017bf750fd76496f",
       "c3558b90bf647febd900524e7afc40f8c2efbba4",
-      "functional_product_eligibility"
+      "functional_product_eligibility",
+      "b5c19c0040f845b7f32fe98bd5f01249c1b071f2",
+      "functional_software_phase_acceptance"
     ],
     "local-work-plan.md": [
       "superseded as the forward product plan",
@@ -326,6 +334,12 @@
         "docs/roadmaps/evidence/r01/phase-evidence.md",
         "project-notes/apple-upscale-capabilities.json",
         "project-notes/apple-upscale-capability-report.md"
+      ]
+    },
+    "R03": {
+      "required_status": "passed",
+      "paths": [
+        "docs/roadmaps/evidence/r03/records/functional-phase-acceptance.json"
       ]
     }
   },
@@ -602,6 +616,38 @@
         "stop_rules",
         "authorization_boundary"
       ]
+    }
+  },
+  "phase_acceptance_overrides": {
+    "R03": {
+      "active_phase_status": "passed",
+      "dependency_phase_id": "R02",
+      "dependency_phase_status": "in_progress",
+      "dependency_conformance_binding": {
+        "path": "docs/roadmaps/evidence/r02/records/conformance.json",
+        "size_bytes": 13488,
+        "sha256": "8eaccc72d82beb4bbe26dfa7af52809743e017e3ad9ba09d3cc4febc7f8187b1"
+      },
+      "acceptance_record_binding": {
+        "path": "docs/roadmaps/evidence/r03/records/functional-phase-acceptance.json",
+        "size_bytes": 4940,
+        "sha256": "46469f1c2764a88ccdb5752f3aeab2a9a4fd25e954eef65ad8eb02a78d18a476"
+      },
+      "acceptance_identity": {
+        "schema_version": "1.0.0",
+        "roadmap_version": "1.0.1",
+        "phase_id": "R03",
+        "evidence_kind": "r03_operator_functional_phase_acceptance_v1",
+        "override_id": "r03.software-function-phase-acceptance.v1",
+        "result": {
+          "status": "passed",
+          "phase_status_before": "in_progress",
+          "phase_status_after": "passed",
+          "acceptance": "accepted",
+          "accepted_backend_id": "r03.mps.lanczos",
+          "acceptance_scope": "functional_software_phase_acceptance"
+        }
+      }
     }
   },
   "github_repository": {

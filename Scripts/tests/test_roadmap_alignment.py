@@ -45,6 +45,9 @@ class RoadmapAlignmentTests(unittest.TestCase):
             paths.update(requirement["paths"])
         for requirement in self.policy["phase_start_requirements"].values():
             paths.update(requirement["paths"])
+        for override in self.policy.get("phase_acceptance_overrides", {}).values():
+            paths.add(override["dependency_conformance_binding"]["path"])
+            paths.add(override["acceptance_record_binding"]["path"])
         workflow_root = REPOSITORY_ROOT / self.policy["workflows"]["root"]
         paths.update(
             path.relative_to(REPOSITORY_ROOT).as_posix()
@@ -325,20 +328,51 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         self.assertFalse(
             any("phase R03 is 'in_progress' before dependency R02" in error for error in self.errors()),
             self.errors(),
         )
 
-    def test_r03_exception_never_waives_next_or_closure_statuses(self) -> None:
-        for status in ("next", "evidence_ready", "passed"):
+    def test_r03_exception_never_waives_next_or_evidence_ready(self) -> None:
+        for status in ("next", "evidence_ready"):
             with self.subTest(status=status):
                 self.set_phase_status("R03", status)
                 self.assert_error_contains(
                     f"phase R03 is {status!r} before dependency R02 is passed"
                 )
 
+    def test_passed_r03_uses_exact_functional_acceptance_override(self) -> None:
+        self.set_phase_status("R03", "passed")
+        self.assertFalse(
+            any(
+                "phase R03 is 'passed' before dependency R02" in error
+                for error in self.errors()
+            ),
+            self.errors(),
+        )
+
+    def test_r03_acceptance_override_is_exact(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = copy.deepcopy(self.policy)
+        policy["phase_acceptance_overrides"]["R03"]["acceptance_identity"][
+            "override_id"
+        ] = "drift"
+        self.write_json(policy_path, policy)
+        self.assert_error_contains(
+            "phase_acceptance_overrides differ from the exact R03 functional contract"
+        )
+
+    def test_passed_r03_requires_exact_acceptance_record(self) -> None:
+        self.set_phase_status("R03", "passed")
+        path = self.root / self.policy["phase_acceptance_overrides"]["R03"][
+            "acceptance_record_binding"
+        ]["path"]
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        self.assert_error_contains("acceptance_record_binding bytes differ")
+
     def test_in_progress_r04_uses_exact_local_continuation_exception(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         self.assertFalse(
             any("phase R04 is 'in_progress' before dependency R03" in error for error in self.errors()),
             self.errors(),
@@ -347,6 +381,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_r04_exception_never_waives_next_or_closure_statuses(self) -> None:
         for status in ("next", "evidence_ready", "passed"):
             with self.subTest(status=status):
+                self.set_phase_status("R03", "in_progress")
                 self.set_phase_status("R04", status)
                 self.assert_error_contains(
                     f"phase R04 is {status!r} before dependency R03 is passed"
@@ -493,6 +528,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r04_exception_requires_regular_valid_preregistration(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R04"][
             "preregistration_path"
         ]
@@ -501,6 +537,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r04_exception_rejects_invalid_preregistration(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R04"][
             "preregistration_path"
         ]
@@ -509,6 +546,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation preregistration is invalid")
 
     def test_r04_exception_rejects_predecessor_binding_drift(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R04"][
             "preregistration_path"
         ]
@@ -519,6 +557,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation predecessor binding differs")
 
     def test_r04_exception_rejects_symlinked_preregistration(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R04"][
             "preregistration_path"
         ]
@@ -530,6 +569,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r03_exception_rejects_predecessor_binding_drift(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R03"][
             "preregistration_path"
         ]
@@ -540,6 +580,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation predecessor binding differs")
 
     def test_r03_exception_rejects_symlinked_preregistration(self) -> None:
+        self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R03"][
             "preregistration_path"
         ]
@@ -698,7 +739,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("✅ Passed `2`", "✅ Passed `3`", 1)
+        text = text.replace("✅ Passed `3`", "✅ Passed `4`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
