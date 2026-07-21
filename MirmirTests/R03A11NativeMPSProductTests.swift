@@ -637,7 +637,13 @@ private enum R03A11QualificationRouteEvidenceEmitter {
               !path.isEmpty else {
             return nil
         }
+        guard NSString(string: path).isAbsolutePath else {
+            throw R03A11NativeMPSTestError.evidenceMismatch(
+                "evidence output path must be absolute"
+            )
+        }
         let destination = URL(fileURLWithPath: path)
+            .standardizedFileURL
         let directory = destination.deletingLastPathComponent()
         var isDirectory: ObjCBool = false
         guard FileManager.default.fileExists(
@@ -648,7 +654,9 @@ private enum R03A11QualificationRouteEvidenceEmitter {
                 directory.path
             )
         }
-        guard !FileManager.default.fileExists(atPath: destination.path) else {
+        guard !R03AtomicEvidenceFileWriter.pathEntryExists(
+            at: destination
+        ) else {
             throw R03A11NativeMPSTestError.evidenceOutputAlreadyExists(
                 destination.path
             )
@@ -663,7 +671,9 @@ private enum R03A11QualificationRouteEvidenceEmitter {
         _ document: R03A11QualificationRouteEvidenceDocument,
         request: R03A11QualificationRouteEvidenceRequest
     ) throws {
-        guard !FileManager.default.fileExists(atPath: request.destination.path) else {
+        guard !R03AtomicEvidenceFileWriter.pathEntryExists(
+            at: request.destination
+        ) else {
             throw R03A11NativeMPSTestError.evidenceOutputAlreadyExists(
                 request.destination.path
             )
@@ -674,9 +684,9 @@ private enum R03A11QualificationRouteEvidenceEmitter {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         var data = try encoder.encode(document)
         data.append(0x0A)
-        try data.write(
-            to: request.destination,
-            options: [.atomic, .withoutOverwriting]
+        try R03AtomicEvidenceFileWriter.writeWithoutOverwriting(
+            data,
+            to: request.destination
         )
     }
 }

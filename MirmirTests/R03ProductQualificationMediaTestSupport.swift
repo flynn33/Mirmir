@@ -4,6 +4,7 @@ import CoreMedia
 import CoreVideo
 import CryptoKit
 import Foundation
+import XCTest
 import os.lock
 @testable import Mirmir
 
@@ -623,6 +624,36 @@ struct R03PQMediaObservationRequest: Equatable {
     fileprivate let qualificationInvocation: R03QualificationInvocation
 }
 
+enum R03AtomicEvidenceFileWriter {
+    static func writeWithoutOverwriting(
+        _ data: Data,
+        to outputURL: URL
+    ) throws {
+        guard !pathEntryExists(at: outputURL) else {
+            throw R03ProductQualificationMediaTestError
+                .invalidObservationConfiguration(
+                    "observation target is no longer fresh"
+                )
+        }
+
+        let transaction = try AtomicMediaOutput(destinationURL: outputURL)
+        defer { transaction.fail() }
+        try transaction.beginWriting()
+        try data.write(to: transaction.temporaryURL, options: .withoutOverwriting)
+        try transaction.beginFinishing()
+        try transaction.beginVerifying()
+        try transaction.publish()
+    }
+
+    static func pathEntryExists(
+        at url: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        fileManager.fileExists(atPath: url.path)
+            || (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+}
+
 enum R03PQMediaObservationWriter {
     static let directoryEnvironmentKey =
         "R03_QUALIFICATION_MEDIA_OBSERVATIONS_DIRECTORY"
@@ -655,7 +686,10 @@ enum R03PQMediaObservationWriter {
             "media-run-\(runOrdinal).json",
             isDirectory: false
         )
-        guard !pathEntryExists(at: outputURL, fileManager: fileManager) else {
+        guard !R03AtomicEvidenceFileWriter.pathEntryExists(
+            at: outputURL,
+            fileManager: fileManager
+        ) else {
             throw R03ProductQualificationMediaTestError
                 .invalidObservationConfiguration(
                     "observation target must not exist before the test starts"
@@ -695,7 +729,9 @@ enum R03PQMediaObservationWriter {
         guard testFailureCount == 0 else {
             return
         }
-        guard !pathEntryExists(at: request.outputURL, fileManager: .default) else {
+        guard !R03AtomicEvidenceFileWriter.pathEntryExists(
+            at: request.outputURL
+        ) else {
             throw R03ProductQualificationMediaTestError
                 .invalidObservationConfiguration(
                     "observation target is no longer fresh"
@@ -711,45 +747,10 @@ enum R03PQMediaObservationWriter {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         let data = try encoder.encode(document)
-        try writeAtomicallyWithoutOverwriting(
+        try R03AtomicEvidenceFileWriter.writeWithoutOverwriting(
             data,
-            to: request.outputURL,
-            fileManager: .default
+            to: request.outputURL
         )
-    }
-
-    private static func writeAtomicallyWithoutOverwriting(
-        _ data: Data,
-        to outputURL: URL,
-        fileManager: FileManager
-    ) throws {
-        let stagingDirectory = try fileManager.url(
-            for: .itemReplacementDirectory,
-            in: .userDomainMask,
-            appropriateFor: outputURL,
-            create: true
-        )
-        defer { try? fileManager.removeItem(at: stagingDirectory) }
-        let stagedURL = stagingDirectory.appendingPathComponent(
-            outputURL.lastPathComponent,
-            isDirectory: false
-        )
-        try data.write(to: stagedURL, options: .atomic)
-        guard !pathEntryExists(at: outputURL, fileManager: fileManager) else {
-            throw R03ProductQualificationMediaTestError
-                .invalidObservationConfiguration(
-                    "observation target is no longer fresh"
-                )
-        }
-        try fileManager.moveItem(at: stagedURL, to: outputURL)
-    }
-
-    private static func pathEntryExists(
-        at url: URL,
-        fileManager: FileManager
-    ) -> Bool {
-        fileManager.fileExists(atPath: url.path)
-            || (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
     }
 
     private static func validate(
@@ -795,6 +796,41 @@ enum R03PQMediaObservationWriter {
             && value.unicodeScalars.allSatisfy {
                 (48...57).contains($0.value) || (97...102).contains($0.value)
             }
+    }
+}
+
+final class R03AtomicEvidenceFileWriterTests: XCTestCase {
+    func testPublishesCompleteBytesAndPreservesExistingEvidence() throws {
+        let fileManager = FileManager.default
+        let directory = fileManager.temporaryDirectory.appendingPathComponent(
+            "mirmir-r03-evidence-writer-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer { try? fileManager.removeItem(at: directory) }
+
+        let destination = directory.appendingPathComponent("evidence.json")
+        let first = Data("first-evidence".utf8)
+        try R03AtomicEvidenceFileWriter.writeWithoutOverwriting(
+            first,
+            to: destination
+        )
+        XCTAssertEqual(try Data(contentsOf: destination), first)
+
+        XCTAssertThrowsError(
+            try R03AtomicEvidenceFileWriter.writeWithoutOverwriting(
+                Data("replacement".utf8),
+                to: destination
+            )
+        )
+        XCTAssertEqual(try Data(contentsOf: destination), first)
+        XCTAssertEqual(
+            try fileManager.contentsOfDirectory(atPath: directory.path),
+            ["evidence.json"]
+        )
     }
 }
 // swiftlint:enable file_length
