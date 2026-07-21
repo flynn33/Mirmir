@@ -9,7 +9,7 @@
 
 - Roadmap phase `R00`: `passed`
 - Roadmap phase `R01`: `passed`
-- Roadmap phase `R02`: `next`
+- Roadmap phase `R02`: `in_progress`
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
@@ -36,6 +36,16 @@ Normal R00 product upscaling is fail-closed. The production composition injects
 an unavailable transition engine, Start remains disabled, and the UI reports:
 “No roadmap-qualified backend is available; capability and baseline work
 continue in R01–R03.”
+
+R02 began from local R01 closure commit
+`555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
+`2fbe72d85ace42cc925c45b17d53dd8866a8275b`. That predecessor is explicitly
+recorded as `local_unpublished_closure` with `accepted_merge_commit: null`; no
+merge acceptance is claimed. The frozen R02 contract requires an immutable
+capability registry, typed backend/session outcomes, explicit FIFO actor
+serialization, five separate stage roles, deterministic single-primary planning,
+visible fallback, complete processing identity, and preservation of the existing
+media-transaction and Metal lifetime boundaries. Production remains unavailable.
 
 ## Target Apple-Native Adaptive Architecture
 

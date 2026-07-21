@@ -30,7 +30,7 @@ market-position claim.
 
 `[#---------]`
 
-**Status:** ✅ Passed `2` · ➡️ Next `1` · ⬜ Planned `10` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · 🔄 In progress `1` · ⬜ Planned `10` · ⛔ Blocked `1`
 
 **Current focus:** `R02` — Unified backend and stage architecture
 
@@ -38,7 +38,7 @@ market-position claim.
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
-| `R02` | Unified backend and stage architecture | `next` | ➡️ Next |
+| `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
 | `R03` | Deterministic Apple-native baseline suite | `planned` | ⬜ Planned |
 | `R04` | VideoToolbox super-resolution integration | `planned` | ⬜ Planned |
 | `R05` | MetalFX integration and suitability decision | `planned` | ⬜ Planned |
@@ -638,7 +638,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `next`
+**Status:** `in_progress`
 
 ### Objective
 

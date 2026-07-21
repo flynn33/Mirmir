@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "571fa10b85676cc22fa0e8d7c9f90d7cd46978871af8b1144a70ba73d4b622be",
-    "json_sha256": "242b91e6f2dfaa52322976bf04576a42a23cab18649030d2bc892270079c3aaa",
+    "markdown_sha256": "ad9ed71b0ecad9a6abc62b2d93950513d29d2685412c5d839636ba27f74dc5f4",
+    "json_sha256": "9df246f11d4695fd7d726c6908c593b9f72ad92790fd290508309879f71d4f53",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -128,6 +128,12 @@
       "python3 Scripts/r01_preregistration.py --check",
       "python3 Scripts/r01_preregistration.py --check-fixtures",
       "python3 Scripts/r01_capabilities.py --check",
+      "python3 Scripts/r01_observation_waiver.py --check",
+      "Scripts/tests/test_r01_observation_waiver.py",
+      "Scripts/tests/test_r02_contracts.py",
+      "python3 Scripts/r02_contracts.py --check-preregistration",
+      "python3 Scripts/r02_contracts.py --check-fixtures",
+      "python3 Scripts/r02_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -156,6 +162,12 @@
       "python3 Scripts/r01_preregistration.py --check",
       "python3 Scripts/r01_preregistration.py --check-fixtures",
       "python3 Scripts/r01_capabilities.py --check",
+      "python3 Scripts/r01_observation_waiver.py --check",
+      "Scripts/tests/test_r01_observation_waiver.py",
+      "Scripts/tests/test_r02_contracts.py",
+      "python3 Scripts/r02_contracts.py --check-preregistration",
+      "python3 Scripts/r02_contracts.py --check-fixtures",
+      "python3 Scripts/r02_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -206,6 +218,19 @@
         "docs/roadmaps/evidence/r01/phase-evidence.md",
         "project-notes/apple-upscale-capabilities.json",
         "project-notes/apple-upscale-capability-report.md"
+      ]
+    }
+  },
+  "phase_start_requirements": {
+    "R02": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r02/records/preregistration.json",
+        "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json"
       ]
     }
   },

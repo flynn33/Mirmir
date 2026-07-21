@@ -221,7 +221,7 @@
       "exit": "common session contract across multiple backends",
       "id": "R02",
       "name": "Unified backend and stage architecture",
-      "status": "next"
+      "status": "in_progress"
     },
     {
       "depends_on": [

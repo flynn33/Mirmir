@@ -42,6 +42,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
         paths.update(self.policy["required_phrases"])
         for requirement in self.policy["phase_evidence_requirements"].values():
             paths.update(requirement["paths"])
+        for requirement in self.policy["phase_start_requirements"].values():
+            paths.update(requirement["paths"])
         workflow_root = REPOSITORY_ROOT / self.policy["workflows"]["root"]
         paths.update(
             path.relative_to(REPOSITORY_ROOT).as_posix()
@@ -145,6 +147,36 @@ class RoadmapAlignmentTests(unittest.TestCase):
         symlink_path.unlink()
         symlink_path.symlink_to(target)
         self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
+
+    def test_in_progress_r02_requires_every_start_contract_file(self) -> None:
+        start_path = self.root / self.policy["phase_start_requirements"]["R02"][
+            "paths"
+        ][0]
+        start_path.unlink()
+        self.assert_error_contains(
+            "phase R02 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_prestart_r02_does_not_require_start_contract_files(self) -> None:
+        self.set_phase_status("R02", "next")
+        for relative in self.policy["phase_start_requirements"]["R02"]["paths"]:
+            (self.root / relative).unlink()
+        self.assertFalse(
+            any("phase R02 status" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_in_progress_r02_rejects_symlinked_start_contract(self) -> None:
+        symlink_path = self.root / self.policy["phase_start_requirements"]["R02"][
+            "paths"
+        ][0]
+        target = self.root / "r02-start-target.json"
+        target.write_text("{}\n", encoding="utf-8")
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R02 status 'in_progress' requires a regular start-contract file"
+        )
 
     def test_canonical_markdown_hash_drift_fails(self) -> None:
         path = self.root / self.policy["canonical"]["markdown_path"]

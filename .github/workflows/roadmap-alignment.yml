@@ -38,6 +38,8 @@ jobs:
           Scripts/tests/test_phase_evidence.py
           Scripts/tests/test_r01_preregistration.py
           Scripts/tests/test_r01_capabilities.py
+          Scripts/tests/test_r01_observation_waiver.py
+          Scripts/tests/test_r02_contracts.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -50,6 +52,19 @@ jobs:
 
       - name: Verify R01 deterministic fixtures
         run: python3 Scripts/r01_preregistration.py --check-fixtures
+
+      - name: Verify R02 preregistration
+        run: python3 Scripts/r02_contracts.py --check-preregistration
+
+      - name: Verify R02 deterministic fixtures
+        run: python3 Scripts/r02_contracts.py --check-fixtures
+
+      - name: Verify R02 conformance when present
+        shell: bash
+        run: |
+          if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
+            python3 Scripts/r02_contracts.py --check-conformance
+          fi
 
       - name: Verify R01 system assets remain untracked
         shell: bash
@@ -75,7 +90,13 @@ jobs:
             fi
           done
           if [ "$evidence_present" = true ]; then
-            python3 Scripts/r01_capabilities.py --check
+            if [ -f project-notes/apple-upscale-capabilities.json ] && \
+              grep -q '"evidence_kind": "operator_observation_waiver"' \
+                project-notes/apple-upscale-capabilities.json; then
+              python3 Scripts/r01_observation_waiver.py --check
+            else
+              python3 Scripts/r01_capabilities.py --check
+            fi
           fi
 
       - name: Verify closed phase evidence

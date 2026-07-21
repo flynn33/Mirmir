@@ -2437,6 +2437,28 @@ class PhaseEvidenceVerifier:
                     f"required verification categories are missing: {missing_categories!r}"
                 )
 
+    def _check_common_verification_contract(
+        self,
+        manifest: dict[str, Any],
+        verification_checks: list[dict[str, Any]],
+        errors: list[str],
+    ) -> None:
+        result = manifest.get("result")
+        if not isinstance(result, dict) or result.get("status") == "blocked":
+            return
+        required_passed_categories = {
+            check.get("category")
+            for check in verification_checks
+            if check.get("required") is True and check.get("status") == "passed"
+        }
+        missing_categories = sorted(
+            COMMON_REQUIRED_VERIFICATION_CATEGORIES - required_passed_categories
+        )
+        if missing_categories:
+            errors.append(
+                f"required verification categories are missing: {missing_categories!r}"
+            )
+
     def _check_evidence_files(self, errors: list[str]) -> None:
         phase_slug = self.phase_id.lower()
         evidence_roots = (
@@ -2546,6 +2568,9 @@ class PhaseEvidenceVerifier:
         )
         self._check_result(
             manifest["result"], disposition_subjects, verification_checks, errors
+        )
+        self._check_common_verification_contract(
+            manifest, verification_checks, errors
         )
         self._check_authorizations(manifest["authorizations"], errors)
         self._check_phase_dependencies(

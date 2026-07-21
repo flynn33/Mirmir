@@ -1,0 +1,572 @@
+{
+  "$defs": {
+    "backendRun": {
+      "additionalProperties": false,
+      "properties": {
+        "admission_scope": {
+          "const": "fixture_only_nonproduction",
+          "type": "string"
+        },
+        "fixture_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "result": {
+          "const": "passed",
+          "type": "string"
+        },
+        "scenario_ids": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 3,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "selected_primary": {
+          "type": "boolean"
+        },
+        "session_contract": {
+          "const": "apple-upscale-session-v1",
+          "type": "string"
+        },
+        "terminalization_count": {
+          "const": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "identity",
+        "admission_scope",
+        "session_contract",
+        "fixture_ids",
+        "scenario_ids",
+        "selected_primary",
+        "terminalization_count",
+        "result"
+      ],
+      "type": "object"
+    },
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "check": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        "status": {
+          "const": "passed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "type": "object"
+    },
+    "fallbackLink": {
+      "additionalProperties": false,
+      "properties": {
+        "failed_identity": {
+          "$ref": "#/$defs/routeIdentity"
+        },
+        "reason_code": {
+          "const": "backend_unavailable",
+          "type": "string"
+        },
+        "selected_fallback_ordinal": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "selected_identity": {
+          "$ref": "#/$defs/routeIdentity"
+        }
+      },
+      "required": [
+        "failed_identity",
+        "reason_code",
+        "selected_identity",
+        "selected_fallback_ordinal"
+      ],
+      "type": "object"
+    },
+    "identity": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "backend_revision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "configuration_identity": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "fallback_history": {
+          "items": {
+            "$ref": "#/$defs/fallbackLink"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "material_decision_identity": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_assets_identity": {
+          "additionalProperties": false,
+          "properties": {
+            "disposition": {
+              "enum": [
+                "not_required",
+                "bound_artifacts"
+              ],
+              "type": "string"
+            },
+            "identifiers": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "disposition",
+            "identifiers"
+          ],
+          "type": "object"
+        },
+        "policy_identity": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "backend_id",
+        "backend_revision",
+        "model_assets_identity",
+        "configuration_identity",
+        "policy_identity",
+        "fallback_history",
+        "material_decision_identity"
+      ],
+      "type": "object"
+    },
+    "metric": {
+      "additionalProperties": false,
+      "properties": {
+        "direction": {
+          "enum": [
+            "higher_is_better",
+            "lower_is_better"
+          ],
+          "type": "string"
+        },
+        "floor": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        },
+        "operator": {
+          "enum": [
+            "equal",
+            "greater_than_or_equal"
+          ],
+          "type": "string"
+        },
+        "passed": {
+          "const": true,
+          "type": "boolean"
+        },
+        "unit": {
+          "const": "count",
+          "type": "string"
+        },
+        "value": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "unit",
+        "direction",
+        "operator",
+        "floor",
+        "value",
+        "passed"
+      ],
+      "type": "object"
+    },
+    "outcome": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "processed",
+            "unavailable",
+            "rejected",
+            "failed",
+            "fallback_applied"
+          ],
+          "type": "string"
+        },
+        "processing_identity": {
+          "$ref": "#/$defs/identity"
+        },
+        "status": {
+          "const": "observed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status",
+        "processing_identity"
+      ],
+      "type": "object"
+    },
+    "routeIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "backend_revision": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "configuration_identity": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "material_decision_identity": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "model_assets_identity": {
+          "additionalProperties": false,
+          "properties": {
+            "disposition": {
+              "enum": [
+                "not_required",
+                "bound_artifacts"
+              ],
+              "type": "string"
+            },
+            "identifiers": {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array",
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "disposition",
+            "identifiers"
+          ],
+          "type": "object"
+        },
+        "policy_identity": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "backend_id",
+        "backend_revision",
+        "model_assets_identity",
+        "configuration_identity",
+        "policy_identity",
+        "material_decision_identity"
+      ],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "tree": {
+          "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r02-session-conformance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "backend_runs": {
+      "items": {
+        "$ref": "#/$defs/backendRun"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/check"
+      },
+      "maxItems": 29,
+      "minItems": 29,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "evidence_kind": {
+      "const": "deterministic_software_conformance",
+      "type": "string"
+    },
+    "fixture_catalog_binding": {
+      "$ref": "#/$defs/binding"
+    },
+    "limitations": {
+      "items": {
+        "enum": [
+          "hardware_capability_observation_not_observed",
+          "simulator_execution_not_observed",
+          "operator_observed_operation_not_observed",
+          "performance_not_measured_no_claim"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_conformance": {
+          "const": "passed",
+          "type": "string"
+        },
+        "hardware_capability_observation": {
+          "const": "not_observed",
+          "type": "string"
+        },
+        "operator_observed_operation": {
+          "const": "not_observed",
+          "type": "string"
+        },
+        "performance_claims": {
+          "const": "forbidden",
+          "type": "string"
+        },
+        "requirement": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        },
+        "simulator_execution": {
+          "const": "not_observed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "requirement",
+        "hardware_capability_observation",
+        "simulator_execution",
+        "operator_observed_operation",
+        "deterministic_software_conformance",
+        "performance_claims"
+      ],
+      "type": "object"
+    },
+    "outcome_coverage": {
+      "items": {
+        "$ref": "#/$defs/outcome"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "phase_id": {
+      "const": "R02",
+      "type": "string"
+    },
+    "preregistration_binding": {
+      "$ref": "#/$defs/binding"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "authorization": {
+          "additionalProperties": false,
+          "properties": {
+            "auto_mode": {
+              "const": "blocked",
+              "type": "string"
+            },
+            "holdout": {
+              "const": "blocked",
+              "type": "string"
+            },
+            "phase_acceptance": {
+              "const": "not_claimed",
+              "type": "string"
+            },
+            "performance_claims": {
+              "const": "forbidden",
+              "type": "string"
+            },
+            "publication": {
+              "const": "not_authorized_by_this_record",
+              "type": "string"
+            },
+            "product_eligibility": {
+              "const": "not_authorized",
+              "type": "string"
+            },
+            "production_enablement": {
+              "const": "not_authorized",
+              "type": "string"
+            },
+            "release": {
+              "const": "not_authorized",
+              "type": "string"
+            }
+          },
+          "required": [
+            "phase_acceptance",
+            "publication",
+            "product_eligibility",
+            "production_enablement",
+            "auto_mode",
+            "holdout",
+            "release",
+            "performance_claims"
+          ],
+          "type": "object"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/metric"
+          },
+          "maxItems": 18,
+          "minItems": 18,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "production_composition": {
+          "additionalProperties": false,
+          "properties": {
+            "fixture_backend_reachable": {
+              "const": false,
+              "type": "boolean"
+            },
+            "service_type": {
+              "const": "UnavailableUpscalerEngineService",
+              "type": "string"
+            },
+            "status": {
+              "const": "unavailable",
+              "type": "string"
+            }
+          },
+          "required": [
+            "status",
+            "service_type",
+            "fixture_backend_reachable"
+          ],
+          "type": "object"
+        },
+        "status": {
+          "const": "passed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "metrics",
+        "production_composition",
+        "authorization"
+      ],
+      "type": "object"
+    },
+    "roadmap_version": {
+      "const": "1.0.1",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "preregistration_binding",
+    "fixture_catalog_binding",
+    "observation_status",
+    "backend_runs",
+    "outcome_coverage",
+    "checks",
+    "result",
+    "limitations"
+  ],
+  "type": "object"
+}

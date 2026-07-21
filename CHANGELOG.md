@@ -6,6 +6,14 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R02 local implementation with a closed backend/session/stage contract,
+  deterministic frame-sequence and AAC media-transaction fixtures, zero-violation
+  correctness floors, and fail-closed validation. The preregistration binds R01
+  commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` as a
+  `local_unpublished_closure`, records `accepted_merge_commit: null`, and makes no
+  acceptance claim. Hardware, simulator, and operator observation remain
+  `not_observed`; deterministic software conformance is still required and
+  performance claims remain forbidden. Production upscaling remains unavailable.
 - Closed an R01 live-readiness mismatch by requiring the shared frozen
   `analysis-probe-model` identity/hash before every anchor, matching the live
   producer and four-report aggregate contract. Frozen identity with absent local

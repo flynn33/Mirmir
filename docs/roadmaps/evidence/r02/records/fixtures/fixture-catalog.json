@@ -1,0 +1,303 @@
+{
+  "fixtures": [
+    {
+      "audio_contract": null,
+      "color_contract": {
+        "chroma_siting": "left",
+        "color_primaries": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2"
+      },
+      "container_contract": null,
+      "frames": [
+        {
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "generated_content_sha256": "07b095efb0092bef4cc508bf4c6c41e874e60d66ff29059ae9a20e5abff45a6c",
+          "metadata_identity": "fixture-sequence-a.frame-0",
+          "pts": {
+            "timescale": 30,
+            "value": 0
+          },
+          "resource_token_id": "fixture-sequence-a.token-0",
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "generated_content_sha256": "b8b6eb1862607972f852cc3a1ab40f159d37c6c1c8eb39223533e1108caca6df",
+          "metadata_identity": "fixture-sequence-a.frame-1",
+          "pts": {
+            "timescale": 30,
+            "value": 1
+          },
+          "resource_token_id": "fixture-sequence-a.token-1",
+          "sequence_number": 1
+        },
+        {
+          "duration": {
+            "timescale": 30,
+            "value": 1
+          },
+          "generated_content_sha256": "e7d62e9544c356b21661db85fe6c5987c3350a352dbfd9d7181348eb6729b706",
+          "metadata_identity": "fixture-sequence-a.frame-2",
+          "pts": {
+            "timescale": 30,
+            "value": 2
+          },
+          "resource_token_id": "fixture-sequence-a.token-2",
+          "sequence_number": 2
+        }
+      ],
+      "generator_id": "r02-deterministic-nv12-v1",
+      "id": "fixture-sequence-a",
+      "kind": "frame_sequence",
+      "materialization": "runtime_ephemeral",
+      "pixel_format": "420v",
+      "seed": 101,
+      "semantic_sha256": "641998b613497dff31a36ecfc859680e737e306908f6c090eae1b863beb43e6f",
+      "source_dimensions": {
+        "height": 8,
+        "width": 16
+      },
+      "target_dimensions": {
+        "height": 8,
+        "width": 16
+      }
+    },
+    {
+      "audio_contract": null,
+      "color_contract": {
+        "chroma_siting": "left",
+        "color_primaries": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2"
+      },
+      "container_contract": null,
+      "frames": [
+        {
+          "duration": {
+            "timescale": 60,
+            "value": 2
+          },
+          "generated_content_sha256": "64b5f591646e6bcecda321b9ac13e5429a66f80d270c608a4351a9d4e475ab0c",
+          "metadata_identity": "fixture-sequence-b.frame-0",
+          "pts": {
+            "timescale": 60,
+            "value": 100
+          },
+          "resource_token_id": "fixture-sequence-b.token-0",
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "timescale": 60,
+            "value": 2
+          },
+          "generated_content_sha256": "dff02a348119b50675eea4c99bea759919cb63aea0a2cf9b760e17dd7354dfb3",
+          "metadata_identity": "fixture-sequence-b.frame-1",
+          "pts": {
+            "timescale": 60,
+            "value": 102
+          },
+          "resource_token_id": "fixture-sequence-b.token-1",
+          "sequence_number": 1
+        },
+        {
+          "duration": {
+            "timescale": 60,
+            "value": 2
+          },
+          "generated_content_sha256": "c3467778b0f7a2ab338917bf7dbf83cfb70a166a4093c6dac161c8acc78eefd2",
+          "metadata_identity": "fixture-sequence-b.frame-2",
+          "pts": {
+            "timescale": 60,
+            "value": 104
+          },
+          "resource_token_id": "fixture-sequence-b.token-2",
+          "sequence_number": 2
+        }
+      ],
+      "generator_id": "r02-deterministic-nv12-v1",
+      "id": "fixture-sequence-b",
+      "kind": "frame_sequence",
+      "materialization": "runtime_ephemeral",
+      "pixel_format": "420v",
+      "seed": 202,
+      "semantic_sha256": "b27e5d87e935697e511dd6f19818fa55385d780daee4cef7675370087c88e2ef",
+      "source_dimensions": {
+        "height": 8,
+        "width": 16
+      },
+      "target_dimensions": {
+        "height": 8,
+        "width": 16
+      }
+    },
+    {
+      "audio_contract": {
+        "channel_count": 2,
+        "codec": "aac",
+        "sample_rate": 48000,
+        "semantic_sha256": "db9e6e337c0359715f730a6ef39eb44269290390a42a1044b4e481fb61092cef",
+        "source_generator_id": "r02-deterministic-pcm-s16le-v1",
+        "source_pcm_sha256": "d9c0cdd3c0a79ff8fce1ae71b1e00ee8047de3243d6403b73d3d53cf6094b06a",
+        "source_sample_frames": 480,
+        "track_count": 1
+      },
+      "color_contract": {
+        "chroma_siting": "left",
+        "color_primaries": "ITU_R_709_2",
+        "matrix": "ITU_R_709_2",
+        "range": "video",
+        "transfer_function": "ITU_R_709_2"
+      },
+      "container_contract": {
+        "atomic_publication_required": true,
+        "file_type": "mp4",
+        "reopen_required": true,
+        "video_codec": "h264"
+      },
+      "frames": [
+        {
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "generated_content_sha256": "b0384666a5ccd123694628f7c3d9aa7e6be0530ac90a113e8a2ba4c4fd80b98e",
+          "metadata_identity": "fixture-media-transaction.frame-0",
+          "pts": {
+            "timescale": 30000,
+            "value": 0
+          },
+          "resource_token_id": "fixture-media-transaction.token-0",
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "generated_content_sha256": "0a2e49e906cad09e96e75aceedfa841be5015e73ffd8441cc42b10275c7c5cab",
+          "metadata_identity": "fixture-media-transaction.frame-1",
+          "pts": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "resource_token_id": "fixture-media-transaction.token-1",
+          "sequence_number": 1
+        },
+        {
+          "duration": {
+            "timescale": 30000,
+            "value": 1001
+          },
+          "generated_content_sha256": "973348daa00909cecb9edd3d4c63409bc653298e06aa22fe60fa73c2f3348662",
+          "metadata_identity": "fixture-media-transaction.frame-2",
+          "pts": {
+            "timescale": 30000,
+            "value": 2002
+          },
+          "resource_token_id": "fixture-media-transaction.token-2",
+          "sequence_number": 2
+        }
+      ],
+      "generator_id": "r02-deterministic-nv12-v1",
+      "id": "fixture-media-transaction",
+      "kind": "media_transaction",
+      "materialization": "runtime_ephemeral",
+      "pixel_format": "420v",
+      "seed": 303,
+      "semantic_sha256": "9554471464645a14970516ebb2ef07d7897f0325d1a88cba34bce9b459c8ebe5",
+      "source_dimensions": {
+        "height": 8,
+        "width": 16
+      },
+      "target_dimensions": {
+        "height": 8,
+        "width": 16
+      }
+    }
+  ],
+  "generator_contract": "r02-deterministic-contract-fixtures-v1",
+  "phase_id": "R02",
+  "scenarios": [
+    {
+      "backend_ids": [
+        "r02.fixture.copy-a",
+        "r02.fixture.copy-b"
+      ],
+      "fixture_ids": [
+        "fixture-sequence-a",
+        "fixture-sequence-b"
+      ],
+      "id": "multiple_backends_common_session",
+      "required_checks": [
+        "backend_common_contract",
+        "dimensions_preserved",
+        "frame_order_preserved",
+        "pts_preserved",
+        "duration_preserved",
+        "color_preserved",
+        "resource_lifetime_preserved"
+      ]
+    },
+    {
+      "backend_ids": [
+        "r02.fixture.copy-a"
+      ],
+      "fixture_ids": [
+        "fixture-sequence-a"
+      ],
+      "id": "session_lifecycle",
+      "required_checks": [
+        "fifo_serial_submission",
+        "reset_semantics",
+        "finish_semantics",
+        "cancel_semantics"
+      ]
+    },
+    {
+      "backend_ids": [
+        "r02.fixture.copy-a",
+        "r02.fixture.copy-b"
+      ],
+      "fixture_ids": [
+        "fixture-sequence-b"
+      ],
+      "id": "typed_outcomes_and_fallback",
+      "required_checks": [
+        "typed_outcome_coverage",
+        "planner_visible_fallback",
+        "processing_identity_complete"
+      ]
+    },
+    {
+      "backend_ids": [
+        "r02.fixture.copy-a",
+        "r02.fixture.copy-b"
+      ],
+      "fixture_ids": [
+        "fixture-media-transaction"
+      ],
+      "id": "media_transaction_preservation",
+      "required_checks": [
+        "dimensions_preserved",
+        "frame_order_preserved",
+        "pts_preserved",
+        "duration_preserved",
+        "audio_preserved",
+        "metadata_preserved",
+        "reopen_verification",
+        "atomic_publication"
+      ]
+    }
+  ],
+  "schema_version": "1.0.0"
+}

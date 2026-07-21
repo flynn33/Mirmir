@@ -581,7 +581,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `next`
+**Status:** `in_progress`
 
 ### Objective
 

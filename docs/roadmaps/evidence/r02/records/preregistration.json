@@ -1,0 +1,383 @@
+{
+  "authorization_boundary": {
+    "auto_mode": "blocked",
+    "holdout": "blocked",
+    "performance_claims": "forbidden",
+    "production_upscaling": "unavailable",
+    "publication": "not_authorized_by_this_record",
+    "release": "not_authorized"
+  },
+  "contract": {
+    "backend_contract": {
+      "capability_source": "explicit_immutable_registry_only",
+      "fallback_owner": "planner_orchestrator_only",
+      "fixture_backend_identities": [
+        "r02.fixture.copy-a",
+        "r02.fixture.copy-b"
+      ],
+      "minimum_deterministic_backends": 2,
+      "session_contract": "apple-upscale-session-v1"
+    },
+    "capability_registry": {
+      "eligibility_inference": "forbidden",
+      "immutability": "snapshot",
+      "source_binding": {
+        "path": "project-notes/apple-upscale-capabilities.json",
+        "sha256": "c2a2882dd4c696f34f8d8c9a269ed9f502f14261d4484e90d412ccfa47eb1a1e",
+        "size_bytes": 55520
+      },
+      "unobserved_disposition": "preserve_diagnostic_only"
+    },
+    "fixture_generator": {
+      "generator_contract": "r02-deterministic-contract-fixtures-v1",
+      "source_binding": {
+        "path": "Scripts/r02_fixture_generator.py",
+        "sha256": "6155e72eaeac221bcf88c6fcac48bd45aecaa0043046bf1b6dfd46fb68e53b3e",
+        "size_bytes": 1849
+      }
+    },
+    "frame_fields": [
+      "sequence_number",
+      "pixel_buffer",
+      "presentation_timestamp",
+      "duration",
+      "color_description",
+      "metadata_identity",
+      "resource_lifetime_token"
+    ],
+    "lifecycle_requirements": [
+      {
+        "description": "AppleUpscaleBackend is Sendable, exposes immutable structured identity and explicit capability lookup, and asynchronously creates a session from validated configuration and context.",
+        "id": "backend_creation"
+      },
+      {
+        "description": "AppleUpscaleSession is actor-isolated and serializes submit, reset, finish, and cancel through one FIFO operation boundary despite actor reentrancy.",
+        "id": "actor_isolation"
+      },
+      {
+        "description": "Every admitted frame retains the complete frozen frame contract until a typed outcome transfers or releases ownership.",
+        "id": "frame_ownership"
+      },
+      {
+        "description": "Every output is exactly processed, unavailable, rejected, failed, or fallback-applied and carries complete structured processing identity.",
+        "id": "typed_outcomes"
+      },
+      {
+        "description": "Reset drains earlier work, clears temporal history, advances history generation, and preserves clip-global sequence numbering.",
+        "id": "reset_semantics"
+      },
+      {
+        "description": "Cancellation is idempotent, closes admission, rejects queued work, waits for active work to quiesce, and releases resources exactly once.",
+        "id": "cancel_semantics"
+      },
+      {
+        "description": "Finish installs an admission fence, drains ordered work, finalizes once, caches its result, and rejects later mutation.",
+        "id": "finish_semantics"
+      },
+      {
+        "description": "Fallback is selected only by the planner or orchestrator and visibly links the failed route to the selected route.",
+        "id": "fallback_visibility"
+      }
+    ],
+    "outcome_vocabulary": [
+      "processed",
+      "unavailable",
+      "rejected",
+      "failed",
+      "fallback_applied"
+    ],
+    "planner_contract": "exactly_one_primary_deterministic_order_explicit_fallback",
+    "processing_identity_fields": [
+      "backend_id",
+      "backend_revision",
+      "model_assets_identity",
+      "configuration_identity",
+      "policy_identity",
+      "fallback_history",
+      "material_decision_identity"
+    ],
+    "production_composition": "unavailable",
+    "scenarios": [
+      {
+        "description": "Concurrent submissions reach the driver in FIFO order with maximum driver concurrency one.",
+        "id": "concurrent_fifo"
+      },
+      {
+        "description": "A suspended driver call cannot be bypassed by actor reentrancy.",
+        "id": "actor_reentrancy"
+      },
+      {
+        "description": "Reset orders after earlier submissions and before later submissions while clearing history.",
+        "id": "reset_ordering"
+      },
+      {
+        "description": "Finish drains admitted work, installs a fence, and finalizes the driver once.",
+        "id": "finish_drain_and_fence"
+      },
+      {
+        "description": "Cancellation closes admission, cancels active work, rejects queued work, and terminalizes once.",
+        "id": "active_cancel"
+      },
+      {
+        "description": "A late success from cancelled work cannot reopen or mutate the terminal session.",
+        "id": "stale_completion"
+      },
+      {
+        "description": "Every input and output lifetime token releases exactly once on success, failure, rejection, and cancellation paths.",
+        "id": "resource_lifetime"
+      },
+      {
+        "description": "Duplicate sequence, nonmonotonic PTS, and invalid duration reject before reaching the driver.",
+        "id": "sequence_and_timing"
+      },
+      {
+        "description": "Exactly one primary stage is selected and stage order is deterministic.",
+        "id": "planner_determinism"
+      },
+      {
+        "description": "Fallback is explicit and links failed and selected route identities without backend-local substitution.",
+        "id": "fallback_linkage"
+      },
+      {
+        "description": "Both deterministic fixture backends use the same session contract and preserve dimensions, frame order, PTS, and duration.",
+        "id": "multiple_backend_fixture"
+      },
+      {
+        "description": "Audio and metadata fixture identities are preserved by the media transaction.",
+        "id": "audio_metadata_identity"
+      },
+      {
+        "description": "Output is reopened and verified before publication.",
+        "id": "reopen_verification"
+      },
+      {
+        "description": "Cancellation or verification failure prevents atomic destination publication.",
+        "id": "atomic_publication"
+      },
+      {
+        "description": "Production dependency composition remains the unavailable upscaler service.",
+        "id": "production_unavailable"
+      }
+    ],
+    "schema_bindings": {
+      "conformance": {
+        "path": "docs/roadmaps/evidence/schema/r02-session-conformance-v1.json",
+        "sha256": "da1bee31e4b797cc09f99f11c549398fe470797e0337d7fcbed3de5068568991",
+        "size_bytes": 13488
+      },
+      "fixture_catalog": {
+        "path": "docs/roadmaps/evidence/schema/r02-fixture-catalog-v1.json",
+        "sha256": "fd61b61fb62b0b5c209f095649fd6315bb21e694059a9807e593c7bae5949d30",
+        "size_bytes": 9214
+      },
+      "preregistration": {
+        "path": "docs/roadmaps/evidence/schema/r02-preregistration-v1.json",
+        "sha256": "c74e09d7f6e07473be7b41084ed2e9404b8029ba8c463fd402650a99f2f654ae",
+        "size_bytes": 13233
+      }
+    },
+    "stage_protocols": [
+      "preprocessing",
+      "primary_scaling",
+      "postprocessing",
+      "temporal",
+      "analysis"
+    ]
+  },
+  "fixture_catalog": {
+    "path": "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json",
+    "sha256": "245d3f73186322503aa1ebfaf5a5865994063997cda240374340427f4a3bebf3",
+    "size_bytes": 8865
+  },
+  "metrics": [
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "dimension_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "frame_order_violation_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "pts_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "duration_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "audio_identity_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "metadata_identity_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "resource_lifetime_violation_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "lifecycle_violation_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "silent_fallback_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "incomplete_identity_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "atomic_publication_violation_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "higher_is_better",
+      "floor": 2,
+      "id": "backend_count",
+      "operator": "greater_than_or_equal",
+      "unit": "count"
+    },
+    {
+      "direction": "higher_is_better",
+      "floor": 2,
+      "id": "fixture_count",
+      "operator": "greater_than_or_equal",
+      "unit": "count"
+    },
+    {
+      "direction": "higher_is_better",
+      "floor": 1,
+      "id": "primary_backend_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "higher_is_better",
+      "floor": 5,
+      "id": "outcome_case_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "color_identity_mismatch_count",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "higher_is_better",
+      "floor": 1,
+      "id": "terminalizations_per_session",
+      "operator": "equal",
+      "unit": "count"
+    },
+    {
+      "direction": "lower_is_better",
+      "floor": 0,
+      "id": "production_backend_count",
+      "operator": "equal",
+      "unit": "count"
+    }
+  ],
+  "observation_policy": {
+    "deterministic_software_conformance": "required",
+    "hardware_capability_observation": "not_observed",
+    "operator_observed_operation": "not_observed",
+    "performance_claims": "forbidden",
+    "requirement": "waived_not_a_blocker",
+    "simulator_execution": "not_observed"
+  },
+  "phase_id": "R02",
+  "predecessor_binding": {
+    "acceptance_state": "not_claimed",
+    "accepted_merge_commit": null,
+    "closure_commit": "555ae5a1afce1e492bdc89b6b14f2ba269edc524",
+    "closure_state": "local_unpublished_closure",
+    "closure_tree": "2fbe72d85ace42cc925c45b17d53dd8866a8275b",
+    "continuation_scope": "local_implementation_only",
+    "phase_id": "R01"
+  },
+  "preregistration_state": "contract_frozen_for_local_implementation",
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "stop_rules": [
+    {
+      "description": "Stop this preregistered run if the local R01 closure commit or tree binding changes.",
+      "id": "identity_drift"
+    },
+    {
+      "description": "Stop if a fixture, schema, generator, or catalog byte changes without a new preregistration.",
+      "id": "fixture_or_schema_drift"
+    },
+    {
+      "description": "Stop closure when frame order, dimensions, PTS, duration, audio, or metadata identity differs.",
+      "id": "media_contract_violation"
+    },
+    {
+      "description": "Stop closure on session serialization, reset, finish, cancellation, or resource-lifetime violation.",
+      "id": "lifecycle_violation"
+    },
+    {
+      "description": "Stop closure on backend-local fallback, unlinked fallback, or any other silent substitution.",
+      "id": "silent_fallback"
+    },
+    {
+      "description": "Stop closure when an outcome lacks backend, revision, configuration, policy, model or not-required, asset, fallback, or ASH decision identity.",
+      "id": "incomplete_identity"
+    },
+    {
+      "description": "Stop closure if production composition can reach an R02 fixture or retained comparator backend.",
+      "id": "production_reachability"
+    },
+    {
+      "description": "Stop closure if reopen verification or atomic publication behavior is bypassed.",
+      "id": "publication_boundary"
+    },
+    {
+      "description": "Stop any hardware, simulator, runtime-support, performance, memory, or quality claim not directly measured and bound to evidence.",
+      "id": "fabricated_observation"
+    },
+    {
+      "description": "Stop publication, acceptance, holdout, production Auto, claim, tag, or release action without its separate direct authority.",
+      "id": "authorization_boundary"
+    }
+  ]
+}

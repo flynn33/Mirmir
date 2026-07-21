@@ -26,6 +26,10 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
+- status-sensitive phase-start contracts: R02 `in_progress`, `evidence_ready`,
+  and `passed` states require regular, non-symlink preregistration and fixture
+  catalog files, whose dedicated validator preserves the exact unpublished
+  predecessor truth and operator-observation boundary;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -39,17 +43,26 @@ request become visible without making the required check network-dependent.
 ## Updating progress
 
 Change phase statuses only in the canonical roadmap JSON after the corresponding
-roadmap decision and evidence have been accepted. Update the canonical JSON digest
-and affected contract fields in the alignment policy in the same pull request.
+roadmap decision and evidence have been accepted. One narrow exception applies
+when direct operator instruction authorizes local implementation from an exact,
+recorded `local_unpublished_closure`: the dependent phase may move locally to
+`in_progress` after its preregistration records `accepted_merge_commit: null` and
+`acceptance_state: not_claimed`. That exception does not authorize publication,
+phase closure, acceptance, production enablement, or release. Update the canonical
+JSON digest and affected contract fields in the alignment policy in the same pull
+request.
 Then regenerate the clearly labeled README progress section and verify the
 repository:
 
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
+python3 Scripts/r02_contracts.py --check-preregistration
+python3 Scripts/r02_contracts.py --check-fixtures
+test ! -f docs/roadmaps/evidence/r02/records/conformance.json || python3 Scripts/r02_contracts.py --check-conformance
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

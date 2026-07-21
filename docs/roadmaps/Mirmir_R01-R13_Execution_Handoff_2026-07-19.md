@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.4
+- **Handoff version:** 1.5
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -20,7 +20,12 @@
 - **R01 completed evidence source:**
   `bd963fbd034734e92f488549c6e1c0cd8b246363`; tree
   `6009c40b775e252a05ff83d436d90f0422498245`
-- **Continuation state:** `R01: passed`; `R02: next`
+- **R01 local unpublished closure:**
+  `555ae5a1afce1e492bdc89b6b14f2ba269edc524`; tree
+  `2fbe72d85ace42cc925c45b17d53dd8866a8275b`; acceptance not claimed
+- **R02 local preregistration source:** R01 local unpublished closure above;
+  `accepted_merge_commit: null`
+- **Continuation state:** `R01: passed`; `R02: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -63,10 +68,11 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: passed`, and `R02: next` remain
-   canonical. If any changed, stop and reconcile the newer accepted roadmap
-   before proceeding.
-5. Begin with the R02 preregistration/start transition. Later phases become
+4. Confirm `R00: passed`, `R01: passed`, and `R02: in_progress` remain
+   canonical for this local continuation. If any changed, reconcile the newer
+   accepted roadmap before proceeding.
+5. Continue the frozen R02 implementation contract. Except for the narrow
+   operator-directed local-continuation path in Section 3.1, later phases become
    actionable only through their accepted dependencies, evidence, roadmap
    state, and operator controls.
 
@@ -131,6 +137,23 @@ must record the actual preceding merge commit before implementation begins.
 Every other phase status and authorization remains unchanged unless the same
 pull request contains the evidence and explicit roadmap decision needed to
 change it.
+
+#### Operator-directed local continuation from an unpublished closure
+
+The operator's direct instruction to continue locally through R07 creates one
+narrow exception to the preceding implementation-start rule. A dependent phase
+may begin local implementation only after a preregistration binds the exact
+preceding `local_unpublished_closure` commit and tree, records
+`accepted_merge_commit: null`, and states that acceptance is not claimed. This
+exception does not accept the preceding phase and does not authorize a push,
+pull request, approval, merge, tag, release, holdout access, production enablement,
+or product/performance claim.
+
+The frozen preregistration remains immutable. If the preceding phase is later
+merged, record the actual operator-created merge commit and tree additively in a
+separate predecessor-acceptance receipt before claiming an accepted predecessor
+or publishing/closing the dependent phase. Never rewrite the preregistration or
+infer merge acceptance from a local branch or remote-tracking ref.
 
 Phase pull requests require the operator to use GitHub's merge-commit method.
 Squash and rebase merges do not preserve the preregistration, implementation,
@@ -340,7 +363,7 @@ binds ten passing verification categories. Every A01-A18 anchor cell remains
 `not_observed`/`diagnostic_only`; no runtime support, performance, product
 qualification, backend eligibility, or perceptual-quality result is claimed.
 The native assignment/model/live-run path remains optional supplemental
-evidence. R01 is `passed`, and R02 is `next`; publication and merge authority
+evidence. R01 is `passed`, and R02 is `in_progress`; publication and merge authority
 remain unchanged.
 
 Collect an aggregate matrix from four anchor environments:
@@ -517,23 +540,23 @@ unavailable after R02.
 Freeze this lifecycle contract before implementation:
 
 - `AppleUpscaleBackend` is `Sendable`, exposes immutable structured identity and
-  capability lookup, and asynchronously creates a session from a validated
-  configuration and session context;
-- `AppleUpscaleSession` is actor-isolated and accepts frames serially through
-  `submit(_:) async -> AppleUpscaleOutcome`, with asynchronous `reset(reason:)`,
-  `finish()`, and `cancel()` operations;
-- each input frame carries sequence number, pixel buffer, PTS, duration, color
-  description, metadata identity, and an explicit resource-lifetime token;
-- each output is exactly processed, unavailable, rejected, failed, or
-  fallback-applied and includes structured backend/configuration/policy identity;
-- reset drains or rejects outstanding work deterministically and clears temporal
-  history before the next accepted frame;
-- cancellation is idempotent, prevents new submission, releases retained
-  resources after in-flight completion, and terminalizes exactly once;
-- finish drains ordered work, finalizes telemetry, and rejects later submission;
-  and
-- fallback is planner-selected, recorded as an outcome linking failed and chosen
-  identities, and never occurs inside a backend without orchestration visibility.
+  explicit capability lookup, and asynchronously creates a session from
+  validated configuration and context;
+- `AppleUpscaleSession` is actor-isolated and serializes `submit`, `reset`,
+  `finish`, and `cancel` through one FIFO operation boundary despite actor
+  reentrancy;
+- every admitted frame retains the complete frozen frame contract until a typed
+  outcome transfers or releases ownership;
+- every output is exactly processed, unavailable, rejected, failed, or
+  fallback-applied and carries complete structured processing identity;
+- reset drains earlier work, clears temporal history, advances history
+  generation, and preserves clip-global sequence numbering;
+- cancellation is idempotent, closes admission, rejects queued work, waits for
+  active work to quiesce, and releases resources exactly once;
+- finish installs an admission fence, drains ordered work, finalizes once,
+  caches its result, and rejects later mutation; and
+- fallback is selected only by the planner or orchestrator and visibly links
+  the failed route to the selected route.
 
 ### R03 - Deterministic Apple-native baseline suite
 
@@ -769,6 +792,7 @@ an R01 branch, preregistering the four-host capability experiment, and
 implementing only R01. It may collect authorized capability/model-readiness
 evidence and commit locally. It must stop with a validated local publication
 candidate unless the operator directly instructs the next push and pull-request
-action. Nothing in this document authorizes R02 implementation, holdout access,
-production Auto, a claim, a tag, a release, approval, merge, force-push, or
-repository-setting mutation.
+action. The explicit operator-directed local-continuation exception above now
+authorizes local R02-through-R07 implementation only. It does not authorize
+holdout access, production Auto, a claim, a tag, a release, push, pull request,
+approval, merge, force-push, or repository-setting mutation.

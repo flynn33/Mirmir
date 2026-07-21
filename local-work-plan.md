@@ -21,9 +21,13 @@
 - The earlier PR #16 implementation and PR #17 assignment-export merges remain
   reachable historical checkpoints. Their native assignment, model-freeze, and
   live-run path remains optional supplemental evidence and does not alter the
-  accepted not-observed inventory disposition.
-- Roadmap phase `R02`: `next`. Unified backend and stage architecture is the next
-  dependency-satisfied phase; production upscaling remains unavailable.
+  recorded local not-observed inventory disposition.
+- Roadmap phase `R02`: `in_progress`. Its frozen preregistration binds local R01
+  closure commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
+  `2fbe72d85ace42cc925c45b17d53dd8866a8275b` as an unpublished predecessor,
+  with `accepted_merge_commit: null` and no acceptance claim. The operator's
+  continuation instruction permits local implementation through R07 but does
+  not authorize publication or production enablement.
 - R03 deterministic Apple-native baselines: planned after R02.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
