@@ -785,6 +785,16 @@ observation remain `not_observed` and non-blocking under the explicit override.
 The operator-directed local R02-through-R07 continuation remains implementation
 authority only and does not convert this negative R03 evidence into success.
 
+Operator correction authorization on 2026-07-21 supersedes the earlier
+no-product-qualification boundary only for a new additive R03 qualification
+contract. Preserve the frozen v1 negative evidence. Replace the incompatible
+16×8 identity member with an R03-owned 1920×1080-to-3840×2160 media transaction,
+and qualify only `r03.mps.lanczos` (`A11`) after genuine MPS execution and all
+versioned functional, repeatability, lifecycle, and media checks pass. Simulation
+is permitted for deterministic control paths but cannot be recorded as native
+MPS execution. Keep production default, Auto, holdout, acceptance, quality and
+performance claims, publication, and release disabled.
+
 Preregister correctness, ringing, edge, chroma, temporal, throughput, memory,
 and resource floors. Eliminate nonqualifying and dominated candidates. Among
 remaining qualifying candidates, choose the normal deterministic product default

@@ -708,6 +708,33 @@ and are not blockers under the operator override. No 2× media coverage, runtime
 support, product qualification, default selection, performance, acceptance,
 publication, or release claim is made.
 
+### Product-qualification correction authorization — 2026-07-21
+
+The operator has directed R03 to correct the incompatible media-fixture
+composition and establish one qualified primary backend. The frozen v1
+preregistration, fixture catalog, and blocked conformance record remain immutable
+historical evidence. The correction must be an additive, versioned contract with
+an R03-owned 1920×1080-to-3840×2160 media transaction that preserves the R02
+audio, timed-metadata, reopen-before-publication, and atomic-publication
+semantics.
+
+Only `r03.mps.lanczos` (`A11`) is eligible for this correction because it is the
+sole frozen whole-frame subject classified as a candidate after observed
+qualification. Product qualification requires the genuine
+`MPSImageLanczosScale` implementation to create and process both canonical
+routes, deterministic repeatability, exact session/media contracts, and the
+versioned qualification checks. Simulated execution may exercise admission,
+error, lifecycle, and media seams, but it may not impersonate native MPS
+execution. Hardware, simulator, and operator-observed operation remain optional
+and truthfully `not_observed` when unused.
+
+This authorization permits an explicit `product_qualified` capability and
+product-scope session admission for the passing A11 implementation only. It does
+not select or enable a production default, Auto mode, holdout access, phase
+acceptance, a product quality or performance claim, publication, release, or any
+other backend's product admission. R03 remains `in_progress` until its remaining
+phase exit evidence is separately satisfied.
+
 ### Exit gate
 
 One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.

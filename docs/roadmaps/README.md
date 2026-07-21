@@ -32,6 +32,13 @@ selected plan, or output. Product metrics and hardware, simulator, and operator
 observations remain `not_observed`; no quality, performance, product,
 production-default, acceptance, publication, or release claim is made.
 
+An operator-authorized additive R03 correction is active as of 2026-07-21. It
+preserves the frozen v1 blocked evidence, replaces the incompatible 16×8 media
+member with an R03-owned 1080p-to-4K transaction, and permits only genuine
+`r03.mps.lanczos` (`A11`) to become `product_qualified` after the versioned test
+contract passes. R03 remains `in_progress`; production default, Auto, holdout,
+acceptance, quality/performance claims, publication, and release remain disabled.
+
 - [Canonical Markdown](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
 - [Canonical JSON](Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json)
 - [Roadmap Progress](../../README.md#roadmap-progress)
@@ -62,7 +69,7 @@ production-default, acceptance, publication, or release claim is made.
 
 Verified source hashes:
 
-- Markdown: `430ff021665d8b7807e97774d2e6e356df5d8ebdf7caa8526b9471206df7cc05`
+- Markdown: `cd2b11c0576467f412bc01f22b81555fa76c1caaa7e6274f977d80d24a429c6d`
 - JSON: `44b2067c12cf0b3323ed60175986c386d08205425354e0bbb6a0f931bbc97e44`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.
