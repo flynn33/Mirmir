@@ -20,6 +20,7 @@
 		09533D5C824AD0179779D666 /* AppleUpscaleCapabilitySupportProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */; };
 		0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */; };
 		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
+		0E1CA642F3817B5FA0CB9B69 /* R04VideoToolboxSessionAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */; };
 		0F87E9A2764B3DDFAA4148AD /* ASHLockedReleaseTestSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 539D795BC06CD59AEBD2C183 /* ASHLockedReleaseTestSupportV3.swift */; };
 		0FF16116ABFC2C489C7A8A5B /* AppleUpscaleCapabilityReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B890FF40EAAE7560AC093BA6 /* AppleUpscaleCapabilityReportModels.swift */; };
 		11231FA84EFC696F72F15B39 /* MirmirDeveloperRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B52B9856E2998D64D7ADD72 /* MirmirDeveloperRootView.swift */; };
@@ -72,6 +73,7 @@
 		40B42789E1C3A55A8D6E8D55 /* ASHLockedPlaneAwareRuntimeV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45E494E869999A46D167FEA5 /* ASHLockedPlaneAwareRuntimeV3Tests.swift */; };
 		42954C9C2C7A36381AB2C4D9 /* MetalCommandBufferCompletionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */; };
 		43CB281EAA375DB8508D0F7E /* ASHLUTTypesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C04D5E766F69E05567F00F4 /* ASHLUTTypesV2.swift */; };
+		43E9B833F5EEF24C8FC76597 /* R04VideoToolboxContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45C428FDD2CFED85419F850E /* R04VideoToolboxContracts.swift */; };
 		4427D5350F8600EF8FA1E293 /* ASHLockedUpscaleBackendV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DA024482D4239339C7D7102 /* ASHLockedUpscaleBackendV3Tests.swift */; };
 		44A3B9571AEC108885940AB3 /* AppleUpscaleCapabilityLiveProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD72F7A538AAFC2C0B929F0 /* AppleUpscaleCapabilityLiveProducer.swift */; };
 		44B2F89A448709B8053C21F9 /* OutputMediaIdentityVerification.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A139790BF475A04FDC6AB7A /* OutputMediaIdentityVerification.swift */; };
@@ -109,6 +111,7 @@
 		615E888266AA6D0BCDDFD348 /* ASHNV12FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9248888702ECE5B7D229B93 /* ASHNV12FrameCodec.swift */; };
 		617259996997C6320A194B96 /* ASHAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE03E89C4215AC3E1C1D01C2 /* ASHAssets.swift */; };
 		61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F211265C8C19173941BE3ACA /* ContentView.swift */; };
+		64FDFB83547E2F8BA2A9CFD0 /* R04VideoToolboxContractsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */; };
 		6846EC665799FA6655BBDA26 /* ASHSpatialDispatchV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA2419717E346F88ABFE2C4 /* ASHSpatialDispatchV2.swift */; };
 		690128A77A088C952EFD0EA3 /* ASHLockedReferencePipelineV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06911D354FDA2F754E91475 /* ASHLockedReferencePipelineV2Tests.swift */; };
 		6A89EE015951C10D87D1D1E4 /* ASHP08LauncherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E0737F2C42D353C867EF7 /* ASHP08LauncherTests.swift */; };
@@ -254,6 +257,7 @@
 		DC3815FDDE73AB124CDD10BF /* ASHRiskStateDiagnosticV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367539453417B8A36D76D0D8 /* ASHRiskStateDiagnosticV3Tests.swift */; };
 		DD35E9E31C7443E19FE419CD /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1797630BE32E04F85355B0B /* main.swift */; };
 		DD52AD1EA5890AAB00B743C3 /* ASHLUTTypesV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */; };
+		DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */; };
 		DE81D46EFA43BB2581465374 /* AppleUpscaleCapabilityExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3277CBCD4AE7CFED824AF3FA /* AppleUpscaleCapabilityExecutor.swift */; };
 		E0DF08328424121F604853A8 /* AppleUpscaleCapabilityNativeAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 050C25AE56DC5648EF2EA402 /* AppleUpscaleCapabilityNativeAdapters.swift */; };
 		E0FB986AB96E7A8748548BE9 /* ASHRiskStateDiagnosticV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE7BC59E00212787A4BE603 /* ASHRiskStateDiagnosticV3.swift */; };
@@ -385,6 +389,7 @@
 		428B95153FE086CD77B9E519 /* MirmirModuleDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleDescriptor.swift; sourceTree = "<group>"; };
 		43ACAB8AB30019FF40451E21 /* AppleUpscaleCapabilityProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityProbe.swift; sourceTree = "<group>"; };
 		4444573C99DD7948CD688864 /* ASHCoordinateDiagnosticRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateDiagnosticRuntimeV3.swift; sourceTree = "<group>"; };
+		444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxContractsTests.swift; sourceTree = "<group>"; };
 		445486593D8713F9A75B7FFA /* ASHMetalSpatialRuntimePreparationV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimePreparationV3.swift; sourceTree = "<group>"; };
 		44897AC5FAA6E916FC8D868E /* ASHCoordinateDiagnosticRuntimeV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateDiagnosticRuntimeV3Tests.swift; sourceTree = "<group>"; };
 		44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHInternalAlphaTests.swift; sourceTree = "<group>"; };
@@ -392,6 +397,7 @@
 		452C763D3991A19EE5361937 /* ASHLockedSampleRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedSampleRuntimeV3.swift; sourceTree = "<group>"; };
 		45652C536BF3DD0F8A9CA150 /* R03NV12Scaling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03NV12Scaling.swift; sourceTree = "<group>"; };
 		458E8A855A538822618FD0E4 /* ASHNV12FrameCodecTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHNV12FrameCodecTests.swift; sourceTree = "<group>"; };
+		45C428FDD2CFED85419F850E /* R04VideoToolboxContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxContracts.swift; sourceTree = "<group>"; };
 		45E494E869999A46D167FEA5 /* ASHLockedPlaneAwareRuntimeV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedPlaneAwareRuntimeV3Tests.swift; sourceTree = "<group>"; };
 		471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirSettingsViews.swift; sourceTree = "<group>"; };
 		4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReconstruction.swift; sourceTree = "<group>"; };
@@ -417,6 +423,7 @@
 		58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilitySupportProbe.swift; sourceTree = "<group>"; };
 		59B607C63B4275FB2AF8EC92 /* ASHLUTLockedConfigurationJSONV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTLockedConfigurationJSONV3.swift; sourceTree = "<group>"; };
 		5A9441EE881EF6BB4B71B6BC /* R03DeterministicBackendCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03DeterministicBackendCatalog.swift; sourceTree = "<group>"; };
+		5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxSessionAdapterTests.swift; sourceTree = "<group>"; };
 		5C7D02E95AFB7F28B3687541 /* ASHBitwiseCoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHBitwiseCoreTests.swift; sourceTree = "<group>"; };
 		5CA2419717E346F88ABFE2C4 /* ASHSpatialDispatchV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialDispatchV2.swift; sourceTree = "<group>"; };
 		5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHDeterministicUpscaleBackend.swift; sourceTree = "<group>"; };
@@ -521,6 +528,7 @@
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
 		C62FAEE9CA2981B0B1A73182 /* AppleUpscaleContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleContractsTests.swift; sourceTree = "<group>"; };
 		C69C7F4320B73812C4F233A2 /* ASHMetalRuntimeMonitorV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalRuntimeMonitorV3.swift; sourceTree = "<group>"; };
+		C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxSessionAdapter.swift; sourceTree = "<group>"; };
 		C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_mapping_v1.json; sourceTree = "<group>"; };
 		CA16F1FBCEDF17BE37E51D0A /* OutputMediaMetadataVerificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaMetadataVerificationTests.swift; sourceTree = "<group>"; };
 		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
@@ -634,6 +642,8 @@
 				45652C536BF3DD0F8A9CA150 /* R03NV12Scaling.swift */,
 				1F94BF89E7788407BFB63D5E /* R03VImageScaling.swift */,
 				A37267EE8D222ADE35C143C2 /* R03VTPixelTransferScaling.swift */,
+				45C428FDD2CFED85419F850E /* R04VideoToolboxContracts.swift */,
+				C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */,
 				684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */,
 				EF7C909B925C5E765D352A19 /* UpscaleJob.swift */,
 				37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */,
@@ -1042,6 +1052,8 @@
 				36AAC920201EAAB6C35D9E5E /* R03MPSCoreImageScalingTests.swift */,
 				06E7350389CC945ACAC3116D /* R03VImageScalingTests.swift */,
 				B562B76C94BCA2E06F74D1E2 /* R03VTPixelTransferScalingTests.swift */,
+				444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */,
+				5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
 				CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */,
 				22C0B9D429B46777730F6AAA /* Fixtures */,
@@ -1272,6 +1284,8 @@
 				8ED68CF36107664F63789347 /* R03MPSCoreImageScalingTests.swift in Sources */,
 				9E942F47D4C6F98E228CF5DA /* R03VImageScalingTests.swift in Sources */,
 				B19D324A804ECFD73C8FEB1E /* R03VTPixelTransferScalingTests.swift in Sources */,
+				64FDFB83547E2F8BA2A9CFD0 /* R04VideoToolboxContractsTests.swift in Sources */,
+				DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
 				5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */,
 			);
@@ -1454,6 +1468,8 @@
 				48571457FFA4B1F4DB7909F1 /* R03NV12Scaling.swift in Sources */,
 				A152F3A41AC3F54B7A42AB0A /* R03VImageScaling.swift in Sources */,
 				74E387E0E9535BA9AAD5BC47 /* R03VTPixelTransferScaling.swift in Sources */,
+				43E9B833F5EEF24C8FC76597 /* R04VideoToolboxContracts.swift in Sources */,
+				0E1CA642F3817B5FA0CB9B69 /* R04VideoToolboxSessionAdapter.swift in Sources */,
 				35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */,
 				3CB665CD5D619971B5D8B9E5 /* UnavailableUpscalerEngineService.swift in Sources */,
 				3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */,
