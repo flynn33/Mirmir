@@ -51,6 +51,9 @@ final class R03A11NativeMPSProductTests: XCTestCase {
                 ),
                 request: evidenceRequest
             )
+            R03A11QualificationRouteEvidenceEmitter.logInvocationBinding(
+                evidenceRequest
+            )
         }
     }
 
@@ -687,6 +690,15 @@ private enum R03A11QualificationRouteEvidenceEmitter {
         try R03AtomicEvidenceFileWriter.writeWithoutOverwriting(
             data,
             to: request.destination
+        )
+    }
+
+    static func logInvocationBinding(
+        _ request: R03A11QualificationRouteEvidenceRequest
+    ) {
+        print(
+            "R03_QUALIFICATION_INVOCATION_SHA256="
+                + request.qualificationInvocation.bindingSHA256
         )
     }
 }
