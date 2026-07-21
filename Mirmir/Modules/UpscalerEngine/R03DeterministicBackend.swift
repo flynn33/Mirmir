@@ -4,6 +4,11 @@ import Foundation
 enum R03DeterministicBackendConstructionError: Error, Equatable, Sendable {
     case subjectIsNotWholeFrame(R03BaselineSubjectID)
     case routeNotPreregistered(subject: R03BaselineSubjectID, route: R03ScaleRoute)
+    case admissionProfileDoesNotPermitSubject(
+        profile: R03DeterministicBackendAdmissionProfile,
+        subject: R03BaselineSubjectID
+    )
+    case productAdmissionAuthorizationRequired(R03BaselineSubjectID)
 }
 
 final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
@@ -12,6 +17,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
     let routeIdentity: AppleUpscaleRouteIdentity
     let subject: R03BaselineSubjectDescriptor
     let route: R03ScaleRoute
+    let admissionProfile: R03DeterministicBackendAdmissionProfile
 
     private let configurationIdentity: String
     private let scalerFactory: R03NV12ScalerFactory
@@ -23,6 +29,8 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
     init(
         subjectID: R03BaselineSubjectID,
         route: R03ScaleRoute,
+        admissionProfile: R03DeterministicBackendAdmissionProfile = .fixtureOnly,
+        productAdmissionAuthorization: R03A11ProductAdmissionAuthorization? = nil,
         scalerFactory: @escaping R03NV12ScalerFactory,
         outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
     ) throws {
@@ -36,6 +44,18 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
                 route: route
             )
         }
+        guard admissionProfile.permits(subject: subject) else {
+            throw R03DeterministicBackendConstructionError
+                .admissionProfileDoesNotPermitSubject(
+                    profile: admissionProfile,
+                    subject: subjectID
+                )
+        }
+        if admissionProfile == .productQualifiedA11,
+           productAdmissionAuthorization == nil {
+            throw R03DeterministicBackendConstructionError
+                .productAdmissionAuthorizationRequired(subjectID)
+        }
 
         let identity = try AppleUpscaleBackendIdentity(
             backendID: subject.id.rawValue,
@@ -46,8 +66,8 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
         let routeIdentity = try AppleUpscaleRouteIdentity(
             backend: identity,
             configurationIdentity: configurationIdentity,
-            policyIdentity: R03DeterministicBackendCatalog.policyIdentity,
-            materialDecisionIdentity: R03DeterministicBackendCatalog.materialDecisionIdentity
+            policyIdentity: admissionProfile.policyIdentity,
+            materialDecisionIdentity: admissionProfile.materialDecisionIdentity
         )
         let processingIdentity = try AppleUpscaleProcessingIdentity(
             route: routeIdentity,
@@ -59,6 +79,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
         self.routeIdentity = routeIdentity
         self.subject = subject
         self.route = route
+        self.admissionProfile = admissionProfile
         self.configurationIdentity = configurationIdentity
         self.scalerFactory = scalerFactory
         self.outputReleaseObserver = outputReleaseObserver
@@ -97,8 +118,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
               ),
               configuration.pixelFormat == R03NV12Contract.pixelFormat,
               configuration.configurationIdentity == configurationIdentity,
-              context.admissionScope == .fixtureOnly,
-              context.policyIdentity == R03DeterministicBackendCatalog.policyIdentity else {
+              admissionProfile.permits(context: context) else {
             return .rejected(sessionContractRejection)
         }
         guard let capability = context.capabilityRegistry.capability(for: capabilityID) else {
@@ -112,8 +132,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
               capability.runtimeDisposition == .runnable else {
             return .unavailable(capabilityUnavailable)
         }
-        guard capability.backendEligibility == .fixtureOnly,
-              capability.isEligible(for: .fixtureOnly) else {
+        guard admissionProfile.permits(capability: capability) else {
             return .rejected(sessionContractRejection)
         }
 
