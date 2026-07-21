@@ -610,7 +610,7 @@ protocol AppleUpscaleSession: Actor {
     func cancel() async
 }
 
-private func requireAppleUpscaleIdentity(
+func requireAppleUpscaleIdentity(
     _ value: String,
     field: String
 ) throws -> String {
