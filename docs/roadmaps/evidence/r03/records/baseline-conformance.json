@@ -1,0 +1,2111 @@
+{
+  "backend_results": [
+    {
+      "backend_id": "r03.mps.lanczos",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.mps.bilinear",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.core-image.lanczos",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.core-image.bicubic",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.vimage.lanczos-3",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.vimage.lanczos-5",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.vt-pixel-transfer",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.ash-custom-metal",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "common_session_contract",
+        "dimensions_exact",
+        "pixel_format_exact",
+        "color_contract_exact",
+        "processing_identity_complete",
+        "frame_order_pts_duration_exact",
+        "audio_identity_exact",
+        "metadata_identity_exact",
+        "reopen_before_atomic_publication",
+        "metric_values_finite",
+        "repeatability_floor",
+        "ringing_floor",
+        "edge_measurement_floor",
+        "chroma_floor",
+        "temporal_repeatability_floor",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification",
+        "dominated_candidate_rule",
+        "default_selection_rule",
+        "production_default_disabled",
+        "performance_claim_forbidden",
+        "product_quality_claim_forbidden"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.mps.guided-filter",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "dimensions_exact",
+        "metric_values_finite",
+        "support_stage_role_preserved",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    },
+    {
+      "backend_id": "r03.core-image.edge-preserve",
+      "check_ids": [
+        "backend_matrix_complete",
+        "genuine_framework_path",
+        "dimensions_exact",
+        "metric_values_finite",
+        "support_stage_role_preserved",
+        "disposition_complete",
+        "unavailable_is_not_observed",
+        "no_inferred_qualification"
+      ],
+      "disposition": "not_observed",
+      "execution_status": "not_observed",
+      "metric_results": [
+        {
+          "id": "dimension_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "pixel_format_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "color_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "frame_timing_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "audio_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "metadata_identity_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "resource_lifetime_violation_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "silent_fallback_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "incomplete_identity_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "nonfinite_metric_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "distinct_output_hash_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_three_repeats",
+          "value": null
+        },
+        {
+          "id": "quantized_output_code_maximum_difference",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "code_value",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_absolute_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "cpu_gpu_normalized_rms_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized",
+          "value": null
+        },
+        {
+          "id": "ringing_overshoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "ringing_undershoot_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "normalized_step_amplitude",
+          "value": null
+        },
+        {
+          "id": "chroma_displacement_maximum",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "luma_pixels",
+          "value": null
+        },
+        {
+          "id": "edge_profile_measurement_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count_per_route",
+          "value": null
+        },
+        {
+          "id": "temporal_repeatability_mismatch_count",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        },
+        {
+          "id": "throughput_frames_per_second",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "frames_per_second",
+          "value": null
+        },
+        {
+          "id": "p95_wall_time_milliseconds",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "milliseconds",
+          "value": null
+        },
+        {
+          "id": "peak_resident_memory_delta_bytes",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "bytes",
+          "value": null
+        },
+        {
+          "id": "peak_in_flight_resources",
+          "passed": null,
+          "status": "not_observed",
+          "unit": "count",
+          "value": null
+        }
+      ],
+      "reason": "runtime_not_observed_under_operator_waiver"
+    }
+  ],
+  "checks": [
+    {
+      "id": "predecessor_closure_exact",
+      "status": "passed"
+    },
+    {
+      "id": "schema_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "fixture_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "backend_matrix_complete",
+      "status": "passed"
+    },
+    {
+      "id": "genuine_framework_path",
+      "status": "passed"
+    },
+    {
+      "id": "common_session_contract",
+      "status": "passed"
+    },
+    {
+      "id": "dimensions_exact",
+      "status": "failed"
+    },
+    {
+      "id": "pixel_format_exact",
+      "status": "passed"
+    },
+    {
+      "id": "color_contract_exact",
+      "status": "passed"
+    },
+    {
+      "id": "processing_identity_complete",
+      "status": "passed"
+    },
+    {
+      "id": "frame_order_pts_duration_exact",
+      "status": "failed"
+    },
+    {
+      "id": "audio_identity_exact",
+      "status": "failed"
+    },
+    {
+      "id": "metadata_identity_exact",
+      "status": "failed"
+    },
+    {
+      "id": "reopen_before_atomic_publication",
+      "status": "failed"
+    },
+    {
+      "id": "resource_lifetime_exactly_once",
+      "status": "passed"
+    },
+    {
+      "id": "no_silent_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "metric_values_finite",
+      "status": "passed"
+    },
+    {
+      "id": "repeatability_floor",
+      "status": "passed"
+    },
+    {
+      "id": "cpu_gpu_parity_disposition",
+      "status": "passed"
+    },
+    {
+      "id": "ringing_floor",
+      "status": "passed"
+    },
+    {
+      "id": "edge_measurement_floor",
+      "status": "passed"
+    },
+    {
+      "id": "chroma_floor",
+      "status": "passed"
+    },
+    {
+      "id": "temporal_repeatability_floor",
+      "status": "passed"
+    },
+    {
+      "id": "throughput_floor_or_not_observed",
+      "status": "passed"
+    },
+    {
+      "id": "memory_floor_or_not_observed",
+      "status": "passed"
+    },
+    {
+      "id": "resource_floor",
+      "status": "passed"
+    },
+    {
+      "id": "support_stage_role_preserved",
+      "status": "passed"
+    },
+    {
+      "id": "disposition_complete",
+      "status": "passed"
+    },
+    {
+      "id": "unavailable_is_not_observed",
+      "status": "passed"
+    },
+    {
+      "id": "no_inferred_qualification",
+      "status": "passed"
+    },
+    {
+      "id": "dominated_candidate_rule",
+      "status": "passed"
+    },
+    {
+      "id": "default_selection_rule",
+      "status": "passed"
+    },
+    {
+      "id": "production_default_disabled",
+      "status": "passed"
+    },
+    {
+      "id": "performance_claim_forbidden",
+      "status": "passed"
+    },
+    {
+      "id": "product_quality_claim_forbidden",
+      "status": "passed"
+    }
+  ],
+  "evidence_kind": "r03_deterministic_baseline_matrix",
+  "fixture_catalog_binding": {
+    "path": "docs/roadmaps/evidence/r03/records/fixtures/fixture-catalog.json",
+    "sha256": "ce44164b23f7fba765fe5c37c24d55dfb7d796043011d02e945704dff10c5602",
+    "size_bytes": 13705
+  },
+  "limitations": [
+    "The exact bound R02 media transaction is 16x8 to 16x8, while the frozen R03 scale_2x route is 1920x1080 to 3840x2160; the contracts cannot be executed together.",
+    "The R03 evidence run stopped at contract preflight before subject execution; every subject and metric is not_observed.",
+    "Hardware, simulator, and operator observation were not performed; no 2x media-transaction, runtime-support, quality, repeatability, resource, or performance observation is claimed.",
+    "No product qualification, production default, publication, acceptance, release, holdout, Auto-mode, or performance claim is authorized."
+  ],
+  "observation_status": {
+    "deterministic_software_conformance": "failed",
+    "hardware_capability_observation": "not_observed",
+    "operator_observed_operation": "not_observed",
+    "performance_claims": "forbidden",
+    "requirement": "waived_not_a_blocker",
+    "runtime_execution": "observed_or_not_observed_per_subject",
+    "simulator_execution": "not_observed"
+  },
+  "phase_id": "R03",
+  "preregistration_binding": {
+    "path": "docs/roadmaps/evidence/r03/records/preregistration.json",
+    "sha256": "bf883a6324de160381dc426af85f5dc1dcadcbc0bd3115df3bfc190c4d01eb1c",
+    "size_bytes": 14779
+  },
+  "result": {
+    "default_backend_id": null,
+    "performance_claims": "forbidden",
+    "product_qualification": "not_claimed",
+    "status": "blocked"
+  },
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "source": {
+    "commit": "767cbc4673678a699c3f98903b6c7801a87e91d4",
+    "tree": "9c40a216c21eba77a92d5d1240d4b6475ce5fb48"
+  }
+}

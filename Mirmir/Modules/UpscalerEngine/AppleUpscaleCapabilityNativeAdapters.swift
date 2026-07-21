@@ -17,15 +17,15 @@ struct R01NativeAdapterRegistry {
         context: R01LiveProbeContext
     ) -> R01RuntimeAdapterDescriptor {
         let metadata = R01CapabilityMetadata.metadata(for: definition.id)
-        if definition.id == .a18 {
-            return coreAIDescriptor(metadata: metadata, context: context)
-        }
         if compileObservation.state == .unavailable {
             return unavailableDescriptor(
                 metadata: metadata,
                 reason: compileObservation.reason ?? .apiAbsent,
                 limitation: "The isolated Swift compiler unit did not typecheck this capability."
             )
+        }
+        if definition.id == .a18 {
+            return coreAIDescriptor(metadata: metadata, context: context)
         }
         if definition.id == .a06 {
             return .init(

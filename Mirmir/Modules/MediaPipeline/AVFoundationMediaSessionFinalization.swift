@@ -188,7 +188,9 @@ extension AVFoundationMediaSession {
                     resolution: outputProfile.resolution,
                     codec: outputProfile.codec,
                     timing: timing,
-                    timedMetadata: finalMetadata
+                    timedMetadata: finalMetadata,
+                    videoColor: .sdrBT709VideoRangeLeft,
+                    compressedAACIdentity: expectedCompressedAACIdentity
                 )
             )
             telemetry.endStage(verificationStage)

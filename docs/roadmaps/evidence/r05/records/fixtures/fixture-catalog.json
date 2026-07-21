@@ -1,0 +1,83 @@
+{
+  "color_contract": {
+    "bit_depth": 8,
+    "bridge_texture_format": "rgba16Float",
+    "chroma_location": "left",
+    "chroma_downsampling": "left_cosited_horizontal_centered_vertical_filter",
+    "chroma_upsampling": "left_cosited_horizontal_centered_vertical_bilinear",
+    "matrix": "ITU_R_709_2",
+    "pixel_format": "420v",
+    "processing_space": "linear_bt709",
+    "range": "video",
+    "transfer_function": "ITU_R_709_2"
+  },
+  "contract_id": "r05-metalfx-suitability-fixtures-v1",
+  "fixtures": [
+    {"id": "spatial-1p5x", "kind": "full_frame_nv12", "member_ids": ["scaler-720p"], "route_id": "spatial_1p5x", "source_binding_ids": ["r01_scaler_720p"]},
+    {"id": "spatial-2x", "kind": "full_frame_nv12", "member_ids": ["scaler-1080p"], "route_id": "spatial_2x", "source_binding_ids": ["r01_scaler_1080p"]},
+    {"id": "temporal-1p5x-contract", "kind": "typed_contract_rejection", "member_ids": ["scaler-720p"], "route_id": "temporal_1p5x_contract", "source_binding_ids": ["r01_scaler_720p"]},
+    {"id": "temporal-2x-contract", "kind": "typed_contract_rejection", "member_ids": ["scaler-1080p"], "route_id": "temporal_2x_contract", "source_binding_ids": ["r01_scaler_1080p"]},
+    {"id": "denoised-temporal-1p5x-contract", "kind": "typed_contract_rejection", "member_ids": ["scaler-720p"], "route_id": "denoised_temporal_1p5x_contract", "source_binding_ids": ["r01_scaler_720p"]},
+    {"id": "denoised-temporal-2x-contract", "kind": "typed_contract_rejection", "member_ids": ["scaler-1080p"], "route_id": "denoised_temporal_2x_contract", "source_binding_ids": ["r01_scaler_1080p"]},
+    {"id": "frame-interpolation-1080p-contract", "kind": "frame_pair_contract_rejection", "member_ids": ["temporal-frame-0", "temporal-frame-1"], "route_id": "frame_interpolation_1080p_contract", "source_binding_ids": ["r01_temporal_frame_0", "r01_temporal_frame_1"]}
+  ],
+  "phase_id": "R05",
+  "routes": [
+    {"capability_id": "A07", "gate": "runtime_observation_required", "id": "spatial_1p5x", "input_dimensions": {"height": 720, "width": 1280}, "output_dimensions": {"height": 1080, "width": 1920}, "scale_denominator": 2, "scale_numerator": 3},
+    {"capability_id": "A07", "gate": "runtime_observation_required", "id": "spatial_2x", "input_dimensions": {"height": 1080, "width": 1920}, "output_dimensions": {"height": 2160, "width": 3840}, "scale_denominator": 1, "scale_numerator": 2},
+    {"capability_id": "A08", "gate": "missing_renderer_inputs_rejected", "id": "temporal_1p5x_contract", "input_dimensions": {"height": 720, "width": 1280}, "output_dimensions": {"height": 1080, "width": 1920}, "scale_denominator": 2, "scale_numerator": 3},
+    {"capability_id": "A08", "gate": "missing_renderer_inputs_rejected", "id": "temporal_2x_contract", "input_dimensions": {"height": 1080, "width": 1920}, "output_dimensions": {"height": 2160, "width": 3840}, "scale_denominator": 1, "scale_numerator": 2},
+    {"capability_id": "A09", "gate": "missing_renderer_inputs_rejected", "id": "denoised_temporal_1p5x_contract", "input_dimensions": {"height": 720, "width": 1280}, "output_dimensions": {"height": 1080, "width": 1920}, "scale_denominator": 2, "scale_numerator": 3},
+    {"capability_id": "A09", "gate": "missing_renderer_inputs_rejected", "id": "denoised_temporal_2x_contract", "input_dimensions": {"height": 1080, "width": 1920}, "output_dimensions": {"height": 2160, "width": 3840}, "scale_denominator": 1, "scale_numerator": 2},
+    {"capability_id": "A10", "gate": "missing_renderer_inputs_rejected", "id": "frame_interpolation_1080p_contract", "input_dimensions": {"height": 1080, "width": 1920}, "output_dimensions": {"height": 1080, "width": 1920}, "scale_denominator": 1, "scale_numerator": 1}
+  ],
+  "scenarios": [
+    {
+      "fixture_ids": ["spatial-1p5x", "spatial-2x"],
+      "id": "spatial_routes",
+      "required_check_ids": ["spatial_exact_routes_and_color_bridge", "spatial_support_query_before_construction", "spatial_native_execution", "no_silent_fallback"],
+      "subject_ids": ["r05.metalfx.spatial-1p5x", "r05.metalfx.spatial-2x"]
+    },
+    {
+      "fixture_ids": ["spatial-1p5x", "spatial-2x"],
+      "id": "color_bridge",
+      "required_check_ids": ["spatial_exact_routes_and_color_bridge", "exact_media_identity"],
+      "subject_ids": ["r05.metalfx.spatial-1p5x", "r05.metalfx.spatial-2x"]
+    },
+    {
+      "fixture_ids": ["temporal-1p5x-contract", "temporal-2x-contract", "denoised-temporal-1p5x-contract", "denoised-temporal-2x-contract"],
+      "id": "temporal_contract_rejections",
+      "required_check_ids": ["temporal_renderer_inputs_not_fabricated", "temporal_denoised_auxiliary_evidence_gate", "typed_decoded_video_rejections"],
+      "subject_ids": ["r05.metalfx.temporal-1p5x", "r05.metalfx.temporal-2x", "r05.metalfx.denoised-temporal-1p5x", "r05.metalfx.denoised-temporal-2x"]
+    },
+    {
+      "fixture_ids": ["frame-interpolation-1080p-contract"],
+      "id": "frame_interpolation_contract_rejection",
+      "required_check_ids": ["frame_interpolation_separate_cadence_gate", "typed_decoded_video_rejections"],
+      "subject_ids": ["r05.metalfx.frame-interpolation-1080p"]
+    },
+    {
+      "fixture_ids": ["spatial-1p5x", "temporal-2x-contract", "frame-interpolation-1080p-contract"],
+      "id": "toolchain_and_observation_boundary",
+      "required_check_ids": ["toolchain_boundary_exact", "simulator_unavailable_nonblocking", "unavailable_is_not_observed"],
+      "subject_ids": ["r05.metalfx.spatial-1p5x", "r05.metalfx.temporal-2x", "r05.metalfx.frame-interpolation-1080p"]
+    },
+    {
+      "fixture_ids": ["spatial-1p5x", "spatial-2x", "temporal-1p5x-contract", "temporal-2x-contract", "denoised-temporal-1p5x-contract", "denoised-temporal-2x-contract", "frame-interpolation-1080p-contract"],
+      "id": "closed_subject_and_authorization_matrix",
+      "required_check_ids": ["predecessor_closure_exact", "canonical_dependency_boundary_exact", "frozen_bindings_exact", "subject_matrix_complete", "baseline_records_bound_without_qualification_inference", "baseline_quality_performance_comparison", "no_quality_or_performance_claim", "production_default_disabled"],
+      "subject_ids": ["r05.metalfx.spatial-1p5x", "r05.metalfx.spatial-2x", "r05.metalfx.temporal-1p5x", "r05.metalfx.temporal-2x", "r05.metalfx.denoised-temporal-1p5x", "r05.metalfx.denoised-temporal-2x", "r05.metalfx.frame-interpolation-1080p"]
+    }
+  ],
+  "schema_version": "1.0.0",
+  "source_bindings": [
+    {"id": "r01_preregistration", "path": "docs/roadmaps/evidence/r01/records/preregistration.json", "sha256": "8651ce7a52cd2c80a86e42480cbfbf78474e07dfea8685851138583e3760c69f", "size_bytes": 7256},
+    {"id": "r01_fixture_catalog", "path": "docs/roadmaps/evidence/r01/records/fixtures/fixture-catalog.json", "sha256": "ae8241f5d69ce64ed143e8bbb39ab80a996f6923f1ddc83ebfbaec58d9689182", "size_bytes": 9656},
+    {"id": "r01_scaler_720p", "path": "project-notes/evidence/r01/fixtures/scaler-720p.bin", "sha256": "77b432c2d459fa662d06f3086b2ac7c051a16e492da8783472917224aa96c73e", "size_bytes": 1382400},
+    {"id": "r01_scaler_1080p", "path": "project-notes/evidence/r01/fixtures/scaler-1080p.bin", "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15", "size_bytes": 3110400},
+    {"id": "r01_temporal_frame_0", "path": "project-notes/evidence/r01/fixtures/temporal-frame-0.bin", "sha256": "e62159913ef91af0784820cc71edea1d5db6014fe8853ea012f20a461c359bbd", "size_bytes": 3110400},
+    {"id": "r01_temporal_frame_1", "path": "project-notes/evidence/r01/fixtures/temporal-frame-1.bin", "sha256": "503a754a679221dc5a2a29b4a0d3b1382b6084ab7f886cb9760356310335f168", "size_bytes": 3110400},
+    {"id": "r03_baseline_conformance", "path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json", "sha256": "9dab73f07b3b4e0d41c9f6ac0056fe7f3a36219754a55e91ef9fc74271ee67bd", "size_bytes": 57826},
+    {"id": "r04_integration_conformance", "path": "docs/roadmaps/evidence/r04/records/integration-conformance.json", "sha256": "49321c85a33837b10f9bbc81bf200d060731ceb7ed701197fe897dc2e3d448bf", "size_bytes": 4383}
+  ]
+}

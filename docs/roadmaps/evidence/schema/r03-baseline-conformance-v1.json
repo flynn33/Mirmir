@@ -1,0 +1,115 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r03-baseline-conformance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "metricResult": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"pattern": "^[a-z][a-z0-9_]{0,79}$", "type": "string"},
+        "passed": {"type": ["boolean", "null"]},
+        "status": {"enum": ["measured", "not_observed", "not_applicable"], "type": "string"},
+        "unit": {"minLength": 1, "type": "string"},
+        "value": {"type": ["number", "null"]}
+      },
+      "required": ["id", "unit", "status", "value", "passed"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "backend_results": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "backend_id": {"pattern": "^r03\\.[a-z0-9.-]+$", "type": "string"},
+          "check_ids": {"items": {"type": "string"}, "maxItems": 25, "minItems": 8, "type": "array", "uniqueItems": true},
+          "disposition": {"enum": ["qualified", "restricted", "diagnostic_only", "rejected", "not_observed"], "type": "string"},
+          "execution_status": {"enum": ["observed", "not_observed"], "type": "string"},
+          "metric_results": {"items": {"$ref": "#/$defs/metricResult"}, "maxItems": 23, "minItems": 23, "type": "array"},
+          "reason": {
+            "enum": [
+              "complete_observed_matrix_satisfied_frozen_floors",
+              "observed_matrix_requires_frozen_restriction",
+              "observed_reference_or_support_role_only",
+              "observed_matrix_failed_frozen_floor",
+              "runtime_not_observed_under_operator_waiver"
+            ],
+            "type": "string"
+          }
+        },
+        "required": ["backend_id", "execution_status", "disposition", "reason", "check_ids", "metric_results"],
+        "type": "object"
+      },
+      "maxItems": 10,
+      "minItems": 10,
+      "type": "array"
+    },
+    "checks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"enum": ["passed", "failed"], "type": "string"}
+        },
+        "required": ["id", "status"],
+        "type": "object"
+      },
+      "maxItems": 35,
+      "minItems": 35,
+      "type": "array"
+    },
+    "evidence_kind": {"const": "r03_deterministic_baseline_matrix", "type": "string"},
+    "fixture_catalog_binding": {"$ref": "#/$defs/fileBinding"},
+    "limitations": {"items": {"type": "string"}, "maxItems": 4, "minItems": 4, "type": "array", "uniqueItems": true},
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_conformance": {"enum": ["passed", "failed"], "type": "string"},
+        "hardware_capability_observation": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "runtime_execution": {"const": "observed_or_not_observed_per_subject", "type": "string"},
+        "simulator_execution": {"const": "not_observed", "type": "string"}
+      },
+      "required": ["requirement", "hardware_capability_observation", "simulator_execution", "operator_observed_operation", "runtime_execution", "deterministic_software_conformance", "performance_claims"],
+      "type": "object"
+    },
+    "phase_id": {"const": "R03", "type": "string"},
+    "preregistration_binding": {"$ref": "#/$defs/fileBinding"},
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "default_backend_id": {"const": null, "type": "null"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "status": {"enum": ["passed", "diagnostic_only", "blocked"], "type": "string"}
+      },
+      "required": ["status", "default_backend_id", "product_qualification", "performance_claims"],
+      "type": "object"
+    },
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    }
+  },
+  "required": ["schema_version", "roadmap_version", "phase_id", "evidence_kind", "source", "preregistration_binding", "fixture_catalog_binding", "observation_status", "backend_results", "checks", "result", "limitations"],
+  "type": "object"
+}

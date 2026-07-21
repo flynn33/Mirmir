@@ -1,0 +1,105 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r05-fixture-catalog-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "dimensions": {
+      "additionalProperties": false,
+      "properties": {"height": {"minimum": 1, "type": "integer"}, "width": {"minimum": 1, "type": "integer"}},
+      "required": ["width", "height"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "color_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "bit_depth": {"const": 8, "type": "integer"},
+        "bridge_texture_format": {"const": "rgba16Float", "type": "string"},
+        "chroma_location": {"const": "left", "type": "string"},
+        "chroma_downsampling": {"const": "left_cosited_horizontal_centered_vertical_filter", "type": "string"},
+        "chroma_upsampling": {"const": "left_cosited_horizontal_centered_vertical_bilinear", "type": "string"},
+        "matrix": {"const": "ITU_R_709_2", "type": "string"},
+        "pixel_format": {"const": "420v", "type": "string"},
+        "processing_space": {"const": "linear_bt709", "type": "string"},
+        "range": {"const": "video", "type": "string"},
+        "transfer_function": {"const": "ITU_R_709_2", "type": "string"}
+      },
+      "required": ["pixel_format", "bit_depth", "range", "matrix", "transfer_function", "chroma_location", "chroma_upsampling", "chroma_downsampling", "bridge_texture_format", "processing_space"],
+      "type": "object"
+    },
+    "contract_id": {"const": "r05-metalfx-suitability-fixtures-v1", "type": "string"},
+    "fixtures": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"pattern": "^[a-z0-9-]+$", "type": "string"},
+          "kind": {"enum": ["full_frame_nv12", "typed_contract_rejection", "frame_pair_contract_rejection"], "type": "string"},
+          "member_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "route_id": {"pattern": "^[a-z0-9_]+$", "type": "string"},
+          "source_binding_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true}
+        },
+        "required": ["id", "kind", "route_id", "member_ids", "source_binding_ids"],
+        "type": "object"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "phase_id": {"const": "R05", "type": "string"},
+    "routes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_id": {"enum": ["A07", "A08", "A09", "A10"], "type": "string"},
+          "gate": {"enum": ["runtime_observation_required", "missing_renderer_inputs_rejected"], "type": "string"},
+          "id": {"pattern": "^[a-z0-9_]+$", "type": "string"},
+          "input_dimensions": {"$ref": "#/$defs/dimensions"},
+          "output_dimensions": {"$ref": "#/$defs/dimensions"},
+          "scale_denominator": {"minimum": 1, "type": "integer"},
+          "scale_numerator": {"minimum": 1, "type": "integer"}
+        },
+        "required": ["id", "capability_id", "input_dimensions", "output_dimensions", "scale_numerator", "scale_denominator", "gate"],
+        "type": "object"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "scenarios": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "fixture_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "id": {"pattern": "^[a-z0-9_]+$", "type": "string"},
+          "required_check_ids": {"items": {"type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "subject_ids": {"items": {"pattern": "^r05\\.[a-z0-9.-]+$", "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true}
+        },
+        "required": ["id", "subject_ids", "fixture_ids", "required_check_ids"],
+        "type": "object"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array"
+    },
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "source_bindings": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string"},
+          "path": {"minLength": 1, "type": "string"},
+          "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+          "size_bytes": {"minimum": 1, "type": "integer"}
+        },
+        "required": ["id", "path", "size_bytes", "sha256"],
+        "type": "object"
+      },
+      "maxItems": 8,
+      "minItems": 8,
+      "type": "array"
+    }
+  },
+  "required": ["schema_version", "phase_id", "contract_id", "color_contract", "source_bindings", "routes", "fixtures", "scenarios"],
+  "type": "object"
+}

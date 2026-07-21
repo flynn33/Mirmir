@@ -1,0 +1,10 @@
+{
+  "category": "unit_test",
+  "command_ids": [
+    "roadmap-evidence-unit-tests"
+  ],
+  "exit_status": 0,
+  "schema_version": "1.0",
+  "status": "passed",
+  "summary": "The focused roadmap, inventory, schema, phase-evidence, preregistration, capability, and waiver suite completed 305 tests with zero failures."
+}

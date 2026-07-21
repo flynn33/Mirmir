@@ -1,0 +1,1052 @@
+{
+  "authorizations": {
+    "after": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "before": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "proposed_decisions": []
+  },
+  "commands": [
+    {
+      "argv": [
+        "python3",
+        "Scripts/r01_observation_waiver.py",
+        "--check"
+      ],
+      "command_id": "capability-waiver-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:20:23Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:20:14Z"
+    },
+    {
+      "argv": [
+        "Scripts/verify-mirmir-guardrails.sh"
+      ],
+      "command_id": "guardrail",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:33:16Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:20:26Z"
+    },
+    {
+      "argv": [
+        "swiftlint",
+        "lint",
+        "--strict",
+        "--config",
+        ".swiftlint.yml"
+      ],
+      "command_id": "swiftlint",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:33:29Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:33:22Z"
+    },
+    {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "Scripts/tests/test_roadmap_alignment.py",
+        "Scripts/tests/test_r00_inventory.py",
+        "Scripts/tests/test_json_schema_validator.py",
+        "Scripts/tests/test_phase_evidence.py",
+        "Scripts/tests/test_r01_preregistration.py",
+        "Scripts/tests/test_r01_capabilities.py",
+        "Scripts/tests/test_r01_observation_waiver.py"
+      ],
+      "command_id": "roadmap-evidence-unit-tests",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:38:46Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:33:33Z"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "command_id": "diff-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:38:59Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:38:51Z"
+    },
+    {
+      "argv": [
+        "xcodegen",
+        "generate"
+      ],
+      "command_id": "project-generation-1",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:39:17Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:39:04Z"
+    },
+    {
+      "argv": [
+        "xcodegen",
+        "generate"
+      ],
+      "command_id": "project-generation-2",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:39:59Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:39:46Z"
+    },
+    {
+      "argv": [
+        "git",
+        "diff",
+        "--exit-code",
+        "--",
+        "Mirmir.xcodeproj/project.pbxproj"
+      ],
+      "command_id": "project-generation-diff",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:40:23Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:40:09Z"
+    },
+    {
+      "argv": [
+        "xcodebuild",
+        "-project",
+        "Mirmir.xcodeproj",
+        "-scheme",
+        "Mirmir",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/mirmir-r01-evidence-deriveddata",
+        "-disableAutomaticPackageResolution",
+        "build"
+      ],
+      "command_id": "debug-build",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:40:55Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:40:30Z"
+    },
+    {
+      "argv": [
+        "xcodebuild",
+        "-project",
+        "Mirmir.xcodeproj",
+        "-scheme",
+        "Mirmir",
+        "-configuration",
+        "Release",
+        "-destination",
+        "platform=macOS",
+        "-derivedDataPath",
+        "/tmp/mirmir-r01-evidence-deriveddata",
+        "-disableAutomaticPackageResolution",
+        "build"
+      ],
+      "command_id": "release-build",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:41:44Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:41:00Z"
+    },
+    {
+      "argv": [
+        "python3",
+        "Scripts/phase_evidence.py",
+        "--phase",
+        "R01",
+        "--check"
+      ],
+      "command_id": "preclosure-phase-evidence-check",
+      "consent_receipt": null,
+      "ended_at": "2026-07-20T23:47:02Z",
+      "environment_flags": [],
+      "exit_status": 0,
+      "host_id": "r01-verification-executor",
+      "result": "passed",
+      "skip_reason": null,
+      "started_at": "2026-07-20T23:46:53Z"
+    }
+  ],
+  "hosts": [
+    {
+      "chip": "Apple M4 Pro",
+      "hardware_classes": [
+        "apple_silicon",
+        "pro_max_tier"
+      ],
+      "host_id": "r01-verification-executor",
+      "memory_bytes": 51539607552,
+      "model_identifier": "Mac16,7",
+      "os_build": "25F84",
+      "os_version": "26.5.2",
+      "roles": [
+        "verification-executor"
+      ],
+      "sdk_version": "26.2",
+      "source_commit": "8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe",
+      "xcode_build": "17C52",
+      "xcode_version": "26.2"
+    }
+  ],
+  "limitations": [
+    "Physical-hardware execution, simulator availability, simulator execution, and operator-observed operation were waived as blockers; no hardware, API, runtime, model, performance, memory, repeatability, product-qualification, backend-eligibility, or perceptual-quality observation is claimed."
+  ],
+  "outputs": [
+    {
+      "binding": {
+        "path": "project-notes/apple-upscale-capabilities.json",
+        "sha256": "c2a2882dd4c696f34f8d8c9a269ed9f502f14261d4484e90d412ccfa47eb1a1e",
+        "size_bytes": 55520
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "capability-json",
+      "kind": "report",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/apple-upscale-capability-report.md",
+        "sha256": "1cfa6b3f151e6e4313f8176b2b00bb90b7d21924967b3babf6d5f0a21d781c7c",
+        "size_bytes": 13284
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "capability-report",
+      "kind": "report",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/json-result.json",
+        "sha256": "2042b34bae3827e1a51390fc2fbedbf58fef7143397bc6c901695628d58b79b3",
+        "size_bytes": 273
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "json-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/lint-result.json",
+        "sha256": "cb4f13f5d1a73a387163adff34e708cd733231a7193241ab01ff3e100aac5fd3",
+        "size_bytes": 230
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "lint-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/unit_test-result.json",
+        "sha256": "c25b1dfb0241fbb0da4b2e5dfc630500c73cdf19f127737a811f4eddb7079abb",
+        "size_bytes": 315
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "unit-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/mutation_test-result.json",
+        "sha256": "c0e22b765d8a32ff9fed974411fb91ab2cda020ba8e56bace1ad3ad019d3c72d",
+        "size_bytes": 310
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "mutation-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/repository-result.json",
+        "sha256": "1ccc4d6b3027784d7a40794d3e79049c80e2700d4dfc13cf7df51c0fea05cdec",
+        "size_bytes": 244
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "repository-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/dependency_scan-result.json",
+        "sha256": "e61a2396e7b2f25a5f9a7a2804daeabba87c6bce2c28daa9b14c3cf652ff076f",
+        "size_bytes": 317
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "dependency-scan-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/project_generation-result.json",
+        "sha256": "5fd4d11e9ba00d7c5e52d79701e19140813514738aaf0eac168776921a500e87",
+        "size_bytes": 376
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "project-generation-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/build-result.json",
+        "sha256": "05d532a6e572559d0eaf8dab6fb320f293e53a99e47bd7d96aadf3fdc6488d75",
+        "size_bytes": 293
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "build-result",
+      "kind": "build_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/hosted_test-result.json",
+        "sha256": "36c6f08bb1bf5b74f1b13a3b4fd0d319e7fc62d26031f403ceeef59428c03479",
+        "size_bytes": 288
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "hosted-test-result",
+      "kind": "test_result",
+      "redistributable": true,
+      "system_asset": false
+    },
+    {
+      "binding": {
+        "path": "project-notes/verification/r01/evidence_integrity-result.json",
+        "sha256": "b6b00efbb7e9f1b08d06a406cf5ba6aeacba3f772e6f40ad1290914363a157f4",
+        "size_bytes": 349
+      },
+      "contains_holdout_pixels": false,
+      "generated_summary": false,
+      "id": "evidence-integrity-result",
+      "kind": "command_log",
+      "redistributable": true,
+      "system_asset": false
+    }
+  ],
+  "phase_id": "R01",
+  "preregistration": {
+    "disposition_subjects": [
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A01"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A02"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A03"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A04"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A05"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A06"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A07"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A08"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A09"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A10"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A11"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A12"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A13"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A14"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A15"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A16"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A17"
+      },
+      {
+        "allowed_values": [
+          "runnable",
+          "restricted",
+          "diagnostic_only",
+          "unsupported",
+          "unavailable",
+          "rejected"
+        ],
+        "subject_id": "A18"
+      }
+    ],
+    "fixtures": [
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/scaler-720p.bin",
+          "sha256": "77b432c2d459fa662d06f3086b2ac7c051a16e492da8783472917224aa96c73e",
+          "size_bytes": 1382400
+        },
+        "id": "scaler-720p",
+        "redistributable": true,
+        "role": "primary scaler 720p fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/scaler-1080p.bin",
+          "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15",
+          "size_bytes": 3110400
+        },
+        "id": "scaler-1080p",
+        "redistributable": true,
+        "role": "primary scaler 1080p fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-frame.bin",
+          "sha256": "b0a20a11875a4b977bf20db4d34367404b907a50374b99faa545a70c7c01eb6e",
+          "size_bytes": 3110400
+        },
+        "id": "support-frame",
+        "redistributable": true,
+        "role": "support filter current-frame fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-guidance.bin",
+          "sha256": "fc181d1538aefa5f635b334f778ed4210aca5bb799b249931ced024551a2ec91",
+          "size_bytes": 2073600
+        },
+        "id": "support-guidance",
+        "redistributable": true,
+        "role": "support filter guidance fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/support-history.bin",
+          "sha256": "44795da53184aca29cb905fa27c4362d7fec0cde1048c3cc5724f17dbb232c15",
+          "size_bytes": 3110400
+        },
+        "id": "support-history",
+        "redistributable": true,
+        "role": "support filter history fixture"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/temporal-frame-0.bin",
+          "sha256": "e62159913ef91af0784820cc71edea1d5db6014fe8853ea012f20a461c359bbd",
+          "size_bytes": 3110400
+        },
+        "id": "temporal-frame-0",
+        "redistributable": true,
+        "role": "temporal analyzer ordered frame 0"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/temporal-frame-1.bin",
+          "sha256": "503a754a679221dc5a2a29b4a0d3b1382b6084ab7f886cb9760356310335f168",
+          "size_bytes": 3110400
+        },
+        "id": "temporal-frame-1",
+        "redistributable": true,
+        "role": "temporal analyzer ordered frame 1"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/cadence-frame-0.bin",
+          "sha256": "fe379f6d59239c0cb0bcaf87f3db4eac3f98d576d6a69fc8cb950bbbbae30fdd",
+          "size_bytes": 3110400
+        },
+        "id": "cadence-frame-0",
+        "redistributable": true,
+        "role": "cadence transform ordered frame 0"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/cadence-frame-1.bin",
+          "sha256": "4ee27a60ec169b22295c9dbbffde9b9532e9e88ac313c51d26c5c8cd5bd01a0d",
+          "size_bytes": 3110400
+        },
+        "id": "cadence-frame-1",
+        "redistributable": true,
+        "role": "cadence transform ordered frame 1"
+      },
+      {
+        "binding": {
+          "path": "project-notes/evidence/r01/fixtures/analysis-proxy.bin",
+          "sha256": "bfcae4462f1720afc1c36fc5660130442dcd28f9bd55f46c041b6274fb6b3590",
+          "size_bytes": 589824
+        },
+        "id": "analysis-proxy",
+        "redistributable": true,
+        "role": "analysis runtime proxy fixture"
+      }
+    ],
+    "floors": [
+      {
+        "comparison": "not_applicable",
+        "metric_id": "evidence-completeness",
+        "scope": "preclosure bootstrap only",
+        "value": null
+      }
+    ],
+    "inputs": [
+      {
+        "binding": {
+          "path": "docs/roadmaps/evidence/r01/records/fixtures/fixture-catalog.json",
+          "sha256": "ae8241f5d69ce64ed143e8bbb39ab80a996f6923f1ddc83ebfbaec58d9689182",
+          "size_bytes": 9656
+        },
+        "id": "fixture-catalog",
+        "identity": "R01 frozen fixture and model catalog",
+        "kind": "repository_fixture",
+        "limitations": [
+          "The analysis probe model remains unassigned."
+        ]
+      }
+    ],
+    "metrics": [
+      {
+        "applicability": "preclosure evidence collection",
+        "direction": "observation_only",
+        "id": "evidence-completeness",
+        "unit": null
+      }
+    ],
+    "parameters": [],
+    "record": {
+      "path": "docs/roadmaps/evidence/r01/records/preregistration.json",
+      "sha256": "8651ce7a52cd2c80a86e42480cbfbf78474e07dfea8685851138583e3760c69f",
+      "size_bytes": 7256
+    },
+    "stop_rules": [
+      {
+        "description": "Do not claim R01 closure until every required verification artifact is source-bound and independently validated.",
+        "id": "source-bound-closure"
+      }
+    ]
+  },
+  "result": {
+    "disposition": "passed",
+    "dispositions": [
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A01",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A02",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A03",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A04",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A05",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A06",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A07",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A08",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A09",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A10",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A11",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A12",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A13",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A14",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A15",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A16",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A17",
+        "value": "diagnostic_only"
+      },
+      {
+        "reason": "Operation was not observed under the explicit operator waiver; diagnostic inventory only.",
+        "subject_id": "A18",
+        "value": "diagnostic_only"
+      }
+    ],
+    "phase_status_after": "passed",
+    "phase_status_before": "in_progress",
+    "status": "passed",
+    "summary": "R01 inventory closure records A01-A18 across all four logical anchors as not_observed and diagnostic_only without capability or qualification claims."
+  },
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0",
+  "source": {
+    "commit": "bd963fbd034734e92f488549c6e1c0cd8b246363",
+    "tree": "6009c40b775e252a05ff83d436d90f0422498245"
+  },
+  "verification": {
+    "checks": [
+      {
+        "category": "build",
+        "command_ids": [
+          "debug-build",
+          "release-build"
+        ],
+        "id": "build-check",
+        "output_ids": [
+          "build-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "dependency_scan",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "dependency-scan-check",
+        "output_ids": [
+          "dependency-scan-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "hosted_test",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "hosted-test-check",
+        "output_ids": [
+          "hosted-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "json",
+        "command_ids": [
+          "guardrail"
+        ],
+        "id": "json-check",
+        "output_ids": [
+          "json-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "lint",
+        "command_ids": [
+          "swiftlint"
+        ],
+        "id": "lint-check",
+        "output_ids": [
+          "lint-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "mutation_test",
+        "command_ids": [
+          "roadmap-evidence-unit-tests"
+        ],
+        "id": "mutation-test-check",
+        "output_ids": [
+          "mutation-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "project_generation",
+        "command_ids": [
+          "project-generation-1",
+          "project-generation-2",
+          "project-generation-diff"
+        ],
+        "id": "project-generation-check",
+        "output_ids": [
+          "project-generation-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "repository",
+        "command_ids": [
+          "diff-check"
+        ],
+        "id": "repository-check",
+        "output_ids": [
+          "repository-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "unit_test",
+        "command_ids": [
+          "roadmap-evidence-unit-tests"
+        ],
+        "id": "unit-test-check",
+        "output_ids": [
+          "unit-test-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      },
+      {
+        "category": "evidence_integrity",
+        "command_ids": [
+          "preclosure-phase-evidence-check"
+        ],
+        "id": "evidence-integrity-check",
+        "output_ids": [
+          "evidence-integrity-result"
+        ],
+        "reason": null,
+        "required": true,
+        "status": "passed"
+      }
+    ]
+  }
+}

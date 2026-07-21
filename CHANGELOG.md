@@ -6,6 +6,48 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R03 local implementation with a closed ten-subject deterministic
+  backend/support-stage matrix, exact 8-bit NV12 SDR BT.709 route and analytic
+  fixtures, frozen correctness/artifact/repeatability/resource checks, and a
+  fail-closed validator. The preregistration binds R02 local closure commit
+  `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`, records
+  `accepted_merge_commit: null`, and claims no acceptance. Unavailable execution
+  remains `not_observed`; production default selection, performance claims, and
+  product qualification remain disabled.
+- Began R02 local implementation with a closed backend/session/stage contract,
+  deterministic frame-sequence and AAC media-transaction fixtures, zero-violation
+  correctness floors, and fail-closed validation. The preregistration binds R01
+  commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` as a
+  `local_unpublished_closure`, records `accepted_merge_commit: null`, and makes no
+  acceptance claim. Hardware, simulator, and operator observation remain
+  `not_observed`; deterministic software conformance is still required and
+  performance claims remain forbidden. Production upscaling remains unavailable.
+- Closed an R01 live-readiness mismatch by requiring the shared frozen
+  `analysis-probe-model` identity/hash before every anchor, matching the live
+  producer and four-report aggregate contract. Frozen identity with absent local
+  bytes remains valid for a negative probe; unassigned identity and drifted
+  present bytes fail closed. Compile-unavailable A18 records now normalize model
+  readiness and offline suitability to the aggregate's closed `api_absent`
+  contract. The acquisition flag remains rejected until the documented
+  consent-receipt contract and acquisition path are implemented.
+- Added fail-closed R01 assignment intake for the primary checkout. Exactly four
+  transferred exporter records are privacy- and role-validated together before
+  the canonical preregistration is atomically moved from fully unassigned to
+  `live_assignments_frozen`. Partial, duplicate, malformed, inconsistent,
+  symlinked, or different already-frozen input is rejected; cooperative freeze
+  invocations are serialized, canonical drift detected before replacement
+  aborts, and an exact replay succeeds without rewriting. This is preparation
+  only: no assignment was fabricated, no live probe was run, and R01 remains
+  `in_progress`.
+- Recorded PR #17 merge commit
+  `5fce07140602b94d7fbea3e4219866292a4cd99f`, implementation commit
+  `8d5a50bdb616a2973014648475b601c8a7437de6`, and tree
+  `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0` as the R01 assignment-export
+  checkpoint, not phase closure. No assignment or live evidence was added;
+  R01 remains `in_progress`, R02 remains `planned`, and the four assignments,
+  common published evidence source, reports, aggregate, closure manifest, and
+  exit decision remain outstanding.
 - Recorded PR #16 merge commit
   `9747a032b24f3d2475f3cead9ebbf5bc87d19548`, implementation commit
   `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`, and tree

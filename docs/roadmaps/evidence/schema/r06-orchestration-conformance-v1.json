@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r06-orchestration-conformance-v1.json",
+  "title": "Mirmir R06 ASH orchestration conformance",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "preregistration_binding",
+    "fixture_catalog_binding",
+    "observation_status",
+    "product_gate_result",
+    "fixture_checks",
+    "product_ablations",
+    "checks",
+    "result",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "roadmap_version": {"const": "1.0.1"},
+    "phase_id": {"const": "R06"},
+    "evidence_kind": {"const": "r06_ash_orchestration_contract"},
+    "source": {"$ref": "#/$defs/source"},
+    "preregistration_binding": {"$ref": "#/$defs/binding"},
+    "fixture_catalog_binding": {"$ref": "#/$defs/binding"},
+    "observation_status": {"$ref": "#/$defs/observation"},
+    "product_gate_result": {"$ref": "#/$defs/productGate"},
+    "fixture_checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "product_ablations": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/productAblation"}
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/check"}
+    },
+    "result": {"$ref": "#/$defs/result"},
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree"],
+      "properties": {
+        "commit": {"$ref": "#/$defs/gitObject"},
+        "tree": {"$ref": "#/$defs/gitObject"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hardware_capability_observation", "simulator_execution", "operator_observed_operation", "product_ablation_execution", "quality_claims", "performance_claims"],
+      "properties": {
+        "hardware_capability_observation": {"const": "not_observed"},
+        "simulator_execution": {"const": "not_observed"},
+        "operator_observed_operation": {"const": "not_observed"},
+        "product_ablation_execution": {"const": "not_observed"},
+        "quality_claims": {"const": "forbidden"},
+        "performance_claims": {"const": "forbidden"}
+      }
+    },
+    "productGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "eligible_backend_count", "selected_route_id", "selected_plan_id", "output_identity", "disposition"],
+      "properties": {
+        "reason": {"const": "no_product_qualified_primary_backend"},
+        "eligible_backend_count": {"const": 0},
+        "selected_route_id": {"type": "null"},
+        "selected_plan_id": {"type": "null"},
+        "output_identity": {"type": "null"},
+        "disposition": {"const": "blocked"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "status": {"enum": ["passed", "blocked", "not_observed"]}
+      }
+    },
+    "productAblation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "status", "reason"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "status": {"const": "not_observed"},
+        "reason": {"const": "no_product_qualified_primary_backend"}
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason", "default_backend_id", "selected_route_id", "selected_plan_id", "output_identity", "product_qualification", "quality_claims", "performance_claims", "acceptance"],
+      "properties": {
+        "status": {"const": "blocked"},
+        "reason": {"const": "no_product_qualified_primary_backend"},
+        "default_backend_id": {"type": "null"},
+        "selected_route_id": {"type": "null"},
+        "selected_plan_id": {"type": "null"},
+        "output_identity": {"type": "null"},
+        "product_qualification": {"const": "not_claimed"},
+        "quality_claims": {"const": "forbidden"},
+        "performance_claims": {"const": "forbidden"},
+        "acceptance": {"const": "not_claimed"}
+      }
+    }
+  }
+}

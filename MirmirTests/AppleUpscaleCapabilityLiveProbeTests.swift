@@ -392,6 +392,69 @@ final class AppleUpscaleCapabilityLiveContractTests: XCTestCase {
         ))
     }
 
+    func testA18CompileUnavailablePrecedesAbsentModelDescriptor() throws {
+        let capability = try definition(.a18)
+        let compileUnavailable = R01CompileProbeObservation(
+            id: .a18,
+            state: .unavailable,
+            reason: .apiAbsent,
+            probeFailureClass: nil,
+            sanitizedDiagnostic: "isolated_swiftc_nonzero_exit"
+        )
+        let context = absentModelContext()
+        XCTAssertFalse(context.modelIsPresent)
+        let descriptor = R01NativeAdapterRegistry().descriptor(
+            for: capability,
+            compileObservation: compileUnavailable,
+            context: context
+        )
+
+        XCTAssertEqual(descriptor.publicAPIStatus, .absent)
+        XCTAssertEqual(descriptor.hardwareEligibility, .unknown)
+        XCTAssertEqual(descriptor.supportQuery.observed, .notAvailable)
+        XCTAssertEqual(descriptor.supportQuery.reasonCode, .apiAbsent)
+        XCTAssertEqual(descriptor.stateHistory, .unavailable)
+        XCTAssertEqual(descriptor.modelReadiness, .notRequired)
+        XCTAssertEqual(descriptor.offlineSuitability, .unavailable)
+        XCTAssertEqual(descriptor.acquisitionObservation, .notAttempted)
+        XCTAssertEqual(descriptor.unavailableDisposition, .unavailable)
+        XCTAssertEqual(descriptor.unavailableReason, .apiAbsent)
+        XCTAssertNil(descriptor.sessionFactory)
+
+        let record = try R01CapabilityExecutor().execute(
+            definition: capability,
+            compileObservation: compileUnavailable,
+            descriptor: descriptor,
+            modelIdentity: "analysis-model-v1",
+            modelSHA256: String(repeating: "b", count: 64)
+        )
+
+        XCTAssertEqual(record.compileState, .unavailable)
+        XCTAssertEqual(record.runtimeDisposition, .unavailable)
+        XCTAssertEqual(record.reasonCode, .apiAbsent)
+        XCTAssertEqual(record.failureClass, .unsupportedContract)
+        XCTAssertEqual(record.publicAPIStatus, .absent)
+        XCTAssertEqual(record.hardwareEligibility, .unknown)
+        XCTAssertEqual(record.platformRequirements.minimumOSVersion, "27.0")
+        XCTAssertEqual(record.platformRequirements.minimumSDKVersion, "27.0")
+        XCTAssertNil(record.platformRequirements.unavailableReason)
+        XCTAssertEqual(record.supportQuery.apiOrEquivalentName, "CoreAI module and frozen model")
+        XCTAssertEqual(record.supportQuery.observed, .notAvailable)
+        XCTAssertEqual(record.supportQuery.reasonCode, .apiAbsent)
+        XCTAssertEqual(record.stateHistory, .unavailable)
+        XCTAssertEqual(record.modelReadiness, .notRequired)
+        XCTAssertEqual(record.offlineSuitability, .unavailable)
+        XCTAssertTrue(record.primaryScalerObservations.isEmpty)
+        XCTAssertTrue(record.measurements.sessions.isEmpty)
+        XCTAssertEqual(record.productQualification, R01CapabilityRecord.notEvaluated)
+        XCTAssertEqual(record.backendEligibility, R01CapabilityRecord.notEvaluated)
+        XCTAssertEqual(record.qualityEvaluation, R01CapabilityRecord.notEvaluated)
+        XCTAssertEqual(record.limitations, [
+            "The isolated Swift compiler unit did not typecheck this capability.",
+            "isolated_swiftc_nonzero_exit"
+        ])
+    }
+
     func testWorkerClosedFileReaderRejectsFIFOWithoutBlocking() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
             "mirmir-r01-fifo-test-\(UUID().uuidString)",
@@ -554,6 +617,63 @@ final class AppleUpscaleCapabilityLiveContractTests: XCTestCase {
             R01CapabilityWorkerProcessRunner.executableSHA256EnvironmentVariable:
                 String(repeating: "c", count: 64)
         ]
+    }
+
+    private func absentModelContext() -> R01LiveProbeContext {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "mirmir-r01-absent-model-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        return .init(
+            request: .init(
+                anchor: .oldestSupported,
+                outputURL: root.appendingPathComponent("report.json"),
+                allowsModelAcquisition: false
+            ),
+            repositoryRoot: root,
+            source: .init(
+                commit: String(repeating: "a", count: 40),
+                tree: String(repeating: "b", count: 40)
+            ),
+            host: .init(
+                hostID: "test-host",
+                modelIdentifier: "test-model",
+                chip: "test-chip",
+                memoryBytes: 1,
+                osVersion: "27.0",
+                osBuild: "test-os-build",
+                xcodeVersion: "27.0",
+                xcodeBuild: "test-xcode-build",
+                sdkVersion: "27.0",
+                sdkBuild: "test-sdk-build",
+                hardwareClasses: ["oldest-supported"]
+            ),
+            implementationBindings: [],
+            preregistrationBinding: .init(
+                path: R01LiveProbeContext.preregistrationPath,
+                sizeBytes: 1,
+                sha256: String(repeating: "c", count: 64)
+            ),
+            fixtureBindings: [],
+            fixtures: [:],
+            modelRecord: .init(
+                id: "analysis-probe-model",
+                status: "frozen",
+                role: "analysis_runtime_probe_model",
+                mediaKind: "model_artifact",
+                dimensions: nil,
+                pixelFormat: nil,
+                colorContract: nil,
+                frameIndex: nil,
+                scaleOutput: nil,
+                timing: nil,
+                generator: nil,
+                materializationPath: ".r01-local-assets/absent-model.bin",
+                byteCount: 8,
+                contentSHA256: String(repeating: "d", count: 64),
+                modelIdentity: "analysis-model-v1"
+            )
+        )
     }
 
     private func runnableDescriptor(

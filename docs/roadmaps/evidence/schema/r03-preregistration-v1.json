@@ -1,0 +1,128 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r03-preregistration-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "statement": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {"minLength": 1, "type": "string"},
+        "id": {"pattern": "^[a-z][a-z0-9_]{0,79}$", "type": "string"}
+      },
+      "required": ["id", "description"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authorization_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_mode": {"const": "blocked", "type": "string"},
+        "holdout": {"const": "blocked", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "production_default": {"const": "not_enabled", "type": "string"},
+        "publication": {"const": "not_authorized_by_this_record", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"}
+      },
+      "required": ["production_default", "product_qualification", "auto_mode", "holdout", "release", "publication", "performance_claims"],
+      "type": "object"
+    },
+    "checks": {"items": {"$ref": "#/$defs/statement"}, "maxItems": 35, "minItems": 35, "type": "array"},
+    "contract": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_ids": {"items": {"type": "string"}, "maxItems": 10, "minItems": 10, "type": "array", "uniqueItems": true},
+        "capability_inference": {"const": "forbidden", "type": "string"},
+        "default_selection": {"const": "qualified_primary_candidates_by_wall_time_then_memory_then_backend_id", "type": "string"},
+        "disposition_vocabulary": {
+          "items": {"enum": ["qualified", "restricted", "diagnostic_only", "rejected", "not_observed"], "type": "string"},
+          "maxItems": 5,
+          "minItems": 5,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "domination_rule": {"const": "eliminate_only_from_complete_observed_comparable_metrics", "type": "string"},
+        "format_scope": {"const": "8_bit_nv12_sdr_bt709_video_range_left_chroma", "type": "string"},
+        "media_transaction_contract": {"const": "r02_exact_media_transaction_v1", "type": "string"},
+        "session_contract": {"const": "apple-upscale-session-v1", "type": "string"}
+      },
+      "required": ["session_contract", "media_transaction_contract", "format_scope", "backend_ids", "disposition_vocabulary", "capability_inference", "domination_rule", "default_selection"],
+      "type": "object"
+    },
+    "fixture_catalog": {"$ref": "#/$defs/fileBinding"},
+    "metrics": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_scope": {"enum": ["software_conformance", "measured_envelope_no_product_claim"], "type": "string"},
+          "id": {"pattern": "^[a-z][a-z0-9_]{0,79}$", "type": "string"},
+          "not_observed_allowed": {"type": "boolean"},
+          "operator": {"enum": ["equal", "less_than_or_equal", "greater_than", "greater_than_or_equal", "finite_nonnegative"], "type": "string"},
+          "threshold": {"oneOf": [{"type": "number"}, {"type": "string"}]},
+          "unit": {"minLength": 1, "type": "string"}
+        },
+        "required": ["id", "unit", "operator", "threshold", "not_observed_allowed", "claim_scope"],
+        "type": "object"
+      },
+      "maxItems": 23,
+      "minItems": 23,
+      "type": "array"
+    },
+    "observation_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_conformance": {"const": "required", "type": "string"},
+        "hardware_capability_observation": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "runtime_execution": {"const": "observed_or_not_observed_per_subject", "type": "string"},
+        "simulator_execution": {"const": "not_observed", "type": "string"}
+      },
+      "required": ["requirement", "hardware_capability_observation", "simulator_execution", "operator_observed_operation", "runtime_execution", "deterministic_software_conformance", "performance_claims"],
+      "type": "object"
+    },
+    "phase_id": {"const": "R03", "type": "string"},
+    "predecessor_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_state": {"const": "not_claimed", "type": "string"},
+        "accepted_merge_commit": {"type": "null"},
+        "closure_commit": {"const": "673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4", "type": "string"},
+        "closure_state": {"const": "local_unpublished_closure", "type": "string"},
+        "closure_tree": {"const": "a5e95d810abacbdb872ddc6e94125103831e6fba", "type": "string"},
+        "continuation_scope": {"const": "local_implementation_only", "type": "string"},
+        "phase_id": {"const": "R02", "type": "string"}
+      },
+      "required": ["phase_id", "closure_state", "closure_commit", "closure_tree", "accepted_merge_commit", "acceptance_state", "continuation_scope"],
+      "type": "object"
+    },
+    "preregistration_state": {"const": "contract_frozen_for_local_implementation", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "schema_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "conformance": {"$ref": "#/$defs/fileBinding"},
+        "fixture_catalog": {"$ref": "#/$defs/fileBinding"},
+        "preregistration": {"$ref": "#/$defs/fileBinding"}
+      },
+      "required": ["preregistration", "fixture_catalog", "conformance"],
+      "type": "object"
+    },
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "stop_rules": {"items": {"$ref": "#/$defs/statement"}, "maxItems": 14, "minItems": 14, "type": "array"}
+  },
+  "required": ["schema_version", "roadmap_version", "phase_id", "preregistration_state", "predecessor_binding", "observation_policy", "fixture_catalog", "schema_bindings", "contract", "metrics", "checks", "stop_rules", "authorization_boundary"],
+  "type": "object"
+}

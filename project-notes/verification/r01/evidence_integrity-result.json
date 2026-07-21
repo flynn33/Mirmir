@@ -1,0 +1,10 @@
+{
+  "category": "evidence_integrity",
+  "command_ids": [
+    "preclosure-phase-evidence-check"
+  ],
+  "exit_status": 0,
+  "schema_version": "1.0",
+  "status": "passed",
+  "summary": "The phase-evidence validator passed against the source-bound blocked preclosure manifest containing the waiver outputs and nine completed verification categories."
+}

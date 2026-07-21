@@ -11,16 +11,29 @@
 - Roadmap phase `R00`: `passed`. The architecture decision, app-owned runtime,
   retired legacy authority, and exact PR #13 source checkpoint are preserved in
   the accepted current-source inventory.
-- Roadmap phase `R01`: `in_progress`. PR #16 merged the preregistration and
-  implementation checkpoint at merge commit
-  `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
-  `4bce3438a0508c70fd4db845be7e4abc0cc1cf29` and the merge commit share tree
-  `848948c9c38a2d8a382113698fe88059a69e943c`. The merge did not contain the four
-  frozen host assignments, runtime reports, aggregate, closure manifest, or
-  proposed `passed` transition, so capability evidence and exit criteria remain
-  outstanding.
-- R02 unified backend architecture: planned after R01 capability contracts.
-- R03 deterministic Apple-native baselines: planned after R02.
+- Roadmap phase `R01`: `passed`. The source-bound closure manifest records every
+  A01-A18 capability across all four logical anchors as `not_observed` and
+  `diagnostic_only`, with performance and qualification claims forbidden. The
+  completed evidence commit is
+  `bd963fbd034734e92f488549c6e1c0cd8b246363`; required anchor hardware and a
+  compatible simulator destination were unavailable for capability observation,
+  and operator-observed execution was waived as a blocker.
+- The earlier PR #16 implementation and PR #17 assignment-export merges remain
+  reachable historical checkpoints. Their native assignment, model-freeze, and
+  live-run path remains optional supplemental evidence and does not alter the
+  recorded local not-observed inventory disposition.
+- Roadmap phase `R02`: `in_progress`. Its frozen preregistration binds local R01
+  closure commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
+  `2fbe72d85ace42cc925c45b17d53dd8866a8275b` as an unpublished predecessor,
+  with `accepted_merge_commit: null` and no acceptance claim. The operator's
+  continuation instruction permits local implementation through R07 but does
+  not authorize publication or production enablement.
+- Roadmap phase `R03`: `in_progress`. Its frozen preregistration binds local R02
+  closure commit `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4` and tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`, with
+  `accepted_merge_commit: null` and acceptance not claimed. The local exception
+  authorizes implementation only; production remains unavailable and
+  performance and product-quality claims remain forbidden.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
 

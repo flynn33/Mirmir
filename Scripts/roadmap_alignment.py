@@ -19,6 +19,243 @@ from urllib import request as urlrequest
 
 
 DEFAULT_POLICY_PATH = Path(".github/roadmap-alignment-policy.json")
+R03_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": "docs/roadmaps/evidence/r02/records/conformance.json",
+    "dependency_phase_id": "R02",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4",
+        "closure_state": "local_unpublished_closure",
+        "closure_tree": "a5e95d810abacbdb872ddc6e94125103831e6fba",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R02",
+    },
+    "preregistration_identity": {
+        "phase_id": "R03",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r03/records/preregistration.json",
+    "preregistration_required_keys": [
+        "authorization_boundary",
+        "checks",
+        "contract",
+        "fixture_catalog",
+        "metrics",
+        "observation_policy",
+        "phase_id",
+        "predecessor_binding",
+        "preregistration_state",
+        "roadmap_version",
+        "schema_bindings",
+        "schema_version",
+        "stop_rules",
+    ],
+}
+R04_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
+    "dependency_phase_id": "R03",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "947983a8414c60e4f5f4246e6cb658792fc7c357",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_tree": "d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R03",
+        "predecessor_result": "blocked",
+    },
+    "preregistration_identity": {
+        "phase_id": "R04",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r04/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
+R05_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": (
+        "docs/roadmaps/evidence/r04/records/integration-conformance.json"
+    ),
+    "dependency_phase_id": "R04",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "4a7cc588b6fa51c21f2293e56cf3dea389acd908",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R04",
+        "predecessor_result": "diagnostic_only",
+    },
+    "preregistration_identity": {
+        "phase_id": "R05",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r05/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
+R06_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": (
+        "docs/roadmaps/evidence/r05/records/suitability-conformance.json"
+    ),
+    "dependency_phase_id": "R05",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "10a97bd3df7f72834f7afcb7fa3b63c598fa4931",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R05",
+        "predecessor_result": "diagnostic_only",
+    },
+    "preregistration_identity": {
+        "phase_id": "R06",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "orchestration_contract",
+        "ash_state_contract",
+        "message_policy_contract",
+        "scoring_contract",
+        "transition_contract",
+        "mask_contract",
+        "product_gate",
+        "ablations",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
+R07_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": "docs/roadmaps/evidence/r06/phase-evidence.json",
+    "dependency_phase_id": "R06",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_tree": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R06",
+        "predecessor_result": "blocked",
+    },
+    "preregistration_identity": {
+        "phase_id": "R07",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r07/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "numeric_contract",
+        "temporal_analysis_contract",
+        "history_contract",
+        "artifact_contract",
+        "protected_content_contract",
+        "weighted_mae_contract",
+        "support_stage_contract",
+        "postflight_feedback_contract",
+        "product_comparator_contract",
+        "product_gate",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
+R04_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r04/records/preregistration.json",
+        "docs/roadmaps/evidence/r04/records/fixtures/fixture-catalog.json",
+    ],
+}
+R05_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r05/records/preregistration.json",
+        "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json",
+    ],
+}
+R06_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r06/records/preregistration.json",
+        "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json",
+    ],
+}
+R07_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r07/records/preregistration.json",
+        "docs/roadmaps/evidence/r07/records/fixtures/fixture-catalog.json",
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -120,8 +357,14 @@ def compare_github_metadata(
 
 
 class AlignmentVerifier:
-    def __init__(self, root: Path, policy_path: Path = DEFAULT_POLICY_PATH) -> None:
+    def __init__(
+        self,
+        root: Path,
+        policy_path: Path = DEFAULT_POLICY_PATH,
+        history_root: Path | None = None,
+    ) -> None:
         self.root = root.resolve()
+        self.history_root = (history_root or root).resolve()
         self.policy_path = (
             policy_path
             if policy_path.is_absolute()
@@ -133,6 +376,15 @@ class AlignmentVerifier:
         self.roadmap_markdown = ""
         self.readme_text = ""
         self._tracked_paths_cache: list[str] | None = None
+
+    def history_git(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", *arguments],
+            cwd=self.history_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
 
     def path(self, relative: str) -> Path:
         return self.root / relative
@@ -161,6 +413,7 @@ class AlignmentVerifier:
             self._check_readme_progress()
             self._check_forsetti_boundary()
             self._check_inventory_status_coupling()
+            self._check_phase_start_requirements()
             self._check_phase_evidence_requirements()
         self._check_required_phrases()
         self._check_phase_status_documents()
@@ -211,6 +464,8 @@ class AlignmentVerifier:
         canonical = self.policy["canonical"]
         contract = self.policy["contract"]
         json_relative = canonical["json_path"]
+
+        self._local_continuation_exception_contract_is_exact()
 
         for key in ("schema_version", "roadmap_version", "date", "revision_date"):
             expected = canonical[key]
@@ -337,11 +592,174 @@ class AlignmentVerifier:
             for dependency in required:
                 dependency_phase = phase_by_id.get(dependency)
                 if dependency_phase is not None and dependency_phase.get("status") != "passed":
+                    if self._local_continuation_exception_allows(
+                        phase_id,
+                        phase.get("status"),
+                        dependency,
+                        dependency_phase.get("status"),
+                        json_relative,
+                    ):
+                        continue
                     self.add_error(
                         json_relative,
                         f"phase {phase_id} is {phase.get('status')!r} before "
                         f"dependency {dependency} is passed",
                     )
+
+    def _local_continuation_exception_allows(
+        self,
+        phase_id: str,
+        phase_status: object,
+        dependency_id: str,
+        dependency_status: object,
+        roadmap_relative: str,
+    ) -> bool:
+        if not self._local_continuation_exception_contract_is_exact():
+            return False
+        exceptions = self.policy.get("local_continuation_exceptions")
+        assert isinstance(exceptions, dict)
+        exception = exceptions.get(phase_id)
+        if not isinstance(exception, dict):
+            return False
+        expected_exception_keys = {
+            "active_phase_status",
+            "closure_required_path",
+            "dependency_phase_id",
+            "dependency_phase_status",
+            "predecessor_binding",
+            "preregistration_identity",
+            "preregistration_path",
+            "preregistration_required_keys",
+        }
+        if set(exception) != expected_exception_keys:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                f"local continuation exception keys differ for {phase_id}",
+            )
+            return False
+        if (
+            phase_status != exception.get("active_phase_status")
+            or dependency_id != exception.get("dependency_phase_id")
+            or dependency_status != exception.get("dependency_phase_status")
+        ):
+            return False
+        relative = exception.get("preregistration_path")
+        required_keys = exception.get("preregistration_required_keys")
+        identity = exception.get("preregistration_identity")
+        predecessor = exception.get("predecessor_binding")
+        if (
+            not isinstance(relative, str)
+            or not relative
+            or not isinstance(required_keys, list)
+            or not required_keys
+            or len(required_keys) != len(set(required_keys))
+            or not all(isinstance(key, str) and key for key in required_keys)
+            or not isinstance(identity, dict)
+            or not isinstance(predecessor, dict)
+        ):
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                f"local continuation exception is malformed for {phase_id}",
+            )
+            return False
+        if set(identity) != {
+            "schema_version",
+            "roadmap_version",
+            "phase_id",
+            "preregistration_state",
+        }:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                f"local continuation identity keys differ for {phase_id}",
+            )
+            return False
+        expected_predecessor_keys = {
+            "phase_id",
+            "closure_state",
+            "closure_commit",
+            "closure_tree",
+            "accepted_merge_commit",
+            "acceptance_state",
+            "continuation_scope",
+        }
+        if "predecessor_result" in predecessor:
+            expected_predecessor_keys.add("predecessor_result")
+        if set(predecessor) != expected_predecessor_keys:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                f"local continuation predecessor keys differ for {phase_id}",
+            )
+            return False
+        path = self.path(relative)
+        if path.is_symlink() or not path.is_file():
+            self.add_error(
+                relative,
+                f"phase {phase_id} local continuation requires a regular preregistration file",
+            )
+            return False
+        try:
+            preregistration = read_json(path)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self.add_error(relative, f"local continuation preregistration is invalid: {exc}")
+            return False
+        valid = True
+        if set(preregistration) != set(required_keys):
+            self.add_error(relative, "local continuation preregistration keys differ")
+            valid = False
+        for key, expected in identity.items():
+            if preregistration.get(key) != expected:
+                self.add_error(
+                    relative,
+                    f"local continuation preregistration {key} differs",
+                )
+                valid = False
+        if preregistration.get("predecessor_binding") != predecessor:
+            self.add_error(relative, "local continuation predecessor binding differs")
+            valid = False
+        commit = predecessor.get("closure_commit")
+        tree = predecessor.get("closure_tree")
+        if not isinstance(commit, str) or not isinstance(tree, str):
+            self.add_error(relative, "local continuation closure identity is malformed")
+            return False
+        if self.history_git("cat-file", "-e", f"{commit}^{{commit}}").returncode != 0:
+            self.add_error(relative, "local continuation closure commit is unavailable")
+            valid = False
+        elif self.history_git("rev-parse", f"{commit}^{{tree}}").stdout.strip() != tree:
+            self.add_error(relative, "local continuation closure tree differs")
+            valid = False
+        if self.history_git("merge-base", "--is-ancestor", commit, "HEAD").returncode != 0:
+            self.add_error(relative, "local continuation closure is not an ancestor of HEAD")
+            valid = False
+        closure_path = exception.get("closure_required_path")
+        if (
+            not isinstance(closure_path, str)
+            or self.history_git("cat-file", "-e", f"{commit}:{closure_path}").returncode != 0
+        ):
+            self.add_error(relative, "local continuation closure record is unavailable")
+            valid = False
+        if not valid:
+            self.add_error(
+                roadmap_relative,
+                f"phase {phase_id} local continuation exception is not satisfied",
+            )
+        return valid
+
+    def _local_continuation_exception_contract_is_exact(self) -> bool:
+        exceptions = self.policy.get("local_continuation_exceptions")
+        expected = {
+            "R03": R03_LOCAL_CONTINUATION_EXCEPTION,
+            "R04": R04_LOCAL_CONTINUATION_EXCEPTION,
+            "R05": R05_LOCAL_CONTINUATION_EXCEPTION,
+            "R06": R06_LOCAL_CONTINUATION_EXCEPTION,
+            "R07": R07_LOCAL_CONTINUATION_EXCEPTION,
+        }
+        if exceptions != expected:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "local_continuation_exceptions differ from the frozen R03/R04/R05/R06/R07 exceptions",
+            )
+            return False
+        return True
 
     def _check_markdown_phase_statuses(
         self, phases: list[dict[str, Any]], relative: str
@@ -565,6 +983,75 @@ class AlignmentVerifier:
                     self.add_error(
                         relative,
                         f"phase {phase_id} status {required_status!r} requires a regular evidence file",
+                    )
+
+    def _check_phase_start_requirements(self) -> None:
+        assert self.roadmap is not None
+        phase_by_id = {
+            phase["id"]: phase
+            for phase in self.roadmap.get("phases", [])
+            if isinstance(phase, dict) and isinstance(phase.get("id"), str)
+        }
+        requirements = self.policy.get("phase_start_requirements")
+        if not isinstance(requirements, dict):
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "phase_start_requirements must be an object",
+            )
+            return
+        if requirements.get("R04") != R04_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R04 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R05") != R05_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R05 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R06") != R06_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R06 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R07") != R07_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R07 phase_start_requirements differ from the frozen contract",
+            )
+        for phase_id, requirement in requirements.items():
+            phase = phase_by_id.get(phase_id)
+            if phase is None or not isinstance(requirement, dict):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase start requirement is invalid for {phase_id}",
+                )
+                continue
+            statuses = requirement.get("statuses")
+            paths = requirement.get("paths")
+            if (
+                not isinstance(statuses, list)
+                or not statuses
+                or len(statuses) != len(set(statuses))
+                or not all(isinstance(status, str) and status for status in statuses)
+                or not isinstance(paths, list)
+                or not paths
+                or len(paths) != len(set(paths))
+                or not all(isinstance(path, str) and path for path in paths)
+            ):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase start requirement fields are invalid for {phase_id}",
+                )
+                continue
+            if phase.get("status") not in statuses:
+                continue
+            for relative in paths:
+                path = self.path(relative)
+                if path.is_symlink() or not path.is_file():
+                    self.add_error(
+                        relative,
+                        f"phase {phase_id} status {phase.get('status')!r} requires a regular start-contract file",
                     )
 
     def _check_inventory_status_coupling(self) -> None:

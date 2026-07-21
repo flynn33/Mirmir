@@ -1,0 +1,125 @@
+{
+  "authorization_boundary": {
+    "acceptance": "not_claimed",
+    "auto_mode": "blocked",
+    "holdout": "blocked",
+    "performance_claims": "forbidden",
+    "product_qualification": "not_claimed",
+    "production_default": "not_enabled",
+    "publication": "not_authorized_by_this_record",
+    "quality_claims": "forbidden",
+    "release": "not_authorized"
+  },
+  "checks": [
+    {"description": "Require the exact diagnostic-only R04 local closure commit, tree, result, and not-claimed acceptance boundary.", "id": "predecessor_closure_exact"},
+    {"description": "Require R05 to depend directly on R04 while preserving the transitive unresolved R03 boundary.", "id": "canonical_dependency_boundary_exact"},
+    {"description": "Require byte-exact preregistration, fixture-catalog, conformance-schema, R01 fixture, R03 baseline, and R04 integration bindings.", "id": "frozen_bindings_exact"},
+    {"description": "Require the complete ordered seven-subject A07 through A10 route matrix.", "id": "subject_matrix_complete"},
+    {"description": "Compile spatial symbols behind macOS 13 and A09/A10 symbols behind macOS 26 using Swift 6.2 and the macOS 26 SDK.", "id": "toolchain_boundary_exact"},
+    {"description": "Record unavailable simulator execution as not_observed and continue deterministic software work.", "id": "simulator_unavailable_nonblocking"},
+    {"description": "Implement only exact A07 1280x720-to-1920x1080 and 1920x1080-to-3840x2160 routes through the explicit left-sited BT.709 NV12-linear bridge.", "id": "spatial_exact_routes_and_color_bridge"},
+    {"description": "Query MTLFXSpatialScalerDescriptor.supportsDevice before descriptor construction and preserve nil construction as typed unavailability.", "id": "spatial_support_query_before_construction"},
+    {"description": "Observe actual native MetalFX spatial execution before any runtime, quality, performance, or qualification claim.", "id": "spatial_native_execution"},
+    {"description": "Reject A08 for decoded video because depth, renderer motion, jitter, reset, and history semantics are not evidence-backed.", "id": "temporal_renderer_inputs_not_fabricated"},
+    {"description": "Reject A09 until its renderer G-buffer, motion, depth, camera, and auxiliary estimation inputs are independently qualified.", "id": "temporal_denoised_auxiliary_evidence_gate"},
+    {"description": "Keep A10 separate from scaling and reject it without renderer motion, depth, camera, UI, and output-timing semantics.", "id": "frame_interpolation_separate_cadence_gate"},
+    {"description": "Require deterministic A08, A09, and A10 rejected_for_decoded_video outcomes before any MetalFX factory call.", "id": "typed_decoded_video_rejections"},
+    {"description": "Bind R03 and R04 negative or diagnostic records without inferring qualification, default eligibility, quality, or performance.", "id": "baseline_records_bound_without_qualification_inference"},
+    {"description": "Require observed measurements before comparing MetalFX Spatial with VideoToolbox low latency or MPS Lanczos.", "id": "baseline_quality_performance_comparison"},
+    {"description": "Preserve exact dimensions, NV12 format, color, timing, audio, metadata, processing identity, and route disposition through reopen.", "id": "exact_media_identity"},
+    {"description": "Forbid silent fallback; return typed unavailability, rejection, cancellation, or failure without publishing an output.", "id": "no_silent_fallback"},
+    {"description": "Represent absent runtime, hardware, simulator, or operator evidence only as not_observed.", "id": "unavailable_is_not_observed"},
+    {"description": "Forbid quality and performance claims from preregistration, contract rejections, or unobserved spatial results.", "id": "no_quality_or_performance_claim"},
+    {"description": "Keep production default, Auto mode, holdout, acceptance, publication, and release disabled or unclaimed.", "id": "production_default_disabled"}
+  ],
+  "contract": {
+    "auxiliary_input_policy": "renderer_semantics_must_be_independently_evidence_backed_never_fabricated",
+    "capability_inference": "forbidden",
+    "color_bridge": "explicit_left_sited_bt709_video_range_nv12_to_linear_rgba16float_and_back",
+    "color_scope": "8_bit_nv12_sdr_bt709_video_range_left_chroma",
+    "denoised_temporal_disposition": "A09_rejected_for_decoded_video_missing_renderer_gbuffer_motion_depth_camera_semantics",
+    "frame_interpolation_disposition": "A10_rejected_for_decoded_video_missing_renderer_motion_depth_camera_and_output_timing_contract",
+    "identity_contract": "exact_dimensions_format_color_timing_audio_metadata_processing_and_route_identity",
+    "spatial_routes": "A07_exact_1p5x_and_2x_after_device_support_query_only",
+    "temporal_disposition": "A08_rejected_for_decoded_video_missing_renderer_motion_depth_jitter_semantics"
+  },
+  "fixture_catalog": {
+    "path": "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json",
+    "sha256": "3145262a6daa85eefb106f1c866d9a28b9b6838a6c611086576e7140fbc64302",
+    "size_bytes": 8088
+  },
+  "observation_policy": {
+    "deterministic_software_conformance": "required",
+    "hardware_capability_observation": "not_observed",
+    "hardware_requirement": "waived_not_a_blocker",
+    "operator_observation_requirement": "waived_not_a_blocker",
+    "operator_observed_operation": "not_observed",
+    "performance_claims": "forbidden",
+    "quality_claims": "forbidden",
+    "runtime_execution": "observed_or_not_observed_per_subject",
+    "simulator_execution": "not_observed",
+    "simulator_requirement": "waived_not_a_blocker"
+  },
+  "phase_id": "R05",
+  "predecessor_binding": {
+    "acceptance_state": "not_claimed",
+    "accepted_merge_commit": null,
+    "closure_commit": "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+    "closure_state": "local_unpublished_diagnostic_only_closure",
+    "closure_tree": "4a7cc588b6fa51c21f2293e56cf3dea389acd908",
+    "continuation_scope": "local_implementation_only",
+    "phase_id": "R04",
+    "predecessor_result": "diagnostic_only"
+  },
+  "preregistration_state": "contract_frozen_for_local_implementation",
+  "roadmap_version": "1.0.1",
+  "schema_bindings": {
+    "conformance": {
+      "path": "docs/roadmaps/evidence/schema/r05-suitability-conformance-v1.json",
+      "sha256": "4193805d4db61be4fe2cad1e956119d74badcb9891317d0af5fbe994f26ba019",
+      "size_bytes": 4499
+    },
+    "fixture_catalog": {
+      "path": "docs/roadmaps/evidence/schema/r05-fixture-catalog-v1.json",
+      "sha256": "a65bb0b10d63f12896704f6c896d0833a2d9c884d164cde3933de90936bfe0bc",
+      "size_bytes": 4755
+    },
+    "preregistration": {
+      "path": "docs/roadmaps/evidence/schema/r05-preregistration-v1.json",
+      "sha256": "87ba3eb52ff7b43e51d576c0d672e186cccb48d7c2999d4f1dc5de28e57161ed",
+      "size_bytes": 8277
+    }
+  },
+  "schema_version": "1.0.0",
+  "stop_rules": [
+    {"description": "Stop on any R04 closure commit, tree, result, record, or acceptance-boundary drift.", "id": "predecessor_identity_drift"},
+    {"description": "Stop on any preregistration, catalog, conformance-schema, or source-binding byte or semantic drift.", "id": "contract_byte_drift"},
+    {"description": "Stop on any R01 fixture, R03 baseline, or R04 integration binding drift.", "id": "r01_fixture_drift"},
+    {"description": "Stop on a missing, reordered, merged, or silently substituted subject identity.", "id": "subject_matrix_drift"},
+    {"description": "Stop compilation or execution outside each symbol's frozen macOS and Swift boundary.", "id": "toolchain_boundary_violation"},
+    {"description": "Stop A07 execution for any route, format, color scope, or scale outside the two frozen spatial routes.", "id": "spatial_route_violation"},
+    {"description": "Stop when NV12 planes are passed directly to MetalFX or nonlinear RGB is labeled linear.", "id": "color_bridge_violation"},
+    {"description": "Stop any A08, A09, or A10 path that fabricates renderer-semantic auxiliary inputs.", "id": "auxiliary_input_fabrication"},
+    {"description": "Stop on output or reopened media identity mismatch, premature publication, or silent fallback.", "id": "media_identity_violation"},
+    {"description": "Stop any fabricated runtime, hardware, simulator, operator, quality, performance, or comparison observation.", "id": "fabricated_observation"},
+    {"description": "Stop any production-default, qualification, Auto, holdout, acceptance, publication, or release authorization claim.", "id": "authorization_boundary"}
+  ],
+  "subjects": [
+    {"backend_identity": "spatial", "capability_id": "A07", "id": "r05.metalfx.spatial-1p5x", "initial_disposition": "not_observed", "initial_status": "not_observed", "product_default_eligibility": "candidate_after_observed_qualification", "reason": "runtime_not_observed_under_operator_override", "route_id": "spatial_1p5x", "route_policy": "runtime_observation_required"},
+    {"backend_identity": "spatial", "capability_id": "A07", "id": "r05.metalfx.spatial-2x", "initial_disposition": "not_observed", "initial_status": "not_observed", "product_default_eligibility": "candidate_after_observed_qualification", "reason": "runtime_not_observed_under_operator_override", "route_id": "spatial_2x", "route_policy": "runtime_observation_required"},
+    {"backend_identity": "temporal", "capability_id": "A08", "id": "r05.metalfx.temporal-1p5x", "initial_disposition": "rejected_for_decoded_video", "initial_status": "contract_rejected", "product_default_eligibility": "ineligible_contract_rejection", "reason": "missing_renderer_motion_depth_jitter_semantics", "route_id": "temporal_1p5x_contract", "route_policy": "typed_decoded_video_rejection"},
+    {"backend_identity": "temporal", "capability_id": "A08", "id": "r05.metalfx.temporal-2x", "initial_disposition": "rejected_for_decoded_video", "initial_status": "contract_rejected", "product_default_eligibility": "ineligible_contract_rejection", "reason": "missing_renderer_motion_depth_jitter_semantics", "route_id": "temporal_2x_contract", "route_policy": "typed_decoded_video_rejection"},
+    {"backend_identity": "temporal_denoised", "capability_id": "A09", "id": "r05.metalfx.denoised-temporal-1p5x", "initial_disposition": "rejected_for_decoded_video", "initial_status": "contract_rejected", "product_default_eligibility": "ineligible_contract_rejection", "reason": "missing_renderer_gbuffer_motion_depth_camera_semantics", "route_id": "denoised_temporal_1p5x_contract", "route_policy": "typed_decoded_video_rejection"},
+    {"backend_identity": "temporal_denoised", "capability_id": "A09", "id": "r05.metalfx.denoised-temporal-2x", "initial_disposition": "rejected_for_decoded_video", "initial_status": "contract_rejected", "product_default_eligibility": "ineligible_contract_rejection", "reason": "missing_renderer_gbuffer_motion_depth_camera_semantics", "route_id": "denoised_temporal_2x_contract", "route_policy": "typed_decoded_video_rejection"},
+    {"backend_identity": "frame_interpolation", "capability_id": "A10", "id": "r05.metalfx.frame-interpolation-1080p", "initial_disposition": "rejected_for_decoded_video", "initial_status": "contract_rejected", "product_default_eligibility": "ineligible_contract_rejection", "reason": "missing_renderer_motion_depth_camera_and_output_timing_contract", "route_id": "frame_interpolation_1080p_contract", "route_policy": "typed_decoded_video_rejection"}
+  ],
+  "toolchain_boundary": {
+    "compiler_floor": "Swift 6.2",
+    "extended_runtime_floor": "macOS 26.0",
+    "platform": "macOS",
+    "sdk_family": "macOS 26",
+    "simulator_availability": "unavailable",
+    "simulator_availability_effect": "not_a_blocker",
+    "spatial_runtime_floor": "macOS 13.0"
+  }
+}

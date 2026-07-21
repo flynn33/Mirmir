@@ -4,12 +4,12 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "75e514329fb54448378d179ac13ccf3c89e2dae1f1242a5b508dac6dd2628e6c",
-    "json_sha256": "d3627a35efb309015aa6532e4811b35c6d0d9e86ef6b615a9861ffc340ed7c11",
+    "markdown_sha256": "430ff021665d8b7807e97774d2e6e356df5d8ebdf7caa8526b9471206df7cc05",
+    "json_sha256": "44b2067c12cf0b3323ed60175986c386d08205425354e0bbb6a0f931bbc97e44",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
-    "revision_date": "2026-07-19"
+    "revision_date": "2026-07-21"
   },
   "contract": {
     "phase_ids": [
@@ -53,6 +53,7 @@
       "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
       "holdout": "blocked",
       "market_leading_claim": "blocked",
+      "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
       "production_auto_mode": "blocked",
       "strategic_reset": "authorized",
       "unified_backend_architecture": "authorized_after_capability_contracts"
@@ -127,6 +128,36 @@
       "python3 Scripts/r01_preregistration.py --check",
       "python3 Scripts/r01_preregistration.py --check-fixtures",
       "python3 Scripts/r01_capabilities.py --check",
+      "python3 Scripts/r01_observation_waiver.py --check",
+      "Scripts/tests/test_r01_observation_waiver.py",
+      "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r03_contracts.py",
+      "Scripts/tests/test_r04_contracts.py",
+      "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
+      "Scripts/tests/test_r07_contracts.py",
+      "python3 Scripts/r02_contracts.py --check-preregistration",
+      "python3 Scripts/r02_contracts.py --check-fixtures",
+      "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r03_contracts.py --check-preregistration",
+      "python3 Scripts/r03_contracts.py --check-fixtures",
+      "python3 Scripts/r03_contracts.py --check-conformance",
+      "python3 Scripts/r04_contracts.py --check-preregistration",
+      "python3 Scripts/r04_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then",
+      "python3 Scripts/r04_contracts.py --check-conformance",
+      "python3 Scripts/r05_contracts.py --check-preregistration",
+      "python3 Scripts/r05_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
+      "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
+      "python3 Scripts/r06_contracts.py --check-conformance",
+      "python3 Scripts/r07_contracts.py --check-preregistration",
+      "python3 Scripts/r07_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then",
+      "python3 Scripts/r07_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -155,13 +186,83 @@
       "python3 Scripts/r01_preregistration.py --check",
       "python3 Scripts/r01_preregistration.py --check-fixtures",
       "python3 Scripts/r01_capabilities.py --check",
+      "python3 Scripts/r01_observation_waiver.py --check",
+      "Scripts/tests/test_r01_observation_waiver.py",
+      "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r03_contracts.py",
+      "Scripts/tests/test_r04_contracts.py",
+      "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
+      "Scripts/tests/test_r07_contracts.py",
+      "python3 Scripts/r02_contracts.py --check-preregistration",
+      "python3 Scripts/r02_contracts.py --check-fixtures",
+      "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r03_contracts.py --check-preregistration",
+      "python3 Scripts/r03_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then",
+      "python3 Scripts/r03_contracts.py --check-conformance",
+      "python3 Scripts/r04_contracts.py --check-preregistration",
+      "python3 Scripts/r04_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then",
+      "python3 Scripts/r04_contracts.py --check-conformance",
+      "python3 Scripts/r05_contracts.py --check-preregistration",
+      "python3 Scripts/r05_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
+      "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
+      "python3 Scripts/r06_contracts.py --check-conformance",
+      "python3 Scripts/r07_contracts.py --check-preregistration",
+      "python3 Scripts/r07_contracts.py --check-fixtures",
+      "if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then",
+      "python3 Scripts/r07_contracts.py --check-conformance",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
       "# Roadmap Alignment Governance",
       "The stable required-check name is",
       "Branch-protection rules",
-      "before merging to `main`."
+      "before merging to `main`.",
+      "947983a8414c60e4f5f4246e6cb658792fc7c357",
+      "local_unpublished_blocked_closure",
+      "predecessor_result: blocked",
+      "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+      "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
+      "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+      "32365e745dbf53d59213fe2294a6b63ba2642df7",
+      "local_unpublished_diagnostic_only_closure",
+      "predecessor_result: diagnostic_only",
+      "Scripts/tests/test_r04_contracts.py",
+      "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r06_contracts.py",
+      "Scripts/tests/test_r07_contracts.py",
+      "python3 Scripts/r04_contracts.py --check-preregistration",
+      "python3 Scripts/r04_contracts.py --check-fixtures",
+      "test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance",
+      "python3 Scripts/r05_contracts.py --check-preregistration",
+      "python3 Scripts/r05_contracts.py --check-fixtures",
+      "test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r06_contracts.py --check-preregistration",
+      "python3 Scripts/r06_contracts.py --check-fixtures",
+      "test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance",
+      "python3 Scripts/r07_contracts.py --check-preregistration",
+      "python3 Scripts/r07_contracts.py --check-fixtures",
+      "test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance"
+    ],
+    "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
+      "policy-frozen local closure commit and tree",
+      "947983a8414c60e4f5f4246e6cb658792fc7c357",
+      "local_unpublished_blocked_closure",
+      "predecessor_result: blocked",
+      "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+      "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
+      "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+      "32365e745dbf53d59213fe2294a6b63ba2642df7",
+      "local_unpublished_diagnostic_only_closure",
+      "predecessor_result: diagnostic_only",
+      "upstream_no_product_qualified_primary_backend",
+      "continuation_scope: local_implementation_only"
     ],
     "local-work-plan.md": [
       "superseded as the forward product plan",
@@ -188,11 +289,15 @@
   "phase_status_documents": {
     "ARCHITECTURE.md": [
       "R00",
-      "R01"
+      "R01",
+      "R02",
+      "R03"
     ],
     "local-work-plan.md": [
       "R00",
-      "R01"
+      "R01",
+      "R02",
+      "R03"
     ]
   },
   "phase_evidence_requirements": {
@@ -201,12 +306,283 @@
       "paths": [
         "docs/roadmaps/evidence/r01/phase-evidence.json",
         "docs/roadmaps/evidence/r01/phase-evidence.md",
-        "project-notes/evidence/r01/hosts/anchor-oldest-supported.json",
-        "project-notes/evidence/r01/hosts/anchor-m3-air.json",
-        "project-notes/evidence/r01/hosts/anchor-pro-max.json",
-        "project-notes/evidence/r01/hosts/anchor-core-ai.json",
         "project-notes/apple-upscale-capabilities.json",
         "project-notes/apple-upscale-capability-report.md"
+      ]
+    }
+  },
+  "phase_start_requirements": {
+    "R02": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r02/records/preregistration.json",
+        "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R03": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r03/records/preregistration.json",
+        "docs/roadmaps/evidence/r03/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R04": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r04/records/preregistration.json",
+        "docs/roadmaps/evidence/r04/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R05": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r05/records/preregistration.json",
+        "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R06": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r06/records/preregistration.json",
+        "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R07": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r07/records/preregistration.json",
+        "docs/roadmaps/evidence/r07/records/fixtures/fixture-catalog.json"
+      ]
+    }
+  },
+  "local_continuation_exceptions": {
+    "R03": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r02/records/conformance.json",
+      "dependency_phase_id": "R02",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4",
+        "closure_state": "local_unpublished_closure",
+        "closure_tree": "a5e95d810abacbdb872ddc6e94125103831e6fba",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R02"
+      },
+      "preregistration_identity": {
+        "phase_id": "R03",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r03/records/preregistration.json",
+      "preregistration_required_keys": [
+        "authorization_boundary",
+        "checks",
+        "contract",
+        "fixture_catalog",
+        "metrics",
+        "observation_policy",
+        "phase_id",
+        "predecessor_binding",
+        "preregistration_state",
+        "roadmap_version",
+        "schema_bindings",
+        "schema_version",
+        "stop_rules"
+      ]
+    },
+    "R04": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
+      "dependency_phase_id": "R03",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "947983a8414c60e4f5f4246e6cb658792fc7c357",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_tree": "d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R03",
+        "predecessor_result": "blocked"
+      },
+      "preregistration_identity": {
+        "phase_id": "R04",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r04/records/preregistration.json",
+      "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary"
+      ]
+    },
+    "R05": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r04/records/integration-conformance.json",
+      "dependency_phase_id": "R04",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "4a7cc588b6fa51c21f2293e56cf3dea389acd908",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R04",
+        "predecessor_result": "diagnostic_only"
+      },
+      "preregistration_identity": {
+        "phase_id": "R05",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r05/records/preregistration.json",
+      "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary"
+      ]
+    },
+    "R06": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r05/records/suitability-conformance.json",
+      "dependency_phase_id": "R05",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "b955fc9d0b02dd066c359dfcb99a9ad31aeb817a",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "10a97bd3df7f72834f7afcb7fa3b63c598fa4931",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R05",
+        "predecessor_result": "diagnostic_only"
+      },
+      "preregistration_identity": {
+        "phase_id": "R06",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+      "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "orchestration_contract",
+        "ash_state_contract",
+        "message_policy_contract",
+        "scoring_contract",
+        "transition_contract",
+        "mask_contract",
+        "product_gate",
+        "ablations",
+        "checks",
+        "stop_rules",
+        "authorization_boundary"
+      ]
+    },
+    "R07": {
+      "active_phase_status": "in_progress",
+      "closure_required_path": "docs/roadmaps/evidence/r06/phase-evidence.json",
+      "dependency_phase_id": "R06",
+      "dependency_phase_status": "in_progress",
+      "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": null,
+        "closure_commit": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+        "closure_state": "local_unpublished_blocked_closure",
+        "closure_tree": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R06",
+        "predecessor_result": "blocked"
+      },
+      "preregistration_identity": {
+        "phase_id": "R07",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0"
+      },
+      "preregistration_path": "docs/roadmaps/evidence/r07/records/preregistration.json",
+      "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "numeric_contract",
+        "temporal_analysis_contract",
+        "history_contract",
+        "artifact_contract",
+        "protected_content_contract",
+        "weighted_mae_contract",
+        "support_stage_contract",
+        "postflight_feedback_contract",
+        "product_comparator_contract",
+        "product_gate",
+        "checks",
+        "stop_rules",
+        "authorization_boundary"
       ]
     }
   },

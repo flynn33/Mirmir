@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0.1  
 **Publication date:** 2026-07-18  
-**Revision date:** 2026-07-19  
+**Revision date:** 2026-07-21  
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime  
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -44,6 +44,31 @@ Mirmir will not attempt to beat specialized commercial products merely by shippi
 ---
 
 ## 2. Explicit Scope Boundaries
+
+### 2.0 Operator observation override
+
+The operator explicitly waived every roadmap gate that requires physical-hardware
+execution, a simulator that is unavailable for the project, operator-observed
+simulation, or operator-observed hardware operation. None of those conditions is
+a blocker or a reason to stop roadmap work. When an observation is unavailable or
+not performed, the evidence must say `not_observed`; it must not invent hardware,
+API, runtime, model, performance, memory, repeatability, product-qualification,
+backend-eligibility, or perceptual-quality results.
+
+At this amendment, every Mirmir target is macOS-only and Xcode advertises only
+macOS destinations for the app and R01 worker. Installed iOS/tvOS CoreSimulator
+runtimes cannot establish macOS or Mac-hardware capability. A compatible
+simulator may still be used automatically if one becomes available, but its
+absence cannot block the plan.
+
+Locally available static checks, deterministic doubles, unit and mutation tests,
+project generation, builds, and hosted tests remain required when applicable.
+Native host probes remain useful supplemental evidence, but they are not required
+for R01-R07 phase progression. This override does not waive non-hardware
+implementation, static-verification, deterministic-test, safety, privacy,
+publication, holdout, or production-authorization gates. It controls over
+conflicting hardware, unavailable-simulator, or operator-observation language
+elsewhere in this roadmap.
 
 ### 2.1 ASH responsibilities
 
@@ -493,11 +518,13 @@ No new production calibration is authorized.
 
 ## R01 — Apple capability laboratory
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
-Determine exactly which Apple APIs are available and practical on target Macs before production wiring.
+Close the A01-A18 capability inventory before production wiring. Record observed
+facts when available and explicit `not_observed` diagnostic dispositions when
+hardware, simulator, or operator observation is unavailable or not performed.
 
 ### Work
 
@@ -516,7 +543,7 @@ Create compile and runtime probes for:
 - Core AI model loading, specialization, zero-copy input, stateful execution, and profiling; and
 - optional Core ML compatibility.
 
-For every capability record:
+For every observed capability record:
 
 - OS and SDK requirement;
 - hardware support;
@@ -545,13 +572,16 @@ MirmirTests/AppleUpscaleCapabilityProbeTests.swift
 
 ### Exit gate
 
-No backend enters Auto mode without an authoritative capability record from the actual target environment.
+Every A01-A18 capability has a closed disposition. A `not_observed` record closes
+inventory coverage under the operator override but never qualifies a backend,
+asserts runtime support, or supplies a performance claim. No backend enters Auto
+mode without later evidence that separately satisfies its production gate.
 
 ---
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -576,7 +606,7 @@ A deterministic fixture can run through multiple backends under one common sessi
 
 ## R03 — Deterministic Apple-native baseline suite
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -601,6 +631,26 @@ Establish trustworthy reference paths before learned super resolution.
 - exact same media transaction behavior; and
 - no quality claim beyond measured evidence.
 
+### Progress update — 2026-07-20
+
+The frozen R03 contract and catalog were preregistered locally in commit
+`21596ebc520ec9bfe604dafa588d16d066f7f492`. The ten-subject implementation is
+bound to commit `767cbc4673678a699c3f98903b6c7801a87e91d4` and tree
+`9c40a216c21eba77a92d5d1240d4b6475ce5fb48`. The focused macOS Xcode suites for
+the shared session, vImage, MPS, Core Image, VideoToolbox pixel transfer,
+guided/edge support stages, and ASH comparator pass; SwiftLint reports zero
+violations.
+
+R03 remains `in_progress` and is not accepted. Contract preflight found that the
+frozen `media-transaction-2x` scenario assigns a 16×8-to-16×8 exact R02 member to
+the 1920×1080-to-3840×2160 R03 route. Those contracts cannot be executed together
+without changing frozen evidence. The fail-closed conformance record is therefore
+`blocked`, the affected media checks fail, and every subject and metric is
+`not_observed`. Hardware, simulator, and operator observation were not performed
+and are not blockers under the operator override. No 2× media coverage, runtime
+support, product qualification, default selection, performance, acceptance,
+publication, or release claim is made.
+
 ### Exit gate
 
 One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.
@@ -609,7 +659,7 @@ One baseline matrix establishes the quality/performance/resource envelope of eve
 
 ## R04 — VideoToolbox super-resolution production integration
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -627,6 +677,58 @@ Use Apple’s native video-oriented ML super-resolution engine as the primary Qu
 - Implement low-latency SR as a separate backend, not a flag hidden inside Quality.
 - Record configuration revision, scale, quality priority, supported formats, model status, and processing mode.
 
+### Local implementation start — 2026-07-20
+
+R04 begins only under the operator-directed local-continuation boundary. Its
+frozen preregistration binds the exact unpublished R03 closure commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`, records
+`closure_state: local_unpublished_blocked_closure`, `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and limits the
+continuation to local implementation.
+
+The bound R03 record is fail-closed and `blocked`; R03 remains `in_progress` and
+unaccepted. Starting R04 neither repairs nor accepts that negative evidence.
+Hardware, simulator, and operator observation remain non-blocking under the
+operator override, while any unavailable runtime result must be recorded as
+`not_observed`. No runtime support, quality, performance, product qualification,
+production enablement, publication, or release claim follows from this local
+start.
+
+### Local implementation and conformance checkpoint — 2026-07-20
+
+The frozen R04 contract was preregistered in local commit
+`2a729f9f641ef949681d81ebb3f98f68d7da29fc`, tree
+`59bfd516ebfa2260fedaf835d0a32a8f8f7cc6ee`. The implementation source is local
+commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`, tree
+`90c45e2c583defc7aa593f9199512719884de0d0`.
+
+That implementation replaces the copy/letterbox placeholder with guarded
+macOS 26 `VTFrameProcessor` quality and low-latency sessions. It implements the
+quality 2× route, the typed `public_contract_unrepresentable` quality 1.5×
+rejection, exact-dimension low-latency admission, configuration-specific model
+status, declared-buffer attribute resolution, ordered retained history,
+discontinuity reset, explicit submission mode, cancellation/drain behavior, and
+optional optical-flow support without promoting it to a primary route. Production
+bootstrap behavior remains unchanged and unavailable.
+
+All 39 focused macOS Xcode tests passed, the Swift 6 source and test typechecks
+passed, and strict SwiftLint reported zero violations. The focused Xcode run
+excluded Metal shader compilation because the optional Metal Toolchain was
+unavailable; R04 adds no Metal shader. The commit-bound
+`evidence/r04/records/integration-conformance.json` result is
+`diagnostic_only`: the quality 2×, both low-latency, and optional optical-flow
+runtime subjects are `not_observed`, while quality 1.5× is the frozen typed
+contract rejection. Model-backed processing, model readiness, hardware,
+simulator, operator-observed operation, quality, and performance were not
+observed.
+
+R04 remains canonical `in_progress`, local unpublished, and unaccepted. No
+backend is selected as a production default; product qualification, quality and
+performance claims, acceptance, publication, and release remain unauthorized.
+The quality, protected-region, temporal, throughput, memory, and perceptual exit
+gates remain unobserved and are not claimed satisfied.
+
 ### Exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.
@@ -638,7 +740,7 @@ Use Apple’s native video-oriented ML super-resolution engine as the primary Qu
 
 ## R05 — MetalFX integration and suitability decision
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -652,6 +754,63 @@ Use MetalFX where its public contract fits decoded video, and reject it where re
 4. Do not fabricate depth or renderer semantics merely to make the API run.
 5. Probe temporal-denoised scaling only after auxiliary-buffer estimation has independent quality evidence.
 6. Treat MetalFX frame interpolation as a separate cadence feature.
+
+### Local implementation start — 2026-07-20
+
+R05 starts only under the operator-directed local-continuation boundary. Its
+frozen preregistration binds the exact local R04 diagnostic-only closure commit
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5` and tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`, with
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R04 remains canonical
+`in_progress`, local unpublished, unaccepted, and unqualified.
+
+The frozen R05 matrix implements only exact A07 spatial 1.5× and 2× routes. It
+requires a device-support query before construction and an explicit
+left-sited, video-range BT.709 NV12-to-linear-RGBA16Float-to-NV12 bridge; NV12
+planes cannot be passed directly to MetalFX and nonlinear RGB cannot be labeled
+linear. A08 temporal, A09 temporal-denoised, and A10 frame interpolation are
+typed `rejected_for_decoded_video` routes because decoded frames do not provide
+the required renderer-semantic motion, depth, jitter, G-buffer, camera, UI, and
+output-timing inputs. No such inputs may be fabricated.
+
+Hardware, simulator, and operator observation remain non-blocking under the
+operator override. Any unavailable native execution, quality, performance,
+baseline comparison, or reopen result must remain `not_observed`. This local
+start makes no product-qualification, production-default, quality, performance,
+acceptance, publication, or release claim.
+
+### Local implementation and diagnostic-only checkpoint — 2026-07-21
+
+The frozen R05 contract was preregistered in local commit
+`6a327428c88f32517bf5cf931e6f18a65a24b5c2`, tree
+`bfc53e9077fcb7bcab233ca79c4575ef1f69fda2`. The implementation source is local
+commit `3e5188ece317d3ebc492c7a8e26345837836fc67`, tree
+`92b15f3948ffa38dc787136177551187bfb2fbbf`.
+
+That implementation provides exact A07 spatial 1.5× and 2× fixture routes, a
+left-sited video-range BT.709 NV12/linear RGBA16Float bridge, support-before-
+construction guards, shared staging around private MetalFX textures, ordered
+completion and publication, retained FIFO ownership, cancellation, typed
+failure outcomes, and no silent fallback. A08, A09, and A10 reject decoded-video
+admission before any native factory call because their renderer-semantic inputs
+are not evidence-backed. Production bootstrap behavior remains unchanged and
+unavailable.
+
+All 44 focused macOS Xcode tests passed, the Swift source and test targets
+compiled with strict concurrency enabled, and strict SwiftLint reported zero
+violations. Metal shader compilation was excluded because the optional Metal
+Toolchain was unavailable; R05 adds no Metal shader. The commit-bound
+`evidence/r05/records/suitability-conformance.json` result is
+`diagnostic_only`: both A07 native runtime subjects are `not_observed`, while
+all A08 through A10 subjects carry their frozen
+`rejected_for_decoded_video` dispositions. Native MetalFX execution, hardware,
+simulator, operator-observed operation, end-to-end media reopen, baseline
+comparison, quality, and performance were not observed.
+
+R05 remains canonical `in_progress`, local unpublished, and unaccepted. No
+backend is selected as a production default; product qualification, quality and
+performance claims, acceptance, publication, and release remain unauthorized.
 
 ### Exit outcomes
 
@@ -667,7 +826,7 @@ A rejection is a valid successful result.
 
 ## R06 — ASH orchestration engine v1
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -693,6 +852,55 @@ Move ASH from pixel reconstruction to deterministic pipeline control.
 - ASH without hysteresis;
 - ASH without postflight feedback.
 
+### Local implementation start — 2026-07-21
+
+R06 starts only under the operator-directed local-continuation boundary. Its
+preregistration binds the exact local R05 diagnostic-only closure commit
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a` and tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, with
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 depends directly on R05;
+R04 remains a transitive unresolved dependency through R05. R03, R04, and R05
+remain canonical `in_progress`, local unpublished, unaccepted, and unqualified.
+
+The frozen R06 software slice is fixture-only. It preserves the existing
+nine-bit `ASHState`, maps all sixteen four-bit `ASHMessage` values to versioned
+policy profiles, uses immutable continuous context, integer score components,
+stable lexical tie-breaking, one whole-frame route, typed transition reasons,
+hysteresis, minimum dwell, scene-cut reset, fatal failover, and bounded luma,
+chroma, and postprocess masks. The six required ablation configurations may be
+exercised only as deterministic software fixtures.
+
+No R03-R05 backend is product-qualified. Product admission must therefore stop
+before scoring or route construction with
+`reason: no_product_qualified_primary_backend`,
+`eligible_backend_count: 0`, and null selected route, plan, and output. All six
+product ablations remain `not_observed`, and the preregistered local result is
+fail-closed `blocked`. That block is caused by the absence of a product-qualified
+primary backend, not by hardware, simulator, or operator observation. Those
+observations remain non-blocking `not_observed`. This start makes no product,
+quality, performance, default, acceptance, publication, or release claim.
+
+### Local implementation and blocked conformance checkpoint — 2026-07-21
+
+The R06 implementation source is local commit
+`9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
+`1235596387d4eabd2ecb4ea1a29221c44ec425fe`. It implements the frozen
+fixture-only decision context, policy catalog, deterministic whole-frame
+orchestration, transition handling, bounded masks, and required ablation
+controls without enabling a production route.
+
+All 32 focused Xcode tests passed, strict SwiftLint passed across 275 files, all
+529 Python governance tests passed, and deterministic software conformance
+passed. Product admission nevertheless remains fail-closed `blocked` for
+`reason: no_product_qualified_primary_backend`, with
+`eligible_backend_count: 0` and null selected route, plan, and output. All
+product, hardware, simulator, and operator observations remain `not_observed`.
+
+This is a local unpublished blocked closure, not phase acceptance. R06 remains
+canonical `in_progress`. No quality, performance, product, production-default,
+acceptance, publication, or release claim follows from this checkpoint.
+
 ### Exit gate
 
 ASH orchestration must improve at least one primary product dimension over the best fixed or continuous router without violating locked quality floors.
@@ -701,7 +909,7 @@ ASH orchestration must improve at least one primary product dimension over the b
 
 ## R07 — Temporal stability and artifact governance
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -717,6 +925,34 @@ Make temporal consistency and artifact avoidance the first major Mirmir differen
 - Use luma-guided chroma reconstruction and edge-preserving mask upsampling.
 - Add protected-region policies for faces, text, line art, animation, subtitles, and UI captures.
 - Add postflight feedback that influences the next decision without rewriting completed frames.
+
+### Local implementation start — 2026-07-21
+
+R07 starts only under the operator-directed local-continuation boundary. Its
+preregistration binds the exact local R06 blocked closure commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4` and tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7` as
+`local_unpublished_blocked_closure`, with `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 remains canonical
+`in_progress`, local unpublished, and unaccepted; R08 remains `planned`.
+
+The R07 local slice is fixture-only temporal and artifact-governance
+implementation. Exact temporal, chroma, artifact, churn, protected-region,
+spatial-noninferiority, history, fixed-point, threshold, and aggregation
+contracts are frozen in the immutable preregistration and fixture catalog before
+their implementation or tuning. Deterministic software fixtures and locally
+available static, unit, mutation, project, build, and hosted checks remain
+required where applicable.
+
+No upstream phase has a product-qualified primary backend. Product evaluation
+therefore remains fail-closed `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null selected route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements remain `not_observed`. Hardware, simulator, and
+operator-observed operation also remain non-blocking `not_observed` and are not
+the blocked cause. This start makes no quality, performance, product,
+production-default, acceptance, publication, or release claim.
 
 ### Exit gate
 
@@ -955,7 +1191,11 @@ R02  unified backend/stage interfaces
 R03  deterministic Apple-native baseline suite
 ```
 
-It must produce real compile/runtime evidence for the current target Macs and leave production Auto, Core AI, temporal MetalFX, holdout, and release claims blocked.
+It must produce a closed capability disposition matrix. Real compile/runtime
+evidence may be added when available; absent hardware, simulator, or observed
+operation is recorded as `not_observed` and does not block continuation.
+Production Auto, Core AI, temporal MetalFX, holdout, and release claims remain
+blocked unless their separate authorization gates are satisfied.
 
 The second sprint should implement VideoToolbox quality and low-latency super resolution under the unified architecture. The third should implement ASH orchestration over already-qualified backends. Core AI begins only after those baselines are measured.
 
@@ -965,7 +1205,9 @@ The second sprint should implement VideoToolbox quality and low-latency super re
 
 The roadmap succeeds when all of the following are true:
 
-1. Every Apple-native method in Section 5 has a qualified, restricted, diagnostic-only, or rejected disposition supported by evidence.
+1. Every Apple-native method in Section 5 has a qualified, restricted,
+   diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
+   supplies inventory closure only and carries no availability or quality claim.
 2. At least one strong Apple-native primary SR backend is production-qualified.
 3. ASH causally controls backend/policy decisions and improves a preregistered product dimension.
 4. Temporal stability and artifact governance provide measurable value over the underlying backend alone.

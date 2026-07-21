@@ -1,0 +1,376 @@
+{
+  "schema_version": "1.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R06",
+  "source": {
+    "commit": "eeaaeb9915e8d8f793bbca8271ff3ed3448a354c",
+    "tree": "087dff1647e989656cddac7059c0ec051f6bd973"
+  },
+  "hosts": [],
+  "preregistration": {
+    "record": {
+      "path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+      "size_bytes": 15319,
+      "sha256": "2b430d75ae1692067a4c1d6e3f6def8bc553c171f30396e0896ae0a3be49beaf"
+    },
+    "inputs": [
+      {
+        "id": "r06-fixture-catalog-input",
+        "kind": "repository_fixture",
+        "identity": "Frozen R06 ASH orchestration fixture catalog",
+        "binding": {
+          "path": "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json",
+          "size_bytes": 10786,
+          "sha256": "2f06fff3a214019ba5f871c918a2ceba9e1019a89342988cf7e8866d929e11a1"
+        },
+        "limitations": [
+          "Every catalog backend is a deterministic fixture with product_qualified false; the catalog does not establish product eligibility, quality, or performance."
+        ]
+      }
+    ],
+    "fixtures": [
+      {
+        "id": "r06-orchestration-fixtures",
+        "role": "Frozen deterministic ASH orchestration fixture catalog",
+        "binding": {
+          "path": "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json",
+          "size_bytes": 10786,
+          "sha256": "2f06fff3a214019ba5f871c918a2ceba9e1019a89342988cf7e8866d929e11a1"
+        },
+        "redistributable": true
+      }
+    ],
+    "parameters": [
+      {
+        "id": "fixed-point-scale",
+        "value": 65536,
+        "unit": "q16"
+      },
+      {
+        "id": "quality-confidence-weight",
+        "value": 4,
+        "unit": null
+      },
+      {
+        "id": "message-alignment-weight",
+        "value": 2,
+        "unit": null
+      },
+      {
+        "id": "artifact-risk-penalty-weight",
+        "value": 3,
+        "unit": null
+      },
+      {
+        "id": "transition-cost-penalty-weight",
+        "value": 2,
+        "unit": null
+      },
+      {
+        "id": "resource-cost-penalty-weight",
+        "value": 1,
+        "unit": null
+      },
+      {
+        "id": "postflight-penalty-weight",
+        "value": 2,
+        "unit": null
+      },
+      {
+        "id": "hysteresis-margin-q16",
+        "value": 8192,
+        "unit": "q16"
+      },
+      {
+        "id": "minimum-dwell-frames",
+        "value": 12,
+        "unit": "frames"
+      },
+      {
+        "id": "scene-cut-confidence-q16",
+        "value": 49152,
+        "unit": "q16"
+      },
+      {
+        "id": "mask-minimum-q15",
+        "value": 0,
+        "unit": "q15"
+      },
+      {
+        "id": "mask-maximum-q15",
+        "value": 32767,
+        "unit": "q15"
+      },
+      {
+        "id": "mask-maximum-width",
+        "value": 64,
+        "unit": "samples"
+      },
+      {
+        "id": "mask-maximum-height",
+        "value": 64,
+        "unit": "samples"
+      },
+      {
+        "id": "fatal-backend-error-bypasses-hysteresis-and-dwell",
+        "value": true,
+        "unit": null
+      }
+    ],
+    "metrics": [
+      {
+        "id": "product-qualified-primary-backend-count",
+        "unit": "backends",
+        "direction": "higher_is_better",
+        "applicability": "R06 product routing, plan construction, output, and product ablation execution require at least one explicitly product-qualified primary backend."
+      }
+    ],
+    "floors": [
+      {
+        "metric_id": "product-qualified-primary-backend-count",
+        "comparison": "greater_than_or_equal",
+        "value": 1,
+        "scope": "Product routing, plan construction, output, and product ablation execution."
+      }
+    ],
+    "stop_rules": [
+      {
+        "id": "predecessor_identity_drift",
+        "description": "Stop on any R05 closure commit, tree, result, merge, acceptance, or continuation-boundary drift."
+      },
+      {
+        "id": "contract_byte_drift",
+        "description": "Stop on preregistration, fixture-catalog, schema, source-binding, or semantic drift."
+      },
+      {
+        "id": "canonical_state_redefinition",
+        "description": "Stop any change to the canonical nine-bit packed state or integrity relation."
+      },
+      {
+        "id": "message_policy_causality_violation",
+        "description": "Stop missing profiles, duplicate message identities, or a bit perturbation that changes an unmapped policy axis."
+      },
+      {
+        "id": "floating_or_unbound_scoring",
+        "description": "Stop floating-point, unchecked, reordered, runtime-tuned, or unbound score calculation."
+      },
+      {
+        "id": "eligibility_order_violation",
+        "description": "Stop scoring, route construction, plan construction, or output creation before product eligibility filtering."
+      },
+      {
+        "id": "candidate_order_dependence",
+        "description": "Stop any candidate-order-dependent selection or candidate record."
+      },
+      {
+        "id": "multi_route_violation",
+        "description": "Stop any decision that selects multiple primary routes or changes a whole-frame backend per tile."
+      },
+      {
+        "id": "transition_contract_violation",
+        "description": "Stop any hysteresis, dwell, scene-cut, fatal-failure, or reason-code deviation."
+      },
+      {
+        "id": "mask_bounds_violation",
+        "description": "Stop any clamped, oversized, mismatched, or out-of-domain protection/postprocess mask."
+      },
+      {
+        "id": "ablation_identity_drift",
+        "description": "Stop a missing, renamed, reordered, or product-executed ablation claim."
+      },
+      {
+        "id": "fabricated_observation",
+        "description": "Stop any fabricated hardware, simulator, operator, product-ablation, quality, or performance observation."
+      },
+      {
+        "id": "authorization_boundary",
+        "description": "Stop any production-default, qualification, Auto, holdout, acceptance, publication, or release authorization claim."
+      }
+    ],
+    "disposition_subjects": [
+      {
+        "subject_id": "best_fixed_eligible_apple_backend",
+        "allowed_values": [
+          "not_observed"
+        ]
+      },
+      {
+        "subject_id": "simple_continuous_router_without_ash",
+        "allowed_values": [
+          "not_observed"
+        ]
+      },
+      {
+        "subject_id": "ash_state_only_router",
+        "allowed_values": [
+          "not_observed"
+        ]
+      },
+      {
+        "subject_id": "ash_plus_continuous_sidecar",
+        "allowed_values": [
+          "not_observed"
+        ]
+      },
+      {
+        "subject_id": "ash_without_hysteresis",
+        "allowed_values": [
+          "not_observed"
+        ]
+      },
+      {
+        "subject_id": "ash_without_postflight_feedback",
+        "allowed_values": [
+          "not_observed"
+        ]
+      }
+    ]
+  },
+  "commands": [],
+  "outputs": [
+    {
+      "id": "orchestration-conformance",
+      "kind": "supporting_record",
+      "binding": {
+        "path": "docs/roadmaps/evidence/r06/records/orchestration-conformance.json",
+        "size_bytes": 5800,
+        "sha256": "19f25269e9cb62ba162e2c53d716a79a392fef740a0be0c7d981cbdac3bfeccc"
+      },
+      "generated_summary": false,
+      "redistributable": true,
+      "contains_holdout_pixels": false,
+      "system_asset": false
+    }
+  ],
+  "verification": {
+    "checks": [
+      {
+        "id": "product-gate-verification",
+        "category": "hosted_test",
+        "required": true,
+        "status": "skipped",
+        "command_ids": [],
+        "output_ids": [
+          "orchestration-conformance"
+        ],
+        "reason": "no_product_qualified_primary_backend"
+      }
+    ]
+  },
+  "result": {
+    "status": "blocked",
+    "disposition": "blocked",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "in_progress",
+    "dispositions": [
+      {
+        "subject_id": "best_fixed_eligible_apple_backend",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      },
+      {
+        "subject_id": "simple_continuous_router_without_ash",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      },
+      {
+        "subject_id": "ash_state_only_router",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      },
+      {
+        "subject_id": "ash_plus_continuous_sidecar",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      },
+      {
+        "subject_id": "ash_without_hysteresis",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      },
+      {
+        "subject_id": "ash_without_postflight_feedback",
+        "value": "not_observed",
+        "reason": "no_product_qualified_primary_backend"
+      }
+    ],
+    "summary": "R06 remains blocked because no product-qualified primary backend is available; product routing, plan construction, output, and all six product ablations were not observed."
+  },
+  "authorizations": {
+    "before": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "after": [
+      {
+        "id": "capability_lab",
+        "value": "authorized_after_current_source_inventory"
+      },
+      {
+        "id": "core_ai_pixel_residual",
+        "value": "blocked_until_analysis_ablation_passes"
+      },
+      {
+        "id": "holdout",
+        "value": "blocked"
+      },
+      {
+        "id": "market_leading_claim",
+        "value": "blocked"
+      },
+      {
+        "id": "observation_gates",
+        "value": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker"
+      },
+      {
+        "id": "production_auto_mode",
+        "value": "blocked"
+      },
+      {
+        "id": "strategic_reset",
+        "value": "authorized"
+      },
+      {
+        "id": "unified_backend_architecture",
+        "value": "authorized_after_capability_contracts"
+      }
+    ],
+    "proposed_decisions": []
+  },
+  "limitations": [
+    "Focused deterministic R06 software conformance passed; fixture execution does not establish product qualification, quality, or performance.",
+    "No R03-R05 backend has an explicit product-qualification record, so product routing, plan construction, output, and every product ablation remain not observed.",
+    "Hardware capability, simulator execution, and operator-observed operation were not observed under the operator override and are not the blocked cause.",
+    "R06 remains disabled as the production default and makes no product qualification, quality, performance, acceptance, publication, or release claim."
+  ]
+}

@@ -90,11 +90,48 @@ python3 -m unittest \
   Scripts/tests/test_json_schema_validator.py \
   Scripts/tests/test_phase_evidence.py \
   Scripts/tests/test_r01_preregistration.py \
-  Scripts/tests/test_r01_capabilities.py
+  Scripts/tests/test_r01_capabilities.py \
+  Scripts/tests/test_r01_observation_waiver.py \
+  Scripts/tests/test_r02_contracts.py \
+  Scripts/tests/test_r03_contracts.py \
+  Scripts/tests/test_r04_contracts.py \
+  Scripts/tests/test_r05_contracts.py \
+  Scripts/tests/test_r06_contracts.py \
+  Scripts/tests/test_r07_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
 python3 Scripts/r01_preregistration.py --check-fixtures
+python3 Scripts/r02_contracts.py --check-preregistration
+python3 Scripts/r02_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
+  python3 Scripts/r02_contracts.py --check-conformance
+fi
+python3 Scripts/r03_contracts.py --check-preregistration
+python3 Scripts/r03_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then
+  python3 Scripts/r03_contracts.py --check-conformance
+fi
+python3 Scripts/r04_contracts.py --check-preregistration
+python3 Scripts/r04_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then
+  python3 Scripts/r04_contracts.py --check-conformance
+fi
+python3 Scripts/r05_contracts.py --check-preregistration
+python3 Scripts/r05_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then
+  python3 Scripts/r05_contracts.py --check-conformance
+fi
+python3 Scripts/r06_contracts.py --check-preregistration
+python3 Scripts/r06_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
+  python3 Scripts/r06_contracts.py --check-conformance
+fi
+python3 Scripts/r07_contracts.py --check-preregistration
+python3 Scripts/r07_contracts.py --check-fixtures
+if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
+  python3 Scripts/r07_contracts.py --check-conformance
+fi
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2
@@ -114,7 +151,13 @@ for r01_evidence_path in \
   fi
 done
 if [ "$r01_evidence_present" = true ]; then
-  python3 Scripts/r01_capabilities.py --check
+  if [ -f project-notes/apple-upscale-capabilities.json ] && \
+    grep -q '"evidence_kind": "operator_observation_waiver"' \
+      project-notes/apple-upscale-capabilities.json; then
+    python3 Scripts/r01_observation_waiver.py --check
+  else
+    python3 Scripts/r01_capabilities.py --check
+  fi
 fi
 
 while IFS= read -r manifest_path; do

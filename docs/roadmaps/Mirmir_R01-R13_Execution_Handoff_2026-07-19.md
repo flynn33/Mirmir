@@ -1,9 +1,9 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.1
+- **Handoff version:** 2.0
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
-- **Revision date:** 2026-07-20
+- **Revision date:** 2026-07-21
 - **Repository:** `flynn33/Mirmir`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
@@ -11,13 +11,231 @@
   `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
   `4bce3438a0508c70fd4db845be7e4abc0cc1cf29`; implementation tree
   `848948c9c38a2d8a382113698fe88059a69e943c`
-- **Continuation state:** `R01: in_progress`; `R02: planned`
+- **R01 assignment-export checkpoint:** PR #17 merge
+  `5fce07140602b94d7fbea3e4219866292a4cd99f`; implementation commit
+  `8d5a50bdb616a2973014648475b601c8a7437de6`; implementation tree
+  `06a0cb580e15f2949f5ae8cb4f68791c1574c3f0`
+- **R01 not-observed implementation:**
+  `8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe`
+- **R01 completed evidence source:**
+  `bd963fbd034734e92f488549c6e1c0cd8b246363`; tree
+  `6009c40b775e252a05ff83d436d90f0422498245`
+- **R01 local unpublished closure:**
+  `555ae5a1afce1e492bdc89b6b14f2ba269edc524`; tree
+  `2fbe72d85ace42cc925c45b17d53dd8866a8275b`; acceptance not claimed
+- **R02 local preregistration source:** R01 local unpublished closure above;
+  `accepted_merge_commit: null`
+- **R02 local unpublished closure:**
+  `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`; tree
+  `a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance not claimed
+- **R03 local preregistration source:** R02 local unpublished closure above;
+  `accepted_merge_commit: null`
+- **R03 local blocked closure:**
+  `947983a8414c60e4f5f4246e6cb658792fc7c357`; tree
+  `d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`; acceptance not claimed
+- **R04 local preregistration:**
+  `2a729f9f641ef949681d81ebb3f98f68d7da29fc`; tree
+  `59bfd516ebfa2260fedaf835d0a32a8f8f7cc6ee`
+- **R04 implementation source:**
+  `73d6f1df9d9b443209d55a6c9deea29923d49bc4`; tree
+  `90c45e2c583defc7aa593f9199512719884de0d0`
+- **R04 local diagnostic-only closure:**
+  `88e26f5967f7eb35a54791017ca0c2b888f2fbf5`; tree
+  `4a7cc588b6fa51c21f2293e56cf3dea389acd908`; acceptance not claimed
+- **R05 local preregistration:**
+  `6a327428c88f32517bf5cf931e6f18a65a24b5c2`; tree
+  `bfc53e9077fcb7bcab233ca79c4575ef1f69fda2`; R04 diagnostic-only closure
+  above is the source and `accepted_merge_commit: null`
+- **R05 implementation source:**
+  `3e5188ece317d3ebc492c7a8e26345837836fc67`; tree
+  `92b15f3948ffa38dc787136177551187bfb2fbbf`
+- **R05 local diagnostic-only closure:**
+  `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`; tree
+  `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`; acceptance not claimed
+- **R06 local preregistration source:** R05 diagnostic-only closure above;
+  `accepted_merge_commit: null`
+- **R06 implementation source for the local unpublished blocked closure:**
+  `9246934c027e97f2b2ae3af35b0c4892154d761c`; tree
+  `1235596387d4eabd2ecb4ea1a29221c44ec425fe`; acceptance not claimed
+- **R06 local unpublished blocked closure:**
+  `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`; tree
+  `32365e745dbf53d59213fe2294a6b63ba2642df7`; `predecessor_result: blocked`;
+  acceptance not claimed
+- **R07 local preregistration source:** R06 blocked closure above;
+  `accepted_merge_commit: null`
+- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
+  `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
+  `R07: in_progress`; `R08: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
 > governance documents control if this handoff conflicts with them. This document changes
 > no phase status, authorization, evidence acceptance, product behavior,
 > repository setting, release authority, or holdout authority.
+
+### Operator observation override — 2026-07-20
+
+The operator explicitly waived every requirement for physical-hardware testing,
+an unavailable simulator, operator-observed simulation, and operator-observed
+hardware operation. None of those conditions is a blocker or a reason to stop
+work. If execution is unavailable or not performed, record the affected
+anchor/capability as `not_observed` and continue through the dependency plan. Do
+not synthesize host, simulator, API, model, performance, memory,
+repeatability, product-qualification, backend-eligibility, or perceptual-quality
+facts.
+
+The current app, worker, and test targets are macOS-only; Xcode advertises no
+Simulator destination for them. The installed iOS/tvOS CoreSimulator runtimes do
+not establish macOS or Mac-hardware capability. Use a compatible simulator
+automatically if one later becomes available, but do not stop when it is absent.
+
+The canonical not-observed path is
+`Scripts/r01_observation_waiver.py`; the existing native-host preregistration,
+runner, raw-report, and aggregate path remains optional supplemental evidence.
+This addendum controls over every conflicting physical-host,
+unavailable-simulator, or operator-observation instruction later in this
+handoff. Native live-run and model-freeze requirements remain applicable only to
+the optional native supplemental path. Non-hardware implementation, deterministic
+tests, safety, privacy, publication, pull-request, merge, holdout, production,
+and release authority are unchanged.
+
+### R02 closure and R03 start checkpoint — 2026-07-20
+
+R02 deterministic software conformance is recorded in local unpublished closure
+commit `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
+`a5e95d810abacbdb872ddc6e94125103831e6fba`. The record passes its frozen
+software checks while keeping hardware, simulator, and operator observation
+`not_observed`; it makes no performance, product-qualification, publication, or
+acceptance claim.
+
+R03 local implementation begins only from a frozen preregistration that binds
+that exact commit and tree with `accepted_merge_commit: null`,
+`acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. Its matrix contains eight whole-frame deterministic
+paths and two support stages across exact 720p-to-1080p, 1080p-to-2160p,
+analytic-artifact, temporal-repeatability, and media-transaction fixtures.
+Unavailable execution receives `not_observed`; no production default,
+performance claim, or product qualification is enabled.
+
+### R03 blocked closure and R04 implementation checkpoint — 2026-07-20
+
+R03's frozen media route and bound R02 member are incompatible. The local
+fail-closed record is therefore `blocked` in commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357`, tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. R03 remains canonical
+`in_progress`, all runtime subjects and metrics remain `not_observed`, and no
+acceptance or product claim follows.
+
+R04 preregistration commit `2a729f9f641ef949681d81ebb3f98f68d7da29fc`
+binds that exact negative predecessor. R04 implementation commit
+`73d6f1df9d9b443209d55a6c9deea29923d49bc4`, tree
+`90c45e2c583defc7aa593f9199512719884de0d0`, replaces the VideoToolbox
+placeholder with guarded macOS 26 quality and low-latency `VTFrameProcessor`
+sessions, exact route admission, model lifecycle handling, declared buffer
+attributes, retained presentation-order history, reset/submission/cancellation
+semantics, and optional optical-flow support.
+
+The commit-bound R04 conformance result is `diagnostic_only`. All 39 focused
+macOS Xcode tests pass, Swift source/test typechecks pass, and strict SwiftLint
+is clean. The focused Xcode run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R04 adds no Metal shader. Actual
+model-backed processing, model readiness, quality, performance, hardware,
+simulator, and operator-observed operation are `not_observed`. Quality 1.5× is
+the frozen typed `public_contract_unrepresentable` rejection. R04 remains
+`in_progress`, local unpublished, disabled as a production default, and
+unaccepted.
+
+### R05 local implementation start — 2026-07-20
+
+R05 preregistration binds exact R04 diagnostic-only closure commit
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5`, tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`, as
+`local_unpublished_diagnostic_only_closure` with
+`predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
+`continuation_scope: local_implementation_only`. R04 remains canonical
+`in_progress` and unaccepted.
+
+The frozen R05 matrix contains exact A07 spatial 1.5× and 2× routes through an
+explicit left-sited BT.709 video-range NV12 to linear RGBA16Float bridge. A08,
+A09, and A10 are typed `rejected_for_decoded_video` contracts because the
+decoded-video boundary lacks evidence-backed renderer motion, depth, jitter,
+G-buffer, camera, UI, and output-timing semantics. The implementation must not
+fabricate those inputs. Native execution, quality, performance, comparison, and
+media-reopen evidence remain `not_observed` until actually observed; their
+absence is non-blocking under the operator override and makes no qualification,
+default, acceptance, publication, or release claim.
+
+### R05 diagnostic-only implementation checkpoint — 2026-07-21
+
+R05 implementation commit `3e5188ece317d3ebc492c7a8e26345837836fc67`,
+tree `92b15f3948ffa38dc787136177551187bfb2fbbf`, implements the two frozen A07
+fixture routes, the exact NV12/linear bridge, support-before-construction,
+private-texture staging, ordered completion and publication, retained FIFO
+ownership, cancellation, typed failures, and no silent fallback. A08-A10 reject
+decoded-video admission before any native factory call.
+
+All 44 focused macOS Xcode tests pass and strict SwiftLint is clean. Metal
+shader compilation was excluded because the optional Metal Toolchain was
+unavailable; R05 adds no Metal shader. The commit-bound R05 conformance result
+is `diagnostic_only`: both A07 runtime subjects are `not_observed`, and all
+A08-A10 subjects retain their exact `rejected_for_decoded_video` dispositions.
+Native MetalFX execution, hardware, simulator, operator observation, media
+reopen, quality, performance, and baseline comparison remain `not_observed`.
+R05 remains canonical `in_progress`, local unpublished, disabled as a
+production default, and unaccepted.
+
+### R06 local implementation start — 2026-07-21
+
+R06 preregistration binds exact R05 diagnostic-only closure commit
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, as
+`local_unpublished_diagnostic_only_closure` with
+`predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
+`continuation_scope: local_implementation_only`. R05 remains canonical
+`in_progress` and unaccepted. R06 depends directly on R05; R04 remains
+transitively unresolved.
+
+The frozen R06 slice is fixture-only and preserves the existing nine-bit
+`ASHState`. It adds immutable continuous context, all sixteen versioned
+four-bit message profiles, integer scoring with stable lexical ties, exact
+eligibility filtering, one whole-frame route, typed hysteresis/dwell/cut/fatal-
+failover transitions, bounded luma/chroma/postprocess masks, and the six frozen
+ablation configurations.
+
+The current R03-R05 pool contains no product-qualified primary backend. Product
+admission must therefore stop before scoring and route construction with exact
+reason `no_product_qualified_primary_backend`, eligible count zero, and no
+route, plan, or output. All six product ablations remain `not_observed`; the
+preregistered local result is fail-closed `blocked` because of that eligibility
+boundary. Hardware, simulator, and operator observation remain non-blocking
+`not_observed` and are not the cause. No product, quality, performance,
+acceptance, publication, or release claim follows.
+
+### R07 local implementation start — 2026-07-21
+
+R07 preregistration binds exact R06 blocked closure commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`, as
+`local_unpublished_blocked_closure` with `predecessor_result: blocked`,
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R06 remains canonical
+`in_progress`, local unpublished, and unaccepted. R07 depends directly on R06;
+R05 and earlier unresolved phases remain transitive dependencies. R08 remains
+`planned` and is not authorized to start.
+
+The R07 slice is fixture-only local temporal and artifact-governance
+implementation. Its immutable preregistration and fixture catalog freeze all
+temporal, chroma, artifact, churn, protected-region, spatial-noninferiority,
+history, fixed-point, threshold, and aggregation contracts before implementation
+or tuning. No numeric formula or threshold is inferred from this handoff.
+
+Product evaluation is fail-closed `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null selected route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements remain `not_observed`. Hardware, simulator, and
+operator-observed operation also remain non-blocking `not_observed` and are not
+the blocked cause. No quality, performance, product, production-default,
+acceptance, publication, or release claim follows.
 
 ## 1. Resume instructions
 
@@ -28,11 +246,16 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: in_progress`, and `R02: planned` remain
-   canonical. If any changed, stop and reconcile the newer accepted roadmap
-   before proceeding.
-5. Begin with R01 only. Later phases become actionable only through their
-   accepted dependencies, evidence, roadmap state, and operator controls.
+4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
+   `R03: in_progress`, `R04: in_progress`, `R05: in_progress`,
+   `R06: in_progress`, `R07: in_progress`, and `R08: planned` remain
+   canonical for this local continuation. If any changed, reconcile the newer
+   accepted roadmap before proceeding.
+5. Treat the exact R06 blocked closure above as local negative evidence and
+   continue only the frozen R07 fixture contract. Do not convert R03 through R06
+   into accepted or product-qualified phases. Except for the narrow
+   local-continuation path in Section 3.1, later phases become actionable only
+   through accepted dependencies, evidence, roadmap state, and operator controls.
 
 The source checkpoint records the accepted R00 state. A receiving environment
 must record its own exact starting commit rather than claiming that its working
@@ -95,6 +318,36 @@ must record the actual preceding merge commit before implementation begins.
 Every other phase status and authorization remains unchanged unless the same
 pull request contains the evidence and explicit roadmap decision needed to
 change it.
+
+#### Operator-directed local continuation from an unpublished closure
+
+The operator's direct instruction to continue locally through R07 creates one
+narrow exception to the preceding implementation-start rule. A dependent phase
+may begin local implementation only after a preregistration binds the exact
+preceding policy-frozen local closure commit and tree, records the exact closure
+state and predecessor result required for that phase,
+`accepted_merge_commit: null`, and states that acceptance is not claimed. This
+exception does not accept the preceding phase and does not authorize a push,
+pull request, approval, merge, tag, release, holdout access, production enablement,
+or product/performance claim.
+
+The frozen preregistration remains immutable. If the preceding phase is later
+merged, record the actual operator-created merge commit and tree additively in a
+separate predecessor-acceptance receipt before claiming an accepted predecessor
+or publishing/closing the dependent phase. Never rewrite the preregistration or
+infer merge acceptance from a local branch or remote-tracking ref.
+
+The R04 local-continuation preregistration must bind R03 closure commit
+`947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
+`d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. That closure records a fail-closed
+`blocked` R03 result as `local_unpublished_blocked_closure`. The R04 exception
+permits only `in_progress` local implementation while R03 remains `in_progress`;
+it records
+`predecessor_result: blocked`, `accepted_merge_commit: null`,
+`acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. It does not reinterpret R03
+evidence as success or authorize R04 evidence readiness, passing status,
+publication, production enablement, or a quality/performance claim.
 
 Phase pull requests require the operator to use GitHub's merge-commit method.
 Squash and rebase merges do not preserve the preregistration, implementation,
@@ -264,7 +517,7 @@ material ASH decisions.
 
 ## 5. Verified implementation baseline
 
-At the source checkpoint:
+At the original source checkpoint:
 
 - the production bootstrap injects an unavailable upscaler service and launches
   normally while explaining that no roadmap-qualified backend exists;
@@ -281,6 +534,13 @@ At the source checkpoint:
 - the checkpoint toolchain does not contain Core AI, so A18 requires an exact
   unavailable record there rather than simulated support.
 
+The later R04 implementation source `73d6f1df9d9b443209d55a6c9deea29923d49bc4`
+supersedes the two VideoToolbox placeholder bullets above with guarded genuine
+sessions and configuration-specific status-only model staging. It does not
+establish model-backed runtime support, quality, performance, product
+qualification, or a production default; those observations remain
+`not_observed` or unclaimed as recorded in the R04 conformance evidence.
+
 Do not turn any scaffold or retained reference call site into a product fallback
 merely to make a capability appear available.
 
@@ -295,14 +555,17 @@ frame interpolation; MPS Lanczos, bilinear and support filters; Core Image
 Lanczos, bicubic and edge-preserve upsample; vImage Lanczos/custom resampling;
 custom Metal; Core AI; and optional Core ML compatibility.
 
-PR #16 was merged after preregistration and implementation but before the four
-host reports, aggregate, phase-evidence closure, and proposed `passed` transition.
-It is the reachable implementation-lineage checkpoint, not R01 closure or
-evidence acceptance. The exact later published commit that contains all four
-frozen assignments must be the common live evidence-source commit and tree;
-`4bce3438a0508c70fd4db845be7e4abc0cc1cf29` cannot authorize a live run because
-its preregistration remains unassigned. R01 stays `in_progress`, and R02 stays
-`planned`, until the continuation evidence and closure are accepted.
+PR #16 and PR #17 remain reachable implementation checkpoints. The current
+closure uses the explicit operator observation override rather than inventing
+native anchor reports: implementation commit
+`8a14afb8ff0ba24abbebb5c72c47d8e38adbeffe` generates the closed waiver matrix,
+and evidence commit `bd963fbd034734e92f488549c6e1c0cd8b246363`
+binds ten passing verification categories. Every A01-A18 anchor cell remains
+`not_observed`/`diagnostic_only`; no runtime support, performance, product
+qualification, backend eligibility, or perceptual-quality result is claimed.
+The native assignment/model/live-run path remains optional supplemental
+evidence. R01 is `passed`, and R02 is `in_progress`; publication and merge authority
+remain unchanged.
 
 Collect an aggregate matrix from four anchor environments:
 
@@ -321,10 +584,13 @@ For every capability record compile availability separately from runtime support
 public API status, hardware eligibility, scales, dimensions, formats, color
 expectations, state/history, model readiness, offline suitability, repeatability,
 initialization latency, warm throughput, memory, and exact rejection/restriction
-reason. The accepted R01 execution choice permits model acquisition during these
-probes, subject to consent on the host performing the network/download action.
-It must be explicit, isolated from ordinary app boot, and excluded from Git. This
-document does not grant publication authority or later product use.
+reason. The accepted R01 execution choice permits model acquisition in principle
+during these probes, subject to consent on the host performing the
+network/download action. The current runner remains fail-closed and rejects the
+acquisition flag until an additive reviewed implementation defines the closed
+consent-receipt contract and acquisition path. Acquisition must be explicit,
+isolated from ordinary app boot, and excluded from Git. This document does not
+grant publication authority or later product use.
 
 Before the first live run, assign one actual host/toolchain combination to every
 anchor and freeze the assignment in preregistration. A stronger machine does not
@@ -348,14 +614,40 @@ preregistration. The exporter rejects private identifiers, extra fields, malform
 facts, and hosts that do not satisfy the selected anchor; it does not itself assign
 a host or authorize a live run.
 
+Only the primary checkout freezes the reviewed records. Supply each transferred
+file explicitly; input order does not change the canonical anchor order:
+
+```sh
+python3 Scripts/r01_preregistration.py \
+  --freeze-host-assignments \
+  --assignment-file <anchor-oldest-supported-assignment.json> \
+  --assignment-file <anchor-m3-air-assignment.json> \
+  --assignment-file <anchor-pro-max-assignment.json> \
+  --assignment-file <anchor-core-ai-assignment.json>
+```
+
+The freeze command accepts exactly one valid record for every anchor, validates
+privacy and role contracts together, rejects inconsistent pseudonym reuse, and
+atomically replaces only the canonical preregistration. It refuses partial,
+duplicate, malformed, symbolic-link, or different already-frozen input and never
+starts a probe. Cooperative freeze invocations are serialized, and canonical
+state drift detected before replacement aborts the write. An exact replay
+succeeds without rewriting the frozen record. Commit the resulting
+preregistration before requesting publication of the common live evidence-source
+checkpoint.
+
 Use these closed probe controls:
 
 - `Scripts/run-r01-capability-probe.sh --anchor <anchor> --output <path>` is the
   only live runner;
 - valid anchors are `oldest-supported`, `m3-air`, `pro-max`, and `core-ai`;
 - live probes require `MIRMIR_R01_LIVE_PROBES=1`;
-- any acquisition additionally requires
-  `MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1`;
+- every live anchor requires one frozen `analysis-probe-model` identity/hash so
+  all four reports bind the same probe contract; absent local model bytes remain
+  valid for a negative/unavailable result, but an unassigned identity does not;
+- a future acquisition path additionally requires
+  `MIRMIR_R01_ALLOW_MODEL_ACQUISITION=1`, but the current runner rejects that
+  flag until the closed consent-receipt contract is implemented and reviewed;
 - ordinary app boot and ordinary hosted tests set neither variable and perform
   no downloads or live capability mutation;
 - `AppleUpscaleCapabilityProbeTests` always runs side-effect-free schema and
@@ -430,9 +722,11 @@ MirmirTests/AppleUpscaleCapabilityProbeTests.swift
 Also add the reusable phase-evidence governance described above and correct
 current governance text that implies either future ordinary source files remain
 permanently hash-frozen or a published branch may be repaired by force-pushing.
-Do not change live rulesets. Keep product upscaling unavailable. R01 passes only
-with complete reports for all four anchors and an explicit disposition for every
-A01-A18 capability.
+Do not change live rulesets. Keep product upscaling unavailable. R01 passes with
+an explicit disposition for every A01-A18 capability. Under the operator
+observation override, the canonical matrix may close all four logical anchors as
+`not_observed`/`diagnostic_only` with performance claims forbidden; the four
+native reports are then supplemental rather than required.
 
 ### R02 - Unified backend and stage architecture
 
@@ -447,23 +741,23 @@ unavailable after R02.
 Freeze this lifecycle contract before implementation:
 
 - `AppleUpscaleBackend` is `Sendable`, exposes immutable structured identity and
-  capability lookup, and asynchronously creates a session from a validated
-  configuration and session context;
-- `AppleUpscaleSession` is actor-isolated and accepts frames serially through
-  `submit(_:) async -> AppleUpscaleOutcome`, with asynchronous `reset(reason:)`,
-  `finish()`, and `cancel()` operations;
-- each input frame carries sequence number, pixel buffer, PTS, duration, color
-  description, metadata identity, and an explicit resource-lifetime token;
-- each output is exactly processed, unavailable, rejected, failed, or
-  fallback-applied and includes structured backend/configuration/policy identity;
-- reset drains or rejects outstanding work deterministically and clears temporal
-  history before the next accepted frame;
-- cancellation is idempotent, prevents new submission, releases retained
-  resources after in-flight completion, and terminalizes exactly once;
-- finish drains ordered work, finalizes telemetry, and rejects later submission;
-  and
-- fallback is planner-selected, recorded as an outcome linking failed and chosen
-  identities, and never occurs inside a backend without orchestration visibility.
+  explicit capability lookup, and asynchronously creates a session from
+  validated configuration and context;
+- `AppleUpscaleSession` is actor-isolated and serializes `submit`, `reset`,
+  `finish`, and `cancel` through one FIFO operation boundary despite actor
+  reentrancy;
+- every admitted frame retains the complete frozen frame contract until a typed
+  outcome transfers or releases ownership;
+- every output is exactly processed, unavailable, rejected, failed, or
+  fallback-applied and carries complete structured processing identity;
+- reset drains earlier work, clears temporal history, advances history
+  generation, and preserves clip-global sequence numbering;
+- cancellation is idempotent, closes admission, rejects queued work, waits for
+  active work to quiesce, and releases resources exactly once;
+- finish installs an admission fence, drains ordered work, finalizes once,
+  caches its result, and rejects later mutation; and
+- fallback is selected only by the planner or orchestrator and visibly links
+  the failed route to the selected route.
 
 ### R03 - Deterministic Apple-native baseline suite
 
@@ -472,6 +766,24 @@ vImage Lanczos-3 and Lanczos-5, VTPixelTransfer, qualified guided/edge-preserve
 support stages, and the retained ASH/custom-Metal comparator. Initial
 qualification remains 8-bit NV12, SDR BT.709, 720p-to-1080p and 1080p-to-4K;
 R12 owns format expansion.
+
+Local implementation progress as of 2026-07-20: preregistration commit
+`21596ebc520ec9bfe604dafa588d16d066f7f492` freezes the ten-subject matrix, and
+implementation commit `767cbc4673678a699c3f98903b6c7801a87e91d4` (tree
+`9c40a216c21eba77a92d5d1240d4b6475ce5fb48`) implements the genuine framework
+adapters and focused contract tests. The complete focused R03 Xcode selection
+passes and SwiftLint is clean.
+
+The frozen evidence preflight is fail-closed: `media-transaction-2x` is assigned
+to the 1920×1080-to-3840×2160 route, but its exact bound R02 member is
+16×8-to-16×8. The phase record is `blocked` with deterministic software
+conformance failed, the affected media checks failed, and all subject executions
+and metrics `not_observed`. R03 remains canonical `in_progress`; no 2× media,
+runtime support, product qualification, default, performance, acceptance,
+publication, or release claim follows. Hardware, simulator, and operator
+observation remain `not_observed` and non-blocking under the explicit override.
+The operator-directed local R02-through-R07 continuation remains implementation
+authority only and does not convert this negative R03 evidence into success.
 
 Preregister correctness, ringing, edge, chroma, temporal, throughput, memory,
 and resource floors. Eliminate nonqualifying and dominated candidates. Among
@@ -493,6 +805,15 @@ identity. Qualify direct 2x and runtime-supported 1.5x routes without assuming
 support. Quality and low-latency paths must independently pass correctness,
 quality, protected-region, temporal, throughput, memory, and reopen gates.
 
+Local checkpoint: commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`,
+tree `90c45e2c583defc7aa593f9199512719884de0d0`, implements the frozen software
+contract. Its 39 focused Xcode tests, Swift typechecks, and strict lint pass.
+The result remains `diagnostic_only`: model-backed runtime subjects are
+`not_observed`, quality 1.5× is rejected by the public contract, production
+bootstrap remains unavailable, and no quality, performance, qualification,
+acceptance, publication, or release claim is made. R04 remains canonical
+`in_progress`.
+
 ### R05 - MetalFX suitability decision
 
 Qualify MetalFX Spatial first against the accepted deterministic and low-latency
@@ -509,6 +830,23 @@ Therefore A10 may be `diagnostic_only` or `rejected_for_decoded_video` in R05;
 qualifying it for product cadence requires a later explicit canonical roadmap
 amendment, targeted no earlier than R12.
 
+Local start: the R05 preregistration binds R04 closure
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5`, tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`. Only A07 spatial 1.5× and 2× are
+implementation candidates, behind an explicit NV12/linear-color bridge and
+support query. A08-A10 are deterministic decoded-video contract rejections.
+R05 remains `in_progress`, local unpublished, and unaccepted; no runtime,
+quality, performance, qualification, default, publication, or release claim is
+made.
+
+Local checkpoint: implementation commit
+`3e5188ece317d3ebc492c7a8e26345837836fc67`, tree
+`92b15f3948ffa38dc787136177551187bfb2fbbf`, passes 44 focused macOS Xcode
+tests and strict lint. Its commit-bound result is `diagnostic_only`: A07 native
+execution and media-reopen evidence are `not_observed`, A08-A10 retain their
+typed decoded-video rejections, and no product, quality, performance,
+acceptance, publication, or release claim follows.
+
 ### R06 - ASH orchestration engine v1
 
 Preserve the canonical nine-bit state while adding immutable continuous context.
@@ -524,6 +862,26 @@ only contracted policy decisions. R06 requires improvement in at least one
 primary product dimension over the best eligible fixed or continuous router
 without breaking any locked floor.
 
+Local start: the R06 preregistration binds R05 closure
+`b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
+`10a97bd3df7f72834f7afcb7fa3b63c598fa4931`. Deterministic fixture policy work
+may proceed, but product admission is frozen to
+`no_product_qualified_primary_backend` with zero eligible backends and no
+selected route, plan, or output. All six product ablations remain
+`not_observed`; R06 remains `in_progress`, local unpublished, and unaccepted.
+
+Local blocked checkpoint: implementation commit
+`9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
+`1235596387d4eabd2ecb4ea1a29221c44ec425fe`, passed all 32 focused Xcode tests,
+strict SwiftLint across 275 files, all 529 Python governance tests, and
+deterministic software conformance. The product gate remains fail-closed
+`blocked` for `no_product_qualified_primary_backend`, with zero eligible
+backends and null selected route, plan, and output. All product, hardware,
+simulator, and operator observations remain `not_observed`. This is a local
+unpublished blocked closure; canonical R06 stays `in_progress`, and no quality,
+performance, product, production-default, acceptance, publication, or release
+claim follows.
+
 ### R07 - Temporal stability and artifact governance
 
 Preregister temporal, chroma, artifact, churn, and protected-region metrics before
@@ -534,6 +892,22 @@ upsampling, and policies for faces, text, line art, animation, subtitles, and UI
 captures. Postflight feedback may affect later decisions but never rewrite a
 completed frame. Pass only with measured improvement over each used backend alone
 without material spatial-quality loss.
+
+Local start: the R07 preregistration binds R06 blocked closure
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`, with
+`predecessor_result: blocked`, `accepted_merge_commit: null`, and local-only
+continuation. The implementation is fixture-only. Exact formulas, thresholds,
+history bounds, aggregation rules, and spatial-noninferiority criteria are frozen
+in the preregistration and fixture catalog before implementation or tuning.
+
+The product gate remains `blocked` solely for
+`upstream_no_product_qualified_primary_backend`, with zero eligible routes and
+null route, plan, and output. Product temporal, artifact, chroma, and
+spatial-quality measurements, plus hardware, simulator, and operator-observed
+operation, remain `not_observed`. R06 and R07 remain `in_progress`; R08 remains
+`planned`. No quality, performance, product, production-default, acceptance,
+publication, or release claim follows.
 
 ### R08 - Core AI analysis-only integration
 
@@ -692,13 +1066,13 @@ and R09 rejection can be valid phase outcomes. A negative R08 keeps R09 blocked.
 A failed positive R06 or R07 gate blocks dependent product work and requires an
 explicitly reviewed roadmap revision rather than relaxed thresholds.
 
-## 8. R01 kickoff boundary
+## 8. Current local-continuation boundary
 
-The receiving implementation task begins by verifying current `main`, creating
-an R01 branch, preregistering the four-host capability experiment, and
-implementing only R01. It may collect authorized capability/model-readiness
-evidence and commit locally. It must stop with a validated local publication
-candidate unless the operator directly instructs the next push and pull-request
-action. Nothing in this document authorizes R02 implementation, holdout access,
-production Auto, a claim, a tag, a release, approval, merge, force-push, or
-repository-setting mutation.
+The original R01 kickoff has been completed. The receiving implementation task
+now begins by verifying current `main` and the exact R03 blocked and R04
+diagnostic-only checkpoints above, then continues the frozen local sequence
+through R07 one preregistered, commit-bound slice at a time. It may collect
+authorized supplemental evidence and commit locally. Publication still requires
+a direct operator instruction. The explicit local-continuation exception does
+not authorize holdout access, production Auto, a claim, a tag, a release, push,
+pull request, approval, merge, force-push, or repository-setting mutation.

@@ -17,14 +17,23 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 from phase_evidence import (  # noqa: E402
     COMMON_REQUIRED_VERIFICATION_CATEGORIES,
     MAX_EVIDENCE_FILE_BYTES,
+    PHASE_CLOSURE_PREDECESSORS,
+    PHASE_OUTCOME_DISPOSITIONS,
     PhaseEvidenceVerifier,
     R01_CAPABILITY_DISPOSITIONS,
     R01_CAPABILITY_IDS,
     R01_REQUIRED_SOURCE_PATHS,
+    R01_WAIVER_LIMITATION,
+    R01_WAIVER_REQUIRED_SOURCE_PATHS,
     VERIFICATION_CATEGORY_OUTPUT_KINDS,
     main,
     render_phase_evidence,
 )
+from r01_observation_waiver import (  # noqa: E402
+    build_matrix as build_waiver_matrix,
+    render_markdown as render_waiver_markdown,
+)
+from r01_preregistration import FIXTURE_CATALOG_PATH  # noqa: E402
 
 
 AUTHORIZATIONS = {
@@ -59,6 +68,7 @@ class PhaseEvidenceTests(unittest.TestCase):
         self.fixture_path = (
             self.root / "docs/roadmaps/evidence/r01/records/fixture.bin"
         )
+        self.fixture_catalog_path = self.root / FIXTURE_CATALOG_PATH
         self.output_paths = {
             "anchor-oldest-supported": self.root
             / "project-notes/evidence/r01/hosts/anchor-oldest-supported.json",
@@ -85,11 +95,15 @@ class PhaseEvidenceTests(unittest.TestCase):
             self.root / "MirmirTests/AppleUpscaleCapabilityProbeTests.swift"
         )
         self.required_r01_source_paths = tuple(
-            self.root / relative for relative in R01_REQUIRED_SOURCE_PATHS
+            self.root / relative
+            for relative in dict.fromkeys(
+                (*R01_REQUIRED_SOURCE_PATHS, *R01_WAIVER_REQUIRED_SOURCE_PATHS)
+            )
         )
         self.command_source_paths = (
             self.root / "Scripts/phase_evidence.py",
             self.root / "Scripts/r01_capabilities.py",
+            self.root / "Scripts/r01_observation_waiver.py",
             self.root / "Scripts/run-r01-capability-probe.sh",
             self.root / "Scripts/verify-mirmir-guardrails.sh",
         )
@@ -114,6 +128,7 @@ class PhaseEvidenceTests(unittest.TestCase):
             self.schema_path,
             self.manifest_path,
             self.preregistration_path,
+            self.fixture_catalog_path,
             self.fixture_path,
             self.lfs_pointer_path,
             self.private_record_path,
@@ -129,8 +144,24 @@ class PhaseEvidenceTests(unittest.TestCase):
             / "docs/roadmaps/evidence/schema/phase-evidence-manifest-v1.json",
             self.schema_path,
         )
-        self.preregistration_path.write_text(
-            '{"status":"frozen"}\n', encoding="utf-8"
+        waiver_schema_path = (
+            self.root
+            / "docs/roadmaps/evidence/schema/r01-observation-waiver-v1.json"
+        )
+        waiver_schema_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(
+            REPOSITORY_ROOT
+            / "docs/roadmaps/evidence/schema/r01-observation-waiver-v1.json",
+            waiver_schema_path,
+        )
+        shutil.copy2(
+            REPOSITORY_ROOT
+            / "docs/roadmaps/evidence/r01/records/preregistration.json",
+            self.preregistration_path,
+        )
+        shutil.copy2(
+            REPOSITORY_ROOT / FIXTURE_CATALOG_PATH,
+            self.fixture_catalog_path,
         )
         self.fixture_path.write_bytes(b"\x00\xffdeterministic-fixture\x80")
         for identifier, path in self.output_paths.items():
@@ -190,6 +221,12 @@ class PhaseEvidenceTests(unittest.TestCase):
                 {
                     "roadmap_version": "1.0.1",
                     "authorizations": AUTHORIZATIONS,
+                    "apple_methods": json.loads(
+                        (
+                            REPOSITORY_ROOT
+                            / "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json"
+                        ).read_text(encoding="utf-8")
+                    )["apple_methods"],
                     "phases": [
                         {"id": "R00", "status": "passed"},
                         {"id": "R01", "status": "in_progress"},
@@ -442,7 +479,16 @@ class PhaseEvidenceTests(unittest.TestCase):
                         "identity": "deterministic test fixture",
                         "binding": self.binding(self.fixture_path),
                         "limitations": [],
-                    }
+                    },
+                    {
+                        "id": "fixture-catalog-input",
+                        "kind": "repository_fixture",
+                        "identity": "R01 fixture and model catalog",
+                        "binding": self.binding(self.fixture_catalog_path),
+                        "limitations": [
+                            "The analysis probe model may remain unassigned."
+                        ],
+                    },
                 ],
                 "fixtures": [
                     {
@@ -551,6 +597,105 @@ class PhaseEvidenceTests(unittest.TestCase):
             },
             "limitations": [],
         }
+
+    def convert_to_observation_waiver(self) -> None:
+        implementation_commit = self.commit
+        matrix = build_waiver_matrix(
+            self.root,
+            implementation_commit,
+            "2026-07-20T12:00:00Z",
+        )
+        self.output_paths["capability-json"].write_text(
+            json.dumps(matrix, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        self.output_paths["capability-report"].write_text(
+            render_waiver_markdown(matrix),
+            encoding="utf-8",
+        )
+        for identifier, path in self.output_paths.items():
+            if identifier.startswith("anchor-"):
+                path.unlink()
+        self.git(
+            "add",
+            "-A",
+            self.output_paths["capability-json"].relative_to(self.root).as_posix(),
+            self.output_paths["capability-report"].relative_to(self.root).as_posix(),
+            "project-notes/evidence/r01/hosts",
+        )
+        self.git("commit", "-q", "-m", "R01 waiver outputs")
+        evidence_commit = self.git("rev-parse", "HEAD").stdout.strip()
+        evidence_tree = self.git("rev-parse", "HEAD^{tree}").stdout.strip()
+        executor = copy.deepcopy(self.manifest["hosts"][2])
+        executor["roles"] = ["verification-executor"]
+        executor["source_commit"] = implementation_commit
+        self.manifest["hosts"] = [executor]
+        self.manifest["source"] = {
+            "commit": evidence_commit,
+            "tree": evidence_tree,
+        }
+        self.manifest["commands"] = [
+            command
+            for command in self.manifest["commands"]
+            if not (
+                command["argv"][0] == "Scripts/run-r01-capability-probe.sh"
+                or command["argv"]
+                == ["python3", "Scripts/r01_capabilities.py", "--check"]
+            )
+        ]
+        for command in self.manifest["commands"]:
+            command["host_id"] = executor["host_id"]
+        self.manifest["commands"].insert(
+            0,
+            {
+                "command_id": "capability-waiver-check",
+                "host_id": executor["host_id"],
+                "argv": [
+                    "python3",
+                    "Scripts/r01_observation_waiver.py",
+                    "--check",
+                ],
+                "environment_flags": [],
+                "started_at": "2026-07-20T12:00:00Z",
+                "ended_at": "2026-07-20T12:00:01Z",
+                "exit_status": 0,
+                "result": "passed",
+                "skip_reason": None,
+                "consent_receipt": None,
+            },
+        )
+        retained_output_ids = {
+            "capability-json",
+            "capability-report",
+            *{
+                f"{category}-result"
+                for category in COMMON_REQUIRED_VERIFICATION_CATEGORIES
+            },
+        }
+        self.manifest["outputs"] = [
+            output
+            for output in self.manifest["outputs"]
+            if output["id"] in retained_output_ids
+        ]
+        for output in self.manifest["outputs"]:
+            if output["id"] == "capability-json":
+                output["binding"] = self.binding(
+                    self.output_paths["capability-json"]
+                )
+            elif output["id"] == "capability-report":
+                output["binding"] = self.binding(
+                    self.output_paths["capability-report"]
+                )
+        for disposition in self.manifest["result"]["dispositions"]:
+            disposition["value"] = "diagnostic_only"
+            disposition["reason"] = "Operation was not observed under the operator waiver."
+        self.manifest["result"]["summary"] = (
+            "Inventory coverage is closed with every capability explicitly not observed."
+        )
+        self.manifest["limitations"] = [R01_WAIVER_LIMITATION]
+        self.commit = evidence_commit
+        self.tree = evidence_tree
+        self.write_manifest()
 
     def write_manifest(self, *, write_summary: bool = True) -> None:
         self.manifest_path.write_text(
@@ -781,6 +926,18 @@ class PhaseEvidenceTests(unittest.TestCase):
             host["source_commit"] = commit
         self.assert_error_contains("phase closure predecessors are not passed")
 
+    def test_r06_closure_has_only_r05_as_direct_predecessor(self) -> None:
+        self.assertEqual(PHASE_CLOSURE_PREDECESSORS["R06"], ("R05",))
+
+    def test_r06_result_vocabulary_remains_passed_or_blocked(self) -> None:
+        self.assertEqual(
+            PHASE_OUTCOME_DISPOSITIONS["R06"],
+            {
+                "passed": frozenset({"passed"}),
+                "blocked": frozenset({"blocked"}),
+            },
+        )
+
     def test_r01_preregistration_requires_every_capability(self) -> None:
         self.manifest["preregistration"]["disposition_subjects"].pop()
         self.assert_error_contains("disposition subjects must be exactly A01-A18")
@@ -815,6 +972,50 @@ class PhaseEvidenceTests(unittest.TestCase):
     def test_r01_requires_every_anchor_role(self) -> None:
         self.manifest["hosts"].pop(0)
         self.assert_error_contains("R01 is missing required anchor roles")
+
+    def test_r01_not_observed_waiver_closure_passes_without_anchor_hosts(self) -> None:
+        self.convert_to_observation_waiver()
+        self.assertEqual(self.verifier().check(), [])
+
+    def test_r01_not_observed_waiver_rejects_observed_anchor_role(self) -> None:
+        self.convert_to_observation_waiver()
+        self.manifest["hosts"][0]["roles"] = ["pro-max"]
+        self.assert_error_contains("must not represent an executor as an observed anchor")
+
+    def test_r01_not_observed_waiver_requires_exact_limitation(self) -> None:
+        self.convert_to_observation_waiver()
+        self.manifest["limitations"] = []
+        self.assert_error_contains("missing the exact no-observation limitation")
+
+    def test_r01_not_observed_waiver_rejects_live_flag(self) -> None:
+        self.convert_to_observation_waiver()
+        self.manifest["commands"][0]["environment_flags"] = [
+            {"name": "MIRMIR_R01_LIVE_PROBES", "value": "1"}
+        ]
+        self.assert_error_contains("must not enable live or acquisition flags")
+
+    def test_r01_not_observed_waiver_requires_diagnostic_dispositions(self) -> None:
+        self.convert_to_observation_waiver()
+        self.manifest["result"]["dispositions"][0]["value"] = "runnable"
+        self.assert_error_contains("must disposition every capability diagnostic_only")
+
+    def test_r01_not_observed_waiver_requires_exact_check_command(self) -> None:
+        self.convert_to_observation_waiver()
+        self.manifest["commands"][0]["argv"] = ["true"]
+        self.assert_error_contains("exactly one passing observation-waiver check")
+
+    def test_r01_not_observed_waiver_rejects_compile_claim(self) -> None:
+        self.convert_to_observation_waiver()
+        matrix_path = self.output_paths["capability-json"]
+        matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+        matrix["capabilities"][0]["anchor_records"][0][
+            "compile_state"
+        ] = "available"
+        matrix_path.write_text(
+            json.dumps(matrix, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        self.assert_error_contains("R01 waiver output validation")
 
     def test_r01_rejects_duplicate_anchor_roles(self) -> None:
         self.manifest["hosts"][1]["roles"].append("oldest-supported")

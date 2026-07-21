@@ -8,7 +8,9 @@
 > their publication is not a release or gate promotion.
 
 - Roadmap phase `R00`: `passed`
-- Roadmap phase `R01`: `in_progress`
+- Roadmap phase `R01`: `passed`
+- Roadmap phase `R02`: `in_progress`
+- Roadmap phase `R03`: `in_progress`
 
 Mirmir is a native macOS application. Its application target is implemented in
 Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
@@ -35,6 +37,24 @@ Normal R00 product upscaling is fail-closed. The production composition injects
 an unavailable transition engine, Start remains disabled, and the UI reports:
 “No roadmap-qualified backend is available; capability and baseline work
 continue in R01–R03.”
+
+R02 began from local R01 closure commit
+`555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
+`2fbe72d85ace42cc925c45b17d53dd8866a8275b`. That predecessor is explicitly
+recorded as `local_unpublished_closure` with `accepted_merge_commit: null`; no
+merge acceptance is claimed. The frozen R02 contract requires an immutable
+capability registry, typed backend/session outcomes, explicit FIFO actor
+serialization, five separate stage roles, deterministic single-primary planning,
+visible fallback, complete processing identity, and preservation of the existing
+media-transaction and Metal lifetime boundaries. Production remains unavailable.
+
+R02 deterministic conformance is recorded at local unpublished closure commit
+`673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
+`a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance is not claimed. R03
+starts locally from that exact closure under a frozen 8-bit NV12, SDR BT.709,
+720p-to-1080p and 1080p-to-2160p baseline contract. Unavailable backend or
+support-stage execution is recorded as `not_observed`; it does not qualify a
+backend, select a production default, or support a performance or quality claim.
 
 ## Target Apple-Native Adaptive Architecture
 

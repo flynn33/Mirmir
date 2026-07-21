@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R06",
+  "contract_id": "r06-ash-orchestration-fixtures-v1",
+  "source_bindings": [
+    {"id": "r05_preregistration", "path": "docs/roadmaps/evidence/r05/records/preregistration.json", "size_bytes": 11723, "sha256": "57afe310076c971669fb163298d1c4dba4ae9d19a48c745109d735b889444706"},
+    {"id": "r05_fixture_catalog", "path": "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json", "size_bytes": 8088, "sha256": "3145262a6daa85eefb106f1c866d9a28b9b6838a6c611086576e7140fbc64302"},
+    {"id": "r05_suitability_conformance", "path": "docs/roadmaps/evidence/r05/records/suitability-conformance.json", "size_bytes": 4949, "sha256": "b4ff4b54f59c8798991dcf5afdcdcc69f771cba5ec105af3b75d2efb0afed8d2"},
+    {"id": "canonical_ash_state", "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift", "size_bytes": 6556, "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2"},
+    {"id": "canonical_ash_code", "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift", "size_bytes": 3389, "sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc"}
+  ],
+  "constructor_parameters": {
+    "version": "r06.parameters.v1",
+    "fixed_point_scale": 65536,
+    "weights": {
+      "quality_confidence": 4,
+      "message_alignment": 2,
+      "artifact_risk_penalty": 3,
+      "transition_cost_penalty": 2,
+      "resource_cost_penalty": 1,
+      "postflight_penalty": 2
+    },
+    "thresholds": {
+      "hysteresis_margin_q16": 8192,
+      "minimum_dwell_frames": 12,
+      "scene_cut_confidence_q16": 49152,
+      "mask_minimum_q15": 0,
+      "mask_maximum_q15": 32767,
+      "mask_maximum_width": 64,
+      "mask_maximum_height": 64
+    },
+    "fatal_backend_error_bypasses_hysteresis_and_dwell": true
+  },
+  "policy_profiles": [
+    {"id": "policy.message.00", "raw_value": 0, "bits": [0, 0, 0, 0], "denoise": "off", "primary_backend_preference": "spatial", "postprocess": "conservative", "temporal_history": "retain"},
+    {"id": "policy.message.01", "raw_value": 1, "bits": [0, 0, 0, 1], "denoise": "off", "primary_backend_preference": "spatial", "postprocess": "conservative", "temporal_history": "reset"},
+    {"id": "policy.message.02", "raw_value": 2, "bits": [0, 0, 1, 0], "denoise": "off", "primary_backend_preference": "spatial", "postprocess": "detail_oriented", "temporal_history": "retain"},
+    {"id": "policy.message.03", "raw_value": 3, "bits": [0, 0, 1, 1], "denoise": "off", "primary_backend_preference": "spatial", "postprocess": "detail_oriented", "temporal_history": "reset"},
+    {"id": "policy.message.04", "raw_value": 4, "bits": [0, 1, 0, 0], "denoise": "off", "primary_backend_preference": "temporal", "postprocess": "conservative", "temporal_history": "retain"},
+    {"id": "policy.message.05", "raw_value": 5, "bits": [0, 1, 0, 1], "denoise": "off", "primary_backend_preference": "temporal", "postprocess": "conservative", "temporal_history": "reset"},
+    {"id": "policy.message.06", "raw_value": 6, "bits": [0, 1, 1, 0], "denoise": "off", "primary_backend_preference": "temporal", "postprocess": "detail_oriented", "temporal_history": "retain"},
+    {"id": "policy.message.07", "raw_value": 7, "bits": [0, 1, 1, 1], "denoise": "off", "primary_backend_preference": "temporal", "postprocess": "detail_oriented", "temporal_history": "reset"},
+    {"id": "policy.message.08", "raw_value": 8, "bits": [1, 0, 0, 0], "denoise": "low", "primary_backend_preference": "spatial", "postprocess": "conservative", "temporal_history": "retain"},
+    {"id": "policy.message.09", "raw_value": 9, "bits": [1, 0, 0, 1], "denoise": "low", "primary_backend_preference": "spatial", "postprocess": "conservative", "temporal_history": "reset"},
+    {"id": "policy.message.10", "raw_value": 10, "bits": [1, 0, 1, 0], "denoise": "low", "primary_backend_preference": "spatial", "postprocess": "detail_oriented", "temporal_history": "retain"},
+    {"id": "policy.message.11", "raw_value": 11, "bits": [1, 0, 1, 1], "denoise": "low", "primary_backend_preference": "spatial", "postprocess": "detail_oriented", "temporal_history": "reset"},
+    {"id": "policy.message.12", "raw_value": 12, "bits": [1, 1, 0, 0], "denoise": "low", "primary_backend_preference": "temporal", "postprocess": "conservative", "temporal_history": "retain"},
+    {"id": "policy.message.13", "raw_value": 13, "bits": [1, 1, 0, 1], "denoise": "low", "primary_backend_preference": "temporal", "postprocess": "conservative", "temporal_history": "reset"},
+    {"id": "policy.message.14", "raw_value": 14, "bits": [1, 1, 1, 0], "denoise": "low", "primary_backend_preference": "temporal", "postprocess": "detail_oriented", "temporal_history": "retain"},
+    {"id": "policy.message.15", "raw_value": 15, "bits": [1, 1, 1, 1], "denoise": "low", "primary_backend_preference": "temporal", "postprocess": "detail_oriented", "temporal_history": "reset"}
+  ],
+  "backend_fixtures": [
+    {
+      "backend_id": "fixture.apple.metalfx_spatial",
+      "route_id": "fixture.route.metalfx_spatial",
+      "fixture_eligible": true,
+      "product_qualified": false,
+      "whole_frame_only": true,
+      "score_components": {"quality_confidence_q16": 49152, "message_alignment_q16": 65536, "artifact_risk_q16": 8192, "transition_cost_q16": 4096, "resource_cost_q16": 16384, "postflight_penalty_q16": 0}
+    },
+    {
+      "backend_id": "fixture.apple.mps_lanczos",
+      "route_id": "fixture.route.mps_lanczos",
+      "fixture_eligible": true,
+      "product_qualified": false,
+      "whole_frame_only": true,
+      "score_components": {"quality_confidence_q16": 49152, "message_alignment_q16": 65536, "artifact_risk_q16": 8192, "transition_cost_q16": 4096, "resource_cost_q16": 16384, "postflight_penalty_q16": 0}
+    },
+    {
+      "backend_id": "fixture.apple.videotoolbox_low_latency",
+      "route_id": "fixture.route.videotoolbox_low_latency",
+      "fixture_eligible": true,
+      "product_qualified": false,
+      "whole_frame_only": true,
+      "score_components": {"quality_confidence_q16": 45056, "message_alignment_q16": 49152, "artifact_risk_q16": 12288, "transition_cost_q16": 8192, "resource_cost_q16": 8192, "postflight_penalty_q16": 4096}
+    }
+  ],
+  "decision_context_fixtures": [
+    {"id": "initial", "current_state_raw": 0, "previous_state_raw": 0, "message_raw": 0, "dwell_frames": 0, "scene_cut_confidence_q16": 0, "fatal_backend_id": null, "current_backend_id": null, "postflight_risk_q16": 0},
+    {"id": "steady_state", "current_state_raw": 0, "previous_state_raw": 0, "message_raw": 0, "dwell_frames": 20, "scene_cut_confidence_q16": 0, "fatal_backend_id": null, "current_backend_id": "fixture.apple.mps_lanczos", "postflight_risk_q16": 0},
+    {"id": "minimum_dwell", "current_state_raw": 480, "previous_state_raw": 0, "message_raw": 8, "dwell_frames": 4, "scene_cut_confidence_q16": 0, "fatal_backend_id": null, "current_backend_id": "fixture.apple.mps_lanczos", "postflight_risk_q16": 0},
+    {"id": "scene_cut", "current_state_raw": 480, "previous_state_raw": 0, "message_raw": 8, "dwell_frames": 4, "scene_cut_confidence_q16": 49152, "fatal_backend_id": null, "current_backend_id": "fixture.apple.mps_lanczos", "postflight_risk_q16": 0},
+    {"id": "fatal_failure", "current_state_raw": 0, "previous_state_raw": 0, "message_raw": 0, "dwell_frames": 4, "scene_cut_confidence_q16": 0, "fatal_backend_id": "fixture.apple.mps_lanczos", "current_backend_id": "fixture.apple.mps_lanczos", "postflight_risk_q16": 0},
+    {"id": "postflight_risk", "current_state_raw": 0, "previous_state_raw": 0, "message_raw": 0, "dwell_frames": 20, "scene_cut_confidence_q16": 0, "fatal_backend_id": null, "current_backend_id": "fixture.apple.mps_lanczos", "postflight_risk_q16": 32768}
+  ],
+  "mask_fixtures": [
+    {"id": "luma_protection", "width": 2, "height": 2, "samples_q15": [0, 8192, 16384, 32767]},
+    {"id": "chroma_protection", "width": 2, "height": 2, "samples_q15": [32767, 16384, 8192, 0]},
+    {"id": "postprocess_suppression", "width": 2, "height": 2, "samples_q15": [0, 32767, 32767, 0]}
+  ],
+  "transition_fixtures": [
+    {"id": "initial_lexical_tie", "context_fixture_id": "initial", "candidate_route_ids": ["fixture.route.mps_lanczos", "fixture.route.metalfx_spatial"], "expected_selected_route_id": "fixture.route.metalfx_spatial", "expected_reason": "initial_selection"},
+    {"id": "hysteresis_retains_current", "context_fixture_id": "steady_state", "candidate_route_ids": ["fixture.route.metalfx_spatial", "fixture.route.mps_lanczos"], "expected_selected_route_id": "fixture.route.mps_lanczos", "expected_reason": "hysteresis_hold"},
+    {"id": "minimum_dwell_retains_current", "context_fixture_id": "minimum_dwell", "candidate_route_ids": ["fixture.route.metalfx_spatial", "fixture.route.mps_lanczos"], "expected_selected_route_id": "fixture.route.mps_lanczos", "expected_reason": "minimum_dwell_hold"},
+    {"id": "scene_cut_bypasses_transition_holds", "context_fixture_id": "scene_cut", "candidate_route_ids": ["fixture.route.mps_lanczos", "fixture.route.metalfx_spatial"], "expected_selected_route_id": "fixture.route.metalfx_spatial", "expected_reason": "scene_cut_reset"},
+    {"id": "fatal_failure_bypasses_transition_holds", "context_fixture_id": "fatal_failure", "candidate_route_ids": ["fixture.route.mps_lanczos", "fixture.route.metalfx_spatial"], "expected_selected_route_id": "fixture.route.metalfx_spatial", "expected_reason": "fatal_backend_failover"}
+  ],
+  "ablation_scenarios": [
+    {"id": "best_fixed_eligible_apple_backend", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["initial", "steady_state"]},
+    {"id": "simple_continuous_router_without_ash", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["initial", "postflight_risk"]},
+    {"id": "ash_state_only_router", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["initial", "minimum_dwell"]},
+    {"id": "ash_plus_continuous_sidecar", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["initial", "minimum_dwell", "scene_cut", "fatal_failure", "postflight_risk"]},
+    {"id": "ash_without_hysteresis", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["steady_state", "minimum_dwell"]},
+    {"id": "ash_without_postflight_feedback", "fixture_contract_status": "deterministic_fixture_only", "product_execution_status": "not_observed", "required_context_fixture_ids": ["steady_state", "postflight_risk"]}
+  ]
+}
