@@ -33,6 +33,12 @@ and release remain blocked or unauthorized.
 
 ## Roadmap Progress
 
+**Active implementation phase:** `R07` — Temporal stability and artifact governance
+
+**Phase status:** `in_progress` — local unpublished work; acceptance is not claimed
+
+**Product gate:** `blocked` — `upstream_no_product_qualified_primary_backend`
+
 <!-- BEGIN ROADMAP PROGRESS -->
 **Overall:** `2 / 14` roadmap phases passed (`14%`)
 
