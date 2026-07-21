@@ -565,6 +565,7 @@
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
 		C62FAEE9CA2981B0B1A73182 /* AppleUpscaleContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleContractsTests.swift; sourceTree = "<group>"; };
 		C69C7F4320B73812C4F233A2 /* ASHMetalRuntimeMonitorV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalRuntimeMonitorV3.swift; sourceTree = "<group>"; };
+		C6E3B7E62395654E3CBC66D5 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxSessionAdapter.swift; sourceTree = "<group>"; };
 		C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R06ASHPolicyCatalogTests.swift; sourceTree = "<group>"; };
 		C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_mapping_v1.json; sourceTree = "<group>"; };
@@ -1093,6 +1094,7 @@
 				D3525D83A53E49A6523CC2CE /* AtomicMediaOutputTests.swift */,
 				4EFECEE826EA97CFB9929177 /* EnhancementPipelineContractsTests.swift */,
 				270824223C3FD5CE89DB4489 /* FrameTimingLedgerTests.swift */,
+				C6E3B7E62395654E3CBC66D5 /* Info.plist */,
 				C3266933D00A493AEB81B0CB /* LanczosCPUReference.swift */,
 				B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */,
 				27D93FA5E188DC7A7975AC1F /* MirmirAppBootstrapTests.swift */,
@@ -1617,9 +1619,8 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_R03QualificationSourceCommit = "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)";
-				INFOPLIST_KEY_R03QualificationSourceTree = "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MirmirTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1849,9 +1850,8 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_R03QualificationSourceCommit = "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)";
-				INFOPLIST_KEY_R03QualificationSourceTree = "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MirmirTests/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

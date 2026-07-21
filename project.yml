@@ -68,6 +68,11 @@ targets:
     type: bundle.unit-test
     platform: macOS
     deploymentTarget: "15.4"
+    info:
+      path: MirmirTests/Info.plist
+      properties:
+        R03QualificationSourceCommit: "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)"
+        R03QualificationSourceTree: "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)"
     sources:
       - path: MirmirTests
       - path: validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift
@@ -78,9 +83,7 @@ targets:
       base:
         BUNDLE_LOADER: "$(TEST_HOST)"
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir"
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_R03QualificationSourceCommit: "$(R03_QUALIFICATION_BUILD_SOURCE_COMMIT)"
-        INFOPLIST_KEY_R03QualificationSourceTree: "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)"
+        GENERATE_INFOPLIST_FILE: NO
         PRODUCT_BUNDLE_IDENTIFIER: com.mirmir.app.tests
 
   MirmirP08Tests:
