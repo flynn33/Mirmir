@@ -270,7 +270,7 @@ private enum R03SupportStageExecutionError: Error, Equatable, Sendable {
     case operationCancelled
 }
 
-private class R03SupportStageBase: @unchecked Sendable {
+private final class R03SupportStageState: @unchecked Sendable {
     let subjectID: R03BaselineSubjectID
     let processingIdentity: AppleUpscaleProcessingIdentity
     let contract: R03SupportStageContract
@@ -299,23 +299,23 @@ private class R03SupportStageBase: @unchecked Sendable {
         )
     }
 
-    final func rejectCancellation() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
+    func rejectCancellation() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
         .rejected(cancellationRejected)
     }
 
-    final func rejectInput() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
+    func rejectInput() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
         .rejected(inputRejected)
     }
 
-    final func unavailable() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
+    func unavailable() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
         .unavailable(runtimeUnavailable)
     }
 
-    final func fail() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
+    func fail() -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
         .failed(processingFailed)
     }
 
-    final func processed(
+    func processed(
         _ pixelBuffer: CVPixelBuffer
     ) -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
         .processed(
@@ -327,14 +327,20 @@ private class R03SupportStageBase: @unchecked Sendable {
     }
 }
 
-private final class R03MPSGuidedFilterSupportStage: R03SupportStageBase,
-    R03SupportStage, @unchecked Sendable {
+private final class R03MPSGuidedFilterSupportStage: R03SupportStage,
+    @unchecked Sendable {
+    private let state: R03SupportStageState
     private let lock = NSLock()
     private let device: any MTLDevice
     private let commandQueue: any MTLCommandQueue
     private let guidedFilter: MPSImageGuidedFilter
 
-    override init(admission: R03SupportStageAdmission) throws {
+    var subjectID: R03BaselineSubjectID { state.subjectID }
+    var processingIdentity: AppleUpscaleProcessingIdentity {
+        state.processingIdentity
+    }
+
+    init(admission: R03SupportStageAdmission) throws {
         guard let device = MTLCreateSystemDefaultDevice(),
               MPSSupportsMTLDevice(device),
               let commandQueue = device.makeCommandQueue() else {
@@ -347,36 +353,38 @@ private final class R03MPSGuidedFilterSupportStage: R03SupportStageBase,
             kernelDiameter: R03SupportStageParameters.guidedFilterKernelDiameter
         )
         guidedFilter.epsilon = R03SupportStageParameters.guidedFilterEpsilon
-        try super.init(admission: admission)
+        state = try R03SupportStageState(admission: admission)
     }
 
     func process(
         _ input: R03SupportStageInput,
         cancellation: AppleUpscaleOperationCancellationSignal
     ) -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
-        guard !cancellation.isCancelled else { return rejectCancellation() }
+        guard !cancellation.isCancelled else {
+            return state.rejectCancellation()
+        }
         do {
             try R03SupportPixelBuffer.validate(
                 input.source,
-                contract: contract.source
+                contract: state.contract.source
             )
             try R03SupportPixelBuffer.validate(
                 input.guidance,
-                contract: contract.guidance
+                contract: state.contract.guidance
             )
         } catch {
-            return rejectInput()
+            return state.rejectInput()
         }
 
         do {
             let output = try execute(input, cancellation: cancellation)
-            return processed(output)
+            return state.processed(output)
         } catch R03SupportStageExecutionError.operationCancelled {
-            return rejectCancellation()
+            return state.rejectCancellation()
         } catch R03SupportStageExecutionError.runtimeUnavailable {
-            return unavailable()
+            return state.unavailable()
         } catch {
-            return fail()
+            return state.fail()
         }
     }
 
@@ -471,7 +479,9 @@ private final class R03MPSGuidedFilterSupportStage: R03SupportStageBase,
                 )
             }
         }
-        let output = try R03SupportPixelBuffer.make(contract: contract.output)
+        let output = try R03SupportPixelBuffer.make(
+            contract: state.contract.output
+        )
         try R03SupportPixelBuffer.write(outputData, to: output, bytesPerPixel: 1)
         return output
     }
@@ -530,8 +540,9 @@ private final class R03MPSGuidedFilterSupportStage: R03SupportStageBase,
     }
 }
 
-private final class R03CoreImageEdgePreserveSupportStage: R03SupportStageBase,
-    R03SupportStage, @unchecked Sendable {
+private final class R03CoreImageEdgePreserveSupportStage: R03SupportStage,
+    @unchecked Sendable {
+    private let state: R03SupportStageState
     private let lock = NSLock()
     private let context = CIContext(options: [
         .workingColorSpace: NSNull(),
@@ -539,31 +550,42 @@ private final class R03CoreImageEdgePreserveSupportStage: R03SupportStageBase,
         .cacheIntermediates: false
     ])
 
+    var subjectID: R03BaselineSubjectID { state.subjectID }
+    var processingIdentity: AppleUpscaleProcessingIdentity {
+        state.processingIdentity
+    }
+
+    init(admission: R03SupportStageAdmission) throws {
+        state = try R03SupportStageState(admission: admission)
+    }
+
     func process(
         _ input: R03SupportStageInput,
         cancellation: AppleUpscaleOperationCancellationSignal
     ) -> AppleUpscaleBackendOutcome<R03SupportStageOutput> {
-        guard !cancellation.isCancelled else { return rejectCancellation() }
+        guard !cancellation.isCancelled else {
+            return state.rejectCancellation()
+        }
         do {
             try R03SupportPixelBuffer.validate(
                 input.source,
-                contract: contract.source
+                contract: state.contract.source
             )
             try R03SupportPixelBuffer.validate(
                 input.guidance,
-                contract: contract.guidance
+                contract: state.contract.guidance
             )
         } catch {
-            return rejectInput()
+            return state.rejectInput()
         }
 
         do {
             let output = try execute(input, cancellation: cancellation)
-            return processed(output)
+            return state.processed(output)
         } catch R03SupportStageExecutionError.operationCancelled {
-            return rejectCancellation()
+            return state.rejectCancellation()
         } catch {
-            return fail()
+            return state.fail()
         }
     }
 
@@ -628,7 +650,9 @@ private final class R03CoreImageEdgePreserveSupportStage: R03SupportStageBase,
         guard !cancellation.isCancelled else {
             throw R03SupportStageExecutionError.operationCancelled
         }
-        let output = try R03SupportPixelBuffer.make(contract: contract.output)
+        let output = try R03SupportPixelBuffer.make(
+            contract: state.contract.output
+        )
         try R03SupportPixelBuffer.write(outputData, to: output, bytesPerPixel: 1)
         return output
     }

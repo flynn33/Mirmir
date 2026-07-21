@@ -6,6 +6,20 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Passed the additive R03 v2 functional product-qualification decision for
+  genuine `r03.mps.lanczos` (`A11`) at source
+  `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+  `c3558b90bf647febd900524e7afc40f8c2efbba4`. The bound run passed all 14
+  preregistered tests with exact route, lifecycle, media, repeatability, and
+  no-fallback evidence. R03 remains `in_progress`; no production default, Auto,
+  holdout, acceptance, quality/performance claim, publication, or release is
+  authorized. Earlier R03 v1, R06, and R07 blocked records remain historical.
+  R07 source-authority bindings are now verified from their exact bound R06
+  closure commit, preserving those frozen bytes while allowing successor source
+  corrections to be checked by current architecture and build guardrails.
+  The Xcode project now declares the roadmap's Apple-silicon target explicitly
+  as `arm64`, preventing Release from compiling the frozen MetalFX RGBA16F bridge
+  for the unsupported macOS x86_64 Swift `Float16` ABI.
 - Began R03 local implementation with a closed ten-subject deterministic
   backend/support-stage matrix, exact 8-bit NV12 SDR BT.709 route and analytic
   fixtures, frozen correctness/artifact/repeatability/resource checks, and a

@@ -60,7 +60,8 @@ recorded phase-specific local closure:
   `d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. The bound R03 result is
   fail-closed and `blocked`, with closure state
   `local_unpublished_blocked_closure` and `predecessor_result: blocked`; this
-  exception does not interpret it as success.
+  exception does not interpret it as success. The later additive A11 decision
+  does not mutate this predecessor binding or advance R03's phase status.
 - R05 may be `in_progress` while R04 remains `in_progress` only when its regular
   preregistration exactly binds R04 closure commit
   `88e26f5967f7eb35a54791017ca0c2b888f2fbf5` and tree
@@ -90,27 +91,32 @@ recorded phase-specific local closure:
   exception does not interpret it as success. R07 is limited to fixture-only
   local implementation. Its temporal, artifact, chroma, spatial, aggregation,
   fixed-point, history, and tuning contracts must remain frozen in the regular
-  preregistration and deterministic fixture catalog. Its product gate remains
-  blocked solely for `upstream_no_product_qualified_primary_backend`, with no
-  eligible route, selected plan, or output. Product metrics and hardware,
+  preregistration and deterministic fixture catalog. Its frozen product-gate
+  result is `blocked` for `upstream_no_product_qualified_primary_backend`, with
+  no eligible route, selected plan, or output. Product metrics and hardware,
   simulator, and operator observations remain `not_observed`; no quality,
   performance, product, production-default, acceptance, publication, or release
-  claim is authorized.
+  claim is authorized. The later A11 decision removes the R03-level eligibility
+  absence prospectively, but does not mutate R06 or R07, establish a route, or
+  authorize successor product evidence without an additive versioned contract.
+  R07's frozen source-authority bytes are verified from its exact bound R06
+  closure commit rather than from the successor worktree; current source remains
+  subject to the repository's active architecture, lint, build, and test checks.
 
 All five preregistrations record `accepted_merge_commit: null`,
 `acceptance_state: not_claimed`, and
 `continuation_scope: local_implementation_only`; each closure must be an ancestor
 of `HEAD`. The exceptions never apply to `next`, `evidence_ready`, or `passed`.
 They do not authorize publication, phase closure, acceptance, production
-enablement, or release. Update the canonical JSON digest and affected contract
-fields in the alignment policy in the same change.
+enablement, or release. Update the digest for every changed canonical source and
+affected contract fields in the alignment policy in the same change.
 Then regenerate the clearly labeled README progress section and verify the
 repository:
 
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -119,6 +125,10 @@ test ! -f docs/roadmaps/evidence/r02/records/conformance.json || python3 Scripts
 python3 Scripts/r03_contracts.py --check-preregistration
 python3 Scripts/r03_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r03/records/baseline-conformance.json || python3 Scripts/r03_contracts.py --check-conformance
+python3 Scripts/r03_product_qualification.py --check-preregistration
+python3 Scripts/r03_product_qualification.py --check-fixtures
+python3 Scripts/r03_product_qualification.py --check-receipt
+python3 Scripts/r03_product_qualification.py --check-decision
 python3 Scripts/r04_contracts.py --check-preregistration
 python3 Scripts/r04_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance

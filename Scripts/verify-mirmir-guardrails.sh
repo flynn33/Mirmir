@@ -94,6 +94,7 @@ python3 -m unittest \
   Scripts/tests/test_r01_observation_waiver.py \
   Scripts/tests/test_r02_contracts.py \
   Scripts/tests/test_r03_contracts.py \
+  Scripts/tests/test_r03_product_qualification.py \
   Scripts/tests/test_r04_contracts.py \
   Scripts/tests/test_r05_contracts.py \
   Scripts/tests/test_r06_contracts.py \
@@ -112,6 +113,10 @@ python3 Scripts/r03_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then
   python3 Scripts/r03_contracts.py --check-conformance
 fi
+python3 Scripts/r03_product_qualification.py --check-preregistration
+python3 Scripts/r03_product_qualification.py --check-fixtures
+python3 Scripts/r03_product_qualification.py --check-receipt
+python3 Scripts/r03_product_qualification.py --check-decision
 python3 Scripts/r04_contracts.py --check-preregistration
 python3 Scripts/r04_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then

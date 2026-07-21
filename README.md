@@ -23,6 +23,14 @@ evidence-preservation action, not a product release. It does not authorize a tag
 GitHub Release, production Auto mode, holdout access, G08, a quality claim, or a
 market-position claim.
 
+R03's additive v2 decision passes for source
+`dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`, and qualifies only genuine
+`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. R03 remains
+`in_progress`; product runtime support is not claimed, no production default is
+enabled, and Auto, holdout, acceptance, quality/performance claims, publication,
+and release remain blocked or unauthorized.
+
 ## Roadmap Progress
 
 <!-- BEGIN ROADMAP PROGRESS -->
@@ -735,6 +743,27 @@ acceptance, a product quality or performance claim, publication, release, or any
 other backend's product admission. R03 remains `in_progress` until its remaining
 phase exit evidence is separately satisfied.
 
+### A11 functional product-qualification checkpoint — 2026-07-21
+
+The additive [v2 execution receipt](evidence/r03/records/product-qualification-execution-receipt-v2.json)
+and mechanically derived [v2 decision](evidence/r03/records/product-qualification-decision-v2.json)
+pass for source commit `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`. All 14 preregistered macOS
+tests passed with zero failures or skips. The bound run observed genuine
+`MPSImageLanczosScale` execution on both canonical routes, three-repeat
+determinism, the exact 1920×1080-to-3840×2160 H.264/AAC media transaction,
+timing, metadata, reopen verification, resource lifetime, atomic publication,
+and an empty fallback history.
+
+Only `r03.mps.lanczos` (`A11`) is now `product_qualified`, and only for
+`functional_product_eligibility`. The frozen v1 blocked record remains immutable
+historical evidence. R03 remains `in_progress`; product runtime support is not
+claimed, no production default is enabled, and Auto, holdout, phase acceptance,
+perceptual-quality and performance claims, publication, and release remain
+blocked or unauthorized. This decision removes the absence of a qualified
+primary backend as a prospective cause for a new additive R06 or R07 product-gate
+run; it does not retroactively alter either phase's frozen blocked evidence.
+
 ### Exit gate
 
 One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.
@@ -944,8 +973,9 @@ preregistration binds the exact local R05 diagnostic-only closure commit
 `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, with
 `accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
 `continuation_scope: local_implementation_only`. R06 depends directly on R05;
-R04 remains a transitive unresolved dependency through R05. R03, R04, and R05
-remain canonical `in_progress`, local unpublished, unaccepted, and unqualified.
+R04 remains a transitive unresolved dependency through R05. At this frozen R06
+start checkpoint, R03, R04, and R05 remained canonical `in_progress`, local
+unpublished, unaccepted, and unqualified.
 
 The frozen R06 software slice is fixture-only. It preserves the existing
 nine-bit `ASHState`, maps all sixteen four-bit `ASHMessage` values to versioned
@@ -955,8 +985,8 @@ hysteresis, minimum dwell, scene-cut reset, fatal failover, and bounded luma,
 chroma, and postprocess masks. The six required ablation configurations may be
 exercised only as deterministic software fixtures.
 
-No R03-R05 backend is product-qualified. Product admission must therefore stop
-before scoring or route construction with
+At this frozen R06 checkpoint, no R03-R05 backend was product-qualified. Product
+admission therefore stopped before scoring or route construction with
 `reason: no_product_qualified_primary_backend`,
 `eligible_backend_count: 0`, and null selected route, plan, and output. All six
 product ablations remain `not_observed`, and the preregistered local result is
@@ -976,7 +1006,8 @@ controls without enabling a production route.
 
 All 32 focused Xcode tests passed, strict SwiftLint passed across 275 files, all
 529 Python governance tests passed, and deterministic software conformance
-passed. Product admission nevertheless remains fail-closed `blocked` for
+passed. The frozen product-admission result nevertheless remains fail-closed
+`blocked` for
 `reason: no_product_qualified_primary_backend`, with
 `eligible_backend_count: 0` and null selected route, plan, and output. All
 product, hardware, simulator, and operator observations remain `not_observed`.
@@ -984,6 +1015,16 @@ product, hardware, simulator, and operator observations remain `not_observed`.
 This is a local unpublished blocked closure, not phase acceptance. R06 remains
 canonical `in_progress`. No quality, performance, product, production-default,
 acceptance, publication, or release claim follows from this checkpoint.
+
+### Qualified-backend follow-up — 2026-07-21
+
+The later R03 v2 decision product-qualified A11 for functional product
+eligibility. The earlier R06 `no_product_qualified_primary_backend` result
+remains truthful historical evidence from its bound source and is not rewritten.
+Its cause is now cleared prospectively for a separately preregistered additive
+R06 product-gate rerun. No such rerun is recorded here; R06 remains
+`in_progress`, unaccepted, and without a production-default, quality,
+performance, publication, or release claim.
 
 ### Exit gate
 
@@ -1029,14 +1070,25 @@ their implementation or tuning. Deterministic software fixtures and locally
 available static, unit, mutation, project, build, and hosted checks remain
 required where applicable.
 
-No upstream phase has a product-qualified primary backend. Product evaluation
-therefore remains fail-closed `blocked` solely for
+At this frozen R07 start checkpoint, no upstream phase had a product-qualified
+primary backend. Product evaluation was therefore fail-closed `blocked` solely for
 `upstream_no_product_qualified_primary_backend`, with zero eligible routes and
 null selected route, plan, and output. Product temporal, artifact, chroma, and
 spatial-quality measurements remain `not_observed`. Hardware, simulator, and
 operator-observed operation also remain non-blocking `not_observed` and are not
 the blocked cause. This start makes no quality, performance, product,
 production-default, acceptance, publication, or release claim.
+
+### Qualified-backend follow-up — 2026-07-21
+
+The later R03 v2 decision product-qualified A11 for functional product
+eligibility. The earlier R07 `upstream_no_product_qualified_primary_backend`
+result remains truthful historical evidence from its bound source and is not
+rewritten. Its cause is now cleared prospectively for a separately preregistered
+additive R07 product-gate rerun after the required upstream orchestration path is
+available. No rerun or product metric is recorded here; R07 remains
+`in_progress`, unaccepted, and without a quality, performance,
+production-default, publication, or release claim.
 
 ### Exit gate
 
@@ -1336,6 +1388,7 @@ The roadmap succeeds when all of the following are true:
 - macOS unit-test target: `MirmirTests`
 - unhosted evidence-launcher target: `MirmirP08Tests`
 - minimum macOS deployment target: `15.4`
+- supported CPU architecture: Apple silicon (`arm64`)
 - bundle identifier: `com.mirmir.app`
 - app category: `public.app-category.video`
 - current app version in `Info.plist`: `1.0.0`
@@ -1354,9 +1407,9 @@ Production launch activates the product modules directly and opens the Mirmir
 workspace. The developer host is available only in Debug builds when
 `MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a read-only module/status surface.
 
-Normal R00 upscaling is deliberately unavailable. Start remains disabled and the
-workspace explains: “No roadmap-qualified backend is available; capability and
-baseline work continue in R01–R03.”
+Normal production upscaling remains deliberately unavailable. Start remains
+disabled and the workspace explains: “No production-default backend is enabled;
+R03 remains in progress.”
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module inventory and transaction
 boundaries.

@@ -12,11 +12,12 @@
 - Roadmap phase `R02`: `in_progress`
 - Roadmap phase `R03`: `in_progress`
 
-Mirmir is a native macOS application. Its application target is implemented in
-Swift and SwiftUI over Foundation, AVFoundation, CoreMedia, CoreVideo, Metal,
-VideoToolbox, and Apple platform services. Python modules under `validation/`
-implement offline calibration, evidence production, schema validation, and
-gate finalization. They are not linked into or embedded in `Mirmir.app`.
+Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
+target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
+CoreMedia, CoreVideo, Metal, VideoToolbox, and Apple platform services. Python
+modules under `validation/` implement offline calibration, evidence production,
+schema validation, and gate finalization. They are not linked into or embedded
+in `Mirmir.app`.
 
 The R00 source uses an app-owned Pattern B runtime with one UI module and four
 service modules assembled once through `MirmirAppBootstrap` and injected through
@@ -35,8 +36,7 @@ module/status surface. It provides no activation or deactivation controls.
 
 Normal R00 product upscaling is fail-closed. The production composition injects
 an unavailable transition engine, Start remains disabled, and the UI reports:
-“No roadmap-qualified backend is available; capability and baseline work
-continue in R01–R03.”
+“No production-default backend is enabled; R03 remains in progress.”
 
 R02 began from local R01 closure commit
 `555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
@@ -55,6 +55,14 @@ starts locally from that exact closure under a frozen 8-bit NV12, SDR BT.709,
 720p-to-1080p and 1080p-to-2160p baseline contract. Unavailable backend or
 support-stage execution is recorded as `not_observed`; it does not qualify a
 backend, select a production default, or support a performance or quality claim.
+
+The additive R03 v2 decision binds source
+`dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`, and qualifies only genuine
+`r03.mps.lanczos` (`A11`) for `functional_product_eligibility`. R03 remains
+`in_progress`; product runtime support is not claimed, the production composition
+still injects the unavailable service, and no default, Auto, holdout, acceptance,
+quality, performance, publication, or release authority follows.
 
 ## Target Apple-Native Adaptive Architecture
 
