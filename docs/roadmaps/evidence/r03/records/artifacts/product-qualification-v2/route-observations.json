@@ -1,0 +1,350 @@
+{
+  "backend_identity": {
+    "backend_id": "r03.mps.lanczos",
+    "backend_revision": "1",
+    "capability_id": "A11",
+    "framework_identity": "MetalPerformanceShaders",
+    "material_decision_identity": "r03.a11.genuine-mps-lanczos-product-admission.v1",
+    "model_assets_identity": "notRequired",
+    "policy_identity": "r03.a11.product-qualified.no-fallback.v1"
+  },
+  "evidence_kind": "r03_a11_native_route_observations_v1",
+  "qualification_invocation": {
+    "batch_id": "d5b55b6c34b800320360a5053df439fe9c5cb225b09c09245585eeecd54a4236",
+    "binding_sha256": "eb760cef90eecc70e7a1183600a6f378599e1d334f9b06632a296b3ba27f9b39",
+    "contract_id": "r03.a11.product-qualification-invocation.v1",
+    "source_commit": "dfdf1f12ecb22be1c6395d57017bf750fd76496f",
+    "source_tree": "c3558b90bf647febd900524e7afc40f8c2efbba4"
+  },
+  "routes": [
+    {
+      "configuration_identity": "r03.mps.lanczos.scale_3_over_2.420v-bt709-video-left.v1",
+      "input_identity": {
+        "color_identity": {
+          "chroma_location": "left",
+          "matrix": "ITU_R_709_2",
+          "primaries": "ITU_R_709_2",
+          "range": "video",
+          "transfer_function": "ITU_R_709_2"
+        },
+        "dimensions": {
+          "height": 720,
+          "width": 1280
+        },
+        "pixel_format": "420v",
+        "pixel_format_raw_value": 875704438,
+        "plane_count": 2
+      },
+      "output_identity": {
+        "color_identity": {
+          "chroma_location": "left",
+          "matrix": "ITU_R_709_2",
+          "primaries": "ITU_R_709_2",
+          "range": "video",
+          "transfer_function": "ITU_R_709_2"
+        },
+        "dimensions": {
+          "height": 1080,
+          "width": 1920
+        },
+        "pixel_format": "420v",
+        "pixel_format_raw_value": 875704438,
+        "plane_count": 2
+      },
+      "route_id": "scale_3_over_2",
+      "runs": [
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_3_over_2.run-1.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "60ff1ec00e8d0c0cba94f066d56a1ebed317f0d08d3b49fd7497f173c9f71484",
+          "logical_output_sha256": "35307f4b7674f3bbc9b0abda9e105966f63cea46a73911860246ee132a9caedc",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 1,
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_3_over_2.run-2.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "60ff1ec00e8d0c0cba94f066d56a1ebed317f0d08d3b49fd7497f173c9f71484",
+          "logical_output_sha256": "35307f4b7674f3bbc9b0abda9e105966f63cea46a73911860246ee132a9caedc",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 2,
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_3_over_2.run-3.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "60ff1ec00e8d0c0cba94f066d56a1ebed317f0d08d3b49fd7497f173c9f71484",
+          "logical_output_sha256": "35307f4b7674f3bbc9b0abda9e105966f63cea46a73911860246ee132a9caedc",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 3,
+          "sequence_number": 0
+        }
+      ]
+    },
+    {
+      "configuration_identity": "r03.mps.lanczos.scale_2x.420v-bt709-video-left.v1",
+      "input_identity": {
+        "color_identity": {
+          "chroma_location": "left",
+          "matrix": "ITU_R_709_2",
+          "primaries": "ITU_R_709_2",
+          "range": "video",
+          "transfer_function": "ITU_R_709_2"
+        },
+        "dimensions": {
+          "height": 1080,
+          "width": 1920
+        },
+        "pixel_format": "420v",
+        "pixel_format_raw_value": 875704438,
+        "plane_count": 2
+      },
+      "output_identity": {
+        "color_identity": {
+          "chroma_location": "left",
+          "matrix": "ITU_R_709_2",
+          "primaries": "ITU_R_709_2",
+          "range": "video",
+          "transfer_function": "ITU_R_709_2"
+        },
+        "dimensions": {
+          "height": 2160,
+          "width": 3840
+        },
+        "pixel_format": "420v",
+        "pixel_format_raw_value": 875704438,
+        "plane_count": 2
+      },
+      "route_id": "scale_2x",
+      "runs": [
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_2x.run-1.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "c838a1be5f6aba9eb2ea3dbaefa01ad2e8fa73388296390e793716279418b424",
+          "logical_output_sha256": "4d30e8d2c702aac5ca802de5c196ddcb2824d020c7bedd3d5bb0f7346b336ab9",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 1,
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_2x.run-2.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "c838a1be5f6aba9eb2ea3dbaefa01ad2e8fa73388296390e793716279418b424",
+          "logical_output_sha256": "4d30e8d2c702aac5ca802de5c196ddcb2824d020c7bedd3d5bb0f7346b336ab9",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 2,
+          "sequence_number": 0
+        },
+        {
+          "duration": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 1
+          },
+          "duration_preserved": true,
+          "fallback_history": [],
+          "frame_order_preserved": true,
+          "input_token_identity": "r03.a11.native.scale_2x.run-3.0",
+          "lifecycle_observation": {
+            "cancel_idempotent": true,
+            "cancel_operations": 2,
+            "finish_idempotent": true,
+            "finish_operations": 4,
+            "input_release_count": 1,
+            "output_release_count": 1,
+            "post_terminal_reset_operations": 2,
+            "pre_submit_reset_operations": 2,
+            "processed_history_generation": 2,
+            "reset_next_history_generations": [
+              1,
+              2
+            ],
+            "terminalization_count": 1
+          },
+          "logical_input_sha256": "c838a1be5f6aba9eb2ea3dbaefa01ad2e8fa73388296390e793716279418b424",
+          "logical_output_sha256": "4d30e8d2c702aac5ca802de5c196ddcb2824d020c7bedd3d5bb0f7346b336ab9",
+          "metadata_identity": "r03.metadata.0",
+          "metadata_preserved": true,
+          "output_token_identity": "r03.mps.lanczos.output.0",
+          "presentation_timestamp": {
+            "epoch": 0,
+            "flags": 1,
+            "timescale": 30,
+            "value": 30
+          },
+          "pts_preserved": true,
+          "run_ordinal": 3,
+          "sequence_number": 0
+        }
+      ]
+    }
+  ],
+  "schema_version": "1.0.0"
+}

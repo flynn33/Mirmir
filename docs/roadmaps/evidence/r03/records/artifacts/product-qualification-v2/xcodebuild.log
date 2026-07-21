@@ -1,0 +1,90 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -xctestrun /tmp/mirmir-r03-final.Dndii2PN/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun -destination platform=macOS,arch=arm64 -resultBundlePath /tmp/mirmir-r03-final.Dndii2PN/R03Qualification.xcresult "-only-testing:MirmirTests/R03A11NativeMPSProductTests" "-only-testing:MirmirTests/R03A11ProductAdmissionTests" "-only-testing:MirmirTests/R03A11InjectedLifecycleTests" "-only-testing:MirmirTests/R03ProductQualificationMediaTests"
+
+2026-07-21 07:11:58.127 xcodebuild[49978:17663593] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+Writing result bundle at path:
+	/tmp/mirmir-r03-final.Dndii2PN/R03Qualification.xcresult
+
+2026-07-21 07:11:58.132 xcodebuild[49978:17663593] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:Mac Catalyst, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:DriverKit, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006040-0016283C11F8801C, name:My Mac }
+2026-07-21 07:11:58.339 xcodebuild[49978:17663593] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-07-21 07:11:59.207751-0500 Mirmir[49993:17663763] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.207937-0500 Mirmir[49993:17663763] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.209525-0500 Mirmir[49993:17663774] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.209540-0500 Mirmir[49993:17663774] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.211453-0500 Mirmir[49993:17663763] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.211464-0500 Mirmir[49993:17663763] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.213155-0500 Mirmir[49993:17663763] [Connection] Will NOT re-try to establish the connection
+2026-07-21 07:11:59.213181-0500 Mirmir[49993:17663764] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.213194-0500 Mirmir[49993:17663764] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-21 07:11:59.227542-0500 Mirmir[49993:17663709] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to <private-home>/Library/Containers/com.mirmir.app/Data/tmp/com.mirmir.app.savedState
+2026-07-21 07:11:59.303447-0500 Mirmir[49993:17663709] [com.mirmir.app.metal] Metal rendering ready
+2026-07-21 07:11:59.303488-0500 Mirmir[49993:17663709] [com.mirmir.app.model-assets] Model assets service started
+2026-07-21 07:11:59.303513-0500 Mirmir[49993:17663709] [com.mirmir.app.media-pipeline] Media pipeline started
+2026-07-21 07:11:59.303539-0500 Mirmir[49993:17663709] [com.mirmir.app.upscaler-engine] Upscaler engine started
+2026-07-21 07:11:59.303551-0500 Mirmir[49993:17663709] [com.mirmir.app.ui] Mirmir UI module activated
+Test Suite 'Selected tests' started at 2026-07-21 07:11:59.420.
+Test Suite 'MirmirTests.xctest' started at 2026-07-21 07:11:59.420.
+Test Suite 'R03A11InjectedLifecycleTests' started at 2026-07-21 07:11:59.420.
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureControlPathForwardsLifecycleAndLifetime]' started.
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureControlPathForwardsLifecycleAndLifetime]' passed (0.238 seconds).
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureControlPathMapsRuntimeAndScalingErrors]' started.
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureControlPathMapsRuntimeAndScalingErrors]' passed (0.468 seconds).
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureFactoryErrorsMapWithoutCreatingProductAdmission]' started.
+Test Case '-[MirmirTests.R03A11InjectedLifecycleTests testInjectedFixtureFactoryErrorsMapWithoutCreatingProductAdmission]' passed (0.001 seconds).
+Test Suite 'R03A11InjectedLifecycleTests' passed at 2026-07-21 07:12:00.127.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 0.706 (0.707) seconds
+Test Suite 'R03A11NativeMPSProductTests' started at 2026-07-21 07:12:00.127.
+Test Case '-[MirmirTests.R03A11NativeMPSProductTests testStrictNativeMPSLanczosIsRepeatableAcrossThreeFreshSessionsForBothRoutes]' started.
+R03_QUALIFICATION_INVOCATION_SHA256=eb760cef90eecc70e7a1183600a6f378599e1d334f9b06632a296b3ba27f9b39
+Test Case '-[MirmirTests.R03A11NativeMPSProductTests testStrictNativeMPSLanczosIsRepeatableAcrossThreeFreshSessionsForBothRoutes]' passed (2.342 seconds).
+Test Suite 'R03A11NativeMPSProductTests' passed at 2026-07-21 07:12:02.469.
+	 Executed 1 test, with 0 failures (0 unexpected) in 2.342 (2.342) seconds
+Test Suite 'R03A11ProductAdmissionTests' started at 2026-07-21 07:12:02.470.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testDefaultConstructionRetainsExactFixtureOnlyAdmission]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testDefaultConstructionRetainsExactFixtureOnlyAdmission]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testInjectedA11ProductConstructionRequiresFactoryAuthorization]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testInjectedA11ProductConstructionRequiresFactoryAuthorization]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductAdmissionRequiresExactScopePolicyAndCapability]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductAdmissionRequiresExactScopePolicyAndCapability]' passed (0.101 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductionFactoryBindsGenuineMPSLanczosProductIdentityForBothRoutes]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductionFactoryBindsGenuineMPSLanczosProductIdentityForBothRoutes]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductProfileAndCapabilityRegistryBindOnlyA11]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductProfileAndCapabilityRegistryBindOnlyA11]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductProfileRejectsEveryReferenceAndSupportSubjectAtConstruction]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testProductProfileRejectsEveryReferenceAndSupportSubjectAtConstruction]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testSupportFactoriesRejectProductScopeBeforeNativeConstruction]' started.
+Test Case '-[MirmirTests.R03A11ProductAdmissionTests testSupportFactoriesRejectProductScopeBeforeNativeConstruction]' passed (0.000 seconds).
+Test Suite 'R03A11ProductAdmissionTests' passed at 2026-07-21 07:12:02.575.
+	 Executed 7 tests, with 0 failures (0 unexpected) in 0.105 (0.106) seconds
+Test Suite 'R03ProductQualificationMediaTests' started at 2026-07-21 07:12:02.576.
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun1]' started.
+2026-07-21 07:12:02.610578-0500 Mirmir[49993:17663764] [] (Fig) signalled err=0 at <>:85
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun1]' passed (2.645 seconds).
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun2]' started.
+2026-07-21 07:12:06.866068-0500 Mirmir[49993:17663764] [] <<<< FigExportCommmon >>>> signalled err=-12785 at <>:3858
+2026-07-21 07:12:06.866091-0500 Mirmir[49993:17663764] [] <<<< FigExportCommmon >>>> signalled err=-12785 at <>:3858
+2026-07-21 07:12:07.730881-0500 Mirmir[49993:17663804] [] <<<< FigExportCommmon >>>> signalled err=-12785 at <>:3858
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun2]' passed (2.513 seconds).
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun3]' started.
+Test Case '-[MirmirTests.R03ProductQualificationMediaTests testProductQualifiedMPSLanczosMediaTransactionRun3]' passed (2.479 seconds).
+Test Suite 'R03ProductQualificationMediaTests' passed at 2026-07-21 07:12:10.214.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 7.638 (7.638) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-07-21 07:12:10.214.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 10.790 (10.794) seconds
+Test Suite 'Selected tests' passed at 2026-07-21 07:12:10.214.
+	 Executed 14 tests, with 0 failures (0 unexpected) in 10.790 (10.794) seconds
+2026-07-21 07:12:10.479 xcodebuild[49978:17663593] [MT] IDETestOperationsObserverDebug: 12.120 elapsed -- Testing started completed.
+2026-07-21 07:12:10.479 xcodebuild[49978:17663593] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-07-21 07:12:10.479 xcodebuild[49978:17663593] [MT] IDETestOperationsObserverDebug: 12.120 sec, +12.120 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/mirmir-r03-final.Dndii2PN/R03Qualification.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

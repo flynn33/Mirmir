@@ -406,6 +406,7 @@ class R07ContractVerifier:
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
         self.conformance_materialized = False
+        self._historical_blobs: dict[tuple[str, str], bytes | None] = {}
 
     def git(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -413,17 +414,34 @@ class R07ContractVerifier:
             check=False, text=True
         )
 
-    def _safe_path(
-        self, value: object, context: str, errors: list[str]
-    ) -> Path | None:
+    def git_bytes(self, *arguments: str) -> subprocess.CompletedProcess[bytes]:
+        return subprocess.run(
+            ["git", *arguments], cwd=self.root, capture_output=True,
+            check=False
+        )
+
+    @staticmethod
+    def _normalized_relative_path(
+        value: object, context: str, errors: list[str]
+    ) -> str | None:
         if not isinstance(value, str) or not value or "\x00" in value:
             errors.append(f"{context}.path must be a non-empty normalized path")
             return None
         pure = PurePosixPath(value)
         if pure.is_absolute() or ".." in pure.parts or pure.as_posix() != value:
-            errors.append(f"{context}.path must be normalized and repository-relative")
+            errors.append(
+                f"{context}.path must be normalized and repository-relative"
+            )
             return None
-        resolved = self.root / value
+        return value
+
+    def _safe_path(
+        self, value: object, context: str, errors: list[str]
+    ) -> Path | None:
+        normalized = self._normalized_relative_path(value, context, errors)
+        if normalized is None:
+            return None
+        resolved = self.root / normalized
         if resolved.is_symlink() or not resolved.is_file():
             errors.append(f"{context}.path must name a regular non-symlink file")
             return None
@@ -479,6 +497,41 @@ class R07ContractVerifier:
         if target is None:
             return
         payload = target.read_bytes()
+        if binding.get("size_bytes") != len(payload):
+            errors.append(f"{context}.size_bytes differs")
+        if binding.get("sha256") != _sha256(payload):
+            errors.append(f"{context}.sha256 differs")
+
+    def _check_historical_binding(
+        self, binding: object, expected_path: Path, context: str,
+        errors: list[str]
+    ) -> None:
+        if not isinstance(binding, dict) or set(binding) != {
+            "path", "size_bytes", "sha256"
+        }:
+            errors.append(f"{context} keys differ")
+            return
+        normalized = self._normalized_relative_path(
+            binding.get("path"), context, errors
+        )
+        if normalized is None:
+            return
+        if normalized != expected_path.as_posix():
+            errors.append(f"{context}.path differs")
+            return
+        commit = PREDECESSOR["closure_commit"]
+        blob_key = (commit, expected_path.as_posix())
+        if blob_key not in self._historical_blobs:
+            snapshot = self.git_bytes(
+                "cat-file", "blob", f"{commit}:{expected_path.as_posix()}"
+            )
+            self._historical_blobs[blob_key] = (
+                snapshot.stdout if snapshot.returncode == 0 else None
+            )
+        payload = self._historical_blobs[blob_key]
+        if payload is None:
+            errors.append(f"{context} is unavailable at the bound R06 closure")
+            return
         if binding.get("size_bytes") != len(payload):
             errors.append(f"{context}.size_bytes differs")
         if binding.get("sha256") != _sha256(payload):
@@ -714,7 +767,7 @@ class R07ContractVerifier:
                 continue
             expected = SOURCE_BINDINGS.get(binding.get("id"))
             if expected is not None:
-                self._check_binding(
+                self._check_historical_binding(
                     {key: binding.get(key) for key in ("path", "size_bytes", "sha256")},
                     Path(expected[0]), f"source_bindings[{index}]", errors
                 )

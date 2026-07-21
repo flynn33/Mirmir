@@ -294,16 +294,30 @@ class R07ContractTests(unittest.TestCase):
                     target["kind"] = "unfrozen_kind"
                     self.assertTrue(validate_json_schema_instance(self.catalog_schema, mutated))
 
-    def test_all_source_authorities_are_byte_exact(self) -> None:
+    def test_all_source_authorities_are_byte_exact_at_predecessor_closure(
+        self,
+    ) -> None:
         observed = self.catalog["source_bindings"]
         self.assertIsInstance(observed, list)
         self.assertEqual(len(observed), len(SOURCE_BINDINGS))
+        closure_commit = PREDECESSOR["closure_commit"]
+        assert isinstance(closure_commit, str)
         for item in observed:
             assert isinstance(item, dict)
             identifier = item["id"]
             expected = SOURCE_BINDINGS[identifier]
             with self.subTest(identifier=identifier):
-                payload = (REPOSITORY_ROOT / expected[0]).read_bytes()
+                snapshot = subprocess.run(
+                    [
+                        "git", "cat-file", "blob",
+                        f"{closure_commit}:{expected[0]}",
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    capture_output=True,
+                    check=False,
+                )
+                self.assertEqual(snapshot.returncode, 0, snapshot.stderr)
+                payload = snapshot.stdout
                 self.assertEqual(len(payload), expected[1])
                 self.assertEqual(hashlib.sha256(payload).hexdigest(), expected[2])
 

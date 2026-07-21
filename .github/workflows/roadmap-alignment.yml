@@ -41,6 +41,8 @@ jobs:
           Scripts/tests/test_r01_observation_waiver.py
           Scripts/tests/test_r02_contracts.py
           Scripts/tests/test_r03_contracts.py
+          Scripts/tests/test_r03_product_qualification.py
+          Scripts/tests/test_r03_phase_acceptance.py
           Scripts/tests/test_r04_contracts.py
           Scripts/tests/test_r05_contracts.py
           Scripts/tests/test_r06_contracts.py
@@ -83,6 +85,21 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then
             python3 Scripts/r03_contracts.py --check-conformance
           fi
+
+      - name: Verify R03 v2 product-qualification preregistration
+        run: python3 Scripts/r03_product_qualification.py --check-preregistration
+
+      - name: Verify R03 v2 product-qualification fixtures
+        run: python3 Scripts/r03_product_qualification.py --check-fixtures
+
+      - name: Verify R03 v2 product-qualification receipt
+        run: python3 Scripts/r03_product_qualification.py --check-receipt
+
+      - name: Verify R03 v2 product-qualification decision
+        run: python3 Scripts/r03_product_qualification.py --check-decision
+
+      - name: Verify R03 functional phase acceptance
+        run: python3 Scripts/r03_phase_acceptance.py --check
 
       - name: Verify R04 preregistration
         run: python3 Scripts/r04_contracts.py --check-preregistration

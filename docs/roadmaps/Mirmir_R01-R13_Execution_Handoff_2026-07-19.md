@@ -30,9 +30,18 @@
   `a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance not claimed
 - **R03 local preregistration source:** R02 local unpublished closure above;
   `accepted_merge_commit: null`
-- **R03 local blocked closure:**
+- **R03 immutable v1 local blocked closure:**
   `947983a8414c60e4f5f4246e6cb658792fc7c357`; tree
   `d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`; acceptance not claimed
+- **R03 A11 functional product-qualification source:**
+  `dfdf1f12ecb22be1c6395d57017bf750fd76496f`; tree
+  `c3558b90bf647febd900524e7afc40f8c2efbba4`; v2 decision `passed` for
+  `r03.mps.lanczos` functional product eligibility; preserved as the narrower
+  v2 decision
+- **R03 operator-overridden functional acceptance source:**
+  `b5c19c0040f845b7f32fe98bd5f01249c1b071f2`; tree
+  `74e39285521fe31f9588cff5e43184c8f91f9180`; acceptance record `passed` for
+  `functional_software_phase_acceptance`; R03 is `passed`
 - **R04 local preregistration:**
   `2a729f9f641ef949681d81ebb3f98f68d7da29fc`; tree
   `59bfd516ebfa2260fedaf835d0a32a8f8f7cc6ee`
@@ -63,7 +72,7 @@
   acceptance not claimed
 - **R07 local preregistration source:** R06 blocked closure above;
   `accepted_merge_commit: null`
-- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
+- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: passed`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
   `R07: in_progress`; `R08: planned`
 
@@ -202,8 +211,9 @@ eligibility filtering, one whole-frame route, typed hysteresis/dwell/cut/fatal-
 failover transitions, bounded luma/chroma/postprocess masks, and the six frozen
 ablation configurations.
 
-The current R03-R05 pool contains no product-qualified primary backend. Product
-admission must therefore stop before scoring and route construction with exact
+At this frozen R06 checkpoint, the R03-R05 pool contained no product-qualified
+primary backend. Product admission therefore stopped before scoring and route
+construction with exact
 reason `no_product_qualified_primary_backend`, eligible count zero, and no
 route, plan, or output. All six product ablations remain `not_observed`; the
 preregistered local result is fail-closed `blocked` because of that eligibility
@@ -229,13 +239,50 @@ temporal, chroma, artifact, churn, protected-region, spatial-noninferiority,
 history, fixed-point, threshold, and aggregation contracts before implementation
 or tuning. No numeric formula or threshold is inferred from this handoff.
 
-Product evaluation is fail-closed `blocked` solely for
+The frozen product-evaluation result is fail-closed `blocked` solely for
 `upstream_no_product_qualified_primary_backend`, with zero eligible routes and
 null selected route, plan, and output. Product temporal, artifact, chroma, and
 spatial-quality measurements remain `not_observed`. Hardware, simulator, and
 operator-observed operation also remain non-blocking `not_observed` and are not
 the blocked cause. No quality, performance, product, production-default,
 acceptance, publication, or release claim follows.
+
+### R03 A11 functional product-qualification checkpoint — 2026-07-21
+
+The additive R03 v2 qualification is bound to source commit
+`dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`. Its 14-test macOS run passed with
+zero failures or skips and emitted one invocation-bound route record plus three
+ordered media-transaction records. The mechanically derived receipt and decision
+validate genuine `MPSImageLanczosScale` execution on both routes, deterministic
+repeatability, exact timing/audio/metadata/reopen/atomic-publication behavior,
+resource lifetime, and no fallback.
+
+Only `r03.mps.lanczos` (`A11`) is `product_qualified`, and only for
+`functional_product_eligibility`. The v2 record itself left R03 `in_progress`
+and did not authorize a production default, Auto, holdout, acceptance,
+quality/performance claims, publication, or release. The earlier R03 v1, R06,
+and R07 blocked records remain historical evidence. Their
+no-qualified-backend cause is cleared prospectively, but any R06 or R07
+product-gate rerun must be additive and separately bound.
+
+### R03 operator-overridden functional acceptance — 2026-07-21
+
+The operator superseded the original all-backend quality/performance/resource
+comparison as an R03 acceptance prerequisite and directed that acceptance be
+based on whether the software performs its intended task. The additive
+`functional-phase-acceptance.json` record binds publication commit
+`b5c19c0040f845b7f32fe98bd5f01249c1b071f2`, tree
+`74e39285521fe31f9588cff5e43184c8f91f9180`, the passing R02 common-session
+conformance, and the exact R03 v2 receipt and decision.
+
+The new validator accepts R03 only when genuine A11 processing passes both
+canonical routes, three-repeat determinism, complete session/media preservation,
+reopen and atomic publication, lifecycle/resource release, processing identity,
+no fallback, and every applicable functional metric. Those requirements pass,
+so R03 is `passed`. The comparison matrix remains optional evidence. Production
+default, Auto, holdout, quality/performance claims, product publication, and
+release remain unauthorized.
 
 ## 1. Resume instructions
 
@@ -247,13 +294,15 @@ Before changing source:
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
-   `R03: in_progress`, `R04: in_progress`, `R05: in_progress`,
+   `R03: passed`, `R04: in_progress`, `R05: in_progress`,
    `R06: in_progress`, `R07: in_progress`, and `R08: planned` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
-5. Treat the exact R06 blocked closure above as local negative evidence and
-   continue only the frozen R07 fixture contract. Do not convert R03 through R06
-   into accepted or product-qualified phases. Except for the narrow
+5. Preserve the exact frozen R06 and R07 blocked records as historical negative
+   evidence. The additive R03 functional acceptance accepts R03 only; it does
+   not accept R04 through R07 or alter those records. Any new R06 or R07 product
+   evaluation requires additive, versioned evidence bound to the exact A11
+   identity. Except for the narrow
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
 
@@ -337,17 +386,19 @@ separate predecessor-acceptance receipt before claiming an accepted predecessor
 or publishing/closing the dependent phase. Never rewrite the preregistration or
 infer merge acceptance from a local branch or remote-tracking ref.
 
-The R04 local-continuation preregistration must bind R03 closure commit
+The frozen R04 local-continuation preregistration binds R03 closure commit
 `947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
 `d1a89e5b9edf8d42b1da9ba06a3b6a0c139f08f3`. That closure records a fail-closed
-`blocked` R03 result as `local_unpublished_blocked_closure`. The R04 exception
-permits only `in_progress` local implementation while R03 remains `in_progress`;
-it records
+`blocked` R03 result as `local_unpublished_blocked_closure`. At that historical
+start checkpoint, the R04 exception permitted only `in_progress` local
+implementation while R03 remained `in_progress`; it records
 `predecessor_result: blocked`, `accepted_merge_commit: null`,
 `acceptance_state: not_claimed`, and
 `continuation_scope: local_implementation_only`. It does not reinterpret R03
 evidence as success or authorize R04 evidence readiness, passing status,
-publication, production enablement, or a quality/performance claim.
+publication, production enablement, or a quality/performance claim. The later
+operator-overridden R03 acceptance is additive and does not rewrite this frozen
+R04 predecessor binding.
 
 Phase pull requests require the operator to use GitHub's merge-commit method.
 Squash and rebase merges do not preserve the preregistration, implementation,
@@ -520,7 +571,7 @@ material ASH decisions.
 At the original source checkpoint:
 
 - the production bootstrap injects an unavailable upscaler service and launches
-  normally while explaining that no roadmap-qualified backend exists;
+  normally while explaining that no production-default backend is enabled;
 - production upscaling remains unavailable through R02;
 - AVFoundation ingest, ordered frames, timestamps/durations, audio, metadata,
   reopen validation, cancellation, and atomic publication are reusable;
@@ -785,14 +836,28 @@ observation remain `not_observed` and non-blocking under the explicit override.
 The operator-directed local R02-through-R07 continuation remains implementation
 authority only and does not convert this negative R03 evidence into success.
 
-Preregister correctness, ringing, edge, chroma, temporal, throughput, memory,
-and resource floors. Eliminate nonqualifying and dominated candidates. Among
-remaining qualifying candidates, choose the normal deterministic product default
-only from candidates classified and qualified as whole-frame primary
-deterministic upscalers. Within that pool choose by lowest measured wall time,
-then lowest memory, then stable backend ID. Support filters, conversion paths,
-and reference-only comparators remain in their accepted roles regardless of
-speed. Enable the selected default only after R03 is accepted. Keep Auto blocked.
+Operator correction authorization on 2026-07-21 supersedes the earlier
+no-product-qualification boundary only for a new additive R03 qualification
+contract. Preserve the frozen v1 negative evidence. Replace the incompatible
+16×8 identity member with an R03-owned 1920×1080-to-3840×2160 media transaction,
+and qualify only `r03.mps.lanczos` (`A11`) after genuine MPS execution and all
+versioned functional, repeatability, lifecycle, and media checks pass. Simulation
+is permitted for deterministic control paths but cannot be recorded as native
+MPS execution. Keep production default, Auto, holdout, acceptance, quality and
+performance claims, publication, and release disabled.
+
+Achieved additive checkpoint: source
+`dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`, passed the v2 decision. Only A11 is
+`product_qualified` for `functional_product_eligibility`. The later functional
+acceptance record revalidates this software evidence and marks R03 `passed` under
+the operator-overridden gate. Production-default, Auto, holdout, quality,
+performance, product-publication, and release boundaries remain unchanged.
+
+Correctness, ringing, edge, chroma, temporal, throughput, memory, and resource
+comparisons remain useful optional evidence. They may inform a later production
+default decision but are not prerequisites for R03 acceptance. No production
+default is selected by the functional acceptance record. Keep Auto blocked.
 
 ### R04 - VideoToolbox super-resolution integration
 
@@ -865,7 +930,7 @@ without breaking any locked floor.
 Local start: the R06 preregistration binds R05 closure
 `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
 `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`. Deterministic fixture policy work
-may proceed, but product admission is frozen to
+may proceed, but the frozen product-admission result is
 `no_product_qualified_primary_backend` with zero eligible backends and no
 selected route, plan, or output. All six product ablations remain
 `not_observed`; R06 remains `in_progress`, local unpublished, and unaccepted.
@@ -874,13 +939,20 @@ Local blocked checkpoint: implementation commit
 `9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
 `1235596387d4eabd2ecb4ea1a29221c44ec425fe`, passed all 32 focused Xcode tests,
 strict SwiftLint across 275 files, all 529 Python governance tests, and
-deterministic software conformance. The product gate remains fail-closed
-`blocked` for `no_product_qualified_primary_backend`, with zero eligible
+deterministic software conformance. The frozen product gate is fail-closed
+`blocked` in that historical record for
+`no_product_qualified_primary_backend`, with zero eligible
 backends and null selected route, plan, and output. All product, hardware,
 simulator, and operator observations remain `not_observed`. This is a local
 unpublished blocked closure; canonical R06 stays `in_progress`, and no quality,
 performance, product, production-default, acceptance, publication, or release
 claim follows.
+
+The later R03 v2 decision qualifies A11 for functional product eligibility and
+removes that reason as a valid cause for a new R06 run. It does not rewrite or
+pass the frozen R06 record. Additive, versioned R06 admission evidence is
+required before any new route, plan, output, default, quality, performance,
+acceptance, publication, or release claim.
 
 ### R07 - Temporal stability and artifact governance
 
@@ -901,13 +973,20 @@ continuation. The implementation is fixture-only. Exact formulas, thresholds,
 history bounds, aggregation rules, and spatial-noninferiority criteria are frozen
 in the preregistration and fixture catalog before implementation or tuning.
 
-The product gate remains `blocked` solely for
+The frozen product-gate record is `blocked` for
 `upstream_no_product_qualified_primary_backend`, with zero eligible routes and
 null route, plan, and output. Product temporal, artifact, chroma, and
 spatial-quality measurements, plus hardware, simulator, and operator-observed
 operation, remain `not_observed`. R06 and R07 remain `in_progress`; R08 remains
 `planned`. No quality, performance, product, production-default, acceptance,
 publication, or release claim follows.
+
+The later R03 v2 decision removes the R03-level eligibility absence
+prospectively, but it does not establish an eligible R06 route, alter the frozen
+R07 record, or make R07 product metrics observed. A successor evaluation requires
+additive R06 admission evidence and additive R07 evidence. R07 remains
+`in_progress` with no production-default, Auto, holdout, acceptance, quality,
+performance, publication, or release claim.
 
 ### R08 - Core AI analysis-only integration
 
@@ -1069,9 +1148,10 @@ explicitly reviewed roadmap revision rather than relaxed thresholds.
 ## 8. Current local-continuation boundary
 
 The original R01 kickoff has been completed. The receiving implementation task
-now begins by verifying current `main` and the exact R03 blocked and R04
-diagnostic-only checkpoints above, then continues the frozen local sequence
-through R07 one preregistered, commit-bound slice at a time. It may collect
+now begins by verifying current `main`, the immutable R03 v1 blocked checkpoint,
+the additive A11 v2 passed decision, and the R04 diagnostic-only checkpoint
+above. R06 and R07 successor product evaluations require additive, versioned
+evidence; their frozen blocked records are not rewritten. Work may collect
 authorized supplemental evidence and commit locally. Publication still requires
 a direct operator instruction. The explicit local-continuation exception does
 not authorize holdout access, production Auto, a claim, a tag, a release, push,

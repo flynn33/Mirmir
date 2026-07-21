@@ -1,0 +1,151 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R03",
+  "evidence_kind": "r03_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "b5c19c0040f845b7f32fe98bd5f01249c1b071f2",
+    "tree": "74e39285521fe31f9588cff5e43184c8f91f9180"
+  },
+  "operator_override": {
+    "authority": "operator",
+    "authorization_date": "2026-07-21",
+    "acceptance_basis": "software_performs_intended_task",
+    "override_id": "r03.software-function-phase-acceptance.v1",
+    "hardware_simulator_operator_observation": "waived_not_a_blocker",
+    "historical_evidence_policy": "preserve_r03_v1_and_v2_unchanged"
+  },
+  "superseded_gate": {
+    "gate": "One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.",
+    "disposition": "superseded_for_r03_phase_acceptance",
+    "retained_value": "optional_comparative_evidence"
+  },
+  "functional_gate": {
+    "backend_id": "r03.mps.lanczos",
+    "capability_id": "A11",
+    "framework": "MetalPerformanceShaders",
+    "framework_symbol": "MPSImageLanczosScale",
+    "qualification_scope": "functional_product_eligibility",
+    "required_route_ids": [
+      "scale_3_over_2",
+      "scale_2x"
+    ],
+    "repeat_count_per_route": 3,
+    "required_media_contract": "1920x1080_to_3840x2160_h264_aac_timing_metadata_reopen_atomic",
+    "required_lifecycle_contract": "apple-upscale-session-v1",
+    "fallback_policy": "none",
+    "functional_metric_ids": [
+      "dimension_mismatch_count",
+      "pixel_format_mismatch_count",
+      "color_identity_mismatch_count",
+      "frame_timing_mismatch_count",
+      "audio_identity_mismatch_count",
+      "metadata_identity_mismatch_count",
+      "resource_lifetime_violation_count",
+      "silent_fallback_count",
+      "incomplete_identity_count",
+      "nonfinite_metric_count",
+      "distinct_output_hash_count",
+      "temporal_repeatability_mismatch_count",
+      "peak_in_flight_resources"
+    ]
+  },
+  "evidence_bindings": [
+    {
+      "id": "r02_session_conformance",
+      "path": "docs/roadmaps/evidence/r02/records/conformance.json",
+      "size_bytes": 13488,
+      "sha256": "8eaccc72d82beb4bbe26dfa7af52809743e017e3ad9ba09d3cc4febc7f8187b1"
+    },
+    {
+      "id": "r03_v2_execution_receipt",
+      "path": "docs/roadmaps/evidence/r03/records/product-qualification-execution-receipt-v2.json",
+      "size_bytes": 21884,
+      "sha256": "98ad423ccbd99c0bc66d9acdedc5914430530a856dd02d3e720581af966cbea5"
+    },
+    {
+      "id": "r03_v2_qualification_decision",
+      "path": "docs/roadmaps/evidence/r03/records/product-qualification-decision-v2.json",
+      "size_bytes": 7721,
+      "sha256": "fc7597b390fb8bf9ea55be08b67be739a7d24e01253a370eb5c5f016ee998d34"
+    }
+  ],
+  "qualification_source": {
+    "commit": "dfdf1f12ecb22be1c6395d57017bf750fd76496f",
+    "tree": "c3558b90bf647febd900524e7afc40f8c2efbba4"
+  },
+  "derived_checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "evidence_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "r02_common_session_conformance",
+      "status": "passed"
+    },
+    {
+      "id": "r03_v2_decision_valid",
+      "status": "passed"
+    },
+    {
+      "id": "genuine_mps_execution",
+      "status": "passed"
+    },
+    {
+      "id": "canonical_routes",
+      "status": "passed"
+    },
+    {
+      "id": "three_repeat_determinism",
+      "status": "passed"
+    },
+    {
+      "id": "media_transaction_preservation",
+      "status": "passed"
+    },
+    {
+      "id": "lifecycle_and_resource_lifetime",
+      "status": "passed"
+    },
+    {
+      "id": "identity_and_no_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "functional_metrics",
+      "status": "passed"
+    },
+    {
+      "id": "truthful_observation_boundary",
+      "status": "passed"
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed",
+    "acceptance": "accepted",
+    "accepted_backend_id": "r03.mps.lanczos",
+    "acceptance_scope": "functional_software_phase_acceptance"
+  },
+  "authorizations": {
+    "phase_progression": "authorized",
+    "product_qualification": "r03.mps.lanczos_A11_only",
+    "production_default": "not_authorized",
+    "auto_mode": "blocked",
+    "holdout": "blocked",
+    "perceptual_quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "product_publication": "not_authorized",
+    "release": "not_authorized"
+  },
+  "limitations": [
+    "R03 phase acceptance is based only on the operator-authorized software function gate and the bound passing A11 evidence.",
+    "The frozen v1 blocked evidence and narrower v2 qualification decision remain immutable historical records.",
+    "This record does not select a production default or authorize Auto, holdout, perceptual-quality, performance, product-publication, or release claims."
+  ]
+}

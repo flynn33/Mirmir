@@ -56,6 +56,38 @@ R03_LOCAL_CONTINUATION_EXCEPTION = {
         "stop_rules",
     ],
 }
+R03_PHASE_ACCEPTANCE_OVERRIDE = {
+    "active_phase_status": "passed",
+    "dependency_phase_id": "R02",
+    "dependency_phase_status": "in_progress",
+    "dependency_conformance_binding": {
+        "path": "docs/roadmaps/evidence/r02/records/conformance.json",
+        "size_bytes": 13488,
+        "sha256": "8eaccc72d82beb4bbe26dfa7af52809743e017e3ad9ba09d3cc4febc7f8187b1",
+    },
+    "acceptance_record_binding": {
+        "path": (
+            "docs/roadmaps/evidence/r03/records/functional-phase-acceptance.json"
+        ),
+        "size_bytes": 4940,
+        "sha256": "46469f1c2764a88ccdb5752f3aeab2a9a4fd25e954eef65ad8eb02a78d18a476",
+    },
+    "acceptance_identity": {
+        "schema_version": "1.0.0",
+        "roadmap_version": "1.0.1",
+        "phase_id": "R03",
+        "evidence_kind": "r03_operator_functional_phase_acceptance_v1",
+        "override_id": "r03.software-function-phase-acceptance.v1",
+        "result": {
+            "status": "passed",
+            "phase_status_before": "in_progress",
+            "phase_status_after": "passed",
+            "acceptance": "accepted",
+            "accepted_backend_id": "r03.mps.lanczos",
+            "acceptance_scope": "functional_software_phase_acceptance",
+        },
+    },
+}
 R04_LOCAL_CONTINUATION_EXCEPTION = {
     "active_phase_status": "in_progress",
     "closure_required_path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
@@ -466,6 +498,7 @@ class AlignmentVerifier:
         json_relative = canonical["json_path"]
 
         self._local_continuation_exception_contract_is_exact()
+        self._phase_acceptance_override_contract_is_exact()
 
         for key in ("schema_version", "roadmap_version", "date", "revision_date"):
             expected = canonical[key]
@@ -592,6 +625,13 @@ class AlignmentVerifier:
             for dependency in required:
                 dependency_phase = phase_by_id.get(dependency)
                 if dependency_phase is not None and dependency_phase.get("status") != "passed":
+                    if self._phase_acceptance_override_allows(
+                        phase_id,
+                        phase.get("status"),
+                        dependency,
+                        dependency_phase.get("status"),
+                    ):
+                        continue
                     if self._local_continuation_exception_allows(
                         phase_id,
                         phase.get("status"),
@@ -605,6 +645,127 @@ class AlignmentVerifier:
                         f"phase {phase_id} is {phase.get('status')!r} before "
                         f"dependency {dependency} is passed",
                     )
+
+    def _phase_acceptance_override_allows(
+        self,
+        phase_id: str,
+        phase_status: object,
+        dependency_id: str,
+        dependency_status: object,
+    ) -> bool:
+        if not self._phase_acceptance_override_contract_is_exact():
+            return False
+        override = self.policy["phase_acceptance_overrides"].get(phase_id)
+        if not isinstance(override, dict):
+            return False
+        if (
+            phase_status != override.get("active_phase_status")
+            or dependency_id != override.get("dependency_phase_id")
+            or dependency_status != override.get("dependency_phase_status")
+        ):
+            return False
+
+        valid = True
+        for key in ("dependency_conformance_binding", "acceptance_record_binding"):
+            binding = override.get(key)
+            if not isinstance(binding, dict) or set(binding) != {
+                "path",
+                "size_bytes",
+                "sha256",
+            }:
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"R03 phase acceptance {key} is malformed",
+                )
+                valid = False
+                continue
+            relative = binding.get("path")
+            path = self.path(relative) if isinstance(relative, str) else None
+            if path is None or path.is_symlink() or not path.is_file():
+                self.add_error(
+                    str(relative),
+                    f"R03 phase acceptance {key} is not a regular file",
+                )
+                valid = False
+                continue
+            if (
+                path.stat().st_size != binding.get("size_bytes")
+                or sha256(path) != binding.get("sha256")
+            ):
+                self.add_error(
+                    relative,
+                    f"R03 phase acceptance {key} bytes differ",
+                )
+                valid = False
+
+        acceptance_binding = override.get("acceptance_record_binding")
+        dependency_binding = override.get("dependency_conformance_binding")
+        try:
+            acceptance = read_json(
+                self.path(acceptance_binding["path"])
+            ) if isinstance(acceptance_binding, dict) else None
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self.add_error(
+                "docs/roadmaps/evidence/r03/records/functional-phase-acceptance.json",
+                f"R03 phase acceptance record is invalid: {exc}",
+            )
+            acceptance = None
+            valid = False
+        try:
+            conformance = read_json(
+                self.path(dependency_binding["path"])
+            ) if isinstance(dependency_binding, dict) else None
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            self.add_error(
+                "docs/roadmaps/evidence/r02/records/conformance.json",
+                f"R02 conformance record is invalid: {exc}",
+            )
+            conformance = None
+            valid = False
+
+        identity = override.get("acceptance_identity")
+        if isinstance(acceptance, dict) and isinstance(identity, dict):
+            observed_identity = {
+                "schema_version": acceptance.get("schema_version"),
+                "roadmap_version": acceptance.get("roadmap_version"),
+                "phase_id": acceptance.get("phase_id"),
+                "evidence_kind": acceptance.get("evidence_kind"),
+                "override_id": (
+                    acceptance.get("operator_override", {}).get("override_id")
+                    if isinstance(acceptance.get("operator_override"), dict)
+                    else None
+                ),
+                "result": acceptance.get("result"),
+            }
+            if observed_identity != identity:
+                self.add_error(
+                    acceptance_binding["path"],
+                    "R03 phase acceptance identity differs",
+                )
+                valid = False
+        else:
+            valid = False
+
+        result = conformance.get("result") if isinstance(conformance, dict) else None
+        if not isinstance(result, dict) or result.get("status") != "passed":
+            self.add_error(
+                dependency_binding["path"]
+                if isinstance(dependency_binding, dict)
+                else "docs/roadmaps/evidence/r02/records/conformance.json",
+                "R03 phase acceptance requires passing R02 software conformance",
+            )
+            valid = False
+        return valid
+
+    def _phase_acceptance_override_contract_is_exact(self) -> bool:
+        expected = {"R03": R03_PHASE_ACCEPTANCE_OVERRIDE}
+        if self.policy.get("phase_acceptance_overrides") != expected:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "phase_acceptance_overrides differ from the exact R03 functional contract",
+            )
+            return False
+        return True
 
     def _local_continuation_exception_allows(
         self,

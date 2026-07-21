@@ -606,7 +606,7 @@ A deterministic fixture can run through multiple backends under one common sessi
 
 ## R03 — Deterministic Apple-native baseline suite
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -651,9 +651,87 @@ and are not blockers under the operator override. No 2× media coverage, runtime
 support, product qualification, default selection, performance, acceptance,
 publication, or release claim is made.
 
+### Product-qualification correction authorization — 2026-07-21
+
+The operator has directed R03 to correct the incompatible media-fixture
+composition and establish one qualified primary backend. The frozen v1
+preregistration, fixture catalog, and blocked conformance record remain immutable
+historical evidence. The correction must be an additive, versioned contract with
+an R03-owned 1920×1080-to-3840×2160 media transaction that preserves the R02
+audio, timed-metadata, reopen-before-publication, and atomic-publication
+semantics.
+
+Only `r03.mps.lanczos` (`A11`) is eligible for this correction because it is the
+sole frozen whole-frame subject classified as a candidate after observed
+qualification. Product qualification requires the genuine
+`MPSImageLanczosScale` implementation to create and process both canonical
+routes, deterministic repeatability, exact session/media contracts, and the
+versioned qualification checks. Simulated execution may exercise admission,
+error, lifecycle, and media seams, but it may not impersonate native MPS
+execution. Hardware, simulator, and operator-observed operation remain optional
+and truthfully `not_observed` when unused.
+
+This authorization permitted an explicit `product_qualified` capability and
+product-scope session admission for the passing A11 implementation only. By
+itself, that narrower authorization did not select or enable a production
+default, Auto mode, holdout access, phase acceptance, a product quality or
+performance claim, publication, release, or any other backend's product
+admission.
+
+### A11 functional product-qualification checkpoint — 2026-07-21
+
+The additive [v2 execution receipt](evidence/r03/records/product-qualification-execution-receipt-v2.json)
+and mechanically derived [v2 decision](evidence/r03/records/product-qualification-decision-v2.json)
+pass for source commit `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
+`c3558b90bf647febd900524e7afc40f8c2efbba4`. All 14 preregistered macOS
+tests passed with zero failures or skips. The bound run observed genuine
+`MPSImageLanczosScale` execution on both canonical routes, three-repeat
+determinism, the exact 1920×1080-to-3840×2160 H.264/AAC media transaction,
+timing, metadata, reopen verification, resource lifetime, atomic publication,
+and an empty fallback history.
+
+Only `r03.mps.lanczos` (`A11`) is `product_qualified`, and only for
+`functional_product_eligibility`. The frozen v1 blocked record remains immutable
+historical evidence. The v2 decision itself left R03 `in_progress` and did not
+claim product runtime support or authorize a production default, Auto, holdout,
+phase acceptance, perceptual-quality or performance claims, publication, or
+release. It removed the absence of a qualified primary backend as a prospective
+cause for a new additive R06 or R07 product-gate run without retroactively
+altering either phase's frozen blocked evidence.
+
+### Operator-overridden functional phase acceptance — 2026-07-21
+
+The operator determined that the original requirement to compare the
+quality/performance/resource envelope of every deterministic Apple path was not
+an appropriate prerequisite for deciding whether the R03 software performs its
+intended task. That comparison remains useful optional evidence, but it is
+superseded as an R03 phase-acceptance gate.
+
+The additive [functional phase-acceptance record](evidence/r03/records/functional-phase-acceptance.json)
+is bound to qualification publication commit
+`b5c19c0040f845b7f32fe98bd5f01249c1b071f2`, tree
+`74e39285521fe31f9588cff5e43184c8f91f9180`. Its fail-closed validator rechecks
+the passing R02 common-session conformance and the exact R03 v2 receipt and
+decision. It accepts R03 only because genuine `MPSImageLanczosScale` processed
+both canonical routes repeatably while preserving dimensions, color, frame
+order, PTS, duration, audio, metadata, reopen-before-publication, resource
+lifetime, complete processing identity, atomic publication, and an empty
+fallback history. Every applicable functional metric passed.
+
+R03 is therefore `passed` for `functional_software_phase_acceptance`. The frozen
+v1 blocked evidence and narrower v2 decision remain unchanged. This acceptance
+does not select a production default or authorize Auto, holdout,
+perceptual-quality, performance, product-publication, or release claims.
+
 ### Exit gate
 
-One baseline matrix establishes the quality/performance/resource envelope of every deterministic Apple path.
+One genuine Apple-native primary backend must execute the canonical 3/2× and 2×
+routes under the common session contract, repeatably, while preserving
+dimensions, color, frame order, PTS, duration, audio, metadata,
+reopen-before-publication, resource lifetime, complete processing identity,
+atomic publication, and an empty fallback history. Quality/performance/resource
+comparison across every deterministic path is optional comparative evidence and
+is not an R03 phase-acceptance prerequisite.
 
 ---
 
@@ -860,8 +938,9 @@ preregistration binds the exact local R05 diagnostic-only closure commit
 `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, with
 `accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
 `continuation_scope: local_implementation_only`. R06 depends directly on R05;
-R04 remains a transitive unresolved dependency through R05. R03, R04, and R05
-remain canonical `in_progress`, local unpublished, unaccepted, and unqualified.
+R04 remains a transitive unresolved dependency through R05. At this frozen R06
+start checkpoint, R03, R04, and R05 remained canonical `in_progress`, local
+unpublished, unaccepted, and unqualified.
 
 The frozen R06 software slice is fixture-only. It preserves the existing
 nine-bit `ASHState`, maps all sixteen four-bit `ASHMessage` values to versioned
@@ -871,8 +950,8 @@ hysteresis, minimum dwell, scene-cut reset, fatal failover, and bounded luma,
 chroma, and postprocess masks. The six required ablation configurations may be
 exercised only as deterministic software fixtures.
 
-No R03-R05 backend is product-qualified. Product admission must therefore stop
-before scoring or route construction with
+At this frozen R06 checkpoint, no R03-R05 backend was product-qualified. Product
+admission therefore stopped before scoring or route construction with
 `reason: no_product_qualified_primary_backend`,
 `eligible_backend_count: 0`, and null selected route, plan, and output. All six
 product ablations remain `not_observed`, and the preregistered local result is
@@ -892,7 +971,8 @@ controls without enabling a production route.
 
 All 32 focused Xcode tests passed, strict SwiftLint passed across 275 files, all
 529 Python governance tests passed, and deterministic software conformance
-passed. Product admission nevertheless remains fail-closed `blocked` for
+passed. The frozen product-admission result nevertheless remains fail-closed
+`blocked` for
 `reason: no_product_qualified_primary_backend`, with
 `eligible_backend_count: 0` and null selected route, plan, and output. All
 product, hardware, simulator, and operator observations remain `not_observed`.
@@ -900,6 +980,16 @@ product, hardware, simulator, and operator observations remain `not_observed`.
 This is a local unpublished blocked closure, not phase acceptance. R06 remains
 canonical `in_progress`. No quality, performance, product, production-default,
 acceptance, publication, or release claim follows from this checkpoint.
+
+### Qualified-backend follow-up — 2026-07-21
+
+The later R03 v2 decision product-qualified A11 for functional product
+eligibility. The earlier R06 `no_product_qualified_primary_backend` result
+remains truthful historical evidence from its bound source and is not rewritten.
+Its cause is now cleared prospectively for a separately preregistered additive
+R06 product-gate rerun. No such rerun is recorded here; R06 remains
+`in_progress`, unaccepted, and without a production-default, quality,
+performance, publication, or release claim.
 
 ### Exit gate
 
@@ -945,14 +1035,25 @@ their implementation or tuning. Deterministic software fixtures and locally
 available static, unit, mutation, project, build, and hosted checks remain
 required where applicable.
 
-No upstream phase has a product-qualified primary backend. Product evaluation
-therefore remains fail-closed `blocked` solely for
+At this frozen R07 start checkpoint, no upstream phase had a product-qualified
+primary backend. Product evaluation was therefore fail-closed `blocked` solely for
 `upstream_no_product_qualified_primary_backend`, with zero eligible routes and
 null selected route, plan, and output. Product temporal, artifact, chroma, and
 spatial-quality measurements remain `not_observed`. Hardware, simulator, and
 operator-observed operation also remain non-blocking `not_observed` and are not
 the blocked cause. This start makes no quality, performance, product,
 production-default, acceptance, publication, or release claim.
+
+### Qualified-backend follow-up — 2026-07-21
+
+The later R03 v2 decision product-qualified A11 for functional product
+eligibility. The earlier R07 `upstream_no_product_qualified_primary_backend`
+result remains truthful historical evidence from its bound source and is not
+rewritten. Its cause is now cleared prospectively for a separately preregistered
+additive R07 product-gate rerun after the required upstream orchestration path is
+available. No rerun or product metric is recorded here; R07 remains
+`in_progress`, unaccepted, and without a quality, performance,
+production-default, publication, or release claim.
 
 ### Exit gate
 

@@ -1,0 +1,276 @@
+{
+  "schema_version": "2.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R03",
+  "evidence_kind": "r03_a11_functional_product_qualification_decision_v2",
+  "preregistration_binding": {
+    "path": "docs/roadmaps/evidence/r03/records/product-qualification-preregistration-v2.json",
+    "size_bytes": 16096,
+    "sha256": "f65e2996883d319ff9a64a2e1c8d6d7efff9c683338c391a320343f0f5b0d97e"
+  },
+  "fixture_catalog_binding": {
+    "path": "docs/roadmaps/evidence/r03/records/fixtures/product-qualification-fixture-catalog-v2.json",
+    "size_bytes": 6297,
+    "sha256": "0c8997119d83f99b538ab5bc471b2e3ac78cc6cb71fd10ae6da8adb1a9078cca"
+  },
+  "execution_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r03/records/product-qualification-execution-receipt-v2.json",
+    "size_bytes": 21884,
+    "sha256": "98ad423ccbd99c0bc66d9acdedc5914430530a856dd02d3e720581af966cbea5"
+  },
+  "validator_binding": {
+    "path": "Scripts/r03_product_qualification.py",
+    "size_bytes": 119478,
+    "sha256": "536c44cd6af25a177ecb8453cb6c2596f014dcc6e5b8241413ea51319e43cb5f"
+  },
+  "candidate_identity": {
+    "backend_id": "r03.mps.lanczos",
+    "capability_id": "A11",
+    "qualification_scope": "functional_product_eligibility",
+    "policy_identity": "r03.a11.product-qualified.no-fallback.v1",
+    "material_decision_identity": "r03.a11.genuine-mps-lanczos-product-admission.v1"
+  },
+  "derived_checks": [
+    {
+      "id": "historical_v1_preserved",
+      "status": "passed"
+    },
+    {
+      "id": "schema_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "fixture_catalog_binding_exact",
+      "status": "passed"
+    },
+    {
+      "id": "candidate_identity_exact",
+      "status": "passed"
+    },
+    {
+      "id": "genuine_mps_execution_observed",
+      "status": "passed"
+    },
+    {
+      "id": "both_routes_observed",
+      "status": "passed"
+    },
+    {
+      "id": "three_repeat_single_hash",
+      "status": "passed"
+    },
+    {
+      "id": "format_and_color_exact",
+      "status": "passed"
+    },
+    {
+      "id": "timing_and_metadata_exact",
+      "status": "passed"
+    },
+    {
+      "id": "media_transaction_exact",
+      "status": "passed"
+    },
+    {
+      "id": "lifecycle_and_lifetime_exact",
+      "status": "passed"
+    },
+    {
+      "id": "processing_identity_and_no_fallback_exact",
+      "status": "passed"
+    },
+    {
+      "id": "source_test_artifact_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "toolchain_complete",
+      "status": "passed"
+    },
+    {
+      "id": "metric_matrix_exact",
+      "status": "passed"
+    },
+    {
+      "id": "functional_metric_floors_pass",
+      "status": "passed"
+    },
+    {
+      "id": "nonapplicable_metric_reasons_exact",
+      "status": "passed"
+    },
+    {
+      "id": "observation_status_truthful",
+      "status": "passed"
+    },
+    {
+      "id": "decision_derived_from_receipt",
+      "status": "passed"
+    },
+    {
+      "id": "authorization_boundary_preserved",
+      "status": "passed"
+    }
+  ],
+  "metric_evaluations": [
+    {
+      "id": "dimension_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "pixel_format_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "color_identity_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "frame_timing_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "audio_identity_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "metadata_identity_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "resource_lifetime_violation_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "silent_fallback_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "incomplete_identity_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "nonfinite_metric_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "distinct_output_hash_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "quantized_output_code_maximum_difference",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "perceptual_quality_metric_outside_functional_qualification"
+    },
+    {
+      "id": "cpu_gpu_normalized_absolute_maximum",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "non_identical_cpu_gpu_contract_outside_functional_qualification"
+    },
+    {
+      "id": "cpu_gpu_normalized_rms_maximum",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "non_identical_cpu_gpu_contract_outside_functional_qualification"
+    },
+    {
+      "id": "ringing_overshoot_maximum",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "perceptual_quality_metric_outside_functional_qualification"
+    },
+    {
+      "id": "ringing_undershoot_maximum",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "perceptual_quality_metric_outside_functional_qualification"
+    },
+    {
+      "id": "chroma_displacement_maximum",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "perceptual_quality_metric_outside_functional_qualification"
+    },
+    {
+      "id": "edge_profile_measurement_count",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "perceptual_quality_metric_outside_functional_qualification"
+    },
+    {
+      "id": "temporal_repeatability_mismatch_count",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    },
+    {
+      "id": "throughput_frames_per_second",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "performance_metric_outside_functional_qualification"
+    },
+    {
+      "id": "p95_wall_time_milliseconds",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "performance_metric_outside_functional_qualification"
+    },
+    {
+      "id": "peak_resident_memory_delta_bytes",
+      "status": "not_applicable",
+      "passed": null,
+      "reason": "performance_metric_outside_functional_qualification"
+    },
+    {
+      "id": "peak_in_flight_resources",
+      "status": "measured",
+      "passed": true,
+      "reason": null
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "phase_status": "in_progress",
+    "product_qualification": "product_qualified",
+    "product_qualified_backend_id": "r03.mps.lanczos",
+    "qualification_scope": "functional_product_eligibility",
+    "product_runtime_support": "not_claimed",
+    "default_backend_id": null,
+    "auto_mode": "blocked",
+    "holdout": "blocked",
+    "acceptance": "not_claimed",
+    "perceptual_quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "publication": "not_authorized_by_this_record",
+    "release": "not_authorized"
+  },
+  "limitations": [
+    "This decision establishes only A11 functional product eligibility under the exact v2 routes, format, policy, material-decision, lifecycle, and no-fallback contract.",
+    "R03 remains in_progress; phase acceptance, production default, Auto, holdout, product runtime support, publication, and release are not claimed or authorized.",
+    "Hardware capability and operator-observed operation remain not_observed; no perceptual-quality or performance claim follows from this functional qualification."
+  ]
+}
