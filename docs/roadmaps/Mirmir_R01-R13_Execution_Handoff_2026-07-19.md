@@ -1,6 +1,6 @@
 # Mirmir R01-R13 Execution Handoff
 
-- **Handoff version:** 1.7
+- **Handoff version:** 1.8
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-20
@@ -39,8 +39,13 @@
 - **R04 implementation source:**
   `73d6f1df9d9b443209d55a6c9deea29923d49bc4`; tree
   `90c45e2c583defc7aa593f9199512719884de0d0`
+- **R04 local diagnostic-only closure:**
+  `88e26f5967f7eb35a54791017ca0c2b888f2fbf5`; tree
+  `4a7cc588b6fa51c21f2293e56cf3dea389acd908`; acceptance not claimed
+- **R05 local preregistration source:** R04 diagnostic-only closure above;
+  `accepted_merge_commit: null`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: in_progress`;
-  `R04: in_progress`
+  `R04: in_progress`; `R05: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -120,6 +125,26 @@ the frozen typed `public_contract_unrepresentable` rejection. R04 remains
 `in_progress`, local unpublished, disabled as a production default, and
 unaccepted.
 
+### R05 local implementation start — 2026-07-20
+
+R05 preregistration binds exact R04 diagnostic-only closure commit
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5`, tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`, as
+`local_unpublished_diagnostic_only_closure` with
+`predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
+`continuation_scope: local_implementation_only`. R04 remains canonical
+`in_progress` and unaccepted.
+
+The frozen R05 matrix contains exact A07 spatial 1.5× and 2× routes through an
+explicit left-sited BT.709 video-range NV12 to linear RGBA16Float bridge. A08,
+A09, and A10 are typed `rejected_for_decoded_video` contracts because the
+decoded-video boundary lacks evidence-backed renderer motion, depth, jitter,
+G-buffer, camera, UI, and output-timing semantics. The implementation must not
+fabricate those inputs. Native execution, quality, performance, comparison, and
+media-reopen evidence remain `not_observed` until actually observed; their
+absence is non-blocking under the operator override and makes no qualification,
+default, acceptance, publication, or release claim.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -130,12 +155,12 @@ Before changing source:
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
-   `R03: in_progress`, and `R04: in_progress` remain
+   `R03: in_progress`, `R04: in_progress`, and `R05: in_progress` remain
    canonical for this local continuation. If any changed, reconcile the newer
    accepted roadmap before proceeding.
 5. Treat the exact R04 implementation/conformance checkpoint above as
-   diagnostic-only local evidence and continue the operator-directed local plan
-   by preregistering the next phase against its exact predecessor. Do not convert
+   diagnostic-only local evidence and continue the frozen R05 implementation
+   contract. Do not convert
    R03 or R04 into accepted or product-qualified phases. Except for the narrow
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
@@ -712,6 +737,15 @@ The canonical disposition list has no qualified frame-interpolation outcome.
 Therefore A10 may be `diagnostic_only` or `rejected_for_decoded_video` in R05;
 qualifying it for product cadence requires a later explicit canonical roadmap
 amendment, targeted no earlier than R12.
+
+Local start: the R05 preregistration binds R04 closure
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5`, tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`. Only A07 spatial 1.5× and 2× are
+implementation candidates, behind an explicit NV12/linear-color bridge and
+support query. A08-A10 are deterministic decoded-video contract rejections.
+R05 remains `in_progress`, local unpublished, and unaccepted; no runtime,
+quality, performance, qualification, default, publication, or release claim is
+made.
 
 ### R06 - ASH orchestration engine v1
 

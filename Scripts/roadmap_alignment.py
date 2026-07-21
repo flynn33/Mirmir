@@ -95,11 +95,59 @@ R04_LOCAL_CONTINUATION_EXCEPTION = {
         "authorization_boundary",
     ],
 }
+R05_LOCAL_CONTINUATION_EXCEPTION = {
+    "active_phase_status": "in_progress",
+    "closure_required_path": (
+        "docs/roadmaps/evidence/r04/records/integration-conformance.json"
+    ),
+    "dependency_phase_id": "R04",
+    "dependency_phase_status": "in_progress",
+    "predecessor_binding": {
+        "acceptance_state": "not_claimed",
+        "accepted_merge_commit": None,
+        "closure_commit": "88e26f5967f7eb35a54791017ca0c2b888f2fbf5",
+        "closure_state": "local_unpublished_diagnostic_only_closure",
+        "closure_tree": "4a7cc588b6fa51c21f2293e56cf3dea389acd908",
+        "continuation_scope": "local_implementation_only",
+        "phase_id": "R04",
+        "predecessor_result": "diagnostic_only",
+    },
+    "preregistration_identity": {
+        "phase_id": "R05",
+        "preregistration_state": "contract_frozen_for_local_implementation",
+        "roadmap_version": "1.0.1",
+        "schema_version": "1.0.0",
+    },
+    "preregistration_path": "docs/roadmaps/evidence/r05/records/preregistration.json",
+    "preregistration_required_keys": [
+        "schema_version",
+        "roadmap_version",
+        "phase_id",
+        "preregistration_state",
+        "predecessor_binding",
+        "toolchain_boundary",
+        "observation_policy",
+        "fixture_catalog",
+        "schema_bindings",
+        "contract",
+        "subjects",
+        "checks",
+        "stop_rules",
+        "authorization_boundary",
+    ],
+}
 R04_PHASE_START_REQUIREMENT = {
     "statuses": ["in_progress", "evidence_ready", "passed"],
     "paths": [
         "docs/roadmaps/evidence/r04/records/preregistration.json",
         "docs/roadmaps/evidence/r04/records/fixtures/fixture-catalog.json",
+    ],
+}
+R05_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r05/records/preregistration.json",
+        "docs/roadmaps/evidence/r05/records/fixtures/fixture-catalog.json",
     ],
 }
 
@@ -528,7 +576,7 @@ class AlignmentVerifier:
             "acceptance_state",
             "continuation_scope",
         }
-        if phase_id == "R04":
+        if "predecessor_result" in predecessor:
             expected_predecessor_keys.add("predecessor_result")
         if set(predecessor) != expected_predecessor_keys:
             self.add_error(
@@ -595,11 +643,12 @@ class AlignmentVerifier:
         expected = {
             "R03": R03_LOCAL_CONTINUATION_EXCEPTION,
             "R04": R04_LOCAL_CONTINUATION_EXCEPTION,
+            "R05": R05_LOCAL_CONTINUATION_EXCEPTION,
         }
         if exceptions != expected:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
-                "local_continuation_exceptions differ from the frozen R03/R04 exceptions",
+                "local_continuation_exceptions differ from the frozen R03/R04/R05 exceptions",
             )
             return False
         return True
@@ -846,6 +895,11 @@ class AlignmentVerifier:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R04 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R05") != R05_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R05 phase_start_requirements differ from the frozen contract",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)

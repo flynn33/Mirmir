@@ -30,9 +30,9 @@ market-position claim.
 
 `[#---------]`
 
-**Status:** ✅ Passed `2` · 🔄 In progress `3` · ⬜ Planned `8` · ⛔ Blocked `1`
+**Status:** ✅ Passed `2` · 🔄 In progress `4` · ⬜ Planned `7` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration
+**Current focus:** `R02` — Unified backend and stage architecture; `R03` — Deterministic Apple-native baseline suite; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -41,7 +41,7 @@ market-position claim.
 | `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
 | `R03` | Deterministic Apple-native baseline suite | `in_progress` | 🔄 In progress |
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
-| `R05` | MetalFX integration and suitability decision | `planned` | ⬜ Planned |
+| `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
 | `R06` | ASH orchestration engine v1 | `planned` | ⬜ Planned |
 | `R07` | Temporal stability and artifact governance | `planned` | ⬜ Planned |
 | `R08` | Core AI analysis-only integration | `planned` | ⬜ Planned |
@@ -797,7 +797,7 @@ gates remain unobserved and are not claimed satisfied.
 
 ## R05 — MetalFX integration and suitability decision
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -811,6 +811,31 @@ Use MetalFX where its public contract fits decoded video, and reject it where re
 4. Do not fabricate depth or renderer semantics merely to make the API run.
 5. Probe temporal-denoised scaling only after auxiliary-buffer estimation has independent quality evidence.
 6. Treat MetalFX frame interpolation as a separate cadence feature.
+
+### Local implementation start — 2026-07-20
+
+R05 starts only under the operator-directed local-continuation boundary. Its
+frozen preregistration binds the exact local R04 diagnostic-only closure commit
+`88e26f5967f7eb35a54791017ca0c2b888f2fbf5` and tree
+`4a7cc588b6fa51c21f2293e56cf3dea389acd908`, with
+`accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
+`continuation_scope: local_implementation_only`. R04 remains canonical
+`in_progress`, local unpublished, unaccepted, and unqualified.
+
+The frozen R05 matrix implements only exact A07 spatial 1.5× and 2× routes. It
+requires a device-support query before construction and an explicit
+left-sited, video-range BT.709 NV12-to-linear-RGBA16Float-to-NV12 bridge; NV12
+planes cannot be passed directly to MetalFX and nonlinear RGB cannot be labeled
+linear. A08 temporal, A09 temporal-denoised, and A10 frame interpolation are
+typed `rejected_for_decoded_video` routes because decoded frames do not provide
+the required renderer-semantic motion, depth, jitter, G-buffer, camera, UI, and
+output-timing inputs. No such inputs may be fabricated.
+
+Hardware, simulator, and operator observation remain non-blocking under the
+operator override. Any unavailable native execution, quality, performance,
+baseline comparison, or reopen result must remain `not_observed`. This local
+start makes no product-qualification, production-default, quality, performance,
+acceptance, publication, or release claim.
 
 ### Exit outcomes
 

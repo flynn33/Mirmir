@@ -1,0 +1,146 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r05-preregistration-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "statement": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {"minLength": 1, "type": "string"},
+        "id": {"pattern": "^[a-z0-9_]+$", "type": "string"}
+      },
+      "required": ["id", "description"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "authorization_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance": {"const": "not_claimed", "type": "string"},
+        "auto_mode": {"const": "blocked", "type": "string"},
+        "holdout": {"const": "blocked", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "production_default": {"const": "not_enabled", "type": "string"},
+        "publication": {"const": "not_authorized_by_this_record", "type": "string"},
+        "quality_claims": {"const": "forbidden", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"}
+      },
+      "required": ["production_default", "product_qualification", "quality_claims", "performance_claims", "auto_mode", "holdout", "acceptance", "release", "publication"],
+      "type": "object"
+    },
+    "checks": {"items": {"$ref": "#/$defs/statement"}, "maxItems": 20, "minItems": 20, "type": "array"},
+    "contract": {
+      "additionalProperties": false,
+      "properties": {
+        "auxiliary_input_policy": {"type": "string"},
+        "capability_inference": {"type": "string"},
+        "color_bridge": {"type": "string"},
+        "color_scope": {"type": "string"},
+        "denoised_temporal_disposition": {"type": "string"},
+        "frame_interpolation_disposition": {"type": "string"},
+        "identity_contract": {"type": "string"},
+        "spatial_routes": {"type": "string"},
+        "temporal_disposition": {"type": "string"}
+      },
+      "required": ["color_scope", "color_bridge", "spatial_routes", "temporal_disposition", "denoised_temporal_disposition", "frame_interpolation_disposition", "auxiliary_input_policy", "identity_contract", "capability_inference"],
+      "type": "object"
+    },
+    "fixture_catalog": {"$ref": "#/$defs/fileBinding"},
+    "observation_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_conformance": {"const": "required", "type": "string"},
+        "hardware_capability_observation": {"const": "not_observed", "type": "string"},
+        "hardware_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "operator_observation_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "performance_claims": {"const": "forbidden", "type": "string"},
+        "quality_claims": {"const": "forbidden", "type": "string"},
+        "runtime_execution": {"const": "observed_or_not_observed_per_subject", "type": "string"},
+        "simulator_execution": {"const": "not_observed", "type": "string"},
+        "simulator_requirement": {"const": "waived_not_a_blocker", "type": "string"}
+      },
+      "required": ["hardware_requirement", "simulator_requirement", "operator_observation_requirement", "hardware_capability_observation", "simulator_execution", "operator_observed_operation", "runtime_execution", "deterministic_software_conformance", "quality_claims", "performance_claims"],
+      "type": "object"
+    },
+    "phase_id": {"const": "R05", "type": "string"},
+    "predecessor_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_state": {"const": "not_claimed", "type": "string"},
+        "accepted_merge_commit": {"const": null, "type": "null"},
+        "closure_commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "closure_state": {"const": "local_unpublished_diagnostic_only_closure", "type": "string"},
+        "closure_tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "continuation_scope": {"const": "local_implementation_only", "type": "string"},
+        "phase_id": {"const": "R04", "type": "string"},
+        "predecessor_result": {"const": "diagnostic_only", "type": "string"}
+      },
+      "required": ["phase_id", "closure_state", "closure_commit", "closure_tree", "predecessor_result", "accepted_merge_commit", "acceptance_state", "continuation_scope"],
+      "type": "object"
+    },
+    "preregistration_state": {"const": "contract_frozen_for_local_implementation", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "schema_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "conformance": {"$ref": "#/$defs/fileBinding"},
+        "fixture_catalog": {"$ref": "#/$defs/fileBinding"},
+        "preregistration": {"$ref": "#/$defs/fileBinding"}
+      },
+      "required": ["preregistration", "fixture_catalog", "conformance"],
+      "type": "object"
+    },
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "stop_rules": {"items": {"$ref": "#/$defs/statement"}, "maxItems": 11, "minItems": 11, "type": "array"},
+    "subjects": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "backend_identity": {"enum": ["spatial", "temporal", "temporal_denoised", "frame_interpolation"], "type": "string"},
+          "capability_id": {"enum": ["A07", "A08", "A09", "A10"], "type": "string"},
+          "id": {"pattern": "^r05\\.[a-z0-9.-]+$", "type": "string"},
+          "initial_disposition": {"enum": ["not_observed", "rejected_for_decoded_video"], "type": "string"},
+          "initial_status": {"enum": ["not_observed", "contract_rejected"], "type": "string"},
+          "product_default_eligibility": {"enum": ["candidate_after_observed_qualification", "ineligible_contract_rejection"], "type": "string"},
+          "reason": {"enum": ["runtime_not_observed_under_operator_override", "missing_renderer_motion_depth_jitter_semantics", "missing_renderer_gbuffer_motion_depth_camera_semantics", "missing_renderer_motion_depth_camera_and_output_timing_contract"], "type": "string"},
+          "route_id": {"pattern": "^[a-z0-9_]+$", "type": "string"},
+          "route_policy": {"enum": ["runtime_observation_required", "typed_decoded_video_rejection"], "type": "string"}
+        },
+        "required": ["id", "capability_id", "backend_identity", "route_id", "route_policy", "initial_status", "initial_disposition", "reason", "product_default_eligibility"],
+        "type": "object"
+      },
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "toolchain_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_floor": {"const": "Swift 6.2", "type": "string"},
+        "extended_runtime_floor": {"const": "macOS 26.0", "type": "string"},
+        "platform": {"const": "macOS", "type": "string"},
+        "sdk_family": {"const": "macOS 26", "type": "string"},
+        "simulator_availability": {"const": "unavailable", "type": "string"},
+        "simulator_availability_effect": {"const": "not_a_blocker", "type": "string"},
+        "spatial_runtime_floor": {"const": "macOS 13.0", "type": "string"}
+      },
+      "required": ["platform", "spatial_runtime_floor", "extended_runtime_floor", "sdk_family", "compiler_floor", "simulator_availability", "simulator_availability_effect"],
+      "type": "object"
+    }
+  },
+  "required": ["schema_version", "roadmap_version", "phase_id", "preregistration_state", "predecessor_binding", "toolchain_boundary", "observation_policy", "fixture_catalog", "schema_bindings", "contract", "subjects", "checks", "stop_rules", "authorization_boundary"],
+  "type": "object"
+}

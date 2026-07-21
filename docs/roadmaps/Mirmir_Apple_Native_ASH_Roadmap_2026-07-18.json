@@ -243,12 +243,12 @@
     },
     {
       "depends_on": [
-        "R03"
+        "R04"
       ],
       "exit": "qualified, restricted, diagnostic-only, rejected, or not_observed disposition for each MetalFX path",
       "id": "R05",
       "name": "MetalFX integration and suitability decision",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [
