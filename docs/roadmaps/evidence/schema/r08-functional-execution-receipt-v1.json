@@ -1,0 +1,273 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r08-functional-execution-receipt-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "namedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "comparisonPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "comparative_testing": {"const": "not_run_not_required", "type": "string"},
+        "a_b_testing": {"const": "not_run_not_required", "type": "string"},
+        "blinded_testing": {"const": "not_run_not_required", "type": "string"},
+        "ablation_testing": {"const": "not_run_not_required", "type": "string"},
+        "superiority_requirement": {"const": "superseded_not_required", "type": "string"},
+        "acceptance_dependency": {"const": "none", "type": "string"}
+      },
+      "required": [
+        "comparative_testing",
+        "a_b_testing",
+        "blinded_testing",
+        "ablation_testing",
+        "superiority_requirement",
+        "acceptance_dependency"
+      ],
+      "type": "object"
+    },
+    "testSuite": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "R08CoreAIAnalysisContractsTests",
+            "R08AnalysisBudgetContractTests",
+            "R08AnalysisIdentityContractTests",
+            "R08AnalysisOutputDecoderTests",
+            "R08DeterministicAnalysisServiceTests",
+            "R08DeterministicAnalysisLifecycleTests",
+            "R08AnalysisResourceBudgetTests",
+            "R08ForbiddenOutputServiceTests",
+            "R08InputTransferFallbackTests",
+            "R08ASHAnalysisBridgeTests"
+          ],
+          "type": "string"
+        },
+        "expected_test_count": {"minimum": 1, "type": "integer"},
+        "passed_test_count": {"minimum": 1, "type": "integer"},
+        "failed_test_count": {"const": 0, "type": "integer"},
+        "skipped_test_count": {"const": 0, "type": "integer"}
+      },
+      "required": [
+        "id",
+        "expected_test_count",
+        "passed_test_count",
+        "failed_test_count",
+        "skipped_test_count"
+      ],
+      "type": "object"
+    },
+    "passedFunctionalCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "optional_analysis_only_service",
+            "exact_nine_analysis_outputs",
+            "calibrated_q15_geometry_and_bounds",
+            "invalid_output_fail_closed",
+            "schedule_precedence_cadence_and_order",
+            "model_processing_and_result_identity",
+            "specialization_cache_key_and_lru",
+            "aot_behavioral_equivalence",
+            "zero_copy_with_deterministic_copy_fallback",
+            "state_scope_and_reset",
+            "cancellation_is_transactional",
+            "single_inflight_transaction",
+            "resource_budget_bypass",
+            "availability_and_identity_fallback",
+            "ash_context_bounded_integration",
+            "protected_mask_composition",
+            "pixel_output_and_control_forbidden",
+            "simulation_identity_truthful"
+          ],
+          "type": "string"
+        },
+        "status": {"const": "passed", "type": "string"},
+        "evidence_tests": {
+          "items": {
+            "pattern": "^MirmirTests/R08[A-Za-z0-9]+Tests/test[A-Za-z0-9_]+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true,
+          "type": "array"
+        }
+      },
+      "required": ["id", "status", "evidence_tests"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R08", "type": "string"},
+    "evidence_kind": {
+      "const": "r08_deterministic_functional_execution_receipt_v1",
+      "type": "string"
+    },
+    "source": {"$ref": "#/$defs/source"},
+    "contract_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 10,
+      "minItems": 10,
+      "type": "array"
+    },
+    "implementation_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "artifact_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "test_execution": {
+      "additionalProperties": false,
+      "properties": {
+        "execution_mode": {"const": "deterministic_fixture_simulation", "type": "string"},
+        "expected_selected_test_count": {"minimum": 1, "type": "integer"},
+        "selected_test_count": {"minimum": 1, "type": "integer"},
+        "passed_test_count": {"minimum": 1, "type": "integer"},
+        "failed_test_count": {"const": 0, "type": "integer"},
+        "skipped_test_count": {"const": 0, "type": "integer"},
+        "test_suites": {
+          "items": {"$ref": "#/$defs/testSuite"},
+          "maxItems": 10,
+          "minItems": 10,
+          "type": "array"
+        },
+        "toolchain": {
+          "additionalProperties": false,
+          "properties": {
+            "platform": {"minLength": 1, "type": "string"},
+            "architecture": {"minLength": 1, "type": "string"},
+            "os_version": {"minLength": 1, "type": "string"},
+            "xcode_version": {"minLength": 1, "type": "string"},
+            "xcode_build_version": {"minLength": 1, "type": "string"},
+            "command": {"minLength": 1, "type": "string"}
+          },
+          "required": [
+            "platform",
+            "architecture",
+            "os_version",
+            "xcode_version",
+            "xcode_build_version",
+            "command"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "execution_mode",
+        "expected_selected_test_count",
+        "selected_test_count",
+        "passed_test_count",
+        "failed_test_count",
+        "skipped_test_count",
+        "test_suites",
+        "toolchain"
+      ],
+      "type": "object"
+    },
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_execution": {"const": "observed", "type": "string"},
+        "deterministic_fixture_simulation": {"const": "observed", "type": "string"},
+        "hardware_execution": {"const": "not_observed", "type": "string"},
+        "apple_simulator_execution": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "xcode27_environment": {"const": "not_observed", "type": "string"},
+        "core_ai_framework_availability": {"const": "not_observed", "type": "string"},
+        "model_asset_availability": {"const": "not_observed", "type": "string"},
+        "native_core_ai_execution": {"const": "not_observed", "type": "string"}
+      },
+      "required": [
+        "deterministic_software_execution",
+        "deterministic_fixture_simulation",
+        "hardware_execution",
+        "apple_simulator_execution",
+        "operator_observed_operation",
+        "xcode27_environment",
+        "core_ai_framework_availability",
+        "model_asset_availability",
+        "native_core_ai_execution"
+      ],
+      "type": "object"
+    },
+    "comparison_policy": {"$ref": "#/$defs/comparisonPolicy"},
+    "functional_checks": {
+      "items": {"$ref": "#/$defs/passedFunctionalCheck"},
+      "maxItems": 18,
+      "minItems": 18,
+      "type": "array"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "passed", "type": "string"},
+        "functional_software_conformance": {"const": "passed", "type": "string"},
+        "declared_software_behavior": {"const": "conformant", "type": "string"},
+        "execution_mode": {"const": "deterministic_fixture_simulation", "type": "string"},
+        "comparison_requirement": {"const": "superseded_not_required", "type": "string"},
+        "native_core_ai_qualification": {"const": "not_claimed", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "status",
+        "functional_software_conformance",
+        "declared_software_behavior",
+        "execution_mode",
+        "comparison_requirement",
+        "native_core_ai_qualification",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"minLength": 1, "type": "string"},
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "contract_bindings",
+    "implementation_bindings",
+    "artifact_bindings",
+    "test_execution",
+    "observation_status",
+    "comparison_policy",
+    "functional_checks",
+    "result",
+    "limitations"
+  ],
+  "type": "object"
+}
