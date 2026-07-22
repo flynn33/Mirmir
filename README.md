@@ -35,22 +35,29 @@ blocked or unauthorized.
 
 ## Roadmap Progress
 
-**Active implementation phase:** `R07` — Temporal stability and artifact governance
+**Current roadmap milestone:** `R07` — Temporal stability and artifact governance
 
-**Phase status:** `in_progress` — local unpublished work; acceptance is not claimed
+**Phase status:** `passed` — accepted under the operator-defined deterministic
+software-function gate
 
 **Frozen R07 product-gate record:** `blocked` — historical
 `upstream_no_product_qualified_primary_backend`; R03 A11 qualification has
-cleared that cause prospectively, and no additive R07 rerun is recorded.
+cleared that cause prospectively. The additive R07 functional acceptance does
+not rewrite that record.
+
+**Acceptance scope:** deterministic fixture simulation only. The comparative
+backend requirement is explicitly superseded and not required. Native hardware,
+product/default/Auto routing, quality, performance, publication, and release are
+not claimed. R06 remains `in_progress` and unaccepted; R08 remains `planned`.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `3 / 14` roadmap phases passed (`21%`)
+**Overall:** `4 / 14` roadmap phases passed (`28%`)
 
 `[##--------]`
 
-**Status:** ✅ Passed `3` · 🔄 In progress `5` · ⬜ Planned `5` · ⛔ Blocked `1`
+**Status:** ✅ Passed `4` · 🔄 In progress `4` · ⬜ Planned `5` · ⛔ Blocked `1`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1; `R07` — Temporal stability and artifact governance
+**Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -61,7 +68,7 @@ cleared that cause prospectively, and no additive R07 rerun is recorded.
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
-| `R07` | Temporal stability and artifact governance | `in_progress` | 🔄 In progress |
+| `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `planned` | ⬜ Planned |
 | `R09` | Core AI bounded residual experiment | `blocked` | ⛔ Blocked |
 | `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
@@ -1074,7 +1081,7 @@ ASH orchestration must improve at least one primary product dimension over the b
 
 ## R07 — Temporal stability and artifact governance
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -1126,13 +1133,53 @@ eligibility. The earlier R07 `upstream_no_product_qualified_primary_backend`
 result remains truthful historical evidence from its bound source and is not
 rewritten. Its cause is now cleared prospectively for a separately preregistered
 additive R07 product-gate rerun after the required upstream orchestration path is
-available. No rerun or product metric is recorded here; R07 remains
-`in_progress`, unaccepted, and without a quality, performance,
+available. At that checkpoint, no rerun or product metric had been recorded and
+R07 remained `in_progress`, unaccepted, and without a quality, performance,
 production-default, publication, or release claim.
 
-### Exit gate
+### Operator-overridden deterministic software-function acceptance — 2026-07-21
+
+The operator explicitly superseded the comparative R07 acceptance requirement
+and directed that phase acceptance be based only on whether the software performs
+the temporal and artifact-governance task it was designed to perform. The
+comparison against each underlying backend is `superseded_not_required`; it is
+historical, non-authorizing context and is not an R07 phase-acceptance gate.
+
+The additive `functional-execution-receipt.json` and
+`functional-phase-acceptance.json` records bind implementation commit
+`1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+`09d3a48df01738bb26077aadfd83c08e389a1dc2`. The checkpoint-bound run passed all
+98 tests across the 11 settled R07 test classes, with zero failures and zero
+skips. The accepted deterministic software function includes temporal
+scene-cut, discontinuity, motion-validity, and history behavior; A04 temporal
+filtering; distinct-plane A13 luma-guided chroma reconstruction; A15
+edge-preserving protection-mask upsampling; artifact and not-applicable
+dispositions; protected-region composition; exact N+1 postflight feedback; an
+end-to-end coordinator; truthful fixture-simulation identity; and rollback on
+failure.
+
+This passes R07 only for
+`functional_deterministic_software_phase_acceptance`. Execution is deterministic
+fixture simulation. Native framework execution, physical hardware, product
+routing, a production default, Auto, media-quality or performance measurement,
+product publication, and release are not claimed or authorized. R06 remains
+`in_progress` and unaccepted, and its frozen evidence is unchanged. R08 remains
+`planned`.
+
+### Historical comparison gate — superseded
 
 ASH Auto must reduce preregistered temporal artifact and chroma-displacement measures relative to each underlying backend used alone, with no material loss in spatial quality.
+
+This comparison is explicitly superseded and not required for R07 phase
+acceptance. It does not authorize or invalidate the deterministic software
+acceptance above.
+
+### Current operator-defined exit gate
+
+R07 passes when checkpoint-bound deterministic tests verify that its temporal,
+artifact, protected-region, support-stage, postflight, and failure-transaction
+software performs the contracted task. Unavailable native, hardware, simulator,
+or operator-observed execution is recorded as a limitation and is not a blocker.
 
 ---
 

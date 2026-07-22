@@ -263,10 +263,10 @@
       "depends_on": [
         "R06"
       ],
-      "exit": "verified temporal and artifact-governance contract; unavailable media observation recorded as not_observed",
+      "exit": "operator-overridden deterministic software-function gate: checkpoint-bound fixture simulation verifies temporal, artifact, protected-region, support-stage, postflight, and transactional behavior; comparative backend measurement is superseded and not required",
       "id": "R07",
       "name": "Temporal stability and artifact governance",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [

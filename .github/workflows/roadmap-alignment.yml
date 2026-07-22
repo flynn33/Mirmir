@@ -47,6 +47,7 @@ jobs:
           Scripts/tests/test_r05_contracts.py
           Scripts/tests/test_r06_contracts.py
           Scripts/tests/test_r07_contracts.py
+          Scripts/tests/test_r07_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -152,6 +153,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
             python3 Scripts/r07_contracts.py --check-conformance
           fi
+
+      - name: Verify R07 functional phase acceptance
+        run: python3 Scripts/r07_phase_acceptance.py --check
 
       - name: Verify R01 system assets remain untracked
         shell: bash

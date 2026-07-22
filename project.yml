@@ -8,6 +8,7 @@ options:
 
 settings:
   base:
+    ARCHS: arm64
     SWIFT_VERSION: "5.10"
     MACOSX_DEPLOYMENT_TARGET: "15.4"
     SWIFT_STRICT_CONCURRENCY: complete

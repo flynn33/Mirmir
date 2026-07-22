@@ -88,6 +88,70 @@ R03_PHASE_ACCEPTANCE_OVERRIDE = {
         },
     },
 }
+R07_PHASE_ACCEPTANCE_OVERRIDE = {
+    "active_phase_status": "passed",
+    "dependency_phase_id": "R06",
+    "dependency_phase_status": "in_progress",
+    "dependency_phase_evidence_binding": {
+        "path": "docs/roadmaps/evidence/r06/phase-evidence.json",
+        "size_bytes": 11395,
+        "sha256": "555508b60108903019798d31e34f3cecd6575e18a39cff07069237e7cf823f00",
+    },
+    "dependency_conformance_binding": {
+        "path": (
+            "docs/roadmaps/evidence/r06/records/orchestration-conformance.json"
+        ),
+        "size_bytes": 5800,
+        "sha256": "19f25269e9cb62ba162e2c53d716a79a392fef740a0be0c7d981cbdac3bfeccc",
+    },
+    "acceptance_record_binding": {
+        "path": (
+            "docs/roadmaps/evidence/r07/records/functional-phase-acceptance.json"
+        ),
+        "size_bytes": 14303,
+        "sha256": "a58896db4a44a4fd4da00c3de53b059066a1531dda9df7a91dc735544117ed6b",
+    },
+    "acceptance_identity": {
+        "schema_version": "1.0.0",
+        "roadmap_version": "1.0.1",
+        "phase_id": "R07",
+        "evidence_kind": "r07_operator_functional_phase_acceptance_v1",
+        "override_id": "r07.software-function-phase-acceptance.v1",
+        "comparative_requirement": "superseded_not_required",
+        "dependency_alignment_override": {
+            "phase_id": "R06",
+            "phase_status": "in_progress",
+            "predecessor_result": "blocked",
+            "acceptance_state": "not_claimed",
+            "closure_commit": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+            "closure_tree": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+            "blocked_evidence_disposition": (
+                "preserved_non_authorizing_historical_evidence"
+            ),
+            "r07_progression": "operator_authorized_functional_acceptance_only",
+        },
+        "superseded_gate": {
+            "gate": (
+                "ASH Auto must reduce preregistered temporal artifact and "
+                "chroma-displacement measures relative to each underlying backend "
+                "used alone, with no material loss in spatial quality."
+            ),
+            "disposition": "superseded_for_r07_phase_acceptance",
+            "retained_value": "historical_optional_non_authorizing_evidence",
+        },
+        "result": {
+            "status": "passed",
+            "phase_status_before": "in_progress",
+            "phase_status_after": "passed",
+            "acceptance": "accepted",
+            "acceptance_scope": (
+                "functional_deterministic_software_phase_acceptance"
+            ),
+            "execution_mode": "deterministic_fixture_simulation",
+            "product_qualification": "not_claimed",
+        },
+    },
+}
 R04_LOCAL_CONTINUATION_EXCEPTION = {
     "active_phase_status": "in_progress",
     "closure_required_path": "docs/roadmaps/evidence/r03/records/baseline-conformance.json",
@@ -655,6 +719,12 @@ class AlignmentVerifier:
     ) -> bool:
         if not self._phase_acceptance_override_contract_is_exact():
             return False
+        if phase_id == "R07":
+            return self._r07_phase_acceptance_override_allows(
+                phase_status,
+                dependency_id,
+                dependency_status,
+            )
         override = self.policy["phase_acceptance_overrides"].get(phase_id)
         if not isinstance(override, dict):
             return False
@@ -757,12 +827,148 @@ class AlignmentVerifier:
             valid = False
         return valid
 
+    def _r07_phase_acceptance_override_allows(
+        self,
+        phase_status: object,
+        dependency_id: str,
+        dependency_status: object,
+    ) -> bool:
+        override = self.policy["phase_acceptance_overrides"].get("R07")
+        if not isinstance(override, dict):
+            return False
+        if (
+            phase_status != override.get("active_phase_status")
+            or dependency_id != override.get("dependency_phase_id")
+            or dependency_status != override.get("dependency_phase_status")
+        ):
+            return False
+
+        valid = True
+        binding_keys = (
+            "dependency_phase_evidence_binding",
+            "dependency_conformance_binding",
+            "acceptance_record_binding",
+        )
+        records: dict[str, Any] = {}
+        for key in binding_keys:
+            binding = override.get(key)
+            if not isinstance(binding, dict) or set(binding) != {
+                "path",
+                "size_bytes",
+                "sha256",
+            }:
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"R07 phase acceptance {key} is malformed",
+                )
+                valid = False
+                continue
+            relative = binding.get("path")
+            path = self.path(relative) if isinstance(relative, str) else None
+            if path is None or path.is_symlink() or not path.is_file():
+                self.add_error(
+                    str(relative),
+                    f"R07 phase acceptance {key} is not a regular file",
+                )
+                valid = False
+                continue
+            if (
+                path.stat().st_size != binding.get("size_bytes")
+                or sha256(path) != binding.get("sha256")
+            ):
+                self.add_error(
+                    relative,
+                    f"R07 phase acceptance {key} bytes differ",
+                )
+                valid = False
+            try:
+                records[key] = read_json(path)
+            except (OSError, ValueError, json.JSONDecodeError) as exc:
+                self.add_error(
+                    relative,
+                    f"R07 phase acceptance {key} is invalid: {exc}",
+                )
+                valid = False
+
+        acceptance_binding = override.get("acceptance_record_binding")
+        acceptance = records.get("acceptance_record_binding")
+        identity = override.get("acceptance_identity")
+        if isinstance(acceptance, dict) and isinstance(identity, dict):
+            operator_override = acceptance.get("operator_override")
+            observed_identity = {
+                "schema_version": acceptance.get("schema_version"),
+                "roadmap_version": acceptance.get("roadmap_version"),
+                "phase_id": acceptance.get("phase_id"),
+                "evidence_kind": acceptance.get("evidence_kind"),
+                "override_id": (
+                    operator_override.get("override_id")
+                    if isinstance(operator_override, dict)
+                    else None
+                ),
+                "comparative_requirement": (
+                    operator_override.get("comparative_requirement")
+                    if isinstance(operator_override, dict)
+                    else None
+                ),
+                "dependency_alignment_override": acceptance.get(
+                    "dependency_alignment_override"
+                ),
+                "superseded_gate": acceptance.get("superseded_gate"),
+                "result": acceptance.get("result"),
+            }
+            if observed_identity != identity:
+                self.add_error(
+                    acceptance_binding["path"],
+                    "R07 phase acceptance identity differs",
+                )
+                valid = False
+        else:
+            valid = False
+
+        phase_evidence = records.get("dependency_phase_evidence_binding")
+        phase_result = (
+            phase_evidence.get("result")
+            if isinstance(phase_evidence, dict)
+            else None
+        )
+        if (
+            not isinstance(phase_result, dict)
+            or phase_result.get("status") != "blocked"
+            or phase_result.get("phase_status_after") != "in_progress"
+        ):
+            self.add_error(
+                override["dependency_phase_evidence_binding"]["path"],
+                "R07 phase acceptance requires frozen blocked R06 phase evidence",
+            )
+            valid = False
+
+        conformance = records.get("dependency_conformance_binding")
+        conformance_result = (
+            conformance.get("result") if isinstance(conformance, dict) else None
+        )
+        if (
+            not isinstance(conformance_result, dict)
+            or conformance_result.get("status") != "blocked"
+            or conformance_result.get("acceptance") != "not_claimed"
+            or conformance_result.get("product_qualification") != "not_claimed"
+        ):
+            self.add_error(
+                override["dependency_conformance_binding"]["path"],
+                "R07 phase acceptance requires frozen unaccepted R06 conformance",
+            )
+            valid = False
+        return valid
+
     def _phase_acceptance_override_contract_is_exact(self) -> bool:
-        expected = {"R03": R03_PHASE_ACCEPTANCE_OVERRIDE}
+        expected = {
+            "R03": R03_PHASE_ACCEPTANCE_OVERRIDE,
+            "R07": R07_PHASE_ACCEPTANCE_OVERRIDE,
+        }
         if self.policy.get("phase_acceptance_overrides") != expected:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
-                "phase_acceptance_overrides differ from the exact R03 functional contract",
+                "phase_acceptance_overrides differ from the exact R03 functional "
+                "contract or the exact R07 functional contract",
             )
             return False
         return True

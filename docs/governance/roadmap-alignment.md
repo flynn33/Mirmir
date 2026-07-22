@@ -123,6 +123,17 @@ functional metrics passing. The override does not mark R02 passed, rewrite any
 historical record, select a production default, or authorize Auto, holdout,
 quality/performance claims, product publication, or release.
 
+A distinct R07-only functional acceptance override permits canonical R07 to be
+`passed` while R06 remains canonical `in_progress`. It applies only when the
+policy-bound `functional-phase-acceptance.json` bytes and identity are exact, the
+frozen R06 evidence bindings remain byte-exact and unaccepted, and the dedicated
+`r07_phase_acceptance.py` validator rechecks the checkpoint-bound 98-test
+deterministic software-function receipt. The operator superseded the comparative
+backend requirement, so it is not an R07 acceptance gate. The override does not
+mark R06 passed, rewrite frozen evidence, claim native or product execution,
+select a production default, or authorize Auto, quality/performance claims,
+product publication, or release.
+
 Update the digest for every changed canonical source and
 affected contract fields in the alignment policy in the same change.
 Then regenerate the clearly labeled README progress section and verify the
@@ -131,7 +142,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -157,6 +168,7 @@ test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || p
 python3 Scripts/r07_contracts.py --check-preregistration
 python3 Scripts/r07_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance
+python3 Scripts/r07_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

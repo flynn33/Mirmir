@@ -1,0 +1,215 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r07-functional-execution-receipt-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "namedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "passedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "product_gate_first",
+            "temporal_boundary_current_only",
+            "invalid_motion_history_not_consumed",
+            "a04_fixture_function",
+            "a13_fixture_function",
+            "a15_fixture_function",
+            "artifact_and_not_applicable_function",
+            "protected_content_function",
+            "postflight_n_plus_1_no_rewrite",
+            "coordinator_end_to_end",
+            "failure_transactionality",
+            "simulation_identity_truthful"
+          ],
+          "type": "string"
+        },
+        "status": {"const": "passed", "type": "string"}
+      },
+      "required": ["id", "status"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R07", "type": "string"},
+    "evidence_kind": {
+      "const": "r07_deterministic_fixture_functional_execution_receipt_v1",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "const": "1b46ad469265a6ba837a8449d28b8850889f1d3f",
+          "type": "string"
+        },
+        "tree": {
+          "const": "09d3a48df01738bb26077aadfd83c08e389a1dc2",
+          "type": "string"
+        }
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "implementation_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 25,
+      "minItems": 25,
+      "type": "array"
+    },
+    "artifact_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "test_execution": {
+      "additionalProperties": false,
+      "properties": {
+        "execution_mode": {
+          "const": "deterministic_fixture_simulation",
+          "type": "string"
+        },
+        "expected_selected_test_count": {"const": 98, "type": "integer"},
+        "selected_test_count": {"const": 98, "type": "integer"},
+        "passed_test_count": {"const": 98, "type": "integer"},
+        "failed_test_count": {"const": 0, "type": "integer"},
+        "skipped_test_count": {"const": 0, "type": "integer"},
+        "test_suites": {
+          "const": [
+            {"id": "R07TemporalGovernanceContractsTests", "expected_test_count": 10, "passed_test_count": 10, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07TemporalHistoryTests", "expected_test_count": 12, "passed_test_count": 12, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07ArtifactGovernanceTests", "expected_test_count": 20, "passed_test_count": 20, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07ProtectedRegionPolicyTests", "expected_test_count": 15, "passed_test_count": 15, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07SupportStagePolicyTests", "expected_test_count": 7, "passed_test_count": 7, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07PostflightGovernanceTests", "expected_test_count": 9, "passed_test_count": 9, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07PostflightFeedbackConsumptionTests", "expected_test_count": 4, "passed_test_count": 4, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07FunctionalSupportExecutorTests", "expected_test_count": 8, "passed_test_count": 8, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07FunctionalCoordinatorTests", "expected_test_count": 6, "passed_test_count": 6, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07FunctionalCoordinatorBoundaryTests", "expected_test_count": 4, "passed_test_count": 4, "failed_test_count": 0, "skipped_test_count": 0},
+            {"id": "R07FunctionalCoordinatorTransactionTests", "expected_test_count": 3, "passed_test_count": 3, "failed_test_count": 0, "skipped_test_count": 0}
+          ],
+          "type": "array"
+        },
+        "toolchain": {
+          "additionalProperties": false,
+          "properties": {
+            "platform": {"const": "macos_host", "type": "string"},
+            "architecture": {"const": "arm64", "type": "string"},
+            "os_version": {"const": "26.5.2", "type": "string"},
+            "xcode_version": {"const": "26.2", "type": "string"},
+            "xcode_build_version": {"const": "17C52", "type": "string"},
+            "command": {"minLength": 1, "type": "string"}
+          },
+          "required": [
+            "platform",
+            "architecture",
+            "os_version",
+            "xcode_version",
+            "xcode_build_version",
+            "command"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "execution_mode",
+        "expected_selected_test_count",
+        "selected_test_count",
+        "passed_test_count",
+        "failed_test_count",
+        "skipped_test_count",
+        "test_suites",
+        "toolchain"
+      ],
+      "type": "object"
+    },
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_execution": {"const": "observed", "type": "string"},
+        "fixture_simulation": {"const": "observed", "type": "string"},
+        "hardware_capability_observation": {"const": "not_observed", "type": "string"},
+        "apple_device_simulator_execution": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"},
+        "native_backend_execution": {"const": "not_claimed", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "comparison_execution": {"const": "not_required", "type": "string"}
+      },
+      "required": [
+        "deterministic_software_execution",
+        "fixture_simulation",
+        "hardware_capability_observation",
+        "apple_device_simulator_execution",
+        "operator_observed_operation",
+        "native_backend_execution",
+        "product_qualification",
+        "comparison_execution"
+      ],
+      "type": "object"
+    },
+    "functional_checks": {
+      "items": {"$ref": "#/$defs/passedCheck"},
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "passed", "type": "string"},
+        "execution_mode": {
+          "const": "deterministic_fixture_simulation",
+          "type": "string"
+        },
+        "functional_software_conformance": {"const": "passed", "type": "string"},
+        "comparison_requirement": {
+          "const": "superseded_not_required",
+          "type": "string"
+        },
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "status",
+        "execution_mode",
+        "functional_software_conformance",
+        "comparison_requirement",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"minLength": 1, "type": "string"},
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "implementation_bindings",
+    "artifact_bindings",
+    "test_execution",
+    "observation_status",
+    "functional_checks",
+    "result",
+    "limitations"
+  ],
+  "type": "object"
+}
