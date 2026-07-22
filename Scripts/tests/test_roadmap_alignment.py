@@ -335,6 +335,47 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     "R07 phase_start_requirements differ from the frozen contract"
                 )
 
+    def test_in_progress_r08_requires_every_start_contract_file(self) -> None:
+        start_path = self.root / self.policy["phase_start_requirements"]["R08"][
+            "paths"
+        ][1]
+        start_path.unlink()
+        self.assert_error_contains(
+            "phase R08 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_in_progress_r08_rejects_symlinked_start_contract(self) -> None:
+        relative = self.policy["phase_start_requirements"]["R08"]["paths"][1]
+        symlink_path = self.root / relative
+        target = self.root / "r08-start-target.json"
+        target.write_bytes(symlink_path.read_bytes())
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R08 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_r08_phase_start_requirement_is_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_start_requirements"]["R08"]["paths"].pop()
+        mutations.append(missing_path)
+
+        extra_status = copy.deepcopy(self.policy)
+        extra_status["phase_start_requirements"]["R08"]["statuses"].append(
+            "planned"
+        )
+        mutations.append(extra_status)
+
+        for mutation in mutations:
+            with self.subTest(mutation=mutation["phase_start_requirements"]["R08"]):
+                self.write_json(path, mutation)
+                self.assert_error_contains(
+                    "R08 phase_start_requirements differ from the frozen contract"
+                )
+
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
         self.set_phase_status("R03", "in_progress")
         self.assertFalse(

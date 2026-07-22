@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0.1  
 **Publication date:** 2026-07-18  
-**Revision date:** 2026-07-21  
+**Revision date:** 2026-07-22  
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime  
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -69,6 +69,23 @@ implementation, static-verification, deterministic-test, safety, privacy,
 publication, holdout, or production-authorization gates. It controls over
 conflicting hardware, unavailable-simulator, or operator-observation language
 elsewhere in this roadmap.
+
+### 2.0.1 Operator software-function acceptance override
+
+Effective 2026-07-22, forward phase acceptance is based on whether the software
+performs the task and honors the boundaries it claims. A/B, blinded, ablation,
+baseline-superiority, and other comparative measurements are
+`superseded_not_required` as forward acceptance gates. They may be collected
+later as optional tuning, diagnostic, or claim-support evidence, but their
+presence, absence, or result cannot block implementation or phase progression.
+
+Deterministic fixture simulation may establish the software-function contract
+when native framework, hardware, simulator, model, or toolchain execution is
+unavailable. Such evidence must identify itself as simulation and record every
+unavailable native observation as `not_observed`; it cannot manufacture native
+execution, model quality, performance, memory, or perceptual claims. Historical
+comparative and negative records remain immutable evidence, but they carry no
+prospective phase-acceptance authority.
 
 ### 2.1 ASH responsibilities
 
@@ -389,21 +406,14 @@ The branch tree can evaluate plausible policy transitions, aggregate duplicate m
 - Core AI suggestions never directly bypass ASH limits.
 - Whole-frame backend changes cannot occur independently per tile.
 
-### 6.4 ASH value test
+### 6.4 ASH software-function test
 
-ASH is retained in production only if an ablation shows that:
-
-```text
-Apple backend pool + ASH orchestration
-```
-
-outperforms or more efficiently matches:
-
-```text
-best fixed Apple backend or continuous non-ASH router
-```
-
-on at least one preregistered product dimension—temporal stability, artifact rate, protected-region integrity, quality, throughput, memory, energy, or explainability—without unacceptable regressions elsewhere.
+ASH satisfies its forward functional contract when deterministic tests prove
+that it causally controls only the policy decisions it claims, preserves locked
+safety and media boundaries, applies transitions and fallback visibly, and emits
+complete decision identity. Comparisons with a fixed backend or continuous
+non-ASH router may inform later tuning, but superiority is not a phase-acceptance
+requirement.
 
 ---
 
@@ -431,7 +441,8 @@ ASH consumes the maps and maintains stable policy decisions over time.
 
 ### 7.2 Core AI stage B: bounded parameter assistance
 
-After stage A proves value, add model outputs for:
+After stage A's software-function contract is accepted, later authorized work may
+add model outputs for:
 
 - backend suitability scores;
 - denoise-strength limits;
@@ -444,7 +455,8 @@ These values remain suggestions. ASH applies clamping, hysteresis, policy constr
 
 ### 7.3 Core AI stage C: localized residual correction
 
-Only after stages A and B pass ablation:
+Only after the prerequisite software-function contracts are accepted and the
+operator separately authorizes residual work:
 
 - run a small residual model after the primary Apple scaler;
 - operate only on ASH-approved low-confidence regions;
@@ -807,12 +819,17 @@ performance claims, acceptance, publication, and release remain unauthorized.
 The quality, protected-region, temporal, throughput, memory, and perceptual exit
 gates remain unobserved and are not claimed satisfied.
 
-### Exit gate
+### Current operator-defined exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.
 - Outputs reopen and preserve media identity.
-- Quality SR materially exceeds deterministic baselines on preregistered content without unacceptable temporal or protected-region regressions.
-- Low-latency SR satisfies its own quality floor and throughput target.
+- Quality and low-latency sessions enforce their declared input, history,
+  lifecycle, cancellation, identity, and failure contracts without silent
+  fallback.
+
+Baseline superiority, perceptual quality, and throughput comparisons are optional
+later tuning or claim-support evidence. They are not forward phase-acceptance
+gates, and unobserved values authorize no quality or performance claim.
 
 ---
 
@@ -921,7 +938,7 @@ Move ASH from pixel reconstruction to deterministic pipeline control.
 - Record candidate policies, selected policy, score components, and transition cost.
 - Ensure state and branch perturbations causally alter policy only where the policy contract says they should.
 
-### Required ablations
+### Functional configurations and optional comparisons
 
 - best fixed eligible Apple backend;
 - simple continuous router without ASH;
@@ -929,6 +946,10 @@ Move ASH from pixel reconstruction to deterministic pipeline control.
 - ASH plus continuous sidecar;
 - ASH without hysteresis;
 - ASH without postflight feedback.
+
+The ASH configurations remain deterministic functional fixtures for verifying
+causal policy behavior. Cross-configuration superiority measurements are optional
+later tuning evidence and are not required for phase acceptance.
 
 ### Local implementation start — 2026-07-21
 
@@ -991,9 +1012,13 @@ R06 product-gate rerun. No such rerun is recorded here; R06 remains
 `in_progress`, unaccepted, and without a production-default, quality,
 performance, publication, or release claim.
 
-### Exit gate
+### Current operator-defined exit gate
 
-ASH orchestration must improve at least one primary product dimension over the best fixed or continuous router without violating locked quality floors.
+ASH orchestration passes its forward software-function gate when deterministic
+tests prove eligible-backend filtering, scoring and stable tie-breaking,
+hysteresis and dwell, scene-cut reset, typed failover, bounded masks, complete
+reason identity, and transactional behavior. Comparative improvement over a fixed
+or continuous router is `superseded_not_required` for phase acceptance.
 
 ---
 
@@ -1103,7 +1128,7 @@ or operator-observed execution is recorded as a limitation and is not a blocker.
 
 ## R08 — Core AI analysis-only integration
 
-**Status:** `planned`
+**Status:** `in_progress`
 
 ### Objective
 
@@ -1119,9 +1144,34 @@ Add learned perception where deterministic analysis is weakest, without granting
 - Implement specialization cache, AOT compilation option, model identity, zero-copy input, stateful sequence, cancellation, and memory budgets.
 - Add deterministic fallback for unsupported macOS/hardware or absent assets.
 
-### Exit gate
+### Implementation start — 2026-07-22
 
-Core AI analysis must improve backend selection, protection, artifact rate, or resource efficiency over the deterministic analyzer in a blinded ablation. If it does not, it remains optional diagnostic research.
+R08 starts from accepted R07 merge commit
+`3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Its preregistered slice is an
+optional cohesive analysis subservice inside the existing model-assets module;
+it does not create a sixth application module or enable Core AI pixel output.
+
+The installed Xcode/Core AI availability affects only native supplemental
+observation. Framework-neutral contracts, deterministic simulation, lifecycle,
+integration, bypass, and failure behavior proceed without it. Unavailable native
+Core AI execution, specialization, AOT, zero-copy, performance, memory, and model
+quality remain `not_observed` and unclaimed.
+
+### Current operator-defined exit gate
+
+R08 passes only when checkpoint-bound deterministic software-function tests prove
+that the optional service validates its input and output contracts; produces the
+declared protection, artifact-risk, source-classification, motion-reliability,
+and no-reference-quality analysis values; binds model and processing identity;
+honors cadence, state, cancellation, cache, and resource-budget behavior; feeds
+bounded results into `ASHDecisionContext`; never produces final pixels; and
+bypasses deterministically when unavailable or disabled.
+
+A/B, blinded, ablation, and superiority comparisons are
+`superseded_not_required`. They may be performed later for tuning, but do not
+participate in R08 acceptance. Deterministic simulation may satisfy this
+functional gate while native observations remain truthfully `not_observed`.
 
 ---
 
@@ -1139,7 +1189,8 @@ Determine whether a small localized model can improve difficult regions without 
 - Run only after an Apple-native primary scaler.
 - Restrict it to ASH-approved regions.
 - Enforce per-plane residual limits and source/temporal consistency.
-- Preserve the Apple-only output for direct A/B comparison.
+- Preserve a bypassed Apple-only output for diagnosis and immediate rollback;
+  any A/B comparison is optional tuning evidence, not an acceptance gate.
 - Add hallucination, text integrity, face identity, and temporal consistency tests.
 
 ### Exit outcomes
@@ -1152,6 +1203,11 @@ Determine whether a small localized model can improve difficult regions without 
 
 The model is not required to ship.
 
+R09 remains blocked. R08 functional acceptance does not authorize residual work;
+R09 requires a separate explicit operator authorization bound to accepted R08
+software-function evidence. No A/B, ablation, or comparative result grants that
+authority.
+
 ---
 
 ## R10 — Auto-policy optimization and bounded calibration
@@ -1160,17 +1216,26 @@ The model is not required to ship.
 
 ### Objective
 
-Tune the orchestration policy without recreating the failed broad P06 search.
+Implement deterministic, bounded optimizer and calibration software without
+making proof of a superior policy or a holdout result a phase gate.
 
 ### Work
 
-- Use a fixed screening design over only causal variables.
-- Measure backend/content-class interactions.
-- Construct a Pareto frontier over quality, temporal stability, protected-region integrity, throughput, memory, and energy.
-- Remove dominated policies.
-- Perform bounded local refinement only around passing policies.
-- Publish resumable per-experiment evidence.
-- Keep development, validation, and holdout separated.
+- Define typed candidate, constraint, score, selection, and frozen-policy
+  contracts with exact processing identity.
+- Use a finite screening design over only declared causal variables.
+- Enforce route, plane, temporal, protected-region, resource, and safety bounds
+  independently rather than hiding failures in one scalar.
+- Make candidate ordering, rejection, ranking, tie-breaking, checkpointing,
+  resume, cancellation, and publication deterministic.
+- Publish durable per-experiment and frozen fixture-policy evidence.
+- Keep any later development, validation, tuning, and holdout work separated.
+
+Real-content tuning, backend/content-class interaction measurement, Pareto
+construction, dominated-policy removal, local refinement, and holdout evaluation
+are optional later work. They may support a separately authorized production
+Auto decision, but their presence, absence, or result does not control R10
+acceptance.
 
 ### Prohibitions
 
@@ -1182,7 +1247,14 @@ Tune the orchestration policy without recreating the failed broad P06 search.
 
 ### Exit gate
 
-One frozen Auto policy and a small number of explicit mode policies pass development and validation before one holdout opening.
+Checkpoint-bound deterministic tests prove that the optimizer/calibration
+software accepts and rejects inputs according to its declared schema, terminates
+within its finite search bounds, enforces every independent constraint, produces
+repeatable ordering and tie-breaking, resumes from exact checkpoints, handles
+failure and cancellation transactionally, and publishes a frozen fixture-policy
+artifact with complete identity. R10 does not have to prove that it found a
+superior Pareto policy, complete real-content tuning, or open a holdout.
+Production Auto and holdout access remain separately blocked.
 
 ---
 
@@ -1192,9 +1264,24 @@ One frozen Auto policy and a small number of explicit mode policies pass develop
 
 ### Objective
 
-Establish whether Mirmir is actually better on defined product dimensions.
+Implement traceable benchmark and claim-scope machinery that can support a later
+competitive claim when separately authorized and can honestly close with no
+claim when comparisons are absent.
 
-### Comparator set
+### Required functional work
+
+- Define typed benchmark-protocol, subject, corpus, metric, observation,
+  aggregate, claim-scope, and disposition contracts.
+- Bind every accepted observation and aggregate to exact source, protocol,
+  subject, input, preprocessing, tool, and metric identity.
+- Reject missing, duplicate, mismatched, out-of-scope, or unauthorized evidence
+  and any claim broader than the evidence supports.
+- Produce deterministic aggregates from supplied observations and preserve the
+  distinction between `not_applicable`, `not_observed`, failed, and absent data.
+- Emit an explicit `comparisons_not_run` and `no_market_claim` disposition when
+  comparative evidence is absent.
+
+### Optional claim-support comparator set
 
 - every qualified Apple-native backend alone;
 - ASH Auto without Core AI;
@@ -1204,7 +1291,7 @@ Establish whether Mirmir is actually better on defined product dimensions.
 - current DaVinci Resolve Studio Super Scale and associated restoration/sharpening path; and
 - ordinary deterministic scalers.
 
-### Corpus classes
+### Optional claim-support corpus classes
 
 - clean 720p and 1080p;
 - compressed streaming video;
@@ -1219,7 +1306,7 @@ Establish whether Mirmir is actually better on defined product dimensions.
 - archival SD and deinterlaced material; and
 - synthetic ground-truth downsample pairs.
 
-### Metrics
+### Optional claim-support metrics
 
 - PSNR, SSIM/MS-SSIM, and perceptual metrics where ground truth exists;
 - temporal warping error, flicker, state/backend churn, and ghosting;
@@ -1236,7 +1323,15 @@ Establish whether Mirmir is actually better on defined product dimensions.
 
 ### Claim rule
 
-Mirmir makes no “market-leading” claim until blind evaluation and reproducible evidence support the exact claim. The likely target is a Pareto advantage: better temporal stability, protection, privacy, explainability, and Apple-silicon efficiency at competitive spatial quality.
+Comparator execution, corpus collection, metric runs, A/B or blind evaluation,
+and holdout access are optional claim-support work, not R11 acceptance gates. If
+they are not separately authorized and executed, R11 closes with
+`comparisons_not_run` and `no_market_claim`, and R12 may proceed.
+
+`market_leading_claim` remains blocked unless reproducible evidence supports an
+exact narrowly scoped claim and the operator separately authorizes that claim.
+No competitive, blinded, A/B, Pareto, or holdout result is required to accept
+R11 or start R12.
 
 ---
 
@@ -1308,16 +1403,16 @@ output metadata identity
 
 ### 10.3 Required stop conditions
 
-Stop an experiment when:
+Stop an authorizing software-function run when source, fixture, policy, model, or
+toolchain identity changes; a claimed public-API contract cannot be represented
+truthfully; a safety, temporal, protected-region, lifecycle, or resource boundary
+fails; or continuing would require holdout information. An unavailable native
+path is recorded as `not_observed` and bypassed; it does not stop a separately
+identified deterministic functional run.
 
-- the public API input contract cannot be satisfied;
-- a backend is dominated on every primary dimension;
-- temporal or protected-region failures are near-universal;
-- Core AI adds no incremental value;
-- ASH orchestration does not beat or efficiently match the non-ASH router;
-- resource cost exceeds the approved envelope;
-- source or policy identity changes during an authorizing run; or
-- holdout information would be required to continue tuning.
+Dominance, incremental-value, fixed-router, continuous-router, A/B, blind, and
+other comparative findings may stop or redirect an optional tuning experiment.
+They do not stop forward implementation and are not phase-acceptance gates.
 
 ---
 
@@ -1350,13 +1445,18 @@ The roadmap succeeds when all of the following are true:
    diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
    supplies inventory closure only and carries no availability or quality claim.
 2. At least one strong Apple-native primary SR backend is production-qualified.
-3. ASH causally controls backend/policy decisions and improves a preregistered product dimension.
-4. Temporal stability and artifact governance provide measurable value over the underlying backend alone.
-5. Core AI analysis either demonstrates incremental value or is cleanly excluded from the shipping critical path.
+3. ASH causally controls backend/policy decisions exactly within its accepted software contract.
+4. Temporal stability and artifact governance perform their declared bounded, transactional software function; comparative tuning remains optional.
+5. Core AI analysis performs its declared optional analysis and deterministic-bypass software function or is cleanly excluded from the shipping critical path.
 6. Any residual model is bounded, optional, and evidence-qualified.
 7. Deterministic mode remains functional and reproducible.
-8. Auto mode is explainable, has no silent fallback, and binds every output to exact decisions and assets.
-9. Competitive claims are supported by reproducible benchmark and blind-evaluation evidence.
+8. Auto optimizer and calibration machinery is bounded, deterministic,
+   explainable, resumable, and binds every selected output to exact decisions and
+   assets; production Auto remains a separate authorization decision.
+9. Benchmark and claim-scope machinery is traceable and produces an honest
+   no-claim disposition when comparisons are absent. Any competitive claim that
+   is made is separately supported by reproducible evidence and explicit claim
+   authorization; comparison is not a forward phase-acceptance prerequisite.
 10. The application remains Apple-native at runtime; offline Python remains development, model-conversion, validation, and evidence tooling only.
 
 ---

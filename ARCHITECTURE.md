@@ -15,7 +15,7 @@
 - Roadmap phase `R05`: `in_progress`
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
-- Roadmap phase `R08`: `planned`
+- Roadmap phase `R08`: `in_progress`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -86,6 +86,28 @@ separately from referenced native identities; it does not claim native framework
 or physical-hardware execution. The product composition remains unavailable,
 R06 remains `in_progress` and unaccepted, and no production default, Auto,
 quality, performance, publication, or release authority follows.
+
+R08 begins from accepted R07 merge commit
+`3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Its architectural boundary is an
+optional cohesive Core AI analysis subservice inside the existing model-assets
+module; the fixed five-module composition does not change. The forward gate is
+deterministic software function: typed analysis outputs, identity, cadence,
+decision-context integration, lifecycle, budgets, cancellation, no final-pixel
+output, and deterministic bypass must work as claimed. Comparative tests are
+`superseded_not_required` for acceptance. Native Xcode 27/Core AI execution is
+supplemental and remains `not_observed` when unavailable. R09 pixel residual work
+remains separately blocked pending explicit operator authorization after accepted
+R08 functional evidence.
+
+The later R10/R11 control boundary follows the same software-function rule. R10
+must implement a deterministic, finitely bounded, constraint-preserving,
+resumable optimizer/calibration service; Pareto superiority, real-content tuning,
+and holdout comparison are optional. R11 must implement traceable benchmark and
+claim-scope machinery and emit an honest no-claim disposition when comparisons
+are absent. Comparative execution does not block R11 or R12, while any
+`market_leading_claim` remains separately blocked without exact evidence and
+operator authorization.
 
 ## Target Apple-Native Adaptive Architecture
 

@@ -1,11 +1,11 @@
 # Mirmir Roadmaps
 
-The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-21.
+The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-22.
 
 Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`;
 `R03: passed`; `R04: in_progress`; `R05: in_progress`;
 `R06: in_progress`; `R07: passed` under the operator-defined deterministic
-software-function gate; `R08: planned`. R03's frozen v1
+software-function gate; `R08: in_progress`. R03's frozen v1
 result remains fail-closed and `blocked`; R04 is local implementation only with
 a commit-bound `diagnostic_only` checkpoint. R04
 runtime, hardware, simulator, and operator observations remain `not_observed`;
@@ -43,7 +43,28 @@ coordinator, and transaction behavior. The comparative backend requirement is
 explicitly `superseded_not_required`; it is not an acceptance gate. This scope
 does not claim native framework or hardware execution, product routing, a
 production default, Auto, media quality, performance, publication, or release.
-R06 remains `in_progress` and unaccepted. R08 remains `planned`.
+R06 remains `in_progress` and unaccepted. R08 is `in_progress`.
+
+R08 starts from accepted R07 merge commit
+`3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Under the operator's 2026-07-22
+decision, forward acceptance asks whether the software performs the task and
+honors the boundaries it claims. A/B, blinded, ablation, baseline-superiority,
+and other comparative measurements are `superseded_not_required` as acceptance
+gates and remain optional later tuning evidence. Unavailable Xcode 27/Core AI
+native execution is supplemental `not_observed` evidence rather than a blocker
+to deterministic software-function implementation. R09 residual work remains
+separately blocked pending explicit operator authorization after accepted R08
+functional evidence.
+
+The same forward-gate correction applies to later phases. R10 accepts on
+deterministic bounded optimizer/calibration behavior, not proof of a superior
+Pareto policy, real-content tuning, or a holdout result. R11 accepts on traceable
+benchmark and claim-scope machinery, including an honest `no_market_claim`
+disposition when comparisons are absent. Comparator, corpus, metric, A/B, blind,
+Pareto, commercial, and holdout runs are optional claim-support work and do not
+block R12. `market_leading_claim` remains blocked without exact supporting
+evidence and separate operator authorization.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -100,7 +121,7 @@ disabled.
 
 Verified source hashes:
 
-- Markdown: `a6f7197f00eb5ba3e0aac657568357f3535b4424c3f7fb6922be6498f7479cfb`
-- JSON: `6ab465e2f144d958bca3d85f902af5791ee2ef64fd733048bd5259f1e34d7186`
+- Markdown: `aec98903fb569c012af76b4e9a847113f014f2ac7d1efce11dde75ecd390f350`
+- JSON: `e9f6f59c3d12600900cc0646fda678025219050454ce25ad7dc89808b94b3ae5`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

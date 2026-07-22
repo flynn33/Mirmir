@@ -28,8 +28,10 @@ shape without depending on the external Forsetti package or copying its source.
    as a deterministic reference and analysis substrate, not as the presumptive
    production reconstruction engine.
 3. Core AI is optional. Its first authorized role is analysis-only. Pixel
-   residual processing remains blocked until its separate analysis and ablation
-   gates pass.
+   residual processing remains separately blocked pending explicit operator
+   authorization after R08 functional acceptance. A/B, ablation, blind, or other
+   comparative results do not authorize residual work and are not forward
+   acceptance gates.
 4. The application retains one UI module, four cohesive service modules,
    constructor injection, deterministic lifecycle, and one composition root.
    These are implemented by a small app-owned Pattern B runtime using

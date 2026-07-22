@@ -47,7 +47,21 @@
   gate. Acceptance is limited to deterministic fixture simulation and claims no
   native hardware/framework execution, product routing, production default,
   Auto, quality, performance, publication, or release.
-- Roadmap phase `R08`: `planned`.
+- Roadmap phase `R08`: `in_progress`. Its start binds accepted R07 merge commit
+  `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+  `eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Forward acceptance is based on
+  deterministic software-function evidence. A/B, blinded, ablation, and other
+  comparative superiority requirements are `superseded_not_required` and may be
+  optional later tuning only. Unavailable native Core AI observation is recorded
+  as `not_observed` and is not an implementation blocker. R09 residual work
+  remains separately blocked pending explicit operator authorization after R08
+  functional acceptance.
+- Future R10 acceptance requires deterministic bounded optimizer/calibration
+  software behavior, not Pareto superiority, real-content tuning, or a holdout
+  result. Future R11 acceptance requires traceable benchmark and claim-scope
+  machinery with an honest no-claim disposition when comparisons are absent;
+  comparative execution does not block R12. Any production Auto, holdout, or
+  market-claim action retains its separate authorization boundary.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
 

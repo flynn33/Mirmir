@@ -6,6 +6,26 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R08 from accepted R07 merge commit
+  `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+  `eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`, and marked it `in_progress`.
+  The 2026-07-22 operator decision makes deterministic software function the
+  forward acceptance gate: the optional analysis service must perform its
+  declared typed-output, identity, cadence, decision-context, lifecycle, budget,
+  cancellation, no-final-pixel, and deterministic-bypass behavior. A/B, blinded,
+  ablation, baseline-superiority, and other comparative requirements are
+  `superseded_not_required` for acceptance and remain optional later tuning.
+  Native Xcode 27/Core AI execution is supplemental and remains `not_observed`
+  when unavailable. R09 pixel residual work remains separately blocked pending
+  explicit operator authorization after accepted R08 functional evidence.
+- Corrected the R10 and R11 forward gates under the same 2026-07-22 operator
+  decision. R10 now accepts on deterministic bounded optimizer/calibration
+  behavior rather than Pareto superiority, real-content tuning, or a holdout
+  result. R11 now accepts on traceable benchmark and claim-scope machinery with
+  an honest no-claim disposition when comparisons are absent. Comparative and
+  holdout execution remains optional claim-support work and cannot block R12;
+  `market_leading_claim` remains blocked without exact evidence and separate
+  operator authorization.
 - Accepted R07 under the operator-defined deterministic software-function gate.
   The additive execution receipt and phase-acceptance record bind implementation
   commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
@@ -18,7 +38,8 @@ All notable project changes are recorded here.
   gate. Acceptance is limited to deterministic fixture simulation; native
   hardware/framework execution, product/default/Auto routing, media quality,
   performance, publication, and release remain unclaimed. R06 remains
-  `in_progress` and unaccepted; R08 remains `planned`.
+  `in_progress` and unaccepted; R08 is now `in_progress` under its separate
+  software-function contract.
 - Accepted R03 under the operator-overridden software-function gate. The new
   fail-closed record binds the passing R02 common-session conformance and exact
   R03 v2 receipt/decision, then independently requires genuine A11 execution on

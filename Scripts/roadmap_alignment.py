@@ -352,6 +352,13 @@ R07_PHASE_START_REQUIREMENT = {
         "docs/roadmaps/evidence/r07/records/fixtures/fixture-catalog.json",
     ],
 }
+R08_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r08/records/preregistration.json",
+        "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -1385,6 +1392,11 @@ class AlignmentVerifier:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R07 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R08") != R08_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R08 phase_start_requirements differ from the frozen contract",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
