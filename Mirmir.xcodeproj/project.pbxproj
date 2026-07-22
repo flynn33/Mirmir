@@ -132,6 +132,7 @@
 		6A89EE015951C10D87D1D1E4 /* ASHP08LauncherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E0737F2C42D353C867EF7 /* ASHP08LauncherTests.swift */; };
 		6CE2B93F52E3444696D2A555 /* ASHSpatialRuntimeConfigurationV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A80E9FCF974C4F40549D8D8 /* ASHSpatialRuntimeConfigurationV2Tests.swift */; };
 		6DC9AF61046502C9EDB4B1F4 /* ASHCoordinateModelContractV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 730DE64225D23C3A54C33491 /* ASHCoordinateModelContractV3.swift */; };
+		6E0F4995F21FB9AE805B6FB1 /* R07PostflightGovernance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9264E985F5E36818D3608D72 /* R07PostflightGovernance.swift */; };
 		6FA8EB212E4A70C93A20A11D /* ASHCoordinateDiagnosticRuntimeV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44897AC5FAA6E916FC8D868E /* ASHCoordinateDiagnosticRuntimeV3Tests.swift */; };
 		711A5180E80FB9DB18607B57 /* ASHMetalSpatialFrameEncoderV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = F164D8A587E6933BB2BF3632 /* ASHMetalSpatialFrameEncoderV3.swift */; };
 		71D3191792AC6C9D8EC55157 /* ASHP08ProductionEvidenceRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED63166A8BA84FF2BED2E3CB /* ASHP08ProductionEvidenceRunner.swift */; };
@@ -290,6 +291,7 @@
 		E0DF08328424121F604853A8 /* AppleUpscaleCapabilityNativeAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 050C25AE56DC5648EF2EA402 /* AppleUpscaleCapabilityNativeAdapters.swift */; };
 		E0FB986AB96E7A8748548BE9 /* ASHRiskStateDiagnosticV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE7BC59E00212787A4BE603 /* ASHRiskStateDiagnosticV3.swift */; };
 		E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */; };
+		E1BD154113D9933441C89945 /* R07PostflightGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9BB58587A84536E41D0BA2F /* R07PostflightGovernanceTests.swift */; };
 		E1BFC9EF33A0F28AF9669487 /* ASHP08PerformanceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347A64D3B3552787D88B4DCF /* ASHP08PerformanceRuntime.swift */; };
 		E1C044CC3FA36DFB9B8B2536 /* R03CoreImageScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E14230358F4CD93863C659 /* R03CoreImageScaling.swift */; };
 		E29B45FF92A73D04D122D60F /* R07ProtectedRegionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */; };
@@ -525,6 +527,7 @@
 		8F2965CABCD89EC8A784FBE7 /* ASHTelemetryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryModels.swift; sourceTree = "<group>"; };
 		901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
 		90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingServiceModule.swift; sourceTree = "<group>"; };
+		9264E985F5E36818D3608D72 /* R07PostflightGovernance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07PostflightGovernance.swift; sourceTree = "<group>"; };
 		9652114C08D1C3A28932E156 /* ash-asset-manifest.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "ash-asset-manifest.json"; sourceTree = "<group>"; };
 		968BB7720C179BC03129AE01 /* ASHBackendInputValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHBackendInputValidationTests.swift; sourceTree = "<group>"; };
 		96B809DF7BB40D0236FBDB1B /* AppleUpscaleCapabilityLegacyAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityLegacyAdapters.swift; sourceTree = "<group>"; };
@@ -587,6 +590,7 @@
 		C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxSessionAdapter.swift; sourceTree = "<group>"; };
 		C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R06ASHPolicyCatalogTests.swift; sourceTree = "<group>"; };
 		C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ash_mapping_v1.json; sourceTree = "<group>"; };
+		C9BB58587A84536E41D0BA2F /* R07PostflightGovernanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07PostflightGovernanceTests.swift; sourceTree = "<group>"; };
 		CA16F1FBCEDF17BE37E51D0A /* OutputMediaMetadataVerificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaMetadataVerificationTests.swift; sourceTree = "<group>"; };
 		CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineServiceModule.swift; sourceTree = "<group>"; };
 		CC7E35BBB7AF4A4A6ECE5A3B /* ASHLockedControlRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedControlRuntimeV3.swift; sourceTree = "<group>"; };
@@ -719,6 +723,7 @@
 				05F827F7CB2222BBD1BF7981 /* R06ASHOrchestrator.swift */,
 				BE7311437F5C9690BFF6CEA6 /* R06ASHPolicyCatalog.swift */,
 				D8CAD10E6E962789F9A32F77 /* R07ArtifactGovernance.swift */,
+				9264E985F5E36818D3608D72 /* R07PostflightGovernance.swift */,
 				08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */,
 				BE4AA770369CA77C5833B127 /* R07SupportStagePolicy.swift */,
 				40E0E36563FD44220A347449 /* R07TemporalGovernanceContracts.swift */,
@@ -788,6 +793,7 @@
 				A3326FCA1156ACF848D932C1 /* R06ASHOrchestratorTests.swift */,
 				C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */,
 				EF39EA7CA518810DCAF8FAA6 /* R07ArtifactGovernanceTests.swift */,
+				C9BB58587A84536E41D0BA2F /* R07PostflightGovernanceTests.swift */,
 				BF566A045053E1D175E0897C /* R07ProtectedRegionPolicyTests.swift */,
 				043F1BEFE17F30DA2F1E9ED4 /* R07SupportStagePolicyTests.swift */,
 				33601A8D7CAF41023F716D35 /* R07TemporalGovernanceContractsTests.swift */,
@@ -1406,6 +1412,7 @@
 				185D9D123233C60D79101FD3 /* R06ASHOrchestratorTests.swift in Sources */,
 				A6EF9487D6D0A68F213E4B4D /* R06ASHPolicyCatalogTests.swift in Sources */,
 				5B9E6189E406E9D0B200C42E /* R07ArtifactGovernanceTests.swift in Sources */,
+				E1BD154113D9933441C89945 /* R07PostflightGovernanceTests.swift in Sources */,
 				F07AEDFF522D2083FE07568D /* R07ProtectedRegionPolicyTests.swift in Sources */,
 				B31066A3D574E62B257E1B81 /* R07SupportStagePolicyTests.swift in Sources */,
 				48A169D0893F335533A662B6 /* R07TemporalGovernanceContractsTests.swift in Sources */,
@@ -1604,6 +1611,7 @@
 				1666060857B56835FEB0B1E8 /* R06ASHOrchestrator.swift in Sources */,
 				75BE43A4BE830D685164AD66 /* R06ASHPolicyCatalog.swift in Sources */,
 				39BF440AD3A243AD919338B1 /* R07ArtifactGovernance.swift in Sources */,
+				6E0F4995F21FB9AE805B6FB1 /* R07PostflightGovernance.swift in Sources */,
 				E29B45FF92A73D04D122D60F /* R07ProtectedRegionPolicy.swift in Sources */,
 				1AC1165027847C7F1244835D /* R07SupportStagePolicy.swift in Sources */,
 				4734CAE09B9FE05C1D434346 /* R07TemporalGovernanceContracts.swift in Sources */,
