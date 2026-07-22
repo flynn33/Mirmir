@@ -4,8 +4,8 @@ The current product direction is **Mirmir Apple-Native Adaptive Video Enhancemen
 
 Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`;
 `R03: passed`; `R04: in_progress`; `R05: in_progress`;
-`R06: in_progress`; `R07: in_progress` under the exact local-continuation
-exceptions; `R08: planned` without authorization to start. R03's frozen v1
+`R06: in_progress`; `R07: passed` under the operator-defined deterministic
+software-function gate; `R08: planned`. R03's frozen v1
 result remains fail-closed and `blocked`; R04 is local implementation only with
 a commit-bound `diagnostic_only` checkpoint. R04
 runtime, hardware, simulator, and operator observations remain `not_observed`;
@@ -23,14 +23,27 @@ production-default, acceptance, publication, and release claims remain unmade.
 R06's policy-frozen local unpublished blocked closure is commit
 `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
 `32365e745dbf53d59213fe2294a6b63ba2642df7`; its acceptance remains unclaimed.
-R07 has begun fixture-only local implementation from that exact blocked closure.
-Its preregistration and deterministic fixture catalog freeze the temporal,
+R07 began fixture-only local implementation from that exact blocked closure. Its
+preregistration and deterministic fixture catalog freeze the temporal,
 artifact, chroma, spatial, aggregation, fixed-point, history, and tuning
-contracts before implementation. Its frozen product-gate result is blocked for
+contracts before implementation. Its frozen historical product-gate result is
+blocked for
 `upstream_no_product_qualified_primary_backend`, with no eligible route,
 selected plan, or output. Product metrics and hardware, simulator, and operator
 observations remain `not_observed`; no quality, performance, product,
-production-default, acceptance, publication, or release claim is made.
+production-default, publication, or release claim follows from that record.
+
+The additive R07 functional receipt and phase-acceptance record bind
+implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+`09d3a48df01738bb26077aadfd83c08e389a1dc2`, and a checkpoint-bound run of 98
+passing tests across the 11 settled R07 test classes, with zero failures and zero
+skips. R07 is `passed` because the deterministic fixture simulation verifies the
+intended temporal, support-stage, artifact, protected-region, N+1 postflight,
+coordinator, and transaction behavior. The comparative backend requirement is
+explicitly `superseded_not_required`; it is not an acceptance gate. This scope
+does not claim native framework or hardware execution, product routing, a
+production default, Auto, media quality, performance, publication, or release.
+R06 remains `in_progress` and unaccepted. R08 remains `planned`.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -80,12 +93,14 @@ disabled.
 - [R06 Phase Evidence Summary](evidence/r06/phase-evidence.md)
 - [R07 Preregistration](evidence/r07/records/preregistration.json)
 - [R07 Deterministic Fixture Catalog](evidence/r07/records/fixtures/fixture-catalog.json)
+- [R07 Functional Execution Receipt](evidence/r07/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 98 passed, 0 failed, 0 skipped
+- [R07 Functional Phase Acceptance](evidence/r07/records/functional-phase-acceptance.json) — operator-defined software-function gate passed; comparative requirement superseded and not required
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `3cd80363786184b9dd3f1347f940db6d97fba25ed0850c2c743212597f3e36e8`
-- JSON: `c46fa670bcdd58becc705f0f7421833c4109fbf3b092cf67be74f9ef9ff26735`
+- Markdown: `a6f7197f00eb5ba3e0aac657568357f3535b4424c3f7fb6922be6498f7479cfb`
+- JSON: `6ab465e2f144d958bca3d85f902af5791ee2ef64fd733048bd5259f1e34d7186`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

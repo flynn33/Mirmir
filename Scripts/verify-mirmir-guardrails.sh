@@ -99,7 +99,8 @@ python3 -m unittest \
   Scripts/tests/test_r04_contracts.py \
   Scripts/tests/test_r05_contracts.py \
   Scripts/tests/test_r06_contracts.py \
-  Scripts/tests/test_r07_contracts.py
+  Scripts/tests/test_r07_contracts.py \
+  Scripts/tests/test_r07_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -139,6 +140,7 @@ python3 Scripts/r07_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
   python3 Scripts/r07_contracts.py --check-conformance
 fi
+python3 Scripts/r07_phase_acceptance.py --check
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2

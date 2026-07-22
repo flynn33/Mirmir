@@ -46,8 +46,14 @@ class RoadmapAlignmentTests(unittest.TestCase):
         for requirement in self.policy["phase_start_requirements"].values():
             paths.update(requirement["paths"])
         for override in self.policy.get("phase_acceptance_overrides", {}).values():
-            paths.add(override["dependency_conformance_binding"]["path"])
-            paths.add(override["acceptance_record_binding"]["path"])
+            for key in (
+                "dependency_phase_evidence_binding",
+                "dependency_conformance_binding",
+                "acceptance_record_binding",
+            ):
+                binding = override.get(key)
+                if isinstance(binding, dict):
+                    paths.add(binding["path"])
         workflow_root = REPOSITORY_ROOT / self.policy["workflows"]["root"]
         paths.update(
             path.relative_to(REPOSITORY_ROOT).as_posix()
@@ -289,6 +295,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_in_progress_r07_requires_every_start_contract_file(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         start_path = self.root / self.policy["phase_start_requirements"]["R07"][
             "paths"
         ][1]
@@ -298,6 +305,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_in_progress_r07_rejects_symlinked_start_contract(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         relative = self.policy["phase_start_requirements"]["R07"]["paths"][1]
         symlink_path = self.root / relative
         target = self.root / "r07-start-target.json"
@@ -460,6 +468,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_in_progress_r07_uses_exact_local_continuation_exception(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         self.assertFalse(
             any(
                 "phase R07 is 'in_progress' before dependency R06" in error
@@ -468,8 +477,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             self.errors(),
         )
 
-    def test_r07_exception_never_waives_next_or_closure_statuses(self) -> None:
-        for status in ("next", "evidence_ready", "passed"):
+    def test_r07_exception_never_waives_next_or_evidence_ready(self) -> None:
+        for status in ("next", "evidence_ready"):
             with self.subTest(status=status):
                 self.set_phase_status("R07", status)
                 self.assert_error_contains(
@@ -477,6 +486,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_r07_exception_requires_regular_valid_preregistration(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
         ]
@@ -484,6 +494,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r07_exception_rejects_predecessor_binding_drift(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
         ]
@@ -494,6 +505,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation predecessor binding differs")
 
     def test_r07_exception_rejects_preregistration_key_drift(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
         ]
@@ -517,6 +529,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_r07_exception_rejects_symlinked_preregistration(self) -> None:
+        self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
         ]
@@ -526,6 +539,68 @@ class RoadmapAlignmentTests(unittest.TestCase):
         path.unlink()
         path.symlink_to(target)
         self.assert_error_contains("requires a regular preregistration file")
+
+    def test_passed_r07_uses_exact_functional_acceptance_override(self) -> None:
+        self.set_phase_status("R07", "passed")
+        self.assertFalse(
+            any(
+                "phase R07 is 'passed' before dependency R06" in error
+                for error in self.errors()
+            ),
+            self.errors(),
+        )
+
+    def test_r07_acceptance_override_is_exact(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        policy = copy.deepcopy(self.policy)
+        policy["phase_acceptance_overrides"]["R07"]["acceptance_identity"][
+            "comparative_requirement"
+        ] = "required"
+        self.write_json(policy_path, policy)
+        self.assert_error_contains("exact R07 functional contract")
+
+    def test_passed_r07_requires_exact_acceptance_record(self) -> None:
+        path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
+            "acceptance_record_binding"
+        ]["path"]
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        self.assert_error_contains("acceptance_record_binding bytes differ")
+
+    def test_passed_r07_requires_exact_r06_phase_evidence(self) -> None:
+        path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
+            "dependency_phase_evidence_binding"
+        ]["path"]
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        self.assert_error_contains("dependency_phase_evidence_binding bytes differ")
+
+    def test_passed_r07_requires_exact_r06_conformance(self) -> None:
+        path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
+            "dependency_conformance_binding"
+        ]["path"]
+        path.write_text(path.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+        self.assert_error_contains("dependency_conformance_binding bytes differ")
+
+    def test_passed_r07_requires_regular_authorizing_evidence(self) -> None:
+        path = self.root / self.policy["phase_evidence_requirements"]["R07"][
+            "paths"
+        ][0]
+        path.unlink()
+        self.assert_error_contains(
+            "phase R07 status 'passed' requires a regular evidence file"
+        )
+
+    def test_passed_r07_rejects_symlinked_acceptance_record(self) -> None:
+        relative = self.policy["phase_acceptance_overrides"]["R07"][
+            "acceptance_record_binding"
+        ]["path"]
+        path = self.root / relative
+        target = self.root / "r07-acceptance-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "acceptance_record_binding is not a regular file"
+        )
 
     def test_r04_exception_requires_regular_valid_preregistration(self) -> None:
         self.set_phase_status("R03", "in_progress")
@@ -739,7 +814,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("✅ Passed `3`", "✅ Passed `4`", 1)
+        text = text.replace("✅ Passed `4`", "✅ Passed `5`", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()
@@ -973,6 +1048,32 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     self.assertIn(phrase, original)
                     path.write_text(
                         original.replace(phrase, "removed-r07-contract-command", 1),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
+
+        acceptance_required = (
+            "Scripts/tests/test_r07_phase_acceptance.py",
+            "python3 Scripts/r07_phase_acceptance.py --check",
+        )
+        for relative in (
+            ".github/workflows/roadmap-alignment.yml",
+            "Scripts/verify-mirmir-guardrails.sh",
+        ):
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            for phrase in acceptance_required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
+                    path.write_text(
+                        original.replace(
+                            phrase,
+                            "removed-r07-phase-acceptance-command",
+                            1,
+                        ),
                         encoding="utf-8",
                     )
                     self.assert_error_contains(

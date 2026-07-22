@@ -1,0 +1,353 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r07-functional-phase-acceptance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "namedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "passedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "source_checkpoint_exact",
+            "implementation_bindings_exact",
+            "historical_r07_bindings_immutable",
+            "r06_alignment_override_exact",
+            "execution_receipt_exact",
+            "test_set_exact",
+            "product_gate_first",
+            "temporal_boundary_current_only",
+            "invalid_motion_history_not_consumed",
+            "a04_fixture_function",
+            "a13_fixture_function",
+            "a15_fixture_function",
+            "artifact_and_not_applicable_function",
+            "protected_content_function",
+            "postflight_n_plus_1_no_rewrite",
+            "coordinator_end_to_end",
+            "failure_transactionality",
+            "simulation_identity_truthful",
+            "comparative_gate_not_required",
+            "authorization_boundary_exact"
+          ],
+          "type": "string"
+        },
+        "status": {"const": "passed", "type": "string"}
+      },
+      "required": ["id", "status"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R07", "type": "string"},
+    "evidence_kind": {
+      "const": "r07_operator_functional_phase_acceptance_v1",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "const": "1b46ad469265a6ba837a8449d28b8850889f1d3f",
+          "type": "string"
+        },
+        "tree": {
+          "const": "09d3a48df01738bb26077aadfd83c08e389a1dc2",
+          "type": "string"
+        }
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "operator_override": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {"const": "operator", "type": "string"},
+        "authorization_date": {"const": "2026-07-21", "type": "string"},
+        "acceptance_basis": {
+          "const": "software_performs_intended_task",
+          "type": "string"
+        },
+        "override_id": {
+          "const": "r07.software-function-phase-acceptance.v1",
+          "type": "string"
+        },
+        "comparative_requirement": {
+          "const": "superseded_not_required",
+          "type": "string"
+        },
+        "hardware_requirement": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        },
+        "simulator_requirement": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        },
+        "operator_observation_requirement": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        },
+        "deterministic_fixture_simulation": {
+          "const": "permitted_when_truthful_and_tested",
+          "type": "string"
+        },
+        "historical_evidence_policy": {
+          "const": "preserve_frozen_r07_records_unchanged",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "authorization_date",
+        "acceptance_basis",
+        "override_id",
+        "comparative_requirement",
+        "hardware_requirement",
+        "simulator_requirement",
+        "operator_observation_requirement",
+        "deterministic_fixture_simulation",
+        "historical_evidence_policy"
+      ],
+      "type": "object"
+    },
+    "dependency_alignment_override": {
+      "additionalProperties": false,
+      "properties": {
+        "phase_id": {"const": "R06", "type": "string"},
+        "phase_status": {"const": "in_progress", "type": "string"},
+        "predecessor_result": {"const": "blocked", "type": "string"},
+        "acceptance_state": {"const": "not_claimed", "type": "string"},
+        "closure_commit": {
+          "const": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+          "type": "string"
+        },
+        "closure_tree": {
+          "const": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+          "type": "string"
+        },
+        "blocked_evidence_disposition": {
+          "const": "preserved_non_authorizing_historical_evidence",
+          "type": "string"
+        },
+        "r07_progression": {
+          "const": "operator_authorized_functional_acceptance_only",
+          "type": "string"
+        }
+      },
+      "required": [
+        "phase_id",
+        "phase_status",
+        "predecessor_result",
+        "acceptance_state",
+        "closure_commit",
+        "closure_tree",
+        "blocked_evidence_disposition",
+        "r07_progression"
+      ],
+      "type": "object"
+    },
+    "superseded_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "gate": {
+          "const": "ASH Auto must reduce preregistered temporal artifact and chroma-displacement measures relative to each underlying backend used alone, with no material loss in spatial quality.",
+          "type": "string"
+        },
+        "disposition": {
+          "const": "superseded_for_r07_phase_acceptance",
+          "type": "string"
+        },
+        "retained_value": {
+          "const": "historical_optional_non_authorizing_evidence",
+          "type": "string"
+        }
+      },
+      "required": ["gate", "disposition", "retained_value"],
+      "type": "object"
+    },
+    "functional_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_scope": {
+          "const": "functional_deterministic_software_phase_acceptance",
+          "type": "string"
+        },
+        "execution_mode": {
+          "const": "deterministic_fixture_simulation",
+          "type": "string"
+        },
+        "required_test_suites": {
+          "const": [
+            "R07TemporalGovernanceContractsTests",
+            "R07TemporalHistoryTests",
+            "R07ArtifactGovernanceTests",
+            "R07ProtectedRegionPolicyTests",
+            "R07SupportStagePolicyTests",
+            "R07PostflightGovernanceTests",
+            "R07PostflightFeedbackConsumptionTests",
+            "R07FunctionalSupportExecutorTests",
+            "R07FunctionalCoordinatorTests",
+            "R07FunctionalCoordinatorBoundaryTests",
+            "R07FunctionalCoordinatorTransactionTests"
+          ],
+          "type": "array"
+        },
+        "required_test_count": {"const": 98, "type": "integer"},
+        "required_functional_check_ids": {
+          "const": [
+            "product_gate_first",
+            "temporal_boundary_current_only",
+            "invalid_motion_history_not_consumed",
+            "a04_fixture_function",
+            "a13_fixture_function",
+            "a15_fixture_function",
+            "artifact_and_not_applicable_function",
+            "protected_content_function",
+            "postflight_n_plus_1_no_rewrite",
+            "coordinator_end_to_end",
+            "failure_transactionality",
+            "simulation_identity_truthful"
+          ],
+          "type": "array"
+        },
+        "comparison_disposition": {
+          "const": "superseded_not_required",
+          "type": "string"
+        },
+        "product_gate_reason": {
+          "const": "deterministic_fixture_simulation_not_product_authorized",
+          "type": "string"
+        },
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "acceptance_scope",
+        "execution_mode",
+        "required_test_suites",
+        "required_test_count",
+        "required_functional_check_ids",
+        "comparison_disposition",
+        "product_gate_reason",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "historical_evidence_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 7,
+      "minItems": 7,
+      "type": "array"
+    },
+    "implementation_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 25,
+      "minItems": 25,
+      "type": "array"
+    },
+    "execution_receipt_binding": {"$ref": "#/$defs/namedBinding"},
+    "derived_checks": {
+      "items": {"$ref": "#/$defs/passedCheck"},
+      "maxItems": 20,
+      "minItems": 20,
+      "type": "array"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "passed", "type": "string"},
+        "phase_status_before": {"const": "in_progress", "type": "string"},
+        "phase_status_after": {"const": "passed", "type": "string"},
+        "acceptance": {"const": "accepted", "type": "string"},
+        "acceptance_scope": {
+          "const": "functional_deterministic_software_phase_acceptance",
+          "type": "string"
+        },
+        "execution_mode": {
+          "const": "deterministic_fixture_simulation",
+          "type": "string"
+        },
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "status",
+        "phase_status_before",
+        "phase_status_after",
+        "acceptance",
+        "acceptance_scope",
+        "execution_mode",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "authorizations": {
+      "additionalProperties": false,
+      "properties": {
+        "phase_progression": {"const": "authorized", "type": "string"},
+        "r07_phase_status": {"const": "passed", "type": "string"},
+        "r06_phase_status": {"const": "in_progress", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "production_default": {"const": "not_authorized", "type": "string"},
+        "auto_mode": {"const": "not_authorized", "type": "string"},
+        "holdout": {"const": "not_authorized", "type": "string"},
+        "perceptual_quality_claims": {"const": "not_authorized", "type": "string"},
+        "performance_claims": {"const": "not_authorized", "type": "string"},
+        "product_publication": {"const": "not_authorized", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"},
+        "native_execution_claims": {"const": "not_authorized", "type": "string"}
+      },
+      "required": [
+        "phase_progression",
+        "r07_phase_status",
+        "r06_phase_status",
+        "product_qualification",
+        "production_default",
+        "auto_mode",
+        "holdout",
+        "perceptual_quality_claims",
+        "performance_claims",
+        "product_publication",
+        "release",
+        "native_execution_claims"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"minLength": 1, "type": "string"},
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "operator_override",
+    "dependency_alignment_override",
+    "superseded_gate",
+    "functional_gate",
+    "historical_evidence_bindings",
+    "implementation_bindings",
+    "execution_receipt_binding",
+    "derived_checks",
+    "result",
+    "authorizations",
+    "limitations"
+  ],
+  "type": "object"
+}

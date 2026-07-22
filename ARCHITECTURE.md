@@ -11,6 +11,11 @@
 - Roadmap phase `R01`: `passed`
 - Roadmap phase `R02`: `in_progress`
 - Roadmap phase `R03`: `passed`
+- Roadmap phase `R04`: `in_progress`
+- Roadmap phase `R05`: `in_progress`
+- Roadmap phase `R06`: `in_progress` and unaccepted
+- Roadmap phase `R07`: `passed` for deterministic software function
+- Roadmap phase `R08`: `planned`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -64,6 +69,23 @@ operator-overridden functional acceptance record then revalidates the passing
 R02 common-session and R03 A11 software evidence and marks R03 `passed`. The
 production composition still injects the unavailable service; no default, Auto,
 holdout, quality, performance, product-publication, or release authority follows.
+
+R07 implementation checkpoint
+`1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+`09d3a48df01738bb26077aadfd83c08e389a1dc2`, adds a deterministic functional
+coordinator over the existing R06 decision contract. It integrates scene-cut,
+discontinuity, motion/occlusion, bounded history, A04 temporal filtering, A13
+luma-guided chroma reconstruction, A15 protected-mask upsampling, artifact and
+protected-region evaluation, and exact N+1 postflight feedback. State changes
+commit only after the full transaction succeeds.
+
+The operator-defined R07 acceptance covers this deterministic fixture-simulation
+software function. Its comparative backend requirement is explicitly
+superseded and not required. The fixture executor records simulation identity
+separately from referenced native identities; it does not claim native framework
+or physical-hardware execution. The product composition remains unavailable,
+R06 remains `in_progress` and unaccepted, and no production default, Auto,
+quality, performance, publication, or release authority follows.
 
 ## Target Apple-Native Adaptive Architecture
 

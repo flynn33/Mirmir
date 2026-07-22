@@ -72,9 +72,16 @@
   acceptance not claimed
 - **R07 local preregistration source:** R06 blocked closure above;
   `accepted_merge_commit: null`
+- **R07 deterministic implementation checkpoint:**
+  `1b46ad469265a6ba837a8449d28b8850889f1d3f`; tree
+  `09d3a48df01738bb26077aadfd83c08e389a1dc2`
+- **R07 operator-defined functional acceptance:** 98 checkpoint-bound tests
+  passed across 11 settled R07 test classes, with zero failures and zero skips;
+  acceptance scope `functional_deterministic_software_phase_acceptance`;
+  comparative requirement `superseded_not_required`; R07 is `passed`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: passed`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
-  `R07: in_progress`; `R08: planned`
+  `R07: passed`; `R08: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -247,6 +254,27 @@ operator-observed operation also remain non-blocking `not_observed` and are not
 the blocked cause. No quality, performance, product, production-default,
 acceptance, publication, or release claim follows.
 
+### R07 operator-defined deterministic software-function acceptance — 2026-07-21
+
+The operator explicitly superseded the comparison against each underlying
+backend as an R07 acceptance requirement. Its disposition is
+`superseded_not_required`: it remains historical, non-authorizing context and
+does not participate in phase acceptance.
+
+R07 implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+`09d3a48df01738bb26077aadfd83c08e389a1dc2`, integrates deterministic temporal,
+support-stage, artifact, protected-region, postflight, and failure-transaction
+governance. The checkpoint-bound execution receipt records 98 passing tests
+across the 11 settled R07 test classes, with zero failures and zero skips. The
+functional phase-acceptance record therefore marks R07 `passed` for
+`functional_deterministic_software_phase_acceptance`.
+
+This acceptance is deterministic fixture simulation only. It does not claim
+native framework or physical-hardware execution, product routing, a production
+default, Auto, media quality, performance, publication, or release. It does not
+change R06: that phase remains `in_progress` and unaccepted, and its frozen
+record is unchanged. R08 remains `planned`.
+
 ### R03 A11 functional product-qualification checkpoint — 2026-07-21
 
 The additive R03 v2 qualification is bound to source commit
@@ -295,14 +323,15 @@ Before changing source:
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
    `R03: passed`, `R04: in_progress`, `R05: in_progress`,
-   `R06: in_progress`, `R07: in_progress`, and `R08: planned` remain
-   canonical for this local continuation. If any changed, reconcile the newer
-   accepted roadmap before proceeding.
+   `R06: in_progress`, `R07: passed`, and `R08: planned` remain canonical. If
+   any changed, reconcile the newer accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
-   evidence. The additive R03 functional acceptance accepts R03 only; it does
-   not accept R04 through R07 or alter those records. Any new R06 or R07 product
-   evaluation requires additive, versioned evidence bound to the exact A11
-   identity. Except for the narrow
+   evidence. The additive R03 functional acceptance does not alter those
+   records. The later additive R07 functional acceptance passes only R07 under
+   the operator-defined deterministic software-function gate; it does not pass
+   R06 or rewrite either frozen record. Any new R06 or R07 product evaluation
+   requires additive, versioned evidence bound to the exact A11 identity. Except
+   for the narrow
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
 
@@ -385,6 +414,14 @@ merged, record the actual operator-created merge commit and tree additively in a
 separate predecessor-acceptance receipt before claiming an accepted predecessor
 or publishing/closing the dependent phase. Never rewrite the preregistration or
 infer merge acceptance from a local branch or remote-tracking ref.
+
+The later R07-only functional acceptance is a separate operator-defined
+exception. It permits R07 to be `passed` while R06 remains `in_progress` only
+when additive evidence binds the exact R07 implementation checkpoint and proves
+the deterministic software function. The comparative backend requirement is
+`superseded_not_required`. This exception neither passes R06 nor authorizes
+native/product/default/Auto, quality, performance, publication, or release
+claims.
 
 The frozen R04 local-continuation preregistration binds R03 closure commit
 `947983a8414c60e4f5f4246e6cb658792fc7c357` and tree
@@ -962,8 +999,9 @@ filtering, backend/strength/artifact history, ringing/halo/ghosting/flicker/fals
 texture/chroma detection, luma-guided chroma reconstruction, edge-preserving mask
 upsampling, and policies for faces, text, line art, animation, subtitles, and UI
 captures. Postflight feedback may affect later decisions but never rewrite a
-completed frame. Pass only with measured improvement over each used backend alone
-without material spatial-quality loss.
+completed frame. The original plan required measured improvement over each used
+backend alone without material spatial-quality loss. The operator explicitly
+superseded that comparison requirement; it is not required for R07 acceptance.
 
 Local start: the R07 preregistration binds R06 blocked closure
 `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
@@ -977,16 +1015,32 @@ The frozen product-gate record is `blocked` for
 `upstream_no_product_qualified_primary_backend`, with zero eligible routes and
 null route, plan, and output. Product temporal, artifact, chroma, and
 spatial-quality measurements, plus hardware, simulator, and operator-observed
-operation, remain `not_observed`. R06 and R07 remain `in_progress`; R08 remains
-`planned`. No quality, performance, product, production-default, acceptance,
-publication, or release claim follows.
+operation, remain `not_observed`. At that checkpoint R06 and R07 remained
+`in_progress`, while R08 remained `planned`. No quality, performance, product,
+production-default, acceptance, publication, or release claim follows from that
+record.
 
 The later R03 v2 decision removes the R03-level eligibility absence
 prospectively, but it does not establish an eligible R06 route, alter the frozen
 R07 record, or make R07 product metrics observed. A successor evaluation requires
-additive R06 admission evidence and additive R07 evidence. R07 remains
-`in_progress` with no production-default, Auto, holdout, acceptance, quality,
-performance, publication, or release claim.
+additive R06 admission evidence and additive R07 evidence. Before the later
+operator-defined functional acceptance, R07 remained `in_progress` with no
+production-default, Auto, holdout, acceptance, quality, performance,
+publication, or release claim.
+
+Operator-defined functional acceptance: implementation commit
+`1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+`09d3a48df01738bb26077aadfd83c08e389a1dc2`, passed 98 checkpoint-bound tests
+across the 11 settled R07 test classes with zero failures and zero skips. The
+tests verify the deterministic temporal/support-stage/artifact/protection/
+postflight/coordinator transaction as a complete software function. The
+functional receipt and acceptance record mark R07 `passed`; comparison is
+`superseded_not_required` and contributes no acceptance authority.
+
+The accepted execution scope is deterministic fixture simulation only. Native
+framework execution, physical hardware, product/default/Auto routing, media
+quality, performance, publication, and release remain unclaimed and
+unauthorized. R06 remains `in_progress` and unaccepted. R08 remains `planned`.
 
 ### R08 - Core AI analysis-only integration
 
@@ -1142,16 +1196,20 @@ themselves block completion of R11.
 Do not reinterpret negative evidence as success except where the roadmap defines
 an explicit diagnostic or rejection outcome. R05 rejection, R08 diagnostic-only,
 and R09 rejection can be valid phase outcomes. A negative R08 keeps R09 blocked.
-A failed positive R06 or R07 gate blocks dependent product work and requires an
-explicitly reviewed roadmap revision rather than relaxed thresholds.
+A failed R06 or R07 product gate blocks dependent product work and requires an
+explicitly reviewed roadmap revision rather than relaxed thresholds. The R07
+functional acceptance is the operator-defined software gate and does not
+reinterpret the frozen product-gate result.
 
 ## 8. Current local-continuation boundary
 
 The original R01 kickoff has been completed. The receiving implementation task
 now begins by verifying current `main`, the immutable R03 v1 blocked checkpoint,
 the additive A11 v2 passed decision, and the R04 diagnostic-only checkpoint
-above. R06 and R07 successor product evaluations require additive, versioned
-evidence; their frozen blocked records are not rewritten. Work may collect
+above. R07 is accepted only for checkpoint-bound deterministic software
+function; R06 remains `in_progress` and unaccepted. R06 and R07 successor
+product evaluations require additive, versioned evidence; their frozen blocked
+records are not rewritten. Work may collect
 authorized supplemental evidence and commit locally. Publication still requires
 a direct operator instruction. The explicit local-continuation exception does
 not authorize holdout access, production Auto, a claim, a tag, a release, push,

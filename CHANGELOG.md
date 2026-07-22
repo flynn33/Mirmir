@@ -6,6 +6,19 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R07 under the operator-defined deterministic software-function gate.
+  The additive execution receipt and phase-acceptance record bind implementation
+  commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+  `09d3a48df01738bb26077aadfd83c08e389a1dc2`, and 98 passing tests across the
+  11 settled R07 test classes, with zero failures and zero skips. The tested
+  function covers temporal boundaries and history, A04/A13/A15 support stages,
+  artifact and protected-region governance, exact N+1 postflight feedback, the
+  end-to-end coordinator, and failure transactionality. The comparative backend
+  requirement is explicitly `superseded_not_required` and is not an acceptance
+  gate. Acceptance is limited to deterministic fixture simulation; native
+  hardware/framework execution, product/default/Auto routing, media quality,
+  performance, publication, and release remain unclaimed. R06 remains
+  `in_progress` and unaccepted; R08 remains `planned`.
 - Accepted R03 under the operator-overridden software-function gate. The new
   fail-closed record binds the passing R02 common-session conformance and exact
   R03 v2 receipt/decision, then independently requires genuine A11 execution on

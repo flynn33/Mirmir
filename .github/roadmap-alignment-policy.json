@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "3cd80363786184b9dd3f1347f940db6d97fba25ed0850c2c743212597f3e36e8",
-    "json_sha256": "c46fa670bcdd58becc705f0f7421833c4109fbf3b092cf67be74f9ef9ff26735",
+    "markdown_sha256": "a6f7197f00eb5ba3e0aac657568357f3535b4424c3f7fb6922be6498f7479cfb",
+    "json_sha256": "6ab465e2f144d958bca3d85f902af5791ee2ef64fd733048bd5259f1e34d7186",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -138,6 +138,7 @@
       "Scripts/tests/test_r05_contracts.py",
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
+      "Scripts/tests/test_r07_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -165,6 +166,7 @@
       "python3 Scripts/r07_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then",
       "python3 Scripts/r07_contracts.py --check-conformance",
+      "python3 Scripts/r07_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -203,6 +205,7 @@
       "Scripts/tests/test_r05_contracts.py",
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
+      "Scripts/tests/test_r07_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -231,6 +234,7 @@
       "python3 Scripts/r07_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then",
       "python3 Scripts/r07_contracts.py --check-conformance",
+      "python3 Scripts/r07_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -317,13 +321,21 @@
       "R00",
       "R01",
       "R02",
-      "R03"
+      "R03",
+      "R04",
+      "R05",
+      "R06",
+      "R07",
+      "R08"
     ],
     "local-work-plan.md": [
       "R00",
       "R01",
       "R02",
-      "R03"
+      "R03",
+      "R06",
+      "R07",
+      "R08"
     ]
   },
   "phase_evidence_requirements": {
@@ -340,6 +352,12 @@
       "required_status": "passed",
       "paths": [
         "docs/roadmaps/evidence/r03/records/functional-phase-acceptance.json"
+      ]
+    },
+    "R07": {
+      "required_status": "passed",
+      "paths": [
+        "docs/roadmaps/evidence/r07/records/functional-phase-acceptance.json"
       ]
     }
   },
@@ -646,6 +664,58 @@
           "acceptance": "accepted",
           "accepted_backend_id": "r03.mps.lanczos",
           "acceptance_scope": "functional_software_phase_acceptance"
+        }
+      }
+    },
+    "R07": {
+      "active_phase_status": "passed",
+      "dependency_phase_id": "R06",
+      "dependency_phase_status": "in_progress",
+      "dependency_phase_evidence_binding": {
+        "path": "docs/roadmaps/evidence/r06/phase-evidence.json",
+        "size_bytes": 11395,
+        "sha256": "555508b60108903019798d31e34f3cecd6575e18a39cff07069237e7cf823f00"
+      },
+      "dependency_conformance_binding": {
+        "path": "docs/roadmaps/evidence/r06/records/orchestration-conformance.json",
+        "size_bytes": 5800,
+        "sha256": "19f25269e9cb62ba162e2c53d716a79a392fef740a0be0c7d981cbdac3bfeccc"
+      },
+      "acceptance_record_binding": {
+        "path": "docs/roadmaps/evidence/r07/records/functional-phase-acceptance.json",
+        "size_bytes": 14303,
+        "sha256": "a58896db4a44a4fd4da00c3de53b059066a1531dda9df7a91dc735544117ed6b"
+      },
+      "acceptance_identity": {
+        "schema_version": "1.0.0",
+        "roadmap_version": "1.0.1",
+        "phase_id": "R07",
+        "evidence_kind": "r07_operator_functional_phase_acceptance_v1",
+        "override_id": "r07.software-function-phase-acceptance.v1",
+        "comparative_requirement": "superseded_not_required",
+        "dependency_alignment_override": {
+          "phase_id": "R06",
+          "phase_status": "in_progress",
+          "predecessor_result": "blocked",
+          "acceptance_state": "not_claimed",
+          "closure_commit": "9ed01ea938a933f6406fd67e88edb74e7c84f5f4",
+          "closure_tree": "32365e745dbf53d59213fe2294a6b63ba2642df7",
+          "blocked_evidence_disposition": "preserved_non_authorizing_historical_evidence",
+          "r07_progression": "operator_authorized_functional_acceptance_only"
+        },
+        "superseded_gate": {
+          "gate": "ASH Auto must reduce preregistered temporal artifact and chroma-displacement measures relative to each underlying backend used alone, with no material loss in spatial quality.",
+          "disposition": "superseded_for_r07_phase_acceptance",
+          "retained_value": "historical_optional_non_authorizing_evidence"
+        },
+        "result": {
+          "status": "passed",
+          "phase_status_before": "in_progress",
+          "phase_status_after": "passed",
+          "acceptance": "accepted",
+          "acceptance_scope": "functional_deterministic_software_phase_acceptance",
+          "execution_mode": "deterministic_fixture_simulation",
+          "product_qualification": "not_claimed"
         }
       }
     }

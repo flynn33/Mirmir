@@ -35,6 +35,19 @@
   preservation, lifecycle, identity, and no fallback. Production remains
   unavailable; default, Auto, holdout, performance, product-quality,
   product-publication, and release claims remain unauthorized.
+- Roadmap phase `R06`: `in_progress` and unaccepted. Its frozen blocked closure
+  remains truthful historical evidence and is not changed by the later R07
+  acceptance.
+- Roadmap phase `R07`: `passed` under the operator-defined deterministic
+  software-function gate. The additive receipt and acceptance record bind
+  implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
+  `09d3a48df01738bb26077aadfd83c08e389a1dc2`, and 98 passing tests across the 11
+  settled R07 test classes, with zero failures and zero skips. The comparative
+  backend requirement is `superseded_not_required`; it is not an acceptance
+  gate. Acceptance is limited to deterministic fixture simulation and claims no
+  native hardware/framework execution, product routing, production default,
+  Auto, quality, performance, publication, or release.
+- Roadmap phase `R08`: `planned`.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
 

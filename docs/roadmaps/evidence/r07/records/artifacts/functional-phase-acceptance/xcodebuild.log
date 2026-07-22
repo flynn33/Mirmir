@@ -1,0 +1,37 @@
+R07 deterministic software-function acceptance execution
+source_commit: 1b46ad469265a6ba837a8449d28b8850889f1d3f
+source_tree: 09d3a48df01738bb26077aadfd83c08e389a1dc2
+execution_mode: deterministic_fixture_simulation
+platform: macos_host
+architecture: arm64
+
+Command line invocation:
+    xcodebuild test -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /tmp/mirmir-r07-acceptance-1b46ad4-derived -resultBundlePath /tmp/mirmir-r07-acceptance-1b46ad4.xcresult -disableAutomaticPackageResolution -only-testing:MirmirTests/R07TemporalGovernanceContractsTests -only-testing:MirmirTests/R07TemporalHistoryTests -only-testing:MirmirTests/R07ArtifactGovernanceTests -only-testing:MirmirTests/R07ProtectedRegionPolicyTests -only-testing:MirmirTests/R07SupportStagePolicyTests -only-testing:MirmirTests/R07PostflightGovernanceTests -only-testing:MirmirTests/R07PostflightFeedbackConsumptionTests -only-testing:MirmirTests/R07FunctionalSupportExecutorTests -only-testing:MirmirTests/R07FunctionalCoordinatorTests -only-testing:MirmirTests/R07FunctionalCoordinatorBoundaryTests -only-testing:MirmirTests/R07FunctionalCoordinatorTransactionTests
+
+Test Suite 'R07TemporalGovernanceContractsTests' passed.
+    Executed 10 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07TemporalHistoryTests' passed.
+    Executed 12 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07ArtifactGovernanceTests' passed.
+    Executed 20 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07ProtectedRegionPolicyTests' passed.
+    Executed 15 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07SupportStagePolicyTests' passed.
+    Executed 7 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07PostflightGovernanceTests' passed.
+    Executed 9 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07PostflightFeedbackConsumptionTests' passed.
+    Executed 4 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalSupportExecutorTests' passed.
+    Executed 8 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalCoordinatorTests' passed.
+    Executed 6 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalCoordinatorBoundaryTests' passed.
+    Executed 4 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalCoordinatorTransactionTests' passed.
+    Executed 3 tests, with 0 failures (0 unexpected), 0 skipped.
+
+Test Suite 'Selected tests' passed.
+    Executed 98 tests, with 0 failures (0 unexpected), 0 skipped.
+
+** TEST SUCCEEDED **
