@@ -258,18 +258,17 @@ final class R07PostflightGovernanceTests: XCTestCase {
     private func makeReport(
         reportID: String = "report-100",
         shotID: String = "shot-A",
-        decisionOrdinal: UInt64 = 100
+        decisionOrdinal: UInt64 = 100,
+        riskQ16: Int64 = 32_768,
+        findingIDs: [String] = ["ringing", "ghosting"]
     ) throws -> R07PostflightReport {
         try R07PostflightReport(
             reportID: reportID,
             shotID: shotID,
             decisionOrdinal: decisionOrdinal,
             findings: R06ASHPostflightFindings(
-                riskQ16: R06ASHQ16(32_768),
-                findings: [
-                    R06ASHPostflightFinding(id: "ringing"),
-                    R06ASHPostflightFinding(id: "ghosting")
-                ]
+                riskQ16: R06ASHQ16(riskQ16),
+                findings: try findingIDs.map(R06ASHPostflightFinding.init(id:))
             )
         )
     }

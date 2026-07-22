@@ -151,6 +151,42 @@ struct R07PostflightGovernance: Equatable, Sendable {
         }
     }
 
+    mutating func consumeFeedback(
+        forShotID shotID: String,
+        decisionOrdinal: UInt64
+    ) throws -> R06ASHPostflightFindings? {
+        let validatedShotID = try Self.requireIdentity(
+            shotID,
+            field: "consume_feedback.shot_id"
+        )
+        let matchingFeedback = pendingFeedback.filter {
+            $0.shotID == validatedShotID
+                && $0.targetDecisionOrdinal == decisionOrdinal
+        }
+        guard !matchingFeedback.isEmpty else { return nil }
+
+        var maximumRiskQ16 = R06ASHQ16.zero
+        var mergedFindings: [R06ASHPostflightFinding] = []
+        var mergedFindingIDs: Set<String> = []
+        for feedback in matchingFeedback {
+            maximumRiskQ16 = max(maximumRiskQ16, feedback.artifactRiskQ16)
+            for finding in feedback.findings.findings
+            where mergedFindingIDs.insert(finding.id).inserted {
+                mergedFindings.append(finding)
+            }
+        }
+        let merged = try R06ASHPostflightFindings(
+            riskQ16: maximumRiskQ16,
+            findings: mergedFindings
+        )
+
+        pendingFeedback.removeAll {
+            $0.shotID == validatedShotID
+                && $0.targetDecisionOrdinal == decisionOrdinal
+        }
+        return merged
+    }
+
     mutating func apply(
         scope: AppleUpscaleAdmissionScope,
         report: R07PostflightReport,
@@ -244,5 +280,16 @@ struct R07PostflightGovernance: Equatable, Sendable {
             feedback: nil,
             rewritesDecisionN: false
         )
+    }
+
+    private static func requireIdentity(
+        _ value: String,
+        field: String
+    ) throws -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, value == trimmed else {
+            throw R07PostflightGovernanceError.invalidIdentity(field: field)
+        }
+        return value
     }
 }
