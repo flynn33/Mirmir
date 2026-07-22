@@ -6,26 +6,37 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R08 under the operator-defined “software does what it says it does”
+  gate. The additive functional receipt and phase-acceptance record bind
+  implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
+  `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, and 42 passing tests across 10
+  settled R08 suites, with zero failures and zero skips. The deterministic
+  fixture simulation verifies the declared analysis-only outputs, identity,
+  scheduling, lifecycle, cancellation, cache, resource budgets, bounded
+  ASH-context integration, protected-mask composition, deterministic bypass,
+  and no-pixel-authority boundary. Comparison-based testing supplied no
+  acceptance authority. Native Core AI, Xcode 27, model,
+  hardware, simulator, and operator-observed execution remain `not_observed`;
+  no product/default/Auto, residual, quality, performance, publication, or
+  release authority follows. R09 remains `blocked` pending separate operator
+  authorization.
 - Began R08 from accepted R07 merge commit
   `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
   `eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`, and marked it `in_progress`.
   The 2026-07-22 operator decision makes deterministic software function the
   forward acceptance gate: the optional analysis service must perform its
   declared typed-output, identity, cadence, decision-context, lifecycle, budget,
-  cancellation, no-final-pixel, and deterministic-bypass behavior. A/B, blinded,
-  ablation, baseline-superiority, and other comparative requirements are
-  `superseded_not_required` for acceptance and remain optional later tuning.
+  cancellation, no-final-pixel, and deterministic-bypass behavior.
+  Comparison-based testing is outside the forward roadmap.
   Native Xcode 27/Core AI execution is supplemental and remains `not_observed`
   when unavailable. R09 pixel residual work remains separately blocked pending
   explicit operator authorization after accepted R08 functional evidence.
 - Corrected the R10 and R11 forward gates under the same 2026-07-22 operator
   decision. R10 now accepts on deterministic bounded optimizer/calibration
-  behavior rather than Pareto superiority, real-content tuning, or a holdout
-  result. R11 now accepts on traceable benchmark and claim-scope machinery with
-  an honest no-claim disposition when comparisons are absent. Comparative and
-  holdout execution remains optional claim-support work and cannot block R12;
-  `market_leading_claim` remains blocked without exact evidence and separate
-  operator authorization.
+  behavior. R11 now accepts on traceable evidence and claim-scope machinery
+  that rejects unsupported claims and emits an honest no-claim disposition by
+  default. `market_leading_claim` remains blocked without exact evidence and
+  separate operator authorization.
 - Accepted R07 under the operator-defined deterministic software-function gate.
   The additive execution receipt and phase-acceptance record bind implementation
   commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
@@ -33,9 +44,9 @@ All notable project changes are recorded here.
   11 settled R07 test classes, with zero failures and zero skips. The tested
   function covers temporal boundaries and history, A04/A13/A15 support stages,
   artifact and protected-region governance, exact N+1 postflight feedback, the
-  end-to-end coordinator, and failure transactionality. The comparative backend
-  requirement is explicitly `superseded_not_required` and is not an acceptance
-  gate. Acceptance is limited to deterministic fixture simulation; native
+  end-to-end coordinator, and failure transactionality. The frozen comparison
+  requirement is outside the forward roadmap and carries no acceptance
+  authority. Acceptance is limited to deterministic fixture simulation; native
   hardware/framework execution, product/default/Auto routing, media quality,
   performance, publication, and release remain unclaimed. R06 remains
   `in_progress` and unaccepted; R08 is now `in_progress` under its separate
@@ -46,8 +57,9 @@ All notable project changes are recorded here.
   both canonical routes, three-repeat determinism, complete session/media
   preservation, correct lifecycle/resource release, complete identity, no
   fallback, and all applicable functional metrics. R03 is now `passed`; the
-  original all-backend quality/performance/resource comparison remains optional
-  comparative evidence. No production default, Auto, holdout, quality,
+  original all-backend quality/performance/resource requirement is removed from
+  the forward roadmap; its historical record remains unchanged. No production
+  default, Auto, holdout, quality,
   performance, product-publication, or release authority follows.
 - Passed the additive R03 v2 functional product-qualification decision for
   genuine `r03.mps.lanczos` (`A11`) at source

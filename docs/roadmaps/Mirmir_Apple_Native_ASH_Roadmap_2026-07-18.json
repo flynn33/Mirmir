@@ -236,7 +236,7 @@
       "depends_on": [
         "R03"
       ],
-      "exit": "operator-defined software-function gate: quality and low-latency VT integration contracts enforce declared route, media, lifecycle, identity, and failure behavior; comparative superiority is optional later tuning",
+      "exit": "operator-defined software-function gate: quality and low-latency VT integration contracts enforce declared route, media, lifecycle, identity, and failure behavior",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
       "status": "in_progress"
@@ -254,7 +254,7 @@
       "depends_on": [
         "R05"
       ],
-      "exit": "operator-defined software-function gate: verified ASH orchestration, transition, mask, identity, and transactional contracts; comparative ablation is superseded and optional",
+      "exit": "operator-defined software-function gate: verified ASH orchestration, transition, mask, identity, and transactional contracts",
       "id": "R06",
       "name": "ASH orchestration engine v1",
       "status": "in_progress"
@@ -263,7 +263,7 @@
       "depends_on": [
         "R06"
       ],
-      "exit": "operator-overridden deterministic software-function gate: checkpoint-bound fixture simulation verifies temporal, artifact, protected-region, support-stage, postflight, and transactional behavior; comparative backend measurement is superseded and not required",
+      "exit": "operator-overridden deterministic software-function gate: checkpoint-bound fixture simulation verifies temporal, artifact, protected-region, support-stage, postflight, and transactional behavior",
       "id": "R07",
       "name": "Temporal stability and artifact governance",
       "status": "passed"
@@ -272,16 +272,16 @@
       "depends_on": [
         "R07"
       ],
-      "exit": "operator-defined deterministic software-function gate: optional analysis contracts, declared outputs, identity, decision-context integration, lifecycle, budgets, and deterministic bypass work as claimed; comparative analysis is superseded and optional",
+      "exit": "operator-defined deterministic software-function gate: optional analysis contracts, declared outputs, identity, decision-context integration, lifecycle, budgets, and deterministic bypass work as claimed",
       "id": "R08",
       "name": "Core AI analysis-only integration",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
         "R08"
       ],
-      "exit": "separately operator-authorized bounded residual software contract or explicit safety rejection; A/B and comparative evidence is optional",
+      "exit": "separately operator-authorized bounded residual software contract or explicit safety rejection",
       "id": "R09",
       "name": "Core AI bounded residual experiment",
       "status": "blocked"
@@ -290,7 +290,7 @@
       "depends_on": [
         "R07"
       ],
-      "exit": "operator-defined software-function gate: deterministic bounded optimizer and calibration machinery enforces declared search limits, independent constraints, identities, resumability, and frozen fixture-policy output; Pareto superiority, real-content tuning, and holdout comparison are optional and separately authorized",
+      "exit": "operator-defined software-function gate: deterministic bounded optimizer and calibration machinery enforces declared search limits, independent constraints, identities, resumability, and frozen fixture-policy output",
       "id": "R10",
       "name": "Auto-policy optimization and bounded calibration",
       "status": "planned"
@@ -299,9 +299,9 @@
       "depends_on": [
         "R10"
       ],
-      "exit": "operator-defined software-function gate: traceable benchmark and claim-scope machinery validates exact identities and emits an honest no-claim disposition when comparisons are absent; comparator, corpus, metric, blind, A/B, Pareto, and holdout results are optional claim-support work and do not block R12",
+      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits an honest no-market-claim disposition by default",
       "id": "R11",
-      "name": "Competitive benchmark and market-position decision",
+      "name": "Evidence traceability and claim boundary",
       "status": "planned"
     },
     {

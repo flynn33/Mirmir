@@ -79,9 +79,17 @@
   passed across 11 settled R07 test classes, with zero failures and zero skips;
   acceptance scope `functional_deterministic_software_phase_acceptance`;
   comparative requirement `superseded_not_required`; R07 is `passed`
+- **R08 deterministic implementation checkpoint:**
+  `368b9284883c189be6a1139df6208bf0e88139dd`; tree
+  `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`
+- **R08 declared-software-function acceptance:** 42 checkpoint-bound tests
+  passed across 10 settled R08 test suites, with zero failures and zero skips;
+  acceptance scope `declared_software_function_only`; no comparative method was
+  run or required; R08 is `passed`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: passed`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
-  `R07: passed`; `R08: in_progress`
+  `R07: passed`; `R08: passed`; `R09: blocked` pending separate operator
+  authorization
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -308,31 +316,29 @@ The new validator accepts R03 only when genuine A11 processing passes both
 canonical routes, three-repeat determinism, complete session/media preservation,
 reopen and atomic publication, lifecycle/resource release, processing identity,
 no fallback, and every applicable functional metric. Those requirements pass,
-so R03 is `passed`. The comparison matrix remains optional evidence. Production
+so R03 is `passed`. The frozen comparison matrix remains historical evidence and
+creates no forward roadmap work. Production
 default, Auto, holdout, quality/performance claims, product publication, and
 release remain unauthorized.
 
 ### Forward software-function acceptance and R08 start — 2026-07-22
 
 The operator directed that forward phase acceptance be based on whether the
-software performs the task and honors the boundaries it claims. A/B, blinded,
-ablation, baseline-superiority, and other comparative measurements are
-`superseded_not_required` as acceptance gates. They remain optional later tuning,
-diagnostic, or claim-support evidence. This decision is prospective and does not
-rewrite any frozen historical result.
+software performs the task and honors the boundaries it claims. Comparison-based
+testing is outside the forward roadmap and carries no acceptance or authorization
+authority. This decision is prospective and does not rewrite any frozen
+historical result.
 
 For R10, the required function is deterministic bounded optimizer/calibration
-behavior, not proof of a superior Pareto policy or a holdout result. For R11, the
-required function is traceable benchmark and claim-scope machinery with an honest
-no-claim disposition when comparisons are absent. Comparator, corpus, metric,
-A/B, blind, Pareto, and holdout work is optional claim support; it does not block
-R11 acceptance or R12. `market_leading_claim` remains blocked without exact
-supporting evidence and separate operator authorization.
+behavior. For R11, the required function is traceable evidence and claim-scope
+machinery that rejects unsupported claims and emits `no_market_claim` by default.
+`market_leading_claim` remains blocked without exact supporting evidence and
+separate operator authorization.
 
 R08 begins from accepted R07 merge commit
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
-`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. R08 is `in_progress`; its start
-contract must bind that exact accepted predecessor. The implementation remains an
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Its start contract binds that exact
+accepted predecessor. The implementation remains an
 optional cohesive analysis subservice inside the existing model-assets module,
 never a sixth module and never a producer of final pixels.
 
@@ -345,6 +351,16 @@ specialization, AOT, zero-copy, model quality, performance, and memory remain
 explicit operator authorization after accepted R08 functional evidence; no
 comparison or ablation grants that authority.
 
+R08 implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, passed all 42 checkpoint-bound
+tests across 10 settled suites, with zero failures and zero skips. The accepted
+scope is `declared_software_function_only` under deterministic fixture
+simulation. It verifies the declared analysis contracts, identity, scheduling,
+state, cancellation, cache, budgets, bounded ASH-context integration,
+deterministic bypass, and no-pixel-authority boundary. No A/B, blind, ablation,
+comparative, or superiority test was run or required. R08 is `passed`; every
+native-only observation remains `not_observed`, and R09 remains `blocked`.
+
 ## 1. Resume instructions
 
 Before changing source:
@@ -356,8 +372,9 @@ Before changing source:
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
    `R03: passed`, `R04: in_progress`, `R05: in_progress`,
-   `R06: in_progress`, `R07: passed`, and `R08: in_progress` remain canonical. If
-   any changed, reconcile the newer accepted roadmap before proceeding.
+   `R06: in_progress`, `R07: passed`, `R08: passed`, and `R09: blocked` remain
+   canonical. If any changed, reconcile the newer accepted roadmap before
+   proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
    evidence. The additive R03 functional acceptance does not alter those
    records. The later additive R07 functional acceptance passes only R07 under
@@ -567,7 +584,8 @@ All authorizing evidence representations are repository-owned:
   redesign;
 - never claim possession or byte reopening of unavailable historical bulk data;
   preserve and cite its committed receipts honestly; and
-- holdout evidence remains no-pixel until the separately authorized R11 opening.
+- holdout evidence remains no-pixel and blocked; any future access would require
+  a new operator-authorized roadmap change outside the current plan.
 
 ### 3.3 Common repository gate
 
@@ -856,8 +874,8 @@ native reports are then supplemental rather than required.
 Implement the internal contracts in Section 4. Run multiple deterministic
 fixtures through one common session boundary and preserve output dimensions,
 frame order, PTS, duration, audio, metadata, cancellation, reopen verification,
-and atomic publication. Adapt retained ASH code as a comparator rather than
-forcing Apple frameworks through an ASH-named interface. Require explicit typed
+and atomic publication. Retain ASH code as a deterministic diagnostic reference
+rather than forcing Apple frameworks through an ASH-named interface. Require explicit typed
 failure and fallback results and exact output identity. Production remains
 unavailable after R02.
 
@@ -886,7 +904,7 @@ Freeze this lifecycle contract before implementation:
 
 Implement genuine MPS Lanczos and bilinear, Core Image Lanczos and bicubic,
 vImage Lanczos-3 and Lanczos-5, VTPixelTransfer, qualified guided/edge-preserve
-support stages, and the retained ASH/custom-Metal comparator. Initial
+support stages, and the retained ASH/custom-Metal deterministic reference. Initial
 qualification remains 8-bit NV12, SDR BT.709, 720p-to-1080p and 1080p-to-4K;
 R12 owns format expansion.
 
@@ -926,10 +944,9 @@ acceptance record revalidates this software evidence and marks R03 `passed` unde
 the operator-overridden gate. Production-default, Auto, holdout, quality,
 performance, product-publication, and release boundaries remain unchanged.
 
-Correctness, ringing, edge, chroma, temporal, throughput, memory, and resource
-comparisons remain useful optional evidence. They may inform a later production
-default decision but are not prerequisites for R03 acceptance. No production
-default is selected by the functional acceptance record. Keep Auto blocked.
+R03 acceptance is limited to the directly verified backend/session behavior. No
+production default is selected by the functional acceptance record. Keep Auto
+blocked.
 
 ### R04 - VideoToolbox super-resolution integration
 
@@ -941,9 +958,7 @@ submission semantics, optical-flow choices, lifecycle, cancellation, and exact
 identity. Qualify direct 2x and runtime-supported 1.5x routes without assuming
 support. Forward acceptance requires the declared route, history, lifecycle,
 cancellation, identity, failure, and media-reopen software contracts to work.
-Quality, protected-region, temporal, throughput, memory, and baseline comparisons
-remain optional later tuning or claim-support evidence and are not acceptance
-gates.
+No unobserved quality, temporal, throughput, or memory value authorizes a claim.
 
 Local checkpoint: commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`,
 tree `90c45e2c583defc7aa593f9199512719884de0d0`, implements the frozen software
@@ -956,8 +971,8 @@ acceptance, publication, or release claim is made. R04 remains canonical
 
 ### R05 - MetalFX suitability decision
 
-Qualify MetalFX Spatial first against the accepted deterministic and low-latency
-baselines. Probe temporal, temporal-denoised, and frame-interpolation paths only
+Qualify MetalFX Spatial first under the common backend contract. Probe temporal,
+temporal-denoised, and frame-interpolation paths only
 when motion, depth, exposure, jitter, and other required inputs can be supplied
 honestly. Never fabricate renderer semantics. Record exactly one supported
 disposition per path: `qualified_spatial`, `qualified_temporal`,
@@ -996,19 +1011,17 @@ hysteresis, minimum dwell, scene-cut reset, resource policy, typed failover,
 protection/correction masks, and reason codes. Only R03-R05-qualified backends are
 eligible.
 
-Preregister and run fixed-backend, continuous-router, state-only, sidecar,
-no-hysteresis, and no-postflight ablations. Perturbations must causally affect
-only contracted policy decisions. These configurations remain functional fixtures
-for causal verification. Comparative improvement over the best eligible fixed or
-continuous router is `superseded_not_required` for forward acceptance and may be
-measured later for tuning.
+Preregister deterministic fixtures for eligible-backend filtering, scoring,
+stable tie-breaking, state/context influence, hysteresis, dwell, scene-cut reset,
+typed failover, bounded masks, identity, and transactional behavior.
+Perturbations must causally affect only contracted policy decisions.
 
 Local start: the R06 preregistration binds R05 closure
 `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`, tree
 `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`. Deterministic fixture policy work
 may proceed, but the frozen product-admission result is
 `no_product_qualified_primary_backend` with zero eligible backends and no
-selected route, plan, or output. All six product ablations remain
+selected route, plan, or output. All six frozen product configuration subjects remain
 `not_observed`; R06 remains `in_progress`, local unpublished, and unaccepted.
 
 Local blocked checkpoint: implementation commit
@@ -1083,19 +1096,19 @@ unauthorized. R06 remains `in_progress` and unaccepted. R08 remains `planned`.
 
 ### R08 - Core AI analysis-only integration
 
-Implement a cohesive optional model-assets subservice producing calibrated
+The accepted implementation is a cohesive optional model-assets subservice
+producing calibrated
 protection masks, artifact risk, source classification, motion reliability, and
-no-reference quality estimates on proxy/key/requested frames. Bind
-model/preprocessing/postprocessing identity and add specialization cache,
+no-reference quality estimates on proxy/key/requested frames. It binds
+model/preprocessing/postprocessing identity and includes a specialization cache,
 optional AOT compilation, zero-copy input, state handling, cancellation, memory
-and latency budgets, and deterministic bypass. The service must never produce or
+and latency budgets, and deterministic bypass. The service never produces or
 replace final pixels.
 
-Checkpoint-bound deterministic tests must prove the declared input/output,
-identity, cadence, state, cache, cancellation, budget, decision-context,
-no-final-pixel, and bypass behavior. A/B, blind, learned-versus-deterministic,
-ablation, and superiority comparisons are `superseded_not_required` for R08
-acceptance and may be performed only as optional later tuning.
+The checkpoint-bound deterministic acceptance run proves the declared
+input/output, identity, cadence, state, cache, cancellation, budget,
+decision-context, no-final-pixel, and bypass behavior. Comparison-based testing
+is outside the roadmap and supplied no R08 acceptance authority.
 
 Use an accepted macOS/Xcode 27 environment with the public framework when it is
 available for native supplemental observation. Its absence does not block the
@@ -1104,14 +1117,23 @@ unavailable native execution and native-only metrics as `not_observed`; do not
 infer native, model-quality, performance, memory, AOT, specialization, or
 zero-copy facts from simulation.
 
+Acceptance binds implementation commit
+`368b9284883c189be6a1139df6208bf0e88139dd`, tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. All 42 selected tests across 10
+settled suites passed with zero failures and zero skips. The scope is
+`declared_software_function_only` under truthful deterministic fixture
+simulation. Xcode 27, Core AI framework and model availability, native Core AI,
+hardware, simulator, and operator-observed execution remain `not_observed` and
+nonblocking. R08 is `passed`; no product/default/Auto, residual, claim,
+publication, or release authority follows.
+
 ### R09 - Core AI bounded residual experiment
 
 Do not start from dependency completion alone. Require accepted R08
 software-function evidence and a separate operator-accepted roadmap authorization
 change. Run a small post-scaler residual only in ASH-approved regions with hard
 per-plane, source-consistency, temporal, identity, face, and text protections.
-Preserve the Apple-only output for diagnosis and immediate rollback. Any exact
-A/B comparison is optional later tuning evidence and is not an acceptance gate.
+Preserve the Apple-only output for diagnosis and immediate rollback.
 Qualification for a narrow use or an explicit safety, hallucination-risk, or
 resource-cost rejection are valid outcomes. The residual is never required to
 ship.
@@ -1133,100 +1155,33 @@ exact checkpoint/resume identity; transactional failure and cancellation; and
 durable fixture-policy publication.
 
 R10 accepts only when checkpoint-bound deterministic tests prove those bounded
-software behaviors. It does not have to discover a superior Pareto policy,
-complete real-content tuning, compare against another policy, or open a holdout.
-Real-content interaction measurement, Pareto construction, dominated-policy
-removal, local refinement, validation, and holdout evaluation remain optional
-later tuning and must keep their data partitions separate.
+software behaviors. Production Auto and holdout access remain separate and
+blocked.
 
-A later separately authorized production-Auto or claim-support effort may freeze
-real policies and may propose changing `holdout: blocked` to
-`holdout: authorized_once_for_r11`, bound in policy to an exact protocol
-manifest. That proposal is not part of R10 functional closure and does not itself
-authorize opening the holdout. Production Auto remains blocked.
+Production Auto and holdout access remain blocked. Any future change requires a
+new operator-authorized roadmap revision outside R10 functional closure.
 
-### R11 - Competitive benchmark and market-position decision
+### R11 - Evidence traceability and claim boundary
 
-The required R11 implementation is traceable benchmark and claim-scope
-machinery. Define typed protocol, subject, corpus, metric, observation,
-aggregate, claim-scope, and disposition contracts. Bind observations and
-aggregates to exact source, protocol, subject, input, preprocessing, tool, and
-metric identities; reject missing, duplicate, mismatched, out-of-scope, or
-unauthorized evidence; produce deterministic aggregates from supplied inputs;
-and preserve `not_applicable`, `not_observed`, failed, and absent as distinct
-states. With no comparative inputs, the machinery must emit
-`comparisons_not_run` and `no_market_claim`.
+Implement typed execution-receipt, subject, input, observation, aggregate,
+claim-scope, and disposition contracts. Bind every accepted observation and
+aggregate to exact source, software, subject, input, preprocessing, toolchain,
+and execution identity. Reject missing, duplicate, mismatched, out-of-scope, or
+unauthorized evidence and every claim broader than its evidence. Preserve
+`not_applicable`, `not_observed`, failed, and absent as distinct states, and emit
+`no_market_claim` unless an exact claim has in-scope evidence and separate
+operator authorization.
 
-Comparator, corpus, metric, A/B, blind, Pareto, commercial, and holdout execution
-is optional claim-support work. If a later claim-support run is separately
-authorized, first verify current comparator versions, licensing, permitted
-automation, and evidence redistribution. The optional scope may include every
-qualified Apple backend, ASH Auto without learned analysis, ASH Auto with
-accepted analysis, an R09 residual only if qualified, current Topaz Video
-representative local models, current DaVinci Resolve Studio Super Scale and its
-restoration/sharpening path, and ordinary deterministic scalers. Every named
-comparator then requires either an executed result or an explicit preregistered
-`not_applicable` disposition with license, availability, or contract reason.
-
-An optional claim-support corpus may cover clean 720p/1080p, compressed streaming
-video, film grain, animation/line art, faces/skin, small text/subtitles/UI
-capture, sports/fast motion, low light/noise, chroma stress, scene
-cuts/flashes/occlusion, archival SD and deinterlaced material, and synthetic
-ground-truth downsample pairs. The optional measurement contract may include
-spatial ground-truth metrics where available, temporal
-warping/flicker/churn/ghosting, edge/ringing/halo/aliasing/chroma,
-face/text/line-art integrity, hallucination/source consistency, blind pairwise
-preference, throughput/wall time, memory, energy/thermal behavior, first-run
-acquisition/specialization cost, repeatability, privacy, and network dependency.
-Every item used to support an exact claim must be measured or receive a
-preregistered `not_applicable` reason; do not silently broaden a claim beyond the
-executed benchmark.
-
-If the operator separately authorizes optional claim-support execution, freeze
-its corpus classes, exact inputs, preprocessing, metrics, blind pairwise
-protocol, resource collection, stop rules, and claims before execution. Open any
-holdout exactly once only after the canonical authorization is
-`authorized_once_for_r11`, its manifest hash verifies, and the operator gives a
-separate direct command. Record access before reading pixels, run the frozen
-protocol, and do not retune afterward. That optional execution changes the
-canonical authorization to `holdout: consumed`, binds it to the access-ledger
-SHA-256, and adds verifier coverage preventing reuse. No holdout access is needed
-for R11 functional acceptance.
-
-If optional holdout execution is separately authorized,
-`Scripts/run-r11-locked-holdout.sh` is the only holdout entry point. It requires
-`MIRMIR_R11_HOLDOUT_OPEN=1`, the designated host recorded in the authorization
-manifest, the exact source/protocol hashes, and an initially unmounted holdout.
-Before any holdout mount, path lookup, or pixel access, it creates
-`docs/roadmaps/evidence/r11/records/holdout-access-ledger.json` with exclusive
-create semantics, writes the authorization/source/protocol identities, and
-fsyncs both the file and parent directory. An existing ledger always refuses a
-second run, including after failure. The runner then mounts/opens only the
-preregistered inputs, records access count and hashes, and atomically updates and
-fsyncs the permanent ledger with terminal unmount/closure state. A crash leaves
-the created ledger in place and consumes the one-time authorization. The
-optional claim-support closure commits and binds this ledger without reopening
-the holdout.
-
-R11 accepts when checkpoint-bound tests prove the traceability, validation,
-aggregation, claim-scope, and honest no-claim behavior above. It does not require
-a competitive, A/B, blind, Pareto, commercial-comparator, or holdout result, and
-its functional acceptance permits R12 to begin.
-
-A later claim-support run may propose production Auto authorization and a
-narrowly worded market claim only when the exact evidence supports them. The
-exact canonical values are
-`production_auto_mode: authorized` and
-`market_leading_claim: authorized_exact_claim`. The policy must bind each
-authorization to the exact evidence that supports it and bind any market claim
-to its exact permitted text. If either proposal lacks support or operator
-acceptance, retain its existing `blocked` value. A negative competitive result
-must be reported as such.
+Comparison-based testing and market-position work are outside the roadmap. R11
+accepts when checkpoint-bound tests prove its traceability, validation,
+aggregation, claim-scope, rejection, and honest default-no-claim behavior.
+`production_auto_mode` and `market_leading_claim` remain blocked unless the
+operator separately authorizes a future exact action outside this phase.
 
 ### R12 - Format, route, and product expansion
 
-After R11 functional acceptance, with no comparative-result prerequisite, expand
-through explicit contracts for 10-bit/P010, HDR transfer and
+After R11 functional acceptance, expand through explicit contracts for
+10-bit/P010, HDR transfer and
 BT.2020 color, wider routes and runtime-supported scales, 4:2:2 and 4:4:4,
 interlace/deinterlace, subtitles, alpha, metadata, long-form resume, chunk
 checkpoints, and hardware tiers. Every addition must define color, range, chroma
@@ -1266,22 +1221,18 @@ authority does not block research, diagnostics, implementation, or hardening
 that preserves those boundaries.
 Unavailable hardware, simulator, Core AI SDK/runtime, or operator observation is
 recorded as `not_observed` and does not block a separately identified
-deterministic software-function run. Comparative evidence is optional and never
-supplies or withholds forward phase-acceptance authority.
-Unavailable commercial rights produce a preregistered `not_applicable` result
-and block only claims that require that missing comparator; they do not by
-themselves block completion of R11.
+deterministic software-function run. Comparison-based testing is outside the
+forward roadmap and never supplies or withholds phase-acceptance authority.
 
 Do not reinterpret negative evidence as success except where the roadmap defines
 an explicit diagnostic or rejection outcome. R05 and R09 rejections can be valid
 phase outcomes. R08 requires its deterministic software-function gate to pass;
 comparative results contribute no acceptance authority. R09 remains blocked
 until a separate operator authorization after accepted R08 functional evidence.
-R10 requires deterministic bounded optimizer/calibration behavior, not a
-superior Pareto policy or holdout result. R11 requires traceable benchmark and
-claim-scope behavior with an honest no-claim disposition; a competitive result
-does not block its acceptance or R12. `market_leading_claim` remains blocked
-without exact supporting evidence and separate authorization.
+R10 requires deterministic bounded optimizer/calibration behavior. R11 requires
+traceable evidence and claim-scope behavior with an honest no-claim disposition.
+`market_leading_claim` remains blocked without exact supporting evidence and
+separate authorization.
 A failed R06 or R07 product gate blocks dependent product work and requires an
 explicitly reviewed roadmap revision rather than relaxed thresholds. The R07
 functional acceptance is the operator-defined software gate and does not

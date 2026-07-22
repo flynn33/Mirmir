@@ -101,7 +101,8 @@ python3 -m unittest \
   Scripts/tests/test_r06_contracts.py \
   Scripts/tests/test_r07_contracts.py \
   Scripts/tests/test_r07_phase_acceptance.py \
-  Scripts/tests/test_r08_contracts.py
+  Scripts/tests/test_r08_contracts.py \
+  Scripts/tests/test_r08_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -144,6 +145,7 @@ fi
 python3 Scripts/r07_phase_acceptance.py --check
 python3 Scripts/r08_contracts.py --check-preregistration
 python3 Scripts/r08_contracts.py --check-fixtures
+python3 Scripts/r08_phase_acceptance.py --check
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2

@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R08",
+  "evidence_kind": "r08_functional_selected_test_summary_v1",
+  "source": {
+    "commit": "368b9284883c189be6a1139df6208bf0e88139dd",
+    "tree": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"
+  },
+  "execution_mode": "deterministic_fixture_simulation",
+  "expected_selected_test_count": 42,
+  "selected_test_count": 42,
+  "passed_test_count": 42,
+  "failed_test_count": 0,
+  "skipped_test_count": 0,
+  "test_suites": [
+    {
+      "id": "R08CoreAIAnalysisContractsTests",
+      "expected_test_count": 10,
+      "passed_test_count": 10,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08AnalysisBudgetContractTests",
+      "expected_test_count": 2,
+      "passed_test_count": 2,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08AnalysisIdentityContractTests",
+      "expected_test_count": 1,
+      "passed_test_count": 1,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08AnalysisOutputDecoderTests",
+      "expected_test_count": 5,
+      "passed_test_count": 5,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08DeterministicAnalysisServiceTests",
+      "expected_test_count": 8,
+      "passed_test_count": 8,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08DeterministicAnalysisLifecycleTests",
+      "expected_test_count": 5,
+      "passed_test_count": 5,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08AnalysisResourceBudgetTests",
+      "expected_test_count": 3,
+      "passed_test_count": 3,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08ForbiddenOutputServiceTests",
+      "expected_test_count": 1,
+      "passed_test_count": 1,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08InputTransferFallbackTests",
+      "expected_test_count": 1,
+      "passed_test_count": 1,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R08ASHAnalysisBridgeTests",
+      "expected_test_count": 6,
+      "passed_test_count": 6,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    }
+  ],
+  "toolchain": {
+    "platform": "macos_host",
+    "architecture": "arm64",
+    "os_version": "26.5.2",
+    "xcode_version": "26.2",
+    "xcode_build_version": "17C52",
+    "command": "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r08-final-derived -disableAutomaticPackageResolution test -only-testing:MirmirTests/R08CoreAIAnalysisContractsTests -only-testing:MirmirTests/R08AnalysisBudgetContractTests -only-testing:MirmirTests/R08AnalysisIdentityContractTests -only-testing:MirmirTests/R08AnalysisOutputDecoderTests -only-testing:MirmirTests/R08DeterministicAnalysisServiceTests -only-testing:MirmirTests/R08DeterministicAnalysisLifecycleTests -only-testing:MirmirTests/R08AnalysisResourceBudgetTests -only-testing:MirmirTests/R08ForbiddenOutputServiceTests -only-testing:MirmirTests/R08InputTransferFallbackTests -only-testing:MirmirTests/R08ASHAnalysisBridgeTests CODE_SIGNING_ALLOWED=NO"
+  }
+}

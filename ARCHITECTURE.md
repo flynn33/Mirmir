@@ -15,7 +15,8 @@
 - Roadmap phase `R05`: `in_progress`
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
-- Roadmap phase `R08`: `in_progress`
+- Roadmap phase `R08`: `passed` for declared analysis-only software function
+- Roadmap phase `R09`: `blocked` pending separate operator authorization
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -80,8 +81,8 @@ protected-region evaluation, and exact N+1 postflight feedback. State changes
 commit only after the full transaction succeeds.
 
 The operator-defined R07 acceptance covers this deterministic fixture-simulation
-software function. Its comparative backend requirement is explicitly
-superseded and not required. The fixture executor records simulation identity
+software function. Its frozen comparison requirement is outside the forward
+roadmap and non-authorizing. The fixture executor records simulation identity
 separately from referenced native identities; it does not claim native framework
 or physical-hardware execution. The product composition remains unavailable,
 R06 remains `in_progress` and unaccepted, and no production default, Auto,
@@ -94,20 +95,32 @@ optional cohesive Core AI analysis subservice inside the existing model-assets
 module; the fixed five-module composition does not change. The forward gate is
 deterministic software function: typed analysis outputs, identity, cadence,
 decision-context integration, lifecycle, budgets, cancellation, no final-pixel
-output, and deterministic bypass must work as claimed. Comparative tests are
-`superseded_not_required` for acceptance. Native Xcode 27/Core AI execution is
+output, and deterministic bypass must work as claimed. Comparison-based testing
+is outside the forward roadmap. Native Xcode 27/Core AI execution is
 supplemental and remains `not_observed` when unavailable. R09 pixel residual work
 remains separately blocked pending explicit operator authorization after accepted
 R08 functional evidence.
 
+The R08 implementation checkpoint
+`368b9284883c189be6a1139df6208bf0e88139dd`, tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, preserves that boundary. Its 42
+checkpoint-bound tests across 10 suites passed with zero failures and zero skips.
+They verify the exact analysis-output and identity contracts, deterministic
+scheduling and lifecycle, bounded cache and resource behavior, transactional
+cancellation and bypass, conservative `ASHDecisionContext` integration,
+protected-mask composition, and rejection of pixel or backend-selection
+authority. R08 is `passed` only for `declared_software_function_only` under
+deterministic fixture simulation. Comparison-based testing supplied no
+acceptance authority. Native Core AI, Xcode 27, model,
+hardware, simulator, and operator-observed execution remain `not_observed`; the
+fixed five-module composition and unavailable product route remain unchanged.
+
 The later R10/R11 control boundary follows the same software-function rule. R10
 must implement a deterministic, finitely bounded, constraint-preserving,
-resumable optimizer/calibration service; Pareto superiority, real-content tuning,
-and holdout comparison are optional. R11 must implement traceable benchmark and
-claim-scope machinery and emit an honest no-claim disposition when comparisons
-are absent. Comparative execution does not block R11 or R12, while any
-`market_leading_claim` remains separately blocked without exact evidence and
-operator authorization.
+resumable optimizer/calibration service. R11 must implement traceable evidence
+and claim-scope machinery, reject unsupported claims, and emit an honest
+no-claim disposition by default. Any `market_leading_claim` remains separately
+blocked without exact evidence and operator authorization.
 
 ## Target Apple-Native Adaptive Architecture
 

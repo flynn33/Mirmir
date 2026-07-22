@@ -19,8 +19,8 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
   to be `passed`, except the exact policy-scoped R03, R04, R05, R06, and R07
   `in_progress` local continuations from their recorded unpublished predecessor
-  closures and the separate evidence-bound R03 and R07 functional acceptance
-  overrides;
+  closures and the separate evidence-bound R03, R07, and R08 functional
+  acceptance contracts;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
 - required roadmap, evidence-status, and historical-status language in the aligned
@@ -144,12 +144,23 @@ mark R06 passed, rewrite frozen evidence, claim native or product execution,
 select a production default, or authorize Auto, quality/performance claims,
 product publication, or release.
 
+The R08 functional acceptance contract permits canonical R08 to be `passed`
+only when the policy-bound functional receipt and phase-acceptance bytes are
+exact and `r08_phase_acceptance.py` rechecks implementation commit
+`368b9284883c189be6a1139df6208bf0e88139dd`, tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, and all 42 selected tests across
+the 10 settled R08 suites. The accepted scope is
+`declared_software_function_only` under deterministic fixture simulation.
+Comparison-based testing is outside the roadmap and supplies no acceptance
+dependency. Native Core AI, Xcode 27, model, hardware, simulator, and
+operator-observed execution remain `not_observed`. This contract does not
+authorize product qualification, a production default, Auto, pixel authority,
+R09 progression or residual execution, claims, publication, or release.
+
 The operator's 2026-07-22 forward-acceptance decision applies prospectively to
 R04, R06, R08, R09, and later phases. Acceptance asks whether checkpoint-bound
 tests prove that the software performs the task and honors the boundaries it
-claims. A/B, blinded, ablation, baseline-superiority, and other comparative
-measurements are `superseded_not_required` as forward acceptance gates. They may
-remain optional tuning, diagnostic, or claim-support evidence, but cannot supply
+claims. Comparison-based testing is outside the forward roadmap and cannot supply
 or withhold phase progression. Historical evidence and negative records remain
 unchanged.
 
@@ -163,13 +174,9 @@ that authority.
 
 R10 acceptance requires checkpoint-bound proof that its optimizer/calibration
 software is deterministic, finitely bounded, constraint-preserving, resumable,
-transactional, and identity-complete. It does not require a superior Pareto
-policy, real-content tuning, or holdout comparison; those remain optional later
-work under their own authorization boundaries. R11 acceptance requires
-traceable benchmark and claim-scope machinery that rejects invalid evidence and
-emits `comparisons_not_run` plus `no_market_claim` when comparisons are absent.
-Comparator, corpus, metric, A/B, blind, Pareto, commercial, and holdout results
-are optional claim-support work and cannot block R11 or R12.
+transactional, and identity-complete. R11 acceptance requires traceable evidence
+and claim-scope machinery that rejects invalid inputs and unsupported claims and
+emits `no_market_claim` by default.
 `market_leading_claim` remains blocked without exact supporting evidence and a
 separate operator authorization.
 
@@ -181,7 +188,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -210,6 +217,7 @@ test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json 
 python3 Scripts/r07_phase_acceptance.py --check
 python3 Scripts/r08_contracts.py --check-preregistration
 python3 Scripts/r08_contracts.py --check-fixtures
+python3 Scripts/r08_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

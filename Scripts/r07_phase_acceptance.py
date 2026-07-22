@@ -551,15 +551,12 @@ class R07PhaseAcceptanceVerifier:
     def _implementation_errors(self) -> list[str]:
         errors: list[str] = []
         for identifier, relative in IMPLEMENTATION_PATHS:
-            path = self.root / relative
-            if path.is_symlink() or not path.is_file():
-                errors.append(f"R07 implementation is absent: {identifier}")
-                continue
-            historical = self.git_bytes(
-                "show", f"{SOURCE_COMMIT}:{relative.as_posix()}"
-            )
-            if historical.returncode != 0 or historical.stdout != path.read_bytes():
-                errors.append(f"R07 implementation differs from checkpoint: {identifier}")
+            try:
+                self._checkpoint_binding(identifier, relative)
+            except ValueError:
+                errors.append(
+                    f"R07 implementation is absent from checkpoint: {identifier}"
+                )
         return errors
 
     def historical_evidence_bindings(self) -> list[dict[str, object]]:

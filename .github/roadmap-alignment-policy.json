@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "aec98903fb569c012af76b4e9a847113f014f2ac7d1efce11dde75ecd390f350",
-    "json_sha256": "e9f6f59c3d12600900cc0646fda678025219050454ce25ad7dc89808b94b3ae5",
+    "markdown_sha256": "64328a88ae4c1c9c0af10332790bfdf8c2cfcb111a7e6f4c25e8ba1f66087ff6",
+    "json_sha256": "a10812f99aaca870bc14445e93fe9f12fb275dd3af15acc1b16f74bcf04ff69e",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -140,6 +140,7 @@
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r07_phase_acceptance.py",
       "Scripts/tests/test_r08_contracts.py",
+      "Scripts/tests/test_r08_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -170,6 +171,7 @@
       "python3 Scripts/r07_phase_acceptance.py --check",
       "python3 Scripts/r08_contracts.py --check-preregistration",
       "python3 Scripts/r08_contracts.py --check-fixtures",
+      "python3 Scripts/r08_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -210,6 +212,7 @@
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r07_phase_acceptance.py",
       "Scripts/tests/test_r08_contracts.py",
+      "Scripts/tests/test_r08_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -241,6 +244,7 @@
       "python3 Scripts/r07_phase_acceptance.py --check",
       "python3 Scripts/r08_contracts.py --check-preregistration",
       "python3 Scripts/r08_contracts.py --check-fixtures",
+      "python3 Scripts/r08_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -262,6 +266,7 @@
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r08_contracts.py",
+      "Scripts/tests/test_r08_phase_acceptance.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
       "python3 Scripts/r03_product_qualification.py --check-preregistration",
@@ -282,7 +287,8 @@
       "python3 Scripts/r07_contracts.py --check-fixtures",
       "test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance",
       "python3 Scripts/r08_contracts.py --check-preregistration",
-      "python3 Scripts/r08_contracts.py --check-fixtures"
+      "python3 Scripts/r08_contracts.py --check-fixtures",
+      "python3 Scripts/r08_phase_acceptance.py --check"
     ],
     "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
       "policy-frozen local closure commit and tree",
@@ -367,6 +373,19 @@
       "required_status": "passed",
       "paths": [
         "docs/roadmaps/evidence/r07/records/functional-phase-acceptance.json"
+      ]
+    },
+    "R08": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r08_phase_acceptance.py",
+        "Scripts/tests/test_r08_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r08-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r08-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r08/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+        "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
     }
   },
