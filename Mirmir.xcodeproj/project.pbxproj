@@ -35,6 +35,7 @@
 		1666060857B56835FEB0B1E8 /* R06ASHOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F827F7CB2222BBD1BF7981 /* R06ASHOrchestrator.swift */; };
 		185D9D123233C60D79101FD3 /* R06ASHOrchestratorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3326FCA1156ACF848D932C1 /* R06ASHOrchestratorTests.swift */; };
 		1A9A50D8E53864BDED66E69E /* ASHCoreConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D2DFAD47221FBF1FE4281E /* ASHCoreConformanceTests.swift */; };
+		1AC1165027847C7F1244835D /* R07SupportStagePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE4AA770369CA77C5833B127 /* R07SupportStagePolicy.swift */; };
 		1B57816AA1BE763BCD3303B5 /* R03DeterministicBackendCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9441EE881EF6BB4B71B6BC /* R03DeterministicBackendCatalog.swift */; };
 		1D2332F485C69D043BDAB7C7 /* OutputMediaVerificationTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2462674E65B8FE067AACF16 /* OutputMediaVerificationTypes.swift */; };
 		1DC0EC93F2B2AF6B7428D1F9 /* ASHPreDiagnosticProductionRuntimeOracleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E074FD142D9F449D2916FD6 /* ASHPreDiagnosticProductionRuntimeOracleTests.swift */; };
@@ -69,6 +70,7 @@
 		38A020C2B824010ECD499AE7 /* ASHLockedVideoMappingV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15242EE2017761A3031ED013 /* ASHLockedVideoMappingV2.swift */; };
 		3914A87ED28BF744D9FFE217 /* ash-asset-manifest.json in Resources */ = {isa = PBXBuildFile; fileRef = 9652114C08D1C3A28932E156 /* ash-asset-manifest.json */; };
 		39905D4D95C93F32359A931D /* ASHLUTBinaryFormatV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC3217667A614E484108F8CA /* ASHLUTBinaryFormatV2.swift */; };
+		39BF440AD3A243AD919338B1 /* R07ArtifactGovernance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8CAD10E6E962789F9A32F77 /* R07ArtifactGovernance.swift */; };
 		39C51FF20FC389E764F53177 /* ASHImmutableLUTLoaderV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28FFFD7F0FB65554A8E0CE5 /* ASHImmutableLUTLoaderV2.swift */; };
 		3AAD090B3C20A06A9CD4F35C /* ASHNV12FrameCodecTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 458E8A855A538822618FD0E4 /* ASHNV12FrameCodecTests.swift */; };
 		3AD3FDD2EA40385326459A0A /* R03A11NativeMPSProductTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F7905DB92CC340465739C1F /* R03A11NativeMPSProductTests.swift */; };
@@ -118,6 +120,7 @@
 		5AD0E29864237AB8C7A8AC25 /* R03A11ProductAdmission.swift in Sources */ = {isa = PBXBuildFile; fileRef = D152220FE3CB5BC3D86C7998 /* R03A11ProductAdmission.swift */; };
 		5B2720F8D1371E42CB651B9F /* AppleUpscaleCapabilityWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A28245796CF46D6746515B4 /* AppleUpscaleCapabilityWorker.swift */; };
 		5B5668DEF71AC0820A4C6AAF /* AppleUpscaleCapabilityCompileProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB89075B23760832B37F915E /* AppleUpscaleCapabilityCompileProbe.swift */; };
+		5B9E6189E406E9D0B200C42E /* R07ArtifactGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF39EA7CA518810DCAF8FAA6 /* R07ArtifactGovernanceTests.swift */; };
 		5E0CC9E28BB327B3093BD01B /* ASHLockedArtifactStoreV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF581D823FC9A8EED0470932 /* ASHLockedArtifactStoreV3.swift */; };
 		5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */; };
 		615E888266AA6D0BCDDFD348 /* ASHNV12FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9248888702ECE5B7D229B93 /* ASHNV12FrameCodec.swift */; };
@@ -228,6 +231,7 @@
 		B22E9F23FCF7E290FB8A3963 /* ASHLUTLockedConfigurationJSONV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98AC75F856E0D985EF3E8D49 /* ASHLUTLockedConfigurationJSONV2.swift */; };
 		B2AE315A982236C13858FFF4 /* ASHVideoProfileContractV1.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E367E8EFF1AE8A286201CA5 /* ASHVideoProfileContractV1.swift */; };
 		B304EC8A8BC837C2C3FD79F4 /* ASHLockedRuntimeTypesV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B4C8014A91668B9F9DF75B6 /* ASHLockedRuntimeTypesV2.swift */; };
+		B31066A3D574E62B257E1B81 /* R07SupportStagePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 043F1BEFE17F30DA2F1E9ED4 /* R07SupportStagePolicyTests.swift */; };
 		B36837451506196B3D814435 /* branch-topology.json in Resources */ = {isa = PBXBuildFile; fileRef = DCAB5DB5687A70683BCEFADD /* branch-topology.json */; };
 		B3A84A0D7DA3EC777868C8F6 /* AppleUpscaleCapabilityRawReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC9992B6CBA1E08031A0459 /* AppleUpscaleCapabilityRawReport.swift */; };
 		B45B26B799E915B915407047 /* computational-certificate.json in Resources */ = {isa = PBXBuildFile; fileRef = 5F5E1414611EE7E10C74392B /* computational-certificate.json */; };
@@ -288,6 +292,7 @@
 		E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */; };
 		E1BFC9EF33A0F28AF9669487 /* ASHP08PerformanceRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 347A64D3B3552787D88B4DCF /* ASHP08PerformanceRuntime.swift */; };
 		E1C044CC3FA36DFB9B8B2536 /* R03CoreImageScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E14230358F4CD93863C659 /* R03CoreImageScaling.swift */; };
+		E29B45FF92A73D04D122D60F /* R07ProtectedRegionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */; };
 		E362DC7C7084138C82E60672 /* ASHLockedControlRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC7E35BBB7AF4A4A6ECE5A3B /* ASHLockedControlRuntimeV3.swift */; };
 		E51E6FC45749208D82FB755E /* ASHStrictJSONV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E10E40DE830A79C6A060B73 /* ASHStrictJSONV2.swift */; };
 		E578B1569573C050C5C60153 /* ASHLockedPlanePolicyDiagnosticV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA1F2583461FD19C526AAABC /* ASHLockedPlanePolicyDiagnosticV3.swift */; };
@@ -302,6 +307,7 @@
 		EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */; };
 		EF3937DBBB63EC543B8D9D37 /* MirmirAppBootstrapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27D93FA5E188DC7A7975AC1F /* MirmirAppBootstrapTests.swift */; };
 		EF9AB2669F741D53767D0995 /* ASHLUTCompilerV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8276B4859A95BF7199D44552 /* ASHLUTCompilerV2Tests.swift */; };
+		F07AEDFF522D2083FE07568D /* R07ProtectedRegionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF566A045053E1D175E0897C /* R07ProtectedRegionPolicyTests.swift */; };
 		F135BBD7DD93711131CF8273 /* ASHBitwiseCoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C7D02E95AFB7F28B3687541 /* ASHBitwiseCoreTests.swift */; };
 		F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */; };
 		F3BE7B9006D9C216CCDE2BEA /* ASHUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB15D19D6B0858B3C1A0E73B /* ASHUpscaleBackend.swift */; };
@@ -339,12 +345,14 @@
 		01C64B4A118F1BA7772B6868 /* ASHLUTBinaryFormatV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTBinaryFormatV2Tests.swift; sourceTree = "<group>"; };
 		02E347AE2D83CC5AF980CF38 /* NoopServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopServices.swift; sourceTree = "<group>"; };
 		037015D5D35CB3C16B898D58 /* ASHCorrectiveCLIEvidenceAssertions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCorrectiveCLIEvidenceAssertions.swift; sourceTree = "<group>"; };
+		043F1BEFE17F30DA2F1E9ED4 /* R07SupportStagePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07SupportStagePolicyTests.swift; sourceTree = "<group>"; };
 		0494D66D2CCAAC9E68C2098E /* ASHLockedAffineRuntimeV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedAffineRuntimeV2Tests.swift; sourceTree = "<group>"; };
 		050C25AE56DC5648EF2EA402 /* AppleUpscaleCapabilityNativeAdapters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityNativeAdapters.swift; sourceTree = "<group>"; };
 		05E8ACD3B2084FF71CC2D335 /* MirmirModuleFactoryRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleFactoryRegistry.swift; sourceTree = "<group>"; };
 		05F827F7CB2222BBD1BF7981 /* R06ASHOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R06ASHOrchestrator.swift; sourceTree = "<group>"; };
 		06E7350389CC945ACAC3116D /* R03VImageScalingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03VImageScalingTests.swift; sourceTree = "<group>"; };
 		07B74594AEA95A5FF73A6C85 /* ASHCodePlaneNormalizerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCodePlaneNormalizerV2.swift; sourceTree = "<group>"; };
+		08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07ProtectedRegionPolicy.swift; sourceTree = "<group>"; };
 		0AB7D62D8C7DD0E558E2C9A4 /* ASHLockedRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeV3.swift; sourceTree = "<group>"; };
 		0ACA35D5BF8FE518081B2A7F /* AppleUpscaleContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleContracts.swift; sourceTree = "<group>"; };
 		0B4C8014A91668B9F9DF75B6 /* ASHLockedRuntimeTypesV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedRuntimeTypesV2.swift; sourceTree = "<group>"; };
@@ -561,8 +569,10 @@
 		BCE8B10908EA943629F95D5D /* ASHSpatialReferencePipelineV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialReferencePipelineV2Tests.swift; sourceTree = "<group>"; };
 		BDA70A85DAE0C772B3B6E953 /* ASHReferencePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHReferencePipeline.swift; sourceTree = "<group>"; };
 		BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIWorkflowTests.swift; sourceTree = "<group>"; };
+		BE4AA770369CA77C5833B127 /* R07SupportStagePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07SupportStagePolicy.swift; sourceTree = "<group>"; };
 		BE7311437F5C9690BFF6CEA6 /* R06ASHPolicyCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R06ASHPolicyCatalog.swift; sourceTree = "<group>"; };
 		BEBCCABCEDA2577D2D0C57A2 /* ASHLockedSampleRuntimeV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedSampleRuntimeV2.swift; sourceTree = "<group>"; };
+		BF566A045053E1D175E0897C /* R07ProtectedRegionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07ProtectedRegionPolicyTests.swift; sourceTree = "<group>"; };
 		BF916B54CEB678B518E99197 /* ASHState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHState.swift; sourceTree = "<group>"; };
 		BFD66B1F959DAFD165D1DAAB /* ASHTelemetryCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryCatalog.swift; sourceTree = "<group>"; };
 		C12E0737F2C42D353C867EF7 /* ASHP08LauncherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08LauncherTests.swift; sourceTree = "<group>"; };
@@ -597,6 +607,7 @@
 		D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIConstants.swift; sourceTree = "<group>"; };
 		D80EEEF7AE537B763EF5D0D3 /* ASHLockedReferencePipelineV2+DispatchProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ASHLockedReferencePipelineV2+DispatchProjection.swift"; sourceTree = "<group>"; };
 		D88818D1DB3A19E1DD188F19 /* ASHLockedFramePipelineV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedFramePipelineV3Tests.swift; sourceTree = "<group>"; };
+		D8CAD10E6E962789F9A32F77 /* R07ArtifactGovernance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07ArtifactGovernance.swift; sourceTree = "<group>"; };
 		D9248888702ECE5B7D229B93 /* ASHNV12FrameCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHNV12FrameCodec.swift; sourceTree = "<group>"; };
 		DA1F2583461FD19C526AAABC /* ASHLockedPlanePolicyDiagnosticV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedPlanePolicyDiagnosticV3.swift; sourceTree = "<group>"; };
 		DA994E8113587B05BD50C04C /* R03ASHComparatorScaling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03ASHComparatorScaling.swift; sourceTree = "<group>"; };
@@ -619,6 +630,7 @@
 		ED3718FDB8CEE0250780473B /* OutputMediaAACIdentityReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaAACIdentityReader.swift; sourceTree = "<group>"; };
 		ED63166A8BA84FF2BED2E3CB /* ASHP08ProductionEvidenceRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08ProductionEvidenceRunner.swift; sourceTree = "<group>"; };
 		EDBA284613549F60A756F635 /* EnhancementPipelineContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancementPipelineContracts.swift; sourceTree = "<group>"; };
+		EF39EA7CA518810DCAF8FAA6 /* R07ArtifactGovernanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07ArtifactGovernanceTests.swift; sourceTree = "<group>"; };
 		EF7C909B925C5E765D352A19 /* UpscaleJob.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleJob.swift; sourceTree = "<group>"; };
 		F062B2740352CAC48F7D3831 /* ASHP08FixedControlRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08FixedControlRuntimeV3.swift; sourceTree = "<group>"; };
 		F164D8A587E6933BB2BF3632 /* ASHMetalSpatialFrameEncoderV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialFrameEncoderV3.swift; sourceTree = "<group>"; };
@@ -706,6 +718,9 @@
 				E6E7CB645A9BD589B54FF4BA /* R06ASHMasksAndAblations.swift */,
 				05F827F7CB2222BBD1BF7981 /* R06ASHOrchestrator.swift */,
 				BE7311437F5C9690BFF6CEA6 /* R06ASHPolicyCatalog.swift */,
+				D8CAD10E6E962789F9A32F77 /* R07ArtifactGovernance.swift */,
+				08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */,
+				BE4AA770369CA77C5833B127 /* R07SupportStagePolicy.swift */,
 				40E0E36563FD44220A347449 /* R07TemporalGovernanceContracts.swift */,
 				361DB51CD0B47DF7580337BE /* R07TemporalHistory.swift */,
 				684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */,
@@ -772,6 +787,9 @@
 				0DC939FF9568AE9D7281C221 /* R06ASHMasksAndAblationsTests.swift */,
 				A3326FCA1156ACF848D932C1 /* R06ASHOrchestratorTests.swift */,
 				C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */,
+				EF39EA7CA518810DCAF8FAA6 /* R07ArtifactGovernanceTests.swift */,
+				BF566A045053E1D175E0897C /* R07ProtectedRegionPolicyTests.swift */,
+				043F1BEFE17F30DA2F1E9ED4 /* R07SupportStagePolicyTests.swift */,
 				33601A8D7CAF41023F716D35 /* R07TemporalGovernanceContractsTests.swift */,
 				1829CC44DABB0D579CD2A8BF /* R07TemporalHistoryTests.swift */,
 			);
@@ -1387,6 +1405,9 @@
 				E598C4303E04824D1A06C9AC /* R06ASHMasksAndAblationsTests.swift in Sources */,
 				185D9D123233C60D79101FD3 /* R06ASHOrchestratorTests.swift in Sources */,
 				A6EF9487D6D0A68F213E4B4D /* R06ASHPolicyCatalogTests.swift in Sources */,
+				5B9E6189E406E9D0B200C42E /* R07ArtifactGovernanceTests.swift in Sources */,
+				F07AEDFF522D2083FE07568D /* R07ProtectedRegionPolicyTests.swift in Sources */,
+				B31066A3D574E62B257E1B81 /* R07SupportStagePolicyTests.swift in Sources */,
 				48A169D0893F335533A662B6 /* R07TemporalGovernanceContractsTests.swift in Sources */,
 				85EFC91BDEE2C599D7681279 /* R07TemporalHistoryTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
@@ -1582,6 +1603,9 @@
 				7ACFE61ADBA0A223ADAA9D20 /* R06ASHMasksAndAblations.swift in Sources */,
 				1666060857B56835FEB0B1E8 /* R06ASHOrchestrator.swift in Sources */,
 				75BE43A4BE830D685164AD66 /* R06ASHPolicyCatalog.swift in Sources */,
+				39BF440AD3A243AD919338B1 /* R07ArtifactGovernance.swift in Sources */,
+				E29B45FF92A73D04D122D60F /* R07ProtectedRegionPolicy.swift in Sources */,
+				1AC1165027847C7F1244835D /* R07SupportStagePolicy.swift in Sources */,
 				4734CAE09B9FE05C1D434346 /* R07TemporalGovernanceContracts.swift in Sources */,
 				9B8AF9FD78745CA2DCF6DE20 /* R07TemporalHistory.swift in Sources */,
 				35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */,
