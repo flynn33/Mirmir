@@ -48,6 +48,8 @@ jobs:
           Scripts/tests/test_r06_contracts.py
           Scripts/tests/test_r07_contracts.py
           Scripts/tests/test_r07_phase_acceptance.py
+          Scripts/tests/test_r08_contracts.py
+          Scripts/tests/test_r08_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -156,6 +158,15 @@ jobs:
 
       - name: Verify R07 functional phase acceptance
         run: python3 Scripts/r07_phase_acceptance.py --check
+
+      - name: Verify R08 preregistration
+        run: python3 Scripts/r08_contracts.py --check-preregistration
+
+      - name: Verify R08 deterministic fixtures
+        run: python3 Scripts/r08_contracts.py --check-fixtures
+
+      - name: Verify R08 functional phase acceptance
+        run: python3 Scripts/r08_phase_acceptance.py --check
 
       - name: Verify R01 system assets remain untracked
         shell: bash

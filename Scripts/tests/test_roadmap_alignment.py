@@ -335,6 +335,49 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     "R07 phase_start_requirements differ from the frozen contract"
                 )
 
+    def test_in_progress_r08_requires_every_start_contract_file(self) -> None:
+        self.set_phase_status("R08", "in_progress")
+        start_path = self.root / self.policy["phase_start_requirements"]["R08"][
+            "paths"
+        ][1]
+        start_path.unlink()
+        self.assert_error_contains(
+            "phase R08 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_in_progress_r08_rejects_symlinked_start_contract(self) -> None:
+        self.set_phase_status("R08", "in_progress")
+        relative = self.policy["phase_start_requirements"]["R08"]["paths"][1]
+        symlink_path = self.root / relative
+        target = self.root / "r08-start-target.json"
+        target.write_bytes(symlink_path.read_bytes())
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R08 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_r08_phase_start_requirement_is_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_start_requirements"]["R08"]["paths"].pop()
+        mutations.append(missing_path)
+
+        extra_status = copy.deepcopy(self.policy)
+        extra_status["phase_start_requirements"]["R08"]["statuses"].append(
+            "planned"
+        )
+        mutations.append(extra_status)
+
+        for mutation in mutations:
+            with self.subTest(mutation=mutation["phase_start_requirements"]["R08"]):
+                self.write_json(path, mutation)
+                self.assert_error_contains(
+                    "R08 phase_start_requirements differ from the frozen contract"
+                )
+
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
         self.set_phase_status("R03", "in_progress")
         self.assertFalse(
@@ -602,6 +645,63 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "acceptance_record_binding is not a regular file"
         )
 
+    def test_passed_r08_requires_functional_acceptance_evidence(self) -> None:
+        self.set_phase_status("R08", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R08"]["paths"][-1]
+        (self.root / relative).unlink()
+        self.assert_error_contains(
+            "phase R08 status 'passed' requires a regular evidence file"
+        )
+
+    def test_preclosure_r08_does_not_require_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R08", "in_progress")
+        for relative in self.policy["phase_evidence_requirements"]["R08"]["paths"]:
+            (self.root / relative).unlink()
+        self.assertFalse(
+            any("phase R08 status" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_passed_r08_rejects_symlinked_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R08", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R08"]["paths"][-1]
+        path = self.root / relative
+        target = self.root / "r08-functional-acceptance-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R08 status 'passed' requires a regular evidence file"
+        )
+
+    def test_r08_functional_evidence_requirement_is_exact(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_evidence_requirements"]["R08"]["paths"].pop()
+        mutations.append(missing_path)
+
+        wrong_status = copy.deepcopy(self.policy)
+        wrong_status["phase_evidence_requirements"]["R08"][
+            "required_status"
+        ] = "evidence_ready"
+        mutations.append(wrong_status)
+
+        for mutation in mutations:
+            with self.subTest(
+                mutation=mutation["phase_evidence_requirements"]["R08"]
+            ):
+                self.write_json(policy_path, mutation)
+                self.assert_error_contains(
+                    "R08 phase_evidence_requirements differ from the frozen "
+                    "software-function acceptance contract"
+                )
+
     def test_r04_exception_requires_regular_valid_preregistration(self) -> None:
         self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R04"][
@@ -814,7 +914,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
     def test_progress_drift_fails_and_writer_repairs_it(self) -> None:
         readme = self.root / self.policy["readme"]["path"]
         text = readme.read_text(encoding="utf-8")
-        text = text.replace("✅ Passed `4`", "✅ Passed `5`", 1)
+        text = text.replace("✅ Passed", "❌ Passed", 1)
         readme.write_text(text, encoding="utf-8")
         self.assert_error_contains("Roadmap Progress block is stale")
         self.verifier().write_progress()

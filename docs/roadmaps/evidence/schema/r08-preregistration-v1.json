@@ -1,0 +1,381 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r08-preregistration-v1.json",
+  "title": "Mirmir R08 Core AI analysis-only preregistration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "predecessor_binding",
+    "observation_policy",
+    "operator_acceptance_override",
+    "fixture_catalog",
+    "schema_bindings",
+    "analysis_service_contract",
+    "model_io_contract",
+    "calibrated_output_contract",
+    "scheduling_contract",
+    "ash_context_integration_contract",
+    "lifecycle_contract",
+    "deterministic_fallback_contract",
+    "checks",
+    "stop_rules",
+    "authorization_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "roadmap_version": {"const": "1.0.1"},
+    "phase_id": {"const": "R08"},
+    "preregistration_state": {"const": "contract_frozen_for_implementation"},
+    "predecessor_binding": {"$ref": "#/$defs/predecessor"},
+    "observation_policy": {"$ref": "#/$defs/observationPolicy"},
+    "operator_acceptance_override": {"$ref": "#/$defs/operatorAcceptanceOverride"},
+    "fixture_catalog": {"$ref": "#/$defs/binding"},
+    "schema_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preregistration", "fixture_catalog"],
+      "properties": {
+        "preregistration": {"$ref": "#/$defs/binding"},
+        "fixture_catalog": {"$ref": "#/$defs/binding"}
+      }
+    },
+    "analysis_service_contract": {"$ref": "#/$defs/analysisServiceContract"},
+    "model_io_contract": {"$ref": "#/$defs/modelIOContract"},
+    "calibrated_output_contract": {"$ref": "#/$defs/calibratedOutputContract"},
+    "scheduling_contract": {"$ref": "#/$defs/schedulingContract"},
+    "ash_context_integration_contract": {"$ref": "#/$defs/ashContextIntegrationContract"},
+    "lifecycle_contract": {"$ref": "#/$defs/lifecycleContract"},
+    "deterministic_fallback_contract": {"$ref": "#/$defs/fallbackContract"},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/namedDescription"}
+    },
+    "stop_rules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/namedDescription"}
+    },
+    "authorization_boundary": {"$ref": "#/$defs/authorizationBoundary"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gitObject": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "predecessor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase_id",
+        "merge_commit",
+        "merge_tree",
+        "predecessor_result",
+        "acceptance_state"
+      ],
+      "properties": {
+        "phase_id": {"const": "R07"},
+        "merge_commit": {"const": "3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b"},
+        "merge_tree": {"const": "eb1614dd2a93e1bc4e1911bcf74f41cf372a3304"},
+        "predecessor_result": {"const": "passed"},
+        "acceptance_state": {"const": "operator_merged_accepted"}
+      }
+    },
+    "observationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_hardware_requirement",
+        "simulator_requirement",
+        "operator_observation_requirement",
+        "xcode27_environment",
+        "core_ai_framework_availability",
+        "model_asset_availability",
+        "native_model_execution",
+        "deterministic_fixture_simulation",
+        "unavailable_native_execution_blocks_phase",
+        "fabricated_native_or_model_results"
+      ],
+      "properties": {
+        "physical_hardware_requirement": {"const": "waived_not_a_blocker"},
+        "simulator_requirement": {"const": "waived_not_a_blocker"},
+        "operator_observation_requirement": {"const": "waived_not_a_blocker"},
+        "xcode27_environment": {"const": "not_observed"},
+        "core_ai_framework_availability": {"const": "not_observed"},
+        "model_asset_availability": {"const": "not_observed"},
+        "native_model_execution": {"const": "not_observed"},
+        "deterministic_fixture_simulation": {"const": "required_for_software_function_verification"},
+        "unavailable_native_execution_blocks_phase": {"const": false},
+        "fabricated_native_or_model_results": {"const": "forbidden"}
+      }
+    },
+    "operatorAcceptanceOverride": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparative_requirement",
+        "blinded_ablation_requirement",
+        "comparison_evidence",
+        "acceptance_authority",
+        "quality_claims",
+        "performance_claims"
+      ],
+      "properties": {
+        "comparative_requirement": {"const": "superseded_not_required"},
+        "blinded_ablation_requirement": {"const": "superseded_not_required"},
+        "comparison_evidence": {"const": "not_required"},
+        "acceptance_authority": {"const": "deterministic_software_function_verification_only"},
+        "quality_claims": {"const": "forbidden"},
+        "performance_claims": {"const": "forbidden"}
+      }
+    },
+    "analysisServiceContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_boundary",
+        "service_role",
+        "optional_dependency",
+        "decision_authority",
+        "pixel_output",
+        "pixel_control"
+      ],
+      "properties": {
+        "module_boundary": {"const": "cohesive_subservice_within_app_owned_model_assets_module"},
+        "service_role": {"const": "analysis_only"},
+        "optional_dependency": {"const": true},
+        "decision_authority": {"const": "none_ash_policy_remains_authoritative"},
+        "pixel_output": {"const": "forbidden"},
+        "pixel_control": {"const": "forbidden"}
+      }
+    },
+    "modelIOContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_sources",
+        "input_representation",
+        "preprocessing_identity",
+        "postprocessing_identity",
+        "output_representation",
+        "unexpected_output_policy"
+      ],
+      "properties": {
+        "input_sources": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"enum": ["proxy_frame", "keyframe", "ash_requested_frame"]}
+        },
+        "input_representation": {"const": "immutable_proxy_tensor_descriptor"},
+        "preprocessing_identity": {"const": "required_in_request_and_result"},
+        "postprocessing_identity": {"const": "required_in_result"},
+        "output_representation": {"const": "calibrated_analysis_maps_and_estimates_only"},
+        "unexpected_output_policy": {"const": "reject_and_fallback"}
+      }
+    },
+    "outputHead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["protection_mask", "likelihood_map", "severity_map", "estimate_map", "risk_map", "confidence_map", "scalar_estimate"]}
+      }
+    },
+    "calibratedOutputContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "output_heads",
+        "head_completeness",
+        "sample_domain",
+        "sample_count_relation",
+        "calibration_identity",
+        "invalid_output_policy"
+      ],
+      "properties": {
+        "output_heads": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/outputHead"}
+        },
+        "head_completeness": {"const": "exactly_once_each"},
+        "sample_domain": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["encoding", "minimum", "maximum"],
+          "properties": {
+            "encoding": {"const": "unsigned_q15"},
+            "minimum": {"const": 0},
+            "maximum": {"const": 32767}
+          }
+        },
+        "sample_count_relation": {"const": "spatial_heads_equal_width_times_height_scalar_head_equals_one"},
+        "calibration_identity": {"const": "required_in_result"},
+        "invalid_output_policy": {"const": "reject_without_context_or_state_mutation_then_fallback"}
+      }
+    },
+    "schedulingContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "periodic_proxy_interval_frames",
+        "trigger_precedence",
+        "frame_order",
+        "duplicate_policy",
+        "stale_policy",
+        "unscheduled_policy"
+      ],
+      "properties": {
+        "periodic_proxy_interval_frames": {"const": 12},
+        "trigger_precedence": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"enum": ["ash_requested_frame", "keyframe", "periodic_proxy_frame"]}
+        },
+        "frame_order": {"const": "strictly_increasing_per_stream_generation"},
+        "duplicate_policy": {"const": "reject_without_state_mutation"},
+        "stale_policy": {"const": "reject_without_state_mutation"},
+        "unscheduled_policy": {"const": "deterministic_analyzer_only"}
+      }
+    },
+    "ashContextIntegrationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "destination",
+        "contribution_identity",
+        "policy_application",
+        "backend_selection",
+        "protected_region_application",
+        "pixel_payload"
+      ],
+      "properties": {
+        "destination": {"const": "ASHDecisionContext"},
+        "contribution_identity": {"const": "model_preprocessing_postprocessing_calibration_and_schedule_identity_required"},
+        "policy_application": {"const": "ash_clamping_hysteresis_and_fail_closed_constraints"},
+        "backend_selection": {"const": "ash_decides_model_may_only_supply_analysis"},
+        "protected_region_application": {"const": "ash_composes_with_deterministic_masks"},
+        "pixel_payload": {"const": "forbidden"}
+      }
+    },
+    "lifecycleContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity_fields",
+        "specialization_cache_key",
+        "aot_compilation",
+        "zero_copy_input",
+        "state_scope",
+        "state_reset_causes",
+        "cancellation",
+        "memory_budget_bytes",
+        "latency_budget_milliseconds",
+        "budget_violation"
+      ],
+      "properties": {
+        "identity_fields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"enum": ["model_sha256", "model_version", "preprocessing_identity", "postprocessing_identity", "calibration_identity"]}
+        },
+        "specialization_cache_key": {"const": "model_sha256_plus_platform_profile_plus_io_contract"},
+        "aot_compilation": {"const": "optional_behaviorally_equivalent"},
+        "zero_copy_input": {"const": "preferred_with_deterministic_copy_fallback"},
+        "state_scope": {"const": "stream_generation_and_shot"},
+        "state_reset_causes": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {"enum": ["scene_cut", "discontinuity", "cancellation", "end_of_stream"]}
+        },
+        "cancellation": {"const": "no_result_no_context_mutation_no_state_commit"},
+        "memory_budget_bytes": {"const": 67108864},
+        "latency_budget_milliseconds": {"const": 20},
+        "budget_violation": {"const": "cancel_analysis_and_use_deterministic_fallback"}
+      }
+    },
+    "fallbackContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["triggers", "result", "learned_contribution", "pixel_effect", "reason_identity"],
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {"enum": ["unsupported_os", "framework_unavailable", "model_asset_absent", "identity_invalid", "output_invalid", "cancelled", "memory_budget_exceeded", "latency_budget_exceeded"]}
+        },
+        "result": {"const": "deterministic_analyzer_only"},
+        "learned_contribution": {"const": "none"},
+        "pixel_effect": {"const": "none"},
+        "reason_identity": {"const": "required"}
+      }
+    },
+    "namedDescription": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "authorizationBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase_acceptance",
+        "production_default",
+        "auto_mode",
+        "pixel_output",
+        "pixel_control",
+        "r09_residual_execution",
+        "holdout",
+        "quality_claims",
+        "performance_claims",
+        "publication",
+        "release",
+        "fixture_execution"
+      ],
+      "properties": {
+        "phase_acceptance": {"const": "not_claimed_by_preregistration"},
+        "production_default": {"const": "not_enabled"},
+        "auto_mode": {"const": "blocked"},
+        "pixel_output": {"const": "forbidden"},
+        "pixel_control": {"const": "forbidden"},
+        "r09_residual_execution": {"const": "forbidden_requires_separate_operator_authorization"},
+        "holdout": {"const": "blocked"},
+        "quality_claims": {"const": "forbidden"},
+        "performance_claims": {"const": "forbidden"},
+        "publication": {"const": "not_authorized_by_this_record"},
+        "release": {"const": "not_authorized"},
+        "fixture_execution": {"const": "local_deterministic_software_simulation_only"}
+      }
+    }
+  }
+}

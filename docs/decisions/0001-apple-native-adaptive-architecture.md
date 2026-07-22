@@ -28,8 +28,9 @@ shape without depending on the external Forsetti package or copying its source.
    as a deterministic reference and analysis substrate, not as the presumptive
    production reconstruction engine.
 3. Core AI is optional. Its first authorized role is analysis-only. Pixel
-   residual processing remains blocked until its separate analysis and ablation
-   gates pass.
+   residual processing remains separately blocked pending explicit operator
+   authorization after R08 functional acceptance. Comparison-based testing is
+   outside the forward roadmap and does not authorize residual work.
 4. The application retains one UI module, four cohesive service modules,
    constructor injection, deterministic lifecycle, and one composition root.
    These are implemented by a small app-owned Pattern B runtime using
@@ -75,6 +76,24 @@ shape without depending on the external Forsetti package or copying its source.
   removed; the closed five-module application uses static descriptors.
 - Later roadmap phases must define and qualify the common backend contract before
   adding production reconstruction.
+
+### R08 analysis-only acceptance — 2026-07-22
+
+R08 implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`,
+tree `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, preserves this decision's
+analysis-only boundary inside the existing model-assets module. All 42 selected
+deterministic tests across 10 suites passed with zero failures and zero skips,
+covering the declared analysis outputs, identity, scheduling, lifecycle,
+cancellation, cache, budgets, deterministic bypass, bounded ASH-context
+integration, and rejection of pixel and backend-selection authority.
+
+The accepted scope is `declared_software_function_only` under deterministic
+fixture simulation. Comparison-based testing supplied no acceptance authority.
+Native Core AI, Xcode 27, model, hardware, simulator, and
+operator-observed execution remain `not_observed`; the acceptance creates no
+native, product, quality, performance, production-default, Auto, publication,
+or release claim. Core AI pixel residual work remains blocked in R09 pending a
+separate explicit operator authorization.
 
 ## Authorization Boundary
 

@@ -1,0 +1,435 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R08",
+  "evidence_kind": "r08_deterministic_functional_execution_receipt_v1",
+  "source": {
+    "commit": "368b9284883c189be6a1139df6208bf0e88139dd",
+    "tree": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"
+  },
+  "contract_bindings": [
+    {
+      "id": "r08_preregistration",
+      "path": "docs/roadmaps/evidence/r08/records/preregistration.json",
+      "size_bytes": 10630,
+      "sha256": "e57ba184536c370f918454535e89beee76b011a7d46b820cf88a8640425300b6"
+    },
+    {
+      "id": "r08_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
+      "size_bytes": 12068,
+      "sha256": "36aeac08a73e6f4da9cbcb7d35d00daa0e1ebaa64e5e3a4c1e760a2133fdf0b4"
+    },
+    {
+      "id": "r08_preregistration_schema",
+      "path": "docs/roadmaps/evidence/schema/r08-preregistration-v1.json",
+      "size_bytes": 14263,
+      "sha256": "1256fc72964f2e0baf992515eac1d4623f0fba4cfc3bf393cab145e772fb2471"
+    },
+    {
+      "id": "r08_fixture_catalog_schema",
+      "path": "docs/roadmaps/evidence/schema/r08-fixture-catalog-v1.json",
+      "size_bytes": 2931,
+      "sha256": "3f9d02ef315e56de18383ecc45250c0015ee1025b5c5897b4000cf3554db69c7"
+    },
+    {
+      "id": "r08_contract_validator",
+      "path": "Scripts/r08_contracts.py",
+      "size_bytes": 18722,
+      "sha256": "534f801a747dc55beb08a04110ecb2d7269fe0cfdf03043369c27146947543e6"
+    },
+    {
+      "id": "r08_contract_validator_tests",
+      "path": "Scripts/tests/test_r08_contracts.py",
+      "size_bytes": 15341,
+      "sha256": "719f5bb994d92176edf04cb0da937c92da82600343fb3331271e3951c436ea06"
+    },
+    {
+      "id": "r08_phase_acceptance_validator",
+      "path": "Scripts/r08_phase_acceptance.py",
+      "size_bytes": 46007,
+      "sha256": "439583ca67cc955fdea9936e4b82dbb3424ddbd9b56d30b2088360b9f432247f"
+    },
+    {
+      "id": "r08_phase_acceptance_validator_tests",
+      "path": "Scripts/tests/test_r08_phase_acceptance.py",
+      "size_bytes": 16835,
+      "sha256": "6a9f654c3a0d646892f351c71d7511303777fe386747c417f015ac14935cc39d"
+    },
+    {
+      "id": "r08_functional_execution_receipt_schema",
+      "path": "docs/roadmaps/evidence/schema/r08-functional-execution-receipt-v1.json",
+      "size_bytes": 9619,
+      "sha256": "17d30fbc3e4df488057bd131c335f6fa523b9e07389f3b278bcc9b30d7750afb"
+    },
+    {
+      "id": "r08_functional_phase_acceptance_schema",
+      "path": "docs/roadmaps/evidence/schema/r08-functional-phase-acceptance-v1.json",
+      "size_bytes": 11036,
+      "sha256": "6c63d9a5f8af2999dd6f26fd6ebb7e52be59f3a98882ede8d40cc230f842f06a"
+    }
+  ],
+  "implementation_bindings": [
+    {
+      "id": "r08_analysis_contracts_source",
+      "path": "Mirmir/Modules/ModelAssets/R08CoreAIAnalysisContracts.swift",
+      "size_bytes": 17427,
+      "sha256": "4fa95dbc9fe3e18dde0f1c8d99f09a32cfc3ea27e91d88f0295210772abb155f"
+    },
+    {
+      "id": "r08_analysis_heads_source",
+      "path": "Mirmir/Modules/ModelAssets/R08CoreAIAnalysisHeads.swift",
+      "size_bytes": 11815,
+      "sha256": "10ba36c9efd886a8205a6e8077346e1d22d472aefc2685e99c4fd22c88dd3ac2"
+    },
+    {
+      "id": "r08_deterministic_service_source",
+      "path": "Mirmir/Modules/ModelAssets/R08DeterministicAnalysisService.swift",
+      "size_bytes": 17266,
+      "sha256": "1d6a393d003f0e8b4db875959c0fdd09de6c0b08b995be416e8a878f27ed504b"
+    },
+    {
+      "id": "r08_ash_bridge_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R08ASHAnalysisBridge.swift",
+      "size_bytes": 8825,
+      "sha256": "7ff54a4f6bad66a0532b670b465bb352bedfb050a84f72bc6b5df84250c312c5"
+    },
+    {
+      "id": "r08_analysis_contracts_tests",
+      "path": "MirmirTests/UpscalerEngine/R08CoreAIAnalysisContractsTests.swift",
+      "size_bytes": 17373,
+      "sha256": "8d4f2816633dd29902ec0d784fe5bc07541cea129ad359a6d540974258eee6d8"
+    },
+    {
+      "id": "r08_analysis_output_decoder_tests",
+      "path": "MirmirTests/UpscalerEngine/R08AnalysisOutputDecoderTests.swift",
+      "size_bytes": 7145,
+      "sha256": "f945b56d6b6d96c560b14d674b44807c6c18963042a3650224b6fcd7ed8f729a"
+    },
+    {
+      "id": "r08_deterministic_service_tests",
+      "path": "MirmirTests/UpscalerEngine/R08DeterministicAnalysisServiceTests.swift",
+      "size_bytes": 18963,
+      "sha256": "3d0c3c1538403df740f6880c3ee1c20fb6c94272782221422f6dc79b1e83097a"
+    },
+    {
+      "id": "r08_ash_bridge_tests",
+      "path": "MirmirTests/UpscalerEngine/R08ASHAnalysisBridgeTests.swift",
+      "size_bytes": 14371,
+      "sha256": "7b5625d9c45ecae79e4f9e0b3d1c90b1aa06658aa40523c31e2c07db2c1947c3"
+    },
+    {
+      "id": "r08_resource_and_authority_tests",
+      "path": "MirmirTests/UpscalerEngine/R08AnalysisResourceAndAuthorityTests.swift",
+      "size_bytes": 5778,
+      "sha256": "382b9975adb4abe68664476dac0fff44d89092aefc6398be8b0ad53b81e0f38e"
+    },
+    {
+      "id": "r08_test_support",
+      "path": "MirmirTests/UpscalerEngine/R08TestSupport.swift",
+      "size_bytes": 4383,
+      "sha256": "18daf3e0d8927b7ee10fd52d80a9c87938eff91f03060b1d606156ae2e698515"
+    },
+    {
+      "id": "project_manifest",
+      "path": "project.yml",
+      "size_bytes": 3501,
+      "sha256": "b7f9c7b3f32350101752ba285140c121f57227279f3a5a00a506486e787c6876"
+    },
+    {
+      "id": "xcode_project",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "size_bytes": 197490,
+      "sha256": "2edbb94faabbb252ae89f886fd0988c2f22d7676b8da078292dde962296b6355"
+    }
+  ],
+  "artifact_bindings": [
+    {
+      "id": "xcodebuild_log",
+      "path": "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+      "size_bytes": 2409,
+      "sha256": "002d0dfc617174e73d1724cc68dd8ddafe5f37f011f32493b67730396d874e15"
+    },
+    {
+      "id": "xcresult_summary_json",
+      "path": "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcresult-summary.json",
+      "size_bytes": 3304,
+      "sha256": "6842cd4bded2aa9379065dfea9a1187a4043d0462f0255fc65ca74bc316f3237"
+    }
+  ],
+  "test_execution": {
+    "execution_mode": "deterministic_fixture_simulation",
+    "expected_selected_test_count": 42,
+    "selected_test_count": 42,
+    "passed_test_count": 42,
+    "failed_test_count": 0,
+    "skipped_test_count": 0,
+    "test_suites": [
+      {
+        "id": "R08CoreAIAnalysisContractsTests",
+        "expected_test_count": 10,
+        "passed_test_count": 10,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08AnalysisBudgetContractTests",
+        "expected_test_count": 2,
+        "passed_test_count": 2,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08AnalysisIdentityContractTests",
+        "expected_test_count": 1,
+        "passed_test_count": 1,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08AnalysisOutputDecoderTests",
+        "expected_test_count": 5,
+        "passed_test_count": 5,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08DeterministicAnalysisServiceTests",
+        "expected_test_count": 8,
+        "passed_test_count": 8,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08DeterministicAnalysisLifecycleTests",
+        "expected_test_count": 5,
+        "passed_test_count": 5,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08AnalysisResourceBudgetTests",
+        "expected_test_count": 3,
+        "passed_test_count": 3,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08ForbiddenOutputServiceTests",
+        "expected_test_count": 1,
+        "passed_test_count": 1,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08InputTransferFallbackTests",
+        "expected_test_count": 1,
+        "passed_test_count": 1,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      },
+      {
+        "id": "R08ASHAnalysisBridgeTests",
+        "expected_test_count": 6,
+        "passed_test_count": 6,
+        "failed_test_count": 0,
+        "skipped_test_count": 0
+      }
+    ],
+    "toolchain": {
+      "platform": "macos_host",
+      "architecture": "arm64",
+      "os_version": "26.5.2",
+      "xcode_version": "26.2",
+      "xcode_build_version": "17C52",
+      "command": "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r08-final-derived -disableAutomaticPackageResolution test -only-testing:MirmirTests/R08CoreAIAnalysisContractsTests -only-testing:MirmirTests/R08AnalysisBudgetContractTests -only-testing:MirmirTests/R08AnalysisIdentityContractTests -only-testing:MirmirTests/R08AnalysisOutputDecoderTests -only-testing:MirmirTests/R08DeterministicAnalysisServiceTests -only-testing:MirmirTests/R08DeterministicAnalysisLifecycleTests -only-testing:MirmirTests/R08AnalysisResourceBudgetTests -only-testing:MirmirTests/R08ForbiddenOutputServiceTests -only-testing:MirmirTests/R08InputTransferFallbackTests -only-testing:MirmirTests/R08ASHAnalysisBridgeTests CODE_SIGNING_ALLOWED=NO"
+    }
+  },
+  "observation_status": {
+    "deterministic_software_execution": "observed",
+    "deterministic_fixture_simulation": "observed",
+    "hardware_execution": "not_observed",
+    "apple_simulator_execution": "not_observed",
+    "operator_observed_operation": "not_observed",
+    "xcode27_environment": "not_observed",
+    "core_ai_framework_availability": "not_observed",
+    "model_asset_availability": "not_observed",
+    "native_core_ai_execution": "not_observed"
+  },
+  "comparison_policy": {
+    "comparative_testing": "not_run_not_required",
+    "a_b_testing": "not_run_not_required",
+    "blinded_testing": "not_run_not_required",
+    "ablation_testing": "not_run_not_required",
+    "superiority_requirement": "superseded_not_required",
+    "acceptance_dependency": "none"
+  },
+  "functional_checks": [
+    {
+      "id": "optional_analysis_only_service",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testAnalyzedResultIsCompleteBoundedAndAnalysisOnly"
+      ]
+    },
+    {
+      "id": "exact_nine_analysis_outputs",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08AnalysisOutputDecoderTests/testDecoderAcceptsExactNineHeadInventoryAndRetainsClassification",
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testAnalysisHeadsRequireEightTwoByTwoMapsPlusOneScalar"
+      ]
+    },
+    {
+      "id": "calibrated_q15_geometry_and_bounds",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testQ15MapAcceptsBoundariesAndRejectsInvalidGeometryOrSamples",
+        "MirmirTests/R08AnalysisOutputDecoderTests/testDecoderRejectsKindAndSampleCountMismatches",
+        "MirmirTests/R08AnalysisOutputDecoderTests/testDecoderRejectsQ15UnderflowAndOverflowWithoutClamping"
+      ]
+    },
+    {
+      "id": "invalid_output_fail_closed",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08AnalysisOutputDecoderTests/testDecoderRejectsMissingDuplicateAndUnexpectedHeadIDs",
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testInvalidOutputBypassesWithoutStateOrCacheMutation"
+      ]
+    },
+    {
+      "id": "schedule_precedence_cadence_and_order",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testScheduleResolverAppliesFrozenPrecedenceAndCadence",
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testServiceUsesResolvedScheduleAndRejectsUnscheduledFrame",
+        "MirmirTests/R08DeterministicAnalysisLifecycleTests/testStreamShotAndOrdinalRejectionsDoNotMutateState"
+      ]
+    },
+    {
+      "id": "model_processing_and_result_identity",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testFrozenProxyAndSimulationIdentityAreExact",
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testResultRejectsCrossModeExecutionBinding",
+        "MirmirTests/R08AnalysisIdentityContractTests/testMissingCalibrationIdentityFailsBeforeARequestCanExist",
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testIdentityBudgetAndOrdinalValidationRejectInvalidValues",
+        "MirmirTests/R08ASHAnalysisBridgeTests/testFrameAndShotMismatchAreRejectedBeforeContextMutation"
+      ]
+    },
+    {
+      "id": "specialization_cache_key_and_lru",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testBoundedSpecializationCacheUsesExactKeyAndLRUOrder",
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testSpecializationKeyIncludesModelPlatformAndIOContract"
+      ]
+    },
+    {
+      "id": "aot_behavioral_equivalence",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testOutputsAreRepeatableAndAOTBehaviorallyEquivalent"
+      ]
+    },
+    {
+      "id": "zero_copy_with_deterministic_copy_fallback",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testInputTransferResolverPrefersZeroCopyAndExecutesCopyFallback",
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testInputTransferResolverRejectsContradictoryBindings",
+        "MirmirTests/R08InputTransferFallbackTests/testUnavailableZeroCopyCreatesOwnedCopyWithoutNativeExecutionClaim"
+      ]
+    },
+    {
+      "id": "state_scope_and_reset",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisLifecycleTests/testResetChangesGenerationClearsSequenceAndRetainsCache",
+        "MirmirTests/R08DeterministicAnalysisLifecycleTests/testStateResetDuringAwaitIsCaughtBeforeCommit",
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testResultRejectsStateScheduleTransferAndAOTMismatch"
+      ]
+    },
+    {
+      "id": "cancellation_is_transactional",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisLifecycleTests/testCancellationResetsGenerationWithoutCommittingResultOrCache"
+      ]
+    },
+    {
+      "id": "single_inflight_transaction",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisLifecycleTests/testConcurrentRequestBypassesBusyWithoutMutatingInFlightTransaction"
+      ]
+    },
+    {
+      "id": "resource_budget_bypass",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08AnalysisBudgetContractTests/testFunctionalBudgetIsFixedAndCannotBeRaisedByRequest",
+        "MirmirTests/R08AnalysisBudgetContractTests/testResourceMeasurementRejectsNegativeValues",
+        "MirmirTests/R08AnalysisResourceBudgetTests/testExactMemoryAndLatencyBudgetBoundariesAreAccepted",
+        "MirmirTests/R08AnalysisResourceBudgetTests/testMemoryOneByteOverFrozenBudgetBypassesWithoutCommit",
+        "MirmirTests/R08AnalysisResourceBudgetTests/testLatencyOneMillisecondOverFrozenBudgetBypassesWithoutCommit"
+      ]
+    },
+    {
+      "id": "availability_and_identity_fallback",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testAvailabilityFailuresUseTypedBypassWithoutMutation",
+        "MirmirTests/R08DeterministicAnalysisServiceTests/testInvalidSimulationIdentityBypassesWithoutMutation",
+        "MirmirTests/R08ASHAnalysisBridgeTests/testBypassPreservesBaseContextAndDeterministicRegionsExactly"
+      ]
+    },
+    {
+      "id": "ash_context_bounded_integration",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08ASHAnalysisBridgeTests/testAnalyzedSidecarStrengthensOnlyAnalysisFields",
+        "MirmirTests/R08ASHAnalysisBridgeTests/testRepeatedIntegrationNeverReducesConservativeContributions"
+      ]
+    },
+    {
+      "id": "protected_mask_composition",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08ASHAnalysisBridgeTests/testTwoByTwoProtectionMapExpandsByDeterministicNearestNeighbor",
+        "MirmirTests/R08ASHAnalysisBridgeTests/testExactLearnedMaskWinsR07PixelwiseMaximumComposition"
+      ]
+    },
+    {
+      "id": "pixel_output_and_control_forbidden",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testResetCausesAndPixelAuthorityAreFrozen",
+        "MirmirTests/R08AnalysisOutputDecoderTests/testDecoderRejectsPixelAndBackendAuthorityOutputsWithTypedErrors",
+        "MirmirTests/R08ForbiddenOutputServiceTests/testForbiddenPixelAndBackendOutputsUseTypedNoCommitFallbacks"
+      ]
+    },
+    {
+      "id": "simulation_identity_truthful",
+      "status": "passed",
+      "evidence_tests": [
+        "MirmirTests/R08CoreAIAnalysisContractsTests/testFrozenProxyAndSimulationIdentityAreExact"
+      ]
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "functional_software_conformance": "passed",
+    "declared_software_behavior": "conformant",
+    "execution_mode": "deterministic_fixture_simulation",
+    "comparison_requirement": "superseded_not_required",
+    "native_core_ai_qualification": "not_claimed",
+    "product_qualification": "not_claimed"
+  },
+  "limitations": [
+    "The passing execution is deterministic fixture simulation of the declared analysis-only service behavior; it does not establish native Core AI execution.",
+    "Xcode 27, Core AI framework availability, model assets, physical hardware, Apple-simulator operation, and operator-observed operation were not observed.",
+    "No A/B, blinded, ablation, comparative, or superiority test was run or required for this functional acceptance.",
+    "This receipt makes no product-qualification, production, Auto, R09, quality, performance, publication, or release claim."
+  ]
+}

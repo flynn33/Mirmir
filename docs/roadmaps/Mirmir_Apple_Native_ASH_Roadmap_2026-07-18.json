@@ -129,7 +129,7 @@
   ],
   "authorizations": {
     "capability_lab": "authorized_after_current_source_inventory",
-    "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
+    "core_ai_pixel_residual": "blocked_pending_explicit_operator_authorization_after_r08_functional_acceptance",
     "holdout": "blocked",
     "market_leading_claim": "blocked",
     "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
@@ -195,7 +195,7 @@
     }
   ],
   "date": "2026-07-18",
-  "revision_date": "2026-07-21",
+  "revision_date": "2026-07-22",
   "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
   "phases": [
     {
@@ -236,7 +236,7 @@
       "depends_on": [
         "R03"
       ],
-      "exit": "quality and low-latency VT integration contracts implemented with qualified, diagnostic-only, rejected, or not_observed dispositions",
+      "exit": "operator-defined software-function gate: quality and low-latency VT integration contracts enforce declared route, media, lifecycle, identity, and failure behavior",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
       "status": "in_progress"
@@ -254,7 +254,7 @@
       "depends_on": [
         "R05"
       ],
-      "exit": "verified ASH orchestration contract; unavailable product ablation recorded as not_observed",
+      "exit": "operator-defined software-function gate: verified ASH orchestration, transition, mask, identity, and transactional contracts",
       "id": "R06",
       "name": "ASH orchestration engine v1",
       "status": "in_progress"
@@ -263,7 +263,7 @@
       "depends_on": [
         "R06"
       ],
-      "exit": "operator-overridden deterministic software-function gate: checkpoint-bound fixture simulation verifies temporal, artifact, protected-region, support-stage, postflight, and transactional behavior; comparative backend measurement is superseded and not required",
+      "exit": "operator-overridden deterministic software-function gate: checkpoint-bound fixture simulation verifies temporal, artifact, protected-region, support-stage, postflight, and transactional behavior",
       "id": "R07",
       "name": "Temporal stability and artifact governance",
       "status": "passed"
@@ -272,16 +272,16 @@
       "depends_on": [
         "R07"
       ],
-      "exit": "positive learned-analysis ablation or diagnostic-only disposition",
+      "exit": "operator-defined deterministic software-function gate: optional analysis contracts, declared outputs, identity, decision-context integration, lifecycle, budgets, and deterministic bypass work as claimed",
       "id": "R08",
       "name": "Core AI analysis-only integration",
-      "status": "planned"
+      "status": "passed"
     },
     {
       "depends_on": [
         "R08"
       ],
-      "exit": "qualified or explicitly rejected residual model",
+      "exit": "separately operator-authorized bounded residual software contract or explicit safety rejection",
       "id": "R09",
       "name": "Core AI bounded residual experiment",
       "status": "blocked"
@@ -290,7 +290,7 @@
       "depends_on": [
         "R07"
       ],
-      "exit": "frozen validated Auto policy",
+      "exit": "operator-defined software-function gate: deterministic bounded optimizer and calibration machinery enforces declared search limits, independent constraints, identities, resumability, and frozen fixture-policy output",
       "id": "R10",
       "name": "Auto-policy optimization and bounded calibration",
       "status": "planned"
@@ -299,9 +299,9 @@
       "depends_on": [
         "R10"
       ],
-      "exit": "reproducible benchmark and blind-evaluation result",
+      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits an honest no-market-claim disposition by default",
       "id": "R11",
-      "name": "Competitive benchmark and market-position decision",
+      "name": "Evidence traceability and claim boundary",
       "status": "planned"
     },
     {

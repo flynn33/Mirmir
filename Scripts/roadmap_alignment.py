@@ -352,6 +352,38 @@ R07_PHASE_START_REQUIREMENT = {
         "docs/roadmaps/evidence/r07/records/fixtures/fixture-catalog.json",
     ],
 }
+R08_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "paths": [
+        "docs/roadmaps/evidence/r08/records/preregistration.json",
+        "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
+    ],
+}
+R08_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r08_phase_acceptance.py",
+        "Scripts/tests/test_r08_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r08-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r08-functional-phase-acceptance-v1.json"
+        ),
+        "docs/roadmaps/evidence/r08/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r08/records/artifacts/"
+            "functional-phase-acceptance/xcodebuild.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r08/records/artifacts/"
+            "functional-phase-acceptance/xcresult-summary.json"
+        ),
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -1324,6 +1356,12 @@ class AlignmentVerifier:
                 "phase_evidence_requirements must be an object",
             )
             return
+        if requirements.get("R08") != R08_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R08 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1385,6 +1423,11 @@ class AlignmentVerifier:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R07 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R08") != R08_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R08 phase_start_requirements differ from the frozen contract",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)

@@ -3,8 +3,11 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+import subprocess
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -95,6 +98,93 @@ class R07PhaseAcceptanceTests(unittest.TestCase):
             [binding["id"] for binding in self.receipt["artifact_bindings"]],
             [identifier for identifier, _ in ARTIFACT_PATHS],
         )
+
+    def test_later_worktree_changes_do_not_invalidate_checkpoint_bindings(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            verifier = R07PhaseAcceptanceVerifier(Path(directory))
+            for _, relative in IMPLEMENTATION_PATHS:
+                path = verifier.root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"later working-tree content")
+
+            def checkpoint_bytes(
+                *arguments: str,
+            ) -> subprocess.CompletedProcess[bytes]:
+                payload = f"checkpoint content for {arguments[-1]}".encode()
+                return subprocess.CompletedProcess(
+                    ["git", *arguments],
+                    0,
+                    stdout=payload,
+                    stderr=b"",
+                )
+
+            with mock.patch.object(
+                verifier,
+                "git_bytes",
+                side_effect=checkpoint_bytes,
+            ):
+                self.assertEqual(verifier._implementation_errors(), [])
+
+    def test_tampered_checkpoint_or_recorded_binding_still_fails(self) -> None:
+        target = IMPLEMENTATION_PATHS[0][1]
+        target_spec = f"{SOURCE['commit']}:{target.as_posix()}"
+        original_git_bytes = self.verifier.git_bytes
+
+        def tampered_checkpoint(
+            *arguments: str,
+        ) -> subprocess.CompletedProcess[bytes]:
+            result = original_git_bytes(*arguments)
+            if arguments == ("show", target_spec) and result.returncode == 0:
+                return subprocess.CompletedProcess(
+                    result.args,
+                    0,
+                    stdout=result.stdout + b"tampered",
+                    stderr=result.stderr,
+                )
+            return result
+
+        with mock.patch.object(
+            self.verifier,
+            "git_bytes",
+            side_effect=tampered_checkpoint,
+        ):
+            self.assertIn(
+                "R07 execution receipt is not exactly derived from the "
+                "checkpoint and test artifacts",
+                self.verifier.check(),
+            )
+
+        original_read_json = self.verifier._read_json
+
+        def tampered_receipt(
+            relative: Path,
+            context: str,
+            errors: list[str],
+        ) -> dict[str, object] | None:
+            value = original_read_json(relative, context, errors)
+            if relative == EXECUTION_RECEIPT_PATH and value is not None:
+                value = copy.deepcopy(value)
+                bindings = value["implementation_bindings"]
+                if not isinstance(bindings, list):
+                    raise TypeError("implementation bindings must be a list")
+                binding = bindings[0]
+                if not isinstance(binding, dict):
+                    raise TypeError("implementation binding must be an object")
+                binding["sha256"] = "1" * 64
+            return value
+
+        with mock.patch.object(
+            self.verifier,
+            "_read_json",
+            side_effect=tampered_receipt,
+        ):
+            self.assertIn(
+                "R07 execution receipt is not exactly derived from the "
+                "checkpoint and test artifacts",
+                self.verifier.check(),
+            )
 
     def test_summary_requires_the_exact_98_test_selection(self) -> None:
         self.assertEqual(self.verifier._summary_errors(self.summary), [])

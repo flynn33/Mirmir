@@ -1,0 +1,292 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r08-functional-phase-acceptance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "namedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "comparisonPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "comparative_testing": {"const": "not_run_not_required", "type": "string"},
+        "a_b_testing": {"const": "not_run_not_required", "type": "string"},
+        "blinded_testing": {"const": "not_run_not_required", "type": "string"},
+        "ablation_testing": {"const": "not_run_not_required", "type": "string"},
+        "superiority_requirement": {"const": "superseded_not_required", "type": "string"},
+        "acceptance_dependency": {"const": "none", "type": "string"}
+      },
+      "required": [
+        "comparative_testing",
+        "a_b_testing",
+        "blinded_testing",
+        "ablation_testing",
+        "superiority_requirement",
+        "acceptance_dependency"
+      ],
+      "type": "object"
+    },
+    "passedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "source_checkpoint_exact",
+            "contract_bindings_exact",
+            "implementation_bindings_exact",
+            "execution_artifacts_exact",
+            "execution_receipt_exact",
+            "selected_test_set_exact",
+            "optional_analysis_only_service",
+            "exact_nine_analysis_outputs",
+            "calibrated_q15_geometry_and_bounds",
+            "invalid_output_fail_closed",
+            "schedule_precedence_cadence_and_order",
+            "model_processing_and_result_identity",
+            "specialization_cache_key_and_lru",
+            "aot_behavioral_equivalence",
+            "zero_copy_with_deterministic_copy_fallback",
+            "state_scope_and_reset",
+            "cancellation_is_transactional",
+            "single_inflight_transaction",
+            "resource_budget_bypass",
+            "availability_and_identity_fallback",
+            "ash_context_bounded_integration",
+            "protected_mask_composition",
+            "pixel_output_and_control_forbidden",
+            "simulation_identity_truthful",
+            "comparative_methods_absent_and_non_gating",
+            "native_observations_truthful",
+            "authorization_boundary_exact"
+          ],
+          "type": "string"
+        },
+        "status": {"const": "passed", "type": "string"}
+      },
+      "required": ["id", "status"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R08", "type": "string"},
+    "evidence_kind": {
+      "const": "r08_operator_functional_phase_acceptance_v1",
+      "type": "string"
+    },
+    "source": {"$ref": "#/$defs/source"},
+    "operator_override": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {"const": "operator", "type": "string"},
+        "authorization_date": {"const": "2026-07-22", "type": "string"},
+        "acceptance_basis": {"const": "software_does_what_it_says_it_does", "type": "string"},
+        "override_id": {"const": "r08.software-function-only-phase-acceptance.v1", "type": "string"},
+        "comparative_requirement": {"const": "superseded_not_required", "type": "string"},
+        "a_b_requirement": {"const": "superseded_not_required", "type": "string"},
+        "blinded_requirement": {"const": "superseded_not_required", "type": "string"},
+        "ablation_requirement": {"const": "superseded_not_required", "type": "string"},
+        "superiority_requirement": {"const": "superseded_not_required", "type": "string"},
+        "native_execution": {"const": "supplemental_not_required", "type": "string"}
+      },
+      "required": [
+        "authority",
+        "authorization_date",
+        "acceptance_basis",
+        "override_id",
+        "comparative_requirement",
+        "a_b_requirement",
+        "blinded_requirement",
+        "ablation_requirement",
+        "superiority_requirement",
+        "native_execution"
+      ],
+      "type": "object"
+    },
+    "functional_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_scope": {"const": "declared_software_function_only", "type": "string"},
+        "execution_mode": {"const": "deterministic_fixture_simulation", "type": "string"},
+        "required_test_suites": {
+          "const": [
+            "R08CoreAIAnalysisContractsTests",
+            "R08AnalysisBudgetContractTests",
+            "R08AnalysisIdentityContractTests",
+            "R08AnalysisOutputDecoderTests",
+            "R08DeterministicAnalysisServiceTests",
+            "R08DeterministicAnalysisLifecycleTests",
+            "R08AnalysisResourceBudgetTests",
+            "R08ForbiddenOutputServiceTests",
+            "R08InputTransferFallbackTests",
+            "R08ASHAnalysisBridgeTests"
+          ],
+          "type": "array"
+        },
+        "required_functional_check_ids": {
+          "const": [
+            "optional_analysis_only_service",
+            "exact_nine_analysis_outputs",
+            "calibrated_q15_geometry_and_bounds",
+            "invalid_output_fail_closed",
+            "schedule_precedence_cadence_and_order",
+            "model_processing_and_result_identity",
+            "specialization_cache_key_and_lru",
+            "aot_behavioral_equivalence",
+            "zero_copy_with_deterministic_copy_fallback",
+            "state_scope_and_reset",
+            "cancellation_is_transactional",
+            "single_inflight_transaction",
+            "resource_budget_bypass",
+            "availability_and_identity_fallback",
+            "ash_context_bounded_integration",
+            "protected_mask_composition",
+            "pixel_output_and_control_forbidden",
+            "simulation_identity_truthful"
+          ],
+          "type": "array"
+        },
+        "comparison_policy": {"$ref": "#/$defs/comparisonPolicy"},
+        "native_core_ai_qualification": {"const": "not_claimed", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "acceptance_scope",
+        "execution_mode",
+        "required_test_suites",
+        "required_functional_check_ids",
+        "comparison_policy",
+        "native_core_ai_qualification",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "contract_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 10,
+      "minItems": 10,
+      "type": "array"
+    },
+    "implementation_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "maxItems": 12,
+      "minItems": 12,
+      "type": "array"
+    },
+    "execution_receipt_binding": {"$ref": "#/$defs/namedBinding"},
+    "comparison_policy": {"$ref": "#/$defs/comparisonPolicy"},
+    "derived_checks": {
+      "items": {"$ref": "#/$defs/passedCheck"},
+      "maxItems": 27,
+      "minItems": 27,
+      "type": "array"
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "passed", "type": "string"},
+        "phase_status_before": {"const": "in_progress", "type": "string"},
+        "phase_status_after": {"const": "passed", "type": "string"},
+        "acceptance": {"const": "accepted", "type": "string"},
+        "acceptance_scope": {"const": "declared_software_function_only", "type": "string"},
+        "execution_mode": {"const": "deterministic_fixture_simulation", "type": "string"},
+        "native_core_ai_qualification": {"const": "not_claimed", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"}
+      },
+      "required": [
+        "status",
+        "phase_status_before",
+        "phase_status_after",
+        "acceptance",
+        "acceptance_scope",
+        "execution_mode",
+        "native_core_ai_qualification",
+        "product_qualification"
+      ],
+      "type": "object"
+    },
+    "authorizations": {
+      "additionalProperties": false,
+      "properties": {
+        "r08_phase_acceptance": {"const": "authorized", "type": "string"},
+        "r08_phase_status": {"const": "passed", "type": "string"},
+        "r09_phase_progression": {
+          "const": "not_authorized_requires_separate_operator_authorization",
+          "type": "string"
+        },
+        "r09_residual_execution": {"const": "not_authorized", "type": "string"},
+        "product_qualification": {"const": "not_claimed", "type": "string"},
+        "production_default": {"const": "not_authorized", "type": "string"},
+        "auto_mode": {"const": "not_authorized", "type": "string"},
+        "pixel_output": {"const": "not_authorized", "type": "string"},
+        "pixel_control": {"const": "not_authorized", "type": "string"},
+        "holdout": {"const": "not_authorized", "type": "string"},
+        "quality_claims": {"const": "not_authorized", "type": "string"},
+        "performance_claims": {"const": "not_authorized", "type": "string"},
+        "product_publication": {"const": "not_authorized", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"},
+        "native_core_ai_claims": {"const": "not_authorized", "type": "string"}
+      },
+      "required": [
+        "r08_phase_acceptance",
+        "r08_phase_status",
+        "r09_phase_progression",
+        "r09_residual_execution",
+        "product_qualification",
+        "production_default",
+        "auto_mode",
+        "pixel_output",
+        "pixel_control",
+        "holdout",
+        "quality_claims",
+        "performance_claims",
+        "product_publication",
+        "release",
+        "native_core_ai_claims"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"minLength": 1, "type": "string"},
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "operator_override",
+    "functional_gate",
+    "contract_bindings",
+    "implementation_bindings",
+    "execution_receipt_binding",
+    "comparison_policy",
+    "derived_checks",
+    "result",
+    "authorizations",
+    "limitations"
+  ],
+  "type": "object"
+}

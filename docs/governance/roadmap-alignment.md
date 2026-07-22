@@ -11,14 +11,16 @@ informational `Roadmap metadata audit` runs weekly or by manual dispatch.
 
 The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 
-- the canonical roadmap Markdown and JSON paths, SHA-256 digests, version, and date;
+- the canonical roadmap Markdown and JSON paths, SHA-256 digests, version, date,
+  and revision date;
 - roadmap schema, phase IDs and ordering, phase dependency references, Apple-method
   IDs, and authorization values;
 - the phase-status vocabulary and prerequisite rule: a phase marked `next`,
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
   to be `passed`, except the exact policy-scoped R03, R04, R05, R06, and R07
   `in_progress` local continuations from their recorded unpublished predecessor
-  closures and the separate evidence-bound R03 functional acceptance override;
+  closures and the separate evidence-bound R03, R07, and R08 functional
+  acceptance contracts;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
 - required roadmap, evidence-status, and historical-status language in the aligned
@@ -28,7 +30,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
-- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, and R07 `in_progress`,
+- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, and R08 `in_progress`,
   `evidence_ready`, and `passed` states require regular, non-symlink
   preregistration and fixture-catalog files, whose dedicated validators preserve
   exact unpublished predecessor truth and the operator-observation boundary;
@@ -45,7 +47,7 @@ request become visible without making the required check network-dependent.
 ## Updating progress
 
 Change phase statuses only in the canonical roadmap JSON after the corresponding
-roadmap decision and evidence have been accepted. Five narrow exceptions apply
+operator decision and required start or closure evidence are recorded. Five narrow exceptions apply
 when direct operator instruction authorizes local implementation from an exact,
 recorded phase-specific local closure:
 
@@ -111,6 +113,14 @@ of `HEAD`. The exceptions never apply to `next`, `evidence_ready`, or `passed`.
 They do not authorize publication, phase closure, acceptance, production
 enablement, or release.
 
+R08 follows the normal accepted-dependency path rather than a sixth local
+continuation exception. Its `in_progress` start contract binds accepted R07 merge
+commit `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`, and requires regular
+preregistration and fixture-catalog files. The R08 start does not claim phase
+acceptance, native Core AI execution, product routing, residual authorization, or
+release authority.
+
 A separate R03-only functional acceptance override permits canonical R03 to be
 `passed` while R02 remains canonical `in_progress`. It applies only when the
 policy-bound `functional-phase-acceptance.json` bytes and identity are exact, the
@@ -134,6 +144,42 @@ mark R06 passed, rewrite frozen evidence, claim native or product execution,
 select a production default, or authorize Auto, quality/performance claims,
 product publication, or release.
 
+The R08 functional acceptance contract permits canonical R08 to be `passed`
+only when the policy-bound functional receipt and phase-acceptance bytes are
+exact and `r08_phase_acceptance.py` rechecks implementation commit
+`368b9284883c189be6a1139df6208bf0e88139dd`, tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, and all 42 selected tests across
+the 10 settled R08 suites. The accepted scope is
+`declared_software_function_only` under deterministic fixture simulation.
+Comparison-based testing is outside the roadmap and supplies no acceptance
+dependency. Native Core AI, Xcode 27, model, hardware, simulator, and
+operator-observed execution remain `not_observed`. This contract does not
+authorize product qualification, a production default, Auto, pixel authority,
+R09 progression or residual execution, claims, publication, or release.
+
+The operator's 2026-07-22 forward-acceptance decision applies prospectively to
+R04, R06, R08, R09, and later phases. Acceptance asks whether checkpoint-bound
+tests prove that the software performs the task and honors the boundaries it
+claims. Comparison-based testing is outside the forward roadmap and cannot supply
+or withhold phase progression. Historical evidence and negative records remain
+unchanged.
+
+Unavailable hardware, simulator, Xcode 27/Core AI framework, model, or operator
+observation is recorded as `not_observed` and does not block a separately
+identified deterministic software-function run. Such a run cannot claim native
+execution, model quality, performance, memory, specialization, AOT, or zero-copy
+facts. R09 residual work remains blocked until a separate explicit operator
+authorization is bound to accepted R08 functional evidence; no comparison grants
+that authority.
+
+R10 acceptance requires checkpoint-bound proof that its optimizer/calibration
+software is deterministic, finitely bounded, constraint-preserving, resumable,
+transactional, and identity-complete. R11 acceptance requires traceable evidence
+and claim-scope machinery that rejects invalid inputs and unsupported claims and
+emits `no_market_claim` by default.
+`market_leading_claim` remains blocked without exact supporting evidence and a
+separate operator authorization.
+
 Update the digest for every changed canonical source and
 affected contract fields in the alignment policy in the same change.
 Then regenerate the clearly labeled README progress section and verify the
@@ -142,7 +188,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -169,6 +215,9 @@ python3 Scripts/r07_contracts.py --check-preregistration
 python3 Scripts/r07_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance
 python3 Scripts/r07_phase_acceptance.py --check
+python3 Scripts/r08_contracts.py --check-preregistration
+python3 Scripts/r08_contracts.py --check-fixtures
+python3 Scripts/r08_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

@@ -42,12 +42,27 @@
   software-function gate. The additive receipt and acceptance record bind
   implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
   `09d3a48df01738bb26077aadfd83c08e389a1dc2`, and 98 passing tests across the 11
-  settled R07 test classes, with zero failures and zero skips. The comparative
-  backend requirement is `superseded_not_required`; it is not an acceptance
-  gate. Acceptance is limited to deterministic fixture simulation and claims no
+  settled R07 test classes, with zero failures and zero skips. The frozen
+  comparison requirement is outside the forward roadmap and carries no acceptance
+  authority. Acceptance is limited to deterministic fixture simulation and claims no
   native hardware/framework execution, product routing, production default,
   Auto, quality, performance, publication, or release.
-- Roadmap phase `R08`: `planned`.
+- Roadmap phase `R08`: `passed`. Its start binds accepted R07 merge commit
+  `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
+  `eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. Its acceptance binds
+  implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
+  `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, and 42 passing deterministic
+  tests across 10 suites, with zero failures and zero skips. The accepted scope
+  is `declared_software_function_only`. Comparison-based testing supplied no
+  acceptance evidence or authority. Native Core AI, Xcode 27, model,
+  hardware, simulator, and operator-observed execution remain `not_observed`.
+  R09 residual work remains separately blocked pending explicit operator
+  authorization.
+- Future R10 acceptance requires deterministic bounded optimizer/calibration
+  software behavior. Future R11 acceptance requires traceable evidence and
+  claim-scope machinery that rejects unsupported claims and emits an honest
+  no-claim disposition by default. Any production Auto, holdout, or
+  market-claim action retains its separate authorization boundary.
 - Production Auto, Core AI residual output, holdout access, market claims, and
   release publication: blocked by their roadmap gates.
 

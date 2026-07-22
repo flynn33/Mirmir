@@ -1,0 +1,193 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R08",
+  "preregistration_state": "contract_frozen_for_implementation",
+  "predecessor_binding": {
+    "phase_id": "R07",
+    "merge_commit": "3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b",
+    "merge_tree": "eb1614dd2a93e1bc4e1911bcf74f41cf372a3304",
+    "predecessor_result": "passed",
+    "acceptance_state": "operator_merged_accepted"
+  },
+  "observation_policy": {
+    "physical_hardware_requirement": "waived_not_a_blocker",
+    "simulator_requirement": "waived_not_a_blocker",
+    "operator_observation_requirement": "waived_not_a_blocker",
+    "xcode27_environment": "not_observed",
+    "core_ai_framework_availability": "not_observed",
+    "model_asset_availability": "not_observed",
+    "native_model_execution": "not_observed",
+    "deterministic_fixture_simulation": "required_for_software_function_verification",
+    "unavailable_native_execution_blocks_phase": false,
+    "fabricated_native_or_model_results": "forbidden"
+  },
+  "operator_acceptance_override": {
+    "comparative_requirement": "superseded_not_required",
+    "blinded_ablation_requirement": "superseded_not_required",
+    "comparison_evidence": "not_required",
+    "acceptance_authority": "deterministic_software_function_verification_only",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden"
+  },
+  "fixture_catalog": {
+    "path": "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
+    "size_bytes": 12068,
+    "sha256": "36aeac08a73e6f4da9cbcb7d35d00daa0e1ebaa64e5e3a4c1e760a2133fdf0b4"
+  },
+  "schema_bindings": {
+    "preregistration": {
+      "path": "docs/roadmaps/evidence/schema/r08-preregistration-v1.json",
+      "size_bytes": 14263,
+      "sha256": "1256fc72964f2e0baf992515eac1d4623f0fba4cfc3bf393cab145e772fb2471"
+    },
+    "fixture_catalog": {
+      "path": "docs/roadmaps/evidence/schema/r08-fixture-catalog-v1.json",
+      "size_bytes": 2931,
+      "sha256": "3f9d02ef315e56de18383ecc45250c0015ee1025b5c5897b4000cf3554db69c7"
+    }
+  },
+  "analysis_service_contract": {
+    "module_boundary": "cohesive_subservice_within_app_owned_model_assets_module",
+    "service_role": "analysis_only",
+    "optional_dependency": true,
+    "decision_authority": "none_ash_policy_remains_authoritative",
+    "pixel_output": "forbidden",
+    "pixel_control": "forbidden"
+  },
+  "model_io_contract": {
+    "input_sources": [
+      "proxy_frame",
+      "keyframe",
+      "ash_requested_frame"
+    ],
+    "input_representation": "immutable_proxy_tensor_descriptor",
+    "preprocessing_identity": "required_in_request_and_result",
+    "postprocessing_identity": "required_in_result",
+    "output_representation": "calibrated_analysis_maps_and_estimates_only",
+    "unexpected_output_policy": "reject_and_fallback"
+  },
+  "calibrated_output_contract": {
+    "output_heads": [
+      {"id": "face_skin_protection_mask", "kind": "protection_mask"},
+      {"id": "text_line_art_protection_mask", "kind": "protection_mask"},
+      {"id": "animation_ui_content_likelihood", "kind": "likelihood_map"},
+      {"id": "noise_compression_severity_map", "kind": "severity_map"},
+      {"id": "blur_motion_blur_estimate", "kind": "estimate_map"},
+      {"id": "aliasing_ringing_risk_map", "kind": "risk_map"},
+      {"id": "texture_detail_confidence", "kind": "confidence_map"},
+      {"id": "motion_reliability_occlusion_risk", "kind": "risk_map"},
+      {"id": "no_reference_quality_estimate", "kind": "scalar_estimate"}
+    ],
+    "head_completeness": "exactly_once_each",
+    "sample_domain": {
+      "encoding": "unsigned_q15",
+      "minimum": 0,
+      "maximum": 32767
+    },
+    "sample_count_relation": "spatial_heads_equal_width_times_height_scalar_head_equals_one",
+    "calibration_identity": "required_in_result",
+    "invalid_output_policy": "reject_without_context_or_state_mutation_then_fallback"
+  },
+  "scheduling_contract": {
+    "periodic_proxy_interval_frames": 12,
+    "trigger_precedence": [
+      "ash_requested_frame",
+      "keyframe",
+      "periodic_proxy_frame"
+    ],
+    "frame_order": "strictly_increasing_per_stream_generation",
+    "duplicate_policy": "reject_without_state_mutation",
+    "stale_policy": "reject_without_state_mutation",
+    "unscheduled_policy": "deterministic_analyzer_only"
+  },
+  "ash_context_integration_contract": {
+    "destination": "ASHDecisionContext",
+    "contribution_identity": "model_preprocessing_postprocessing_calibration_and_schedule_identity_required",
+    "policy_application": "ash_clamping_hysteresis_and_fail_closed_constraints",
+    "backend_selection": "ash_decides_model_may_only_supply_analysis",
+    "protected_region_application": "ash_composes_with_deterministic_masks",
+    "pixel_payload": "forbidden"
+  },
+  "lifecycle_contract": {
+    "identity_fields": [
+      "model_sha256",
+      "model_version",
+      "preprocessing_identity",
+      "postprocessing_identity",
+      "calibration_identity"
+    ],
+    "specialization_cache_key": "model_sha256_plus_platform_profile_plus_io_contract",
+    "aot_compilation": "optional_behaviorally_equivalent",
+    "zero_copy_input": "preferred_with_deterministic_copy_fallback",
+    "state_scope": "stream_generation_and_shot",
+    "state_reset_causes": [
+      "scene_cut",
+      "discontinuity",
+      "cancellation",
+      "end_of_stream"
+    ],
+    "cancellation": "no_result_no_context_mutation_no_state_commit",
+    "memory_budget_bytes": 67108864,
+    "latency_budget_milliseconds": 20,
+    "budget_violation": "cancel_analysis_and_use_deterministic_fallback"
+  },
+  "deterministic_fallback_contract": {
+    "triggers": [
+      "unsupported_os",
+      "framework_unavailable",
+      "model_asset_absent",
+      "identity_invalid",
+      "output_invalid",
+      "cancelled",
+      "memory_budget_exceeded",
+      "latency_budget_exceeded"
+    ],
+    "result": "deterministic_analyzer_only",
+    "learned_contribution": "none",
+    "pixel_effect": "none",
+    "reason_identity": "required"
+  },
+  "checks": [
+    {"id": "predecessor_merge_exact", "description": "Require the exact operator-merged R07 commit and tree as the accepted predecessor."},
+    {"id": "schemas_and_fixture_catalog_exact", "description": "Require byte-exact R08 schemas and deterministic fixture catalog."},
+    {"id": "observation_override_nonblocking", "description": "Keep native, hardware, simulator, model, and operator observations not_observed and non-blocking without fabricating results."},
+    {"id": "analysis_only_module_boundary_exact", "description": "Keep Core AI optional and inside the app-owned model-assets module with no independent module or decision authority."},
+    {"id": "calibrated_output_contract_exact", "description": "Require all nine calibrated Q15 analysis heads, exact completeness, domains, dimensions, and identity."},
+    {"id": "pixel_output_and_control_forbidden", "description": "Reject pixel frames, residuals, direct backend choices, and every other model-controlled pixel action."},
+    {"id": "scheduling_exact", "description": "Require exact requested, keyframe, and periodic proxy scheduling with deterministic precedence and ordinal rejection."},
+    {"id": "ash_context_integration_exact", "description": "Require identity-bound analysis-only contribution to ASHDecisionContext under ASH policy control."},
+    {"id": "lifecycle_identity_cache_aot_zero_copy_exact", "description": "Require exact model and processing identity, specialization cache, optional equivalent AOT, and deterministic copy fallback."},
+    {"id": "state_cancellation_and_budgets_exact", "description": "Require stream and shot state scoping, deterministic reset, cancellation without commit, and fixed memory and latency budgets."},
+    {"id": "deterministic_fallback_exact", "description": "Require explicit deterministic-analyzer fallback with no learned contribution or pixel effect for every frozen trigger."},
+    {"id": "comparative_requirement_superseded", "description": "Treat comparative and blinded-ablation evidence as superseded and not required for R08 software acceptance."},
+    {"id": "production_and_r09_authorization_forbidden", "description": "Forbid production default, Auto, R09 residual execution, holdout, claims, publication, and release."}
+  ],
+  "stop_rules": [
+    {"id": "predecessor_identity_drift", "description": "Stop on any accepted R07 merge commit, tree, result, or acceptance-state drift."},
+    {"id": "contract_byte_drift", "description": "Stop on any schema, fixture catalog, or frozen semantic contract drift."},
+    {"id": "fabricated_native_or_model_observation", "description": "Stop any invented Xcode, Core AI, model, native, hardware, simulator, quality, performance, or repeatability result."},
+    {"id": "analysis_boundary_or_pixel_violation", "description": "Stop any sixth-module authority, direct model decision, output frame, residual, or pixel-control path."},
+    {"id": "calibrated_output_violation", "description": "Stop missing, duplicate, unexpected, out-of-range, dimensionally invalid, or identity-free analysis outputs."},
+    {"id": "scheduling_or_order_violation", "description": "Stop trigger precedence, periodic interval, duplicate, stale, or state-order drift."},
+    {"id": "identity_cache_or_execution_form_violation", "description": "Stop incomplete identity, wrong cache key, behaviorally divergent AOT, or nondeterministic input fallback."},
+    {"id": "state_cancellation_or_budget_violation", "description": "Stop state-scope, reset, cancellation, memory, latency, or mutation-on-failure drift."},
+    {"id": "fallback_violation", "description": "Stop any missing trigger, silent fallback, learned contribution, pixel effect, or missing fallback reason identity."},
+    {"id": "comparative_gate_reintroduction", "description": "Stop any attempt to make comparison or blinded ablation an R08 acceptance prerequisite or authority."},
+    {"id": "authorization_boundary", "description": "Stop production-default, Auto, R09, holdout, claim, publication, or release authorization."}
+  ],
+  "authorization_boundary": {
+    "phase_acceptance": "not_claimed_by_preregistration",
+    "production_default": "not_enabled",
+    "auto_mode": "blocked",
+    "pixel_output": "forbidden",
+    "pixel_control": "forbidden",
+    "r09_residual_execution": "forbidden_requires_separate_operator_authorization",
+    "holdout": "blocked",
+    "quality_claims": "forbidden",
+    "performance_claims": "forbidden",
+    "publication": "not_authorized_by_this_record",
+    "release": "not_authorized",
+    "fixture_execution": "local_deterministic_software_simulation_only"
+  }
+}
