@@ -5,8 +5,8 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
-- **Current execution state:** `R00`-`R10: passed`; `R11: in_progress`;
-  `R12`-`R13: planned`
+- **Current execution state:** `R00`-`R11: passed`; `R12: in_progress`;
+  `R13: planned`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
@@ -126,18 +126,18 @@
   `fixture-valid-alpha` selected, and typed reopen passed; acceptance scope
   `declared_software_function_only`; no comparative method was run or required;
   R10 is `passed`
-- **R11 phase start:** the regular preregistration and deterministic fixture
-  catalog bind accepted-R10 closure commit
-  `8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
-  `ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
-  `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
-  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
-  execution and phase-acceptance records; `python3 Scripts/r11_contracts.py
-  --all` passes; R11 is `in_progress` and acceptance is not claimed
+- **R11 declared-software-function acceptance:** exact source commit
+  `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+  `0dd42ec30b212456223ee582b549de30a0e3416f`; 76 selected tests passed with
+  zero failures and zero skips; one exact record for each of the five typed
+  states; seven-component identity, mixed aggregation, rejection, and
+  unconditional `no_market_claim` behavior passed; acceptance scope
+  `declared_software_function_only`; no comparison method was run or required;
+  R11 is `passed`
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: passed`; `R05: passed`; `R06: passed`;
   `R07: passed`; `R08: passed`; `R09: passed`; `R10: passed`;
-  `R11: in_progress`
+  `R11: passed`; `R12: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -529,7 +529,8 @@ Before changing source:
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
    `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
-   `R10: passed` remain canonical, with `R11: in_progress`. If any changed,
+   `R10: passed`, and `R11: passed` remain canonical, with `R12: in_progress`.
+   If any changed,
    reconcile the newer
    accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
@@ -577,9 +578,8 @@ result, or green check never substitutes for that decision.
 
 ### 3.1 One pull request per phase
 
-Execute phases in strict numeric order. R04 and R05, R08 and R10, and R12 and
-R13 have partially independent canonical dependencies, but this handoff fixes
-the practical sequence as:
+Execute phases in strict numeric order. The canonical R13 dependency is exact
+`[R11, R12]`, and this handoff fixes the practical sequence as:
 
 ```text
 R01 -> R02 -> R03 -> R04 -> R05 -> R06 -> R07 -> R08
@@ -1403,7 +1403,7 @@ remain unauthorized.
 
 ### R11 - Evidence traceability and claim boundary
 
-R11 is `in_progress` after exact predecessor R10 passed. Its start contract
+R11 is `passed` after exact predecessor R10 passed. Its preserved start contract
 requires these regular, non-symlink records:
 
 - `docs/roadmaps/evidence/r11/records/preregistration.json`
@@ -1417,36 +1417,35 @@ The preregistration binds accepted-R10 closure commit
 execution and phase-acceptance records. Validate the start with
 `python3 Scripts/r11_contracts.py --all`.
 
-This phase start authorizes deterministic traceability and claim-boundary
-implementation and fixture testing only. It does not claim R11 acceptance;
-future functional execution and phase-acceptance evidence remains dormant until
-R11 is proposed as `passed`.
+The functional execution receipt and phase-acceptance record bind exact source
+commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic run produced one record
+for each of `observed`, `not_applicable`, `not_observed`, `failed`, and
+`absent`; validated the exact seven-component identities and mixed aggregate;
+rejected unsupported evidence and claims; and emitted `no_market_claim`
+unconditionally. The canonical and sealed traceability receipts are
+byte-identical at SHA-256
+`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
 
-Implement typed execution-receipt, subject, input, observation, aggregate,
-claim-scope, and disposition contracts. Bind every accepted observation and
-aggregate to exact source, software, subject, input, preprocessing, toolchain,
-and execution identity. Reject missing, duplicate, mismatched, out-of-scope, or
-unauthorized evidence and every claim broader than its evidence. Preserve
-`observed`, `not_applicable`, `not_observed`, failed, and absent as distinct
-states, and emit `no_market_claim` unconditionally.
-
-Comparison-based testing and market-position work are outside the roadmap. R11
-accepts when checkpoint-bound tests prove its traceability, validation,
-aggregation, claim-scope, rejection, and unconditional no-claim behavior.
-`production_auto_mode` and `market_leading_claim` remain blocked, and no R11
-artifact can authorize either. Comparative and A/B methods are absent, not
-required, and non-authorizing. Product publication and release remain
-unauthorized.
+R11 passes only for `declared_software_function_only` under deterministic
+fixture simulation. Comparison-based testing and market-position work remain
+outside the roadmap; no comparison method was run or required. Hardware,
+simulator, and operator-observed operation remain `not_observed`. Product
+qualification, `production_auto_mode`, `market_leading_claim`, product
+publication, tags, and release remain blocked or unauthorized.
 
 ### R12 - Format, route, and product expansion
 
-After R11 functional acceptance, expand through explicit contracts for
+R12 is `in_progress` after R11 functional acceptance. Expand through explicit contracts for
 10-bit/P010, HDR transfer and
 BT.2020 color, wider routes and runtime-supported scales, 4:2:2 and 4:4:4,
 interlace/deinterlace, subtitles, alpha, metadata, long-form resume, chunk
 checkpoints, and hardware tiers. Every addition must define color, range, chroma
-siting, metadata, capability, fallback, quality, and test behavior. Complete R12
-before R13 even though the canonical dependency graph permits overlap.
+siting, metadata, capability, fallback, quality, and test behavior. R12
+acceptance is not claimed. Hardware, simulator, and operator observation may
+remain `not_observed` and do not block deterministic software-function work.
+Complete R12 before R13; canonical R13 now depends on both R11 and R12.
 
 ### R13 - Release hardening
 
@@ -1508,12 +1507,11 @@ accepted-dependency path; it was not another unpublished local-continuation
 exception. R06 later passed under its additive functional acceptance, and the
 frozen R06/R07 negative product records remain unchanged.
 
-R10 passed its deterministic bounded optimizer/calibration software-function
-gate at implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`,
-tree `37951da694ab4fbca6f8c663bb2883e5084b861c`. Hardware, simulator, and
+R11 passed its exact-source traceability and claim-boundary software-function
+gate at implementation commit `75479b9f30511330f2a18b656151dc551292cb1e`,
+tree `0dd42ec30b212456223ee582b549de30a0e3416f`. Hardware, simulator, and
 operator observations remain `not_observed`; comparison supplied no acceptance
-authority. R11 is now `in_progress` under its exact passed-R10 start contract;
-acceptance is not claimed. Product qualification, production Auto, holdout
-access, claims, tags, releases, pushes, pull requests, approvals, merges,
-force-pushes, and repository-setting mutation retain their separate authority
-requirements.
+authority. R12 is now `in_progress`, and acceptance is not claimed. Product
+qualification, production Auto, holdout access, claims, tags, releases, pushes,
+pull requests, approvals, merges, force-pushes, and repository-setting mutation
+retain their separate authority requirements.

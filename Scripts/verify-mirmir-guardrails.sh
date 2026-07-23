@@ -116,7 +116,8 @@ python3 -m unittest \
   Scripts/tests/test_r10_phase_acceptance.py \
   validation/calibration_v2/tests/test_r11_traceability.py \
   validation/calibration_v2/tests/test_run_r11_fixture_traceability.py \
-  Scripts/tests/test_r11_contracts.py
+  Scripts/tests/test_r11_contracts.py \
+  Scripts/tests/test_r11_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -218,6 +219,53 @@ trap - EXIT
 python3 Scripts/r10_phase_acceptance.py --check-generated
 python3 Scripts/r10_phase_acceptance.py --check
 python3 Scripts/r10_contracts.py --all
+
+echo "==> Replaying exact R11 functional acceptance..."
+r11_source_commit="75479b9f30511330f2a18b656151dc551292cb1e"
+r11_source_tree="0dd42ec30b212456223ee582b549de30a0e3416f"
+r11_validation_root="$(mktemp -d "${TMPDIR:-/tmp}/mirmir-r11-acceptance.XXXXXX")"
+r11_source_worktree="$r11_validation_root/source"
+r11_test_log="$r11_validation_root/unittest.log"
+r11_run_root="$r11_validation_root/traceability-run"
+
+cleanup_r11_validation() {
+  if [[ -d "$r11_source_worktree" ]]; then
+    git worktree remove --force "$r11_source_worktree" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$r11_validation_root" ]]; then
+    rm -rf -- "$r11_validation_root"
+  fi
+}
+trap cleanup_r11_validation EXIT
+
+git worktree add --detach "$r11_source_worktree" "$r11_source_commit"
+(
+  cd "$r11_source_worktree"
+  git rev-parse HEAD | grep -Fx "$r11_source_commit"
+  git rev-parse HEAD^{tree} | grep -Fx "$r11_source_tree"
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v \
+    validation.calibration_v2.tests.test_r11_traceability \
+    validation.calibration_v2.tests.test_run_r11_fixture_traceability \
+    Scripts.tests.test_r11_contracts \
+    2>&1 | tee "$r11_test_log"
+  grep -c ' \.\.\. ok$' "$r11_test_log" | grep -Fx 76
+  PYTHONDONTWRITEBYTECODE=1 python3 \
+    validation/calibration_v2/tools/run_r11_fixture_traceability.py \
+    --source-commit "$r11_source_commit" \
+    --output-root "$r11_run_root"
+)
+cmp \
+  "$r11_run_root/traceability-run-receipt.json" \
+  docs/roadmaps/evidence/r11/records/traceability-run-receipt.json
+cmp \
+  "$r11_run_root/traceability-run-receipt.json" \
+  docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/traceability-run-receipt.json
+
+git worktree remove --force "$r11_source_worktree"
+rm -rf -- "$r11_validation_root"
+trap - EXIT
+python3 Scripts/r11_phase_acceptance.py --check-generated
+python3 Scripts/r11_phase_acceptance.py --check
 python3 Scripts/r11_contracts.py --all
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then

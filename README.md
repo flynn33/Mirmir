@@ -39,44 +39,49 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R11` — Evidence traceability and claim boundary
+**Current roadmap focus:** `R12` — Format, route, and product expansion
 
-**Current phase status:** `R11` — `in_progress`; acceptance is not claimed.
+**Current phase status:** `R12` — `in_progress`; acceptance is not claimed.
 
-**Latest phase acceptance:** `R10` — `passed`, limited to
+**Latest phase acceptance:** `R11` — `passed`, limited to
 `declared_software_function_only` under deterministic fixture simulation.
 
-**R10 functional closure:** the functional receipt and phase-acceptance record
-bind implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
-`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
-persistence tests with zero failures and zero skips. The accepted run evaluated
-nine candidates, scored three, rejected six, published ten content-addressed
-checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
+**R11 functional closure:** the functional execution receipt and
+phase-acceptance record bind exact source commit
+`75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic run produced one record
+for each of the five typed states, reopened the nested execution receipt,
+validated all seven identity components, rejected unsupported evidence and
+claims, and emitted `no_market_claim` unconditionally.
 
-**R11 start contract:** the exact predecessor R10 is `passed`. The R11
-preregistration binds accepted-R10 closure commit
-`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
-`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
-`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
-`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact functional
-execution and acceptance records. The required start records are the R11
-preregistration and deterministic fixture catalog.
+The canonical and sealed traceability receipts are byte-identical at SHA-256
+`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+The functional execution receipt has SHA-256
+`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`,
+and the phase-acceptance record has SHA-256
+`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
 
-**Authorization boundary:** R11 deterministic traceability and claim-boundary
-implementation and fixture testing are authorized; functional acceptance
-evidence remains dormant. Every R11 disposition is `no_market_claim`.
-`production_auto_mode` and `market_leading_claim` remain blocked. Comparative
-and A/B methods are absent, not required, and non-authorizing. Product
-publication and release remain unauthorized.
+**R12 phase start:** exact predecessor R11 is `passed`. Current work is limited
+to explicit format, route, capability, fallback, preservation, resumability,
+and deterministic test contracts. Hardware, simulator, and operator-observed
+operation may remain `not_observed` and do not block that software-function
+work.
+
+**Authorization boundary:** R11 acceptance authorizes only its declared
+traceability and claim-boundary software function. Product qualification,
+production Auto, market position or superiority claims, public product claims,
+product publication, tags, and release remain blocked or unauthorized.
+Comparative and A/B methods are absent, not required, and non-authorizing.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `11 / 14` roadmap phases passed (`79%`)
+**Overall:** `12 / 14` roadmap phases passed (`86%`)
 
-`[#######---]`
+`[########--]`
 
-**Status:** ✅ Passed `11` · 🔄 In progress `1` · ⬜ Planned `2`
+**Status:** ✅ Passed `12` · 🔄 In progress `1` · ⬜ Planned `1`
 
-**Current focus:** `R11` — Evidence traceability and claim boundary
+**Current focus:** `R12` — Format, route, and product expansion
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -91,8 +96,8 @@ publication and release remain unauthorized.
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
 | `R10` | Auto-policy optimization and bounded calibration | `passed` | ✅ Passed |
-| `R11` | Evidence traceability and claim boundary | `in_progress` | 🔄 In progress |
-| `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
+| `R11` | Evidence traceability and claim boundary | `passed` | ✅ Passed |
+| `R12` | Format, route, and product expansion | `in_progress` | 🔄 In progress |
 | `R13` | Release hardening | `planned` | ⬜ Planned |
 <!-- END ROADMAP PROGRESS -->
 
@@ -1558,7 +1563,7 @@ artifact with complete identity. Production Auto remains separately blocked.
 
 ## R11 — Evidence traceability and claim boundary
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
@@ -1581,14 +1586,39 @@ schema, implementation-policy, fixture, identity, observation, aggregate,
 rejection, claim, comparison, and authorization bindings before R11 may be
 `in_progress`.
 
-This start authorizes deterministic traceability and claim-boundary software
-implementation and fixture testing only; it does not claim R11 acceptance.
-Future functional execution and acceptance evidence remains dormant until R11
-is proposed as `passed`. Every R11 disposition is unconditionally
-`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
-blocked, and no R11 artifact can authorize either. Comparative and A/B methods
-are absent, not required, and provide no acceptance authority. Product
-publication and release remain unauthorized.
+This start authorized deterministic traceability and claim-boundary software
+implementation and fixture testing only; it did not itself claim R11
+acceptance. Every R11 disposition remained unconditionally `no_market_claim`.
+`production_auto_mode` and `market_leading_claim` remained blocked, and no R11
+artifact could authorize either. Comparative and A/B methods remained absent,
+not required, and non-authorizing. Product publication and release remained
+unauthorized.
+
+### Functional phase acceptance — 2026-07-23
+
+The functional execution receipt and phase-acceptance record bind exact source
+commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic traceability run produced
+exactly five records: one each for `observed`, `not_applicable`,
+`not_observed`, `failed`, and `absent`. It reopened the typed nested receipt,
+validated all seven identity components, produced the exact mixed aggregate,
+rejected unsupported evidence and claims, and emitted `no_market_claim`
+unconditionally.
+
+The canonical and sealed traceability run receipts are byte-identical at
+SHA-256 `22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+The functional execution receipt has SHA-256
+`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`;
+the phase-acceptance record has SHA-256
+`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
+
+R11 is `passed` only for `declared_software_function_only` under deterministic
+fixture simulation. No comparative, A/B, superiority, or historical
+product-comparison method was run or required. Hardware, simulator, and
+operator-observed operation remain `not_observed`. Product qualification,
+production Auto, market position, public product claims, product publication,
+and release remain blocked or unauthorized.
 
 ### Objective
 
@@ -1619,7 +1649,20 @@ blocked; no R11 evidence or disposition can authorize either.
 
 ## R12 — Format, route, and product expansion
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R12 begins after exact predecessor R11 passed its declared-software-function
+gate. Current authority is limited to implementing and testing explicit format,
+route, capability, fallback, preservation, and resumability contracts. R12
+acceptance is not claimed. Deterministic contract simulation is permitted;
+unavailable hardware, simulator, and operator observation are recorded as
+`not_observed` and do not block that software-function work.
+
+This phase start does not authorize production Auto, market or superiority
+claims, product publication, a tag, or a release. Comparative and A/B methods
+are absent, not required, and non-authorizing.
 
 ### Work
 

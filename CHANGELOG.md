@@ -6,20 +6,26 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
-- Began R11 after exact predecessor R10 passed. R11 is `in_progress`, not
-  accepted. Its preregistration binds accepted-R10 closure commit
-  `8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
-  `ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
-  `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
-  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
-  execution and acceptance records. The regular R11 preregistration and
-  deterministic fixture catalog validate through
-  `python3 Scripts/r11_contracts.py --all`. This start authorizes deterministic
-  traceability and claim-boundary implementation and fixture testing only;
-  future acceptance evidence remains dormant. Every R11 disposition is
-  `no_market_claim`; `production_auto_mode` and `market_leading_claim` remain
-  blocked. Comparative and A/B methods are absent, not required, and
-  non-authorizing. Product publication and release remain unauthorized.
+- Accepted R11 for `declared_software_function_only` under deterministic fixture
+  simulation. The functional execution receipt and phase-acceptance record bind
+  exact source commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+  `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+  with zero failures and zero skips. The exact-source run produced one record
+  for each of the five typed observation states, validated all seven identity
+  components and the mixed aggregate, rejected unsupported evidence and claims,
+  and emitted `no_market_claim` unconditionally. The canonical and sealed run
+  receipts are byte-identical at SHA-256
+  `22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+  No comparison method was run or required. Hardware, simulator, and
+  operator-observed operation remain `not_observed`. Product qualification,
+  production Auto, market claims, product publication, tags, and release remain
+  blocked or unauthorized.
+- Began R12 after exact predecessor R11 passed. R12 is `in_progress`, not
+  accepted. Work is limited to explicit format, route, capability, fallback,
+  preservation, resumability, and deterministic test contracts. Unavailable
+  hardware, simulator, and operator observation do not block that
+  software-function work and remain `not_observed`. No production default,
+  Auto, market claim, publication, tag, or release authority follows.
 - Accepted R10 for `declared_software_function_only` under deterministic fixture
   simulation. The additive receipt and phase-acceptance record bind
   implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree

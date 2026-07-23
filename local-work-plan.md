@@ -125,15 +125,23 @@
   publication is authorized; production Auto, holdout, product qualification,
   product publication, quality/performance claims, and release remain
   unauthorized.
-- Roadmap phase `R11`: `in_progress`; acceptance is not claimed. Its regular
-  preregistration and deterministic fixture catalog bind exact passed-R10
-  closure and validate through `python3 Scripts/r11_contracts.py --all`. Work
-  is limited to deterministic traceability and claim-boundary implementation
-  and fixture testing. Future acceptance evidence remains dormant. Every R11
-  disposition is `no_market_claim`; `production_auto_mode` and
-  `market_leading_claim` remain blocked. Comparative and A/B methods are absent,
-  not required, and non-authorizing. Product publication and release remain
-  unauthorized.
+- Roadmap phase `R11`: `passed` for `declared_software_function_only` under
+  deterministic fixture simulation. Its functional execution receipt and
+  phase-acceptance record bind exact source commit
+  `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+  `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+  with zero failures and zero skips. The exact five-state run validates all
+  seven identity components, typed aggregation, rejection behavior, and
+  unconditional `no_market_claim`. No comparison method was run or required.
+  Hardware, simulator, and operator-observed operation remain `not_observed`.
+  Product qualification, production Auto, market claims, publication, tags,
+  and release remain blocked or unauthorized.
+- Roadmap phase `R12`: `in_progress`; acceptance is not claimed. Work is limited
+  to explicit format, route, capability, fallback, preservation, resumability,
+  and deterministic test contracts. Unavailable hardware, simulator, and
+  operator observation do not block this software-function work and remain
+  `not_observed`. No production default, Auto, market claim, publication, tag,
+  or release authority follows.
 - Production Auto, production Core AI residual routing, holdout access, market
   claims, and release publication: blocked by their roadmap gates.
 

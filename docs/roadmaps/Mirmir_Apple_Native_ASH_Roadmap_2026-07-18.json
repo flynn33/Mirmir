@@ -303,7 +303,7 @@
       "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits no_market_claim unconditionally while production_auto_mode and market_leading_claim remain blocked",
       "id": "R11",
       "name": "Evidence traceability and claim boundary",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -312,11 +312,12 @@
       "exit": "explicit contracts for every new format and route",
       "id": "R12",
       "name": "Format, route, and product expansion",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [
-        "R11"
+        "R11",
+        "R12"
       ],
       "exit": "exact-app evidence and release-ready product",
       "id": "R13",

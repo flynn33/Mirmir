@@ -1457,7 +1457,7 @@ artifact with complete identity. Production Auto remains separately blocked.
 
 ## R11 — Evidence traceability and claim boundary
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
@@ -1480,14 +1480,39 @@ schema, implementation-policy, fixture, identity, observation, aggregate,
 rejection, claim, comparison, and authorization bindings before R11 may be
 `in_progress`.
 
-This start authorizes deterministic traceability and claim-boundary software
-implementation and fixture testing only; it does not claim R11 acceptance.
-Future functional execution and acceptance evidence remains dormant until R11
-is proposed as `passed`. Every R11 disposition is unconditionally
-`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
-blocked, and no R11 artifact can authorize either. Comparative and A/B methods
-are absent, not required, and provide no acceptance authority. Product
-publication and release remain unauthorized.
+This start authorized deterministic traceability and claim-boundary software
+implementation and fixture testing only; it did not itself claim R11
+acceptance. Every R11 disposition remained unconditionally `no_market_claim`.
+`production_auto_mode` and `market_leading_claim` remained blocked, and no R11
+artifact could authorize either. Comparative and A/B methods remained absent,
+not required, and non-authorizing. Product publication and release remained
+unauthorized.
+
+### Functional phase acceptance — 2026-07-23
+
+The functional execution receipt and phase-acceptance record bind exact source
+commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic traceability run produced
+exactly five records: one each for `observed`, `not_applicable`,
+`not_observed`, `failed`, and `absent`. It reopened the typed nested receipt,
+validated all seven identity components, produced the exact mixed aggregate,
+rejected unsupported evidence and claims, and emitted `no_market_claim`
+unconditionally.
+
+The canonical and sealed traceability run receipts are byte-identical at
+SHA-256 `22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+The functional execution receipt has SHA-256
+`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`;
+the phase-acceptance record has SHA-256
+`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
+
+R11 is `passed` only for `declared_software_function_only` under deterministic
+fixture simulation. No comparative, A/B, superiority, or historical
+product-comparison method was run or required. Hardware, simulator, and
+operator-observed operation remain `not_observed`. Product qualification,
+production Auto, market position, public product claims, product publication,
+and release remain blocked or unauthorized.
 
 ### Objective
 
@@ -1518,7 +1543,20 @@ blocked; no R11 evidence or disposition can authorize either.
 
 ## R12 — Format, route, and product expansion
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R12 begins after exact predecessor R11 passed its declared-software-function
+gate. Current authority is limited to implementing and testing explicit format,
+route, capability, fallback, preservation, and resumability contracts. R12
+acceptance is not claimed. Deterministic contract simulation is permitted;
+unavailable hardware, simulator, and operator observation are recorded as
+`not_observed` and do not block that software-function work.
+
+This phase start does not authorize production Auto, market or superiority
+claims, product publication, a tag, or a release. Comparative and A/B methods
+are absent, not required, and non-authorizing.
 
 ### Work
 

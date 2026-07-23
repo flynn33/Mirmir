@@ -32,24 +32,27 @@ unauthorized.
 
 ## R11 traceability and claim boundary
 
-R11 is `in_progress`; acceptance is not claimed. Its exact passed-R10
-predecessor binding and deterministic traceability fixtures are frozen in:
+R11 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its exact passed-R10 predecessor binding and deterministic
+traceability fixtures remain frozen in:
 
 - `docs/roadmaps/evidence/r11/records/preregistration.json`
 - `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
 
-`python3 Scripts/r11_contracts.py --all` validates both records before R11
-implementation proceeds. The R11 traceability module and fixture runner are
-offline development, evidence, and test tooling; they are not linked into
-`Mirmir.app`.
+`python3 Scripts/r11_contracts.py --all` validates the start and accepted
+closure. The functional records bind exact source commit
+`75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic run validates the five
+distinct typed states, all seven identity components, mixed aggregation,
+rejection behavior, and unconditional `no_market_claim`.
 
-This start authorizes deterministic traceability and claim-boundary
-implementation and fixture testing only. Future functional execution and
-acceptance evidence remains dormant until R11 is proposed as `passed`. Every
-R11 disposition is `no_market_claim`; `production_auto_mode` and
-`market_leading_claim` remain blocked. Comparative and A/B methods are absent,
-not required, and non-authorizing. Product publication and release remain
-unauthorized.
+The R11 traceability module and fixture runner remain offline development,
+evidence, and test tooling; they are not linked into `Mirmir.app`. No comparison
+method was run or required. Hardware, simulator, and operator-observed operation
+remain `not_observed`. Product qualification, production Auto, market claims,
+product publication, tags, and release remain blocked or unauthorized. R12 is
+`in_progress`; its acceptance is not claimed.
 
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration

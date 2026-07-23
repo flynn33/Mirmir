@@ -19,7 +19,9 @@
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
 - Roadmap phase `R10`: `passed` for deterministic bounded optimizer/calibration
   software function
-- Roadmap phase `R11`: `in_progress`; acceptance is not claimed
+- Roadmap phase `R11`: `passed` for exact-source traceability and claim-boundary
+  software function
+- Roadmap phase `R12`: `in_progress`; acceptance is not claimed
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -223,24 +225,29 @@ Fixture-policy evidence publication is authorized; production Auto, holdout,
 product publication, quality or performance claims, and release remain
 unauthorized.
 
-R11 is `in_progress` after its exact predecessor R10 passed. Its
-preregistration binds accepted-R10 closure commit
-`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
-`ee0461cff1fea9461f619ce904376ebdb128a2f5`, the accepted R10 implementation,
-and the exact R10 functional execution and acceptance records. The R11 start
-contract consists of the regular preregistration and deterministic fixture
-catalog, validated together by `python3 Scripts/r11_contracts.py --all`.
+R11 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its functional execution receipt and phase-acceptance
+record bind exact source commit `75479b9f30511330f2a18b656151dc551292cb1e`,
+tree `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected
+tests with zero failures and zero skips. The accepted traceability run preserves
+`observed`, `not_applicable`, `not_observed`, `failed`, and `absent` as distinct
+states, validates all seven identity components, produces the exact mixed
+aggregate, rejects missing, duplicate, mismatched, out-of-scope, and
+unauthorized evidence, and emits `no_market_claim` unconditionally.
 
-The R11 traceability boundary requires seven complete identity components,
-preserves `observed`, `not_applicable`, `not_observed`, `failed`, and `absent`
-as distinct states, permits deterministic state-count aggregation only, and
-rejects missing, duplicate, mismatched, out-of-scope, or unauthorized evidence.
-This start authorizes deterministic traceability and claim-boundary
-implementation and fixture testing only; acceptance is not claimed and future
-acceptance evidence remains dormant. Every R11 disposition is
-`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
-blocked. Comparative and A/B methods are absent, not required, and
-non-authorizing.
+The canonical and sealed traceability receipts are byte-identical at SHA-256
+`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+No comparison method was run or required. Hardware, simulator, and
+operator-observed operation remain `not_observed`. Product qualification,
+production Auto, market position and superiority claims, product publication,
+and release remain blocked or unauthorized.
+
+R12 is `in_progress` after exact predecessor R11 passed. Its current
+architecture work is limited to explicit format, route, capability, fallback,
+media-preservation, resumability, and deterministic test contracts. R12
+acceptance is not claimed. This phase start does not select a production
+default or authorize Auto, product or market claims, publication, tags, or
+release.
 
 ## Target Apple-Native Adaptive Architecture
 

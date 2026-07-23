@@ -20,7 +20,7 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
-    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance, r06-functional-acceptance, r10-functional-acceptance]
+    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance, r06-functional-acceptance, r10-functional-acceptance, r11-functional-acceptance]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -32,6 +32,7 @@ jobs:
           test "${{ needs.r05-functional-acceptance.result }}" = "success"
           test "${{ needs.r06-functional-acceptance.result }}" = "success"
           test "${{ needs.r10-functional-acceptance.result }}" = "success"
+          test "${{ needs.r11-functional-acceptance.result }}" = "success"
 
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -74,6 +75,7 @@ jobs:
           validation/calibration_v2/tests/test_r11_traceability.py
           validation/calibration_v2/tests/test_run_r11_fixture_traceability.py
           Scripts/tests/test_r11_contracts.py
+          Scripts/tests/test_r11_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -215,6 +217,9 @@ jobs:
 
       - name: Verify R11 authorization and start contracts
         run: python3 Scripts/r11_contracts.py --all
+
+      - name: Verify R11 functional phase acceptance
+        run: python3 Scripts/r11_phase_acceptance.py --check
 
       - name: Verify R01 system assets remain untracked
         shell: bash
@@ -447,3 +452,47 @@ jobs:
 
       - name: Verify deep R10 contracts
         run: python3 Scripts/r10_contracts.py --all
+
+  r11-functional-acceptance:
+    name: R11 functional acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R11 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r11-75479b9-source 75479b9f30511330f2a18b656151dc551292cb1e
+
+      - name: Verify exact R11 source identity
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: |
+          git rev-parse HEAD | grep -Fx 75479b9f30511330f2a18b656151dc551292cb1e
+          git rev-parse HEAD^{tree} | grep -Fx 0dd42ec30b212456223ee582b549de30a0e3416f
+
+      - name: Run exact R11 selected tests
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v validation.calibration_v2.tests.test_r11_traceability validation.calibration_v2.tests.test_run_r11_fixture_traceability Scripts.tests.test_r11_contracts 2>&1 | tee /private/tmp/mirmir-r11-75479b9-unittest.log
+          grep -c ' \.\.\. ok$' /private/tmp/mirmir-r11-75479b9-unittest.log | grep -Fx 76
+
+      - name: Run exact R11 traceability fixture
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: PYTHONDONTWRITEBYTECODE=1 python3 validation/calibration_v2/tools/run_r11_fixture_traceability.py --source-commit 75479b9f30511330f2a18b656151dc551292cb1e --output-root /private/tmp/mirmir-r11-75479b9-traceability-run
+
+      - name: Compare exact R11 traceability closure
+        run: |
+          cmp /private/tmp/mirmir-r11-75479b9-traceability-run/traceability-run-receipt.json docs/roadmaps/evidence/r11/records/traceability-run-receipt.json
+          cmp /private/tmp/mirmir-r11-75479b9-traceability-run/traceability-run-receipt.json docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/traceability-run-receipt.json
+
+      - name: Validate generated R11 acceptance evidence
+        run: python3 Scripts/r11_phase_acceptance.py --check-generated
+
+      - name: Verify checked-in R11 acceptance
+        run: python3 Scripts/r11_phase_acceptance.py --check
+
+      - name: Verify deep R11 contracts
+        run: python3 Scripts/r11_contracts.py --all

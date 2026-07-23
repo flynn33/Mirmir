@@ -8,8 +8,9 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
 software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate;
 `R10: passed` under the deterministic bounded optimizer/calibration
-software-function gate; `R11: in_progress` under its exact passed-R10 start
-contract; R11 acceptance is not claimed. R03's
+software-function gate; `R11: passed` under its exact-source traceability and
+claim-boundary software-function gate; `R12: in_progress`. R12 acceptance is
+not claimed. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
 `diagnostic_only` checkpoint remains historical while its later additive
 declared-software-function acceptance passes. Native VideoToolbox model
@@ -181,21 +182,31 @@ Fixture-policy evidence publication is authorized. Production Auto, holdout
 access, native execution, product qualification, product publication,
 quality/performance claims, and release remain unauthorized.
 
-R11 is now `in_progress`. Its preregistration binds accepted-R10 closure commit
-`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
-`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
-`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
-`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
-execution and phase-acceptance records. The regular R11 preregistration and
-deterministic fixture catalog validate through
-`python3 Scripts/r11_contracts.py --all`.
+The additive R11 functional execution receipt and phase-acceptance record bind
+exact source commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic traceability run produced
+one record for each of `observed`, `not_applicable`, `not_observed`, `failed`,
+and `absent`; validated the exact seven-component identities and mixed
+aggregate; rejected unsupported evidence and claims; and emitted
+`no_market_claim` unconditionally.
 
-This start authorizes deterministic traceability and claim-boundary
-implementation and fixture testing only; acceptance is not claimed and future
-functional acceptance evidence remains dormant. Every R11 disposition is
-`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
-blocked. Comparative and A/B methods are absent, not required, and
-non-authorizing. Product publication and release remain unauthorized.
+The canonical and sealed traceability receipts are byte-identical at SHA-256
+`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+The functional execution receipt has SHA-256
+`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`,
+and the phase-acceptance record has SHA-256
+`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
+R11 is `passed` only for `declared_software_function_only` under deterministic
+fixture simulation.
+
+R12 is now `in_progress` after exact predecessor R11 passed. Current work is
+limited to explicit format, route, capability, fallback, preservation,
+resumability, and deterministic test contracts; R12 acceptance is not claimed.
+Hardware, simulator, and operator-observed operation may remain `not_observed`.
+No comparison was run or required. Product qualification, production Auto,
+market position or superiority claims, product publication, tags, and release
+remain blocked or unauthorized.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -266,14 +277,17 @@ disabled.
 - [R10 Deterministic Policy Catalog](evidence/r10/records/fixtures/policy-catalog.json)
 - [R10 Functional Execution Receipt](evidence/r10/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 39 passed, 0 failed, 0 skipped
 - [R10 Functional Phase Acceptance](evidence/r10/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison, A/B, and superiority methods absent and non-gating
-- [R11 Preregistration](evidence/r11/records/preregistration.json) — phase-start contract bound to exact accepted R10 evidence; acceptance not claimed
+- [R11 Preregistration](evidence/r11/records/preregistration.json) — preserved phase-start contract bound to exact accepted R10 evidence
 - [R11 Deterministic Fixture Catalog](evidence/r11/records/fixtures/fixture-catalog.json) — five observation states, exact identities, deterministic aggregation, rejection cases, and unconditional `no_market_claim`
+- [R11 Traceability Run Receipt](evidence/r11/records/traceability-run-receipt.json) — exact-source deterministic five-state run with unconditional `no_market_claim`
+- [R11 Functional Execution Receipt](evidence/r11/records/functional-execution-receipt.json) — exact-source deterministic fixture simulation; 76 passed, 0 failed, 0 skipped
+- [R11 Functional Phase Acceptance](evidence/r11/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison methods absent and non-gating
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `c9d72db82b03757faa2b698c7256bdb95741f45f825938d994a5f9882a794197`
-- JSON: `f0b6fc00e80cf4fa53964ce3b7a7de2ce46813599963ecc9ca61de93b8767fd9`
+- Markdown: `4b1671a4ab51cb139d65fa73a186c089d473c259106372976899750d41d2ea50`
+- JSON: `c77c441f6051998c7daad6e6c0940c5fa58bc8214e70bd4353051f69b936dc3f`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

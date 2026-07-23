@@ -1383,7 +1383,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         _path, roadmap = self.roadmap_json()
         rendered = render_progress(roadmap, self.policy)
         self.assertIn(
-            "**Overall:** `11 / 14` roadmap phases passed (`79%`)",
+            "**Overall:** `12 / 14` roadmap phases passed (`86%`)",
             rendered,
         )
 
@@ -1542,7 +1542,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance, r10-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
             ),
             "if: ${{ always() }}",
             (
@@ -1686,7 +1687,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance, r10-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r04-functional-acceptance.result }}" '
@@ -1782,7 +1784,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance, r10-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r05-functional-acceptance.result }}" '
@@ -1916,7 +1919,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance, r10-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r06-functional-acceptance.result }}" '
@@ -2103,7 +2107,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance, r10-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r10-functional-acceptance.result }}" '
@@ -2208,24 +2213,90 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
         self.assertEqual(workflow.count("  r10-functional-acceptance:"), 1)
 
-    def test_r11_pre_acceptance_checks_are_required_in_ci_and_guardrails(
-        self,
-    ) -> None:
+    def test_r11_closure_checks_are_required_in_ci_and_guardrails(self) -> None:
         test_modules = (
             "validation/calibration_v2/tests/test_r11_traceability.py",
             "validation/calibration_v2/tests/"
             "test_run_r11_fixture_traceability.py",
             "Scripts/tests/test_r11_contracts.py",
-        )
-        verifier = "python3 Scripts/r11_contracts.py --all"
-        forbidden_phase_acceptance = (
             "Scripts/tests/test_r11_phase_acceptance.py",
-            "python3 Scripts/r11_phase_acceptance.py",
         )
-        for relative in (
-            ".github/workflows/roadmap-alignment.yml",
-            "Scripts/verify-mirmir-guardrails.sh",
-        ):
+        common_required = (
+            "python3 Scripts/r11_phase_acceptance.py --check-generated",
+            "python3 Scripts/r11_phase_acceptance.py --check",
+            "python3 Scripts/r11_contracts.py --all",
+        )
+        workflow_required = (
+            (
+                "needs: [r02-functional-acceptance, "
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance]"
+            ),
+            (
+                'test "${{ needs.r11-functional-acceptance.result }}" '
+                '= "success"'
+            ),
+            "r11-functional-acceptance:",
+            "name: R11 functional acceptance",
+            (
+                "git worktree add --detach "
+                "/private/tmp/mirmir-r11-75479b9-source "
+                "75479b9f30511330f2a18b656151dc551292cb1e"
+            ),
+            (
+                "working-directory: "
+                "/private/tmp/mirmir-r11-75479b9-source"
+            ),
+            (
+                "git rev-parse HEAD | grep -Fx "
+                "75479b9f30511330f2a18b656151dc551292cb1e"
+            ),
+            (
+                "git rev-parse HEAD^{tree} | grep -Fx "
+                "0dd42ec30b212456223ee582b549de30a0e3416f"
+            ),
+            (
+                "grep -c ' \\.\\.\\. ok$' "
+                "/private/tmp/mirmir-r11-75479b9-unittest.log | grep -Fx 76"
+            ),
+            (
+                "validation/calibration_v2/tools/"
+                "run_r11_fixture_traceability.py"
+            ),
+            (
+                "docs/roadmaps/evidence/r11/records/"
+                "traceability-run-receipt.json"
+            ),
+            (
+                "docs/roadmaps/evidence/r11/records/artifacts/"
+                "functional-phase-acceptance/traceability-run-receipt.json"
+            ),
+        )
+        guardrail_required = (
+            (
+                'r11_source_commit='
+                '"75479b9f30511330f2a18b656151dc551292cb1e"'
+            ),
+            (
+                'r11_source_tree='
+                '"0dd42ec30b212456223ee582b549de30a0e3416f"'
+            ),
+            (
+                'git worktree add --detach "$r11_source_worktree" '
+                '"$r11_source_commit"'
+            ),
+            'git rev-parse HEAD | grep -Fx "$r11_source_commit"',
+            'git rev-parse HEAD^{tree} | grep -Fx "$r11_source_tree"',
+            'grep -c \' \\.\\.\\. ok$\' "$r11_test_log" | grep -Fx 76',
+            "cleanup_r11_validation",
+            "trap cleanup_r11_validation EXIT",
+        )
+        requirements = {
+            ".github/workflows/roadmap-alignment.yml": workflow_required,
+            "Scripts/verify-mirmir-guardrails.sh": guardrail_required,
+        }
+        for relative, specific_required in requirements.items():
             path = self.root / relative
             original = path.read_text(encoding="utf-8")
             aggregate_start = original.index("python3 -m unittest")
@@ -2238,12 +2309,11 @@ class RoadmapAlignmentTests(unittest.TestCase):
             for module in test_modules:
                 with self.subTest(relative=relative, module=module):
                     self.assertIn(module, aggregate)
-            self.assertIn(verifier, original)
-            for command in forbidden_phase_acceptance:
-                with self.subTest(relative=relative, command=command):
-                    self.assertNotIn(command, original)
+            for phrase in common_required + specific_required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
 
-            for phrase in test_modules + (verifier,):
+            for phrase in test_modules + common_required + specific_required:
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertIn(
                         phrase,
@@ -2252,8 +2322,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     path.write_text(
                         original.replace(
                             phrase,
-                            "removed-r11-pre-acceptance-command",
-                            1,
+                            "removed-r11-closure-command",
                         ),
                         encoding="utf-8",
                     )
@@ -2261,6 +2330,23 @@ class RoadmapAlignmentTests(unittest.TestCase):
                         f"required alignment text is missing: {phrase!r}"
                     )
                     path.write_text(original, encoding="utf-8")
+
+        workflow = (
+            self.root / ".github/workflows/roadmap-alignment.yml"
+        ).read_text(encoding="utf-8")
+        ordered_steps = (
+            "- name: Materialize exact R11 source checkpoint",
+            "- name: Verify exact R11 source identity",
+            "- name: Run exact R11 selected tests",
+            "- name: Run exact R11 traceability fixture",
+            "- name: Compare exact R11 traceability closure",
+            "- name: Validate generated R11 acceptance evidence",
+            "- name: Verify checked-in R11 acceptance",
+            "- name: Verify deep R11 contracts",
+        )
+        positions = [workflow.index(step) for step in ordered_steps]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual(workflow.count("  r11-functional-acceptance:"), 1)
 
     def test_r04_blocked_closure_language_is_required(self) -> None:
         phrase = "local_unpublished_blocked_closure"
