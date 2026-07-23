@@ -240,6 +240,7 @@
 		A152F3A41AC3F54B7A42AB0A /* R03VImageScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F94BF89E7788407BFB63D5E /* R03VImageScaling.swift */; };
 		A3EEEF258DD40AAAFF166858 /* AtomicMediaOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */; };
 		A5312DF3C589850628B42108 /* ash-state-reference.csv in Resources */ = {isa = PBXBuildFile; fileRef = F491320002D06F19FC9A8B3D /* ash-state-reference.csv */; };
+		A5CD1CF5070C629E554E3DFB /* R04FunctionalPhaseAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6C9C974584EF942CBD2CA71 /* R04FunctionalPhaseAcceptanceTests.swift */; };
 		A6EF9487D6D0A68F213E4B4D /* R06ASHPolicyCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */; };
 		A7942EEE19F5F620E2B19D9E /* AppleUpscaleCapabilitySupportProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */; };
 		A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87DF56556BD38E52A6939975 /* MediaTypes.swift */; };
@@ -677,6 +678,7 @@
 		D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategySelectorTests.swift; sourceTree = "<group>"; };
 		D64D77EB74F69251DAC68E19 /* ASHLumaSpatialOperator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLumaSpatialOperator.swift; sourceTree = "<group>"; };
 		D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTSuperResolutionDriver.swift; sourceTree = "<group>"; };
+		D6C9C974584EF942CBD2CA71 /* R04FunctionalPhaseAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04FunctionalPhaseAcceptanceTests.swift; sourceTree = "<group>"; };
 		D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUIConstants.swift; sourceTree = "<group>"; };
 		D80EEEF7AE537B763EF5D0D3 /* ASHLockedReferencePipelineV2+DispatchProjection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ASHLockedReferencePipelineV2+DispatchProjection.swift"; sourceTree = "<group>"; };
 		D88818D1DB3A19E1DD188F19 /* ASHLockedFramePipelineV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedFramePipelineV3Tests.swift; sourceTree = "<group>"; };
@@ -1273,6 +1275,7 @@
 				2BF19D3455B06431763F93D5 /* R03ProductQualificationMediaTestSupport.swift */,
 				06E7350389CC945ACAC3116D /* R03VImageScalingTests.swift */,
 				B562B76C94BCA2E06F74D1E2 /* R03VTPixelTransferScalingTests.swift */,
+				D6C9C974584EF942CBD2CA71 /* R04FunctionalPhaseAcceptanceTests.swift */,
 				444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */,
 				5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */,
 				83AC977684BE029B5DA669C0 /* R05MetalFXColorBridgeTests.swift */,
@@ -1515,6 +1518,7 @@
 				B0A41585AE0C90044303BA1A /* R03ProductQualificationMediaTests.swift in Sources */,
 				9E942F47D4C6F98E228CF5DA /* R03VImageScalingTests.swift in Sources */,
 				B19D324A804ECFD73C8FEB1E /* R03VTPixelTransferScalingTests.swift in Sources */,
+				A5CD1CF5070C629E554E3DFB /* R04FunctionalPhaseAcceptanceTests.swift in Sources */,
 				64FDFB83547E2F8BA2A9CFD0 /* R04VideoToolboxContractsTests.swift in Sources */,
 				DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */,
 				D0A4DFC7189E9EE2A194CE00 /* R05MetalFXColorBridgeTests.swift in Sources */,

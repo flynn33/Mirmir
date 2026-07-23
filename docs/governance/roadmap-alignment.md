@@ -44,7 +44,9 @@ Unit tests run before the repository and inventory checks. The stable required-c
 job and always evaluates its result explicitly, so a failed, cancelled, or
 skipped prerequisite makes the required check fail. It cannot pass unless the
 fresh raw R02 Xcode result, its exact selected-test identities, build action,
-source-bound build surface, and checked-in acceptance all validate. The separate weekly metadata audit
+checkpoint-bound build surface, and checked-in acceptance all validate. Later
+roadmap source evolution does not rewrite or invalidate that historical
+checkpoint. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
 

@@ -477,6 +477,26 @@ class R02PhaseAcceptanceVerifier:
             "sha256": _sha256(payload),
         }
 
+    def _checkpoint_file_binding(
+        self,
+        identifier: str,
+        relative: Path,
+    ) -> dict[str, object]:
+        historical = self.git_bytes(
+            "show", f"{SOURCE_COMMIT}:{relative.as_posix()}"
+        )
+        if historical.returncode != 0:
+            raise OSError(
+                "checkpoint path is unavailable: "
+                f"{relative.as_posix()}"
+            )
+        return {
+            "id": identifier,
+            "path": relative.as_posix(),
+            "size_bytes": len(historical.stdout),
+            "sha256": _sha256(historical.stdout),
+        }
+
     def _source_errors(self) -> list[str]:
         errors: list[str] = []
         commit = self.git("cat-file", "-e", f"{SOURCE_COMMIT}^{{commit}}")
@@ -488,19 +508,20 @@ class R02PhaseAcceptanceVerifier:
         ancestor = self.git("merge-base", "--is-ancestor", SOURCE_COMMIT, "HEAD")
         if ancestor.returncode != 0:
             errors.append("R02 acceptance source commit is not an ancestor of HEAD")
-        build_surface = self.git(
-            "diff",
-            "--quiet",
-            SOURCE_COMMIT,
-            "--",
-            *(path.as_posix() for path in SOURCE_BUILD_PATHS),
-        )
-        if build_surface.returncode != 0:
-            errors.append(
-                "R02 acceptance build surface differs from the source checkpoint"
-            )
 
-        for identifier, relative in (*EVIDENCE_PATHS, *IMPLEMENTATION_PATHS):
+        for relative in SOURCE_BUILD_PATHS:
+            checkpoint_entry = self.git(
+                "cat-file",
+                "-e",
+                f"{SOURCE_COMMIT}:{relative.as_posix()}",
+            )
+            if checkpoint_entry.returncode != 0:
+                errors.append(
+                    "R02 acceptance checkpoint build input is unavailable: "
+                    f"{relative.as_posix()}"
+                )
+
+        for identifier, relative in EVIDENCE_PATHS:
             path = self.root / relative
             if path.is_symlink() or not path.is_file():
                 errors.append(f"R02 acceptance source is absent: {identifier}")
@@ -510,6 +531,15 @@ class R02PhaseAcceptanceVerifier:
             )
             if historical.returncode != 0 or historical.stdout != path.read_bytes():
                 errors.append(f"R02 acceptance source differs: {identifier}")
+        for identifier, relative in IMPLEMENTATION_PATHS:
+            historical = self.git_bytes(
+                "show", f"{SOURCE_COMMIT}:{relative.as_posix()}"
+            )
+            if historical.returncode != 0:
+                errors.append(
+                    "R02 acceptance checkpoint source is unavailable: "
+                    f"{identifier}"
+                )
         return errors
 
     @staticmethod
@@ -993,7 +1023,7 @@ class R02PhaseAcceptanceVerifier:
                 for identifier, relative in EVIDENCE_PATHS
             ],
             "implementation_bindings": [
-                self._file_binding(identifier, relative)
+                self._checkpoint_file_binding(identifier, relative)
                 for identifier, relative in IMPLEMENTATION_PATHS
             ],
             "artifact_bindings": [

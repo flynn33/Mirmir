@@ -207,29 +207,48 @@ class R02PhaseAcceptanceTests(unittest.TestCase):
             "Mirmir.xcodeproj/xcshareddata/xcschemes/Mirmir.xcscheme",
         )
 
-    def test_source_build_surface_mutation_fails_closed(self) -> None:
-        original_git = self.verifier.git
-
-        def git_with_mutated_build_surface(
-            *arguments: str,
-        ) -> subprocess.CompletedProcess[str]:
-            if arguments[:2] == ("diff", "--quiet"):
-                return subprocess.CompletedProcess(
-                    args=["git", *arguments],
-                    returncode=1,
-                    stdout="",
-                    stderr="",
-                )
-            return original_git(*arguments)
-
+    def test_later_build_surface_evolution_preserves_checkpoint_acceptance(
+        self,
+    ) -> None:
         with mock.patch.object(
             self.verifier,
             "git",
-            side_effect=git_with_mutated_build_surface,
+            wraps=self.verifier.git,
+        ) as git:
+            self.assertEqual(self.verifier._source_errors(), [])
+        self.assertFalse(
+            any(
+                call.args[:2] == ("diff", "--quiet")
+                for call in git.call_args_list
+            )
+        )
+
+    def test_missing_checkpoint_implementation_fails_closed(self) -> None:
+        original_git_bytes = self.verifier.git_bytes
+
+        def git_bytes_with_missing_source(
+            *arguments: str,
+        ) -> subprocess.CompletedProcess[bytes]:
+            if arguments == (
+                "show",
+                f"{SOURCE_COMMIT}:Mirmir.xcodeproj/project.pbxproj",
+            ):
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments],
+                    returncode=1,
+                    stdout=b"",
+                    stderr=b"missing",
+                )
+            return original_git_bytes(*arguments)
+
+        with mock.patch.object(
+            self.verifier,
+            "git_bytes",
+            side_effect=git_bytes_with_missing_source,
         ):
             errors = self.verifier._source_errors()
         self.assertIn(
-            "R02 acceptance build surface differs from the source checkpoint",
+            "R02 acceptance checkpoint source is unavailable: xcode_project",
             errors,
         )
 

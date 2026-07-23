@@ -21,9 +21,10 @@ All notable project changes are recorded here.
   remain unauthorized. The repository guardrail now divides hosted Xcode tests
   into three exact, non-overlapping shards so each app-host run remains below the
   observed macOS foreground lifetime boundary. The stable required roadmap check
-  now depends on the fresh macOS R02 job, whose validator binds the full app/test
-  build surface and shared scheme, compares raw test and build-action evidence
-  with the checked summary, and rejects symlinked evidence-output paths.
+  now depends on the fresh macOS R02 job, whose validator binds the checkpoint's
+  full app/test build surface and shared scheme without forbidding later roadmap
+  evolution, compares raw test and build-action evidence with the checked
+  summary, and rejects symlinked evidence-output paths.
 - Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
   operator-defined “software does what it says it does” gate. The additive
   receipt and acceptance record bind implementation commit
