@@ -19,7 +19,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
   to be `passed`, except the exact policy-scoped R03, R04, R05, R06, and R07
   `in_progress` local continuations from their recorded unpublished predecessor
-  closures and the separate evidence-bound R03, R07, and R08 functional
+  closures and the separate evidence-bound R03, R07, R08, and R09 functional
   acceptance contracts;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
@@ -30,7 +30,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
-- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, and R08 `in_progress`,
+- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, R08, and R09 `in_progress`,
   `evidence_ready`, and `passed` states require regular, non-symlink
   preregistration and fixture-catalog files, whose dedicated validators preserve
   exact unpublished predecessor truth and the operator-observation boundary;
@@ -167,6 +167,22 @@ implementation only. Comparison methods are excluded and non-authorizing;
 native observations may remain `not_observed`. Production, Auto, holdout,
 claims, publication, and release remain unauthorized.
 
+The R09 functional acceptance contract permits canonical R09 to be `passed`
+only when all eight policy-frozen evidence paths are regular, non-symlink files
+and `r09_phase_acceptance.py` rechecks implementation commit
+`3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`, and all 26 selected tests across
+the four R09 suites. The accepted scope is `declared_software_function_only`
+under deterministic fixture simulation, with roadmap exit outcome
+`qualified_local_residual`. The provider SHA-256 remains a semantic contract
+identity whose source provenance is the checkpoint commit, tree, and named
+bindings; fixture-catalog semantics are mapped to the selected tests, but the
+catalog JSON is not directly executed by the Swift suite. Native Core AI,
+model, hardware, simulator, operator-observed execution, and product
+qualification remain `not_observed` or `not_claimed`. This contract does not
+authorize production, Auto, holdout, claims, publication, R10 progression, or
+release.
+
 The operator's 2026-07-22 forward-acceptance decision applies prospectively to
 R04, R06, R08, R09, and later phases. Acceptance asks whether checkpoint-bound
 tests prove that the software performs the task and honors the boundaries it
@@ -198,7 +214,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -229,6 +245,7 @@ python3 Scripts/r08_contracts.py --check-preregistration
 python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
 python3 Scripts/r09_contracts.py --all
+python3 Scripts/r09_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

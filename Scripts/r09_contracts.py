@@ -18,6 +18,7 @@ from phase_evidence import (
     decode_json,
     validate_json_schema_instance,
 )
+from r09_phase_acceptance import R09PhaseAcceptanceVerifier
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -210,9 +211,22 @@ class R09ContractVerifier:
         if value != R08_BINDING:
             errors.append("accepted R08 binding differs")
             return
-        payload = (self.root / R08_ACCEPTANCE_PATH).read_bytes()
-        if len(payload) != R08_BINDING["size_bytes"] or _sha256(payload) != R08_RAW_SHA256:
-            errors.append("accepted R08 raw record differs")
+        record_path = self.root / R08_ACCEPTANCE_PATH
+        if record_path.is_symlink() or not record_path.is_file():
+            errors.append(
+                "accepted R08 raw record must be a regular non-symlink file"
+            )
+        else:
+            try:
+                payload = record_path.read_bytes()
+            except OSError as error:
+                errors.append(f"accepted R08 raw record is unreadable: {error}")
+            else:
+                if (
+                    len(payload) != R08_BINDING["size_bytes"]
+                    or _sha256(payload) != R08_RAW_SHA256
+                ):
+                    errors.append("accepted R08 raw record differs")
         tree = self.git("show", "-s", "--format=%T", R08_IMPLEMENTATION_COMMIT)
         if tree.returncode != 0 or tree.stdout.strip() != R08_IMPLEMENTATION_TREE:
             errors.append("accepted R08 implementation commit or tree differs")
@@ -310,8 +324,11 @@ class R09ContractVerifier:
             if not isinstance(roadmap.get("authorizations"), dict) or roadmap["authorizations"].get("core_ai_pixel_residual") != "authorized_for_r09_bounded_experiment":
                 errors.append("canonical R09 authorization differs")
             phase = next((item for item in roadmap.get("phases", []) if isinstance(item, dict) and item.get("id") == "R09"), None)
-            if not isinstance(phase, dict) or phase.get("status") != "in_progress":
-                errors.append("canonical R09 status must be in_progress")
+            status = phase.get("status") if isinstance(phase, dict) else None
+            if status not in {"in_progress", "passed"}:
+                errors.append("canonical R09 status must be in_progress or passed")
+            elif status == "passed":
+                errors.extend(R09PhaseAcceptanceVerifier(self.root).check())
         if policy is not None:
             if policy.get("r09_authorization") != POLICY_AUTHORIZATION:
                 errors.append("roadmap policy R09 authorization differs")

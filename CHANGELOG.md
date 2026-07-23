@@ -6,14 +6,25 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
+  operator-defined “software does what it says it does” gate. The additive
+  receipt and acceptance record bind implementation commit
+  `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+  `5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
+  across four settled suites, with zero failures and zero skips. Acceptance is
+  limited to `declared_software_function_only` under deterministic fixture
+  simulation. Native Core AI/framework/model, hardware, simulator, and operator
+  observations remain `not_observed`; no product qualification, production
+  default, Auto, holdout, quality, performance, publication, release, or R10
+  progression authority follows.
 - Began R09 under the operator's separate 2026-07-22 authorization for the
   bounded residual experiment. The frozen authorization, preregistration, and
   fixture catalog bind accepted-R08 evidence and permit only deterministic,
   ASH-authorized, localized signed-Q16 residual proposal and transactional NV12
-  application. R09 remains `in_progress` pending checkpoint-bound functional
-  acceptance. Native Core AI/model execution remains `not_observed`, and no
-  production-default, Auto, quality, performance, publication, or release
-  authority follows.
+  application. At that start checkpoint, R09 was `in_progress` pending its own
+  functional acceptance. Native Core AI/model execution remained
+  `not_observed`, and no production-default, Auto, quality, performance,
+  publication, or release authority follows.
 - Accepted R08 under the operator-defined “software does what it says it does”
   gate. The additive functional receipt and phase-acceptance record bind
   implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree

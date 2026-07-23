@@ -6,9 +6,9 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`;
 `R03: passed`; `R04: in_progress`; `R05: in_progress`;
 `R06: in_progress`; `R07: passed` under the operator-defined deterministic
 software-function gate; `R08: passed` under the declared-software-function
-gate. R03's frozen v1
-result remains fail-closed and `blocked`; R04 is local implementation only with
-a commit-bound `diagnostic_only` checkpoint. R04
+gate; `R09: passed` under the bounded-residual software-function gate. R03's
+frozen v1 result remains fail-closed and `blocked`; R04 is local implementation
+only with a commit-bound `diagnostic_only` checkpoint. R04
 runtime, hardware, simulator, and operator observations remain `not_observed`;
 R05 has a local unpublished commit-bound `diagnostic_only` checkpoint. Native
 MetalFX execution, hardware, simulator, operator observation, media reopen,
@@ -68,8 +68,8 @@ no-pixel-authority behavior. Comparison-based testing supplied no acceptance
 evidence or authority. Native Core AI, Xcode 27, model, hardware,
 simulator, and operator-observed execution remain `not_observed`; no native,
 product, quality, performance, production-default, Auto, publication, or release
-claim follows. R09 is now `in_progress` under its separate operator authorization
-and exact accepted-R08 evidence binding.
+claim follows. The later separate operator authorization and exact accepted-R08
+evidence binding advanced R09 to `in_progress` at its start checkpoint.
 
 R09's repository-owned authorization binds accepted-R08 raw SHA-256
 `0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`,
@@ -79,6 +79,17 @@ bounded post-scaler, ASH-authorized deterministic software behavior. Comparison
 methods are excluded and non-authorizing; native/model/hardware/simulator/
 operator observations remain `not_observed`. Production default, Auto, holdout,
 claims, publication, and release remain unauthorized.
+
+The additive R09 functional receipt and phase-acceptance record bind
+implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`, and a checkpoint-bound run of 26
+passing selected tests across four settled suites, with zero failures and zero
+skips. R09 is `passed` with exit outcome `qualified_local_residual`, limited to
+`declared_software_function_only` under deterministic fixture simulation.
+Native Core AI/framework/model, hardware, simulator, and operator observations
+remain `not_observed`; no product qualification, production default, Auto,
+holdout, quality, performance, publication, release, or R10 progression
+authority follows.
 
 The same forward-gate correction applies to later phases. R10 accepts on direct
 proof of deterministic bounded optimizer/calibration behavior. R11 accepts on
@@ -140,12 +151,17 @@ disabled.
 - [R08 Deterministic Fixture Catalog](evidence/r08/records/fixtures/fixture-catalog.json)
 - [R08 Functional Execution Receipt](evidence/r08/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 42 passed, 0 failed, 0 skipped
 - [R08 Functional Phase Acceptance](evidence/r08/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparative methods absent and non-gating
+- [R09 Operator Authorization](evidence/r09/records/operator-authorization.json) — bounded experiment authorization bound to accepted R08 evidence
+- [R09 Preregistration](evidence/r09/records/preregistration.json)
+- [R09 Deterministic Fixture Catalog](evidence/r09/records/fixtures/fixture-catalog.json)
+- [R09 Functional Execution Receipt](evidence/r09/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 26 passed, 0 failed, 0 skipped
+- [R09 Functional Phase Acceptance](evidence/r09/records/functional-phase-acceptance.json) — declared-software-function-only gate passed with `qualified_local_residual`; comparative methods absent and non-gating
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `f8956519a24d0a25c8801239a1d9f2e6c469b0c878fb7c034b8f25b3ff08484c`
-- JSON: `2e5b6b7af7408f24fec08aa74624effd11b32917b845a82e5dfce4dda582ca5c`
+- Markdown: `63769d658a4f3bbe01064da9f58aa07b832f38209d44e3898f5e5c50cd8aa1e1`
+- JSON: `d60d3d06b7230c555f2581891ff38a9bf8be6e5db71ccb42d2844b32bad9a3e2`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

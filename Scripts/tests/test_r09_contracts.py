@@ -8,7 +8,9 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +52,38 @@ class R09ContractTests(unittest.TestCase):
         self.authorization = read_json(AUTHORIZATION_PATH)
         self.preregistration = read_json(PREREGISTRATION_PATH)
         self.catalog = read_json(FIXTURE_CATALOG_PATH)
+
+    def temporary_roadmap_root(
+        self, status: str
+    ) -> tempfile.TemporaryDirectory[str]:
+        temporary = tempfile.TemporaryDirectory()
+        root = Path(temporary.name)
+        roadmap = read_json(
+            Path("docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json")
+        )
+        phases = roadmap["phases"]
+        assert isinstance(phases, list)
+        r09 = next(
+            item
+            for item in phases
+            if isinstance(item, dict) and item.get("id") == "R09"
+        )
+        r09["status"] = status
+        policy = read_json(Path(".github/roadmap-alignment-policy.json"))
+        for relative, value in (
+            (
+                Path(
+                    "docs/roadmaps/"
+                    "Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json"
+                ),
+                roadmap,
+            ),
+            (Path(".github/roadmap-alignment-policy.json"), policy),
+        ):
+            target = root / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(value), encoding="utf-8")
+        return temporary
 
     def test_checked_in_contracts_pass(self) -> None:
         self.assertEqual(self.verifier.check_authorization(), [])
@@ -123,7 +157,91 @@ class R09ContractTests(unittest.TestCase):
         phases = roadmap["phases"]
         assert isinstance(phases, list)
         r09 = next(item for item in phases if isinstance(item, dict) and item.get("id") == "R09")
-        self.assertEqual(r09["status"], "in_progress")
+        self.assertIn(r09["status"], {"in_progress", "passed"})
+
+    def test_in_progress_status_does_not_require_acceptance_evidence(self) -> None:
+        with self.temporary_roadmap_root("in_progress") as temporary:
+            errors = R09ContractVerifier(Path(temporary)).check_roadmap_policy()
+        self.assertEqual(errors, [])
+
+    def test_passed_status_accepts_valid_checked_in_evidence(self) -> None:
+        roadmap = read_json(
+            Path("docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json")
+        )
+        phases = roadmap["phases"]
+        assert isinstance(phases, list)
+        r09 = next(
+            item
+            for item in phases
+            if isinstance(item, dict) and item.get("id") == "R09"
+        )
+        r09["status"] = "passed"
+        policy = read_json(Path(".github/roadmap-alignment-policy.json"))
+        with patch.object(
+            self.verifier,
+            "_read_json",
+            side_effect=(roadmap, policy),
+        ):
+            errors = self.verifier.check_roadmap_policy()
+        self.assertEqual(errors, [])
+
+    def test_passed_status_requires_functional_acceptance_evidence(self) -> None:
+        with self.temporary_roadmap_root("passed") as temporary:
+            errors = R09ContractVerifier(Path(temporary)).check_roadmap_policy()
+        self.assertIn(
+            "R09 functional execution receipt must be a regular non-symlink file",
+            errors,
+        )
+        self.assertIn(
+            "R09 functional phase acceptance must be a regular non-symlink file",
+            errors,
+        )
+
+    def test_passed_status_rejects_malformed_and_symlinked_evidence(self) -> None:
+        with self.temporary_roadmap_root("passed") as temporary:
+            root = Path(temporary)
+            receipt = root / Path(
+                "docs/roadmaps/evidence/r09/records/functional-execution-receipt.json"
+            )
+            receipt.parent.mkdir(parents=True, exist_ok=True)
+            receipt.write_text("{", encoding="utf-8")
+            symlink_target = root / "acceptance-target.json"
+            symlink_target.write_text("{}", encoding="utf-8")
+            acceptance = root / Path(
+                "docs/roadmaps/evidence/r09/records/functional-phase-acceptance.json"
+            )
+            acceptance.symlink_to(symlink_target)
+            errors = R09ContractVerifier(root).check_roadmap_policy()
+        self.assertTrue(
+            any(
+                error.startswith("R09 functional execution receipt is invalid:")
+                for error in errors
+            )
+        )
+        self.assertIn(
+            "R09 functional phase acceptance must be a regular non-symlink file",
+            errors,
+        )
+
+    def test_missing_or_symlinked_r08_record_fails_without_crashing(self) -> None:
+        for use_symlink in (False, True):
+            with (
+                self.subTest(use_symlink=use_symlink),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                root = Path(temporary)
+                if use_symlink:
+                    target = root / "r08-target.json"
+                    target.write_text("{}", encoding="utf-8")
+                    record = root / R08_ACCEPTANCE_PATH
+                    record.parent.mkdir(parents=True, exist_ok=True)
+                    record.symlink_to(target)
+                errors: list[str] = []
+                R09ContractVerifier(root)._check_r08(R08_BINDING, errors)
+                self.assertIn(
+                    "accepted R08 raw record must be a regular non-symlink file",
+                    errors,
+                )
 
     def test_bindings_match_exact_files(self) -> None:
         preregistration_payload = (REPOSITORY_ROOT / PREREGISTRATION_PATH).read_bytes()

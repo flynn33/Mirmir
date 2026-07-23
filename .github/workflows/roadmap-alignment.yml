@@ -51,6 +51,7 @@ jobs:
           Scripts/tests/test_r08_contracts.py
           Scripts/tests/test_r08_phase_acceptance.py
           Scripts/tests/test_r09_contracts.py
+          Scripts/tests/test_r09_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -171,6 +172,9 @@ jobs:
 
       - name: Verify R09 authorization and start contracts
         run: python3 Scripts/r09_contracts.py --all
+
+      - name: Verify R09 functional phase acceptance
+        run: python3 Scripts/r09_phase_acceptance.py --check
 
       - name: Verify R01 system assets remain untracked
         shell: bash

@@ -16,7 +16,7 @@
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
-- Roadmap phase `R09`: `in_progress` for the authorized bounded experiment
+- Roadmap phase `R09`: `passed` for declared bounded-residual software function
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -129,6 +129,18 @@ are software-test inputs, not product thresholds. Native execution remains
 `not_observed`; production default, Auto, claims, publication, and release stay
 unauthorized.
 
+The R09 implementation checkpoint
+`3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`, passed all 26 selected tests across
+four settled suites with zero failures and zero skips. The accepted
+`qualified_local_residual` outcome proves only the declared bounded proposal,
+authorization, protected-region, identity, transactional rollback, and exact
+NV12 software contracts under deterministic fixture simulation. R09 is
+`passed` for `declared_software_function_only`; native Core AI/framework/model,
+hardware, simulator, and operator observations remain `not_observed`, and no
+product qualification, production/default/Auto routing, quality, performance,
+publication, release, or R10 progression authority follows.
+
 The later R10/R11 control boundary follows the same software-function rule. R10
 must implement a deterministic, finitely bounded, constraint-preserving,
 resumable optimizer/calibration service. R11 must implement traceable evidence
@@ -143,8 +155,8 @@ discovery, deterministic ASH orchestration, an immutable enhancement plan,
 qualified Apple-native backend sessions, postflight quality monitoring, and
 AVFoundation encode/reopen verification. ASH becomes the control, temporal
 governance, policy, and explainability layer. Core AI remains optional, begins
-with analysis, and now permits only the separately authorized bounded R09
-experiment; production residual routing remains disabled.
+with analysis, and now has an accepted bounded R09 software experiment;
+production residual routing remains disabled.
 
 The current module inventory below is retained implementation evidence. Planned
 interfaces and backends are not represented as implemented until their roadmap

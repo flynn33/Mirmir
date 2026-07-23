@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R09",
+  "evidence_kind": "r09_functional_selected_test_summary_v1",
+  "source": {
+    "commit": "3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b",
+    "tree": "5f19024af0837d5efd54855bcf0fd705a50eadc9"
+  },
+  "execution_mode": "deterministic_fixture_simulation",
+  "expected_selected_test_count": 26,
+  "selected_test_count": 26,
+  "passed_test_count": 26,
+  "failed_test_count": 0,
+  "skipped_test_count": 0,
+  "test_suites": [
+    {
+      "id": "R09CoreAIResidualContractsTests",
+      "expected_test_count": 7,
+      "passed_test_count": 7,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R09DeterministicResidualServiceTests",
+      "expected_test_count": 8,
+      "passed_test_count": 8,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R09ASHResidualAuthorizationTests",
+      "expected_test_count": 6,
+      "passed_test_count": 6,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    },
+    {
+      "id": "R09BoundedResidualStageTests",
+      "expected_test_count": 5,
+      "passed_test_count": 5,
+      "failed_test_count": 0,
+      "skipped_test_count": 0
+    }
+  ],
+  "test_identifiers": [
+    "MirmirTests/R09CoreAIResidualContractsTests/testUnsignedQ16PlaneValidatesGeometryCountAndRange",
+    "MirmirTests/R09CoreAIResidualContractsTests/testPlanarContractsRequireExactlyOneOfEveryPlane",
+    "MirmirTests/R09CoreAIResidualContractsTests/testMasksLimitsAndSignedResidualsEnforceIntegerDomains",
+    "MirmirTests/R09CoreAIResidualContractsTests/testRequestRejectsAnyGeometryMismatch",
+    "MirmirTests/R09CoreAIResidualContractsTests/testAuthorizationCannotReplayAcrossBoundaryIdentity",
+    "MirmirTests/R09CoreAIResidualContractsTests/testExecutionIdentityCannotMisstateNativeObservation",
+    "MirmirTests/R09CoreAIResidualContractsTests/testReferenceOrdinalsAndResourceBudgetsFailClosedAtConstruction",
+    "MirmirTests/R09DeterministicResidualServiceTests/testDeterministicOutputIsRepeatableAndTruthfullySimulated",
+    "MirmirTests/R09DeterministicResidualServiceTests/testOutputIsSignedZeroCenteredAndBoundedByEveryInputPolicy",
+    "MirmirTests/R09DeterministicResidualServiceTests/testInputAndProviderConfidenceFailuresBypassWithoutResidual",
+    "MirmirTests/R09DeterministicResidualServiceTests/testResourceFailuresAreTypedAndFailClosed",
+    "MirmirTests/R09DeterministicResidualServiceTests/testMalformedProviderRangeAndDirectionBypass",
+    "MirmirTests/R09DeterministicResidualServiceTests/testIdentityMismatchAndProviderFailureAreDistinctBypasses",
+    "MirmirTests/R09DeterministicResidualServiceTests/testEligibilityHallucinationAndConsistencyStopsAreTyped",
+    "MirmirTests/R09DeterministicResidualServiceTests/testPolicyAvailabilityBusyAndCancellationRemainFailClosed",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testAnalyzedSidecarAuthorizesExactRequestAndEchoesPlanSuppliedBounds",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testFaceTextAndR07ProtectionSuppressEligibilityAndUseMaximumProtection",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testChromaEligibilityUsesMinimumOfEachTwoByTwoLumaBlock",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testR08BypassProducesTypedNoAuthorizationAndAppleOnlyFallback",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testFrameShotStreamGenerationAndPrimaryRouteMismatchesReject",
+    "MirmirTests/R09ASHResidualAuthorizationTests/testAuthorizationReplayAndFrozenContractDriftReject",
+    "MirmirTests/R09BoundedResidualStageTests/testServiceToStageAppliesBoundedResidualAndPreservesExactRollback",
+    "MirmirTests/R09BoundedResidualStageTests/testProtectedSampleRejectsWholeProposalWithoutPartialPixelApplication",
+    "MirmirTests/R09BoundedResidualStageTests/testStageIndependentlyRejectsConfidenceResourceAndHallucinationFailures",
+    "MirmirTests/R09BoundedResidualStageTests/testExecutionAndAppleFrameIdentityMismatchesReturnOriginalFrame",
+    "MirmirTests/R09BoundedResidualStageTests/testNV12CodecRoundTripsActiveSamplesAndRejectsUnsupportedFormat"
+  ],
+  "toolchain": {
+    "platform": "macos_host",
+    "architecture": "arm64",
+    "os_version": "26.5.2",
+    "xcode_version": "26.2",
+    "xcode_build_version": "17C52",
+    "command": "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r09-3ba7b2b-derived -resultBundlePath /private/tmp/mirmir-r09-3ba7b2b.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R09CoreAIResidualContractsTests -only-testing:MirmirTests/R09DeterministicResidualServiceTests -only-testing:MirmirTests/R09ASHResidualAuthorizationTests -only-testing:MirmirTests/R09BoundedResidualStageTests CODE_SIGNING_ALLOWED=NO"
+  }
+}

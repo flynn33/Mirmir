@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "f8956519a24d0a25c8801239a1d9f2e6c469b0c878fb7c034b8f25b3ff08484c",
-    "json_sha256": "2e5b6b7af7408f24fec08aa74624effd11b32917b845a82e5dfce4dda582ca5c",
+    "markdown_sha256": "63769d658a4f3bbe01064da9f58aa07b832f38209d44e3898f5e5c50cd8aa1e1",
+    "json_sha256": "d60d3d06b7230c555f2581891ff38a9bf8be6e5db71ccb42d2844b32bad9a3e2",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -163,6 +163,7 @@
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
       "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -195,6 +196,7 @@
       "python3 Scripts/r08_contracts.py --check-fixtures",
       "python3 Scripts/r08_phase_acceptance.py --check",
       "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -237,6 +239,7 @@
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
       "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -270,6 +273,7 @@
       "python3 Scripts/r08_contracts.py --check-fixtures",
       "python3 Scripts/r08_phase_acceptance.py --check",
       "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -293,6 +297,7 @@
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
       "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
       "python3 Scripts/r03_product_qualification.py --check-preregistration",
@@ -316,6 +321,7 @@
       "python3 Scripts/r08_contracts.py --check-fixtures",
       "python3 Scripts/r08_phase_acceptance.py --check",
       "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
       "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0"
     ],
     "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
@@ -416,6 +422,19 @@
         "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
         "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcodebuild.log",
         "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
+      ]
+    },
+    "R09": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r09_phase_acceptance.py",
+        "Scripts/tests/test_r09_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r09-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r09-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r09/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r09/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+        "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
     }
   },

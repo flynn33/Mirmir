@@ -1186,7 +1186,7 @@ observations remain truthfully `not_observed`.
 
 ## R09 — Core AI bounded residual experiment
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -1220,8 +1220,8 @@ authorization record binds the exact raw SHA-256
 the accepted R08 `functional-phase-acceptance.json`, including its implementation
 commit `368b9284883c189be6a1139df6208bf0e88139dd` and tree
 `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. Canonical authorization is now
-`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`, and R09 is
-`in_progress`.
+`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`, and advanced
+R09 to `in_progress` at that start checkpoint.
 
 The frozen start contract permits only a post-Apple-scaler, ASH-authorized,
 localized signed-Q16 residual proposal and application path. It requires exact
@@ -1239,6 +1239,25 @@ simulation is permitted; native Core AI, model-asset, hardware, simulator, and
 operator-observed execution remain `not_observed` and non-blocking. This start
 does not authorize production default, Auto, holdout access, quality or
 performance claims, publication, or release.
+
+### Operator-defined functional acceptance — 2026-07-22
+
+The additive functional execution receipt and phase-acceptance record bind
+implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b` and tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`. All 26 selected tests across the
+four settled R09 suites passed with zero failures and zero skips. They verify
+the declared numeric, geometry, identity, authorization, bounded-proposal,
+protected-region, consistency, resource, lifecycle, rollback, NV12, and
+fail-closed behavior under deterministic fixture simulation.
+
+R09 is `passed` with roadmap exit outcome `qualified_local_residual`, limited to
+`declared_software_function_only`. Comparative, A/B, blinded, ablation, and
+superiority methods were not run, were not required, and supplied no acceptance
+authority. Native Core AI and its framework, a model asset, hardware, simulator,
+and operator-observed execution remain `not_observed`. This acceptance makes no
+native Core AI, model-quality, product-qualification, production-default, Auto,
+holdout, quality, performance, publication, or release claim, and it does not
+authorize R10 progression.
 
 ---
 
