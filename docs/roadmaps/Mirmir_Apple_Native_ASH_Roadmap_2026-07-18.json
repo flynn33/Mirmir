@@ -312,7 +312,7 @@
       "exit": "explicit contracts for every new format and route",
       "id": "R12",
       "name": "Format, route, and product expansion",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -322,7 +322,7 @@
       "exit": "exact-app evidence and release-ready product",
       "id": "R13",
       "name": "Release hardening",
-      "status": "planned"
+      "status": "in_progress"
     }
   ],
   "roadmap_version": "1.0.1",

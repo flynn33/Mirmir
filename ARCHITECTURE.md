@@ -21,7 +21,9 @@
   software function
 - Roadmap phase `R11`: `passed` for exact-source traceability and claim-boundary
   software function
-- Roadmap phase `R12`: `in_progress`; acceptance is not claimed
+- Roadmap phase `R12`: `passed` for exact-source format, route, backend, and
+  resumability contract software functions
+- Roadmap phase `R13`: `in_progress`; acceptance is not claimed
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -242,12 +244,29 @@ operator-observed operation remain `not_observed`. Product qualification,
 production Auto, market position and superiority claims, product publication,
 and release remain blocked or unauthorized.
 
-R12 is `in_progress` after exact predecessor R11 passed. Its current
-architecture work is limited to explicit format, route, capability, fallback,
-media-preservation, resumability, and deterministic test contracts. R12
-acceptance is not claimed. This phase start does not select a production
-default or authorize Auto, product or market claims, publication, tags, or
-release.
+R12 is `passed` for `declared_software_function_only`. Its functional execution
+receipt and phase-acceptance record bind exact source commit
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+85 selected tests with zero failures and zero skips: 15 format-contract tests,
+25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+checked 340 files with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+Expanded-format acceptance is contract-only and does not claim production
+format support. Comparison and A/B methods were absent and not required.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking. R12 grants no product qualification, production Auto, market,
+product-publication, or release-publication authority.
+
+R13 is `in_progress` after exact predecessor R12 passed. Work begun on
+2026-07-23 is limited to release hardening and creation of a release-ready
+candidate. R13 acceptance is not claimed. This phase start does not authorize
+production Auto, a product or market claim, a tag, publication, or release.
 
 ## Target Apple-Native Adaptive Architecture
 

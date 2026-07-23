@@ -521,6 +521,35 @@ R11_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
         ),
     ],
 }
+R12_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r12_phase_acceptance.py",
+        "Scripts/tests/test_r12_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r12-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r12-functional-phase-acceptance-v1.json"
+        ),
+        "docs/roadmaps/evidence/r12/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r12/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/build-for-testing.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/targeted-xctest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/swiftlint.log"
+        ),
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -1520,6 +1549,18 @@ class AlignmentVerifier:
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R11 phase_evidence_requirements differ from the prospective "
                 "software-function acceptance contract",
+            )
+        if requirements.get("R12") != R12_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R12 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
+            )
+        if "R13" in requirements:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R13 phase_evidence_requirements must remain absent before "
+                "R13 acceptance evidence exists",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)

@@ -5,8 +5,7 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
-- **Current execution state:** `R00`-`R11: passed`; `R12: in_progress`;
-  `R13: planned`
+- **Current execution state:** `R00`-`R12: passed`; `R13: in_progress`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
@@ -134,10 +133,22 @@
   unconditional `no_market_claim` behavior passed; acceptance scope
   `declared_software_function_only`; no comparison method was run or required;
   R11 is `passed`
+- **R12 declared-software-function acceptance:** exact source commit
+  `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+  `4971b4d38f92ea5edffe925e507f058e9ffc13d8`; additive evidence commit
+  `3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`; 85 selected tests passed with
+  zero failures and zero skips: 15 format, 25 route/backend, and 45
+  resumability/checkpoint tests; strict SwiftLint covered 340 files with zero
+  violations; functional execution receipt SHA-256
+  `09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+  phase-acceptance record SHA-256
+  `67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`;
+  acceptance scope `declared_software_function_only`; no comparison or A/B
+  method was run or required; R12 is `passed`
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: passed`; `R05: passed`; `R06: passed`;
   `R07: passed`; `R08: passed`; `R09: passed`; `R10: passed`;
-  `R11: passed`; `R12: in_progress`
+  `R11: passed`; `R12: passed`; `R13: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -529,8 +540,8 @@ Before changing source:
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
    `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
-   `R10: passed`, and `R11: passed` remain canonical, with `R12: in_progress`.
-   If any changed,
+   `R10: passed`, `R11: passed`, and `R12: passed` remain canonical, with
+   `R13: in_progress`. If any changed,
    reconcile the newer
    accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
@@ -1437,17 +1448,39 @@ publication, tags, and release remain blocked or unauthorized.
 
 ### R12 - Format, route, and product expansion
 
-R12 is `in_progress` after R11 functional acceptance. Expand through explicit contracts for
-10-bit/P010, HDR transfer and
-BT.2020 color, wider routes and runtime-supported scales, 4:2:2 and 4:4:4,
+R12 is `passed` after R11 functional acceptance. Its preserved start scope
+covered explicit contracts for 10-bit/P010, HDR transfer and BT.2020 color,
+wider routes and runtime-supported scales, 4:2:2 and 4:4:4,
 interlace/deinterlace, subtitles, alpha, metadata, long-form resume, chunk
-checkpoints, and hardware tiers. Every addition must define color, range, chroma
-siting, metadata, capability, fallback, quality, and test behavior. R12
-acceptance is not claimed. Hardware, simulator, and operator observation may
-remain `not_observed` and do not block deterministic software-function work.
-Complete R12 before R13; canonical R13 now depends on both R11 and R12.
+checkpoints, and hardware tiers.
+
+The exact-source functional execution receipt and phase-acceptance record bind
+source commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and additive evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. All 85 selected tests passed
+with zero failures and zero skips: 15 format, 25 route/backend, and 45
+resumability/checkpoint tests. Strict SwiftLint covered 340 files with zero
+violations. The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+
+R12 passes only for `declared_software_function_only`. Comparison and A/B
+methods were absent, not required, and supplied no acceptance authority.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking. This acceptance proves the declared R12 software contracts; it
+does not claim production decode, upscale, encode, or preservation support for
+the expanded formats. Product qualification, production Auto, market claims,
+product publication, tags, and release remain unauthorized.
 
 ### R13 - Release hardening
+
+R13 is `in_progress` after exact predecessor R12 passed and under the
+operator's explicit continuation instruction. Current work is limited to the
+exact-app identity, user-mode, asset-state, resumability, lifecycle, telemetry,
+fault, and resource-hardening behavior that the software declares. Comparison
+and A/B methods are absent, not required, and non-authorizing. Hardware,
+simulator, and operator observation may remain `not_observed` and nonblocking.
 
 Add the accepted user modes, asset-acquisition/specialization UI, resumability,
 concise explanations, detailed diagnostics, exact binary/model/policy/framework
@@ -1455,9 +1488,9 @@ identity, and fault/resource hardening. Run unit and CLI tests, strict lint,
 instrumentation, GPU capture, soak, cancellation, disk-full, low-memory, thermal,
 mutation, and exact-app reopen evidence across supported tiers and formats.
 
-R13 produces a release-ready candidate only. It does not authorize a tag,
-release, publication, production Auto, or claim. Each requires its own accepted
-roadmap state and direct operator action.
+R13 aims to produce a release-ready candidate only. Its implementation or later
+acceptance does not authorize a tag, release, publication, production Auto, or
+claim. Each requires its own accepted roadmap state and direct operator action.
 
 ## 7. Mandatory blockers and negative-result rules
 
@@ -1507,11 +1540,12 @@ accepted-dependency path; it was not another unpublished local-continuation
 exception. R06 later passed under its additive functional acceptance, and the
 frozen R06/R07 negative product records remain unchanged.
 
-R11 passed its exact-source traceability and claim-boundary software-function
-gate at implementation commit `75479b9f30511330f2a18b656151dc551292cb1e`,
-tree `0dd42ec30b212456223ee582b549de30a0e3416f`. Hardware, simulator, and
-operator observations remain `not_observed`; comparison supplied no acceptance
-authority. R12 is now `in_progress`, and acceptance is not claimed. Product
-qualification, production Auto, holdout access, claims, tags, releases, pushes,
-pull requests, approvals, merges, force-pushes, and repository-setting mutation
-retain their separate authority requirements.
+R12 passed its exact-source declared-software-function gate at implementation
+commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`. Hardware, simulator, and operator
+observations remain `not_observed`; comparison and A/B methods supplied no
+acceptance authority. R13 is now `in_progress` under the operator's explicit
+continuation instruction. Product qualification, production Auto, holdout
+access, claims, tags, releases, pushes, pull requests, approvals, merges,
+force-pushes, and repository-setting mutation retain their separate authority
+requirements.

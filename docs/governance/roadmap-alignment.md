@@ -36,6 +36,9 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   R07 and R09 predecessors plus its preregistration and deterministic fixture,
   evaluation, and policy catalogs. R11 requires exact predecessor R10 plus its
   preregistration and deterministic fixture catalog;
+- status-sensitive functional evidence through R12: a `passed` phase must retain
+  every policy-frozen regular, non-symlink acceptance artifact, while no R13
+  acceptance evidence is required or claimed during its current start;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -45,7 +48,8 @@ Unit tests run before the repository and inventory checks. The stable required-c
 `Roadmap alignment`; that job depends on the `R02 functional acceptance`,
 `R04 functional acceptance`, `R05 functional acceptance`,
 `R06 functional acceptance`, `R10 functional acceptance`, and
-`R11 functional acceptance` jobs and always evaluates all six results
+`R11 functional acceptance` and `R12 functional acceptance` jobs and always
+evaluates all seven results
 explicitly, so a failed, cancelled, or skipped
 prerequisite makes the required check fail. It cannot pass unless each fresh raw
 result, exact selected-test inventory, checkpoint-bound source identity, and
@@ -63,10 +67,20 @@ R06/R07 selection, R10 source commit
 `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b` before its exact optimizer
 replay, and R11 source commit
 `75479b9f30511330f2a18b656151dc551292cb1e` before its exact 76-test
-traceability replay. The current checkout then validates each raw result,
+traceability replay. The R12 job materializes source commit
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, builds the signed selected-test
+product, and runs its exact 85 selected tests. The current checkout then
+validates each raw result,
 generated artifact closure, and checked acceptance. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
+
+The local guardrail resolves its requested temporary base once with `pwd -P`
+after requiring an existing absolute directory. Its R10, R11, and R12 replay
+roots are created only below that physical path. This preserves the publishers'
+fail-closed rejection of lexically symlinked parents while accounting for
+macOS's `/var` to `/private/var` temporary-directory presentation.
 
 ## Updating progress
 
@@ -317,10 +331,41 @@ run or required. Hardware, simulator, and operator-observed operation remain
 `market_leading_claim`, market position, product publication, tags, and release
 remain blocked or unauthorized.
 
-R12 is `in_progress` after exact predecessor R11 passed. Its current authority
-is limited to explicit format, route, capability, fallback, preservation,
-resumability, and deterministic test contracts; R12 acceptance is not claimed.
-Canonical R13 now depends on exact `[R11, R12]`.
+R12 is now `passed` for `declared_software_function_only` under the
+operator-defined `software_does_what_it_says_it_does` gate. Its functional
+execution receipt and phase-acceptance record bind exact source commit
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`. Evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6` records the accepted artifacts
+without rewriting earlier phase evidence. The exact selection passed 85 of 85
+tests: 15 format-contract tests, 25 route/backend-resolution tests, and 45
+resumability/checkpoint-ledger tests. Strict SwiftLint reported zero violations
+across 340 Swift files.
+
+The accepted R12 record is byte-bound at SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`;
+its functional execution receipt is byte-bound at SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`.
+`Scripts/tests/test_r12_phase_acceptance.py`,
+`python3 Scripts/r12_phase_acceptance.py --check-generated`, and
+`python3 Scripts/r12_phase_acceptance.py --check` preserve the exact source,
+test inventory, artifact closure, acceptance status, and claim boundaries.
+
+R12 proves its declared format-model, route-resolution, backend-capability,
+fallback, and deterministic checkpoint/resume contracts. Expanded P010, HDR,
+BT.2020, 4:2:2, 4:4:4, interlace, alpha, subtitle, and metadata cases remain
+contract simulations; this acceptance does not claim that the production media
+pipeline or A11 backend processes those expanded formats. Native hardware,
+simulator, and operator-observed execution remain `not_observed` and are
+nonblocking. No comparative, A/B, superiority, or historical
+product-comparison method was run or required. Product qualification,
+production Auto, market or quality claims, product publication, tags, and
+release remain blocked or unauthorized.
+
+R13 is `in_progress` after exact predecessors `[R11, R12]` passed. This starts
+release-hardening implementation only. It neither claims R13 acceptance nor
+authorizes product publication, a tag, or a release, and the policy deliberately
+requires no nonexistent R13 acceptance evidence.
 
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
@@ -356,6 +401,16 @@ This contract does not claim product routing or qualification, native-framework
 or hardware execution, a production default, Auto, quality, performance,
 publication, or release.
 
+R06 therefore has two intentionally separate evidence layers. The generic
+primary-manifest verifier is replayed at historical closure commit
+`9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
+`32365e745dbf53d59213fe2294a6b63ba2642df7`, where the blocked manifest was
+closed. `Scripts/verify-r06-layered-evidence.sh` separately invokes the current
+R06 functional-acceptance verifier, admits only its exact record and two bound
+execution artifacts, and rejects every other file under the R06 evidence root.
+This preserves the historical manifest bytes while preventing unmanifested
+additive evidence.
+
 The operator's software-function acceptance decision applies to R02, R04, R06,
 R08, R09, and later phases. Acceptance asks whether checkpoint-bound
 tests prove that the software performs the task and honors the boundaries it
@@ -371,11 +426,11 @@ facts. The operator's later `resume work` directive supplies the separate R09
 implementation authorization bound to accepted R08 functional evidence; no
 comparison grants that authority.
 
-R11 is `passed` because exact-source proof establishes that its traceability and
-claim-scope machinery preserves typed observation distinctions, validates exact
-identity, rejects invalid inputs and unsupported claims, and emits
-`no_market_claim` unconditionally. R12 is `in_progress`; acceptance is not
-claimed. `production_auto_mode` and `market_leading_claim` remain blocked.
+R12 is `passed` because exact-source proof establishes that its declared format,
+route, backend-capability, fallback, and resumability contracts perform as
+specified while rejecting unsupported promotion. R13 is `in_progress`;
+acceptance and publication are not claimed. `production_auto_mode` and
+`market_leading_claim` remain blocked.
 
 Update the digest for every changed canonical source and
 affected contract fields in the alignment policy in the same change.
@@ -385,7 +440,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py Scripts/tests/test_r11_contracts.py Scripts/tests/test_r11_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py Scripts/tests/test_r11_contracts.py Scripts/tests/test_r11_phase_acceptance.py Scripts/tests/test_r12_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -424,6 +479,8 @@ python3 Scripts/r09_phase_acceptance.py --check
 python3 Scripts/r11_phase_acceptance.py --check-generated
 python3 Scripts/r11_phase_acceptance.py --check
 python3 Scripts/r11_contracts.py --all
+python3 Scripts/r12_phase_acceptance.py --check-generated
+python3 Scripts/r12_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 
@@ -456,10 +513,11 @@ states fail deterministically:
 
 ## Non-release boundaries
 
-This check does not run legacy P06/P07/P08 scripts, open holdout data, build the
-application, execute product tests, create tags, or publish releases. Passing it
-does not authorize production Auto mode, G08, a product-quality claim, a
-market-position claim, or a release. It establishes repository alignment only.
+This check does not run legacy P06/P07/P08 scripts, open holdout data, build a
+release product, execute product-acceptance tests, create tags, or publish
+releases. Its R12 job builds only the exact signed selected-test product. Passing
+the check does not authorize production Auto mode, G08, a product-quality claim,
+a market-position claim, or a release. It establishes repository alignment only.
 
 ## Amending the policy
 

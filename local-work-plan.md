@@ -136,12 +136,29 @@
   Hardware, simulator, and operator-observed operation remain `not_observed`.
   Product qualification, production Auto, market claims, publication, tags,
   and release remain blocked or unauthorized.
-- Roadmap phase `R12`: `in_progress`; acceptance is not claimed. Work is limited
-  to explicit format, route, capability, fallback, preservation, resumability,
-  and deterministic test contracts. Unavailable hardware, simulator, and
-  operator observation do not block this software-function work and remain
-  `not_observed`. No production default, Auto, market claim, publication, tag,
-  or release authority follows.
+- Roadmap phase `R12`: `passed` for `declared_software_function_only`. Its
+  functional execution receipt and phase-acceptance record bind exact source
+  commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+  `4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+  `3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+  85 selected tests with zero failures and zero skips: 15 format-contract tests,
+  25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+  checked 340 files with zero violations. The functional execution receipt has
+  SHA-256 `09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+  the phase-acceptance record has SHA-256
+  `67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+  Expanded-format acceptance is contract-only and does not claim production
+  format support. Comparison and A/B methods were absent and not required.
+  Hardware, simulator, and operator observation remain `not_observed` and
+  nonblocking. R12 grants no product qualification, production Auto, market,
+  product-publication, or release-publication authority.
+- Roadmap phase `R13`: `in_progress` as of 2026-07-23 after exact predecessor
+  R12 passed; acceptance is not claimed. Work is limited to release hardening
+  and creation of a release-ready candidate. Unavailable hardware, simulator,
+  and operator observation remain `not_observed` and nonblocking; comparison
+  and A/B methods are absent and not required. This phase start does not
+  authorize production Auto, a product or market claim, a tag, publication, or
+  release.
 - Production Auto, production Core AI residual routing, holdout access, market
   claims, and release publication: blocked by their roadmap gates.
 

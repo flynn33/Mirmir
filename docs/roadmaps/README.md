@@ -9,8 +9,9 @@ software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate;
 `R10: passed` under the deterministic bounded optimizer/calibration
 software-function gate; `R11: passed` under its exact-source traceability and
-claim-boundary software-function gate; `R12: in_progress`. R12 acceptance is
-not claimed. R03's
+claim-boundary software-function gate; `R12: passed` under its exact-source
+declared-software-function gate; `R13: in_progress` under the operator's
+explicit continuation instruction. R13 acceptance is not claimed. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
 `diagnostic_only` checkpoint remains historical while its later additive
 declared-software-function acceptance passes. Native VideoToolbox model
@@ -200,13 +201,34 @@ and the phase-acceptance record has SHA-256
 R11 is `passed` only for `declared_software_function_only` under deterministic
 fixture simulation.
 
-R12 is now `in_progress` after exact predecessor R11 passed. Current work is
-limited to explicit format, route, capability, fallback, preservation,
-resumability, and deterministic test contracts; R12 acceptance is not claimed.
-Hardware, simulator, and operator-observed operation may remain `not_observed`.
-No comparison was run or required. Product qualification, production Auto,
-market position or superiority claims, product publication, tags, and release
-remain blocked or unauthorized.
+The additive R12 functional execution receipt and phase-acceptance record bind
+exact source commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. All 85 selected tests passed
+with zero failures and zero skips: 15 format, 25 route/backend, and 45
+resumability/checkpoint tests. Strict SwiftLint covered 340 files with zero
+violations.
+
+The R12 functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`,
+and its phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+R12 is `passed` only for `declared_software_function_only`. Comparison and A/B
+methods were absent, not required, and non-authorizing. Hardware, simulator,
+and operator observation remain `not_observed` and nonblocking.
+
+R12 acceptance proves the declared format, route, capability, fallback,
+preservation, backend, and resumability contracts. It does not claim production
+decode, upscale, encode, or preservation support for the expanded formats, and
+it grants no product qualification, production Auto, market claim, product
+publication, tag, or release authority.
+
+R13 is now `in_progress` after exact predecessor R12 passed and under the
+operator's explicit continuation instruction. Current work is limited to
+exact-app identity, user-mode, asset-state, resumability, lifecycle, telemetry,
+fault, and resource-hardening behavior. It aims to produce a release-ready
+candidate; neither its current status nor later acceptance authorizes a tag,
+publication, release, production Auto, or market claim.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -282,12 +304,14 @@ disabled.
 - [R11 Traceability Run Receipt](evidence/r11/records/traceability-run-receipt.json) — exact-source deterministic five-state run with unconditional `no_market_claim`
 - [R11 Functional Execution Receipt](evidence/r11/records/functional-execution-receipt.json) — exact-source deterministic fixture simulation; 76 passed, 0 failed, 0 skipped
 - [R11 Functional Phase Acceptance](evidence/r11/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison methods absent and non-gating
+- [R12 Functional Execution Receipt](evidence/r12/records/functional-execution-receipt.json) — exact-source contract execution; 85 passed, 0 failed, 0 skipped; strict lint covered 340 files with zero violations
+- [R12 Functional Phase Acceptance](evidence/r12/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison and A/B methods absent and non-gating
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `4b1671a4ab51cb139d65fa73a186c089d473c259106372976899750d41d2ea50`
-- JSON: `c77c441f6051998c7daad6e6c0940c5fa58bc8214e70bd4353051f69b936dc3f`
+- Markdown: `5656a78bd9c8341e8d806c77d27190e37a01699e624900eab6248e76a0950217`
+- JSON: `7bcfaa75e1588c51bf839aa6f78f3382d3f679ebe85a7756c5dea60e0d000617`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

@@ -1153,6 +1153,77 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     "software-function acceptance contract"
                 )
 
+    def test_passed_r12_requires_functional_acceptance_evidence(self) -> None:
+        self.set_phase_status("R12", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R12"]["paths"][-1]
+        (self.root / relative).unlink(missing_ok=True)
+        self.assert_error_contains(
+            "phase R12 status 'passed' requires a regular evidence file"
+        )
+
+    def test_in_progress_r12_does_not_require_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R12", "in_progress")
+        for relative in self.policy["phase_evidence_requirements"]["R12"]["paths"]:
+            (self.root / relative).unlink(missing_ok=True)
+        self.assertFalse(
+            any("phase R12 status" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_passed_r12_rejects_symlinked_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R12", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R12"]["paths"][-1]
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        target = self.root / "r12-functional-acceptance-target.json"
+        target.write_text("{}\n", encoding="utf-8")
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R12 status 'passed' requires a regular evidence file"
+        )
+
+    def test_r12_functional_evidence_requirement_is_exact(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_evidence_requirements"]["R12"]["paths"].pop()
+        mutations.append(missing_path)
+
+        wrong_status = copy.deepcopy(self.policy)
+        wrong_status["phase_evidence_requirements"]["R12"][
+            "required_status"
+        ] = "in_progress"
+        mutations.append(wrong_status)
+
+        for mutation in mutations:
+            with self.subTest(
+                mutation=mutation["phase_evidence_requirements"]["R12"]
+            ):
+                self.write_json(policy_path, mutation)
+                self.assert_error_contains(
+                    "R12 phase_evidence_requirements differ from the frozen "
+                    "software-function acceptance contract"
+                )
+
+    def test_r13_does_not_require_nonexistent_acceptance_evidence(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        mutation = copy.deepcopy(self.policy)
+        mutation["phase_evidence_requirements"]["R13"] = {
+            "required_status": "in_progress",
+            "paths": ["docs/roadmaps/evidence/r13/records/nonexistent.json"],
+        }
+        self.write_json(policy_path, mutation)
+        self.assert_error_contains(
+            "R13 phase_evidence_requirements must remain absent before "
+            "R13 acceptance evidence exists"
+        )
+
     def test_r04_exception_requires_regular_valid_preregistration(self) -> None:
         self.set_phase_status("R03", "in_progress")
         self.set_phase_status("R04", "in_progress")
@@ -1383,7 +1454,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         _path, roadmap = self.roadmap_json()
         rendered = render_progress(roadmap, self.policy)
         self.assertIn(
-            "**Overall:** `12 / 14` roadmap phases passed (`86%`)",
+            "**Overall:** `13 / 14` roadmap phases passed (`93%`)",
             rendered,
         )
 
@@ -1543,7 +1614,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             "if: ${{ always() }}",
             (
@@ -1688,7 +1759,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r04-functional-acceptance.result }}" '
@@ -1785,7 +1856,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r05-functional-acceptance.result }}" '
@@ -1913,6 +1984,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         common_required = (
             "Scripts/tests/test_r06_phase_acceptance.py",
             "python3 Scripts/r06_phase_acceptance.py --check",
+            "./Scripts/verify-r06-layered-evidence.sh",
         )
         workflow_required = (
             "r06-functional-acceptance:",
@@ -1920,7 +1992,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r06-functional-acceptance.result }}" '
@@ -2108,7 +2180,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r10-functional-acceptance.result }}" '
@@ -2231,7 +2303,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
                 "r06-functional-acceptance, r10-functional-acceptance, "
-                "r11-functional-acceptance]"
+                "r11-functional-acceptance, r12-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r11-functional-acceptance.result }}" '
@@ -2274,6 +2346,24 @@ class RoadmapAlignmentTests(unittest.TestCase):
             ),
         )
         guardrail_required = (
+            'guardrail_temp_base_requested="${TMPDIR:-/tmp}"',
+            '"$guardrail_temp_base_requested" != /*',
+            'cd -- "$guardrail_temp_base_requested"',
+            "pwd -P",
+            '"$guardrail_temp_base" != /*',
+            "readonly guardrail_temp_base",
+            (
+                'mktemp -d "$guardrail_temp_base/'
+                'mirmir-r10-acceptance.XXXXXX"'
+            ),
+            (
+                'mktemp -d "$guardrail_temp_base/'
+                'mirmir-r11-acceptance.XXXXXX"'
+            ),
+            (
+                'mktemp -d "$guardrail_temp_base/'
+                'mirmir-r12-acceptance.XXXXXX"'
+            ),
             (
                 'r11_source_commit='
                 '"75479b9f30511330f2a18b656151dc551292cb1e"'
@@ -2312,6 +2402,17 @@ class RoadmapAlignmentTests(unittest.TestCase):
             for phrase in common_required + specific_required:
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertIn(phrase, original)
+            if relative == "Scripts/verify-mirmir-guardrails.sh":
+                self.assertEqual(
+                    original.count(
+                        'guardrail_temp_base_requested="${TMPDIR:-/tmp}"'
+                    ),
+                    1,
+                )
+                self.assertNotIn(
+                    'mktemp -d "${TMPDIR:-/tmp}/mirmir-r1',
+                    original,
+                )
 
             for phrase in test_modules + common_required + specific_required:
                 with self.subTest(relative=relative, phrase=phrase):
@@ -2347,6 +2448,146 @@ class RoadmapAlignmentTests(unittest.TestCase):
         positions = [workflow.index(step) for step in ordered_steps]
         self.assertEqual(positions, sorted(positions))
         self.assertEqual(workflow.count("  r11-functional-acceptance:"), 1)
+
+    def test_r12_closure_checks_are_required_in_ci_and_guardrails(self) -> None:
+        test_module = "Scripts/tests/test_r12_phase_acceptance.py"
+        common_required = (
+            "python3 Scripts/r12_phase_acceptance.py --check-generated",
+            "python3 Scripts/r12_phase_acceptance.py --check",
+        )
+        workflow_required = (
+            (
+                "needs: [r02-functional-acceptance, "
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance, r10-functional-acceptance, "
+                "r11-functional-acceptance, r12-functional-acceptance]"
+            ),
+            (
+                'test "${{ needs.r12-functional-acceptance.result }}" '
+                '= "success"'
+            ),
+            "r12-functional-acceptance:",
+            "name: R12 functional acceptance",
+            "runs-on: macos-26",
+            (
+                "git worktree add --detach "
+                "/private/tmp/mirmir-r12-2f5e298-source "
+                "2f5e2987fe6a0e88d39790f177c717b62d29d6e4"
+            ),
+            (
+                "working-directory: "
+                "/private/tmp/mirmir-r12-2f5e298-source"
+            ),
+            (
+                "git rev-parse HEAD | grep -Fx "
+                "2f5e2987fe6a0e88d39790f177c717b62d29d6e4"
+            ),
+            (
+                "git rev-parse HEAD^{tree} | grep -Fx "
+                "4971b4d38f92ea5edffe925e507f058e9ffc13d8"
+            ),
+            (
+                "git merge-base --is-ancestor "
+                "3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6 HEAD"
+            ),
+            (
+                "xcodebuild build-for-testing -project Mirmir.xcodeproj "
+                "-scheme Mirmir"
+            ),
+            (
+                "xcodebuild test-without-building -xctestrun "
+                '"$r12_xctestrun"'
+            ),
+            "-only-testing:MirmirTests/R12MediaFormatContractV2Tests",
+            "-only-testing:MirmirTests/R12RouteAndHardwareResolverTests",
+            "-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests",
+            (
+                "R12_ACCEPTANCE_SOURCE_COMMIT="
+                "2f5e2987fe6a0e88d39790f177c717b62d29d6e4"
+            ),
+            (
+                "R12_ACCEPTANCE_SOURCE_TREE="
+                "4971b4d38f92ea5edffe925e507f058e9ffc13d8"
+            ),
+            "67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080",
+            "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27",
+        )
+        guardrail_required = (
+            (
+                'r12_source_commit='
+                '"2f5e2987fe6a0e88d39790f177c717b62d29d6e4"'
+            ),
+            (
+                'r12_source_tree='
+                '"4971b4d38f92ea5edffe925e507f058e9ffc13d8"'
+            ),
+            (
+                'git worktree add --detach "$r12_source_worktree" '
+                '"$r12_source_commit"'
+            ),
+            'git rev-parse HEAD | grep -Fx "$r12_source_commit"',
+            'git rev-parse HEAD^{tree} | grep -Fx "$r12_source_tree"',
+            "-only-testing:MirmirTests/R12MediaFormatContractV2Tests",
+            "-only-testing:MirmirTests/R12RouteAndHardwareResolverTests",
+            "-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests",
+            "grep -Fx 85",
+            "cleanup_r12_validation",
+            "trap cleanup_r12_validation EXIT",
+            "3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6",
+            "67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080",
+            "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27",
+        )
+        requirements = {
+            ".github/workflows/roadmap-alignment.yml": workflow_required,
+            "Scripts/verify-mirmir-guardrails.sh": guardrail_required,
+        }
+        for relative, specific_required in requirements.items():
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            aggregate_start = original.index("python3 -m unittest")
+            aggregate_end = original.index(
+                "python3 Scripts/roadmap_alignment.py --check",
+                aggregate_start,
+            )
+            aggregate = original[aggregate_start:aggregate_end]
+            self.assertIn(test_module, aggregate)
+            for phrase in common_required + specific_required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
+
+            for phrase in (test_module,) + common_required + specific_required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(
+                        phrase,
+                        self.policy["required_phrases"][relative],
+                    )
+                    path.write_text(
+                        original.replace(
+                            phrase,
+                            "removed-r12-closure-command",
+                        ),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
+
+        workflow = (
+            self.root / ".github/workflows/roadmap-alignment.yml"
+        ).read_text(encoding="utf-8")
+        ordered_steps = (
+            "- name: Materialize exact R12 source checkpoint",
+            "- name: Verify exact R12 source identity",
+            "- name: Verify R12 evidence checkpoint ancestry",
+            "- name: Build exact R12 selected-test product",
+            "- name: Run exact R12 selected tests",
+            "- name: Validate generated R12 acceptance evidence",
+            "- name: Verify checked-in R12 acceptance",
+        )
+        positions = [workflow.index(step) for step in ordered_steps]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual(workflow.count("  r12-functional-acceptance:"), 1)
 
     def test_r04_blocked_closure_language_is_required(self) -> None:
         phrase = "local_unpublished_blocked_closure"

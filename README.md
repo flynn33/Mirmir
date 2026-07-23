@@ -39,49 +39,47 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R12` — Format, route, and product expansion
+**Current roadmap focus:** `R13` — Release hardening
 
-**Current phase status:** `R12` — `in_progress`; acceptance is not claimed.
+**Current phase status:** `R13` — `in_progress`; acceptance is not claimed.
 
-**Latest phase acceptance:** `R11` — `passed`, limited to
-`declared_software_function_only` under deterministic fixture simulation.
+**Latest phase acceptance:** `R12` — `passed`, limited to
+`declared_software_function_only`.
 
-**R11 functional closure:** the functional execution receipt and
+**R12 functional closure:** the functional execution receipt and
 phase-acceptance record bind exact source commit
-`75479b9f30511330f2a18b656151dc551292cb1e`, tree
-`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
-with zero failures and zero skips. The deterministic run produced one record
-for each of the five typed states, reopened the nested execution receipt,
-validated all seven identity components, rejected unsupported evidence and
-claims, and emitted `no_market_claim` unconditionally.
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+85 selected tests with zero failures and zero skips: 15 format-contract tests,
+25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+checked 340 files with zero violations.
 
-The canonical and sealed traceability receipts are byte-identical at SHA-256
-`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
 The functional execution receipt has SHA-256
-`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`,
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`,
 and the phase-acceptance record has SHA-256
-`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
 
-**R12 phase start:** exact predecessor R11 is `passed`. Current work is limited
-to explicit format, route, capability, fallback, preservation, resumability,
-and deterministic test contracts. Hardware, simulator, and operator-observed
-operation may remain `not_observed` and do not block that software-function
-work.
+**R13 phase start:** exact predecessor R12 is `passed`. Work begun on
+2026-07-23 is limited to release hardening and creation of a release-ready
+candidate. Hardware, simulator, and operator observation may remain
+`not_observed` and do not block that work.
 
-**Authorization boundary:** R11 acceptance authorizes only its declared
-traceability and claim-boundary software function. Product qualification,
-production Auto, market position or superiority claims, public product claims,
-product publication, tags, and release remain blocked or unauthorized.
-Comparative and A/B methods are absent, not required, and non-authorizing.
+**Authorization boundary:** R12 acceptance proves only its declared contract
+software functions. Contract-only expansion is not a production-format support
+claim. R12 grants no product qualification, production Auto, market, product
+publication, or release-publication authority. R13 release-hardening work does
+not authorize a tag, publication, or release. Comparative and A/B methods are
+absent, not required, and non-authorizing.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `12 / 14` roadmap phases passed (`86%`)
+**Overall:** `13 / 14` roadmap phases passed (`93%`)
 
-`[########--]`
+`[#########-]`
 
-**Status:** ✅ Passed `12` · 🔄 In progress `1` · ⬜ Planned `1`
+**Status:** ✅ Passed `13` · 🔄 In progress `1`
 
-**Current focus:** `R12` — Format, route, and product expansion
+**Current focus:** `R13` — Release hardening
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -97,8 +95,8 @@ Comparative and A/B methods are absent, not required, and non-authorizing.
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
 | `R10` | Auto-policy optimization and bounded calibration | `passed` | ✅ Passed |
 | `R11` | Evidence traceability and claim boundary | `passed` | ✅ Passed |
-| `R12` | Format, route, and product expansion | `in_progress` | 🔄 In progress |
-| `R13` | Release hardening | `planned` | ⬜ Planned |
+| `R12` | Format, route, and product expansion | `passed` | ✅ Passed |
+| `R13` | Release hardening | `in_progress` | 🔄 In progress |
 <!-- END ROADMAP PROGRESS -->
 
 ## Canonical Roadmap (Complete)
@@ -941,7 +939,7 @@ simulator, operator-observed operation, quality, and performance were not
 observed.
 
 This checkpoint remains immutable historical evidence. Its `diagnostic_only`
-result and `not_observed` native runtime subjects are not rewritten by the
+result and `not_observed` native runtime subjects remain unchanged after the
 later additive functional acceptance.
 
 ### Functional software acceptance — 2026-07-23
@@ -1056,7 +1054,7 @@ comparison, quality, and performance were not observed.
 
 This checkpoint remains immutable historical evidence. Its `diagnostic_only`
 result, `not_observed` native runtime subjects, and unclaimed acceptance state
-are not rewritten by the later additive functional acceptance.
+remain unchanged after the later additive functional acceptance.
 
 ### Functional software acceptance — 2026-07-23
 
@@ -1649,20 +1647,49 @@ blocked; no R11 evidence or disposition can authorize either.
 
 ## R12 — Format, route, and product expansion
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
-R12 begins after exact predecessor R11 passed its declared-software-function
-gate. Current authority is limited to implementing and testing explicit format,
-route, capability, fallback, preservation, and resumability contracts. R12
-acceptance is not claimed. Deterministic contract simulation is permitted;
-unavailable hardware, simulator, and operator observation are recorded as
-`not_observed` and do not block that software-function work.
+R12 began after exact predecessor R11 passed its declared-software-function
+gate. Its start authority was limited to implementing and testing explicit
+format, route, capability, fallback, preservation, and resumability contracts.
+The phase start did not itself claim R12 acceptance. Deterministic contract
+simulation was permitted; unavailable hardware, simulator, and operator
+observation were recorded as `not_observed` and did not block that
+software-function work.
 
-This phase start does not authorize production Auto, market or superiority
+That phase start did not authorize production Auto, market or superiority
 claims, product publication, a tag, or a release. Comparative and A/B methods
-are absent, not required, and non-authorizing.
+were absent, not required, and non-authorizing.
+
+### Functional phase acceptance — 2026-07-23
+
+The exact-source functional execution receipt and phase-acceptance record bind
+source commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and 85 passing selected tests
+with zero failures and zero skips: 15 format-contract tests, 25 route/backend
+tests, and 45 resumability/checkpoint tests. Strict SwiftLint covered 340 files
+with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+The additive evidence is recorded at commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`.
+
+R12 is `passed` only for `declared_software_function_only`: exact-source tests
+prove the format, route, capability, fallback, preservation, backend, and
+resumability contracts that the R12 software declares. Comparison and A/B
+methods were absent, not required, and provided no acceptance authority.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking.
+
+This acceptance does not claim production decode, upscale, encode, or
+preservation support for the expanded formats. It grants no product
+qualification, production Auto, market claim, product publication, tag, or
+release authority.
 
 ### Work
 
@@ -1683,7 +1710,21 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 
 ## R13 — Release hardening
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R13 begins after exact predecessor R12 passed its
+`declared_software_function_only` gate. Current authority is limited to
+implementing and testing exact-app identity, user-mode, asset-state,
+resumability, lifecycle, telemetry, fault, and resource-hardening behavior that
+the software declares. Hardware, simulator, and operator observation may remain
+`not_observed` and nonblocking. Comparison and A/B methods are absent, not
+required, and non-authorizing.
+
+R13 aims to produce a release-ready candidate. Its `in_progress` status does
+not authorize production Auto, a market or superiority claim, product
+publication, a tag, or a release. Those actions require separate authority.
 
 ### Work
 

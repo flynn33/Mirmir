@@ -835,7 +835,7 @@ simulator, operator-observed operation, quality, and performance were not
 observed.
 
 This checkpoint remains immutable historical evidence. Its `diagnostic_only`
-result and `not_observed` native runtime subjects are not rewritten by the
+result and `not_observed` native runtime subjects remain unchanged after the
 later additive functional acceptance.
 
 ### Functional software acceptance — 2026-07-23
@@ -950,7 +950,7 @@ comparison, quality, and performance were not observed.
 
 This checkpoint remains immutable historical evidence. Its `diagnostic_only`
 result, `not_observed` native runtime subjects, and unclaimed acceptance state
-are not rewritten by the later additive functional acceptance.
+remain unchanged after the later additive functional acceptance.
 
 ### Functional software acceptance — 2026-07-23
 
@@ -1543,20 +1543,49 @@ blocked; no R11 evidence or disposition can authorize either.
 
 ## R12 — Format, route, and product expansion
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
-R12 begins after exact predecessor R11 passed its declared-software-function
-gate. Current authority is limited to implementing and testing explicit format,
-route, capability, fallback, preservation, and resumability contracts. R12
-acceptance is not claimed. Deterministic contract simulation is permitted;
-unavailable hardware, simulator, and operator observation are recorded as
-`not_observed` and do not block that software-function work.
+R12 began after exact predecessor R11 passed its declared-software-function
+gate. Its start authority was limited to implementing and testing explicit
+format, route, capability, fallback, preservation, and resumability contracts.
+The phase start did not itself claim R12 acceptance. Deterministic contract
+simulation was permitted; unavailable hardware, simulator, and operator
+observation were recorded as `not_observed` and did not block that
+software-function work.
 
-This phase start does not authorize production Auto, market or superiority
+That phase start did not authorize production Auto, market or superiority
 claims, product publication, a tag, or a release. Comparative and A/B methods
-are absent, not required, and non-authorizing.
+were absent, not required, and non-authorizing.
+
+### Functional phase acceptance — 2026-07-23
+
+The exact-source functional execution receipt and phase-acceptance record bind
+source commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and 85 passing selected tests
+with zero failures and zero skips: 15 format-contract tests, 25 route/backend
+tests, and 45 resumability/checkpoint tests. Strict SwiftLint covered 340 files
+with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+The additive evidence is recorded at commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`.
+
+R12 is `passed` only for `declared_software_function_only`: exact-source tests
+prove the format, route, capability, fallback, preservation, backend, and
+resumability contracts that the R12 software declares. Comparison and A/B
+methods were absent, not required, and provided no acceptance authority.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking.
+
+This acceptance does not claim production decode, upscale, encode, or
+preservation support for the expanded formats. It grants no product
+qualification, production Auto, market claim, product publication, tag, or
+release authority.
 
 ### Work
 
@@ -1577,7 +1606,21 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 
 ## R13 — Release hardening
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R13 begins after exact predecessor R12 passed its
+`declared_software_function_only` gate. Current authority is limited to
+implementing and testing exact-app identity, user-mode, asset-state,
+resumability, lifecycle, telemetry, fault, and resource-hardening behavior that
+the software declares. Hardware, simulator, and operator observation may remain
+`not_observed` and nonblocking. Comparison and A/B methods are absent, not
+required, and non-authorizing.
+
+R13 aims to produce a release-ready candidate. Its `in_progress` status does
+not authorize production Auto, a market or superiority claim, product
+publication, a tag, or a release. Those actions require separate authority.
 
 ### Work
 

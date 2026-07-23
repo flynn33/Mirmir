@@ -20,7 +20,7 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
-    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance, r06-functional-acceptance, r10-functional-acceptance, r11-functional-acceptance]
+    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance, r06-functional-acceptance, r10-functional-acceptance, r11-functional-acceptance, r12-functional-acceptance]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -33,6 +33,7 @@ jobs:
           test "${{ needs.r06-functional-acceptance.result }}" = "success"
           test "${{ needs.r10-functional-acceptance.result }}" = "success"
           test "${{ needs.r11-functional-acceptance.result }}" = "success"
+          test "${{ needs.r12-functional-acceptance.result }}" = "success"
 
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -76,6 +77,7 @@ jobs:
           validation/calibration_v2/tests/test_run_r11_fixture_traceability.py
           Scripts/tests/test_r11_contracts.py
           Scripts/tests/test_r11_phase_acceptance.py
+          Scripts/tests/test_r12_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -221,6 +223,12 @@ jobs:
       - name: Verify R11 functional phase acceptance
         run: python3 Scripts/r11_phase_acceptance.py --check
 
+      - name: Verify R12 generated functional acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check-generated
+
+      - name: Verify R12 functional phase acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check
+
       - name: Verify R01 system assets remain untracked
         shell: bash
         run: |
@@ -259,7 +267,11 @@ jobs:
         run: |
           while IFS= read -r manifest_path; do
             phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
-            python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+            if [[ "$phase_id" == "R06" ]]; then
+              ./Scripts/verify-r06-layered-evidence.sh
+            else
+              python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+            fi
           done < <(find docs/roadmaps/evidence -type f -name 'phase-evidence.json' -print | sort)
 
   r02-functional-acceptance:
@@ -496,3 +508,47 @@ jobs:
 
       - name: Verify deep R11 contracts
         run: python3 Scripts/r11_contracts.py --all
+
+  r12-functional-acceptance:
+    name: R12 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R12 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r12-2f5e298-source 2f5e2987fe6a0e88d39790f177c717b62d29d6e4
+
+      - name: Verify exact R12 source identity
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        run: |
+          git rev-parse HEAD | grep -Fx 2f5e2987fe6a0e88d39790f177c717b62d29d6e4
+          git rev-parse HEAD^{tree} | grep -Fx 4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+      - name: Verify R12 evidence checkpoint ancestry
+        run: git merge-base --is-ancestor 3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6 HEAD
+
+      - name: Build exact R12 selected-test product
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        run: xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r12-2f5e298-derived -disableAutomaticPackageResolution R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4 R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8 'EXCLUDED_SOURCE_FILE_NAMES=*.metal'
+
+      - name: Run exact R12 selected tests
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        shell: bash
+        run: |
+          test "$(find /private/tmp/mirmir-r12-2f5e298-derived/Build/Products -type f -name '*.xctestrun' | wc -l | tr -d ' ')" = 1
+          r12_xctestrun="$(find /private/tmp/mirmir-r12-2f5e298-derived/Build/Products -type f -name '*.xctestrun' -print -quit)"
+          xcodebuild test-without-building -xctestrun "$r12_xctestrun" -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4 R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+      - name: Validate generated R12 acceptance evidence
+        run: |
+          echo "67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080  docs/roadmaps/evidence/r12/records/functional-phase-acceptance.json" | shasum -a 256 -c -
+          echo "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27  docs/roadmaps/evidence/r12/records/functional-execution-receipt.json" | shasum -a 256 -c -
+          python3 Scripts/r12_phase_acceptance.py --check-generated
+
+      - name: Verify checked-in R12 acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check
