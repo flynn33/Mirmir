@@ -4,13 +4,13 @@
   "phase_id": "R12",
   "evidence_kind": "r12_operator_software_function_phase_acceptance_v1",
   "source": {
-    "commit": "8b080b8c650a90886b4636625755341458c7c1d1",
-    "tree": "10f3f3db51daf811d817283742090c661dba59f9"
+    "commit": "2f5e2987fe6a0e88d39790f177c717b62d29d6e4",
+    "tree": "4971b4d38f92ea5edffe925e507f058e9ffc13d8"
   },
   "execution_receipt_binding": {
     "path": "docs/roadmaps/evidence/r12/records/functional-execution-receipt.json",
     "size_bytes": 38596,
-    "sha256": "85f7f1726c772b7fce0bce632971e99fb50e36a95249ef7f02332e9682c92342"
+    "sha256": "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27"
   },
   "checks": [
     {
