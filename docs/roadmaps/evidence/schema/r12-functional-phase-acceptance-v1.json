@@ -1,0 +1,226 @@
+{
+  "$id": "https://github.com/flynn33/Mirmir/docs/roadmaps/evidence/schema/r12-functional-phase-acceptance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "checks": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_]*$",
+            "type": "string"
+          },
+          "status": {
+            "const": "passed"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "type": "object"
+      },
+      "maxItems": 15,
+      "minItems": 15,
+      "type": "array"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claimBoundary"
+    },
+    "comparison_policy": {
+      "$ref": "#/$defs/comparisonPolicy"
+    },
+    "evidence_kind": {
+      "const": "r12_operator_software_function_phase_acceptance_v1"
+    },
+    "execution_receipt_binding": {
+      "$ref": "#/$defs/fileBinding"
+    },
+    "functional_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_basis": {
+          "const": "software_does_what_it_says_it_does"
+        },
+        "acceptance_scope": {
+          "const": "declared_software_function_only"
+        },
+        "phase_status_after": {
+          "const": "passed"
+        },
+        "phase_status_before": {
+          "enum": [
+            "in_progress",
+            "evidence_ready"
+          ]
+        },
+        "status": {
+          "const": "passed"
+        }
+      },
+      "required": [
+        "status",
+        "acceptance_basis",
+        "acceptance_scope",
+        "phase_status_before",
+        "phase_status_after"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "observations": {
+      "$ref": "#/$defs/observations"
+    },
+    "phase_id": {
+      "const": "R12"
+    },
+    "roadmap_version": {
+      "const": "1.0.1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "execution_receipt_binding",
+    "checks",
+    "functional_gate",
+    "observations",
+    "claim_boundary",
+    "comparison_policy",
+    "limitations"
+  ],
+  "title": "R12 functional phase acceptance",
+  "type": "object",
+  "$defs": {
+    "claimBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_scope": {
+          "const": "software_behavior_report"
+        },
+        "market_disposition": {
+          "const": "no_market_claim"
+        },
+        "product_qualification": {
+          "const": "not_authorized"
+        },
+        "production_auto_mode": {
+          "const": "not_authorized"
+        },
+        "release_publication": {
+          "const": "not_authorized"
+        }
+      },
+      "required": [
+        "claim_scope",
+        "product_qualification",
+        "production_auto_mode",
+        "market_disposition",
+        "release_publication"
+      ],
+      "type": "object"
+    },
+    "comparisonPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "ab_test": {
+          "const": "absent_not_required"
+        },
+        "acceptance_dependency": {
+          "const": "none"
+        },
+        "comparison_method": {
+          "const": "absent_not_required"
+        }
+      },
+      "required": [
+        "comparison_method",
+        "ab_test",
+        "acceptance_dependency"
+      ],
+      "type": "object"
+    },
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "pattern": "^[a-zA-Z0-9._/-]+$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "observations": {
+      "additionalProperties": false,
+      "properties": {
+        "native_hardware": {
+          "const": "not_observed"
+        },
+        "nonblocking_for_software_function_acceptance": {
+          "const": true
+        },
+        "operator": {
+          "const": "not_observed"
+        },
+        "simulator": {
+          "const": "not_observed"
+        }
+      },
+      "required": [
+        "native_hardware",
+        "simulator",
+        "operator",
+        "nonblocking_for_software_function_acceptance"
+      ],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "tree": {
+          "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "type": "object"
+    }
+  }
+}
