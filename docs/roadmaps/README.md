@@ -3,16 +3,18 @@
 The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-23.
 
 Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
-`R03: passed`; `R04: in_progress`; `R05: in_progress`;
+`R03: passed`; `R04: passed`; `R05: in_progress`;
 `R06: in_progress`; `R07: passed` under the operator-defined deterministic
 software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate. R03's
-frozen v1 result remains fail-closed and `blocked`; R04 is local implementation
-only with a commit-bound `diagnostic_only` checkpoint. R04
-runtime, hardware, simulator, and operator observations remain `not_observed`;
-R05 has a local unpublished commit-bound `diagnostic_only` checkpoint. Native
-MetalFX execution, hardware, simulator, operator observation, media reopen,
-quality, performance, and phase acceptance remain unclaimed. R06 is
+frozen v1 result remains fail-closed and `blocked`; R04's frozen
+`diagnostic_only` checkpoint remains historical while its later additive
+declared-software-function acceptance passes. Native VideoToolbox model
+execution, model readiness, hardware, simulator, and operator observations
+remain `not_observed`. R05 has a local unpublished commit-bound
+`diagnostic_only` checkpoint. Native MetalFX execution, hardware, simulator,
+operator observation, media reopen, quality, performance, and phase acceptance
+remain unclaimed. R06 is
 preregistered for deterministic fixture-only orchestration; the implementation
 source for its local unpublished blocked checkpoint is commit
 `9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
@@ -39,6 +41,21 @@ contemporaneous `phase_acceptance: not_claimed` state remain unchanged
 historical evidence. Production upscaling, a production default, Auto, holdout,
 quality or performance claims, product publication, and release remain
 unauthorized.
+
+R04's additive functional phase acceptance binds source
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh four-suite macOS arm64
+Xcode run with 42 tests passed, zero failed, and zero skipped. Deterministic
+simulation through the real R04 backends and production FIFO verifies complete
+quality and low-latency 2× media transactions, exact-dimension 1.5× admission,
+active cancellation, preserved media identity, reopen-before-publication,
+resource release, atomic publication, and no silent fallback. R04 is `passed`
+only for `declared_software_function_only`. The frozen preregistration and
+`diagnostic_only` conformance record remain unchanged historical evidence.
+Native VideoToolbox model execution, model readiness, hardware, simulator, and
+operator observation remain `not_observed`; no production default, Auto,
+native-framework, product-qualification, quality, performance, publication, or
+release claim follows.
 
 R07 began fixture-only local implementation from the exact R06 blocked closure
 identified above. Its
@@ -153,6 +170,7 @@ disabled.
 - [R04 Preregistration](evidence/r04/records/preregistration.json)
 - [R04 Deterministic Fixture Catalog](evidence/r04/records/fixtures/fixture-catalog.json)
 - [R04 VideoToolbox Integration Conformance](evidence/r04/records/integration-conformance.json) — local unpublished diagnostic-only evidence; runtime not observed; phase acceptance not claimed
+- [R04 Functional Phase Acceptance](evidence/r04/records/functional-phase-acceptance.json) — additive declared-software-function-only acceptance; 42 passed, 0 failed, 0 skipped across four suites
 - [R05 Preregistration](evidence/r05/records/preregistration.json)
 - [R05 Deterministic Fixture Catalog](evidence/r05/records/fixtures/fixture-catalog.json)
 - [R05 MetalFX Suitability Conformance](evidence/r05/records/suitability-conformance.json) — local unpublished diagnostic-only evidence; native runtime not observed; phase acceptance not claimed
@@ -179,7 +197,7 @@ disabled.
 
 Verified source hashes:
 
-- Markdown: `88b1bc8e3c560f6e28a1e2143f3b84c1a7f34c1a1f1bbdc4e13ae580dcd357db`
-- JSON: `9989362488837efa986dc1293725c098f0db18d4d0a5965001ffcac247bdeca6`
+- Markdown: `32324bf43625e89841135cc805a22efc95249285ab3dc98109be92ba1bd9dff9`
+- JSON: `4cf62e80b9b0464d675cebaf95a0b546e68494718ac7b179a5294f728e9ff0d0`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

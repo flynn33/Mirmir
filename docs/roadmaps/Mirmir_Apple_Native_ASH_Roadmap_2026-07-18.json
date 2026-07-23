@@ -239,7 +239,7 @@
       "exit": "operator-defined software-function gate: quality and low-latency VT integration contracts enforce declared route, media, lifecycle, identity, and failure behavior",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [

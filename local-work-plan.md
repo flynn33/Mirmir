@@ -44,6 +44,21 @@
   preservation, lifecycle, identity, and no fallback. Production remains
   unavailable; default, Auto, holdout, performance, product-quality,
   product-publication, and release claims remain unauthorized.
+- Roadmap phase `R04`: `passed` for `declared_software_function_only`. Its
+  additive acceptance binds source
+  `ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+  `446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and 42 passing tests across four
+  suites. Deterministic simulation through the real R04 quality and low-latency
+  backends and production FIFO verifies complete 2× media transactions,
+  capability-gated 1.5× admission, cancellation, identity, reopen, resource
+  release, atomic publication, and no silent fallback. The frozen
+  `diagnostic_only` record remains historical; native model/framework execution,
+  hardware, simulator, and operator observation remain `not_observed`. No
+  production default, Auto, product, quality, performance, publication, or
+  release authority follows.
+- Roadmap phase `R05`: `in_progress` and unaccepted. Its frozen
+  `diagnostic_only` record remains historical while functional acceptance work
+  continues.
 - Roadmap phase `R06`: `in_progress` and unaccepted. Its frozen blocked closure
   remains truthful historical evidence and is not changed by the later R07
   acceptance.

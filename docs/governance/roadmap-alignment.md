@@ -41,12 +41,17 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 
 Unit tests run before the repository and inventory checks. The stable required-check name is
 `Roadmap alignment`; that job depends on the macOS `R02 functional acceptance`
-job and always evaluates its result explicitly, so a failed, cancelled, or
-skipped prerequisite makes the required check fail. It cannot pass unless the
-fresh raw R02 Xcode result, its exact selected-test identities, build action,
-checkpoint-bound build surface, and checked-in acceptance all validate. Later
-roadmap source evolution does not rewrite or invalidate that historical
-checkpoint. The separate weekly metadata audit
+and `R04 functional acceptance` jobs and always evaluates both results
+explicitly, so a failed, cancelled, or skipped prerequisite makes the required
+check fail. It cannot pass unless each fresh raw Xcode result, exact selected-test
+identities, build action, checkpoint-bound build surface, and checked-in
+acceptance validate. Later roadmap source evolution does not rewrite or
+invalidate either historical checkpoint. CI materializes R02 source commit
+`eeabc4224100bc8ed86ae1208189bee508844210` in a detached worktree and runs the
+selected tests there. It likewise materializes R04 source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68` before running the exact R04
+selection. The current checkout then validates each raw result and checked
+acceptance. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
 
@@ -146,6 +151,22 @@ unchanged historical evidence. This contract does not authorize production
 upscaling, a production default, Auto, holdout, quality or performance claims,
 product publication, or release.
 
+The R04 functional acceptance contract permits canonical R04 to be `passed`
+only when the policy-bound schema, record, Xcode log, and result summary are
+regular exact files and `Scripts/r04_phase_acceptance.py` rechecks source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and all 42 selected tests across
+the four settled R04 suites. Deterministic simulation through the real R04
+quality and low-latency backends and production FIFO verifies complete 2× media
+transactions, exact-dimension 1.5× admission, active cancellation, identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. The accepted scope is `declared_software_function_only`. The frozen
+preregistration and diagnostic-only conformance remain unchanged historical
+evidence. Native VideoToolbox model execution and readiness, hardware, simulator,
+and operator observation remain `not_observed`; this contract does not authorize
+a production default, Auto, native-framework or product qualification, quality,
+performance, publication, or release.
+
 The separate R03-only functional acceptance override formerly permitted
 canonical R03 to be `passed` while R02 remained canonical `in_progress`. It
 applies only when the policy-bound `functional-phase-acceptance.json` bytes and
@@ -240,7 +261,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -258,6 +279,7 @@ python3 Scripts/r03_phase_acceptance.py --check
 python3 Scripts/r04_contracts.py --check-preregistration
 python3 Scripts/r04_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r04/records/integration-conformance.json || python3 Scripts/r04_contracts.py --check-conformance
+python3 Scripts/r04_phase_acceptance.py --check
 python3 Scripts/r05_contracts.py --check-preregistration
 python3 Scripts/r05_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance

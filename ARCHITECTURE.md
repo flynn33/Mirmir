@@ -11,7 +11,7 @@
 - Roadmap phase `R01`: `passed`
 - Roadmap phase `R02`: `passed` for declared software function
 - Roadmap phase `R03`: `passed`
-- Roadmap phase `R04`: `in_progress`
+- Roadmap phase `R04`: `passed` for declared software function
 - Roadmap phase `R05`: `in_progress`
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
@@ -83,6 +83,20 @@ operator-overridden functional acceptance record then revalidates the passing
 R02 common-session and R03 A11 software evidence and marks R03 `passed`. The
 production composition still injects the unavailable service; no default, Auto,
 holdout, quality, performance, product-publication, or release authority follows.
+
+The additive R04 functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and 42 passing tests across the
+contracts, session-adapter, availability, and functional suites. Its
+deterministic runtime drives source-derived frames through the real separate
+quality and low-latency R04 backends and production FIFO, proving complete 2×
+media transactions, runtime-gated 1.5× admission, cancellation, identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. R04 is `passed` only for `declared_software_function_only`. Native
+VideoToolbox model execution and readiness, hardware, simulator, and operator
+observation remain `not_observed`; the unavailable production composition and
+all default, Auto, product, quality, performance, publication, and release
+boundaries remain unchanged.
 
 R07 implementation checkpoint
 `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree

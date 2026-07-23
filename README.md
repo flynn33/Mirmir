@@ -39,42 +39,42 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R04` — VideoToolbox super-resolution integration;
-`R05` — MetalFX integration and suitability decision; and `R06` — ASH
-orchestration engine v1
+**Current roadmap focus:** `R05` — MetalFX integration and suitability decision;
+and `R06` — ASH orchestration engine v1
 
-**Latest phase acceptance:** `R02` — `passed` under the
+**Latest phase acceptance:** `R04` — `passed` under the
 declared-software-function-only gate.
 
-**Acceptance basis:** deterministic tests must verify that the registry,
-backend/session boundary, stage roles, planner, typed outcomes, FIFO lifecycle,
-processing identity, visible fallback, media transaction, reopen verification,
-resource lifetime, and atomic publication perform their declared task.
+**Acceptance basis:** deterministic tests must verify that the separate quality
+and low-latency backends, runtime capability query, request/history contracts,
+FIFO lifecycle, cancellation, processing identity, visible failure behavior,
+complete media transaction, reopen verification, resource lifetime, and atomic
+publication perform their declared task.
 
-**R02 evidence:** source commit
-`eeabc4224100bc8ed86ae1208189bee508844210`, tree
-`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
-with 27 tests passed, zero failed, and zero skipped. The two added direct tests
-bind production bootstrap to `UnavailableUpscalerEngineService` and prove its
-typed fail-closed `backendUnavailable(reason:)` rejection.
+**R04 evidence:** source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh four-suite macOS arm64
+Xcode run with 42 tests passed, zero failed, and zero skipped. The additive
+functional suite verifies complete quality and low-latency 2× media
+transactions, exact-dimension 1.5× admission, and active cancellation through
+the production FIFO.
 
-**Execution scope:** declared R02 software behavior only. The frozen
-preregistration, conformance record, local unpublished closure, and its
-contemporaneous `phase_acceptance: not_claimed` state remain unchanged
-historical evidence. Production upscaling, a production default, Auto, holdout
-access, quality or performance claims, product publication, and release remain
-unauthorized. The unavailable bootstrap is R02's intentional production boundary,
-not project completion or production enablement. R04, R05, and R06 remain
-`in_progress` and unaccepted.
+**Execution scope:** declared R04 software behavior only. The frozen
+preregistration and `diagnostic_only` conformance record remain unchanged
+historical evidence. Native VideoToolbox model execution, model readiness,
+hardware, simulator, and operator observation remain `not_observed`. Production
+upscaling, a production default, Auto, holdout access, native-framework,
+product-qualification, quality or performance claims, product publication, and
+release remain unauthorized. R05 and R06 remain `in_progress` and unaccepted.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `7 / 14` roadmap phases passed (`50%`)
+**Overall:** `8 / 14` roadmap phases passed (`57%`)
 
 `[#####-----]`
 
-**Status:** ✅ Passed `7` · 🔄 In progress `3` · ⬜ Planned `4`
+**Status:** ✅ Passed `8` · 🔄 In progress `2` · ⬜ Planned `4`
 
-**Current focus:** `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
+**Current focus:** `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ not project completion or production enablement. R04, R05, and R06 remain
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
 | `R02` | Unified backend and stage architecture | `passed` | ✅ Passed |
 | `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
-| `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
+| `R04` | VideoToolbox super-resolution integration | `passed` | ✅ Passed |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
@@ -865,13 +865,15 @@ atomic publication, and an empty fallback history.
 
 ---
 
-## R04 — VideoToolbox super-resolution production integration
+## R04 — VideoToolbox super-resolution integration
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
-Use Apple’s native video-oriented ML super-resolution engine as the primary Quality path.
+Implement honest, separately identified quality and low-latency VideoToolbox
+super-resolution paths whose runtime, media, lifecycle, identity, and failure
+boundaries are explicit and verifiable.
 
 ### Work
 
@@ -931,13 +933,37 @@ contract rejection. Model-backed processing, model readiness, hardware,
 simulator, operator-observed operation, quality, and performance were not
 observed.
 
-R04 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
-The quality, protected-region, temporal, throughput, memory, and perceptual exit
-gates remain unobserved and are not claimed satisfied.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result and `not_observed` native runtime subjects are not rewritten by the
+later additive functional acceptance.
 
-### Current operator-defined exit gate
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh macOS arm64 Xcode run
+of 42 tests across the R04 contracts, session adapter, availability, and
+functional phase-acceptance suites. All 42 tests passed with zero failures and
+zero skips.
+
+The deterministic simulated runtime processes source-derived frames through the
+real R04 quality and low-latency backends and the production FIFO. Both direct
+2× routes complete verified 2160p H.264/AAC media transactions with preserved
+color, frame order, timestamps, duration, audio, metadata, processing identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. The low-latency 1.5× route executes only after the exact dimensions
+pass the runtime support query. Active cancellation propagates through both
+backend identities without processing or fallback.
+
+R04 is therefore `passed` only for `declared_software_function_only`. The
+focused Xcode run excluded Metal shader compilation because the optional Metal
+Toolchain was unavailable; R04 adds no Metal shader. Native VideoToolbox model
+execution, model readiness/download, hardware, simulator, and operator-observed
+operation remain `not_observed`. No backend is selected as a production
+default, and no Auto, native-framework, product-qualification, quality,
+performance, publication, or release claim follows.
+
+### Satisfied operator-defined exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.
 - Outputs reopen and preserve media identity.

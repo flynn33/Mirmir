@@ -6,6 +6,20 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R04 for `declared_software_function_only` under the operator-defined
+  software-function gate. The additive acceptance binds source commit
+  `ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+  `446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh four-suite macOS arm64
+  Xcode run with 42 tests passed, zero failed, and zero skipped. Deterministic
+  simulation through the real R04 quality and low-latency backends and production
+  FIFO verifies complete 2× media transactions, exact-dimension 1.5× admission,
+  active cancellation, media identity, reopen-before-publication, resource
+  release, atomic publication, and no silent fallback. The frozen preregistration
+  and `diagnostic_only` conformance record remain unchanged historical evidence.
+  Native VideoToolbox model execution and readiness, hardware, simulator, and
+  operator observation remain `not_observed`; no production default, Auto,
+  native-framework, product qualification, quality, performance, publication, or
+  release claim follows.
 - Accepted R02 for `declared_software_function_only` under the operator-defined
   software-function gate. The additive functional phase-acceptance record binds
   source commit `eeabc4224100bc8ed86ae1208189bee508844210`, tree
@@ -24,7 +38,8 @@ All notable project changes are recorded here.
   now depends on the fresh macOS R02 job, whose validator binds the checkpoint's
   full app/test build surface and shared scheme without forbidding later roadmap
   evolution, compares raw test and build-action evidence with the checked
-  summary, and rejects symlinked evidence-output paths.
+  summary, runs the selected tests from a detached exact-source worktree, and
+  rejects symlinked evidence-output paths.
 - Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
   operator-defined “software does what it says it does” gate. The additive
   receipt and acceptance record bind implementation commit

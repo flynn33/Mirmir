@@ -766,13 +766,15 @@ atomic publication, and an empty fallback history.
 
 ---
 
-## R04 — VideoToolbox super-resolution production integration
+## R04 — VideoToolbox super-resolution integration
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
-Use Apple’s native video-oriented ML super-resolution engine as the primary Quality path.
+Implement honest, separately identified quality and low-latency VideoToolbox
+super-resolution paths whose runtime, media, lifecycle, identity, and failure
+boundaries are explicit and verifiable.
 
 ### Work
 
@@ -832,13 +834,37 @@ contract rejection. Model-backed processing, model readiness, hardware,
 simulator, operator-observed operation, quality, and performance were not
 observed.
 
-R04 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
-The quality, protected-region, temporal, throughput, memory, and perceptual exit
-gates remain unobserved and are not claimed satisfied.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result and `not_observed` native runtime subjects are not rewritten by the
+later additive functional acceptance.
 
-### Current operator-defined exit gate
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh macOS arm64 Xcode run
+of 42 tests across the R04 contracts, session adapter, availability, and
+functional phase-acceptance suites. All 42 tests passed with zero failures and
+zero skips.
+
+The deterministic simulated runtime processes source-derived frames through the
+real R04 quality and low-latency backends and the production FIFO. Both direct
+2× routes complete verified 2160p H.264/AAC media transactions with preserved
+color, frame order, timestamps, duration, audio, metadata, processing identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. The low-latency 1.5× route executes only after the exact dimensions
+pass the runtime support query. Active cancellation propagates through both
+backend identities without processing or fallback.
+
+R04 is therefore `passed` only for `declared_software_function_only`. The
+focused Xcode run excluded Metal shader compilation because the optional Metal
+Toolchain was unavailable; R04 adds no Metal shader. Native VideoToolbox model
+execution, model readiness/download, hardware, simulator, and operator-observed
+operation remain `not_observed`. No backend is selected as a production
+default, and no Auto, native-framework, product-qualification, quality,
+performance, publication, or release claim follows.
+
+### Satisfied operator-defined exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.
 - Outputs reopen and preserve media identity.

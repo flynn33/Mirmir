@@ -1,0 +1,24 @@
+R04 declared-software-function acceptance execution
+repository-safe transcript derived from the bound xcresult summary
+source_commit: ab77e97867d51168e90c0190f6430d4acd769e68
+source_tree: 446f71bb584f5d1fffcd20a17ac5e5507d3222b6
+execution_mode: deterministic_simulated_runtime_integration
+platform: macos_host
+architecture: arm64
+
+Command line invocation:
+    xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r04-ab77e978-derived -resultBundlePath /private/tmp/mirmir-r04-ab77e978.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R04VideoToolboxContractsTests -only-testing:MirmirTests/R04VideoToolboxSessionAdapterTests -only-testing:MirmirTests/UpscalerEngineAvailabilityTests -only-testing:MirmirTests/R04FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+Test Suite 'R04VideoToolboxContractsTests' passed.
+    Executed 8 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R04VideoToolboxSessionAdapterTests' passed.
+    Executed 15 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'UpscalerEngineAvailabilityTests' passed.
+    Executed 16 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R04FunctionalPhaseAcceptanceTests' passed.
+    Executed 3 tests, with 0 failures (0 unexpected), 0 skipped.
+
+Test Suite 'Selected tests' passed.
+    Executed 42 tests, with 0 failures (0 unexpected), 0 skipped.
+
+** TEST SUCCEEDED **

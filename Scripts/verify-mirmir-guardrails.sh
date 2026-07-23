@@ -98,6 +98,7 @@ python3 -m unittest \
   Scripts/tests/test_r03_product_qualification.py \
   Scripts/tests/test_r03_phase_acceptance.py \
   Scripts/tests/test_r04_contracts.py \
+  Scripts/tests/test_r04_phase_acceptance.py \
   Scripts/tests/test_r05_contracts.py \
   Scripts/tests/test_r06_contracts.py \
   Scripts/tests/test_r07_contracts.py \
@@ -131,6 +132,7 @@ python3 Scripts/r04_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then
   python3 Scripts/r04_contracts.py --check-conformance
 fi
+python3 Scripts/r04_phase_acceptance.py --check
 python3 Scripts/r05_contracts.py --check-preregistration
 python3 Scripts/r05_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then

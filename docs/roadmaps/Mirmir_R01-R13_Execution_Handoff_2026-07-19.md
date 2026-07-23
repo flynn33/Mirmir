@@ -56,6 +56,11 @@
 - **R04 local diagnostic-only closure:**
   `88e26f5967f7eb35a54791017ca0c2b888f2fbf5`; tree
   `4a7cc588b6fa51c21f2293e56cf3dea389acd908`; acceptance not claimed
+- **R04 declared-software-function acceptance source:**
+  `ab77e97867d51168e90c0190f6430d4acd769e68`; tree
+  `446f71bb584f5d1fffcd20a17ac5e5507d3222b6`; 42 tests passed across four
+  settled R04 suites with zero failures and zero skips; acceptance scope
+  `declared_software_function_only`; R04 is `passed`
 - **R05 local preregistration:**
   `6a327428c88f32517bf5cf931e6f18a65a24b5c2`; tree
   `bfc53e9077fcb7bcab233ca79c4575ef1f69fda2`; R04 diagnostic-only closure
@@ -100,7 +105,7 @@
   `declared_software_function_only`; no comparative method was run or required;
   R09 is `passed`
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
-  `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
+  `R04: passed`; `R05: in_progress`; `R06: in_progress`;
   `R07: passed`; `R08: passed`; `R09: passed`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
@@ -204,6 +209,28 @@ the frozen typed `public_contract_unrepresentable` rejection. R04 remains
 `in_progress`, local unpublished, disabled as a production default, and
 unaccepted.
 
+### R04 declared-software-function acceptance — 2026-07-23
+
+The additive R04 functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh macOS arm64 run of 42
+tests across the contracts, session adapter, availability, and functional
+phase-acceptance suites, with zero failures and zero skips. Deterministic
+simulation drives source-derived frames through the real R04 quality and
+low-latency backends and production FIFO. It verifies complete 2× media
+transactions, exact-dimension 1.5× admission, active cancellation, identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback.
+
+R04 is `passed` only for `declared_software_function_only`. The frozen
+preregistration and diagnostic-only conformance bytes remain unchanged
+historical evidence. The run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R04 adds no Metal shader. Native
+VideoToolbox model execution and readiness, hardware, simulator, and operator
+observation remain `not_observed`. No production default, Auto, native-framework,
+product-qualification, quality, performance, publication, or release claim
+follows.
+
 ### R05 local implementation start — 2026-07-20
 
 R05 preregistration binds exact R04 diagnostic-only closure commit
@@ -211,8 +238,9 @@ R05 preregistration binds exact R04 diagnostic-only closure commit
 `4a7cc588b6fa51c21f2293e56cf3dea389acd908`, as
 `local_unpublished_diagnostic_only_closure` with
 `predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
-`continuation_scope: local_implementation_only`. R04 remains canonical
-`in_progress` and unaccepted.
+`continuation_scope: local_implementation_only`. At that historical checkpoint,
+R04 remained canonical `in_progress` and unaccepted; the later additive
+functional acceptance above does not rewrite the frozen R05 predecessor binding.
 
 The frozen R05 matrix contains exact A07 spatial 1.5× and 2× routes through an
 explicit left-sited BT.709 video-range NV12 to linear RGBA16Float bridge. A08,
@@ -1021,11 +1049,21 @@ No unobserved quality, temporal, throughput, or memory value authorizes a claim.
 Local checkpoint: commit `73d6f1df9d9b443209d55a6c9deea29923d49bc4`,
 tree `90c45e2c583defc7aa593f9199512719884de0d0`, implements the frozen software
 contract. Its 39 focused Xcode tests, Swift typechecks, and strict lint pass.
-The result remains `diagnostic_only`: model-backed runtime subjects are
+That frozen result remains `diagnostic_only`: model-backed runtime subjects are
 `not_observed`, quality 1.5× is rejected by the public contract, production
 bootstrap remains unavailable, and no quality, performance, qualification,
-acceptance, publication, or release claim is made. R04 remains canonical
-`in_progress`.
+acceptance, publication, or release claim was made by that checkpoint.
+
+Additive acceptance: source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, passed 42 tests across four R04
+suites with zero failures and zero skips. The deterministic runtime verifies
+complete quality/low-latency 2× media transactions, capability-gated 1.5×,
+cancellation, media identity, reopen, resource release, atomic publication, and
+no fallback through the real R04 backends and production FIFO. R04 is `passed`
+only for `declared_software_function_only`; native/model/hardware observations
+and all production/default/quality/performance/publication/release claims remain
+outside that acceptance.
 
 ### R05 - MetalFX suitability decision
 

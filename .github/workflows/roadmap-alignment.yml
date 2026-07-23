@@ -20,13 +20,15 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
-    needs: r02-functional-acceptance
+    needs: [r02-functional-acceptance, r04-functional-acceptance]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Require passing R02 functional acceptance
-        run: test "${{ needs.r02-functional-acceptance.result }}" = "success"
+      - name: Require passing functional acceptances
+        run: |
+          test "${{ needs.r02-functional-acceptance.result }}" = "success"
+          test "${{ needs.r04-functional-acceptance.result }}" = "success"
 
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -50,6 +52,7 @@ jobs:
           Scripts/tests/test_r03_product_qualification.py
           Scripts/tests/test_r03_phase_acceptance.py
           Scripts/tests/test_r04_contracts.py
+          Scripts/tests/test_r04_phase_acceptance.py
           Scripts/tests/test_r05_contracts.py
           Scripts/tests/test_r06_contracts.py
           Scripts/tests/test_r07_contracts.py
@@ -127,6 +130,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then
             python3 Scripts/r04_contracts.py --check-conformance
           fi
+
+      - name: Verify R04 functional phase acceptance
+        run: python3 Scripts/r04_phase_acceptance.py --check
 
       - name: Verify R05 preregistration
         run: python3 Scripts/r05_contracts.py --check-preregistration
@@ -237,7 +243,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Materialize exact R02 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r02-eeabc422-source eeabc4224100bc8ed86ae1208189bee508844210
+
       - name: Run exact R02 selected tests
+        working-directory: /private/tmp/mirmir-r02-eeabc422-source
         run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived -resultBundlePath /private/tmp/mirmir-r02-eeabc422-v2.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/AppleUpscaleContractsTests -only-testing:MirmirTests/EnhancementPipelineContractsTests -only-testing:MirmirTests/AppleUpscaleFIFOSessionTests -only-testing:MirmirTests/R02FixtureConformanceTests -only-testing:MirmirTests/ArchitectureGuardrailTests/test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager -only-testing:MirmirTests/UpscalerEngineAvailabilityTests/test_unavailableServiceRejectsSubmissionWithTypedReason CODE_SIGNING_ALLOWED=NO
 
       - name: Validate raw R02 xcresult
@@ -254,6 +264,42 @@ jobs:
         with:
           name: r02-functional-acceptance-xcresult
           path: /private/tmp/mirmir-r02-eeabc422-v2.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r04-functional-acceptance:
+    name: R04 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R04 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r04-ab77e978-source ab77e97867d51168e90c0190f6430d4acd769e68
+
+      - name: Run exact R04 selected tests
+        working-directory: /private/tmp/mirmir-r04-ab77e978-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r04-ab77e978-derived -resultBundlePath /private/tmp/mirmir-r04-ab77e978.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R04VideoToolboxContractsTests -only-testing:MirmirTests/R04VideoToolboxSessionAdapterTests -only-testing:MirmirTests/UpscalerEngineAvailabilityTests -only-testing:MirmirTests/R04FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R04 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r04_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r04-ab77e978.xcresult
+
+      - name: Verify checked-in R04 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r04_phase_acceptance.py --check
+
+      - name: Upload raw R04 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r04-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r04-ab77e978.xcresult
           if-no-files-found: warn
           retention-days: 14
           include-hidden-files: true
