@@ -155,7 +155,17 @@ Comparison-based testing is outside the roadmap and supplies no acceptance
 dependency. Native Core AI, Xcode 27, model, hardware, simulator, and
 operator-observed execution remain `not_observed`. This contract does not
 authorize product qualification, a production default, Auto, pixel authority,
-R09 progression or residual execution, claims, publication, or release.
+R09 progression or residual execution by itself, claims, publication, or release.
+
+R09 may be `in_progress` only when the canonical authorization is
+`authorized_for_r09_bounded_experiment`, the repository-owned operator record
+binds accepted-R08 raw SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`
+and its implementation commit/tree, and the frozen R09 preregistration and
+fixture catalog validate. This permits deterministic bounded software
+implementation only. Comparison methods are excluded and non-authorizing;
+native observations may remain `not_observed`. Production, Auto, holdout,
+claims, publication, and release remain unauthorized.
 
 The operator's 2026-07-22 forward-acceptance decision applies prospectively to
 R04, R06, R08, R09, and later phases. Acceptance asks whether checkpoint-bound
@@ -168,9 +178,9 @@ Unavailable hardware, simulator, Xcode 27/Core AI framework, model, or operator
 observation is recorded as `not_observed` and does not block a separately
 identified deterministic software-function run. Such a run cannot claim native
 execution, model quality, performance, memory, specialization, AOT, or zero-copy
-facts. R09 residual work remains blocked until a separate explicit operator
-authorization is bound to accepted R08 functional evidence; no comparison grants
-that authority.
+facts. The operator's later `resume work` directive supplies the separate R09
+implementation authorization bound to accepted R08 functional evidence; no
+comparison grants that authority.
 
 R10 acceptance requires checkpoint-bound proof that its optimizer/calibration
 software is deterministic, finitely bounded, constraint-preserving, resumable,
@@ -188,7 +198,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -218,6 +228,7 @@ python3 Scripts/r07_phase_acceptance.py --check
 python3 Scripts/r08_contracts.py --check-preregistration
 python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
+python3 Scripts/r09_contracts.py --all
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

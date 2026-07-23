@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r09-preregistration-v1.json",
+  "title": "Mirmir R09 Core AI bounded-residual preregistration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "accepted_r08_binding",
+    "operator_authorization",
+    "observation_policy",
+    "acceptance_policy",
+    "fixture_catalog",
+    "schema_bindings",
+    "residual_proposal_contract",
+    "ash_authorization_contract",
+    "residual_application_contract",
+    "consistency_and_safety_contract",
+    "lifecycle_and_fallback_contract",
+    "checks",
+    "stop_rules",
+    "authorization_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "roadmap_version": {"const": "1.0.1"},
+    "phase_id": {"const": "R09"},
+    "preregistration_state": {"const": "contract_frozen_for_implementation"},
+    "accepted_r08_binding": {"$ref": "#/$defs/acceptedR08Binding"},
+    "operator_authorization": {"$ref": "#/$defs/binding"},
+    "observation_policy": {"$ref": "#/$defs/observationPolicy"},
+    "acceptance_policy": {"$ref": "#/$defs/acceptancePolicy"},
+    "fixture_catalog": {"$ref": "#/$defs/binding"},
+    "schema_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operator_authorization", "preregistration", "fixture_catalog"],
+      "properties": {
+        "operator_authorization": {"$ref": "#/$defs/binding"},
+        "preregistration": {"$ref": "#/$defs/binding"},
+        "fixture_catalog": {"$ref": "#/$defs/binding"}
+      }
+    },
+    "residual_proposal_contract": {"$ref": "#/$defs/residualProposalContract"},
+    "ash_authorization_contract": {"$ref": "#/$defs/ashAuthorizationContract"},
+    "residual_application_contract": {"$ref": "#/$defs/residualApplicationContract"},
+    "consistency_and_safety_contract": {"$ref": "#/$defs/consistencyAndSafetyContract"},
+    "lifecycle_and_fallback_contract": {"$ref": "#/$defs/lifecycleAndFallbackContract"},
+    "checks": {"$ref": "#/$defs/namedDescriptionArray"},
+    "stop_rules": {"$ref": "#/$defs/namedDescriptionArray"},
+    "authorization_boundary": {"$ref": "#/$defs/authorizationBoundary"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "size_bytes", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "size_bytes": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "acceptedR08Binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size_bytes",
+        "raw_sha256",
+        "phase_result",
+        "acceptance",
+        "acceptance_scope",
+        "implementation_commit",
+        "implementation_tree"
+      ],
+      "properties": {
+        "path": {"const": "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json"},
+        "size_bytes": {"const": 12334},
+        "raw_sha256": {"const": "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0"},
+        "phase_result": {"const": "passed"},
+        "acceptance": {"const": "accepted"},
+        "acceptance_scope": {"const": "declared_software_function_only"},
+        "implementation_commit": {"const": "368b9284883c189be6a1139df6208bf0e88139dd"},
+        "implementation_tree": {"const": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"}
+      }
+    },
+    "observationPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "physical_hardware_requirement",
+        "simulator_requirement",
+        "operator_observation_requirement",
+        "xcode27_environment",
+        "core_ai_framework_availability",
+        "model_asset_availability",
+        "native_model_execution",
+        "deterministic_fixture_simulation",
+        "unavailable_native_execution_blocks_phase",
+        "fabricated_native_or_model_results"
+      ],
+      "properties": {
+        "physical_hardware_requirement": {"const": "waived_not_a_blocker"},
+        "simulator_requirement": {"const": "waived_not_a_blocker"},
+        "operator_observation_requirement": {"const": "waived_not_a_blocker"},
+        "xcode27_environment": {"const": "not_observed"},
+        "core_ai_framework_availability": {"const": "not_observed"},
+        "model_asset_availability": {"const": "not_observed"},
+        "native_model_execution": {"const": "not_observed"},
+        "deterministic_fixture_simulation": {"const": "required_for_software_function_verification"},
+        "unavailable_native_execution_blocks_phase": {"const": false},
+        "fabricated_native_or_model_results": {"const": "forbidden"}
+      }
+    },
+    "acceptancePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "acceptance_authority",
+        "comparative_testing",
+        "a_b_testing",
+        "blinded_testing",
+        "ablation_testing",
+        "superiority_requirement",
+        "acceptance_dependency"
+      ],
+      "properties": {
+        "acceptance_authority": {"const": "deterministic_declared_software_function_only"},
+        "comparative_testing": {"const": "excluded_not_required_non_authorizing"},
+        "a_b_testing": {"const": "excluded_not_required_non_authorizing"},
+        "blinded_testing": {"const": "excluded_not_required_non_authorizing"},
+        "ablation_testing": {"const": "excluded_not_required_non_authorizing"},
+        "superiority_requirement": {"const": "excluded_not_required_non_authorizing"},
+        "acceptance_dependency": {"const": "none"}
+      }
+    },
+    "residualProposalContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "service_role",
+        "input_stage",
+        "input_identity",
+        "output_kind",
+        "numeric_encoding",
+        "residual_hard_minimum",
+        "residual_hard_maximum",
+        "pixel_domain",
+        "mask_and_confidence_domain",
+        "plane_ids",
+        "geometry",
+        "deterministic_fixture_provider_identity",
+        "final_frame_output",
+        "self_authorization",
+        "identity_fields",
+        "invalid_proposal_policy"
+      ],
+      "properties": {
+        "service_role": {"const": "proposal_only"},
+        "input_stage": {"const": "after_apple_native_primary_scaler"},
+        "input_identity": {"const": "frame_shot_stream_generation_and_primary_route_required"},
+        "output_kind": {"const": "planar_signed_residual_proposal"},
+        "numeric_encoding": {"const": "signed_q16"},
+        "residual_hard_minimum": {"const": -4096},
+        "residual_hard_maximum": {"const": 4096},
+        "pixel_domain": {"const": "unsigned_q16_zero_through_65536_inclusive"},
+        "mask_and_confidence_domain": {"const": "unsigned_q15_zero_through_32767_inclusive"},
+        "plane_ids": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {"enum": ["luma", "chromaCb", "chromaCr"]}
+        },
+        "geometry": {"const": "each_plane_width_and_height_1_through_64_and_sample_count_at_most_4096"},
+        "deterministic_fixture_provider_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model_id", "model_version", "content_sha256", "io_contract_sha256", "runtime_identity", "execution_mode", "native_execution"],
+          "properties": {
+            "model_id": {"const": "r09.deterministic-local-residual"},
+            "model_version": {"const": "1"},
+            "content_sha256": {"const": "81bf3a87d5c4fd925a369f7c715e67fd5878e4d0aef31415aea887d61ad152dd"},
+            "io_contract_sha256": {"const": "495455204df9134c2a3910807c33fbcf84ae21fdd1dc96817aecf6b5a2b6ff24"},
+            "runtime_identity": {"const": "r09.deterministic-residual-simulation.v1"},
+            "execution_mode": {"const": "deterministic_fixture_simulation"},
+            "native_execution": {"const": "not_observed"}
+          }
+        },
+        "final_frame_output": {"const": "forbidden"},
+        "self_authorization": {"const": "forbidden"},
+        "identity_fields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"enum": ["model_sha256", "model_version", "preprocessing_identity", "postprocessing_identity", "residual_contract_identity"]}
+        },
+        "invalid_proposal_policy": {"const": "reject_entire_proposal_and_return_exact_apple_only_frame"}
+      }
+    },
+    "ashAuthorizationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "binding",
+        "localized_mask",
+        "chroma_mapping",
+        "plan_supplied_bound_fields",
+        "confidence_fields",
+        "bound_range",
+        "receipt_echo",
+        "missing_or_mismatched_authorization"
+      ],
+      "properties": {
+        "authority": {"const": "ash_only"},
+        "binding": {"const": "frame_shot_stream_generation_and_primary_route_exact"},
+        "localized_mask": {"const": "required_and_excludes_protected_regions"},
+        "chroma_mapping": {"const": "each_two_by_two_luma_block_uses_minimum_eligibility_and_maximum_protection"},
+        "plan_supplied_bound_fields": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {"enum": ["luma_max_abs_q16", "chroma_cb_max_abs_q16", "chroma_cr_max_abs_q16", "content_max_abs_q16", "per_sample_edge_max_abs_q16", "source_consistency_max_delta_q16", "temporal_consistency_max_delta_q16", "memory_budget_bytes", "latency_budget_microseconds"]}
+        },
+        "confidence_fields": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {"enum": ["ash_actual_q15", "source_actual_q15", "temporal_actual_q15", "minimum_required_q15", "provider_output_q15"]}
+        },
+        "bound_range": {"const": "zero_through_residual_hard_maximum_inclusive_except_positive_resource_budgets"},
+        "receipt_echo": {"const": "every_supplied_bound_exact"},
+        "missing_or_mismatched_authorization": {"const": "bypass_exact_apple_only_frame"}
+      }
+    },
+    "residualApplicationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordering",
+        "deterministic_fixture_primary_scaler_identity",
+        "apple_only_snapshot",
+        "sample_eligibility",
+        "plane_limits",
+        "arithmetic",
+        "partial_application",
+        "success_output",
+        "failure_output"
+      ],
+      "properties": {
+        "ordering": {"const": "post_primary_scaler_pre_publication"},
+        "deterministic_fixture_primary_scaler_identity": {"const": "r03.mps.lanczos_with_deterministic_simulation_and_native_execution_not_observed"},
+        "apple_only_snapshot": {"const": "immutable_and_preserved"},
+        "sample_eligibility": {"const": "ash_authorized_and_not_protected_only"},
+        "plane_limits": {"const": "reject_on_any_absolute_residual_above_echoed_plan_bound"},
+        "arithmetic": {"const": "deterministic_saturating_application_after_all_checks_pass"},
+        "partial_application": {"const": "forbidden"},
+        "success_output": {"const": "corrected_frame_plus_unchanged_apple_only_frame_plus_complete_receipt"},
+        "failure_output": {"const": "exact_apple_only_frame_plus_typed_bypass_receipt"}
+      }
+    },
+    "consistencyAndSafetyContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_consistency",
+        "temporal_consistency",
+        "content_bound",
+        "edge_bound",
+        "face_identity",
+        "text_integrity",
+        "hallucination_risk",
+        "violation_policy"
+      ],
+      "properties": {
+        "source_consistency": {"const": "reference_identity_geometry_count_and_range_exact_then_same_sign_delta_and_echoed_cap"},
+        "temporal_consistency": {"const": "aligned_reference_identity_geometry_count_and_range_exact_then_same_sign_delta_and_echoed_cap"},
+        "content_bound": {"const": "typed_request_data_must_not_exceed_residual_hard_maximum"},
+        "edge_bound": {"const": "per_sample_typed_request_data_must_not_exceed_residual_hard_maximum"},
+        "face_identity": {"const": "protected_region_residual_forbidden"},
+        "text_integrity": {"const": "protected_region_residual_forbidden"},
+        "hallucination_risk": {"const": "reject_when_declared_risk_is_present"},
+        "violation_policy": {"const": "transactional_bypass_without_pixel_or_state_commit"}
+      }
+    },
+    "lifecycleAndFallbackContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "single_inflight_transaction",
+        "cancellation",
+        "budget_source",
+        "budget_receipt",
+        "fallback_triggers",
+        "fallback_result",
+        "state_commit"
+      ],
+      "properties": {
+        "single_inflight_transaction": {"const": true},
+        "cancellation": {"const": "no_corrected_frame_no_partial_pixels_no_state_commit"},
+        "budget_source": {"const": "request_supplied_bounded_software_contract"},
+        "budget_receipt": {"const": "supplied_and_observed_values_required"},
+        "fallback_triggers": {
+          "type": "array",
+          "minItems": 12,
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {"enum": ["disabled", "framework_unavailable", "model_asset_absent", "identity_invalid", "authorization_missing_or_mismatched", "proposal_invalid", "bound_exceeded", "source_inconsistent", "temporal_inconsistent", "hallucination_risk", "cancelled", "budget_exceeded"]}
+        },
+        "fallback_result": {"const": "exact_apple_only_frame_with_typed_reason"},
+        "state_commit": {"const": "only_after_complete_success"}
+      }
+    },
+    "namedDescription": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "description": {"type": "string", "minLength": 1}
+      }
+    },
+    "namedDescriptionArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/namedDescription"}
+    },
+    "authorizationBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_ai_pixel_residual",
+        "phase_acceptance",
+        "production_default",
+        "auto_mode",
+        "holdout",
+        "quality_claims",
+        "performance_claims",
+        "publication",
+        "release",
+        "fixture_execution"
+      ],
+      "properties": {
+        "core_ai_pixel_residual": {"const": "authorized_for_r09_bounded_experiment"},
+        "phase_acceptance": {"const": "not_claimed_by_preregistration"},
+        "production_default": {"const": "not_authorized"},
+        "auto_mode": {"const": "not_authorized"},
+        "holdout": {"const": "not_authorized"},
+        "quality_claims": {"const": "not_authorized"},
+        "performance_claims": {"const": "not_authorized"},
+        "publication": {"const": "not_authorized"},
+        "release": {"const": "not_authorized"},
+        "fixture_execution": {"const": "local_deterministic_software_simulation_only"}
+      }
+    }
+  }
+}

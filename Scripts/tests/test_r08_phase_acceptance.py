@@ -331,8 +331,10 @@ class R08PhaseAcceptanceTests(unittest.TestCase):
             root = Path(temporary)
             test_path = Path("Tests/R08FixtureTests.swift")
             contract_path = Path("Evidence/contract.json")
+            project_path = Path("Mirmir.xcodeproj/project.pbxproj")
             (root / test_path).parent.mkdir(parents=True)
             (root / contract_path).parent.mkdir(parents=True)
+            (root / project_path).parent.mkdir(parents=True)
             (root / test_path).write_text(
                 "final class R08FixtureTests: XCTestCase {\n"
                 "    func testDeclaredFunction() {}\n"
@@ -341,6 +343,7 @@ class R08PhaseAcceptanceTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / contract_path).write_text("{}\n", encoding="utf-8")
+            (root / project_path).write_text("R08 project\n", encoding="utf-8")
             for arguments in (
                 ("init", "-q"),
                 ("config", "user.email", "tests@example.invalid"),
@@ -355,7 +358,7 @@ class R08PhaseAcceptanceTests(unittest.TestCase):
             verifier = R08PhaseAcceptanceVerifier(
                 root,
                 contract_paths=(("contract", contract_path),),
-                implementation_paths=(),
+                implementation_paths=(("xcode_project", project_path),),
                 test_suites=(("R08FixtureTests", test_path),),
                 functional_test_methods=((
                     "declared_function",
@@ -382,8 +385,28 @@ class R08PhaseAcceptanceTests(unittest.TestCase):
             wrong_tree["tree"] = "3" * 40
             self.assertTrue(verifier._source_errors(wrong_tree))
             (root / contract_path).write_text('{"changed":true}\n', encoding="utf-8")
+            self.assertEqual(
+                verifier._checkpoint_file_errors(
+                    source, verifier.contract_paths, "contract evidence"
+                ),
+                [],
+            )
+            checkpoint_project_bindings = verifier.implementation_bindings(source)
+            (root / project_path).write_text("R09 project\n", encoding="utf-8")
+            self.assertEqual(
+                verifier._checkpoint_file_errors(
+                    source, verifier.implementation_paths, "implementation"
+                ),
+                [],
+            )
+            self.assertEqual(
+                verifier.implementation_bindings(source),
+                checkpoint_project_bindings,
+            )
             self.assertTrue(verifier._checkpoint_file_errors(
-                source, verifier.contract_paths, "contract evidence"
+                source,
+                (("missing", Path("Evidence/missing.json")),),
+                "contract evidence",
             ))
 
             (root / test_path).write_text(

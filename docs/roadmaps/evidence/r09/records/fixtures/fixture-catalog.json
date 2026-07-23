@@ -1,0 +1,174 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R09",
+  "contract_id": "r09-core-ai-bounded-residual-fixtures-v1",
+  "accepted_r08_binding": {
+    "raw_sha256": "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0",
+    "implementation_commit": "368b9284883c189be6a1139df6208bf0e88139dd",
+    "implementation_tree": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"
+  },
+  "fixture_parameters": {
+    "numeric_encoding": "signed_q16",
+    "residual_minimum": -4096,
+    "residual_maximum": 4096,
+    "spatial_width": 2,
+    "spatial_height": 2,
+    "simulation_identity": "r09.deterministic-bounded-residual-fixture-simulation.v1",
+    "fixture_value_scope": "software_test_inputs_not_product_or_quality_thresholds",
+    "native_core_ai_execution": "not_observed",
+    "model_asset_execution": "not_observed",
+    "physical_hardware_execution": "not_observed",
+    "simulator_execution": "not_observed",
+    "operator_observation": "not_observed"
+  },
+  "authorization_fixtures": [
+    {
+      "id": "authorization-valid-exact",
+      "inputs": {
+        "frame_id": "frame-7",
+        "shot_id": "shot-2",
+        "stream_generation": 3,
+        "primary_route": "r03.mps.lanczos",
+        "authorization_scope": "deterministic_simulation_only",
+        "plane_caps_q16": {"luma": 4096, "chromaCb": 2048, "chromaCr": 2048},
+        "content_cap_q16": 3072,
+        "edge_caps_q16": [3072, 3072, 3072, 3072],
+        "source_consistency_cap_q16": 4096,
+        "temporal_consistency_cap_q16": 4096,
+        "confidence_q15": {
+          "ash_actual": 24576,
+          "source_actual": 24576,
+          "temporal_actual": 24576,
+          "provider_output": 24576,
+          "minimum_required": 16384
+        },
+        "resource_budget": {"memory_bytes": 8192, "latency_microseconds": 2000}
+      },
+      "expected": {
+        "disposition": "authorized_for_proposal_evaluation",
+        "receipt_echoes_every_bound": true,
+        "model_self_authorized": false
+      }
+    },
+    {
+      "id": "authorization-frame-shot-route-mismatch",
+      "inputs": {
+        "request_identity": {"frame_id": "frame-7", "shot_id": "shot-2", "stream_generation": 3, "primary_route": "r03.mps.lanczos"},
+        "authorization_identity": {"frame_id": "frame-8", "shot_id": "shot-3", "stream_generation": 4, "primary_route": "different-route"}
+      },
+      "expected": {
+        "disposition": "bypassed",
+        "reason": "authorization_missing_or_mismatched",
+        "apple_output": "apple_scaler_output_unmodified"
+      }
+    },
+    {
+      "id": "authorization-protected-region-excluded",
+      "inputs": {
+        "ash_approval_q15": [32767, 32767, 32767, 32767],
+        "protected_q15": [0, 32767, 32767, 0]
+      },
+      "expected": {
+        "eligible_sample_indices": [0, 3],
+        "face_or_text_sample_authorized": false,
+        "chroma_mapping": "minimum_eligibility_maximum_protection_per_two_by_two_luma_block"
+      }
+    }
+  ],
+  "application_fixtures": [
+    {
+      "id": "proposal-bounded-mixed-sign",
+      "inputs": {
+        "plane_ids": ["luma", "chromaCb", "chromaCr"],
+        "residuals_q16": {"luma": [1024, -1024, 2048, -2048], "chromaCb": [512, -512, 1024, -1024], "chromaCr": [256, -256, 768, -768]},
+        "provider_output_confidence_q15": 24576
+      },
+      "expected": {
+        "disposition": "accepted_proposal",
+        "final_frame_output_by_provider": false,
+        "identity_complete": true
+      }
+    },
+    {
+      "id": "proposal-hard-limit-boundary",
+      "inputs": {"residuals_q16": [-4096, 4096]},
+      "expected": {"disposition": "accepted_proposal", "boundary_inclusive": true}
+    },
+    {
+      "id": "proposal-plane-limit-exceeded",
+      "inputs": {"plane_id": "chromaCb", "plane_cap_q16": 2048, "residual_q16": 2049},
+      "expected": {"disposition": "bypassed", "reason": "bound_exceeded", "partial_application": false}
+    },
+    {
+      "id": "proposal-invalid-identity-count-or-range",
+      "inputs": {"identity_complete": false, "plane_count": 2, "sample_q16": 4097},
+      "expected": {"disposition": "bypassed", "reason": "invalid_provider_output", "state_committed": false}
+    }
+  ],
+  "safety_fixtures": [
+    {
+      "id": "consistency-same-sign-bounded",
+      "inputs": {"raw_residual_q16": 4096, "source_delta_q16": 2048, "temporal_delta_q16": 1024, "source_cap_q16": 4096, "temporal_cap_q16": 4096, "plane_cap_q16": 4096, "content_cap_q16": 3072, "edge_cap_q16": 3072},
+      "expected": {"eligible": true, "bounded_magnitude_before_mask_attenuation_q16": 1024}
+    },
+    {
+      "id": "consistency-sign-mismatch",
+      "inputs": {"raw_residual_q16": 1024, "source_delta_q16": 1024, "temporal_delta_q16": -1024},
+      "expected": {"eligible": false, "disposition": "bypassed", "reason": "source_or_temporal_inconsistency"}
+    },
+    {
+      "id": "safety-content-and-edge-bounds",
+      "inputs": {"raw_residual_q16": 4096, "content_cap_q16": 3072, "edge_cap_q16": 1024},
+      "expected": {"bounded_magnitude_q16": 1024, "bound_source": "local_edge_cap"}
+    },
+    {
+      "id": "safety-hallucination-risk",
+      "inputs": {"hallucination_risk_present": true},
+      "expected": {"disposition": "bypassed", "reason": "hallucination_risk", "apple_output": "apple_scaler_output_unmodified"}
+    },
+    {
+      "id": "safety-low-confidence",
+      "inputs": {"role": "temporal", "actual_q15": 16383, "minimum_required_q15": 16384},
+      "expected": {"disposition": "bypassed", "reason": "low_confidence", "reason_role": "temporal"}
+    }
+  ],
+  "lifecycle_fixtures": [
+    {
+      "id": "lifecycle-deterministic-repeatability",
+      "inputs": {"identical_request_count": 2, "runtime_identity": "r09.deterministic-residual-simulation.v1"},
+      "expected": {"proposal_bytes_identical": true, "receipt_identity_identical": true}
+    },
+    {
+      "id": "lifecycle-cancelled",
+      "inputs": {"cancelled_before_commit": true},
+      "expected": {"disposition": "bypassed", "reason": "cancelled", "partial_pixels": false, "state_committed": false}
+    },
+    {
+      "id": "lifecycle-resource-boundary",
+      "inputs": {"measured_memory_bytes": 4096, "measured_latency_microseconds": 1000, "memory_budget_bytes": 8192, "latency_budget_microseconds": 2000},
+      "expected": {"within_budget": true, "receipt_echoes_budget_and_measurement": true}
+    },
+    {
+      "id": "lifecycle-resource-exceeded",
+      "inputs": {"role": "memory", "measured_memory_bytes": 8193, "memory_budget_bytes": 8192},
+      "expected": {"disposition": "bypassed", "reason": "resource_budget_exceeded", "reason_role": "memory"}
+    }
+  ],
+  "boundary_fixtures": [
+    {
+      "id": "boundary-comparison-methods-absent",
+      "inputs": {"comparative_testing_run": false, "a_b_testing_run": false, "blinded_testing_run": false, "ablation_testing_run": false, "superiority_testing_run": false},
+      "expected": {"software_verification_may_continue": true, "acceptance_dependency": "none"}
+    },
+    {
+      "id": "boundary-native-observations-not-observed",
+      "inputs": {"native_core_ai_execution": "not_observed", "model_asset_execution": "not_observed", "physical_hardware_execution": "not_observed", "simulator_execution": "not_observed", "operator_observation": "not_observed"},
+      "expected": {"phase_blocked": false, "native_claim_created": false, "simulation_truthful": true}
+    },
+    {
+      "id": "boundary-production-authority-absent",
+      "inputs": {"requested_action": "enable_production_default_auto_or_release"},
+      "expected": {"disposition": "rejected", "production_default": "not_authorized", "auto_mode": "not_authorized", "release": "not_authorized"}
+    }
+  ]
+}

@@ -54,9 +54,8 @@ decision, forward acceptance asks whether the software performs the task and
 honors the boundaries it claims. Comparison-based testing is outside the forward
 roadmap and carries no acceptance authority. Unavailable Xcode 27/Core AI
 native execution is supplemental `not_observed` evidence rather than a blocker
-to deterministic software-function implementation. R09 residual work remains
-separately blocked pending explicit operator authorization after accepted R08
-functional evidence.
+to deterministic software-function implementation. The later operator `resume
+work` directive separately authorizes the bounded R09 experiment.
 
 The additive R08 functional receipt and phase-acceptance record bind
 implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
@@ -69,7 +68,17 @@ no-pixel-authority behavior. Comparison-based testing supplied no acceptance
 evidence or authority. Native Core AI, Xcode 27, model, hardware,
 simulator, and operator-observed execution remain `not_observed`; no native,
 product, quality, performance, production-default, Auto, publication, or release
-claim follows. R09 remains `blocked` pending separate operator authorization.
+claim follows. R09 is now `in_progress` under its separate operator authorization
+and exact accepted-R08 evidence binding.
+
+R09's repository-owned authorization binds accepted-R08 raw SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`,
+implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, and tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. Its preregistration permits only
+bounded post-scaler, ASH-authorized deterministic software behavior. Comparison
+methods are excluded and non-authorizing; native/model/hardware/simulator/
+operator observations remain `not_observed`. Production default, Auto, holdout,
+claims, publication, and release remain unauthorized.
 
 The same forward-gate correction applies to later phases. R10 accepts on direct
 proof of deterministic bounded optimizer/calibration behavior. R11 accepts on
@@ -136,7 +145,7 @@ disabled.
 
 Verified source hashes:
 
-- Markdown: `64328a88ae4c1c9c0af10332790bfdf8c2cfcb111a7e6f4c25e8ba1f66087ff6`
-- JSON: `a10812f99aaca870bc14445e93fe9f12fb275dd3af15acc1b16f74bcf04ff69e`
+- Markdown: `f8956519a24d0a25c8801239a1d9f2e6c469b0c878fb7c034b8f25b3ff08484c`
+- JSON: `2e5b6b7af7408f24fec08aa74624effd11b32917b845a82e5dfce4dda582ca5c`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

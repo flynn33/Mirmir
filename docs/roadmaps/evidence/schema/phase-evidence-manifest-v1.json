@@ -457,7 +457,7 @@
             "rejected_for_decoded_video",
             "qualified_local_residual",
             "qualified_for_specific_content_class",
-            "no_incremental_value",
+            "rejected_no_safe_residual_path",
             "rejected_hallucination_risk",
             "rejected_resource_cost"
           ]

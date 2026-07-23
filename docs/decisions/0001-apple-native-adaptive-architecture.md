@@ -92,8 +92,10 @@ fixture simulation. Comparison-based testing supplied no acceptance authority.
 Native Core AI, Xcode 27, model, hardware, simulator, and
 operator-observed execution remain `not_observed`; the acceptance creates no
 native, product, quality, performance, production-default, Auto, publication,
-or release claim. Core AI pixel residual work remains blocked in R09 pending a
-separate explicit operator authorization.
+or release claim. That R08 acceptance did not itself authorize Core AI pixel
+residual work. A later 2026-07-22 operator directive separately authorized only
+the bounded R09 experiment, which remains `in_progress` pending its own
+checkpoint-bound functional acceptance.
 
 ## Authorization Boundary
 

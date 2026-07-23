@@ -1,0 +1,167 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R09",
+  "preregistration_state": "contract_frozen_for_implementation",
+  "accepted_r08_binding": {
+    "path": "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
+    "size_bytes": 12334,
+    "raw_sha256": "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0",
+    "phase_result": "passed",
+    "acceptance": "accepted",
+    "acceptance_scope": "declared_software_function_only",
+    "implementation_commit": "368b9284883c189be6a1139df6208bf0e88139dd",
+    "implementation_tree": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"
+  },
+  "operator_authorization": {
+    "path": "docs/roadmaps/evidence/r09/records/operator-authorization.json",
+    "size_bytes": 1563,
+    "sha256": "6e87a981ee4880d325b9db78bdb9d4dbfa1022a5194d3841e7c0c97e341e34a5"
+  },
+  "observation_policy": {
+    "physical_hardware_requirement": "waived_not_a_blocker",
+    "simulator_requirement": "waived_not_a_blocker",
+    "operator_observation_requirement": "waived_not_a_blocker",
+    "xcode27_environment": "not_observed",
+    "core_ai_framework_availability": "not_observed",
+    "model_asset_availability": "not_observed",
+    "native_model_execution": "not_observed",
+    "deterministic_fixture_simulation": "required_for_software_function_verification",
+    "unavailable_native_execution_blocks_phase": false,
+    "fabricated_native_or_model_results": "forbidden"
+  },
+  "acceptance_policy": {
+    "acceptance_authority": "deterministic_declared_software_function_only",
+    "comparative_testing": "excluded_not_required_non_authorizing",
+    "a_b_testing": "excluded_not_required_non_authorizing",
+    "blinded_testing": "excluded_not_required_non_authorizing",
+    "ablation_testing": "excluded_not_required_non_authorizing",
+    "superiority_requirement": "excluded_not_required_non_authorizing",
+    "acceptance_dependency": "none"
+  },
+  "fixture_catalog": {
+    "path": "docs/roadmaps/evidence/r09/records/fixtures/fixture-catalog.json",
+    "size_bytes": 7659,
+    "sha256": "45f537b51bb50dce5351201d458cec07e3cb2aa9a6c57aa3a36dc90d0d1b3642"
+  },
+  "schema_bindings": {
+    "operator_authorization": {
+      "path": "docs/roadmaps/evidence/schema/r09-operator-authorization-v1.json",
+      "size_bytes": 3582,
+      "sha256": "fb61510eca9f5892772a22f56757cdbc8f5e51144bbc075844485b8e312adcc0"
+    },
+    "preregistration": {
+      "path": "docs/roadmaps/evidence/schema/r09-preregistration-v1.json",
+      "size_bytes": 15612,
+      "sha256": "a7999e88e7ab69a4fb993b0d9a978b30d9b51ae8b7b73d26ebf8df1614f3e817"
+    },
+    "fixture_catalog": {
+      "path": "docs/roadmaps/evidence/schema/r09-fixture-catalog-v1.json",
+      "size_bytes": 3298,
+      "sha256": "6e80af2714c8301f21d6f381bceab2880ff48c94e0b723985039f1e24014939c"
+    }
+  },
+  "residual_proposal_contract": {
+    "service_role": "proposal_only",
+    "input_stage": "after_apple_native_primary_scaler",
+    "input_identity": "frame_shot_stream_generation_and_primary_route_required",
+    "output_kind": "planar_signed_residual_proposal",
+    "numeric_encoding": "signed_q16",
+    "residual_hard_minimum": -4096,
+    "residual_hard_maximum": 4096,
+    "pixel_domain": "unsigned_q16_zero_through_65536_inclusive",
+    "mask_and_confidence_domain": "unsigned_q15_zero_through_32767_inclusive",
+    "plane_ids": ["luma", "chromaCb", "chromaCr"],
+    "geometry": "each_plane_width_and_height_1_through_64_and_sample_count_at_most_4096",
+    "deterministic_fixture_provider_identity": {
+      "model_id": "r09.deterministic-local-residual",
+      "model_version": "1",
+      "content_sha256": "81bf3a87d5c4fd925a369f7c715e67fd5878e4d0aef31415aea887d61ad152dd",
+      "io_contract_sha256": "495455204df9134c2a3910807c33fbcf84ae21fdd1dc96817aecf6b5a2b6ff24",
+      "runtime_identity": "r09.deterministic-residual-simulation.v1",
+      "execution_mode": "deterministic_fixture_simulation",
+      "native_execution": "not_observed"
+    },
+    "final_frame_output": "forbidden",
+    "self_authorization": "forbidden",
+    "identity_fields": ["model_sha256", "model_version", "preprocessing_identity", "postprocessing_identity", "residual_contract_identity"],
+    "invalid_proposal_policy": "reject_entire_proposal_and_return_exact_apple_only_frame"
+  },
+  "ash_authorization_contract": {
+    "authority": "ash_only",
+    "binding": "frame_shot_stream_generation_and_primary_route_exact",
+    "localized_mask": "required_and_excludes_protected_regions",
+    "chroma_mapping": "each_two_by_two_luma_block_uses_minimum_eligibility_and_maximum_protection",
+    "plan_supplied_bound_fields": ["luma_max_abs_q16", "chroma_cb_max_abs_q16", "chroma_cr_max_abs_q16", "content_max_abs_q16", "per_sample_edge_max_abs_q16", "source_consistency_max_delta_q16", "temporal_consistency_max_delta_q16", "memory_budget_bytes", "latency_budget_microseconds"],
+    "confidence_fields": ["ash_actual_q15", "source_actual_q15", "temporal_actual_q15", "minimum_required_q15", "provider_output_q15"],
+    "bound_range": "zero_through_residual_hard_maximum_inclusive_except_positive_resource_budgets",
+    "receipt_echo": "every_supplied_bound_exact",
+    "missing_or_mismatched_authorization": "bypass_exact_apple_only_frame"
+  },
+  "residual_application_contract": {
+    "ordering": "post_primary_scaler_pre_publication",
+    "deterministic_fixture_primary_scaler_identity": "r03.mps.lanczos_with_deterministic_simulation_and_native_execution_not_observed",
+    "apple_only_snapshot": "immutable_and_preserved",
+    "sample_eligibility": "ash_authorized_and_not_protected_only",
+    "plane_limits": "reject_on_any_absolute_residual_above_echoed_plan_bound",
+    "arithmetic": "deterministic_saturating_application_after_all_checks_pass",
+    "partial_application": "forbidden",
+    "success_output": "corrected_frame_plus_unchanged_apple_only_frame_plus_complete_receipt",
+    "failure_output": "exact_apple_only_frame_plus_typed_bypass_receipt"
+  },
+  "consistency_and_safety_contract": {
+    "source_consistency": "reference_identity_geometry_count_and_range_exact_then_same_sign_delta_and_echoed_cap",
+    "temporal_consistency": "aligned_reference_identity_geometry_count_and_range_exact_then_same_sign_delta_and_echoed_cap",
+    "content_bound": "typed_request_data_must_not_exceed_residual_hard_maximum",
+    "edge_bound": "per_sample_typed_request_data_must_not_exceed_residual_hard_maximum",
+    "face_identity": "protected_region_residual_forbidden",
+    "text_integrity": "protected_region_residual_forbidden",
+    "hallucination_risk": "reject_when_declared_risk_is_present",
+    "violation_policy": "transactional_bypass_without_pixel_or_state_commit"
+  },
+  "lifecycle_and_fallback_contract": {
+    "single_inflight_transaction": true,
+    "cancellation": "no_corrected_frame_no_partial_pixels_no_state_commit",
+    "budget_source": "request_supplied_bounded_software_contract",
+    "budget_receipt": "supplied_and_observed_values_required",
+    "fallback_triggers": ["disabled", "framework_unavailable", "model_asset_absent", "identity_invalid", "authorization_missing_or_mismatched", "proposal_invalid", "bound_exceeded", "source_inconsistent", "temporal_inconsistent", "hallucination_risk", "cancelled", "budget_exceeded"],
+    "fallback_result": "exact_apple_only_frame_with_typed_reason",
+    "state_commit": "only_after_complete_success"
+  },
+  "checks": [
+    {"id": "accepted_r08_binding_exact", "description": "Require the exact raw accepted R08 record plus its implementation commit and tree."},
+    {"id": "operator_authorization_exact", "description": "Require the separate operator directive and authorized-for-R09 canonical value."},
+    {"id": "schemas_and_fixture_catalog_exact", "description": "Require byte-exact schemas and deterministic fixture catalog."},
+    {"id": "observation_policy_truthful", "description": "Keep unavailable native, model, hardware, simulator, and operator observations not_observed and non-blocking."},
+    {"id": "proposal_identity_geometry_and_range_exact", "description": "Require exact identities, all three planes, bounded geometry, domains, and residual hard limits."},
+    {"id": "ash_authorization_and_bounds_exact", "description": "Require exact ASH binding, localization, supplied limits, confidence, and receipt echo."},
+    {"id": "source_temporal_and_protection_exact", "description": "Require source, temporal, face, text, content, edge, and hallucination safeguards."},
+    {"id": "apple_only_transactional_fallback_exact", "description": "Require immutable Apple-only rollback and forbid partial pixel or state commits."},
+    {"id": "lifecycle_cancellation_and_budget_exact", "description": "Require deterministic single-flight, cancellation, supplied budgets, and typed bypass."},
+    {"id": "comparison_methods_absent_non_authorizing", "description": "Exclude comparative, A/B, blinded, ablation, and superiority methods from acceptance."}
+  ],
+  "stop_rules": [
+    {"id": "accepted_r08_drift", "description": "Stop on any raw R08 acceptance, implementation commit, or tree drift."},
+    {"id": "authorization_or_contract_byte_drift", "description": "Stop on authorization, schema, fixture, or frozen preregistration drift."},
+    {"id": "fabricated_native_or_model_observation", "description": "Stop any invented native, model, hardware, simulator, operator, quality, or performance result."},
+    {"id": "provider_authority_or_final_frame_violation", "description": "Stop model self-authorization or provider-produced final frames."},
+    {"id": "identity_geometry_range_or_plane_violation", "description": "Stop incomplete identity, plane, geometry, count, domain, or hard-limit behavior."},
+    {"id": "ash_authorization_or_bound_violation", "description": "Stop missing binding, protected-region exposure, unbounded values, or receipt mismatch."},
+    {"id": "source_temporal_content_edge_or_hallucination_violation", "description": "Stop any missing declared safety check."},
+    {"id": "partial_application_or_rollback_violation", "description": "Stop partial correction or mutation of the Apple-only fallback."},
+    {"id": "comparison_gate_reintroduction", "description": "Stop any comparison-based R09 acceptance prerequisite or authority."},
+    {"id": "production_or_claim_authority_expansion", "description": "Stop production, Auto, holdout, claim, publication, or release authority expansion."}
+  ],
+  "authorization_boundary": {
+    "core_ai_pixel_residual": "authorized_for_r09_bounded_experiment",
+    "phase_acceptance": "not_claimed_by_preregistration",
+    "production_default": "not_authorized",
+    "auto_mode": "not_authorized",
+    "holdout": "not_authorized",
+    "quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "publication": "not_authorized",
+    "release": "not_authorized",
+    "fixture_execution": "local_deterministic_software_simulation_only"
+  }
+}

@@ -16,7 +16,7 @@
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
-- Roadmap phase `R09`: `blocked` pending separate operator authorization
+- Roadmap phase `R09`: `in_progress` for the authorized bounded experiment
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -97,9 +97,9 @@ deterministic software function: typed analysis outputs, identity, cadence,
 decision-context integration, lifecycle, budgets, cancellation, no final-pixel
 output, and deterministic bypass must work as claimed. Comparison-based testing
 is outside the forward roadmap. Native Xcode 27/Core AI execution is
-supplemental and remains `not_observed` when unavailable. R09 pixel residual work
-remains separately blocked pending explicit operator authorization after accepted
-R08 functional evidence.
+supplemental and remains `not_observed` when unavailable. R08 itself supplied no
+residual authority; the later operator `resume work` directive separately starts
+R09 under an exact accepted-R08 evidence binding.
 
 The R08 implementation checkpoint
 `368b9284883c189be6a1139df6208bf0e88139dd`, tree
@@ -115,6 +115,20 @@ acceptance authority. Native Core AI, Xcode 27, model,
 hardware, simulator, and operator-observed execution remain `not_observed`; the
 fixed five-module composition and unavailable product route remain unchanged.
 
+R09 binds raw accepted-R08 evidence SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`,
+implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, and tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. Its architecture is a bounded
+post-primary-scaler stage: the model may propose three-plane signed residuals,
+but ASH alone authorizes localized application and supplies the plane, content,
+edge, source, temporal, confidence, and resource bounds. Every request binds the
+frame, shot, stream generation, primary route, model, processing, and contract
+identity. The Apple-only result is immutable and is returned on every mismatch,
+safety failure, cancellation, or budget failure. Deterministic fixture values
+are software-test inputs, not product thresholds. Native execution remains
+`not_observed`; production default, Auto, claims, publication, and release stay
+unauthorized.
+
 The later R10/R11 control boundary follows the same software-function rule. R10
 must implement a deterministic, finitely bounded, constraint-preserving,
 resumable optimizer/calibration service. R11 must implement traceable evidence
@@ -128,8 +142,9 @@ The target data flow is AVFoundation decode, source profiling, capability
 discovery, deterministic ASH orchestration, an immutable enhancement plan,
 qualified Apple-native backend sessions, postflight quality monitoring, and
 AVFoundation encode/reopen verification. ASH becomes the control, temporal
-governance, policy, and explainability layer. Core AI remains optional and begins
-with analysis; pixel residual work is separately blocked.
+governance, policy, and explainability layer. Core AI remains optional, begins
+with analysis, and now permits only the separately authorized bounded R09
+experiment; production residual routing remains disabled.
 
 The current module inventory below is retained implementation evidence. Planned
 interfaces and backends are not represented as implemented until their roadmap

@@ -88,8 +88,8 @@
   run or required; R08 is `passed`
 - **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: passed`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
-  `R07: passed`; `R08: passed`; `R09: blocked` pending separate operator
-  authorization
+  `R07: passed`; `R08: passed`; `R09: in_progress` under the separate operator
+  `resume work` authorization
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -347,9 +347,10 @@ observation. Its absence does not block framework-neutral implementation,
 deterministic fixture simulation, lifecycle and decision-context integration,
 deterministic bypass, or software-function acceptance. Native Core AI execution,
 specialization, AOT, zero-copy, model quality, performance, and memory remain
-`not_observed` unless actually measured. R09 remains blocked pending a separate
-explicit operator authorization after accepted R08 functional evidence; no
-comparison or ablation grants that authority.
+`not_observed` unless actually measured. R08 supplied no residual authority by
+itself. The later operator `resume work` directive separately starts R09 and is
+bound to the exact accepted-R08 record; no comparison or ablation grants that
+authority.
 
 R08 implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
 `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`, passed all 42 checkpoint-bound
@@ -359,7 +360,8 @@ simulation. It verifies the declared analysis contracts, identity, scheduling,
 state, cancellation, cache, budgets, bounded ASH-context integration,
 deterministic bypass, and no-pixel-authority boundary. No A/B, blind, ablation,
 comparative, or superiority test was run or required. R08 is `passed`; every
-native-only observation remains `not_observed`, and R09 remains `blocked`.
+native-only observation remains `not_observed`. R09 is now `in_progress` only
+for the separately authorized bounded experiment.
 
 ## 1. Resume instructions
 
@@ -372,7 +374,7 @@ Before changing source:
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
    `R03: passed`, `R04: in_progress`, `R05: in_progress`,
-   `R06: in_progress`, `R07: passed`, `R08: passed`, and `R09: blocked` remain
+   `R06: in_progress`, `R07: passed`, `R08: passed`, and `R09: in_progress` remain
    canonical. If any changed, reconcile the newer accepted roadmap before
    proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
@@ -1138,11 +1140,22 @@ Qualification for a narrow use or an explicit safety, hallucination-risk, or
 resource-cost rejection are valid outcomes. The residual is never required to
 ship.
 
-The exact canonical change is
-`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`, bound in policy
-to the accepted R08 functional evidence-manifest SHA-256. R09 cannot start until
-that change is operator-reviewed and merged and the operator separately directs
-the applicable implementation or publication action.
+The operator's 2026-07-22 `resume work` directive supplies the separate
+implementation authorization. The exact canonical value is now
+`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`. The policy and
+repository-owned authorization record bind raw accepted-R08 SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`,
+implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, and tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. R09 is `in_progress`.
+
+Freeze exact software contracts and fixtures before implementation. Acceptance
+is based only on deterministic declared-software-function behavior. Exclude A/B,
+comparative, blinded, ablation, and superiority gates. Deterministic simulation
+is permitted and must identify itself truthfully. Keep native Core AI, model,
+hardware, simulator, and operator observations `not_observed` when unavailable.
+Fixture numeric values are software-test inputs, not product thresholds or
+quality evidence. Production default, Auto, holdout, claims, publication, and
+release remain unauthorized.
 
 ### R10 - Auto-policy optimization and bounded calibration
 
@@ -1227,8 +1240,9 @@ forward roadmap and never supplies or withholds phase-acceptance authority.
 Do not reinterpret negative evidence as success except where the roadmap defines
 an explicit diagnostic or rejection outcome. R05 and R09 rejections can be valid
 phase outcomes. R08 requires its deterministic software-function gate to pass;
-comparative results contribute no acceptance authority. R09 remains blocked
-until a separate operator authorization after accepted R08 functional evidence.
+comparative results contribute no acceptance authority. R09 is `in_progress`
+under the separate operator `resume work` authorization bound to accepted R08
+functional evidence.
 R10 requires deterministic bounded optimizer/calibration behavior. R11 requires
 traceable evidence and claim-scope behavior with an honest no-claim disposition.
 `market_leading_claim` remains blocked without exact supporting evidence and
@@ -1242,13 +1256,13 @@ reinterpret the frozen product-gate result.
 
 R07 was accepted and merged at
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
-`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. R08 now proceeds through the normal
-accepted-dependency path and is `in_progress`; it is not another unpublished
-local-continuation exception. R06 remains `in_progress` and unaccepted, and the
-frozen R06/R07 negative product records remain unchanged.
+`eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`. R08 passed under the normal
+accepted-dependency path; it was not another unpublished local-continuation
+exception. R06 remains `in_progress` and unaccepted, and the frozen R06/R07
+negative product records remain unchanged.
 
-R08 may implement and accept deterministic software function while unavailable
-native Core AI observations remain `not_observed`. R09 residual work, production
-Auto, holdout access, claims, tags, releases, pushes, pull requests, approvals,
-merges, force-pushes, and repository-setting mutation retain their separate
-authority requirements.
+R09 now proceeds under its separate bounded-experiment authorization while
+unavailable native Core AI observations remain `not_observed`. Production Auto,
+holdout access, claims, tags, releases, pushes, pull requests, approvals, merges,
+force-pushes, and repository-setting mutation retain their separate authority
+requirements.

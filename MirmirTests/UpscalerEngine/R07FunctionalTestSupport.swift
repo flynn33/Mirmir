@@ -20,6 +20,7 @@ struct R07FunctionalInputOptions {
 }
 
 struct R07FunctionalContextOptions {
+    var frameID = "r07.frame.101"
     var shotID = "r07.shot"
     var currentBackendID: String? = "backend.current"
     var previousBackendID: String? = "backend.previous"
@@ -140,7 +141,7 @@ extension R07FunctionalTestFixtures {
         }
         return ASHDecisionContext(
             identity: try R06ASHIdentityContext(
-                frameID: "r07.frame.101",
+                frameID: options.frameID,
                 shotID: options.shotID,
                 routeID: "r07.route.pending",
                 scaleNumerator: 2,
