@@ -20,6 +20,7 @@ sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 from r11_phase_acceptance import (  # noqa: E402
     ACCEPTANCE_PATH,
     ARTIFACT_DIRECTORY,
+    BASELINE_COMMIT,
     CONTRACT_PATHS,
     EXECUTION_RECEIPT_PATH,
     EXPECTED_SELECTED_TEST_COUNT,
@@ -117,6 +118,7 @@ def acceptance_fixture():
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
+        _git(repository, "checkout", "-q", "--detach", BASELINE_COMMIT)
         _git(repository, "config", "user.email", "r11@example.invalid")
         _git(repository, "config", "user.name", "R11 Acceptance Tests")
         for relative in (
@@ -128,7 +130,13 @@ def acceptance_fixture():
             target.write_bytes((REPOSITORY_ROOT / relative).read_bytes())
         _git(repository, "add", "Scripts/r11_phase_acceptance.py")
         _git(repository, "add", "Scripts/tests/test_r11_phase_acceptance.py")
-        _git(repository, "commit", "-qm", "R11 acceptance harness fixture")
+        _git(
+            repository,
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "R11 acceptance harness fixture",
+        )
         commit = _git(repository, "rev-parse", "HEAD")
         verifier = R11PhaseAcceptanceVerifier(repository)
         source = verifier.resolve_source(commit)
