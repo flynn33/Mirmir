@@ -12,7 +12,7 @@
 - Roadmap phase `R02`: `passed` for declared software function
 - Roadmap phase `R03`: `passed`
 - Roadmap phase `R04`: `passed` for declared software function
-- Roadmap phase `R05`: `in_progress`
+- Roadmap phase `R05`: `passed` with diagnostic-only suitability outcome
 - Roadmap phase `R06`: `in_progress` and unaccepted
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
@@ -96,6 +96,22 @@ fallback. R04 is `passed` only for `declared_software_function_only`. Native
 VideoToolbox model execution and readiness, hardware, simulator, and operator
 observation remain `not_observed`; the unavailable production composition and
 all default, Auto, product, quality, performance, publication, and release
+boundaries remain unchanged.
+
+The additive R05 functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and 46 passing tests across the
+contracts, color-bridge, spatial-driver, spatial-backend, and functional suites.
+Its deterministic driver produces source-derived A07 1.5× and 2× output through
+the real backend and production FIFO; the 2× route completes a reopened
+H.264/AAC/timed-metadata transaction before atomic publication. The frozen
+suites verify the real driver's support query, explicit NV12/linear-RGBA16Float
+bridge, ordering, cancellation, and typed failure boundaries. A08-A10 remain
+honest decoded-video rejections. R05 is `passed` with exit outcome
+`diagnostic_only`, limited to `declared_software_function_only`. Native MetalFX
+execution, hardware, simulator, operator observation, product qualification,
+quality, and performance remain `not_observed` or `not_claimed`; the unavailable
+production composition and all default, Auto, publication, and release
 boundaries remain unchanged.
 
 R07 implementation checkpoint

@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "32324bf43625e89841135cc805a22efc95249285ab3dc98109be92ba1bd9dff9",
-    "json_sha256": "4cf62e80b9b0464d675cebaf95a0b546e68494718ac7b179a5294f728e9ff0d0",
+    "markdown_sha256": "bb41fdfa3b02c0ee29370cf56b46afdffdc5bd0730ec769af484669658ea06f3",
+    "json_sha256": "76530dc40f208586e6dfa14dd75c6ab0acc7da805d35d3c6828ea029e884bdd8",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -143,10 +143,11 @@
     ],
     ".github/workflows/roadmap-alignment.yml": [
       "name: Roadmap alignment",
-      "needs: [r02-functional-acceptance, r04-functional-acceptance]",
+      "needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance]",
       "if: ${{ always() }}",
       "test \"${{ needs.r02-functional-acceptance.result }}\" = \"success\"",
       "test \"${{ needs.r04-functional-acceptance.result }}\" = \"success\"",
+      "test \"${{ needs.r05-functional-acceptance.result }}\" = \"success\"",
       "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
       "python3 Scripts/roadmap_alignment.py --check",
       "python3 Scripts/r00_inventory.py --check",
@@ -163,6 +164,7 @@
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r04_phase_acceptance.py",
       "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r05_phase_acceptance.py",
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r07_phase_acceptance.py",
@@ -190,6 +192,13 @@
       "python3 Scripts/r04_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r04-ab77e978.xcresult",
       "- name: Verify checked-in R04 acceptance",
       "name: r04-functional-acceptance-xcresult",
+      "r05-functional-acceptance:",
+      "git worktree add --detach /private/tmp/mirmir-r05-7e1ab673-source 7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8",
+      "working-directory: /private/tmp/mirmir-r05-7e1ab673-source",
+      "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r05-7e1ab673-derived -resultBundlePath /private/tmp/mirmir-r05-7e1ab673.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R05MetalFXContractsTests -only-testing:MirmirTests/R05MetalFXColorBridgeTests -only-testing:MirmirTests/R05MetalFXSpatialDriverTests -only-testing:MirmirTests/R05MetalFXSpatialBackendTests -only-testing:MirmirTests/R05FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO",
+      "python3 Scripts/r05_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r05-7e1ab673.xcresult",
+      "- name: Verify checked-in R05 acceptance",
+      "name: r05-functional-acceptance-xcresult",
       "python3 Scripts/r03_contracts.py --check-preregistration",
       "python3 Scripts/r03_contracts.py --check-fixtures",
       "python3 Scripts/r03_contracts.py --check-conformance",
@@ -207,6 +216,7 @@
       "python3 Scripts/r05_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
       "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r05_phase_acceptance.py --check",
       "python3 Scripts/r06_contracts.py --check-preregistration",
       "python3 Scripts/r06_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
@@ -259,6 +269,7 @@
       "Scripts/tests/test_r04_contracts.py",
       "Scripts/tests/test_r04_phase_acceptance.py",
       "Scripts/tests/test_r05_contracts.py",
+      "Scripts/tests/test_r05_phase_acceptance.py",
       "Scripts/tests/test_r06_contracts.py",
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r07_phase_acceptance.py",
@@ -288,6 +299,7 @@
       "python3 Scripts/r05_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then",
       "python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r05_phase_acceptance.py --check",
       "python3 Scripts/r06_contracts.py --check-preregistration",
       "python3 Scripts/r06_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then",
@@ -342,6 +354,8 @@
       "python3 Scripts/r05_contracts.py --check-preregistration",
       "python3 Scripts/r05_contracts.py --check-fixtures",
       "test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance",
+      "python3 Scripts/r05_phase_acceptance.py --check",
+      "7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8",
       "python3 Scripts/r06_contracts.py --check-preregistration",
       "python3 Scripts/r06_contracts.py --check-fixtures",
       "test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance",
@@ -374,7 +388,9 @@
       "b5c19c0040f845b7f32fe98bd5f01249c1b071f2",
       "functional_software_phase_acceptance",
       "ab77e97867d51168e90c0190f6430d4acd769e68",
-      "declared_software_function_only"
+      "declared_software_function_only",
+      "7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8",
+      "diagnostic_only"
     ],
     "local-work-plan.md": [
       "superseded as the forward product plan",
@@ -460,6 +476,17 @@
         "docs/roadmaps/evidence/r04/records/functional-phase-acceptance.json",
         "docs/roadmaps/evidence/r04/records/artifacts/functional-phase-acceptance/xcodebuild.log",
         "docs/roadmaps/evidence/r04/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
+      ]
+    },
+    "R05": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r05_phase_acceptance.py",
+        "Scripts/tests/test_r05_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r05-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r05/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r05/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+        "docs/roadmaps/evidence/r05/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
     },
     "R07": {

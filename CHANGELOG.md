@@ -6,6 +6,23 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R05 with exit outcome `diagnostic_only`, limited to
+  `declared_software_function_only`. The additive acceptance binds source commit
+  `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+  `adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh five-suite macOS arm64
+  Xcode run with 46 tests passed, zero failed, and zero skipped. Deterministic
+  simulation through the real spatial backend and production FIFO verifies
+  source-derived A07 1.5× and 2× output, complete identity/lifecycle behavior,
+  and a reopened 2160p H.264/AAC/timed-metadata transaction before atomic
+  publication. The real spatial-driver suite verifies support-before-
+  construction, the explicit color bridge, ordering, cancellation, and typed
+  failures. A08-A10 retain successful `rejected_for_decoded_video`
+  dispositions. The frozen preregistration and `diagnostic_only` suitability
+  record remain unchanged historical evidence; comparison was not run or
+  required. Native MetalFX execution, hardware, simulator, operator observation,
+  product qualification, quality, and performance remain `not_observed` or
+  `not_claimed`; no production default, Auto, publication, or release authority
+  follows.
 - Accepted R04 for `declared_software_function_only` under the operator-defined
   software-function gate. The additive acceptance binds source commit
   `ab77e97867d51168e90c0190f6430d4acd769e68`, tree

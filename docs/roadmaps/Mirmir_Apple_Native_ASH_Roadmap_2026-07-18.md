@@ -879,7 +879,7 @@ claim.
 
 ## R05 — MetalFX integration and suitability decision
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -948,9 +948,39 @@ all A08 through A10 subjects carry their frozen
 simulator, operator-observed operation, end-to-end media reopen, baseline
 comparison, quality, and performance were not observed.
 
-R05 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result, `not_observed` native runtime subjects, and unclaimed acceptance state
+are not rewritten by the later additive functional acceptance.
+
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh macOS arm64 Xcode run
+of 46 tests across the R05 contracts, color bridge, spatial driver, spatial
+backend, and functional phase-acceptance suites. All 46 tests passed with zero
+failures and zero skips.
+
+The deterministic simulated driver produces source-derived output through the
+real R05 spatial backend and production FIFO for both A07 1.5× and 2× routes.
+The 2× route also completes a reopened 2160p H.264/AAC media transaction with
+preserved color, frame order, timestamps, duration, audio, timed metadata,
+processing identity, resource release, verification-before-publication, atomic
+publication, and no silent fallback. The frozen suites separately verify the
+real spatial driver's support-before-construction, explicit BT.709 video-range
+NV12/linear-RGBA16Float bridge, ordered completion, cancellation, and typed
+failure behavior. A08, A09, and A10 retain their honest
+`rejected_for_decoded_video` outcomes; those rejections are successful
+dispositions for R05.
+
+R05 is therefore `passed` with exit outcome `diagnostic_only`, limited to
+`declared_software_function_only`. Comparison-based testing was not run or
+required. The focused Xcode run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R05 adds no Metal shader. Native
+MetalFX execution, hardware, simulator, operator-observed operation, product
+qualification, quality, and performance remain `not_observed` or `not_claimed`.
+No backend is selected as a production default, and no Auto, publication, or
+release authority follows.
 
 ### Exit outcomes
 

@@ -40,16 +40,19 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   execution, create a tag or release, or use `pull_request_target`.
 
 Unit tests run before the repository and inventory checks. The stable required-check name is
-`Roadmap alignment`; that job depends on the macOS `R02 functional acceptance`
-and `R04 functional acceptance` jobs and always evaluates both results
-explicitly, so a failed, cancelled, or skipped prerequisite makes the required
-check fail. It cannot pass unless each fresh raw Xcode result, exact selected-test
-identities, build action, checkpoint-bound build surface, and checked-in
-acceptance validate. Later roadmap source evolution does not rewrite or
-invalidate either historical checkpoint. CI materializes R02 source commit
+`Roadmap alignment`; that job depends on the macOS `R02 functional acceptance`,
+`R04 functional acceptance`, and `R05 functional acceptance` jobs and always
+evaluates all three results explicitly, so a failed, cancelled, or skipped
+prerequisite makes the required check fail. It cannot pass unless each fresh raw
+Xcode result, exact selected-test identities, build action, checkpoint-bound
+build surface, and checked-in acceptance validate. Later roadmap source
+evolution does not rewrite or invalidate any historical checkpoint. CI
+materializes R02 source commit
 `eeabc4224100bc8ed86ae1208189bee508844210` in a detached worktree and runs the
 selected tests there. It likewise materializes R04 source commit
 `ab77e97867d51168e90c0190f6430d4acd769e68` before running the exact R04
+selection, and R05 source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8` before running the exact R05
 selection. The current checkout then validates each raw result and checked
 acceptance. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
@@ -230,6 +233,24 @@ qualification remain `not_observed` or `not_claimed`. This contract does not
 authorize production, Auto, holdout, claims, publication, R10 progression, or
 release.
 
+The R05 functional acceptance contract permits canonical R05 to be `passed`
+only when the policy-bound schema, record, Xcode log, and result summary are
+regular exact files and `Scripts/r05_phase_acceptance.py` rechecks source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and all 46 selected tests across
+the five settled R05 suites. Deterministic simulation through the real spatial
+backend and production FIFO verifies source-derived A07 1.5× and 2× output and a
+reopened H.264/AAC/timed-metadata transaction before atomic publication. The
+real driver contracts verify support-before-construction, the explicit color
+bridge, ordering, cancellation, and typed failures. A08-A10 retain successful
+`rejected_for_decoded_video` dispositions. The accepted exit outcome is
+`diagnostic_only`, limited to `declared_software_function_only`; comparison is
+not required. The frozen preregistration and suitability record remain
+historical. Native MetalFX execution, hardware, simulator, operator observation,
+product qualification, quality, and performance remain `not_observed` or
+`not_claimed`; this contract does not authorize a production default, Auto,
+publication, or release.
+
 The operator's software-function acceptance decision applies to R02, R04, R06,
 R08, R09, and later phases. Acceptance asks whether checkpoint-bound
 tests prove that the software performs the task and honors the boundaries it
@@ -261,7 +282,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -283,6 +304,7 @@ python3 Scripts/r04_phase_acceptance.py --check
 python3 Scripts/r05_contracts.py --check-preregistration
 python3 Scripts/r05_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r05/records/suitability-conformance.json || python3 Scripts/r05_contracts.py --check-conformance
+python3 Scripts/r05_phase_acceptance.py --check
 python3 Scripts/r06_contracts.py --check-preregistration
 python3 Scripts/r06_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance

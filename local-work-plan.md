@@ -56,9 +56,18 @@
   hardware, simulator, and operator observation remain `not_observed`. No
   production default, Auto, product, quality, performance, publication, or
   release authority follows.
-- Roadmap phase `R05`: `in_progress` and unaccepted. Its frozen
-  `diagnostic_only` record remains historical while functional acceptance work
-  continues.
+- Roadmap phase `R05`: `passed` with exit outcome `diagnostic_only`, limited to
+  `declared_software_function_only`. Its additive acceptance binds source
+  `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+  `adce5b65fd3d752a1467925232847e086d0b3e7a`, and 46 passing tests across five
+  suites. Deterministic simulation through the real spatial backend and
+  production FIFO verifies source-derived A07 1.5× and 2× output and a complete
+  reopened 2× H.264/AAC/timed-metadata transaction before atomic publication.
+  A08-A10 retain successful typed decoded-video rejections. The frozen
+  `diagnostic_only` suitability record remains historical; native MetalFX,
+  hardware, simulator, operator observation, product qualification, quality,
+  and performance remain `not_observed` or `not_claimed`. No production default,
+  Auto, publication, or release authority follows.
 - Roadmap phase `R06`: `in_progress` and unaccepted. Its frozen blocked closure
   remains truthful historical evidence and is not changed by the later R07
   acceptance.

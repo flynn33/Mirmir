@@ -71,6 +71,12 @@
 - **R05 local diagnostic-only closure:**
   `b955fc9d0b02dd066c359dfcb99a9ad31aeb817a`; tree
   `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`; acceptance not claimed
+- **R05 declared-software-function acceptance source:**
+  `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`; tree
+  `adce5b65fd3d752a1467925232847e086d0b3e7a`; 46 tests passed across five
+  settled R05 suites with zero failures and zero skips; exit outcome
+  `diagnostic_only`; acceptance scope `declared_software_function_only`; R05 is
+  `passed`
 - **R06 local preregistration source:** R05 diagnostic-only closure above;
   `accepted_merge_commit: null`
 - **R06 implementation source for the local unpublished blocked closure:**
@@ -105,7 +111,7 @@
   `declared_software_function_only`; no comparative method was run or required;
   R09 is `passed`
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
-  `R04: passed`; `R05: in_progress`; `R06: in_progress`;
+  `R04: passed`; `R05: passed`; `R06: in_progress`;
   `R07: passed`; `R08: passed`; `R09: passed`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
@@ -271,6 +277,29 @@ reopen, quality, performance, and baseline comparison remain `not_observed`.
 R05 remains canonical `in_progress`, local unpublished, disabled as a
 production default, and unaccepted.
 
+### R05 declared-software-function acceptance — 2026-07-23
+
+The additive R05 functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh macOS arm64 run of 46
+tests across the contracts, color bridge, spatial driver, spatial backend, and
+functional phase-acceptance suites, with zero failures and zero skips.
+Deterministic simulation produces source-derived A07 1.5× and 2× output through
+the real backend and production FIFO, and the 2× route completes a reopened
+2160p H.264/AAC/timed-metadata transaction before atomic publication. The
+frozen suites verify the real driver's support query, explicit color bridge,
+ordering, cancellation, and typed failures. A08-A10 retain successful
+`rejected_for_decoded_video` dispositions.
+
+R05 is `passed` with exit outcome `diagnostic_only`, limited to
+`declared_software_function_only`. The frozen preregistration and suitability
+bytes remain unchanged historical evidence, and comparison was not run or
+required. The run excluded Metal shader compilation because the optional Metal
+Toolchain was unavailable; R05 adds no Metal shader. Native MetalFX execution,
+hardware, simulator, operator observation, product qualification, quality, and
+performance remain `not_observed` or `not_claimed`. No production default, Auto,
+publication, or release authority follows.
+
 ### R06 local implementation start — 2026-07-21
 
 R06 preregistration binds exact R05 diagnostic-only closure commit
@@ -278,9 +307,10 @@ R06 preregistration binds exact R05 diagnostic-only closure commit
 `10a97bd3df7f72834f7afcb7fa3b63c598fa4931`, as
 `local_unpublished_diagnostic_only_closure` with
 `predecessor_result: diagnostic_only`, `accepted_merge_commit: null`, and
-`continuation_scope: local_implementation_only`. R05 remains canonical
-`in_progress` and unaccepted. R06 depends directly on R05; R04 remains
-transitively unresolved.
+`continuation_scope: local_implementation_only`. At that historical checkpoint,
+R05 remained canonical `in_progress` and unaccepted, and R04 remained
+transitively unresolved. The later additive R04/R05 acceptances do not rewrite
+the frozen R06 predecessor binding or blocked result.
 
 The frozen R06 slice is fixture-only and preserves the existing nine-bit
 `ASHState`. It adds immutable continuous context, all sixteen versioned
@@ -1086,9 +1116,9 @@ Local start: the R05 preregistration binds R04 closure
 `4a7cc588b6fa51c21f2293e56cf3dea389acd908`. Only A07 spatial 1.5× and 2× are
 implementation candidates, behind an explicit NV12/linear-color bridge and
 support query. A08-A10 are deterministic decoded-video contract rejections.
-R05 remains `in_progress`, local unpublished, and unaccepted; no runtime,
-quality, performance, qualification, default, publication, or release claim is
-made.
+At that historical start, R05 remained `in_progress`, local unpublished, and
+unaccepted; no runtime, quality, performance, qualification, default,
+publication, or release claim was made.
 
 Local checkpoint: implementation commit
 `3e5188ece317d3ebc492c7a8e26345837836fc67`, tree
@@ -1097,6 +1127,19 @@ tests and strict lint. Its commit-bound result is `diagnostic_only`: A07 native
 execution and media-reopen evidence are `not_observed`, A08-A10 retain their
 typed decoded-video rejections, and no product, quality, performance,
 acceptance, publication, or release claim follows.
+
+Additive acceptance: source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, passed 46 tests across five R05
+suites with zero failures and zero skips. The deterministic driver verifies
+source-derived A07 1.5× and 2× output through the real backend and production
+FIFO plus a complete reopened 2× H.264/AAC/timed-metadata transaction before
+atomic publication. The real driver contracts cover the support query, explicit
+color bridge, ordering, cancellation, and failures. A08-A10 remain successful
+typed rejections. R05 is `passed` with exit outcome `diagnostic_only`, limited
+to `declared_software_function_only`; native MetalFX, hardware, product,
+quality, performance, default, Auto, publication, and release claims remain
+outside that acceptance.
 
 ### R06 - ASH orchestration engine v1
 

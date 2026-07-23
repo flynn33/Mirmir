@@ -39,42 +39,41 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R05` — MetalFX integration and suitability decision;
-and `R06` — ASH orchestration engine v1
+**Current roadmap focus:** `R06` — ASH orchestration engine v1
 
-**Latest phase acceptance:** `R04` — `passed` under the
+**Latest phase acceptance:** `R05` — `passed` under the
 declared-software-function-only gate.
 
-**Acceptance basis:** deterministic tests must verify that the separate quality
-and low-latency backends, runtime capability query, request/history contracts,
-FIFO lifecycle, cancellation, processing identity, visible failure behavior,
-complete media transaction, reopen verification, resource lifetime, and atomic
-publication perform their declared task.
+**Acceptance basis:** deterministic tests must verify R05's exact spatial route
+admission, support-before-construction, explicit color bridge, ordered driver and
+FIFO lifecycle, cancellation, typed rejection, processing identity, complete
+media transaction, reopen verification, resource lifetime, and atomic
+publication behavior.
 
-**R04 evidence:** source commit
-`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
-`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh four-suite macOS arm64
-Xcode run with 42 tests passed, zero failed, and zero skipped. The additive
-functional suite verifies complete quality and low-latency 2× media
-transactions, exact-dimension 1.5× admission, and active cancellation through
-the production FIFO.
+**R05 evidence:** source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh five-suite macOS arm64
+Xcode run with 46 tests passed, zero failed, and zero skipped. The additive
+functional suite verifies source-derived A07 1.5× and 2× FIFO processing and a
+complete reopened 2× media transaction; A08-A10 retain successful typed
+decoded-video rejections.
 
-**Execution scope:** declared R04 software behavior only. The frozen
-preregistration and `diagnostic_only` conformance record remain unchanged
-historical evidence. Native VideoToolbox model execution, model readiness,
-hardware, simulator, and operator observation remain `not_observed`. Production
-upscaling, a production default, Auto, holdout access, native-framework,
-product-qualification, quality or performance claims, product publication, and
-release remain unauthorized. R05 and R06 remain `in_progress` and unaccepted.
+**Execution scope:** R05 exit outcome `diagnostic_only`, limited to declared
+software behavior. The frozen preregistration and `diagnostic_only` suitability
+record remain unchanged historical evidence. Native MetalFX execution, hardware,
+simulator, operator observation, product qualification, quality, and performance
+remain `not_observed` or `not_claimed`. A production default, Auto, holdout
+access, product publication, and release remain unauthorized. R06 remains
+`in_progress` and unaccepted.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `8 / 14` roadmap phases passed (`57%`)
+**Overall:** `9 / 14` roadmap phases passed (`64%`)
 
-`[#####-----]`
+`[######----]`
 
-**Status:** ✅ Passed `8` · 🔄 In progress `2` · ⬜ Planned `4`
+**Status:** ✅ Passed `9` · 🔄 In progress `1` · ⬜ Planned `4`
 
-**Current focus:** `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
+**Current focus:** `R06` — ASH orchestration engine v1
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -83,7 +82,7 @@ release remain unauthorized. R05 and R06 remain `in_progress` and unaccepted.
 | `R02` | Unified backend and stage architecture | `passed` | ✅ Passed |
 | `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
 | `R04` | VideoToolbox super-resolution integration | `passed` | ✅ Passed |
-| `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
+| `R05` | MetalFX integration and suitability decision | `passed` | ✅ Passed |
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
@@ -978,7 +977,7 @@ claim.
 
 ## R05 — MetalFX integration and suitability decision
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -1047,9 +1046,39 @@ all A08 through A10 subjects carry their frozen
 simulator, operator-observed operation, end-to-end media reopen, baseline
 comparison, quality, and performance were not observed.
 
-R05 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result, `not_observed` native runtime subjects, and unclaimed acceptance state
+are not rewritten by the later additive functional acceptance.
+
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh macOS arm64 Xcode run
+of 46 tests across the R05 contracts, color bridge, spatial driver, spatial
+backend, and functional phase-acceptance suites. All 46 tests passed with zero
+failures and zero skips.
+
+The deterministic simulated driver produces source-derived output through the
+real R05 spatial backend and production FIFO for both A07 1.5× and 2× routes.
+The 2× route also completes a reopened 2160p H.264/AAC media transaction with
+preserved color, frame order, timestamps, duration, audio, timed metadata,
+processing identity, resource release, verification-before-publication, atomic
+publication, and no silent fallback. The frozen suites separately verify the
+real spatial driver's support-before-construction, explicit BT.709 video-range
+NV12/linear-RGBA16Float bridge, ordered completion, cancellation, and typed
+failure behavior. A08, A09, and A10 retain their honest
+`rejected_for_decoded_video` outcomes; those rejections are successful
+dispositions for R05.
+
+R05 is therefore `passed` with exit outcome `diagnostic_only`, limited to
+`declared_software_function_only`. Comparison-based testing was not run or
+required. The focused Xcode run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R05 adds no Metal shader. Native
+MetalFX execution, hardware, simulator, operator-observed operation, product
+qualification, quality, and performance remain `not_observed` or `not_claimed`.
+No backend is selected as a production default, and no Auto, publication, or
+release authority follows.
 
 ### Exit outcomes
 

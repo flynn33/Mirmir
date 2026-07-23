@@ -1,0 +1,440 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r05-functional-phase-acceptance-v1.json",
+  "title": "R05 declared-software-function phase acceptance",
+  "$defs": {
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        "path": {
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^(?!0{64}$)[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "checkID": {
+      "enum": [
+        "source_checkpoint_exact",
+        "frozen_evidence_valid_and_unchanged",
+        "implementation_bindings_exact",
+        "execution_artifacts_exact",
+        "selected_test_set_exact",
+        "seven_subject_route_contract",
+        "a07_spatial_exact_routes",
+        "a08_a09_a10_typed_decoded_video_rejection",
+        "product_admission_rejects_before_probe",
+        "bt709_nv12_linear_rgba_color_bridge",
+        "support_query_before_construction",
+        "simulated_spatial_driver_ordering",
+        "fifo_identity_timing_and_lifetime",
+        "closed_failure_and_cancellation_outcomes",
+        "media_identity_preserved",
+        "reopen_verification_before_atomic_publication",
+        "no_silent_fallback",
+        "native_observation_boundary_truthful",
+        "authorization_boundary_exact"
+      ],
+      "type": "string"
+    },
+    "passedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/checkID"
+        },
+        "status": {
+          "const": "passed",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "type": "string"
+    },
+    "roadmap_version": {
+      "const": "1.0.1",
+      "type": "string"
+    },
+    "phase_id": {
+      "const": "R05",
+      "type": "string"
+    },
+    "evidence_kind": {
+      "const": "r05_operator_functional_diagnostic_acceptance_v1",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "const": "7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8",
+          "type": "string"
+        },
+        "tree": {
+          "const": "adce5b65fd3d752a1467925232847e086d0b3e7a",
+          "type": "string"
+        }
+      },
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "operator_override": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "const": "operator",
+          "type": "string"
+        },
+        "authorization_date": {
+          "const": "2026-07-23",
+          "type": "string"
+        },
+        "acceptance_basis": {
+          "const": "software_does_what_it_says_it_does",
+          "type": "string"
+        },
+        "override_id": {
+          "const": "r05.software-function-only-diagnostic-acceptance.v1",
+          "type": "string"
+        },
+        "hardware_simulator_operator_observation": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        },
+        "comparative_requirement": {
+          "const": "not_required_for_phase_acceptance",
+          "type": "string"
+        },
+        "historical_evidence_policy": {
+          "const": "preserve_r05_preregistration_fixture_and_conformance_unchanged",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "authorization_date",
+        "acceptance_basis",
+        "override_id",
+        "hardware_simulator_operator_observation",
+        "comparative_requirement",
+        "historical_evidence_policy"
+      ],
+      "type": "object"
+    },
+    "functional_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_scope": {
+          "const": "declared_software_function_only",
+          "type": "string"
+        },
+        "execution_mode": {
+          "const": "deterministic_simulated_runtime_integration",
+          "type": "string"
+        },
+        "required_test_suites": {
+          "items": {
+            "enum": [
+              "R05MetalFXContractsTests",
+              "R05MetalFXColorBridgeTests",
+              "R05MetalFXSpatialDriverTests",
+              "R05MetalFXSpatialBackendTests",
+              "R05FunctionalPhaseAcceptanceTests"
+            ],
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 5,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "required_selected_test_count": {
+          "const": 46,
+          "type": "integer"
+        },
+        "required_behavior_ids": {
+          "items": {
+            "$ref": "#/$defs/checkID"
+          },
+          "maxItems": 19,
+          "minItems": 19,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "successful_decoded_video_disposition": {
+          "const": "a08_a09_a10_typed_rejection",
+          "type": "string"
+        },
+        "frozen_diagnostic_evidence_role": {
+          "const": "preserved_boundary_only_not_acceptance_basis",
+          "type": "string"
+        },
+        "native_metalfx_execution": {
+          "const": "not_required_not_observed",
+          "type": "string"
+        },
+        "hardware_simulator_operator_observation": {
+          "const": "not_required_not_observed",
+          "type": "string"
+        },
+        "raw_xcresult_ci_validation": {
+          "const": "required",
+          "type": "string"
+        }
+      },
+      "required": [
+        "acceptance_scope",
+        "execution_mode",
+        "required_test_suites",
+        "required_selected_test_count",
+        "required_behavior_ids",
+        "successful_decoded_video_disposition",
+        "frozen_diagnostic_evidence_role",
+        "native_metalfx_execution",
+        "hardware_simulator_operator_observation",
+        "raw_xcresult_ci_validation"
+      ],
+      "type": "object"
+    },
+    "evidence_bindings": {
+      "items": {
+        "$ref": "#/$defs/binding"
+      },
+      "maxItems": 6,
+      "minItems": 6,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "implementation_bindings": {
+      "items": {
+        "$ref": "#/$defs/binding"
+      },
+      "maxItems": 28,
+      "minItems": 28,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "artifact_bindings": {
+      "items": {
+        "$ref": "#/$defs/binding"
+      },
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "derived_checks": {
+      "items": {
+        "$ref": "#/$defs/passedCheck"
+      },
+      "maxItems": 19,
+      "minItems": 19,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "result": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "const": "passed",
+          "type": "string"
+        },
+        "phase_status_before": {
+          "const": "in_progress",
+          "type": "string"
+        },
+        "phase_status_after": {
+          "const": "passed",
+          "type": "string"
+        },
+        "acceptance": {
+          "const": "accepted",
+          "type": "string"
+        },
+        "exit_outcome": {
+          "const": "diagnostic_only",
+          "type": "string"
+        },
+        "acceptance_scope": {
+          "const": "declared_software_function_only",
+          "type": "string"
+        },
+        "execution_mode": {
+          "const": "deterministic_simulated_runtime_integration",
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "phase_status_before",
+        "phase_status_after",
+        "acceptance",
+        "exit_outcome",
+        "acceptance_scope",
+        "execution_mode"
+      ],
+      "type": "object"
+    },
+    "authorizations": {
+      "additionalProperties": false,
+      "properties": {
+        "r05_functional_disposition": {
+          "const": "diagnostic_only",
+          "type": "string"
+        },
+        "r05_phase_status": {
+          "const": "passed",
+          "type": "string"
+        },
+        "phase_progression": {
+          "const": "authorized",
+          "type": "string"
+        },
+        "deterministic_simulated_runtime_integration": {
+          "const": "authorized",
+          "type": "string"
+        },
+        "a08_a09_a10_decoded_video_rejection": {
+          "const": "validated",
+          "type": "string"
+        },
+        "native_metalfx_execution": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "hardware_observation": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "simulator_observation": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "operator_observation": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "comparative_evaluation": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "product_qualification": {
+          "const": "not_claimed",
+          "type": "string"
+        },
+        "production_upscaling": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "production_default": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "auto_mode": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "holdout": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "quality_claims": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "performance_claims": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "product_publication": {
+          "const": "not_authorized",
+          "type": "string"
+        },
+        "release": {
+          "const": "not_authorized",
+          "type": "string"
+        }
+      },
+      "required": [
+        "r05_functional_disposition",
+        "r05_phase_status",
+        "phase_progression",
+        "deterministic_simulated_runtime_integration",
+        "a08_a09_a10_decoded_video_rejection",
+        "native_metalfx_execution",
+        "hardware_observation",
+        "simulator_observation",
+        "operator_observation",
+        "comparative_evaluation",
+        "product_qualification",
+        "production_upscaling",
+        "production_default",
+        "auto_mode",
+        "holdout",
+        "quality_claims",
+        "performance_claims",
+        "product_publication",
+        "release"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 4,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "operator_override",
+    "functional_gate",
+    "evidence_bindings",
+    "implementation_bindings",
+    "artifact_bindings",
+    "derived_checks",
+    "result",
+    "authorizations",
+    "limitations"
+  ],
+  "type": "object"
+}

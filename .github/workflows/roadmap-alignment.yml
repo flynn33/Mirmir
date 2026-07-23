@@ -20,7 +20,7 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
-    needs: [r02-functional-acceptance, r04-functional-acceptance]
+    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -29,6 +29,7 @@ jobs:
         run: |
           test "${{ needs.r02-functional-acceptance.result }}" = "success"
           test "${{ needs.r04-functional-acceptance.result }}" = "success"
+          test "${{ needs.r05-functional-acceptance.result }}" = "success"
 
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -54,6 +55,7 @@ jobs:
           Scripts/tests/test_r04_contracts.py
           Scripts/tests/test_r04_phase_acceptance.py
           Scripts/tests/test_r05_contracts.py
+          Scripts/tests/test_r05_phase_acceptance.py
           Scripts/tests/test_r06_contracts.py
           Scripts/tests/test_r07_contracts.py
           Scripts/tests/test_r07_phase_acceptance.py
@@ -146,6 +148,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then
             python3 Scripts/r05_contracts.py --check-conformance
           fi
+
+      - name: Verify R05 functional phase acceptance
+        run: python3 Scripts/r05_phase_acceptance.py --check
 
       - name: Verify R06 preregistration
         run: python3 Scripts/r06_contracts.py --check-preregistration
@@ -300,6 +305,42 @@ jobs:
         with:
           name: r04-functional-acceptance-xcresult
           path: /private/tmp/mirmir-r04-ab77e978.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r05-functional-acceptance:
+    name: R05 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R05 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r05-7e1ab673-source 7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8
+
+      - name: Run exact R05 selected tests
+        working-directory: /private/tmp/mirmir-r05-7e1ab673-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r05-7e1ab673-derived -resultBundlePath /private/tmp/mirmir-r05-7e1ab673.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R05MetalFXContractsTests -only-testing:MirmirTests/R05MetalFXColorBridgeTests -only-testing:MirmirTests/R05MetalFXSpatialDriverTests -only-testing:MirmirTests/R05MetalFXSpatialBackendTests -only-testing:MirmirTests/R05FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R05 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r05_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r05-7e1ab673.xcresult
+
+      - name: Verify checked-in R05 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r05_phase_acceptance.py --check
+
+      - name: Upload raw R05 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r05-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r05-7e1ab673.xcresult
           if-no-files-found: warn
           retention-days: 14
           include-hidden-files: true
