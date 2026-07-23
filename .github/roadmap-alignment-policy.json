@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "64328a88ae4c1c9c0af10332790bfdf8c2cfcb111a7e6f4c25e8ba1f66087ff6",
-    "json_sha256": "a10812f99aaca870bc14445e93fe9f12fb275dd3af15acc1b16f74bcf04ff69e",
+    "markdown_sha256": "63769d658a4f3bbe01064da9f58aa07b832f38209d44e3898f5e5c50cd8aa1e1",
+    "json_sha256": "d60d3d06b7230c555f2581891ff38a9bf8be6e5db71ccb42d2844b32bad9a3e2",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -50,13 +50,34 @@
     ],
     "authorizations": {
       "capability_lab": "authorized_after_current_source_inventory",
-      "core_ai_pixel_residual": "blocked_pending_explicit_operator_authorization_after_r08_functional_acceptance",
+      "core_ai_pixel_residual": "authorized_for_r09_bounded_experiment",
       "holdout": "blocked",
       "market_leading_claim": "blocked",
       "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
       "production_auto_mode": "blocked",
       "strategic_reset": "authorized",
       "unified_backend_architecture": "authorized_after_capability_contracts"
+    }
+  },
+  "r09_authorization": {
+    "phase_id": "R09",
+    "operator_directive": "resume_work",
+    "core_ai_pixel_residual": "authorized_for_r09_bounded_experiment",
+    "implementation_scope": "bounded_post_scaler_residual_software_contract",
+    "accepted_r08_binding": {
+      "path": "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
+      "size_bytes": 12334,
+      "raw_sha256": "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0",
+      "phase_result": "passed",
+      "acceptance": "accepted",
+      "acceptance_scope": "declared_software_function_only",
+      "implementation_commit": "368b9284883c189be6a1139df6208bf0e88139dd",
+      "implementation_tree": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"
+    },
+    "record_binding": {
+      "path": "docs/roadmaps/evidence/r09/records/operator-authorization.json",
+      "size_bytes": 1563,
+      "sha256": "6e87a981ee4880d325b9db78bdb9d4dbfa1022a5194d3841e7c0c97e341e34a5"
     }
   },
   "readme": {
@@ -141,6 +162,8 @@
       "Scripts/tests/test_r07_phase_acceptance.py",
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
+      "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -172,6 +195,8 @@
       "python3 Scripts/r08_contracts.py --check-preregistration",
       "python3 Scripts/r08_contracts.py --check-fixtures",
       "python3 Scripts/r08_phase_acceptance.py --check",
+      "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -213,6 +238,8 @@
       "Scripts/tests/test_r07_phase_acceptance.py",
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
+      "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -245,6 +272,8 @@
       "python3 Scripts/r08_contracts.py --check-preregistration",
       "python3 Scripts/r08_contracts.py --check-fixtures",
       "python3 Scripts/r08_phase_acceptance.py --check",
+      "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -267,6 +296,8 @@
       "Scripts/tests/test_r07_contracts.py",
       "Scripts/tests/test_r08_contracts.py",
       "Scripts/tests/test_r08_phase_acceptance.py",
+      "Scripts/tests/test_r09_contracts.py",
+      "Scripts/tests/test_r09_phase_acceptance.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
       "python3 Scripts/r03_product_qualification.py --check-preregistration",
@@ -288,7 +319,10 @@
       "test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance",
       "python3 Scripts/r08_contracts.py --check-preregistration",
       "python3 Scripts/r08_contracts.py --check-fixtures",
-      "python3 Scripts/r08_phase_acceptance.py --check"
+      "python3 Scripts/r08_phase_acceptance.py --check",
+      "python3 Scripts/r09_contracts.py --all",
+      "python3 Scripts/r09_phase_acceptance.py --check",
+      "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0"
     ],
     "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
       "policy-frozen local closure commit and tree",
@@ -341,7 +375,8 @@
       "R05",
       "R06",
       "R07",
-      "R08"
+      "R08",
+      "R09"
     ],
     "local-work-plan.md": [
       "R00",
@@ -350,7 +385,8 @@
       "R03",
       "R06",
       "R07",
-      "R08"
+      "R08",
+      "R09"
     ]
   },
   "phase_evidence_requirements": {
@@ -386,6 +422,19 @@
         "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json",
         "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcodebuild.log",
         "docs/roadmaps/evidence/r08/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
+      ]
+    },
+    "R09": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r09_phase_acceptance.py",
+        "Scripts/tests/test_r09_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r09-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r09-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r09/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r09/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+        "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
     }
   },
@@ -465,6 +514,18 @@
       "paths": [
         "docs/roadmaps/evidence/r08/records/preregistration.json",
         "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R09": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r09/records/operator-authorization.json",
+        "docs/roadmaps/evidence/r09/records/preregistration.json",
+        "docs/roadmaps/evidence/r09/records/fixtures/fixture-catalog.json"
       ]
     }
   },

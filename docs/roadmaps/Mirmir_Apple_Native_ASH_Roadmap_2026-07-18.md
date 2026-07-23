@@ -1165,8 +1165,9 @@ simulator execution, and operator-observed operation remain `not_observed`.
 This acceptance makes no native Core AI execution or native model-quality,
 performance, memory, specialization, AOT, or zero-copy claim, and no
 product-qualification, production-default, Auto, pixel-output, publication, or
-release claim. R09 remains `blocked` pending a separate explicit operator
-authorization.
+release claim. That R08 record did not itself authorize R09. The operator's
+later 2026-07-22 `resume work` directive separately authorizes only the bounded
+R09 experiment described below.
 
 ### Satisfied operator-defined exit gate
 
@@ -1185,7 +1186,7 @@ observations remain truthfully `not_observed`.
 
 ## R09 — Core AI bounded residual experiment
 
-**Status:** `blocked`
+**Status:** `passed`
 
 ### Objective
 
@@ -1210,9 +1211,53 @@ Determine whether a small localized model can improve difficult regions without 
 
 The model is not required to ship.
 
-R09 remains blocked. R08 functional acceptance does not authorize residual work;
-R09 requires a separate explicit operator authorization bound to accepted R08
-software-function evidence.
+### Operator-authorized implementation start — 2026-07-22
+
+The operator's explicit `resume work` directive supplies the separate R09
+implementation authorization required by this roadmap. The repository-owned
+authorization record binds the exact raw SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0` of
+the accepted R08 `functional-phase-acceptance.json`, including its implementation
+commit `368b9284883c189be6a1139df6208bf0e88139dd` and tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. Canonical authorization is now
+`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`, and advanced
+R09 to `in_progress` at that start checkpoint.
+
+The frozen start contract permits only a post-Apple-scaler, ASH-authorized,
+localized signed-Q16 residual proposal and application path. It requires exact
+frame, shot, stream-generation, primary-route, model, processing, and contract
+identity; all three planes; plan-supplied plane, content, edge, source,
+temporal, confidence, and resource bounds; protected face and text exclusion;
+an immutable Apple-only diagnostic output; and transactional typed bypass on
+every mismatch, safety failure, cancellation, or budget failure. Exact fixture
+values are software-test inputs, not product or quality thresholds.
+
+R09 acceptance asks only whether the bounded residual software performs that
+declared task. Comparative, A/B, blinded, ablation, and superiority methods are
+excluded, non-authorizing, and not required. Truthful deterministic fixture
+simulation is permitted; native Core AI, model-asset, hardware, simulator, and
+operator-observed execution remain `not_observed` and non-blocking. This start
+does not authorize production default, Auto, holdout access, quality or
+performance claims, publication, or release.
+
+### Operator-defined functional acceptance — 2026-07-22
+
+The additive functional execution receipt and phase-acceptance record bind
+implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b` and tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`. All 26 selected tests across the
+four settled R09 suites passed with zero failures and zero skips. They verify
+the declared numeric, geometry, identity, authorization, bounded-proposal,
+protected-region, consistency, resource, lifecycle, rollback, NV12, and
+fail-closed behavior under deterministic fixture simulation.
+
+R09 is `passed` with roadmap exit outcome `qualified_local_residual`, limited to
+`declared_software_function_only`. Comparative, A/B, blinded, ablation, and
+superiority methods were not run, were not required, and supplied no acceptance
+authority. Native Core AI and its framework, a model asset, hardware, simulator,
+and operator-observed execution remain `not_observed`. This acceptance makes no
+native Core AI, model-quality, product-qualification, production-default, Auto,
+holdout, quality, performance, publication, or release claim, and it does not
+authorize R10 progression.
 
 ---
 

@@ -129,7 +129,7 @@
   ],
   "authorizations": {
     "capability_lab": "authorized_after_current_source_inventory",
-    "core_ai_pixel_residual": "blocked_pending_explicit_operator_authorization_after_r08_functional_acceptance",
+    "core_ai_pixel_residual": "authorized_for_r09_bounded_experiment",
     "holdout": "blocked",
     "market_leading_claim": "blocked",
     "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
@@ -284,7 +284,7 @@
       "exit": "separately operator-authorized bounded residual software contract or explicit safety rejection",
       "id": "R09",
       "name": "Core AI bounded residual experiment",
-      "status": "blocked"
+      "status": "passed"
     },
     {
       "depends_on": [

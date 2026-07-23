@@ -6,6 +6,25 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
+  operator-defined “software does what it says it does” gate. The additive
+  receipt and acceptance record bind implementation commit
+  `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+  `5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
+  across four settled suites, with zero failures and zero skips. Acceptance is
+  limited to `declared_software_function_only` under deterministic fixture
+  simulation. Native Core AI/framework/model, hardware, simulator, and operator
+  observations remain `not_observed`; no product qualification, production
+  default, Auto, holdout, quality, performance, publication, release, or R10
+  progression authority follows.
+- Began R09 under the operator's separate 2026-07-22 authorization for the
+  bounded residual experiment. The frozen authorization, preregistration, and
+  fixture catalog bind accepted-R08 evidence and permit only deterministic,
+  ASH-authorized, localized signed-Q16 residual proposal and transactional NV12
+  application. At that start checkpoint, R09 was `in_progress` pending its own
+  functional acceptance. Native Core AI/model execution remained
+  `not_observed`, and no production-default, Auto, quality, performance,
+  publication, or release authority follows.
 - Accepted R08 under the operator-defined “software does what it says it does”
   gate. The additive functional receipt and phase-acceptance record bind
   implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, tree
@@ -18,8 +37,9 @@ All notable project changes are recorded here.
   acceptance authority. Native Core AI, Xcode 27, model,
   hardware, simulator, and operator-observed execution remain `not_observed`;
   no product/default/Auto, residual, quality, performance, publication, or
-  release authority follows. R09 remains `blocked` pending separate operator
-  authorization.
+  release authority followed. That acceptance did not itself authorize R09;
+  the later operator directive described above separately authorized only the
+  bounded experiment.
 - Began R08 from accepted R07 merge commit
   `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
   `eb1614dd2a93e1bc4e1911bcf74f41cf372a3304`, and marked it `in_progress`.
@@ -29,8 +49,9 @@ All notable project changes are recorded here.
   cancellation, no-final-pixel, and deterministic-bypass behavior.
   Comparison-based testing is outside the forward roadmap.
   Native Xcode 27/Core AI execution is supplemental and remains `not_observed`
-  when unavailable. R09 pixel residual work remains separately blocked pending
-  explicit operator authorization after accepted R08 functional evidence.
+  when unavailable. At that start checkpoint, R09 pixel residual work remained
+  separately blocked pending explicit operator authorization after accepted R08
+  functional evidence; the later directive described above supplied it.
 - Corrected the R10 and R11 forward gates under the same 2026-07-22 operator
   decision. R10 now accepts on deterministic bounded optimizer/calibration
   behavior. R11 now accepts on traceable evidence and claim-scope machinery

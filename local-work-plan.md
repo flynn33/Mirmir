@@ -56,15 +56,28 @@
   is `declared_software_function_only`. Comparison-based testing supplied no
   acceptance evidence or authority. Native Core AI, Xcode 27, model,
   hardware, simulator, and operator-observed execution remain `not_observed`.
-  R09 residual work remains separately blocked pending explicit operator
-  authorization.
+- Roadmap phase `R09`: `passed`. The operator's separate `resume work`
+  directive authorized only the bounded experiment. Its authorization and frozen
+  start contract bind accepted-R08 raw SHA-256
+  `0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0`,
+  implementation commit `368b9284883c189be6a1139df6208bf0e88139dd`, and tree
+  `f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. The additive acceptance binds
+  implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+  `5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
+  across four suites, with zero failures and zero skips. Exit outcome
+  `qualified_local_residual` is limited to deterministic
+  `declared_software_function_only`; comparison methods are excluded and
+  non-authorizing. Native Core AI/framework/model, hardware, simulator, and
+  operator observations remain `not_observed`. Product qualification,
+  production default, Auto, holdout, claims, publication, release, and R10
+  progression remain unauthorized.
 - Future R10 acceptance requires deterministic bounded optimizer/calibration
   software behavior. Future R11 acceptance requires traceable evidence and
   claim-scope machinery that rejects unsupported claims and emits an honest
   no-claim disposition by default. Any production Auto, holdout, or
   market-claim action retains its separate authorization boundary.
-- Production Auto, Core AI residual output, holdout access, market claims, and
-  release publication: blocked by their roadmap gates.
+- Production Auto, production Core AI residual routing, holdout access, market
+  claims, and release publication: blocked by their roadmap gates.
 
 ## Historical ASH V3 Record
 

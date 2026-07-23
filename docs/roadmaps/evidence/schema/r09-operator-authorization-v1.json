@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mirmir.invalid/schema/r09-operator-authorization-v1.json",
+  "title": "Mirmir R09 bounded-residual operator authorization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "operator_directive",
+    "accepted_r08_binding",
+    "authorization",
+    "non_authorizations"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "roadmap_version": {"const": "1.0.1"},
+    "phase_id": {"const": "R09"},
+    "evidence_kind": {"const": "r09_operator_implementation_authorization_v1"},
+    "operator_directive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "authorization_date", "directive", "authorized_action"],
+      "properties": {
+        "authority": {"const": "operator"},
+        "authorization_date": {"const": "2026-07-22"},
+        "directive": {"const": "resume_work"},
+        "authorized_action": {"const": "implement_r09_bounded_residual_experiment"}
+      }
+    },
+    "accepted_r08_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "size_bytes",
+        "raw_sha256",
+        "phase_result",
+        "acceptance",
+        "acceptance_scope",
+        "implementation_commit",
+        "implementation_tree"
+      ],
+      "properties": {
+        "path": {"const": "docs/roadmaps/evidence/r08/records/functional-phase-acceptance.json"},
+        "size_bytes": {"const": 12334},
+        "raw_sha256": {"const": "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0"},
+        "phase_result": {"const": "passed"},
+        "acceptance": {"const": "accepted"},
+        "acceptance_scope": {"const": "declared_software_function_only"},
+        "implementation_commit": {"const": "368b9284883c189be6a1139df6208bf0e88139dd"},
+        "implementation_tree": {"const": "f8e73d193b7b0c9df7005a7aa006de48ca48f77c"}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "core_ai_pixel_residual",
+        "phase_status",
+        "implementation_scope",
+        "acceptance_basis",
+        "deterministic_fixture_simulation",
+        "comparison_methods"
+      ],
+      "properties": {
+        "core_ai_pixel_residual": {"const": "authorized_for_r09_bounded_experiment"},
+        "phase_status": {"const": "in_progress"},
+        "implementation_scope": {"const": "bounded_post_scaler_residual_software_contract"},
+        "acceptance_basis": {"const": "deterministic_declared_software_function_only"},
+        "deterministic_fixture_simulation": {"const": "authorized_truthful_execution_mode"},
+        "comparison_methods": {"const": "excluded_not_required_non_authorizing"}
+      }
+    },
+    "non_authorizations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production_default",
+        "auto_mode",
+        "holdout",
+        "quality_claims",
+        "performance_claims",
+        "publication",
+        "release"
+      ],
+      "properties": {
+        "production_default": {"const": "not_authorized"},
+        "auto_mode": {"const": "not_authorized"},
+        "holdout": {"const": "not_authorized"},
+        "quality_claims": {"const": "not_authorized"},
+        "performance_claims": {"const": "not_authorized"},
+        "publication": {"const": "not_authorized"},
+        "release": {"const": "not_authorized"}
+      }
+    }
+  }
+}

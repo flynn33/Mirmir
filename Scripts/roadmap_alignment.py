@@ -384,6 +384,31 @@ R08_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
         ),
     ],
 }
+R09_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r09_phase_acceptance.py",
+        "Scripts/tests/test_r09_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r09-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r09-functional-phase-acceptance-v1.json"
+        ),
+        "docs/roadmaps/evidence/r09/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r09/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r09/records/artifacts/"
+            "functional-phase-acceptance/xcodebuild.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r09/records/artifacts/"
+            "functional-phase-acceptance/xcresult-summary.json"
+        ),
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -1360,6 +1385,12 @@ class AlignmentVerifier:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R08 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
+            )
+        if requirements.get("R09") != R09_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R09 phase_evidence_requirements differ from the frozen "
                 "software-function acceptance contract",
             )
         for phase_id, requirement in requirements.items():

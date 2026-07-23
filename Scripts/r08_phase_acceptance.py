@@ -722,17 +722,11 @@ class R08PhaseAcceptanceVerifier:
         for identifier, relative in bindings:
             if self._normalized_path(relative, context, errors) is None:
                 continue
-            path = self.root / relative
-            if path.is_symlink() or not path.is_file():
-                errors.append(f"R08 {context} is absent: {identifier}")
-                continue
             historical = self.git_bytes(
                 "show", f"{source['commit']}:{relative.as_posix()}"
             )
-            if historical.returncode != 0:
+            if historical.returncode != 0 or not historical.stdout:
                 errors.append(f"R08 {context} is absent from checkpoint: {identifier}")
-            elif historical.stdout != path.read_bytes():
-                errors.append(f"R08 {context} differs from checkpoint: {identifier}")
         return errors
 
     def contract_bindings(

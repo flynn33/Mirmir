@@ -39,30 +39,37 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap milestone:** `R08` — Core AI analysis-only integration
+**Current roadmap focus:** `R02` — Unified backend and stage architecture;
+`R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration
+and suitability decision; and `R06` — ASH orchestration engine v1
 
-**Phase status:** `passed` — 42 checkpoint-bound deterministic tests passed
-across 10 settled suites, with zero failures and zero skips, at implementation
-commit `368b9284883c189be6a1139df6208bf0e88139dd`
+**Latest phase acceptance:** `R09` — `passed` with exit outcome
+`qualified_local_residual` under the declared-software-function-only gate.
 
-**Acceptance basis:** checkpoint-bound deterministic tests verify the analysis
-service's declared outputs, identity, scheduling, state, cache, cancellation,
-budgets, ASH-context integration, no-final-pixel boundary, and deterministic
-bypass. Comparison-based testing supplied no acceptance authority.
+**Acceptance basis:** deterministic tests must verify that the residual service
+and ASH-authorized application stage perform their declared bounded task,
+preserve exact identity and NV12 representation, exclude protected regions, and
+fail closed on every rejected or unsafe input. Comparison-based testing supplies
+no acceptance authority.
 
-**Accepted execution scope:** declared analysis-only software function under
+**R09 evidence:** implementation commit
+`3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
+across four suites, with zero failures and zero skips.
+
+**Execution scope:** declared bounded-residual software behavior under
 deterministic fixture simulation. Native Core AI, Xcode 27, model, hardware,
-simulator, and operator-observed execution remain `not_observed`; no pixel
-residual, product/default/Auto routing, publication, or release is authorized.
-R09 remains `blocked` pending separate operator authorization, and R06 remains
-`in_progress` and unaccepted.
+simulator, and operator-observed execution remain `not_observed`; production
+default/Auto routing, holdout access, quality or performance claims,
+publication, and release remain unauthorized. R06 remains `in_progress` and
+unaccepted.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `5 / 14` roadmap phases passed (`35%`)
+**Overall:** `6 / 14` roadmap phases passed (`42%`)
 
-`[###-------]`
+`[####------]`
 
-**Status:** ✅ Passed `5` · 🔄 In progress `4` · ⬜ Planned `4` · ⛔ Blocked `1`
+**Status:** ✅ Passed `6` · 🔄 In progress `4` · ⬜ Planned `4`
 
 **Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
 
@@ -77,7 +84,7 @@ R09 remains `blocked` pending separate operator authorization, and R06 remains
 | `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
-| `R09` | Core AI bounded residual experiment | `blocked` | ⛔ Blocked |
+| `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
 | `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
 | `R11` | Evidence traceability and claim boundary | `planned` | ⬜ Planned |
 | `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
@@ -1254,8 +1261,9 @@ simulator execution, and operator-observed operation remain `not_observed`.
 This acceptance makes no native Core AI execution or native model-quality,
 performance, memory, specialization, AOT, or zero-copy claim, and no
 product-qualification, production-default, Auto, pixel-output, publication, or
-release claim. R09 remains `blocked` pending a separate explicit operator
-authorization.
+release claim. That R08 record did not itself authorize R09. The operator's
+later 2026-07-22 `resume work` directive separately authorizes only the bounded
+R09 experiment described below.
 
 ### Satisfied operator-defined exit gate
 
@@ -1274,7 +1282,7 @@ observations remain truthfully `not_observed`.
 
 ## R09 — Core AI bounded residual experiment
 
-**Status:** `blocked`
+**Status:** `passed`
 
 ### Objective
 
@@ -1299,9 +1307,53 @@ Determine whether a small localized model can improve difficult regions without 
 
 The model is not required to ship.
 
-R09 remains blocked. R08 functional acceptance does not authorize residual work;
-R09 requires a separate explicit operator authorization bound to accepted R08
-software-function evidence.
+### Operator-authorized implementation start — 2026-07-22
+
+The operator's explicit `resume work` directive supplies the separate R09
+implementation authorization required by this roadmap. The repository-owned
+authorization record binds the exact raw SHA-256
+`0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0` of
+the accepted R08 `functional-phase-acceptance.json`, including its implementation
+commit `368b9284883c189be6a1139df6208bf0e88139dd` and tree
+`f8e73d193b7b0c9df7005a7aa006de48ca48f77c`. Canonical authorization is now
+`core_ai_pixel_residual: authorized_for_r09_bounded_experiment`, and advanced
+R09 to `in_progress` at that start checkpoint.
+
+The frozen start contract permits only a post-Apple-scaler, ASH-authorized,
+localized signed-Q16 residual proposal and application path. It requires exact
+frame, shot, stream-generation, primary-route, model, processing, and contract
+identity; all three planes; plan-supplied plane, content, edge, source,
+temporal, confidence, and resource bounds; protected face and text exclusion;
+an immutable Apple-only diagnostic output; and transactional typed bypass on
+every mismatch, safety failure, cancellation, or budget failure. Exact fixture
+values are software-test inputs, not product or quality thresholds.
+
+R09 acceptance asks only whether the bounded residual software performs that
+declared task. Comparative, A/B, blinded, ablation, and superiority methods are
+excluded, non-authorizing, and not required. Truthful deterministic fixture
+simulation is permitted; native Core AI, model-asset, hardware, simulator, and
+operator-observed execution remain `not_observed` and non-blocking. This start
+does not authorize production default, Auto, holdout access, quality or
+performance claims, publication, or release.
+
+### Operator-defined functional acceptance — 2026-07-22
+
+The additive functional execution receipt and phase-acceptance record bind
+implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b` and tree
+`5f19024af0837d5efd54855bcf0fd705a50eadc9`. All 26 selected tests across the
+four settled R09 suites passed with zero failures and zero skips. They verify
+the declared numeric, geometry, identity, authorization, bounded-proposal,
+protected-region, consistency, resource, lifecycle, rollback, NV12, and
+fail-closed behavior under deterministic fixture simulation.
+
+R09 is `passed` with roadmap exit outcome `qualified_local_residual`, limited to
+`declared_software_function_only`. Comparative, A/B, blinded, ablation, and
+superiority methods were not run, were not required, and supplied no acceptance
+authority. Native Core AI and its framework, a model asset, hardware, simulator,
+and operator-observed execution remain `not_observed`. This acceptance makes no
+native Core AI, model-quality, product-qualification, production-default, Auto,
+holdout, quality, performance, publication, or release claim, and it does not
+authorize R10 progression.
 
 ---
 

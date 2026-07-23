@@ -38,9 +38,10 @@ from r01_preregistration import FIXTURE_CATALOG_PATH  # noqa: E402
 
 AUTHORIZATIONS = {
     "capability_lab": "authorized_after_current_source_inventory",
-    "core_ai_pixel_residual": "blocked_until_analysis_ablation_passes",
+    "core_ai_pixel_residual": "authorized_for_r09_bounded_experiment",
     "holdout": "blocked",
     "market_leading_claim": "blocked",
+    "observation_gates": "hardware_unavailable_simulator_and_operator_observation_waived_not_a_blocker",
     "production_auto_mode": "blocked",
     "strategic_reset": "authorized",
     "unified_backend_architecture": "authorized_after_capability_contracts",
@@ -936,6 +937,18 @@ class PhaseEvidenceTests(unittest.TestCase):
                 "passed": frozenset({"passed"}),
                 "blocked": frozenset({"blocked"}),
             },
+        )
+
+    def test_r09_rejection_vocabulary_matches_comparison_free_roadmap(self) -> None:
+        self.assertEqual(
+            PHASE_OUTCOME_DISPOSITIONS["R09"]["rejected"],
+            frozenset(
+                {
+                    "rejected_no_safe_residual_path",
+                    "rejected_hallucination_risk",
+                    "rejected_resource_cost",
+                }
+            ),
         )
 
     def test_r01_preregistration_requires_every_capability(self) -> None:

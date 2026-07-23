@@ -15,7 +15,7 @@ from typing import Any, Iterable
 
 
 SCHEMA_VERSION = "1.0"
-SCHEMA_SHA256 = "3a80e0a653aae3224325659f7c218de6a1ec0ba053c7802b6c015f029e7c2f0d"
+SCHEMA_SHA256 = "0b6011320a5fce2274de32ff29d249efb0eb3ae4e1a1d6a22a112c04919f408b"
 PHASE_IDS = tuple(f"R{index:02d}" for index in range(1, 14))
 PHASE_CLOSURE_PREDECESSORS = {
     "R01": ("R00",),
@@ -267,7 +267,7 @@ PHASE_OUTCOME_DISPOSITIONS = {
         ),
         "rejected": frozenset(
             {
-                "no_incremental_value",
+                "rejected_no_safe_residual_path",
                 "rejected_hallucination_risk",
                 "rejected_resource_cost",
             }

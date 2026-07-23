@@ -28,9 +28,10 @@ shape without depending on the external Forsetti package or copying its source.
    as a deterministic reference and analysis substrate, not as the presumptive
    production reconstruction engine.
 3. Core AI is optional. Its first authorized role is analysis-only. Pixel
-   residual processing remains separately blocked pending explicit operator
-   authorization after R08 functional acceptance. Comparison-based testing is
-   outside the forward roadmap and does not authorize residual work.
+   residual processing remained separately blocked through R08 acceptance and
+   required explicit operator authorization. Comparison-based testing is
+   outside the forward roadmap and does not authorize residual work. The later
+   2026-07-22 operator directive authorized only the bounded R09 experiment.
 4. The application retains one UI module, four cohesive service modules,
    constructor injection, deterministic lifecycle, and one composition root.
    These are implemented by a small app-owned Pattern B runtime using
@@ -92,8 +93,27 @@ fixture simulation. Comparison-based testing supplied no acceptance authority.
 Native Core AI, Xcode 27, model, hardware, simulator, and
 operator-observed execution remain `not_observed`; the acceptance creates no
 native, product, quality, performance, production-default, Auto, publication,
-or release claim. Core AI pixel residual work remains blocked in R09 pending a
-separate explicit operator authorization.
+or release claim. That R08 acceptance did not itself authorize Core AI pixel
+residual work. A later 2026-07-22 operator directive separately authorized only
+the bounded R09 experiment and advanced it to `in_progress` pending its own
+checkpoint-bound functional acceptance.
+
+### R09 bounded-residual acceptance — 2026-07-22
+
+R09 implementation commit `3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`,
+tree `5f19024af0837d5efd54855bcf0fd705a50eadc9`, passed all 26 selected
+deterministic tests across four settled suites with zero failures and zero
+skips. The result verifies the declared bounded residual proposal,
+ASH-authorization, identity, protected-region, consistency, resource,
+transactional rollback, and NV12 contracts.
+
+R09 is `passed` with exit outcome `qualified_local_residual`, limited to
+`declared_software_function_only` under deterministic fixture simulation.
+Comparative methods supplied no acceptance authority. Native Core AI/framework,
+model, hardware, simulator, and operator observations remain `not_observed`;
+this acceptance does not authorize product qualification, production/default/
+Auto routing, holdout access, quality or performance claims, publication,
+release, or R10 progression.
 
 ## Authorization Boundary
 
