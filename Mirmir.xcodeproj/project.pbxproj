@@ -293,6 +293,7 @@
 		C7E7CD625CCB3668443679DD /* ASHLUTCompilerSemanticsV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48241D2B7EFA5200FECF0B28 /* ASHLUTCompilerSemanticsV2.swift */; };
 		CA895557DECD620A23495BDB /* ASHInternalAlphaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44BD8A0FF5F32DAD5E7721CC /* ASHInternalAlphaTests.swift */; };
 		CA89A8E19BDE47CE786559D5 /* ASHLockedVideoMappingV2Validation.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A8566F05A034BB4454F4FE /* ASHLockedVideoMappingV2Validation.swift */; };
+		CC9A1212F4C857AFE0A954CD /* R05FunctionalPhaseAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCE6DB7A9DCCFA0B9AE5A074 /* R05FunctionalPhaseAcceptanceTests.swift */; };
 		CD547485A5FD2A7FFA61A5BF /* R07FunctionalCoordinatorRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9DBAFD8B9902551CF3DA1EF /* R07FunctionalCoordinatorRuntime.swift */; };
 		CE47B26A0295BF1E3E5CCFD4 /* ASHAnalysisGridV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDBDF33FB1700F8451971484 /* ASHAnalysisGridV2.swift */; };
 		CF1D76B7F81F89588CCD9D70 /* ASHLockedPlanePolicyDiagnosticV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67124D47267BFA394DA4C7E5 /* ASHLockedPlanePolicyDiagnosticV3Tests.swift */; };
@@ -690,6 +691,7 @@
 		DB89075B23760832B37F915E /* AppleUpscaleCapabilityCompileProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityCompileProbe.swift; sourceTree = "<group>"; };
 		DBF87D2D34EEE56328850BF4 /* ASHSpatialReferencePipelineV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialReferencePipelineV2.swift; sourceTree = "<group>"; };
 		DCAB5DB5687A70683BCEFADD /* branch-topology.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "branch-topology.json"; sourceTree = "<group>"; };
+		DCE6DB7A9DCCFA0B9AE5A074 /* R05FunctionalPhaseAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05FunctionalPhaseAcceptanceTests.swift; sourceTree = "<group>"; };
 		DE99505D14434D5BAC770786 /* R08TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R08TestSupport.swift; sourceTree = "<group>"; };
 		DF24A40AD6F96965D7B42887 /* R09BoundedResidualStageTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R09BoundedResidualStageTestSupport.swift; sourceTree = "<group>"; };
 		E06911D354FDA2F754E91475 /* ASHLockedReferencePipelineV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReferencePipelineV2Tests.swift; sourceTree = "<group>"; };
@@ -1278,6 +1280,7 @@
 				D6C9C974584EF942CBD2CA71 /* R04FunctionalPhaseAcceptanceTests.swift */,
 				444FFC583C05DD14D8DA3A6E /* R04VideoToolboxContractsTests.swift */,
 				5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */,
+				DCE6DB7A9DCCFA0B9AE5A074 /* R05FunctionalPhaseAcceptanceTests.swift */,
 				83AC977684BE029B5DA669C0 /* R05MetalFXColorBridgeTests.swift */,
 				65407F8B287BD796D0DCA455 /* R05MetalFXContractsTests.swift */,
 				667C03F90DA1AB832D4F74C0 /* R05MetalFXSpatialBackendTests.swift */,
@@ -1521,6 +1524,7 @@
 				A5CD1CF5070C629E554E3DFB /* R04FunctionalPhaseAcceptanceTests.swift in Sources */,
 				64FDFB83547E2F8BA2A9CFD0 /* R04VideoToolboxContractsTests.swift in Sources */,
 				DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */,
+				CC9A1212F4C857AFE0A954CD /* R05FunctionalPhaseAcceptanceTests.swift in Sources */,
 				D0A4DFC7189E9EE2A194CE00 /* R05MetalFXColorBridgeTests.swift in Sources */,
 				09E32E402545542E390CAB99 /* R05MetalFXContractsTests.swift in Sources */,
 				D0B7244B5F6F891A24D76373 /* R05MetalFXSpatialBackendTests.swift in Sources */,
