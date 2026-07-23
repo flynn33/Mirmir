@@ -41,8 +41,9 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 
 Unit tests run before the repository and inventory checks. The stable required-check name is
 `Roadmap alignment`; that job depends on the macOS `R02 functional acceptance`,
-`R04 functional acceptance`, and `R05 functional acceptance` jobs and always
-evaluates all three results explicitly, so a failed, cancelled, or skipped
+`R04 functional acceptance`, `R05 functional acceptance`, and
+`R06 functional acceptance` jobs and always evaluates all four results
+explicitly, so a failed, cancelled, or skipped
 prerequisite makes the required check fail. It cannot pass unless each fresh raw
 Xcode result, exact selected-test identities, build action, checkpoint-bound
 build surface, and checked-in acceptance validate. Later roadmap source
@@ -53,7 +54,9 @@ selected tests there. It likewise materializes R04 source commit
 `ab77e97867d51168e90c0190f6430d4acd769e68` before running the exact R04
 selection, and R05 source commit
 `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8` before running the exact R05
-selection. The current checkout then validates each raw result and checked
+selection. It also materializes R06 source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5` before running the exact seven-suite
+R06/R07 selection. The current checkout then validates each raw result and checked
 acceptance. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
@@ -183,16 +186,17 @@ passed, rewrite any historical record, or select a production default. The later
 additive R02 acceptance is independent. Neither decision authorizes Auto,
 holdout, quality/performance claims, product publication, or release.
 
-A distinct R07-only functional acceptance override permits canonical R07 to be
-`passed` while R06 remains canonical `in_progress`. It applies only when the
+A distinct R07-only functional acceptance override permitted canonical R07 to be
+`passed` while R06 remained canonical `in_progress`. It applied only when the
 policy-bound `functional-phase-acceptance.json` bytes and identity are exact, the
 frozen R06 evidence bindings remain byte-exact and unaccepted, and the dedicated
 `r07_phase_acceptance.py` validator rechecks the checkpoint-bound 98-test
 deterministic software-function receipt. The operator superseded the comparative
-backend requirement, so it is not an R07 acceptance gate. The override does not
+backend requirement, so it is not an R07 acceptance gate. The override did not
 mark R06 passed, rewrite frozen evidence, claim native or product execution,
 select a production default, or authorize Auto, quality/performance claims,
-product publication, or release.
+product publication, or release. R06's later additive functional acceptance is
+separate and leaves those frozen bytes unchanged.
 
 The R08 functional acceptance contract permits canonical R08 to be `passed`
 only when the policy-bound functional receipt and phase-acceptance bytes are
@@ -230,8 +234,9 @@ bindings; fixture-catalog semantics are mapped to the selected tests, but the
 catalog JSON is not directly executed by the Swift suite. Native Core AI,
 model, hardware, simulator, operator-observed execution, and product
 qualification remain `not_observed` or `not_claimed`. This contract does not
-authorize production, Auto, holdout, claims, publication, R10 progression, or
-release.
+authorize production, Auto, holdout, claims, publication, or release. The R09
+acceptance did not itself authorize R10 progression; the operator's later
+continuation instruction separately authorizes R10 implementation.
 
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
@@ -249,6 +254,22 @@ not required. The frozen preregistration and suitability record remain
 historical. Native MetalFX execution, hardware, simulator, operator observation,
 product qualification, quality, and performance remain `not_observed` or
 `not_claimed`; this contract does not authorize a production default, Auto,
+publication, or release.
+
+The R06 functional acceptance contract permits canonical R06 to be `passed`
+only when the policy-bound schema, record, Xcode log, and result summary are
+regular exact files and `Scripts/r06_phase_acceptance.py` rechecks source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and all 42 selected tests across
+the seven settled R06/R07 suites. The deterministic selection proves exact
+context/profile mapping, eligibility filtering, scoring, stable tie-breaking,
+transitions, one traceable whole-frame plan, bounded masks, reason identity,
+configuration behavior, and R07 transaction commit/rollback around the real R06
+orchestrator. The accepted scope is `declared_software_function_only` under
+deterministic fixture integration. The frozen blocked product-gate evidence
+remains immutable history, and R06 v1 still rejects product-scope orchestration.
+This contract does not claim product routing or qualification, native-framework
+or hardware execution, a production default, Auto, quality, performance,
 publication, or release.
 
 The operator's software-function acceptance decision applies to R02, R04, R06,
@@ -282,7 +303,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -308,6 +329,7 @@ python3 Scripts/r05_phase_acceptance.py --check
 python3 Scripts/r06_contracts.py --check-preregistration
 python3 Scripts/r06_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json || python3 Scripts/r06_contracts.py --check-conformance
+python3 Scripts/r06_phase_acceptance.py --check
 python3 Scripts/r07_contracts.py --check-preregistration
 python3 Scripts/r07_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json || python3 Scripts/r07_contracts.py --check-conformance

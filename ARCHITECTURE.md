@@ -13,7 +13,7 @@
 - Roadmap phase `R03`: `passed`
 - Roadmap phase `R04`: `passed` for declared software function
 - Roadmap phase `R05`: `passed` with diagnostic-only suitability outcome
-- Roadmap phase `R06`: `in_progress` and unaccepted
+- Roadmap phase `R06`: `passed` for deterministic control-plane software
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
@@ -114,6 +114,19 @@ quality, and performance remain `not_observed` or `not_claimed`; the unavailable
 production composition and all default, Auto, publication, and release
 boundaries remain unchanged.
 
+The additive R06 functional acceptance binds source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and 42 passing tests across seven
+R06/R07 suites. It verifies deterministic context/profile mapping, eligibility
+filtering, scoring, stable tie-breaking, transitions, one traceable whole-frame
+plan, bounded masks, and reason identity. A direct test proves higher-scoring
+ineligible candidates cannot enter the plan; the real R07 coordinator suites
+prove transactional state commit and rollback. R06 is `passed` only for
+`declared_software_function_only`. Its frozen blocked product-gate evidence
+remains historical, and R06 v1 still rejects product-scope orchestration. No
+product routing, qualification, default, Auto, native/hardware observation,
+quality, performance, publication, or release authority follows.
+
 R07 implementation checkpoint
 `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
 `09d3a48df01738bb26077aadfd83c08e389a1dc2`, adds a deterministic functional
@@ -128,8 +141,9 @@ software function. Its frozen comparison requirement is outside the forward
 roadmap and non-authorizing. The fixture executor records simulation identity
 separately from referenced native identities; it does not claim native framework
 or physical-hardware execution. The product composition remains unavailable,
-R06 remains `in_progress` and unaccepted, and no production default, Auto,
-quality, performance, publication, or release authority follows.
+and no production default, Auto, quality, performance, publication, or release
+authority follows. R06's later additive functional acceptance is described
+above and does not rewrite R07's frozen predecessor evidence.
 
 R08 begins from accepted R07 merge commit
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
@@ -182,7 +196,10 @@ NV12 software contracts under deterministic fixture simulation. R09 is
 `passed` for `declared_software_function_only`; native Core AI/framework/model,
 hardware, simulator, and operator observations remain `not_observed`, and no
 product qualification, production/default/Auto routing, quality, performance,
-publication, release, or R10 progression authority follows.
+publication, or release authority follows. The R09 acceptance did not itself
+authorize R10 progression; the operator's later continuation instruction
+separately authorizes R10 implementation under the forward software-function
+gate.
 
 The later R10/R11 control boundary follows the same software-function rule. R10
 must implement a deterministic, finitely bounded, constraint-preserving,

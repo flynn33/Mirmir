@@ -68,9 +68,17 @@
   hardware, simulator, operator observation, product qualification, quality,
   and performance remain `not_observed` or `not_claimed`. No production default,
   Auto, publication, or release authority follows.
-- Roadmap phase `R06`: `in_progress` and unaccepted. Its frozen blocked closure
-  remains truthful historical evidence and is not changed by the later R07
-  acceptance.
+- Roadmap phase `R06`: `passed` for `declared_software_function_only` under
+  deterministic fixture integration. Its additive acceptance binds source
+  `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+  `beb0f8c666550c6c36dae5a2185cac58d2494132`, and 42 passing tests across seven
+  R06/R07 suites. The tests verify deterministic orchestration and prove
+  higher-scoring ineligible candidates cannot enter the plan; the real R07
+  coordinator tests prove transactional state commit and rollback. The frozen
+  blocked closure remains truthful historical evidence. R06 v1 still rejects
+  product-scope orchestration; product routing, qualification, default, Auto,
+  native/hardware observation, quality, performance, publication, and release
+  remain unclaimed or unauthorized.
 - Roadmap phase `R07`: `passed` under the operator-defined deterministic
   software-function gate. The additive receipt and acceptance record bind
   implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree

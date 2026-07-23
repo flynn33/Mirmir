@@ -6,6 +6,21 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R06 for `declared_software_function_only` under deterministic fixture
+  integration. The additive acceptance binds source commit
+  `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+  `beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh seven-suite macOS
+  arm64 Xcode run with 42 tests passed, zero failed, and zero skipped. The
+  selection verifies deterministic context/profile mapping, eligibility
+  filtering, scoring, stable tie-breaking, transitions, one traceable
+  whole-frame plan, bounded masks, reason identity, and transactional state
+  behavior. The additive test proves higher-scoring ineligible candidates cannot
+  enter the plan, and the real R07 coordinator suites prove commit/rollback
+  around the real R06 orchestrator. The frozen
+  `no_product_qualified_primary_backend` evidence remains historical. R06 v1
+  still rejects product-scope orchestration; no product routing, qualification,
+  default, Auto, native/hardware observation, quality, performance, publication,
+  or release authority follows.
 - Accepted R05 with exit outcome `diagnostic_only`, limited to
   `declared_software_function_only`. The additive acceptance binds source commit
   `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree

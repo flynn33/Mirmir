@@ -102,6 +102,7 @@ python3 -m unittest \
   Scripts/tests/test_r05_contracts.py \
   Scripts/tests/test_r05_phase_acceptance.py \
   Scripts/tests/test_r06_contracts.py \
+  Scripts/tests/test_r06_phase_acceptance.py \
   Scripts/tests/test_r07_contracts.py \
   Scripts/tests/test_r07_phase_acceptance.py \
   Scripts/tests/test_r08_contracts.py \
@@ -145,6 +146,7 @@ python3 Scripts/r06_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
   python3 Scripts/r06_contracts.py --check-conformance
 fi
+python3 Scripts/r06_phase_acceptance.py --check
 python3 Scripts/r07_contracts.py --check-preregistration
 python3 Scripts/r07_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then

@@ -39,41 +39,40 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R06` — ASH orchestration engine v1
+**Current roadmap focus:** `R10` — Auto-policy optimization and bounded
+calibration
 
-**Latest phase acceptance:** `R05` — `passed` under the
+**Latest phase acceptance:** `R06` — `passed` under the
 declared-software-function-only gate.
 
-**Acceptance basis:** deterministic tests must verify R05's exact spatial route
-admission, support-before-construction, explicit color bridge, ordered driver and
-FIFO lifecycle, cancellation, typed rejection, processing identity, complete
-media transaction, reopen verification, resource lifetime, and atomic
-publication behavior.
+**Acceptance basis:** deterministic tests must verify R06's context/profile
+mapping, eligibility filtering, scoring and stable tie-breaking, one traceable
+whole-frame plan, transition behavior, bounded masks, reason identity, and
+transactional state commit/rollback.
 
-**R05 evidence:** source commit
-`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
-`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh five-suite macOS arm64
-Xcode run with 46 tests passed, zero failed, and zero skipped. The additive
-functional suite verifies source-derived A07 1.5× and 2× FIFO processing and a
-complete reopened 2× media transaction; A08-A10 retain successful typed
-decoded-video rejections.
+**R06 evidence:** source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh seven-suite macOS arm64
+Xcode run with 42 tests passed, zero failed, and zero skipped. The additive test
+proves higher-scoring ineligible candidates cannot enter the plan, while the
+real R07 coordinator suites prove transactional state commit and rollback around
+the real R06 orchestrator.
 
-**Execution scope:** R05 exit outcome `diagnostic_only`, limited to declared
-software behavior. The frozen preregistration and `diagnostic_only` suitability
-record remain unchanged historical evidence. Native MetalFX execution, hardware,
-simulator, operator observation, product qualification, quality, and performance
-remain `not_observed` or `not_claimed`. A production default, Auto, holdout
-access, product publication, and release remain unauthorized. R06 remains
-`in_progress` and unaccepted.
+**Execution scope:** deterministic R06 control-plane software only. The frozen
+`no_product_qualified_primary_backend` record remains unchanged historical
+evidence. R06 v1 still rejects product-scope orchestration. Product routing,
+product qualification, a production default, Auto, native-framework execution,
+hardware, simulator, operator observation, quality, performance, holdout access,
+publication, and release remain unauthorized or unclaimed.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `9 / 14` roadmap phases passed (`64%`)
+**Overall:** `10 / 14` roadmap phases passed (`71%`)
 
-`[######----]`
+`[#######---]`
 
-**Status:** ✅ Passed `9` · 🔄 In progress `1` · ⬜ Planned `4`
+**Status:** ✅ Passed `10` · ⬜ Planned `4`
 
-**Current focus:** `R06` — ASH orchestration engine v1
+**Current focus:** No phase is marked `next`, `in_progress`, or `evidence_ready`.
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -83,7 +82,7 @@ access, product publication, and release remain unauthorized. R06 remains
 | `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
 | `R04` | VideoToolbox super-resolution integration | `passed` | ✅ Passed |
 | `R05` | MetalFX integration and suitability decision | `passed` | ✅ Passed |
-| `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
+| `R06` | ASH orchestration engine v1 | `passed` | ✅ Passed |
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
@@ -1094,7 +1093,7 @@ A rejection is a valid successful result.
 
 ## R06 — ASH orchestration engine v1
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -1165,9 +1164,9 @@ passed. The frozen product-admission result nevertheless remains fail-closed
 `eligible_backend_count: 0` and null selected route, plan, and output. All
 product, hardware, simulator, and operator observations remain `not_observed`.
 
-This is a local unpublished blocked closure, not phase acceptance. R06 remains
-canonical `in_progress`. No quality, performance, product, production-default,
-acceptance, publication, or release claim follows from this checkpoint.
+This is an immutable local unpublished blocked closure, not phase acceptance.
+No quality, performance, product, production-default, acceptance, publication,
+or release claim follows from this checkpoint.
 
 ### Qualified-backend follow-up — 2026-07-21
 
@@ -1175,11 +1174,39 @@ The later R03 v2 decision product-qualified A11 for functional product
 eligibility. The earlier R06 `no_product_qualified_primary_backend` result
 remains truthful historical evidence from its bound source and is not rewritten.
 Its cause is now cleared prospectively for a separately preregistered additive
-R06 product-gate rerun. No such rerun is recorded here; R06 remains
-`in_progress`, unaccepted, and without a production-default, quality,
-performance, publication, or release claim.
+R06 product-gate rerun. No product-gate rerun is recorded here, and the later
+functional acceptance does not claim product routing or rewrite this history.
 
-### Current operator-defined exit gate
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh macOS arm64 Xcode run
+of 42 tests across the four frozen R06 suites, the additive functional suite,
+and the R07 coordinator and transaction suites. All 42 tests passed with zero
+failures and zero skips.
+
+The tests prove deterministic context/profile mapping, eligibility filtering,
+integer scoring and stable tie-breaking, one whole-frame plan, reason identity,
+hysteresis, dwell, scene-cut reset, fatal failover, bounded masks, and
+configuration controls. The additive test supplies higher-scoring
+fixture-ineligible and non-whole-frame candidates and proves they cannot enter
+the selected plan, candidate ordering cannot change the result, and value inputs
+remain unchanged. The real R07 coordinator tests prove state commits only after
+the full transaction succeeds and rolls back on failure.
+
+R06 is therefore `passed` only for `declared_software_function_only` under
+deterministic fixture integration. It is control-plane software and produces a
+plan rather than pixels or a media container, so media reopen is outside its
+declared responsibility. The focused Xcode run excluded Metal shader
+compilation because the optional Metal Toolchain was unavailable; R06 adds no
+Metal shader. The frozen blocked conformance remains unchanged historical
+evidence. R06 v1 continues to reject product-scope orchestration; no product
+routing, product qualification, production default, Auto, native-framework,
+hardware, simulator, operator-observed operation, quality, performance,
+publication, or release claim follows.
+
+### Satisfied operator-defined exit gate
 
 ASH orchestration passes its forward software-function gate when deterministic
 tests prove eligible-backend filtering, scoring and stable tie-breaking,
@@ -1215,8 +1242,9 @@ preregistration binds the exact local R06 blocked closure commit
 `32365e745dbf53d59213fe2294a6b63ba2642df7` as
 `local_unpublished_blocked_closure`, with `predecessor_result: blocked`,
 `accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
-`continuation_scope: local_implementation_only`. R06 remains canonical
-`in_progress`, local unpublished, and unaccepted; R08 remains `planned`.
+`continuation_scope: local_implementation_only`. At that historical start
+checkpoint, R06 was canonical `in_progress`, local unpublished, and unaccepted;
+R08 was `planned`.
 
 The R07 local slice is fixture-only temporal and artifact-governance
 implementation. Exact temporal, chroma, artifact, churn, protected-region,
@@ -1271,9 +1299,10 @@ This passes R07 only for
 `functional_deterministic_software_phase_acceptance`. Execution is deterministic
 fixture simulation. Native framework execution, physical hardware, product
 routing, a production default, Auto, media-quality or performance measurement,
-product publication, and release are not claimed or authorized. R06 remains
-`in_progress` and unaccepted, and its frozen evidence is unchanged. R08 remains
-`planned`.
+product publication, and release are not claimed or authorized. This R07
+acceptance did not rewrite R06's frozen evidence. R06's later additive
+functional acceptance is recorded above, and R08 later passed under its separate
+functional acceptance.
 
 ### Superseded historical gate
 
@@ -1434,8 +1463,10 @@ superiority methods were not run, were not required, and supplied no acceptance
 authority. Native Core AI and its framework, a model asset, hardware, simulator,
 and operator-observed execution remain `not_observed`. This acceptance makes no
 native Core AI, model-quality, product-qualification, production-default, Auto,
-holdout, quality, performance, publication, or release claim, and it does not
-authorize R10 progression.
+holdout, quality, performance, publication, or release claim, and it did not
+itself authorize R10 progression. The operator's later continuation instruction
+separately authorizes R10 implementation under the forward software-function
+gate.
 
 ---
 

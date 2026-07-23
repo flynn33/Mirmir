@@ -4,7 +4,7 @@ The current product direction is **Mirmir Apple-Native Adaptive Video Enhancemen
 
 Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
 `R03: passed`; `R04: passed`; `R05: passed`;
-`R06: in_progress`; `R07: passed` under the operator-defined deterministic
+`R06: passed`; `R07: passed` under the operator-defined deterministic
 software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
@@ -21,12 +21,14 @@ source for its local unpublished blocked checkpoint is commit
 `9246934c027e97f2b2ae3af35b0c4892154d761c`, tree
 `1235596387d4eabd2ecb4ea1a29221c44ec425fe`. Its deterministic software
 conformance passed, but its frozen product-gate result is fail-closed for
-`no_product_qualified_primary_backend`. Product, hardware, simulator, and
-operator observations remain `not_observed`; quality, performance, product,
-production-default, acceptance, publication, and release claims remain unmade.
+`no_product_qualified_primary_backend`. At that frozen checkpoint, product,
+hardware, simulator, and operator observations were `not_observed`; quality,
+performance, product, production-default, acceptance, publication, and release
+claims were unmade.
 R06's policy-frozen local unpublished blocked closure is commit
 `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
-`32365e745dbf53d59213fe2294a6b63ba2642df7`; its acceptance remains unclaimed.
+`32365e745dbf53d59213fe2294a6b63ba2642df7`; its contemporaneous acceptance
+remains unclaimed historical evidence.
 
 R02's additive functional phase acceptance binds source
 `eeabc4224100bc8ed86ae1208189bee508844210`, tree
@@ -75,6 +77,20 @@ Native MetalFX execution, hardware, simulator, operator observation, product
 qualification, quality, and performance remain `not_observed` or `not_claimed`;
 no production default, Auto, publication, or release authority follows.
 
+R06's additive functional phase acceptance binds source
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh seven-suite macOS arm64
+Xcode run with 42 tests passed, zero failed, and zero skipped. The selection
+verifies the frozen deterministic orchestration contracts, directly proves
+higher-scoring ineligible candidates cannot enter the selected plan, and uses
+the real R07 coordinator suites to prove transactional state commit and
+rollback around the real R06 orchestrator. R06 is `passed` only for
+`declared_software_function_only` under deterministic fixture integration. The
+frozen blocked conformance and phase evidence remain unchanged history. R06 v1
+still rejects product-scope orchestration; no product routing, qualification,
+default, Auto, native/hardware observation, quality, performance, publication,
+or release claim follows.
+
 R07 began fixture-only local implementation from the exact R06 blocked closure
 identified above. Its
 preregistration and deterministic fixture catalog freeze the temporal,
@@ -96,8 +112,9 @@ coordinator, and transaction behavior. The frozen comparison requirement is
 outside the forward roadmap and carries no acceptance authority. This scope
 does not claim native framework or hardware execution, product routing, a
 production default, Auto, media quality, performance, publication, or release.
-R06 remains `in_progress` and unaccepted. R08 is `passed` under its separate
-functional acceptance record.
+R06 later passed under its additive functional acceptance record. R08 is
+`passed` under its separate functional acceptance record. Neither acceptance
+rewrites the frozen R06/R07 product-gate records.
 
 R08 starts from accepted R07 merge commit
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
@@ -140,8 +157,10 @@ skips. R09 is `passed` with exit outcome `qualified_local_residual`, limited to
 `declared_software_function_only` under deterministic fixture simulation.
 Native Core AI/framework/model, hardware, simulator, and operator observations
 remain `not_observed`; no product qualification, production default, Auto,
-holdout, quality, performance, publication, release, or R10 progression
-authority follows.
+holdout, quality, performance, publication, or release authority follows. The
+R09 acceptance did not itself authorize R10 progression; the operator's later
+continuation instruction separately authorizes R10 implementation under the
+forward software-function gate.
 
 The same forward-gate correction applies to later phases. R10 accepts on direct
 proof of deterministic bounded optimizer/calibration behavior. R11 accepts on
@@ -198,6 +217,7 @@ disabled.
 - [R06 ASH Orchestration Conformance](evidence/r06/records/orchestration-conformance.json) — local unpublished blocked evidence; product and runtime observations not observed; phase acceptance not claimed
 - [R06 Phase Evidence Manifest](evidence/r06/phase-evidence.json)
 - [R06 Phase Evidence Summary](evidence/r06/phase-evidence.md)
+- [R06 Functional Phase Acceptance](evidence/r06/records/functional-phase-acceptance.json) — additive declared-software-function-only acceptance; 42 passed, 0 failed, 0 skipped across seven suites
 - [R07 Preregistration](evidence/r07/records/preregistration.json)
 - [R07 Deterministic Fixture Catalog](evidence/r07/records/fixtures/fixture-catalog.json)
 - [R07 Functional Execution Receipt](evidence/r07/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 98 passed, 0 failed, 0 skipped
@@ -216,7 +236,7 @@ disabled.
 
 Verified source hashes:
 
-- Markdown: `bb41fdfa3b02c0ee29370cf56b46afdffdc5bd0730ec769af484669658ea06f3`
-- JSON: `76530dc40f208586e6dfa14dd75c6ab0acc7da805d35d3c6828ea029e884bdd8`
+- Markdown: `48ce8a826a9689ba082e2347dbe65d89fb5194ff15f492e90971f0a62be7c266`
+- JSON: `a85ad95f89d926cdc9739e1f757d3fcb14a09f5d205ff7f0b0f06345deeca1a2`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

@@ -257,7 +257,7 @@
       "exit": "operator-defined software-function gate: verified ASH orchestration, transition, mask, identity, and transactional contracts",
       "id": "R06",
       "name": "ASH orchestration engine v1",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [

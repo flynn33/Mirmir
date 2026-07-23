@@ -1,0 +1,30 @@
+R06 declared-software-function acceptance execution
+repository-safe transcript derived from the bound xcresult summary
+source_commit: 6c4a6d3d5f8a59c553b10c23783c148ccb3388a5
+source_tree: beb0f8c666550c6c36dae5a2185cac58d2494132
+execution_mode: deterministic_fixture_integration
+platform: macos_host
+architecture: arm64
+
+Command line invocation:
+    xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r06-6c4a6d3d-derived -resultBundlePath /private/tmp/mirmir-r06-6c4a6d3d.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R06ASHDecisionContextTests -only-testing:MirmirTests/R06ASHMasksAndAblationsTests -only-testing:MirmirTests/R06ASHOrchestratorTests -only-testing:MirmirTests/R06ASHPolicyCatalogTests -only-testing:MirmirTests/R06FunctionalPhaseAcceptanceTests -only-testing:MirmirTests/R07FunctionalCoordinatorTests -only-testing:MirmirTests/R07FunctionalCoordinatorTransactionTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+Test Suite 'R06ASHDecisionContextTests' passed.
+    Executed 7 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R06ASHMasksAndAblationsTests' passed.
+    Executed 11 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R06ASHOrchestratorTests' passed.
+    Executed 11 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R06ASHPolicyCatalogTests' passed.
+    Executed 3 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R06FunctionalPhaseAcceptanceTests' passed.
+    Executed 1 test, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalCoordinatorTests' passed.
+    Executed 6 tests, with 0 failures (0 unexpected), 0 skipped.
+Test Suite 'R07FunctionalCoordinatorTransactionTests' passed.
+    Executed 3 tests, with 0 failures (0 unexpected), 0 skipped.
+
+Test Suite 'Selected tests' passed.
+    Executed 42 tests, with 0 failures (0 unexpected), 0 skipped.
+
+** TEST SUCCEEDED **

@@ -276,6 +276,30 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "phase R05 status 'passed' requires a regular evidence file"
         )
 
+    def test_passed_r06_requires_every_functional_acceptance_file(self) -> None:
+        self.set_phase_status("R06", "passed")
+        for relative in self.policy["phase_evidence_requirements"]["R06"]["paths"]:
+            with self.subTest(relative=relative):
+                path = self.root / relative
+                original = path.read_bytes()
+                path.unlink()
+                self.assert_error_contains(
+                    "phase R06 status 'passed' requires a regular evidence file"
+                )
+                path.write_bytes(original)
+
+    def test_passed_r06_rejects_symlinked_functional_acceptance_file(self) -> None:
+        self.set_phase_status("R06", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R06"]["paths"][-1]
+        path = self.root / relative
+        target = self.root / "r06-functional-acceptance-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R06 status 'passed' requires a regular evidence file"
+        )
+
     def test_in_progress_r04_requires_every_start_contract_file(self) -> None:
         self.set_phase_status("R04", "in_progress")
         start_path = self.root / self.policy["phase_start_requirements"]["R04"][
@@ -347,6 +371,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_in_progress_r06_requires_every_start_contract_file(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         start_path = self.root / self.policy["phase_start_requirements"]["R06"][
             "paths"
         ][1]
@@ -356,6 +381,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_in_progress_r06_rejects_symlinked_start_contract(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         relative = self.policy["phase_start_requirements"]["R06"]["paths"][1]
         symlink_path = self.root / relative
         target = self.root / "r06-start-target.json"
@@ -621,6 +647,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_in_progress_r07_uses_exact_local_continuation_exception(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "in_progress")
         self.assertFalse(
             any(
@@ -631,6 +658,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_r07_exception_never_waives_next_or_evidence_ready(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         for status in ("next", "evidence_ready"):
             with self.subTest(status=status):
                 self.set_phase_status("R07", status)
@@ -639,6 +667,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_r07_exception_requires_regular_valid_preregistration(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
@@ -647,6 +676,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r07_exception_rejects_predecessor_binding_drift(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
@@ -658,6 +688,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation predecessor binding differs")
 
     def test_r07_exception_rejects_preregistration_key_drift(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
@@ -682,6 +713,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_r07_exception_rejects_symlinked_preregistration(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R07"][
             "preregistration_path"
@@ -694,6 +726,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_passed_r07_uses_exact_functional_acceptance_override(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         self.set_phase_status("R07", "passed")
         self.assertFalse(
             any(
@@ -704,6 +737,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_r07_acceptance_override_is_exact(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         policy_path = self.root / ".github/roadmap-alignment-policy.json"
         policy = copy.deepcopy(self.policy)
         policy["phase_acceptance_overrides"]["R07"]["acceptance_identity"][
@@ -713,6 +747,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("exact R07 functional contract")
 
     def test_passed_r07_requires_exact_acceptance_record(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
             "acceptance_record_binding"
         ]["path"]
@@ -720,6 +755,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("acceptance_record_binding bytes differ")
 
     def test_passed_r07_requires_exact_r06_phase_evidence(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
             "dependency_phase_evidence_binding"
         ]["path"]
@@ -727,6 +763,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("dependency_phase_evidence_binding bytes differ")
 
     def test_passed_r07_requires_exact_r06_conformance(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         path = self.root / self.policy["phase_acceptance_overrides"]["R07"][
             "dependency_conformance_binding"
         ]["path"]
@@ -743,6 +780,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_passed_r07_rejects_symlinked_acceptance_record(self) -> None:
+        self.set_phase_status("R06", "in_progress")
         relative = self.policy["phase_acceptance_overrides"]["R07"][
             "acceptance_record_binding"
         ]["path"]
@@ -1225,7 +1263,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "r02-functional-acceptance:",
             (
                 "needs: [r02-functional-acceptance, "
-                "r04-functional-acceptance, r05-functional-acceptance]"
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance]"
             ),
             "if: ${{ always() }}",
             (
@@ -1368,7 +1407,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "r04-functional-acceptance:",
             (
                 "needs: [r02-functional-acceptance, "
-                "r04-functional-acceptance, r05-functional-acceptance]"
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r04-functional-acceptance.result }}" '
@@ -1463,7 +1503,8 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "r05-functional-acceptance:",
             (
                 "needs: [r02-functional-acceptance, "
-                "r04-functional-acceptance, r05-functional-acceptance]"
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r05-functional-acceptance.result }}" '
@@ -1584,6 +1625,124 @@ class RoadmapAlignmentTests(unittest.TestCase):
                         f"required alignment text is missing: {phrase!r}"
                     )
                     path.write_text(original, encoding="utf-8")
+
+    def test_r06_phase_acceptance_commands_are_required_in_ci_and_guardrails(
+        self,
+    ) -> None:
+        common_required = (
+            "Scripts/tests/test_r06_phase_acceptance.py",
+            "python3 Scripts/r06_phase_acceptance.py --check",
+        )
+        workflow_required = (
+            "r06-functional-acceptance:",
+            (
+                "needs: [r02-functional-acceptance, "
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance]"
+            ),
+            (
+                'test "${{ needs.r06-functional-acceptance.result }}" '
+                '= "success"'
+            ),
+            (
+                "git worktree add --detach "
+                "/private/tmp/mirmir-r06-6c4a6d3d-source "
+                "6c4a6d3d5f8a59c553b10c23783c148ccb3388a5"
+            ),
+            (
+                "working-directory: "
+                "/private/tmp/mirmir-r06-6c4a6d3d-source"
+            ),
+            (
+                "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir "
+                "-configuration Debug -destination platform=macOS,arch=arm64 "
+                "-derivedDataPath /private/tmp/mirmir-r06-6c4a6d3d-derived "
+                "-resultBundlePath /private/tmp/mirmir-r06-6c4a6d3d.xcresult "
+                "-disableAutomaticPackageResolution test "
+                "-only-testing:MirmirTests/R06ASHDecisionContextTests "
+                "-only-testing:MirmirTests/R06ASHMasksAndAblationsTests "
+                "-only-testing:MirmirTests/R06ASHOrchestratorTests "
+                "-only-testing:MirmirTests/R06ASHPolicyCatalogTests "
+                "-only-testing:MirmirTests/R06FunctionalPhaseAcceptanceTests "
+                "-only-testing:MirmirTests/R07FunctionalCoordinatorTests "
+                "-only-testing:MirmirTests/"
+                "R07FunctionalCoordinatorTransactionTests "
+                "'EXCLUDED_SOURCE_FILE_NAMES=*.metal' "
+                "CODE_SIGNING_ALLOWED=NO"
+            ),
+            (
+                "python3 Scripts/r06_phase_acceptance.py --check-xcresult "
+                "/private/tmp/mirmir-r06-6c4a6d3d.xcresult"
+            ),
+            "- name: Verify checked-in R06 acceptance",
+            "name: r06-functional-acceptance-xcresult",
+        )
+        for relative in (
+            ".github/workflows/roadmap-alignment.yml",
+            "Scripts/verify-mirmir-guardrails.sh",
+        ):
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            required = common_required + (
+                workflow_required
+                if relative == ".github/workflows/roadmap-alignment.yml"
+                else ()
+            )
+            for phrase in required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
+                    path.write_text(
+                        original.replace(
+                            phrase,
+                            "removed-r06-phase-acceptance-command",
+                        ),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
+
+    def test_r06_xcode_run_uses_exact_checkpoint_worktree(self) -> None:
+        workflow = (
+            self.root / ".github/workflows/roadmap-alignment.yml"
+        ).read_text(encoding="utf-8")
+        materialize = (
+            "- name: Materialize exact R06 source checkpoint\n"
+            "        run: git worktree add --detach "
+            "/private/tmp/mirmir-r06-6c4a6d3d-source "
+            "6c4a6d3d5f8a59c553b10c23783c148ccb3388a5"
+        )
+        run = (
+            "- name: Run exact R06 selected tests\n"
+            "        working-directory: "
+            "/private/tmp/mirmir-r06-6c4a6d3d-source"
+        )
+        validate = (
+            "- name: Validate raw R06 xcresult\n"
+            "        if: ${{ always() }}\n"
+            "        run: python3 Scripts/r06_phase_acceptance.py "
+            "--check-xcresult /private/tmp/mirmir-r06-6c4a6d3d.xcresult"
+        )
+        verify = (
+            "- name: Verify checked-in R06 acceptance\n"
+            "        if: ${{ always() }}\n"
+            "        run: python3 Scripts/r06_phase_acceptance.py --check"
+        )
+        upload = (
+            "- name: Upload raw R06 xcresult\n"
+            "        if: ${{ always() }}\n"
+            "        uses: actions/upload-artifact@"
+            "ea165f8d65b6e75b540449e92b4886f43607fa02"
+        )
+        artifact_path = "path: /private/tmp/mirmir-r06-6c4a6d3d.xcresult"
+        for phrase in (materialize, run, validate, verify, upload, artifact_path):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, workflow)
+        self.assertLess(workflow.index(materialize), workflow.index(run))
+        self.assertLess(workflow.index(run), workflow.index(validate))
+        self.assertLess(workflow.index(validate), workflow.index(verify))
+        self.assertLess(workflow.index(verify), workflow.index(upload))
 
     def test_r07_contract_commands_are_required_in_ci_and_guardrails(self) -> None:
         common_required = (
