@@ -2,6 +2,8 @@ import CryptoKit
 import XCTest
 @testable import Mirmir
 
+// swiftlint:disable file_length
+
 final class R12MediaFormatContractV2Tests: XCTestCase {
     func testFixtureCatalogCoversDeclaredExpansionWithoutNativeAuthority() {
         let fixtures = R12MediaFormatFixtureCatalogV2.all
@@ -279,6 +281,123 @@ extension R12MediaFormatContractV2Tests {
         }
     }
 
+    func testEveryMetadataInvariantRejectsAContradictoryRule() throws {
+        let fixture = R12MediaFormatFixtureCatalogV2.nv12SDR
+
+        for field in R12MetadataFieldV2.allCases {
+            let current = metadataRule(field, in: fixture.metadata)
+            let contradictory: R12PreservationRuleV2
+            switch current {
+            case .exact:
+                contradictory = .notApplicable
+            case .preserveIfPresent:
+                contradictory = .exact
+            case .notApplicable:
+                contradictory = .preserveIfPresent
+            }
+            let metadata = replacing(
+                field,
+                with: contradictory,
+                in: fixture.metadata
+            )
+
+            XCTAssertThrowsError(
+                try R12MediaFormatContractV2(
+                    format: fixture.format,
+                    metadata: metadata,
+                    quality: fixture.quality,
+                    evidence: fixture.evidence
+                ),
+                "Expected \(field.rawValue) to fail closed"
+            ) {
+                XCTAssertEqual(
+                    $0 as? R12MediaFormatContractErrorV2,
+                    .metadataRuleMismatch(field)
+                )
+            }
+        }
+    }
+
+    func testEveryConstructibleStructuralWeakeningIsRejected() throws {
+        typealias Quality = R12StructuralQualityContractV2
+        let weakened: [(
+            field: R12StructuralQualityFieldV2,
+            construct: () throws -> Quality
+        )] = [
+            (.frameCount, {
+                try Quality(frameCount: .preserveIfPresent, alpha: .notApplicable)
+            }),
+            (.presentationTimeline, {
+                try Quality(
+                    presentationTimeline: .preserveIfPresent,
+                    alpha: .notApplicable
+                )
+            }),
+            (.audioTracks, {
+                try Quality(audioTracks: .notApplicable, alpha: .notApplicable)
+            }),
+            (.subtitleTracks, {
+                try Quality(subtitleTracks: .notApplicable, alpha: .notApplicable)
+            }),
+            (.metadata, {
+                try Quality(metadata: .preserveIfPresent, alpha: .notApplicable)
+            }),
+            (.alpha, {
+                try Quality(alpha: .preserveIfPresent)
+            }),
+            (.outputReopen, {
+                try Quality(alpha: .notApplicable, outputReopen: .notApplicable)
+            }),
+            (.exactDimensions, {
+                try Quality(
+                    alpha: .notApplicable,
+                    exactDimensions: .notApplicable
+                )
+            }),
+            (.exactPlaneGeometry, {
+                try Quality(
+                    alpha: .notApplicable,
+                    exactPlaneGeometry: .notApplicable
+                )
+            }),
+            (.deterministicDigest, {
+                try Quality(
+                    alpha: .notApplicable,
+                    deterministicDigest: .notApplicable
+                )
+            }),
+            (.visibleFallback, {
+                try Quality(
+                    alpha: .notApplicable,
+                    visibleFallback: .notApplicable
+                )
+            }),
+            (.resumeEquivalence, {
+                try Quality(
+                    alpha: .notApplicable,
+                    resumeEquivalence: .notApplicable
+                )
+            })
+        ]
+
+        XCTAssertEqual(
+            Set(weakened.map(\.field)),
+            Set(R12StructuralQualityFieldV2.allCases).subtracting([.scope])
+        )
+        for entry in weakened {
+            XCTAssertThrowsError(try entry.construct()) {
+                XCTAssertEqual(
+                    $0 as? R12MediaFormatContractErrorV2,
+                    .structuralQualityMismatch(entry.field)
+                )
+            }
+        }
+        XCTAssertEqual(
+            Quality.preserving(alpha: false).scope,
+            .structuralIntegrityOnly
+        )
+    }
+
     func testEvidenceFactoriesPreventFixturePromotionToNativeObservation() throws {
         let fixture = try R12FormatEvidenceV2.deterministicContract(
             fixtureID: "fixture-p010"
@@ -451,5 +570,60 @@ extension R12MediaFormatContractV2Tests {
         )
         XCTAssertEqual(contract.immutableBytes, data)
         XCTAssertEqual(contract.canonicalInstances.count, 12)
+    }
+}
+
+private extension R12MediaFormatContractV2Tests {
+    func metadataRule(
+        _ field: R12MetadataFieldV2,
+        in contract: R12MetadataPreservationContractV2
+    ) -> R12PreservationRuleV2 {
+        switch field {
+        case .colorMetadata: contract.colorMetadata
+        case .hdrStaticMetadata: contract.hdrStaticMetadata
+        case .hdrDynamicMetadata: contract.hdrDynamicMetadata
+        case .audioMetadata: contract.audioMetadata
+        case .orientation: contract.orientation
+        case .cleanAperture: contract.cleanAperture
+        case .pixelAspectRatio: contract.pixelAspectRatio
+        case .displayMetadata: contract.displayMetadata
+        case .contentLightLevel: contract.contentLightLevel
+        case .subtitles: contract.subtitles
+        case .timecode: contract.timecode
+        case .containerMetadata: contract.containerMetadata
+        }
+    }
+
+    func replacing(
+        _ field: R12MetadataFieldV2,
+        with rule: R12PreservationRuleV2,
+        in contract: R12MetadataPreservationContractV2
+    ) -> R12MetadataPreservationContractV2 {
+        R12MetadataPreservationContractV2(
+            colorMetadata: field == .colorMetadata
+                ? rule : contract.colorMetadata,
+            hdrStaticMetadata: field == .hdrStaticMetadata
+                ? rule : contract.hdrStaticMetadata,
+            hdrDynamicMetadata: field == .hdrDynamicMetadata
+                ? rule : contract.hdrDynamicMetadata,
+            audioMetadata: field == .audioMetadata
+                ? rule : contract.audioMetadata,
+            orientation: field == .orientation
+                ? rule : contract.orientation,
+            cleanAperture: field == .cleanAperture
+                ? rule : contract.cleanAperture,
+            pixelAspectRatio: field == .pixelAspectRatio
+                ? rule : contract.pixelAspectRatio,
+            displayMetadata: field == .displayMetadata
+                ? rule : contract.displayMetadata,
+            contentLightLevel: field == .contentLightLevel
+                ? rule : contract.contentLightLevel,
+            subtitles: field == .subtitles
+                ? rule : contract.subtitles,
+            timecode: field == .timecode
+                ? rule : contract.timecode,
+            containerMetadata: field == .containerMetadata
+                ? rule : contract.containerMetadata
+        )
     }
 }

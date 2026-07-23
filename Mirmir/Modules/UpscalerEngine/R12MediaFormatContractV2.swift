@@ -108,7 +108,7 @@ enum R12MarketClaimV2: String, Encodable, Hashable, Sendable {
     case noMarketClaim = "no_market_claim"
 }
 
-enum R12MetadataFieldV2: String, Equatable, Sendable {
+enum R12MetadataFieldV2: String, CaseIterable, Equatable, Sendable {
     case colorMetadata = "color_metadata"
     case hdrStaticMetadata = "hdr_static_metadata"
     case hdrDynamicMetadata = "hdr_dynamic_metadata"
@@ -123,8 +123,20 @@ enum R12MetadataFieldV2: String, Equatable, Sendable {
     case containerMetadata = "container_metadata"
 }
 
-enum R12StructuralQualityFieldV2: String, Equatable, Sendable {
+enum R12StructuralQualityFieldV2: String, CaseIterable, Equatable, Sendable {
+    case scope
+    case frameCount = "frame_count"
+    case presentationTimeline = "presentation_timeline"
+    case audioTracks = "audio_tracks"
+    case subtitleTracks = "subtitle_tracks"
+    case metadata
     case alpha
+    case outputReopen = "output_reopen"
+    case exactDimensions = "exact_dimensions"
+    case exactPlaneGeometry = "exact_plane_geometry"
+    case deterministicDigest = "deterministic_digest"
+    case visibleFallback = "visible_fallback"
+    case resumeEquivalence = "resume_equivalence"
 }
 
 enum R12MediaFormatContractErrorV2: Error, Equatable, Sendable {
@@ -258,6 +270,16 @@ struct R12MediaSamplingV2: Encodable, Hashable, Sendable {
         self.codeRange = codeRange
         self.chromaSiting = chromaSiting
     }
+
+    func validateInvariants() throws {
+        _ = try R12MediaSamplingV2(
+            storage: storage,
+            bitDepth: bitDepth,
+            chromaSubsampling: chromaSubsampling,
+            codeRange: codeRange,
+            chromaSiting: chromaSiting
+        )
+    }
 }
 
 struct R12ColorContractV2: Encodable, Hashable, Sendable {
@@ -294,6 +316,14 @@ struct R12ColorContractV2: Encodable, Hashable, Sendable {
         self.colorPrimaries = colorPrimaries
         self.transferFunction = transferFunction
         self.yCbCrMatrix = yCbCrMatrix
+    }
+
+    func validateInvariants() throws {
+        _ = try R12ColorContractV2(
+            colorPrimaries: colorPrimaries,
+            transferFunction: transferFunction,
+            yCbCrMatrix: yCbCrMatrix
+        )
     }
 
     static let sdrBT709 = makeStatic(
@@ -361,6 +391,13 @@ struct R12ScanContractV2: Encodable, Hashable, Sendable {
         self.deinterlacePolicy = deinterlacePolicy
     }
 
+    func validateInvariants() throws {
+        _ = try R12ScanContractV2(
+            scanStructure: scanStructure,
+            deinterlacePolicy: deinterlacePolicy
+        )
+    }
+
     static let progressive = makeStatic(
         scanStructure: .progressive,
         deinterlacePolicy: .notRequired
@@ -414,6 +451,18 @@ struct R12MediaFormatDescriptorV2: Encodable, Hashable, Sendable {
         self.color = color
         self.scan = scan
         self.alphaSemantics = alphaSemantics
+    }
+
+    func validateInvariants() throws {
+        try sampling.validateInvariants()
+        try color.validateInvariants()
+        try scan.validateInvariants()
+        _ = try R12MediaFormatDescriptorV2(
+            sampling: sampling,
+            color: color,
+            scan: scan,
+            alphaSemantics: alphaSemantics
+        )
     }
 
     init(
@@ -570,22 +619,98 @@ struct R12StructuralQualityContractV2: Encodable, Hashable, Sendable {
         case resumeEquivalence = "resume_equivalence"
     }
 
-    static func preserving(alpha hasAlpha: Bool) -> R12StructuralQualityContractV2 {
-        R12StructuralQualityContractV2(
-            scope: .structuralIntegrityOnly,
-            frameCount: .exact,
-            presentationTimeline: .exact,
-            audioTracks: .preserveIfPresent,
-            subtitleTracks: .preserveIfPresent,
-            metadata: .exact,
-            alpha: hasAlpha ? .exact : .notApplicable,
-            outputReopen: .exact,
-            exactDimensions: .required,
-            exactPlaneGeometry: .required,
-            deterministicDigest: .required,
-            visibleFallback: .required,
-            resumeEquivalence: .required
+    init(
+        scope: R12QualityScopeV2 = .structuralIntegrityOnly,
+        frameCount: R12PreservationRuleV2 = .exact,
+        presentationTimeline: R12PreservationRuleV2 = .exact,
+        audioTracks: R12PreservationRuleV2 = .preserveIfPresent,
+        subtitleTracks: R12PreservationRuleV2 = .preserveIfPresent,
+        metadata: R12PreservationRuleV2 = .exact,
+        alpha: R12PreservationRuleV2,
+        outputReopen: R12PreservationRuleV2 = .exact,
+        exactDimensions: R12SoftwareFunctionRequirementV2 = .required,
+        exactPlaneGeometry: R12SoftwareFunctionRequirementV2 = .required,
+        deterministicDigest: R12SoftwareFunctionRequirementV2 = .required,
+        visibleFallback: R12SoftwareFunctionRequirementV2 = .required,
+        resumeEquivalence: R12SoftwareFunctionRequirementV2 = .required
+    ) throws {
+        try Self.require(
+            scope == .structuralIntegrityOnly,
+            field: .scope
         )
+        try Self.require(frameCount == .exact, field: .frameCount)
+        try Self.require(
+            presentationTimeline == .exact,
+            field: .presentationTimeline
+        )
+        try Self.require(
+            audioTracks == .preserveIfPresent,
+            field: .audioTracks
+        )
+        try Self.require(
+            subtitleTracks == .preserveIfPresent,
+            field: .subtitleTracks
+        )
+        try Self.require(metadata == .exact, field: .metadata)
+        try Self.require(
+            alpha == .exact || alpha == .notApplicable,
+            field: .alpha
+        )
+        try Self.require(outputReopen == .exact, field: .outputReopen)
+        try Self.require(
+            exactDimensions == .required,
+            field: .exactDimensions
+        )
+        try Self.require(
+            exactPlaneGeometry == .required,
+            field: .exactPlaneGeometry
+        )
+        try Self.require(
+            deterministicDigest == .required,
+            field: .deterministicDigest
+        )
+        try Self.require(
+            visibleFallback == .required,
+            field: .visibleFallback
+        )
+        try Self.require(
+            resumeEquivalence == .required,
+            field: .resumeEquivalence
+        )
+        self.scope = scope
+        self.frameCount = frameCount
+        self.presentationTimeline = presentationTimeline
+        self.audioTracks = audioTracks
+        self.subtitleTracks = subtitleTracks
+        self.metadata = metadata
+        self.alpha = alpha
+        self.outputReopen = outputReopen
+        self.exactDimensions = exactDimensions
+        self.exactPlaneGeometry = exactPlaneGeometry
+        self.deterministicDigest = deterministicDigest
+        self.visibleFallback = visibleFallback
+        self.resumeEquivalence = resumeEquivalence
+    }
+
+    static func preserving(alpha hasAlpha: Bool) -> R12StructuralQualityContractV2 {
+        do {
+            return try R12StructuralQualityContractV2(
+                alpha: hasAlpha ? .exact : .notApplicable
+            )
+        } catch {
+            preconditionFailure(
+                "Static R12 quality contract must be valid: \(error)"
+            )
+        }
+    }
+
+    private static func require(
+        _ condition: Bool,
+        field: R12StructuralQualityFieldV2
+    ) throws {
+        guard condition else {
+            throw R12MediaFormatContractErrorV2.structuralQualityMismatch(field)
+        }
     }
 }
 
@@ -684,13 +809,9 @@ struct R12MediaFormatContractV2: Encodable, Hashable, Sendable {
         quality: R12StructuralQualityContractV2,
         evidence: R12FormatEvidenceV2
     ) throws {
+        try format.validateInvariants()
         try Self.validate(metadata: metadata, for: format)
-        let expectedAlpha: R12PreservationRuleV2 = format.alphaSemantics == .none
-            ? .notApplicable
-            : .exact
-        guard quality.alpha == expectedAlpha else {
-            throw R12MediaFormatContractErrorV2.structuralQualityMismatch(.alpha)
-        }
+        try Self.validate(quality: quality, for: format)
         self.format = format
         self.metadata = metadata
         self.quality = quality
@@ -721,34 +842,105 @@ struct R12MediaFormatContractV2: Encodable, Hashable, Sendable {
         metadata: R12MetadataPreservationContractV2,
         for format: R12MediaFormatDescriptorV2
     ) throws {
-        guard metadata.colorMetadata == .exact else {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(.colorMetadata)
-        }
+        try require(
+            metadata.colorMetadata,
+            equals: .exact,
+            field: .colorMetadata
+        )
         let expectedHDRRule: R12PreservationRuleV2 =
             format.color.transferFunction.isHDR ? .preserveIfPresent : .notApplicable
-        guard metadata.hdrStaticMetadata == expectedHDRRule else {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(.hdrStaticMetadata)
-        }
-        guard metadata.hdrDynamicMetadata == expectedHDRRule else {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(.hdrDynamicMetadata)
-        }
-        guard metadata.displayMetadata == expectedHDRRule else {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(.displayMetadata)
-        }
-        guard metadata.contentLightLevel == expectedHDRRule else {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(.contentLightLevel)
-        }
-        let requiredFields: [(R12MetadataFieldV2, R12PreservationRuleV2)] = [
-            (.audioMetadata, metadata.audioMetadata),
-            (.orientation, metadata.orientation),
-            (.cleanAperture, metadata.cleanAperture),
-            (.pixelAspectRatio, metadata.pixelAspectRatio),
-            (.subtitles, metadata.subtitles),
-            (.timecode, metadata.timecode),
-            (.containerMetadata, metadata.containerMetadata)
+        try require(
+            metadata.hdrStaticMetadata,
+            equals: expectedHDRRule,
+            field: .hdrStaticMetadata
+        )
+        try require(
+            metadata.hdrDynamicMetadata,
+            equals: expectedHDRRule,
+            field: .hdrDynamicMetadata
+        )
+        try require(
+            metadata.audioMetadata,
+            equals: .preserveIfPresent,
+            field: .audioMetadata
+        )
+        try require(
+            metadata.orientation,
+            equals: .preserveIfPresent,
+            field: .orientation
+        )
+        try require(
+            metadata.cleanAperture,
+            equals: .preserveIfPresent,
+            field: .cleanAperture
+        )
+        try require(
+            metadata.pixelAspectRatio,
+            equals: .preserveIfPresent,
+            field: .pixelAspectRatio
+        )
+        try require(
+            metadata.displayMetadata,
+            equals: expectedHDRRule,
+            field: .displayMetadata
+        )
+        try require(
+            metadata.contentLightLevel,
+            equals: expectedHDRRule,
+            field: .contentLightLevel
+        )
+        try require(
+            metadata.subtitles,
+            equals: .preserveIfPresent,
+            field: .subtitles
+        )
+        try require(
+            metadata.timecode,
+            equals: .preserveIfPresent,
+            field: .timecode
+        )
+        try require(
+            metadata.containerMetadata,
+            equals: .preserveIfPresent,
+            field: .containerMetadata
+        )
+    }
+
+    private static func validate(
+        quality: R12StructuralQualityContractV2,
+        for format: R12MediaFormatDescriptorV2
+    ) throws {
+        let expectedAlpha: R12PreservationRuleV2 = format.alphaSemantics == .none
+            ? .notApplicable
+            : .exact
+        let invariants: [(R12StructuralQualityFieldV2, Bool)] = [
+            (.scope, quality.scope == .structuralIntegrityOnly),
+            (.frameCount, quality.frameCount == .exact),
+            (.presentationTimeline, quality.presentationTimeline == .exact),
+            (.audioTracks, quality.audioTracks == .preserveIfPresent),
+            (.subtitleTracks, quality.subtitleTracks == .preserveIfPresent),
+            (.metadata, quality.metadata == .exact),
+            (.alpha, quality.alpha == expectedAlpha),
+            (.outputReopen, quality.outputReopen == .exact),
+            (.exactDimensions, quality.exactDimensions == .required),
+            (.exactPlaneGeometry, quality.exactPlaneGeometry == .required),
+            (.deterministicDigest, quality.deterministicDigest == .required),
+            (.visibleFallback, quality.visibleFallback == .required),
+            (.resumeEquivalence, quality.resumeEquivalence == .required)
         ]
-        if let invalid = requiredFields.first(where: { $0.1 == .notApplicable }) {
-            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(invalid.0)
+        if let mismatch = invariants.first(where: { !$0.1 }) {
+            throw R12MediaFormatContractErrorV2
+                .structuralQualityMismatch(mismatch.0)
+        }
+    }
+
+    private static func require(
+        _ actual: R12PreservationRuleV2,
+        equals expected: R12PreservationRuleV2,
+        field: R12MetadataFieldV2
+    ) throws {
+        guard actual == expected else {
+            throw R12MediaFormatContractErrorV2.metadataRuleMismatch(field)
         }
     }
 }

@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import XCTest
 @testable import Mirmir
@@ -74,6 +75,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 nextVideoSampleIndex: 10,
                 nextSampleIsSync: false,
                 trackWatermarks: [video],
+                backendStartState: .stateless,
                 backendState: .stateless
             )
         )
@@ -85,6 +87,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 nextVideoSampleIndex: 10,
                 nextSampleIsSync: true,
                 trackWatermarks: [],
+                backendStartState: .stateless,
                 backendState: .stateless
             )
         )
@@ -96,6 +99,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 nextVideoSampleIndex: 10,
                 nextSampleIsSync: true,
                 trackWatermarks: [video, video],
+                backendStartState: .stateless,
                 backendState: .stateless
             )
         )
@@ -113,6 +117,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 nextVideoSampleIndex: 10,
                 nextSampleIsSync: true,
                 trackWatermarks: [video, secondVideo],
+                backendStartState: .stateless,
                 backendState: .stateless
             )
         )
@@ -160,16 +165,13 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
             let header = try makeHeader()
             let store = R12ChunkCheckpointStore(rootURL: roots[0])
             let cursor = try await store.create(header: header)
-            let incomplete = try makeChunk(
-                root: roots[0],
-                index: 0,
-                payload: Data("video-only".utf8),
-                boundary: try makeBoundary(index: 0, includeAudio: false)
-            )
-            await XCTAssertThrowsErrorAsync(
-                try await store.appendVerified(
-                    incomplete,
-                    expectedHeadSHA256: cursor.headSHA256
+            XCTAssertThrowsError(
+                try makeChunk(
+                    root: roots[0],
+                    index: 0,
+                    payload: Data("video-only".utf8),
+                    boundary: try makeBoundary(index: 0, includeAudio: false),
+                    header: header
                 )
             ) { error in
                 XCTAssertEqual(
@@ -315,19 +317,27 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 )
             ]
             for testCase in cases {
-                let chunk = try makeChunk(
-                    root: roots[0],
-                    index: 1,
-                    payload: Data(testCase.name.utf8),
-                    relativePath: "\(testCase.name).bin",
-                    boundary: testCase.boundary
-                )
-                await XCTAssertThrowsErrorAsync(
-                    try await store.appendVerified(
-                        chunk,
-                        expectedHeadSHA256: cursor.headSHA256
+                do {
+                    let chunk = try makeChunk(
+                        root: roots[0],
+                        index: 1,
+                        payload: Data(testCase.name.utf8),
+                        relativePath: "\(testCase.name).bin",
+                        boundary: testCase.boundary,
+                        header: header
                     )
-                ) { error in
+                    await XCTAssertThrowsErrorAsync(
+                        try await store.appendVerified(
+                            chunk,
+                            expectedHeadSHA256: cursor.headSHA256
+                        )
+                    ) { error in
+                        XCTAssertEqual(
+                            error as? R12ChunkCheckpointError,
+                            testCase.error
+                        )
+                    }
+                } catch {
                     XCTAssertEqual(
                         error as? R12ChunkCheckpointError,
                         testCase.error
@@ -429,45 +439,30 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         }
     }
 
-    func testArtifactMutationMissingFileAndReceiptDriftReject() async throws {
-        try await withRoots(count: 3) { roots in
-            for (index, mutation) in [
-                "content",
-                "missing",
-                "receipt"
-            ].enumerated() {
+    func testSealedArtifactMutationAndMissingFileRejectOnReopen() async throws {
+        try await withRoots(count: 2) { roots in
+            for (index, mutation) in ["content", "missing"].enumerated() {
                 let header = try makeHeader(jobID: "job-\(mutation)")
                 let store = R12ChunkCheckpointStore(rootURL: roots[index])
                 let cursor = try await store.create(header: header)
-                var chunk = try makeChunk(
+                let chunk = try makeChunk(
                     root: roots[index],
                     index: 0,
-                    payload: Data("sealed".utf8)
+                    payload: Data("sealed".utf8),
+                    header: header
                 )
-                if mutation == "receipt" {
-                    chunk = R12VerifiedChunk(
-                        boundary: chunk.boundary,
-                        artifact: try R12ChunkArtifactIdentity(
-                            relativePath: chunk.artifact.relativePath,
-                            byteCount: chunk.artifact.byteCount,
-                            sha256: chunk.artifact.sha256,
-                            reopenReceiptSHA256: hash("e")
-                        )
-                    )
-                    await XCTAssertThrowsErrorAsync(
-                        try await store.appendVerified(
-                            chunk,
-                            expectedHeadSHA256: cursor.headSHA256
-                        )
-                    )
-                    continue
-                }
                 let advanced = try await store.appendVerified(
                     chunk,
                     expectedHeadSHA256: cursor.headSHA256
                 )
-                let artifactURL = roots[index]
-                    .appendingPathComponent(chunk.artifact.relativePath)
+                let ledger = try JSONDecoder().decode(
+                    R12ChunkCheckpointLedgerV1.self,
+                    from: try await store.canonicalLedgerData()
+                )
+                let artifact = try XCTUnwrap(ledger.records.first?.artifact)
+                let artifactURL = roots[index].appendingPathComponent(
+                    artifact.relativePath
+                )
                 if mutation == "content" {
                     try Data("mutated".utf8).write(to: artifactURL)
                 } else {
@@ -500,15 +495,14 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 let root = roots[index]
                 let store = R12ChunkCheckpointStore(rootURL: root)
                 let cursor = try await store.create(header: header)
-                let payload = Data(kind.utf8)
-                let chunk = try makeChunk(
-                    root: root,
-                    index: 0,
-                    payload: payload
+                let artifactPath = "chunk-0.bin"
+                let artifactURL = root.appendingPathComponent(artifactPath)
+                let artifactData = try R12VerifiedChunk.makeCanonicalArtifactData(
+                    mediaPayload: Data(kind.utf8),
+                    boundary: try makeBoundary(index: 0),
+                    header: header
                 )
-                let artifactURL = root.appendingPathComponent(
-                    chunk.artifact.relativePath
-                )
+                try artifactData.write(to: artifactURL)
                 if kind == "symlink" {
                     try FileManager.default.removeItem(at: artifactURL)
                     try FileManager.default.createSymbolicLink(
@@ -523,12 +517,22 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                         to: root.appendingPathComponent("second-link.bin")
                     )
                 }
-                await XCTAssertThrowsErrorAsync(
-                    try await store.appendVerified(
-                        chunk,
+                XCTAssertThrowsError(
+                    try R12VerifiedChunk.verifyCanonicalArtifact(
+                        rootURL: root,
+                        relativePath: artifactPath,
+                        header: header,
+                        expectedArtifactSHA256:
+                            R12CryptoKitDigest().sha256(artifactData)
+                    )
+                )
+                let reopened = try await store.reopen(
+                    expecting: R12ResumeExpectation(
+                        header: header,
                         expectedHeadSHA256: cursor.headSHA256
                     )
                 )
+                XCTAssertEqual(reopened, cursor)
             }
         }
     }
@@ -582,17 +586,13 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 at: roots[1].appendingPathComponent("nested"),
                 withDestinationURL: outside
             )
-            let nestedChunk = R12VerifiedChunk(
-                boundary: try makeBoundary(index: 0),
-                artifact: try R12ChunkArtifactIdentity.make(
+            XCTAssertThrowsError(
+                try R12VerifiedChunk.verifyCanonicalArtifact(
+                    rootURL: roots[1],
                     relativePath: "nested/chunk.bin",
-                    data: payload
-                )
-            )
-            await XCTAssertThrowsErrorAsync(
-                try await nestedStore.appendVerified(
-                    nestedChunk,
-                    expectedHeadSHA256: nestedCursor.headSHA256
+                    header: header,
+                    expectedArtifactSHA256:
+                        R12CryptoKitDigest().sha256(payload)
                 )
             ) { error in
                 guard let checkpointError = error as? R12ChunkCheckpointError,
@@ -602,6 +602,13 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                     )
                 }
             }
+            let reopened = try await nestedStore.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: nestedCursor.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, nestedCursor)
         }
     }
 
@@ -662,7 +669,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
             )
             XCTAssertEqual(
                 cursor.headSHA256,
-                "908b2908289835df42ec36fc4c021d7994f055cc2492b82c271182dadadcd57c"
+                "f4b5c022982a29f77cadcff3b9f749ac464a93d9141e3f8254f616ce9e25c571"
             )
             let advanced = try await store.appendVerified(
                 chunk,
@@ -670,7 +677,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
             )
             XCTAssertEqual(
                 advanced.headSHA256,
-                "853760660c98011be219a6a74195ef64611b4a8238bb830452778751abed380a"
+                "566f11eba2f1d6d615b0c5fd371804e7698dbb87fa97b89046f1ee593cdecbd9"
             )
             let ledgerURL = roots[0].appendingPathComponent(
                 "checkpoint-ledger-v1.json"
@@ -788,7 +795,8 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 let chunk = try makeChunk(
                     root: roots[index],
                     index: 0,
-                    payload: Data(mutation.utf8)
+                    payload: Data(mutation.utf8),
+                    header: header
                 )
                 _ = try await store.appendVerified(
                     chunk,
@@ -882,6 +890,1353 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         }
     }
 
+    func testResumeCursorRoundTripsAllTrackWatermarksAndBackendState() async throws {
+        try await withRoots(count: 1) { roots in
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(rootURL: roots[0])
+            let initial = try await store.create(header: header)
+            XCTAssertEqual(initial.trackWatermarks, header.initialTrackWatermarks)
+            XCTAssertEqual(
+                initial.backendResumeState,
+                header.initialBackendState
+            )
+
+            let boundary = try makeBoundary(
+                index: 0,
+                backendState: .resetAtBoundary(
+                    resetIdentity: "fixture-reset-v2"
+                )
+            )
+            let chunk = try makeChunk(
+                root: roots[0],
+                index: 0,
+                payload: Data("all-tracks".utf8),
+                boundary: boundary,
+                header: header
+            )
+            let advanced = try await store.appendVerified(
+                chunk,
+                expectedHeadSHA256: initial.headSHA256
+            )
+            let reopened = try await store.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: advanced.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, advanced)
+            XCTAssertEqual(reopened.trackWatermarks, boundary.trackWatermarks)
+            XCTAssertEqual(
+                Set(reopened.trackWatermarks.map(\.kind)),
+                Set(R12TrackKind.allCases)
+            )
+            XCTAssertEqual(
+                reopened.backendResumeState,
+                boundary.backendState
+            )
+        }
+    }
+
+    func testBackendStateMustContinueFromPriorResumeState() async throws {
+        try await withRoots(count: 1) { roots in
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(rootURL: roots[0])
+            var cursor = try await store.create(header: header)
+            let firstBoundary = try makeBoundary(
+                index: 0,
+                backendState: .resetAtBoundary(
+                    resetIdentity: "fixture-reset-v2"
+                )
+            )
+            cursor = try await store.appendVerified(
+                try makeChunk(
+                    root: roots[0],
+                    index: 0,
+                    payload: Data("first-state".utf8),
+                    boundary: firstBoundary,
+                    header: header
+                ),
+                expectedHeadSHA256: cursor.headSHA256
+            )
+
+            let wrongStart = try makeBoundary(index: 1)
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    try makeChunk(
+                        root: roots[0],
+                        index: 1,
+                        payload: Data("wrong-start".utf8),
+                        relativePath: "wrong-start.r12chunk",
+                        boundary: wrongStart,
+                        header: header
+                    ),
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .checkpointContinuityMismatch
+                )
+            }
+
+            let correct = try makeBoundary(
+                index: 1,
+                backendStartState: .resetAtBoundary(
+                    resetIdentity: "fixture-reset-v2"
+                ),
+                backendState: .stateless
+            )
+            cursor = try await store.appendVerified(
+                try makeChunk(
+                    root: roots[0],
+                    index: 1,
+                    payload: Data("correct-start".utf8),
+                    relativePath: "correct-start.r12chunk",
+                    boundary: correct,
+                    header: header
+                ),
+                expectedHeadSHA256: cursor.headSHA256
+            )
+            XCTAssertEqual(cursor.backendResumeState, .stateless)
+        }
+    }
+
+    func testCanonicalBackendStartStateTamperRejects() async throws {
+        try await withRoots(count: 1) { roots in
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(rootURL: roots[0])
+            let cursor = try await store.create(header: header)
+            _ = try await store.appendVerified(
+                try makeChunk(
+                    root: roots[0],
+                    index: 0,
+                    payload: Data("state-tamper".utf8),
+                    header: header
+                ),
+                expectedHeadSHA256: cursor.headSHA256
+            )
+            let ledger = try JSONDecoder().decode(
+                R12ChunkCheckpointLedgerV1.self,
+                from: try await store.canonicalLedgerData()
+            )
+            let record = try XCTUnwrap(ledger.records.first)
+            let boundary = record.boundary
+            let tamperedBoundary = try R12SafeMediaBoundary(
+                start: boundary.start,
+                endExclusive: boundary.endExclusive,
+                firstVideoSampleIndex: boundary.firstVideoSampleIndex,
+                nextVideoSampleIndex: boundary.nextVideoSampleIndex,
+                nextSampleIsSync: boundary.nextSampleIsSync,
+                trackWatermarks: boundary.trackWatermarks,
+                backendStartState: .stateless,
+                backendState: boundary.backendState
+            )
+            let tamperedRecord = R12ChunkCheckpoint(
+                sequence: record.sequence,
+                boundary: tamperedBoundary,
+                artifact: record.artifact,
+                previousRecordSHA256: record.previousRecordSHA256,
+                recordSHA256: record.recordSHA256
+            )
+            try canonicalJSONData(
+                R12ChunkCheckpointLedgerV1(
+                    schemaVersion: ledger.schemaVersion,
+                    header: ledger.header,
+                    records: [tamperedRecord],
+                    headSHA256: ledger.headSHA256
+                )
+            ).write(
+                to: roots[0].appendingPathComponent(
+                    "checkpoint-ledger-v1.json"
+                )
+            )
+            await XCTAssertThrowsErrorAsync(
+                try await store.reopen(
+                    expecting: R12ResumeExpectation(header: header)
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .checkpointContinuityMismatch
+                )
+            }
+        }
+    }
+
+    func testArtifactPolicyBoundaryIsIndependentFromLedgerLimit() throws {
+        let maximum = UInt64(64 * 1_024 * 1_024)
+        let policy = try R12ChunkArtifactPolicy(
+            maximumArtifactBytes: maximum
+        )
+        XCTAssertNoThrow(
+            try policy.validate(byteCount: maximum, path: "maximum.r12chunk")
+        )
+        XCTAssertThrowsError(
+            try policy.validate(
+                byteCount: maximum + 1,
+                path: "too-large.r12chunk"
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R12ChunkCheckpointError,
+                .artifactSizeMismatch(path: "too-large.r12chunk")
+            )
+        }
+        XCTAssertEqual(policy.readLimit, Int(maximum))
+        XCTAssertNotEqual(policy.readLimit, 16 * 1_024 * 1_024)
+    }
+
+    func testAppendReadsOnlyLedgerAndNewArtifactNotHistory() async throws {
+        try await withRoots(count: 1) { roots in
+            let fileSystem = CountingR12CheckpointFileSystem()
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: roots[0],
+                fileSystem: fileSystem
+            )
+            var cursor = try await store.create(header: header)
+            cursor = try await store.appendVerified(
+                try makeChunk(
+                    root: roots[0],
+                    index: 0,
+                    payload: Data("historical".utf8),
+                    header: header
+                ),
+                expectedHeadSHA256: cursor.headSHA256
+            )
+            let second = try makeChunk(
+                root: roots[0],
+                index: 1,
+                payload: Data("new".utf8),
+                header: header
+            )
+            fileSystem.resetReads()
+            _ = try await store.appendVerified(
+                second,
+                expectedHeadSHA256: cursor.headSHA256
+            )
+            let reads = fileSystem.readObservations
+            XCTAssertEqual(reads.count, 2)
+            XCTAssertEqual(
+                reads.filter {
+                    $0.path.hasSuffix("checkpoint-ledger-v1.json")
+                        && $0.maximumBytes == 16 * 1_024 * 1_024
+                }.count,
+                1
+            )
+            XCTAssertEqual(
+                reads.filter {
+                    $0.path.contains(
+                        ".r12-checkpoint-artifacts-v1/1-"
+                    ) && $0.maximumBytes == header.artifactPolicy.readLimit
+                }.count,
+                1
+            )
+            XCTAssertFalse(
+                reads.contains {
+                    $0.path.contains(
+                        ".r12-checkpoint-artifacts-v1/0-"
+                    )
+                }
+            )
+        }
+    }
+
+    func testVerifiedBytesAreOwnedBeforeExternalSubstitution() async throws {
+        try await withRoots(count: 1) { roots in
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(rootURL: roots[0])
+            let cursor = try await store.create(header: header)
+            let candidatePath = "externally-mutable.r12chunk"
+            let candidateURL = roots[0].appendingPathComponent(candidatePath)
+            let boundary = try makeBoundary(index: 0)
+            let original = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("original".utf8),
+                boundary: boundary,
+                header: header
+            )
+            try original.write(to: candidateURL)
+            let verified = try R12VerifiedChunk.verifyCanonicalArtifact(
+                rootURL: roots[0],
+                relativePath: candidatePath,
+                header: header,
+                expectedArtifactSHA256:
+                    R12CryptoKitDigest().sha256(original)
+            )
+            let substitution = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("substitution".utf8),
+                boundary: boundary,
+                header: header
+            )
+            try substitution.write(to: candidateURL)
+
+            let advanced = try await store.appendVerified(
+                verified,
+                expectedHeadSHA256: cursor.headSHA256
+            )
+            let ledger = try JSONDecoder().decode(
+                R12ChunkCheckpointLedgerV1.self,
+                from: try await store.canonicalLedgerData()
+            )
+            let sealedPath = try XCTUnwrap(
+                ledger.records.first?.artifact.relativePath
+            )
+            let sealed = try Data(
+                contentsOf: roots[0].appendingPathComponent(sealedPath)
+            )
+            XCTAssertEqual(sealed, original)
+            XCTAssertNotEqual(sealed, substitution)
+            XCTAssertNotEqual(
+                sealedPath,
+                candidatePath
+            )
+            let reopened = try await store.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: advanced.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, advanced)
+        }
+    }
+
+    func testVerifierRejectsMalformedMismatchedAndNonSyncEnvelopes() async throws {
+        try await withRoots(count: 3) { roots in
+            let header = try makeHeader()
+            try FileManager.default.createDirectory(
+                at: roots[0],
+                withIntermediateDirectories: true
+            )
+            let malformed = Data(#"{"not":"a-chunk"}"#.utf8)
+            try malformed.write(
+                to: roots[0].appendingPathComponent("malformed.r12chunk")
+            )
+            XCTAssertThrowsError(
+                try R12VerifiedChunk.verifyCanonicalArtifact(
+                    rootURL: roots[0],
+                    relativePath: "malformed.r12chunk",
+                    header: header,
+                    expectedArtifactSHA256:
+                        R12CryptoKitDigest().sha256(malformed)
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .malformedChunkEnvelope
+                )
+            }
+
+            try FileManager.default.createDirectory(
+                at: roots[1],
+                withIntermediateDirectories: true
+            )
+            let mismatched = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("bound-to-other-header".utf8),
+                boundary: try makeBoundary(index: 0),
+                header: header
+            )
+            try mismatched.write(
+                to: roots[1].appendingPathComponent("mismatch.r12chunk")
+            )
+            XCTAssertThrowsError(
+                try R12VerifiedChunk.verifyCanonicalArtifact(
+                    rootURL: roots[1],
+                    relativePath: "mismatch.r12chunk",
+                    header: try makeHeader(jobID: "other-job"),
+                    expectedArtifactSHA256:
+                        R12CryptoKitDigest().sha256(mismatched)
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .sourceBindingMismatch
+                )
+            }
+
+            try FileManager.default.createDirectory(
+                at: roots[2],
+                withIntermediateDirectories: true
+            )
+            let syncSafe = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("must-be-sync-safe".utf8),
+                boundary: try makeBoundary(index: 0),
+                header: header
+            )
+            let syncJSON = try XCTUnwrap(
+                String(data: syncSafe, encoding: .utf8)
+            )
+            let nonSync = Data(
+                syncJSON.replacingOccurrences(
+                    of: #""nextSampleIsSync":true"#,
+                    with: #""nextSampleIsSync":false"#
+                ).utf8
+            )
+            try nonSync.write(
+                to: roots[2].appendingPathComponent("non-sync.r12chunk")
+            )
+            XCTAssertThrowsError(
+                try R12VerifiedChunk.verifyCanonicalArtifact(
+                    rootURL: roots[2],
+                    relativePath: "non-sync.r12chunk",
+                    header: header,
+                    expectedArtifactSHA256:
+                        R12CryptoKitDigest().sha256(nonSync)
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .invalidBoundary(reason: "unsafe_video_boundary")
+                )
+            }
+        }
+    }
+
+    func testVerifierRejectsCanonicalArtifactHashSubstitution() async throws {
+        try await withRoots(count: 1) { roots in
+            let header = try makeHeader()
+            try FileManager.default.createDirectory(
+                at: roots[0],
+                withIntermediateDirectories: true
+            )
+            let boundary = try makeBoundary(index: 0)
+            let expected = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("expected".utf8),
+                boundary: boundary,
+                header: header
+            )
+            let substituted = try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data("substituted".utf8),
+                boundary: boundary,
+                header: header
+            )
+            try substituted.write(
+                to: roots[0].appendingPathComponent("substituted.r12chunk")
+            )
+            XCTAssertThrowsError(
+                try R12VerifiedChunk.verifyCanonicalArtifact(
+                    rootURL: roots[0],
+                    relativePath: "substituted.r12chunk",
+                    header: header,
+                    expectedArtifactSHA256:
+                        R12CryptoKitDigest().sha256(expected)
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .artifactHashMismatch(path: "substituted.r12chunk")
+                )
+            }
+        }
+    }
+
+    func testDirectorySyncFailureRollsBackToPreviousLedgerHead() async throws {
+        try await withRoots(count: 1) { roots in
+            let syncController = R12DirectorySyncController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                directorySynchronizer: {
+                    try syncController.synchronize(
+                        descriptor: $0,
+                        url: $1
+                    )
+                }
+            )
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: roots[0],
+                fileSystem: fileSystem
+            )
+            let cursor = try await store.create(header: header)
+            let chunk = try makeChunk(
+                root: roots[0],
+                index: 0,
+                payload: Data("durability".utf8),
+                header: header
+            )
+            let before = try await store.canonicalLedgerData()
+            syncController.failAfterSuccessfulCalls(1)
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    chunk,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            let after = try await store.canonicalLedgerData()
+            XCTAssertEqual(after, before)
+            let reopened = try await store.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, cursor)
+        }
+    }
+
+    func testDescriptorReadRejectsPreOpenAndPostReadPathSubstitution() async throws {
+        try await withRoots(count: 2) { roots in
+            let points: [R12CheckpointFileSystemHookPoint] = [
+                .afterReadPathSnapshot,
+                .beforeReadPathResnapshot
+            ]
+            for (index, point) in points.enumerated() {
+                let root = roots[index]
+                try FileManager.default.createDirectory(
+                    at: root,
+                    withIntermediateDirectories: true
+                )
+                let source = root.appendingPathComponent("source.bin")
+                let replacement = root.appendingPathComponent("replacement.bin")
+                let displaced = root.appendingPathComponent("displaced.bin")
+                let originalData = Data("original".utf8)
+                let replacementData = Data("attacker".utf8)
+                try originalData.write(to: source)
+                try replacementData.write(to: replacement)
+                let hook = R12FileSystemHookController()
+                let fileSystem = R12LocalCheckpointFileSystem(
+                    operationHook: {
+                        try hook.invoke(point: $0, url: $1)
+                    }
+                )
+                hook.arm(point: point) { observedURL in
+                    XCTAssertEqual(observedURL, source)
+                    try FileManager.default.moveItem(
+                        at: source,
+                        to: displaced
+                    )
+                    try FileManager.default.moveItem(
+                        at: replacement,
+                        to: source
+                    )
+                }
+                XCTAssertThrowsError(
+                    try fileSystem.readRegularFile(
+                        source,
+                        maximumBytes: 1_024
+                    )
+                ) { error in
+                    guard let checkpointError =
+                            error as? R12ChunkCheckpointError,
+                          case .unsafeFilesystemEntry = checkpointError else {
+                        return XCTFail(
+                            "Expected unsafe path substitution, received \(error)"
+                        )
+                    }
+                }
+                XCTAssertEqual(
+                    try Data(contentsOf: displaced),
+                    originalData
+                )
+                XCTAssertEqual(
+                    try Data(contentsOf: source),
+                    replacementData
+                )
+            }
+        }
+    }
+
+    func testReplaceRejectsPreSwapPathSubstitution() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            try fileSystem.ensureDirectory(root)
+            let ledger = root.appendingPathComponent("ledger.json")
+            let preserved = root.appendingPathComponent("preserved.json")
+            let substitute = root.appendingPathComponent("substitute.json")
+            let oldData = Data("old-ledger".utf8)
+            let attackerData = Data("attacker!!".utf8)
+            try fileSystem.writeNewAtomically(oldData, to: ledger)
+            try attackerData.write(to: substitute)
+            hook.arm(point: .beforeReplacePathResnapshot) { _ in
+                try FileManager.default.moveItem(at: ledger, to: preserved)
+                try FileManager.default.moveItem(at: substitute, to: ledger)
+            }
+            XCTAssertThrowsError(
+                try fileSystem.replaceAtomically(
+                    Data("new-ledger".utf8),
+                    at: ledger
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            XCTAssertEqual(try Data(contentsOf: preserved), oldData)
+            XCTAssertEqual(try Data(contentsOf: ledger), attackerData)
+        }
+    }
+
+    func testReplaceRejectsPostReadTemporaryContentMutation() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: root,
+                fileSystem: fileSystem
+            )
+            let cursor = try await store.create(header: header)
+            let priorLedger = try await store.canonicalLedgerData()
+            let chunk = try makeChunk(
+                root: root,
+                index: 0,
+                payload: Data("post-read-mutation".utf8),
+                header: header
+            )
+            let ledger = root.appendingPathComponent(
+                "checkpoint-ledger-v1.json"
+            )
+            hook.arm(
+                point: .afterReplaceTemporaryContentRead
+            ) { observedURL in
+                XCTAssertEqual(observedURL, ledger)
+                let temporaryNames =
+                    try FileManager.default.contentsOfDirectory(
+                        atPath: root.path
+                    ).filter {
+                        $0.hasPrefix(".checkpoint-ledger-v1.json.")
+                            && $0.hasSuffix(".tmp")
+                    }
+                XCTAssertEqual(temporaryNames.count, 1)
+                let temporary = root.appendingPathComponent(
+                    try XCTUnwrap(temporaryNames.first)
+                )
+                try Self.overwriteContentsPreservingInode(
+                    at: temporary,
+                    repeating: 0xA5
+                )
+            }
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    chunk,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            let ledgerAfterFailure = try await store.canonicalLedgerData()
+            XCTAssertEqual(ledgerAfterFailure, priorLedger)
+            let reopened = try await R12ChunkCheckpointStore(
+                rootURL: root
+            ).reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, cursor)
+        }
+    }
+
+    func testPostSwapIdentitySubstitutionRollsBackPriorDestination() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            try fileSystem.ensureDirectory(root)
+            let ledger = root.appendingPathComponent("ledger.json")
+            let movedNew = root.appendingPathComponent("moved-new.json")
+            let attacker = root.appendingPathComponent("attacker.json")
+            let oldData = Data("prior-ledger".utf8)
+            let newData = Data("newer-ledger".utf8)
+            try fileSystem.writeNewAtomically(oldData, to: ledger)
+            try Data("attacker-led".utf8).write(to: attacker)
+            hook.arm(point: .afterReplaceSwap) { _ in
+                try FileManager.default.moveItem(at: ledger, to: movedNew)
+                try FileManager.default.moveItem(at: attacker, to: ledger)
+            }
+            XCTAssertThrowsError(
+                try fileSystem.replaceAtomically(newData, at: ledger)
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            XCTAssertEqual(try Data(contentsOf: ledger), oldData)
+            XCTAssertEqual(try Data(contentsOf: movedNew), newData)
+        }
+    }
+
+    func testCreatePublishesOneLinkAndSyncFailureRemovesDestination() async throws {
+        try await withRoots(count: 2) { roots in
+            let normal = R12LocalCheckpointFileSystem()
+            try normal.ensureDirectory(roots[0])
+            let durable = roots[0].appendingPathComponent("durable.json")
+            try normal.writeNewAtomically(
+                Data("durable".utf8),
+                to: durable
+            )
+            var durableMetadata = stat()
+            XCTAssertEqual(lstat(durable.path, &durableMetadata), 0)
+            XCTAssertEqual(durableMetadata.st_nlink, 1)
+            XCTAssertFalse(
+                try FileManager.default.contentsOfDirectory(
+                    atPath: roots[0].path
+                ).contains { $0.hasSuffix(".tmp") }
+            )
+
+            let controller = R12DirectorySyncController()
+            let failing = R12LocalCheckpointFileSystem(
+                directorySynchronizer: {
+                    try controller.synchronize(
+                        descriptor: $0,
+                        url: $1
+                    )
+                }
+            )
+            try failing.ensureDirectory(roots[1])
+            controller.failAfterSuccessfulCalls(0)
+            let rejected = roots[1].appendingPathComponent("rejected.json")
+            XCTAssertThrowsError(
+                try failing.writeNewAtomically(
+                    Data("not-durable".utf8),
+                    to: rejected
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            XCTAssertFalse(FileManager.default.fileExists(atPath: rejected.path))
+            XCTAssertFalse(
+                try FileManager.default.contentsOfDirectory(
+                    atPath: roots[1].path
+                ).contains { $0.hasSuffix(".tmp") }
+            )
+        }
+    }
+
+    func testFailedSwapBackPreservesPriorLedgerRecoveryEntry() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let sync = R12DirectorySyncController()
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                directorySynchronizer: {
+                    try sync.synchronize(descriptor: $0, url: $1)
+                },
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            try fileSystem.ensureDirectory(root)
+            let ledger = root.appendingPathComponent("ledger.json")
+            let oldData = Data("prior-ledger".utf8)
+            let newData = Data("candidate-new".utf8)
+            try fileSystem.writeNewAtomically(oldData, to: ledger)
+            sync.failAfterSuccessfulCalls(0)
+            hook.arm(point: .beforeRollbackSwap) { _ in
+                throw R12ChunkCheckpointError.atomicWriteFailed
+            }
+            XCTAssertThrowsError(
+                try fileSystem.replaceAtomically(newData, at: ledger)
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .durabilityRollbackFailed
+                )
+            }
+            XCTAssertEqual(try Data(contentsOf: ledger), newData)
+            let recoveryNames = try FileManager.default.contentsOfDirectory(
+                atPath: root.path
+            ).filter { $0.hasPrefix(".ledger.json.") && $0.hasSuffix(".tmp") }
+            XCTAssertEqual(recoveryNames.count, 1)
+            let recovery = root.appendingPathComponent(
+                try XCTUnwrap(recoveryNames.first)
+            )
+            XCTAssertEqual(try Data(contentsOf: recovery), oldData)
+            var recoveryMetadata = stat()
+            XCTAssertEqual(lstat(recovery.path, &recoveryMetadata), 0)
+            XCTAssertEqual(recoveryMetadata.st_nlink, 1)
+        }
+    }
+
+    func testCreateRejectsTemporaryAndDestinationSubstitution() async throws {
+        try await withRoots(count: 2) { roots in
+            let points: [R12CheckpointFileSystemHookPoint] = [
+                .beforeCreateRename,
+                .afterCreateRename
+            ]
+            for (index, point) in points.enumerated() {
+                let root = roots[index]
+                let hook = R12FileSystemHookController()
+                let fileSystem = R12LocalCheckpointFileSystem(
+                    operationHook: {
+                        try hook.invoke(point: $0, url: $1)
+                    }
+                )
+                try fileSystem.ensureDirectory(root)
+                let destination = root.appendingPathComponent("ledger.json")
+                let preserved = root.appendingPathComponent("preserved.json")
+                let attacker = root.appendingPathComponent("attacker.json")
+                let expectedData = Data("expected-ledger".utf8)
+                let attackerData = Data("attacker-ledger".utf8)
+                if point == .afterCreateRename {
+                    try attackerData.write(to: attacker)
+                }
+                hook.arm(point: point) { observedURL in
+                    XCTAssertEqual(observedURL, destination)
+                    if point == .beforeCreateRename {
+                        let temporaryName = try XCTUnwrap(
+                            FileManager.default.contentsOfDirectory(
+                                atPath: root.path
+                            ).first {
+                                $0.hasPrefix(".ledger.json.")
+                                    && $0.hasSuffix(".tmp")
+                            }
+                        )
+                        let temporary = root.appendingPathComponent(
+                            temporaryName
+                        )
+                        try FileManager.default.moveItem(
+                            at: temporary,
+                            to: preserved
+                        )
+                        try attackerData.write(to: temporary)
+                    } else {
+                        try FileManager.default.moveItem(
+                            at: destination,
+                            to: preserved
+                        )
+                        try FileManager.default.moveItem(
+                            at: attacker,
+                            to: destination
+                        )
+                    }
+                }
+                XCTAssertThrowsError(
+                    try fileSystem.writeNewAtomically(
+                        expectedData,
+                        to: destination
+                    )
+                ) { error in
+                    XCTAssertEqual(
+                        error as? R12ChunkCheckpointError,
+                        .atomicWriteFailed
+                    )
+                }
+                XCTAssertFalse(
+                    FileManager.default.fileExists(atPath: destination.path)
+                )
+                XCTAssertEqual(
+                    try Data(contentsOf: preserved),
+                    expectedData
+                )
+                XCTAssertFalse(
+                    try FileManager.default.contentsOfDirectory(
+                        atPath: root.path
+                    ).contains { $0.hasSuffix(".tmp") }
+                )
+            }
+        }
+    }
+
+    func testEnsureDirectoryRollsBackAndClosesOnEveryCreationSyncFailure() async throws {
+        try await withRoots(count: 2) { roots in
+            for (successfulSyncs, root) in roots.enumerated() {
+                try R12LocalCheckpointFileSystem().ensureDirectory(root)
+                let controller = R12DirectorySyncController()
+                let fileSystem = R12LocalCheckpointFileSystem(
+                    directorySynchronizer: {
+                        try controller.synchronize(
+                            descriptor: $0,
+                            url: $1
+                        )
+                    }
+                )
+                controller.failAfterSuccessfulCalls(successfulSyncs)
+                let created = root.appendingPathComponent(
+                    "created-before-sync-failure"
+                )
+                XCTAssertThrowsError(
+                    try fileSystem.ensureDirectory(created)
+                ) { error in
+                    XCTAssertEqual(
+                        error as? R12ChunkCheckpointError,
+                        .atomicWriteFailed
+                    )
+                }
+                XCTAssertFalse(
+                    FileManager.default.fileExists(atPath: created.path)
+                )
+                XCTAssertEqual(
+                    try FileManager.default.contentsOfDirectory(
+                        atPath: root.path
+                    ),
+                    []
+                )
+                let descriptor = try XCTUnwrap(
+                    controller.mostRecentFailedDescriptor
+                )
+                var metadata = stat()
+                errno = 0
+                XCTAssertEqual(fstat(descriptor, &metadata), -1)
+                XCTAssertEqual(errno, EBADF)
+            }
+        }
+    }
+
+    func testCanonicalArtifactConstructionRejectsBeforeUnboundedEncoding() throws {
+        let payloadLimit: UInt64 = 64
+        let header = try makeHeader(maximumArtifactBytes: payloadLimit)
+        let boundary = try makeBoundary(index: 0)
+
+        XCTAssertThrowsError(
+            try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data(
+                    repeating: 0xA5,
+                    count: Int(payloadLimit) + 1
+                ),
+                boundary: boundary,
+                header: header,
+                digest: R12UnexpectedDigest()
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R12ChunkCheckpointError,
+                .artifactSizeMismatch(path: "canonical-media-payload")
+            )
+        }
+
+        XCTAssertThrowsError(
+            try R12VerifiedChunk.makeCanonicalArtifactData(
+                mediaPayload: Data([0xA5]),
+                boundary: boundary,
+                header: header
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R12ChunkCheckpointError,
+                .artifactSizeMismatch(path: "canonical-media-envelope")
+            )
+        }
+    }
+
+    func testPinnedTransactionRejectsOutOfRootWithoutDescriptorLeak() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let fileSystem = R12LocalCheckpointFileSystem()
+            try fileSystem.ensureDirectory(root)
+            let lockURL = root.appendingPathComponent("test.lock")
+            try fileSystem.withExclusiveLock(at: lockURL) { transaction in
+                let countBefore = Self.openDescriptorCount()
+                for index in 0..<32 {
+                    let outside = root.deletingLastPathComponent()
+                        .appendingPathComponent("outside-\(index)")
+                    XCTAssertThrowsError(
+                        try transaction.ensureDirectory(outside)
+                    )
+                }
+                XCTAssertEqual(
+                    Self.openDescriptorCount(),
+                    countBefore
+                )
+            }
+        }
+    }
+
+    func testPinnedRootReplacementDuringCreateCommitsNeitherRoot() async throws {
+        try await withRoots(count: 1) { roots in
+            let configuredRoot = roots[0]
+            let displacedRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("displaced-create-root")
+            let replacementRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("replacement-create-root")
+            try FileManager.default.createDirectory(
+                at: replacementRoot,
+                withIntermediateDirectories: true
+            )
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            let store = R12ChunkCheckpointStore(
+                rootURL: configuredRoot,
+                fileSystem: fileSystem
+            )
+            hook.arm(point: .afterCreateRename) { _ in
+                try Self.replaceConfiguredRoot(
+                    configuredRoot,
+                    displacedRoot: displacedRoot,
+                    replacementRoot: replacementRoot
+                )
+            }
+            await XCTAssertThrowsErrorAsync(
+                try await store.create(header: try makeHeader())
+            )
+            XCTAssertFalse(
+                Self.ledgerExists(at: configuredRoot)
+            )
+            XCTAssertFalse(
+                Self.ledgerExists(at: displacedRoot)
+            )
+        }
+    }
+
+    func testPinnedRootReplacementDuringAppendRollsBackOriginalLedger() async throws {
+        try await withRoots(count: 1) { roots in
+            let configuredRoot = roots[0]
+            let displacedRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("displaced-append-root")
+            let replacementRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("replacement-append-root")
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: configuredRoot,
+                fileSystem: fileSystem
+            )
+            let cursor = try await store.create(header: header)
+            let chunk = try makeChunk(
+                root: configuredRoot,
+                index: 0,
+                payload: Data("root-race".utf8),
+                header: header
+            )
+            let priorLedger = try await store.canonicalLedgerData()
+            try FileManager.default.createDirectory(
+                at: replacementRoot,
+                withIntermediateDirectories: true
+            )
+            hook.arm(point: .afterReplaceSwap) { _ in
+                try Self.replaceConfiguredRoot(
+                    configuredRoot,
+                    displacedRoot: displacedRoot,
+                    replacementRoot: replacementRoot
+                )
+            }
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    chunk,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            XCTAssertFalse(Self.ledgerExists(at: configuredRoot))
+            XCTAssertEqual(
+                try Self.ledgerData(at: displacedRoot),
+                priorLedger
+            )
+            let recovered = R12ChunkCheckpointStore(rootURL: displacedRoot)
+            let recoveredCursor = try await recovered.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            XCTAssertEqual(
+                recoveredCursor,
+                cursor
+            )
+        }
+    }
+
+    func testPinnedRootReplacementDuringReopenFailsWithoutMutation() async throws {
+        try await withRoots(count: 1) { roots in
+            let configuredRoot = roots[0]
+            let displacedRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("displaced-reopen-root")
+            let replacementRoot = configuredRoot.deletingLastPathComponent()
+                .appendingPathComponent("replacement-reopen-root")
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: configuredRoot,
+                fileSystem: fileSystem
+            )
+            let cursor = try await store.create(header: header)
+            let priorLedger = try await store.canonicalLedgerData()
+            try FileManager.default.createDirectory(
+                at: replacementRoot,
+                withIntermediateDirectories: true
+            )
+            hook.arm(point: .beforeReadPathResnapshot) { _ in
+                try Self.replaceConfiguredRoot(
+                    configuredRoot,
+                    displacedRoot: displacedRoot,
+                    replacementRoot: replacementRoot
+                )
+            }
+            await XCTAssertThrowsErrorAsync(
+                try await store.reopen(
+                    expecting: R12ResumeExpectation(
+                        header: header,
+                        expectedHeadSHA256: cursor.headSHA256
+                    )
+                )
+            )
+            XCTAssertFalse(Self.ledgerExists(at: configuredRoot))
+            XCTAssertEqual(
+                try Self.ledgerData(at: displacedRoot),
+                priorLedger
+            )
+        }
+    }
+
+    func testLockPathReplacementRollsBackPinnedTransaction() async throws {
+        try await withRoots(count: 1) { roots in
+            let root = roots[0]
+            let lockURL = root.appendingPathComponent(
+                ".checkpoint-ledger-v1.lock"
+            )
+            let displacedLock = root.appendingPathComponent(
+                "displaced-ledger.lock"
+            )
+            let hook = R12FileSystemHookController()
+            let fileSystem = R12LocalCheckpointFileSystem(
+                operationHook: {
+                    try hook.invoke(point: $0, url: $1)
+                }
+            )
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: root,
+                fileSystem: fileSystem
+            )
+            let cursor = try await store.create(header: header)
+            let chunk = try makeChunk(
+                root: root,
+                index: 0,
+                payload: Data("lock-race".utf8),
+                header: header
+            )
+            let priorLedger = try await store.canonicalLedgerData()
+            hook.arm(point: .afterReplaceSwap) { _ in
+                try FileManager.default.moveItem(
+                    at: lockURL,
+                    to: displacedLock
+                )
+                guard FileManager.default.createFile(
+                    atPath: lockURL.path,
+                    contents: Data()
+                ) else {
+                    throw R12ChunkCheckpointError.atomicWriteFailed
+                }
+            }
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    chunk,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R12ChunkCheckpointError,
+                    .atomicWriteFailed
+                )
+            }
+            XCTAssertEqual(
+                try Self.ledgerData(at: root),
+                priorLedger
+            )
+            let reopened = try await R12ChunkCheckpointStore(
+                rootURL: root
+            ).reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, cursor)
+        }
+    }
+
+    func testMaximumLedgerOverrideCannotWidenProductionReadCap() async throws {
+        try await withRoots(count: 1) { roots in
+            let fileSystem = CountingR12CheckpointFileSystem()
+            let header = try makeHeader()
+            let store = R12ChunkCheckpointStore(
+                rootURL: roots[0],
+                fileSystem: fileSystem,
+                maximumLedgerBytes: Int.max
+            )
+            let cursor = try await store.create(header: header)
+            fileSystem.resetReads()
+            _ = try await store.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            let ledgerReads = fileSystem.readObservations.filter {
+                $0.path.hasSuffix("checkpoint-ledger-v1.json")
+            }
+            XCTAssertEqual(ledgerReads.count, 1)
+            XCTAssertEqual(
+                ledgerReads.first?.maximumBytes,
+                16 * 1_024 * 1_024
+            )
+        }
+    }
+
+    func testLedgerLimitRejectsCreateAndAppendBeforePublication() async throws {
+        try await withRoots(count: 2) { roots in
+            let header = try makeHeader()
+            let probe = R12ChunkCheckpointStore(
+                rootURL: roots[0],
+                maximumLedgerBytes: 1
+            )
+            var emptyLedgerByteCount = 0
+            await XCTAssertThrowsErrorAsync(
+                try await probe.create(header: header)
+            ) { error in
+                guard let checkpointError =
+                        error as? R12ChunkCheckpointError,
+                      case .ledgerSizeLimitExceeded(
+                        let observed,
+                        let maximum
+                      ) = checkpointError else {
+                    return XCTFail(
+                        "Expected ledger size limit, received \(error)"
+                    )
+                }
+                emptyLedgerByteCount = observed
+                XCTAssertEqual(maximum, 1)
+            }
+            XCTAssertGreaterThan(emptyLedgerByteCount, 1)
+            XCTAssertFalse(
+                FileManager.default.fileExists(
+                    atPath: roots[0]
+                        .appendingPathComponent("checkpoint-ledger-v1.json")
+                        .path
+                )
+            )
+
+            let store = R12ChunkCheckpointStore(
+                rootURL: roots[1],
+                maximumLedgerBytes: emptyLedgerByteCount
+            )
+            let cursor = try await store.create(header: header)
+            let chunk = try makeChunk(
+                root: roots[1],
+                index: 0,
+                payload: Data("bounded-ledger".utf8),
+                header: header
+            )
+            await XCTAssertThrowsErrorAsync(
+                try await store.appendVerified(
+                    chunk,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            ) { error in
+                guard let checkpointError =
+                        error as? R12ChunkCheckpointError,
+                      case .ledgerSizeLimitExceeded(
+                        let observed,
+                        let maximum
+                      ) = checkpointError else {
+                    return XCTFail(
+                        "Expected append ledger limit, received \(error)"
+                    )
+                }
+                XCTAssertGreaterThan(observed, maximum)
+                XCTAssertEqual(maximum, emptyLedgerByteCount)
+            }
+            let sealedDirectory = roots[1].appendingPathComponent(
+                ".r12-checkpoint-artifacts-v1"
+            )
+            XCTAssertEqual(
+                try FileManager.default.contentsOfDirectory(
+                    atPath: sealedDirectory.path
+                ),
+                []
+            )
+            let reopened = try await store.reopen(
+                expecting: R12ResumeExpectation(
+                    header: header,
+                    expectedHeadSHA256: cursor.headSHA256
+                )
+            )
+            XCTAssertEqual(reopened, cursor)
+        }
+    }
+
+    func testConfiguredRootSymlinkIsRejectedWithoutResolution() async throws {
+        try await withRoots(count: 1) { roots in
+            let actual = roots[0]
+            try FileManager.default.createDirectory(
+                at: actual,
+                withIntermediateDirectories: true
+            )
+            let configured = actual.deletingLastPathComponent()
+                .appendingPathComponent("configured-root-link")
+            try FileManager.default.createSymbolicLink(
+                at: configured,
+                withDestinationURL: actual
+            )
+            let store = R12ChunkCheckpointStore(rootURL: configured)
+            await XCTAssertThrowsErrorAsync(
+                try await store.create(header: try makeHeader())
+            ) { error in
+                guard let checkpointError =
+                        error as? R12ChunkCheckpointError,
+                      case .unsafeFilesystemEntry = checkpointError else {
+                    return XCTFail(
+                        "Expected configured-root symlink rejection, received \(error)"
+                    )
+                }
+            }
+            XCTAssertFalse(
+                FileManager.default.fileExists(
+                    atPath: actual
+                        .appendingPathComponent("checkpoint-ledger-v1.json")
+                        .path
+                )
+            )
+        }
+    }
+
+    func testVerificationScopeIsDeterministicEnvelopeNotNativeMedia() {
+        XCTAssertEqual(
+            R12VerifiedChunk.verificationScope,
+            "deterministic_canonical_envelope_v1_not_native_media_observation"
+        )
+        XCTAssertTrue(
+            R12VerifiedChunk.verificationScope.contains(
+                "not_native_media_observation"
+            )
+        )
+    }
+
     func testOrphanAndUnsealedChunksDoNotAdvanceLedger() async throws {
         try await withRoots(count: 1) { roots in
             let header = try makeHeader()
@@ -902,7 +2257,7 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         count: Int,
         operation: ([URL]) async throws -> Void
     ) async throws {
-        let parent = FileManager.default.temporaryDirectory.appendingPathComponent(
+        let parent = try trustedTemporaryDirectory().appendingPathComponent(
             "mirmir-r12-checkpoint-\(UUID().uuidString)"
         )
         try FileManager.default.createDirectory(
@@ -916,11 +2271,189 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         try await operation(roots)
     }
 
+    private static func replaceConfiguredRoot(
+        _ configuredRoot: URL,
+        displacedRoot: URL,
+        replacementRoot: URL
+    ) throws {
+        try FileManager.default.moveItem(
+            at: configuredRoot,
+            to: displacedRoot
+        )
+        try FileManager.default.moveItem(
+            at: replacementRoot,
+            to: configuredRoot
+        )
+    }
+
+    private static func ledgerExists(at root: URL) -> Bool {
+        FileManager.default.fileExists(
+            atPath: root
+                .appendingPathComponent("checkpoint-ledger-v1.json")
+                .path
+        )
+    }
+
+    private static func ledgerData(at root: URL) throws -> Data {
+        try Data(
+            contentsOf: root.appendingPathComponent(
+                "checkpoint-ledger-v1.json"
+            )
+        )
+    }
+
+    private static func openDescriptorCount() -> Int {
+        var count = 0
+        for rawDescriptor in 0..<Int(getdtablesize()) {
+            var metadata = stat()
+            if fstat(Int32(rawDescriptor), &metadata) == 0 {
+                count += 1
+            }
+        }
+        return count
+    }
+
+    private static func overwriteContentsPreservingInode(
+        at url: URL,
+        repeating byte: UInt8
+    ) throws {
+        let descriptor = open(
+            url.path,
+            O_WRONLY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else {
+            throw NSError(
+                domain: "R12ChunkCheckpointLedgerTests",
+                code: Int(errno),
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        defer { close(descriptor) }
+        var before = stat()
+        guard fstat(descriptor, &before) == 0,
+              (before.st_mode & S_IFMT) == S_IFREG,
+              before.st_size > 0 else {
+            throw NSError(
+                domain: "R12ChunkCheckpointLedgerTests",
+                code: 1,
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        let replacement = Data(
+            repeating: byte,
+            count: Int(before.st_size)
+        )
+        try replacement.withUnsafeBytes { rawBuffer in
+            guard let baseAddress = rawBuffer.baseAddress else {
+                throw NSError(
+                    domain: "R12ChunkCheckpointLedgerTests",
+                    code: 2,
+                    userInfo: [NSFilePathErrorKey: url.path]
+                )
+            }
+            var offset = 0
+            while offset < rawBuffer.count {
+                let amount = pwrite(
+                    descriptor,
+                    baseAddress.advanced(by: offset),
+                    rawBuffer.count - offset,
+                    off_t(offset)
+                )
+                guard amount > 0 else {
+                    throw NSError(
+                        domain: "R12ChunkCheckpointLedgerTests",
+                        code: Int(errno),
+                        userInfo: [NSFilePathErrorKey: url.path]
+                    )
+                }
+                offset += amount
+            }
+        }
+        let timestamps = [
+            before.st_atimespec,
+            before.st_mtimespec
+        ]
+        let timestampResult = timestamps.withUnsafeBufferPointer {
+            futimens(descriptor, $0.baseAddress)
+        }
+        guard timestampResult == 0, fsync(descriptor) == 0 else {
+            throw NSError(
+                domain: "R12ChunkCheckpointLedgerTests",
+                code: Int(errno),
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        var after = stat()
+        guard fstat(descriptor, &after) == 0 else {
+            throw NSError(
+                domain: "R12ChunkCheckpointLedgerTests",
+                code: 3,
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+        let changeTimeChanged =
+            before.st_ctimespec.tv_sec != after.st_ctimespec.tv_sec
+                || before.st_ctimespec.tv_nsec
+                    != after.st_ctimespec.tv_nsec
+        guard before.st_dev == after.st_dev,
+              before.st_ino == after.st_ino,
+              before.st_mode == after.st_mode,
+              before.st_nlink == after.st_nlink,
+              before.st_size == after.st_size,
+              before.st_mtimespec.tv_sec == after.st_mtimespec.tv_sec,
+              before.st_mtimespec.tv_nsec == after.st_mtimespec.tv_nsec,
+              changeTimeChanged else {
+            throw NSError(
+                domain: "R12ChunkCheckpointLedgerTests",
+                code: 3,
+                userInfo: [NSFilePathErrorKey: url.path]
+            )
+        }
+    }
+
+    /// XCTest may expose the trusted system temporary directory through
+    /// `/var`, which is a symlink to `/private/var` on macOS. Resolve only
+    /// this OS-owned, already-existing base before creating test fixtures so
+    /// the production store can continue rejecting configured symlink roots.
+    private func trustedTemporaryDirectory() throws -> URL {
+        let exposedDirectory = FileManager.default.temporaryDirectory
+        var resolvedPath = [CChar](
+            repeating: 0,
+            count: Int(PATH_MAX)
+        )
+        let resolved = exposedDirectory.path.withCString { sourcePath in
+            realpath(sourcePath, &resolvedPath)
+        }
+        guard resolved != nil else {
+            let errorNumber = errno
+            throw NSError(
+                domain: NSPOSIXErrorDomain,
+                code: Int(errorNumber),
+                userInfo: [NSFilePathErrorKey: exposedDirectory.path]
+            )
+        }
+        return URL(
+            fileURLWithPath: String(cString: resolvedPath),
+            isDirectory: true
+        )
+    }
+
     private func makeHeader(
         jobID: String = "job-fixture",
-        trackLayout: [R12TrackIdentity]? = nil
+        trackLayout: [R12TrackIdentity]? = nil,
+        maximumArtifactBytes: UInt64 = 64 * 1_024 * 1_024
     ) throws -> R12ChunkLedgerHeader {
-        try R12ChunkLedgerHeader(
+        let layout = try trackLayout ?? [
+            R12TrackIdentity(trackID: "video-0", kind: .video),
+            R12TrackIdentity(trackID: "audio-0", kind: .audio),
+            R12TrackIdentity(trackID: "subtitle-0", kind: .subtitle),
+            R12TrackIdentity(
+                trackID: "metadata-0",
+                kind: .timedMetadata
+            )
+        ]
+        let zero = try R12MediaTime(value: 0, timescale: 1)
+        return try R12ChunkLedgerHeader(
             sourceIdentitySHA256: hash("1"),
             jobID: jobID,
             formatContractSHA256: hash("2"),
@@ -928,10 +2461,21 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
             hardwareTierIdentity: "tier-fixture",
             executionIdentity: "execution-fixture",
             chunkPolicyIdentity: "closed-sync-boundaries-v1",
-            trackLayout: trackLayout ?? [
-                try R12TrackIdentity(trackID: "video-0", kind: .video),
-                try R12TrackIdentity(trackID: "audio-0", kind: .audio)
-            ]
+            trackLayout: layout,
+            initialTrackWatermarks: try layout.map {
+                try R12TrackWatermark(
+                    trackID: $0.trackID,
+                    kind: $0.kind,
+                    nextSampleIndex: 0,
+                    time: zero
+                )
+            },
+            initialBackendState: .resetAtBoundary(
+                resetIdentity: "fixture-reset-v1"
+            ),
+            artifactPolicy: try R12ChunkArtifactPolicy(
+                maximumArtifactBytes: maximumArtifactBytes
+            )
         )
     }
 
@@ -940,8 +2484,10 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         index: Int,
         payload: Data,
         relativePath: String? = nil,
-        boundary: R12SafeMediaBoundary? = nil
+        boundary: R12SafeMediaBoundary? = nil,
+        header: R12ChunkLedgerHeader? = nil
     ) throws -> R12VerifiedChunk {
+        let verifiedHeader = try header ?? makeHeader()
         try FileManager.default.createDirectory(
             at: root,
             withIntermediateDirectories: true
@@ -959,12 +2505,18 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         } else {
             verifiedBoundary = try makeBoundary(index: index)
         }
-        return R12VerifiedChunk(
+        let artifactData = try R12VerifiedChunk.makeCanonicalArtifactData(
+            mediaPayload: payload,
             boundary: verifiedBoundary,
-            artifact: try R12ChunkArtifactIdentity.make(
-                relativePath: artifactPath,
-                data: payload
-            )
+            header: verifiedHeader
+        )
+        try artifactData.write(to: artifactURL)
+        return try R12VerifiedChunk.verifyCanonicalArtifact(
+            rootURL: root,
+            relativePath: artifactPath,
+            header: verifiedHeader,
+            expectedArtifactSHA256:
+                R12CryptoKitDigest().sha256(artifactData)
         )
     }
 
@@ -973,7 +2525,13 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         audioTrackID: String = "audio-0",
         audioKind: R12TrackKind = .audio,
         audioNextSampleIndex: Int? = nil,
-        includeAudio: Bool = true
+        includeAudio: Bool = true,
+        backendStartState: R12BackendBoundaryState = .resetAtBoundary(
+            resetIdentity: "fixture-reset-v1"
+        ),
+        backendState: R12BackendBoundaryState = .resetAtBoundary(
+            resetIdentity: "fixture-reset-v1"
+        )
     ) throws -> R12SafeMediaBoundary {
         let start = try R12MediaTime(value: Int64(index), timescale: 1)
         let end = try R12MediaTime(value: Int64(index + 1), timescale: 1)
@@ -996,6 +2554,22 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                 )
             )
         }
+        watermarks.append(
+            try R12TrackWatermark(
+                trackID: "subtitle-0",
+                kind: .subtitle,
+                nextSampleIndex: index + 1,
+                time: end
+            )
+        )
+        watermarks.append(
+            try R12TrackWatermark(
+                trackID: "metadata-0",
+                kind: .timedMetadata,
+                nextSampleIndex: (index + 1) * 2,
+                time: end
+            )
+        )
         return try R12SafeMediaBoundary(
             start: start,
             endExclusive: end,
@@ -1003,9 +2577,8 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
             nextVideoSampleIndex: nextSample,
             nextSampleIsSync: true,
             trackWatermarks: watermarks,
-            backendState: .resetAtBoundary(
-                resetIdentity: "fixture-reset-v1"
-            )
+            backendStartState: backendStartState,
+            backendState: backendState
         )
     }
 
@@ -1030,8 +2603,23 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
                     kind: .audio,
                     nextSampleIndex: 96_000,
                     time: end
+                ),
+                try R12TrackWatermark(
+                    trackID: "subtitle-0",
+                    kind: .subtitle,
+                    nextSampleIndex: 2,
+                    time: end
+                ),
+                try R12TrackWatermark(
+                    trackID: "metadata-0",
+                    kind: .timedMetadata,
+                    nextSampleIndex: 4,
+                    time: end
                 )
             ],
+            backendStartState: .resetAtBoundary(
+                resetIdentity: "fixture-reset-v1"
+            ),
             backendState: .stateless
         )
     }
@@ -1046,6 +2634,13 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(value)
+    }
+}
+
+private struct R12UnexpectedDigest: R12Digesting {
+    func sha256(_ data: Data) -> String {
+        XCTFail("Oversized payload must be rejected before digest or encoding.")
+        return String(repeating: "a", count: 64)
     }
 }
 
@@ -1083,45 +2678,279 @@ private func r12AppendOutcome(
     }
 }
 
-private final class FailingR12CheckpointFileSystem:
+private struct R12ReadObservation: Equatable {
+    let path: String
+    let maximumBytes: Int
+}
+
+private final class R12CountingFileSystemState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var observations: [R12ReadObservation] = []
+
+    var readObservations: [R12ReadObservation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return observations
+    }
+
+    func resetReads() {
+        lock.lock()
+        observations.removeAll()
+        lock.unlock()
+    }
+
+    func record(_ observation: R12ReadObservation) {
+        lock.lock()
+        observations.append(observation)
+        lock.unlock()
+    }
+}
+
+private final class CountingR12CheckpointFileSystem:
     R12CheckpointFileSystem,
     @unchecked Sendable {
-    var failNextReplacement = false
-    private let local = R12LocalCheckpointFileSystem()
+    private let state: R12CountingFileSystemState
+    private let backing: any R12CheckpointFileSystem
+
+    init() {
+        self.state = R12CountingFileSystemState()
+        self.backing = R12LocalCheckpointFileSystem()
+    }
+
+    private init(
+        state: R12CountingFileSystemState,
+        backing: any R12CheckpointFileSystem
+    ) {
+        self.state = state
+        self.backing = backing
+    }
+
+    var readObservations: [R12ReadObservation] {
+        state.readObservations
+    }
+
+    func resetReads() {
+        state.resetReads()
+    }
 
     func ensureDirectory(_ url: URL) throws {
-        try local.ensureDirectory(url)
+        try backing.ensureDirectory(url)
     }
 
     func validateDirectory(_ url: URL) throws {
-        try local.validateDirectory(url)
+        try backing.validateDirectory(url)
     }
 
     func exists(_ url: URL) -> Bool {
-        local.exists(url)
+        backing.exists(url)
     }
 
     func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
-        try local.readRegularFile(url, maximumBytes: maximumBytes)
+        state.record(
+            R12ReadObservation(
+                path: url.path,
+                maximumBytes: maximumBytes
+            )
+        )
+        return try backing.readRegularFile(url, maximumBytes: maximumBytes)
     }
 
     func writeNewAtomically(_ data: Data, to url: URL) throws {
-        try local.writeNewAtomically(data, to: url)
+        try backing.writeNewAtomically(data, to: url)
     }
 
     func replaceAtomically(_ data: Data, at url: URL) throws {
-        if failNextReplacement {
-            failNextReplacement = false
-            throw R12ChunkCheckpointError.atomicWriteFailed
-        }
-        try local.replaceAtomically(data, at: url)
+        try backing.replaceAtomically(data, at: url)
     }
 
     func withExclusiveLock<T>(
         at url: URL,
-        _ operation: () throws -> T
+        _ operation: (
+            _ transactionFileSystem: any R12CheckpointFileSystem
+        ) throws -> T
     ) throws -> T {
-        try local.withExclusiveLock(at: url, operation)
+        try backing.withExclusiveLock(at: url) { transactionBacking in
+            try operation(
+                CountingR12CheckpointFileSystem(
+                    state: state,
+                    backing: transactionBacking
+                )
+            )
+        }
+    }
+}
+
+private final class R12DirectorySyncController: @unchecked Sendable {
+    private let lock = NSLock()
+    private var successfulCallsBeforeFailure: Int?
+    private var failedDescriptor: Int32?
+
+    var mostRecentFailedDescriptor: Int32? {
+        lock.lock()
+        defer { lock.unlock() }
+        return failedDescriptor
+    }
+
+    func failAfterSuccessfulCalls(_ count: Int) {
+        lock.lock()
+        successfulCallsBeforeFailure = count
+        failedDescriptor = nil
+        lock.unlock()
+    }
+
+    func synchronize(descriptor: Int32, url: URL) throws {
+        let fail: Bool
+        lock.lock()
+        if let remaining = successfulCallsBeforeFailure {
+            if remaining == 0 {
+                successfulCallsBeforeFailure = nil
+                failedDescriptor = descriptor
+                fail = true
+            } else {
+                successfulCallsBeforeFailure = remaining - 1
+                fail = false
+            }
+        } else {
+            fail = false
+        }
+        lock.unlock()
+        if fail {
+            throw R12ChunkCheckpointError.atomicWriteFailed
+        }
+        guard fsync(descriptor) == 0 else {
+            throw R12ChunkCheckpointError.atomicWriteFailed
+        }
+    }
+}
+
+private final class R12FileSystemHookController: @unchecked Sendable {
+    typealias Action = @Sendable (URL) throws -> Void
+
+    private let lock = NSLock()
+    private var armedPoint: R12CheckpointFileSystemHookPoint?
+    private var action: Action?
+
+    func arm(
+        point: R12CheckpointFileSystemHookPoint,
+        action: @escaping Action
+    ) {
+        lock.lock()
+        armedPoint = point
+        self.action = action
+        lock.unlock()
+    }
+
+    func invoke(
+        point: R12CheckpointFileSystemHookPoint,
+        url: URL
+    ) throws {
+        let selectedAction: Action?
+        lock.lock()
+        if armedPoint == point {
+            selectedAction = action
+            armedPoint = nil
+            action = nil
+        } else {
+            selectedAction = nil
+        }
+        lock.unlock()
+        try selectedAction?(url)
+    }
+}
+
+private final class FailingR12CheckpointFileSystem:
+    R12CheckpointFileSystem,
+    @unchecked Sendable {
+    private final class State: @unchecked Sendable {
+        private let lock = NSLock()
+        private var replacementFailureArmed = false
+
+        var failNextReplacement: Bool {
+            get {
+                lock.lock()
+                defer { lock.unlock() }
+                return replacementFailureArmed
+            }
+            set {
+                lock.lock()
+                replacementFailureArmed = newValue
+                lock.unlock()
+            }
+        }
+
+        func consumeReplacementFailure() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard replacementFailureArmed else {
+                return false
+            }
+            replacementFailureArmed = false
+            return true
+        }
+    }
+
+    private let state: State
+    private let backing: any R12CheckpointFileSystem
+
+    init() {
+        self.state = State()
+        self.backing = R12LocalCheckpointFileSystem()
+    }
+
+    private init(
+        state: State,
+        backing: any R12CheckpointFileSystem
+    ) {
+        self.state = state
+        self.backing = backing
+    }
+
+    var failNextReplacement: Bool {
+        get { state.failNextReplacement }
+        set { state.failNextReplacement = newValue }
+    }
+
+    func ensureDirectory(_ url: URL) throws {
+        try backing.ensureDirectory(url)
+    }
+
+    func validateDirectory(_ url: URL) throws {
+        try backing.validateDirectory(url)
+    }
+
+    func exists(_ url: URL) -> Bool {
+        backing.exists(url)
+    }
+
+    func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        try backing.readRegularFile(url, maximumBytes: maximumBytes)
+    }
+
+    func writeNewAtomically(_ data: Data, to url: URL) throws {
+        try backing.writeNewAtomically(data, to: url)
+    }
+
+    func replaceAtomically(_ data: Data, at url: URL) throws {
+        if state.consumeReplacementFailure() {
+            throw R12ChunkCheckpointError.atomicWriteFailed
+        }
+        try backing.replaceAtomically(data, at: url)
+    }
+
+    func withExclusiveLock<T>(
+        at url: URL,
+        _ operation: (
+            _ transactionFileSystem: any R12CheckpointFileSystem
+        ) throws -> T
+    ) throws -> T {
+        try backing.withExclusiveLock(at: url) { transactionBacking in
+            try operation(
+                FailingR12CheckpointFileSystem(
+                    state: state,
+                    backing: transactionBacking
+                )
+            )
+        }
     }
 }
 

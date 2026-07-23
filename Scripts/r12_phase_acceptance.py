@@ -10,9 +10,11 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import re
+import shutil
 import stat
 import subprocess
 import sys
+import tempfile
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -28,10 +30,47 @@ except ModuleNotFoundError:
         validate_json_schema_instance,
     )
 
+try:
+    from Scripts.r11_phase_acceptance import R11PhaseAcceptanceVerifier
+except (ImportError, ModuleNotFoundError) as error:
+    R11PhaseAcceptanceVerifier = None  # type: ignore[assignment,misc]
+    _R11_VERIFIER_IMPORT_ERROR: BaseException | None = error
+else:
+    _R11_VERIFIER_IMPORT_ERROR = None
+
 
 REPOSITORY_ROOT = _MODULE_REPOSITORY_ROOT
+ROADMAP_VERSION = "1.0.1"
 ROADMAP_PATH = Path(
     "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json"
+)
+ROADMAP_PHASE_CONTRACTS = (
+    (
+        "R11",
+        "Evidence traceability and claim boundary",
+        (
+            "operator-defined software-function gate: traceable evidence and "
+            "claim-scope machinery validates exact identities, rejects "
+            "unsupported claims, and emits no_market_claim unconditionally "
+            "while production_auto_mode and market_leading_claim remain blocked"
+        ),
+        ("R10",),
+        ("passed",),
+    ),
+    (
+        "R12",
+        "Format, route, and product expansion",
+        "explicit contracts for every new format and route",
+        ("R11",),
+        ("in_progress", "evidence_ready", "passed"),
+    ),
+    (
+        "R13",
+        "Release hardening",
+        "exact-app evidence and release-ready product",
+        ("R11", "R12"),
+        ("planned", "in_progress", "evidence_ready", "passed"),
+    ),
 )
 PREDECESSOR_ACCEPTANCE_PATH = Path(
     "docs/roadmaps/evidence/r11/records/functional-phase-acceptance.json"
@@ -99,6 +138,116 @@ TEST_SUITES = (
         "resume",
     ),
 )
+MANDATORY_TEST_CONTRACTS = (
+    (
+        "format",
+        (
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testFixtureCatalogCoversDeclaredExpansionWithoutNativeAuthority"
+            ),
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testMetadataAndStructuralQualityContractsAreExplicit"
+            ),
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testEveryMetadataInvariantRejectsAContradictoryRule"
+            ),
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testCanonicalContractCarriesOnlyNonAuthorizingBoundaries"
+            ),
+        ),
+    ),
+    (
+        "route",
+        (
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testExactScaleDerivationReducesWithoutFloatingPointApproximation"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testResolutionBoundsValidateRangesAlignmentsAndBoundaries"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testDeterministicFixtureSelectsOnlyDeterministicContractAuthority"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testNativeRouteWithoutObservationIsUnavailable"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testFallbackOrderingIsStableAndRecordsEveryInspectedRoute"
+            ),
+        ),
+    ),
+    (
+        "backend",
+        (
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testBackendCapabilityIsExactSortedAndEvidenceBound"
+            ),
+            (
+                "MirmirTests.R12MediaFormatContractV2Tests."
+                "testBackendCapabilityRejectsEvidencePromotionAndUnsupportedFormat"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testNativeRequirementRejectsDeterministicFormatOrBackendEvidence"
+            ),
+            (
+                "MirmirTests.R12RouteAndHardwareResolverTests."
+                "testDuplicateCatalogFactsAndBackendFormatMismatchAreRejected"
+            ),
+        ),
+    ),
+    (
+        "resume",
+        (
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testInterruptedAndUninterruptedExecutionProduceIdenticalLedger"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testSafeBoundaryRequiresSyncProgressSingleVideoAndUniqueTracks"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testStaleHeadAndSourceIdentityDriftReject"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testExclusiveLockSerializesCompetingStoreHeads"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testSealedArtifactMutationAndMissingFileRejectOnReopen"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testAtomicReplacementFailureLeavesLastCursorReopenable"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testResumeCursorRoundTripsAllTrackWatermarksAndBackendState"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testDirectorySyncFailureRollsBackToPreviousLedgerHead"
+            ),
+            (
+                "MirmirTests.R12ChunkCheckpointLedgerTests."
+                "testVerificationScopeIsDeterministicEnvelopeNotNativeMedia"
+            ),
+        ),
+    ),
+)
 SOURCE_BINDING_PATHS = (
     ("r12_media_format_contract_v2", FORMAT_SOURCE_PATH),
     ("r12_route_and_hardware_resolver", ROUTE_SOURCE_PATH),
@@ -151,6 +300,10 @@ OBSERVATION_BOUNDARY = {
 EXECUTION_LIMITATIONS = (
     "R12 evidence proves only the checkpointed format, route, backend, and "
     "resume software contracts exercised by the targeted XCTest inventory.",
+    "Expanded P010, HDR, BT.2020, 4:2:2, 4:4:4, interlace, alpha, subtitle, "
+    "and metadata cases are deterministic contract simulations; R12 does not "
+    "claim that the production AVFoundation pipeline or A11 backend processes "
+    "those formats.",
     "Native hardware, simulator, and operator-observed execution were not "
     "observed and are nonblocking for this software-function acceptance.",
     "No comparative, A/B, superiority, or historical product-comparison "
@@ -164,6 +317,8 @@ EXECUTION_LIMITATIONS = (
 ACCEPTANCE_LIMITATIONS = (
     "R12 acceptance is limited to exact-source proof that the declared "
     "format, route, backend, and resumability software functions pass.",
+    "Expanded-format acceptance is contract-only and does not authorize a "
+    "production decode, upscale, encode, or preservation support claim.",
     "Native hardware, simulator, and operator observations are recorded as "
     "not_observed and are not acceptance dependencies.",
     "No comparison or A/B result contributes to acceptance.",
@@ -175,8 +330,10 @@ BUILD_COMMAND = (
     "xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir "
     "-configuration Debug -destination platform=macOS,arch=arm64 "
     "-derivedDataPath <outside-repository> "
+    "-disableAutomaticPackageResolution "
     "R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> "
-    "R12_ACCEPTANCE_SOURCE_TREE=<source.tree>"
+    "R12_ACCEPTANCE_SOURCE_TREE=<source.tree> "
+    "EXCLUDED_SOURCE_FILE_NAMES=*.metal"
 )
 TEST_COMMAND = (
     "xcodebuild test-without-building -xctestrun <checkpoint-build.xctestrun> "
@@ -188,6 +345,8 @@ TEST_COMMAND = (
     "R12_ACCEPTANCE_SOURCE_TREE=<source.tree>"
 )
 LINT_COMMAND = "swiftlint lint --strict --no-cache"
+_EXECUTION_IDENTITY_PREFIX = "R12_EXECUTION_IDENTITY="
+_CHECKPOINT_EXECUTION_KIND = "detached_clean_exact_git_checkpoint"
 
 _GIT_OID_PATTERN = re.compile(r"^(?!0{40}$)[0-9a-f]{40}$")
 _SWIFT_TEST_METHOD_PATTERN = re.compile(
@@ -200,7 +359,7 @@ _XCTEST_CASE_PATTERN = re.compile(
     r"(?: \(([0-9]+(?:\.[0-9]+)?) seconds\))?\.$"
 )
 _XCTEST_SUMMARY_PATTERN = re.compile(
-    r"^[ \t]*Executed ([0-9]+) tests?, with ([0-9]+) failures "
+    r"^[ \t]*Executed ([0-9]+) tests?, with ([0-9]+) failures? "
     r"\(([0-9]+) unexpected\)(?:, ([0-9]+) skipped)?"
     r" in .+ seconds$"
 )
@@ -253,6 +412,21 @@ class ParsedTests:
 class ParsedLint:
     log_payload: bytes
     linted_file_count: int
+
+
+@dataclass(frozen=True)
+class CapturedExecution:
+    build_log_payload: bytes
+    test_log_payload: bytes
+    lint_log_payload: bytes
+
+
+@dataclass(frozen=True)
+class RoadmapState:
+    roadmap_version: str
+    r11_status: str
+    r12_status: str
+    r13_status: str
 
 
 def _sha256(payload: bytes) -> str:
@@ -759,6 +933,14 @@ class R12PhaseAcceptanceVerifier:
                 errors.append("R12 Swift test identifiers repeat")
             if len(identifiers) < len(self.test_suites):
                 errors.append("R12 Swift test inventory is incomplete")
+            observed = set(identifiers)
+            for area, mandatory in MANDATORY_TEST_CONTRACTS:
+                missing = sorted(set(mandatory) - observed)
+                if missing:
+                    errors.append(
+                        f"R12 mandatory {area} test contract inventory differs: "
+                        + ", ".join(missing)
+                    )
         return (inventory if not errors else None), sorted(set(errors))
 
     @staticmethod
@@ -860,10 +1042,43 @@ class R12PhaseAcceptanceVerifier:
             for identifier, relative in self.source_binding_paths
         ]
 
+    def _canonical_r11_generated_errors(self) -> list[str]:
+        errors: list[str] = []
+        if R11PhaseAcceptanceVerifier is None:
+            detail = (
+                f": {_R11_VERIFIER_IMPORT_ERROR}"
+                if _R11_VERIFIER_IMPORT_ERROR is not None
+                else ""
+            )
+            errors.append(
+                "R12 cannot import the canonical R11 generated-evidence "
+                f"verifier{detail}"
+            )
+        else:
+            try:
+                predecessor_errors = R11PhaseAcceptanceVerifier(
+                    self.root
+                ).check_generated()
+            except (OSError, RuntimeError, TypeError, ValueError) as error:
+                errors.append(
+                    "R12 canonical R11 generated-evidence validation raised: "
+                    f"{error}"
+                )
+            else:
+                errors.extend(
+                    "R12 canonical R11 generated-evidence validation failed: "
+                    f"{error}"
+                    for error in predecessor_errors
+                )
+        return sorted(set(errors))
+
     def predecessor_binding(
         self,
         source: Mapping[str, str],
     ) -> dict[str, object]:
+        predecessor_errors = self._canonical_r11_generated_errors()
+        if predecessor_errors:
+            raise ValueError(" | ".join(predecessor_errors))
         payload = self._checkpoint_bytes(source, PREDECESSOR_ACCEPTANCE_PATH)
         record = _decode_object(payload, "R11 predecessor acceptance")
         predecessor_source = record.get("source")
@@ -943,11 +1158,314 @@ class R12PhaseAcceptanceVerifier:
         except UnicodeDecodeError:
             return None, [f"{context} is not UTF-8"]
 
+    @staticmethod
+    def _execution_identity_header(
+        identity: Mapping[str, object],
+    ) -> str:
+        return _EXECUTION_IDENTITY_PREFIX + json.dumps(
+            identity,
+            ensure_ascii=True,
+            allow_nan=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @staticmethod
+    def _build_command_arguments(
+        executable_path: str,
+        source: Mapping[str, str],
+        derived_data: str,
+    ) -> list[str]:
+        return [
+            executable_path,
+            "build-for-testing",
+            "-project",
+            "Mirmir.xcodeproj",
+            "-scheme",
+            "Mirmir",
+            "-configuration",
+            "Debug",
+            "-destination",
+            "platform=macOS,arch=arm64",
+            "-derivedDataPath",
+            derived_data,
+            "-disableAutomaticPackageResolution",
+            f"R12_ACCEPTANCE_SOURCE_COMMIT={source['commit']}",
+            f"R12_ACCEPTANCE_SOURCE_TREE={source['tree']}",
+            "EXCLUDED_SOURCE_FILE_NAMES=*.metal",
+        ]
+
+    @staticmethod
+    def _test_command_arguments(
+        executable_path: str,
+        source: Mapping[str, str],
+        xctestrun: str,
+        suites: Sequence[SwiftTestSuite] = TEST_SUITES,
+    ) -> list[str]:
+        return [
+            executable_path,
+            "test-without-building",
+            "-xctestrun",
+            xctestrun,
+            "-destination",
+            "platform=macOS,arch=arm64",
+            *[
+                f"-only-testing:{suite.only_testing}"
+                for suite in suites
+            ],
+            f"R12_ACCEPTANCE_SOURCE_COMMIT={source['commit']}",
+            f"R12_ACCEPTANCE_SOURCE_TREE={source['tree']}",
+        ]
+
+    @staticmethod
+    def _lint_command_arguments(executable_path: str) -> list[str]:
+        return [
+            executable_path,
+            "lint",
+            "--strict",
+            "--no-cache",
+        ]
+
+    @staticmethod
+    def _canonical_runtime_path(
+        value: object,
+        *,
+        context: str,
+    ) -> Path | None:
+        if (
+            type(value) is not str
+            or not value
+            or len(value.encode("utf-8")) > 4096
+            or "\x00" in value
+            or "\r" in value
+            or not Path(value).is_absolute()
+            or os.path.normpath(value) != value
+        ):
+            return None
+        return Path(value)
+
+    @classmethod
+    def _command_argv_errors(
+        cls,
+        identity: Mapping[str, Any],
+        *,
+        source: Mapping[str, str],
+        command_id: str,
+        tool: Mapping[str, Any],
+        suites: Sequence[SwiftTestSuite],
+        context: str,
+    ) -> list[str]:
+        argv = identity.get("argv")
+        if (
+            type(argv) is not list
+            or not argv
+            or any(
+                type(value) is not str
+                or not value
+                or len(value.encode("utf-8")) > 4096
+                or "\x00" in value
+                or "\r" in value
+                for value in argv
+            )
+        ):
+            return [f"{context} structured command argv differs"]
+        executable_path = tool.get("executable_path")
+        if type(executable_path) is not str:
+            return [f"{context} structured command argv differs"]
+        expected: list[str]
+        if command_id == "build_for_testing":
+            derived_data = argv[11] if len(argv) == 16 else ""
+            derived_path = cls._canonical_runtime_path(
+                derived_data,
+                context=f"{context} derived-data path",
+            )
+            if derived_path is None or derived_path.name != "DerivedData":
+                return [f"{context} structured command argv differs"]
+            expected = cls._build_command_arguments(
+                executable_path,
+                source,
+                derived_data,
+            )
+        elif command_id == "targeted_tests":
+            expected_count = 8 + len(suites)
+            xctestrun = argv[3] if len(argv) == expected_count else ""
+            xctestrun_path = cls._canonical_runtime_path(
+                xctestrun,
+                context=f"{context} xctestrun path",
+            )
+            if (
+                xctestrun_path is None
+                or xctestrun_path.suffix != ".xctestrun"
+                or xctestrun_path.parent.name != "Products"
+                or xctestrun_path.parent.parent.name != "Build"
+                or xctestrun_path.parent.parent.parent.name != "DerivedData"
+            ):
+                return [f"{context} structured command argv differs"]
+            expected = cls._test_command_arguments(
+                executable_path,
+                source,
+                xctestrun,
+                suites,
+            )
+        elif command_id == "swiftlint":
+            expected = cls._lint_command_arguments(executable_path)
+        else:
+            return [f"{context} structured command argv differs"]
+        return (
+            []
+            if argv == expected
+            else [f"{context} structured command argv differs"]
+        )
+
+    @classmethod
+    def _execution_identity_from_text(
+        cls,
+        text: str,
+        *,
+        source: Mapping[str, str],
+        command_id: str,
+        command: str,
+        tool_name: str,
+        context: str,
+        expected_tool: Mapping[str, str] | None = None,
+        suites: Sequence[SwiftTestSuite] = TEST_SUITES,
+    ) -> tuple[dict[str, Any] | None, list[str]]:
+        lines = text.splitlines()
+        if not lines or not lines[0].startswith(_EXECUTION_IDENTITY_PREFIX):
+            return None, [f"{context} execution identity is absent"]
+        encoded = lines[0][len(_EXECUTION_IDENTITY_PREFIX) :]
+        try:
+            identity = _decode_object(
+                encoded.encode("utf-8"),
+                f"{context} execution identity",
+            )
+        except ValueError as error:
+            return None, [str(error)]
+        errors: list[str] = []
+        if lines[0] != cls._execution_identity_header(identity):
+            errors.append(f"{context} execution identity is not canonical")
+        if set(identity) != {
+            "argv",
+            "checkpoint",
+            "command",
+            "command_id",
+            "exit_code",
+            "source",
+            "tool",
+        }:
+            errors.append(f"{context} execution identity shape differs")
+        if identity.get("command_id") != command_id:
+            errors.append(f"{context} command identifier differs")
+        if identity.get("command") != command:
+            errors.append(f"{context} canonical command differs")
+        if identity.get("source") != dict(source):
+            errors.append(f"{context} execution source differs")
+        if type(identity.get("exit_code")) is not int or (
+            identity.get("exit_code") != 0
+        ):
+            errors.append(f"{context} exit status differs")
+        if identity.get("checkpoint") != {
+            "clean_after": True,
+            "clean_before": True,
+            "commit_after": source["commit"],
+            "commit_before": source["commit"],
+            "kind": _CHECKPOINT_EXECUTION_KIND,
+            "tree_after": source["tree"],
+            "tree_before": source["tree"],
+        }:
+            errors.append(f"{context} checkpoint execution boundary differs")
+        tool = identity.get("tool")
+        if type(tool) is not dict or set(tool) != {
+            "executable_path",
+            "executable_sha256",
+            "name",
+            "version",
+        }:
+            errors.append(f"{context} tool identity shape differs")
+        else:
+            path = tool.get("executable_path")
+            version = tool.get("version")
+            if tool.get("name") != tool_name:
+                errors.append(f"{context} tool name differs")
+            if (
+                expected_tool is not None
+                and tool != dict(expected_tool)
+            ):
+                errors.append(f"{context} owned tool identity differs")
+            if (
+                type(path) is not str
+                or not path
+                or "\x00" in path
+                or not Path(path).is_absolute()
+                or os.path.normpath(path) != path
+            ):
+                errors.append(f"{context} tool executable path differs")
+            if re.fullmatch(
+                r"[0-9a-f]{64}",
+                str(tool.get("executable_sha256", "")),
+            ) is None:
+                errors.append(f"{context} tool executable digest differs")
+            if (
+                type(version) is not str
+                or not version
+                or len(version.encode("utf-8")) > 4096
+                or "\x00" in version
+                or "\r" in version
+            ):
+                errors.append(f"{context} tool version differs")
+            errors.extend(
+                cls._command_argv_errors(
+                    identity,
+                    source=source,
+                    command_id=command_id,
+                    tool=tool,
+                    suites=suites,
+                    context=context,
+                )
+            )
+        return (
+            identity if not errors else None,
+            sorted(set(errors)),
+        )
+
+    @classmethod
+    def _execution_identity_from_payload(
+        cls,
+        payload: bytes,
+        *,
+        source: Mapping[str, str],
+        command_id: str,
+        command: str,
+        tool_name: str,
+        context: str,
+        maximum: int,
+        expected_tool: Mapping[str, str] | None = None,
+        suites: Sequence[SwiftTestSuite] = TEST_SUITES,
+    ) -> tuple[dict[str, Any] | None, list[str]]:
+        text, errors = cls._decode_log(
+            payload,
+            context=context,
+            maximum=maximum,
+        )
+        if text is None:
+            return None, errors
+        return cls._execution_identity_from_text(
+            text,
+            source=source,
+            command_id=command_id,
+            command=command,
+            tool_name=tool_name,
+            context=context,
+            expected_tool=expected_tool,
+            suites=suites,
+        )
+
     @classmethod
     def _build_log_errors(
         cls,
         payload: bytes,
         source: Mapping[str, str],
+        expected_tool: Mapping[str, str] | None = None,
     ) -> list[str]:
         text, errors = cls._decode_log(
             payload,
@@ -956,21 +1474,17 @@ class R12PhaseAcceptanceVerifier:
         )
         if text is None:
             return errors
-        lines = text.splitlines()
-        invocation_needles = (
-            "xcodebuild build-for-testing",
-            "-project Mirmir.xcodeproj",
-            "-scheme Mirmir",
-            "-configuration Debug",
-            "-destination platform=macOS,arch=arm64",
-            f"R12_ACCEPTANCE_SOURCE_COMMIT={source['commit']}",
-            f"R12_ACCEPTANCE_SOURCE_TREE={source['tree']}",
+        _identity, identity_errors = cls._execution_identity_from_text(
+            text,
+            source=source,
+            command_id="build_for_testing",
+            command=BUILD_COMMAND,
+            tool_name="xcodebuild",
+            context="R12 build-for-testing log",
+            expected_tool=expected_tool,
         )
-        joined = " ".join(lines[:20])
-        if not all(value in joined for value in invocation_needles):
-            errors.append(
-                "R12 build-for-testing invocation or source binding differs"
-            )
+        errors.extend(identity_errors)
+        lines = text.splitlines()
         nonempty = [line.strip() for line in lines if line.strip()]
         if (
             nonempty.count("** TEST BUILD SUCCEEDED **") != 1
@@ -995,6 +1509,7 @@ class R12PhaseAcceptanceVerifier:
         source: Mapping[str, str],
         inventory: TestInventory,
         suites: Sequence[SwiftTestSuite] = TEST_SUITES,
+        expected_tool: Mapping[str, str] | None = None,
     ) -> list[str]:
         text, errors = cls._decode_log(
             payload,
@@ -1003,6 +1518,17 @@ class R12PhaseAcceptanceVerifier:
         )
         if text is None:
             return errors
+        _identity, identity_errors = cls._execution_identity_from_text(
+            text,
+            source=source,
+            command_id="targeted_tests",
+            command=TEST_COMMAND,
+            tool_name="xcodebuild",
+            context="R12 targeted XCTest log",
+            expected_tool=expected_tool,
+            suites=suites,
+        )
+        errors.extend(identity_errors)
         lines = text.splitlines()
         markers = [
             index
@@ -1016,27 +1542,6 @@ class R12PhaseAcceptanceVerifier:
             prefix = lines
         else:
             prefix = lines[: markers[0]]
-        joined = " ".join(lines[:30])
-        invocation_needles = (
-            "xcodebuild test-without-building",
-            "-destination platform=macOS,arch=arm64",
-            f"R12_ACCEPTANCE_SOURCE_COMMIT={source['commit']}",
-            f"R12_ACCEPTANCE_SOURCE_TREE={source['tree']}",
-        )
-        if not all(value in joined for value in invocation_needles):
-            errors.append(
-                "R12 targeted XCTest invocation or source binding differs"
-            )
-        only_testing = set(
-            re.findall(
-                r"-only-testing:MirmirTests/([A-Za-z0-9_]+)",
-                joined,
-            )
-        )
-        expected_suites = {suite.class_name for suite in suites}
-        if only_testing != expected_suites:
-            errors.append("R12 targeted XCTest suite selection differs")
-
         started: list[str] = []
         passed: list[str] = []
         forbidden_statuses: list[str] = []
@@ -1089,9 +1594,13 @@ class R12PhaseAcceptanceVerifier:
         if (
             not summaries
             or summaries[-1] != (expected_count, 0, 0, 0)
+            or any(
+                failures != 0 or unexpected != 0 or skipped != 0
+                for _count, failures, unexpected, skipped in summaries
+            )
         ):
             errors.append(
-                "R12 targeted XCTest final zero-failure count differs"
+                "R12 targeted XCTest zero-failure count differs"
             )
         return sorted(set(errors))
 
@@ -1099,6 +1608,8 @@ class R12PhaseAcceptanceVerifier:
     def _lint_log(
         cls,
         payload: bytes,
+        source: Mapping[str, str],
+        expected_tool: Mapping[str, str] | None = None,
     ) -> tuple[ParsedLint | None, list[str]]:
         text, errors = cls._decode_log(
             payload,
@@ -1107,7 +1618,19 @@ class R12PhaseAcceptanceVerifier:
         )
         if text is None:
             return None, errors
+        _identity, identity_errors = cls._execution_identity_from_text(
+            text,
+            source=source,
+            command_id="swiftlint",
+            command=LINT_COMMAND,
+            tool_name="swiftlint",
+            context="R12 SwiftLint log",
+            expected_tool=expected_tool,
+        )
+        errors.extend(identity_errors)
         lines = [line for line in text.splitlines() if line]
+        if lines and lines[0].startswith(_EXECUTION_IDENTITY_PREFIX):
+            lines = lines[1:]
         if (
             not lines
             or lines[0]
@@ -1140,11 +1663,14 @@ class R12PhaseAcceptanceVerifier:
                 "R12 SwiftLint log lacks one final zero-violation summary"
             )
         linted_count = summaries[0][2] if summaries else 0
+        expected_file_records = {
+            (index, linted_count)
+            for index in range(1, linted_count + 1)
+        }
         if (
             linted_count < 1
             or len(file_records) != linted_count
-            or file_records
-            != [(index, linted_count) for index in range(1, linted_count + 1)]
+            or set(file_records) != expected_file_records
         ):
             errors.append("R12 SwiftLint per-file inventory differs")
         if any(
@@ -1244,11 +1770,82 @@ class R12PhaseAcceptanceVerifier:
         build: ParsedBuild,
         tests: ParsedTests,
         lint: ParsedLint,
+        expected_tools: Mapping[
+            str, Mapping[str, str]
+        ] | None = None,
     ) -> dict[str, object]:
         coverage = self.contract_coverage(inventory)
+        identities: dict[str, dict[str, Any]] = {}
+        for (
+            command_id,
+            payload,
+            command,
+            tool_name,
+            context,
+            maximum,
+        ) in (
+            (
+                "build_for_testing",
+                build.log_payload,
+                BUILD_COMMAND,
+                "xcodebuild",
+                "R12 build-for-testing log",
+                _MAX_BUILD_LOG_BYTES,
+            ),
+            (
+                "targeted_tests",
+                tests.log_payload,
+                TEST_COMMAND,
+                "xcodebuild",
+                "R12 targeted XCTest log",
+                _MAX_TEST_LOG_BYTES,
+            ),
+            (
+                "swiftlint",
+                lint.log_payload,
+                LINT_COMMAND,
+                "swiftlint",
+                "R12 SwiftLint log",
+                _MAX_LINT_LOG_BYTES,
+            ),
+        ):
+            identity, identity_errors = self._execution_identity_from_payload(
+                payload,
+                source=source,
+                command_id=command_id,
+                command=command,
+                tool_name=tool_name,
+                context=context,
+                maximum=maximum,
+                expected_tool=(
+                    expected_tools.get(tool_name)
+                    if expected_tools is not None
+                    else None
+                ),
+                suites=self.test_suites,
+            )
+            if identity is None or identity_errors:
+                raise ValueError(
+                    "R12 execution identity cannot be derived: "
+                    + " | ".join(identity_errors)
+                )
+            identities[command_id] = identity
+        build_argv = identities["build_for_testing"]["argv"]
+        test_argv = identities["targeted_tests"]["argv"]
+        if (
+            type(build_argv) is not list
+            or type(test_argv) is not list
+            or len(build_argv) != 16
+            or len(test_argv) != 8 + len(self.test_suites)
+            or Path(test_argv[3]).parent
+            != Path(build_argv[11]) / "Build/Products"
+        ):
+            raise ValueError(
+                "R12 build and test structured argv paths differ"
+            )
         return {
             "schema_version": "1.0.0",
-            "roadmap_version": "1.0.1",
+            "roadmap_version": ROADMAP_VERSION,
             "phase_id": "R12",
             "evidence_kind": (
                 "r12_exact_source_software_function_execution_receipt_v1"
@@ -1278,6 +1875,7 @@ class R12PhaseAcceptanceVerifier:
                 "targeted_tests": TEST_COMMAND,
                 "swiftlint": LINT_COMMAND,
             },
+            "execution_identities": identities,
             "verification": {
                 "build_for_testing": {"status": "passed"},
                 "targeted_tests": {
@@ -1319,7 +1917,7 @@ class R12PhaseAcceptanceVerifier:
             )
         return {
             "schema_version": "1.0.0",
-            "roadmap_version": "1.0.1",
+            "roadmap_version": ROADMAP_VERSION,
             "phase_id": "R12",
             "evidence_kind": (
                 "r12_operator_software_function_phase_acceptance_v1"
@@ -1357,7 +1955,11 @@ class R12PhaseAcceptanceVerifier:
             + "\n"
         ).encode("utf-8")
 
-    def _roadmap_phase_status(self) -> str | None:
+    def _roadmap_state(
+        self,
+        *,
+        allowed_r12_statuses: set[str] | None = None,
+    ) -> tuple[RoadmapState | None, list[str]]:
         try:
             roadmap = _decode_object(
                 self._read_repository_file(
@@ -1367,20 +1969,104 @@ class R12PhaseAcceptanceVerifier:
                 ),
                 "canonical roadmap",
             )
-        except ValueError:
-            return None
+        except ValueError as error:
+            return None, [str(error)]
+        errors: list[str] = []
+        if roadmap.get("roadmap_version") != ROADMAP_VERSION:
+            errors.append(
+                f"R12 canonical roadmap version must be {ROADMAP_VERSION}"
+            )
         phases = roadmap.get("phases")
         if type(phases) is not list:
-            return None
-        selected = [
-            item
-            for item in phases
-            if type(item) is dict and item.get("id") == "R12"
-        ]
-        if len(selected) != 1:
-            return None
-        status = selected[0].get("status")
-        return status if type(status) is str else None
+            return None, sorted(
+                set(errors + ["R12 canonical roadmap phases differ"])
+            )
+        selected: dict[str, dict[str, Any]] = {}
+        for (
+            phase_id,
+            expected_name,
+            expected_exit,
+            expected_dependencies,
+            phase_statuses,
+        ) in ROADMAP_PHASE_CONTRACTS:
+            matches = [
+                item
+                for item in phases
+                if type(item) is dict and item.get("id") == phase_id
+            ]
+            if len(matches) != 1:
+                errors.append(
+                    f"R12 canonical roadmap {phase_id} entry differs"
+                )
+            else:
+                phase = matches[0]
+                selected[phase_id] = phase
+                for field, expected in (
+                    ("name", expected_name),
+                    ("exit", expected_exit),
+                    ("depends_on", list(expected_dependencies)),
+                ):
+                    if phase.get(field) != expected:
+                        errors.append(
+                            "R12 canonical roadmap "
+                            f"{phase_id} {field} contract differs"
+                        )
+                phase_status = phase.get("status")
+                if (
+                    type(phase_status) is not str
+                    or phase_status not in phase_statuses
+                ):
+                    errors.append(
+                        "R12 canonical roadmap "
+                        f"{phase_id} status transition differs"
+                    )
+        if len(selected) != 3:
+            return None, sorted(set(errors))
+        if selected["R11"].get("status") != "passed":
+            errors.append(
+                "R12 canonical roadmap predecessor R11 is not passed"
+            )
+        r12_status = selected["R12"].get("status")
+        r13_status = selected["R13"].get("status")
+        if type(r12_status) is not str:
+            errors.append("R12 canonical roadmap phase status differs")
+        elif (
+            allowed_r12_statuses is not None
+            and r12_status not in allowed_r12_statuses
+        ):
+            allowed = ", ".join(sorted(allowed_r12_statuses))
+            errors.append(
+                "R12 canonical roadmap phase status is outside the exact "
+                f"transition boundary ({allowed})"
+            )
+        if (
+            type(r12_status) is str
+            and type(r13_status) is str
+            and r12_status != "passed"
+            and r13_status != "planned"
+        ):
+            errors.append(
+                "R12 canonical roadmap successor advanced before R12 passed"
+            )
+        if (
+            errors
+            or type(r12_status) is not str
+            or type(r13_status) is not str
+        ):
+            return None, sorted(set(errors))
+        return (
+            RoadmapState(
+                roadmap_version=ROADMAP_VERSION,
+                r11_status="passed",
+                r12_status=r12_status,
+                r13_status=r13_status,
+            ),
+            [],
+        )
+
+    def _roadmap_phase_status(self) -> str | None:
+        state, _errors = self._roadmap_state()
+        return state.r12_status if state is not None else None
 
     def _entry_state(
         self,
@@ -1420,18 +2106,44 @@ class R12PhaseAcceptanceVerifier:
         created = False
         try:
             os.mkdir(name, 0o755, dir_fd=parent_descriptor)
-            os.fsync(parent_descriptor)
             created = True
         except FileExistsError:
             pass
         except OSError as error:
             raise ValueError(f"{context} directory cannot be created") from error
-        return (
-            cls._open_directory_at(
+        if created:
+            try:
+                os.fsync(parent_descriptor)
+            except OSError as error:
+                try:
+                    os.rmdir(name, dir_fd=parent_descriptor)
+                    os.fsync(parent_descriptor)
+                except OSError as cleanup_error:
+                    raise ValueError(
+                        f"{context} directory rollback cannot be synchronized"
+                    ) from cleanup_error
+                raise ValueError(
+                    f"{context} directory cannot be synchronized"
+                ) from error
+        try:
+            descriptor = cls._open_directory_at(
                 parent_descriptor, name, context=context
-            ),
-            created,
-        )
+            )
+        except (OSError, ValueError) as error:
+            if created:
+                try:
+                    os.rmdir(name, dir_fd=parent_descriptor)
+                    os.fsync(parent_descriptor)
+                except OSError as cleanup_error:
+                    raise ValueError(
+                        f"{context} directory rollback cannot be synchronized"
+                    ) from cleanup_error
+            if isinstance(error, ValueError):
+                raise
+            raise ValueError(
+                f"{context} directory cannot be opened"
+            ) from error
+        return descriptor, created
 
     @classmethod
     def _publish_payload_at(
@@ -1778,12 +2490,29 @@ class R12PhaseAcceptanceVerifier:
             "commit": str(source_value["commit"]),
             "tree": str(source_value["tree"]),
         }
-        status = self._roadmap_phase_status()
+        gate = acceptance.get("functional_gate")
+        phase_before = (
+            gate.get("phase_status_before")
+            if type(gate) is dict
+            else None
+        )
+        allowed_statuses = (
+            {phase_before, "passed"}
+            if phase_before in {"in_progress", "evidence_ready"}
+            else {"in_progress", "evidence_ready", "passed"}
+        )
+        roadmap_state, roadmap_errors = self._roadmap_state(
+            allowed_r12_statuses=allowed_statuses
+        )
+        errors.extend(roadmap_errors)
         errors.extend(
             self._base_errors(
                 source,
                 require_current_source=True,
-                allow_project_evolution=status == "passed",
+                allow_project_evolution=(
+                    roadmap_state is not None
+                    and roadmap_state.r12_status == "passed"
+                ),
             )
         )
         inventory, inventory_errors = self._checkpoint_test_inventory(source)
@@ -1796,7 +2525,7 @@ class R12PhaseAcceptanceVerifier:
                 test_payload, source, inventory, self.test_suites
             )
         )
-        lint, lint_errors = self._lint_log(lint_payload)
+        lint, lint_errors = self._lint_log(lint_payload, source)
         errors.extend(lint_errors)
         if lint is None:
             return sorted(set(errors))
@@ -1830,13 +2559,17 @@ class R12PhaseAcceptanceVerifier:
                 "R12 functional phase acceptance schema",
             )
         )
-        expected_execution = self.expected_execution_receipt(
-            source=source,
-            inventory=inventory,
-            build=build,
-            tests=tests,
-            lint=lint,
-        )
+        try:
+            expected_execution = self.expected_execution_receipt(
+                source=source,
+                inventory=inventory,
+                build=build,
+                tests=tests,
+                lint=lint,
+            )
+        except ValueError as error:
+            errors.append(str(error))
+            return sorted(set(errors))
         if execution != expected_execution:
             errors.append(
                 "R12 functional execution receipt is not exactly derived"
@@ -1845,12 +2578,6 @@ class R12PhaseAcceptanceVerifier:
             errors.append(
                 "R12 functional execution receipt bytes are not canonical"
             )
-        gate = acceptance.get("functional_gate")
-        phase_before = (
-            gate.get("phase_status_before")
-            if type(gate) is dict
-            else None
-        )
         try:
             expected_acceptance = self.expected_acceptance(
                 source=source,
@@ -1903,9 +2630,15 @@ class R12PhaseAcceptanceVerifier:
             return [str(error)]
         present = tuple(state == "present" for state in states)
         if not any(present):
-            status = self._roadmap_phase_status()
+            roadmap_state, roadmap_errors = self._roadmap_state()
+            if roadmap_errors or roadmap_state is None:
+                return sorted(set(roadmap_errors))
+            status = roadmap_state.r12_status
             if status in {"in_progress", "evidence_ready"}:
-                return []
+                return [
+                    "INCOMPLETE: R12 generated acceptance evidence is absent "
+                    f"while canonical phase status is {status!r}"
+                ]
             return [
                 "R12 generated acceptance evidence is absent while canonical "
                 f"phase status is {status!r}"
@@ -1914,13 +2647,434 @@ class R12PhaseAcceptanceVerifier:
             return ["R12 generated acceptance evidence is only partially present"]
         return self.check_generated()
 
-    def write(
+    @staticmethod
+    def _resolved_executable(name: str) -> Path:
+        if name == "xcodebuild":
+            result = subprocess.run(
+                ["/usr/bin/xcrun", "--find", "xcodebuild"],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                timeout=30,
+            )
+            if result.returncode != 0:
+                raise ValueError("R12 xcodebuild executable is unavailable")
+            try:
+                candidate = result.stdout.decode("utf-8").strip()
+            except UnicodeDecodeError as error:
+                raise ValueError(
+                    "R12 xcodebuild executable path is not UTF-8"
+                ) from error
+            if result.stdout != f"{candidate}\n".encode("utf-8"):
+                raise ValueError(
+                    "R12 xcodebuild executable path is not canonical"
+                )
+        else:
+            candidate = shutil.which(name) or ""
+        if not candidate or "\x00" in candidate:
+            raise ValueError(f"R12 {name} executable is unavailable")
+        try:
+            path = Path(candidate).resolve(strict=True)
+        except OSError as error:
+            raise ValueError(
+                f"R12 {name} executable cannot be resolved"
+            ) from error
+        try:
+            value = path.stat()
+        except OSError as error:
+            raise ValueError(
+                f"R12 {name} executable cannot be inspected"
+            ) from error
+        if not path.is_absolute() or not stat.S_ISREG(value.st_mode):
+            raise ValueError(f"R12 {name} executable identity differs")
+        return path
+
+    @classmethod
+    def _tool_identity(cls, name: str) -> dict[str, str]:
+        path = cls._resolved_executable(name)
+        try:
+            before = path.stat()
+            digest = hashlib.sha256()
+            descriptor = os.open(
+                path,
+                os.O_RDONLY
+                | os.O_NOFOLLOW
+                | getattr(os, "O_CLOEXEC", 0),
+            )
+            try:
+                opened = os.fstat(descriptor)
+                if cls._stat_identity(opened) != cls._stat_identity(before):
+                    raise ValueError(
+                        f"R12 {name} executable changed while opening"
+                    )
+                while True:
+                    chunk = os.read(descriptor, 1024 * 1024)
+                    if not chunk:
+                        break
+                    digest.update(chunk)
+                if (
+                    cls._stat_identity(os.fstat(descriptor))
+                    != cls._stat_identity(before)
+                    or cls._stat_identity(path.stat())
+                    != cls._stat_identity(before)
+                ):
+                    raise ValueError(
+                        f"R12 {name} executable changed while hashing"
+                    )
+            finally:
+                os.close(descriptor)
+        except OSError as error:
+            raise ValueError(
+                f"R12 {name} executable cannot be hashed"
+            ) from error
+        version_arguments = (
+            [os.fspath(path), "-version"]
+            if name == "xcodebuild"
+            else [os.fspath(path), "version"]
+        )
+        try:
+            version_result = subprocess.run(
+                version_arguments,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                check=False,
+                timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ValueError(
+                f"R12 {name} version query failed"
+            ) from error
+        if (
+            version_result.returncode != 0
+            or not version_result.stdout
+            or len(version_result.stdout) > 4096
+            or b"\x00" in version_result.stdout
+            or b"\r" in version_result.stdout
+        ):
+            raise ValueError(f"R12 {name} version identity differs")
+        try:
+            version = version_result.stdout.decode("utf-8").strip()
+        except UnicodeDecodeError as error:
+            raise ValueError(
+                f"R12 {name} version identity is not UTF-8"
+            ) from error
+        if not version:
+            raise ValueError(f"R12 {name} version identity is empty")
+        return {
+            "name": name,
+            "executable_path": os.fspath(path),
+            "executable_sha256": digest.hexdigest(),
+            "version": version,
+        }
+
+    @staticmethod
+    def _run_bounded_command(
+        arguments: Sequence[str],
+        *,
+        cwd: Path,
+        context: str,
+        maximum: int,
+    ) -> bytes:
+        if (
+            not arguments
+            or any(
+                type(value) is not str or not value or "\x00" in value
+                for value in arguments
+            )
+        ):
+            raise ValueError(f"{context} command arguments are invalid")
+        try:
+            process = subprocess.Popen(
+                list(arguments),
+                cwd=cwd,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except OSError as error:
+            raise ValueError(f"{context} command could not start") from error
+        chunks: list[bytes] = []
+        count = 0
+        try:
+            if process.stdout is None:
+                raise ValueError(f"{context} command output is unavailable")
+            while True:
+                chunk = process.stdout.read(1024 * 1024)
+                if not chunk:
+                    break
+                count += len(chunk)
+                if count > maximum:
+                    process.kill()
+                    process.wait()
+                    raise ValueError(
+                        f"{context} command output exceeds the closed boundary"
+                    )
+                chunks.append(chunk)
+            return_code = process.wait()
+        except BaseException:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            raise
+        payload = b"".join(chunks)
+        if return_code != 0:
+            raise ValueError(
+                f"{context} command failed with exit status {return_code}"
+            )
+        if not payload:
+            raise ValueError(f"{context} command output is empty")
+        return payload
+
+    @staticmethod
+    def _checkpoint_state(
+        path: Path,
+        source: Mapping[str, str],
+        *,
+        context: str,
+        boundary: str,
+    ) -> dict[str, object]:
+        identity = subprocess.run(
+            [
+                "/usr/bin/git",
+                "-C",
+                os.fspath(path),
+                "--no-pager",
+                "rev-parse",
+                "HEAD",
+                "HEAD^{tree}",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        try:
+            values = identity.stdout.decode("ascii").splitlines()
+        except UnicodeDecodeError as error:
+            raise ValueError(
+                f"{context} checkpoint identity is not ASCII {boundary}"
+            ) from error
+        if (
+            identity.returncode != 0
+            or values != [source["commit"], source["tree"]]
+        ):
+            raise ValueError(
+                f"{context} exact checkpoint identity differs {boundary}"
+            )
+        status = subprocess.run(
+            [
+                "/usr/bin/git",
+                "-C",
+                os.fspath(path),
+                "--no-pager",
+                "status",
+                "--porcelain=v1",
+                "--untracked-files=no",
+            ],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if status.returncode != 0 or status.stdout != b"":
+            raise ValueError(
+                f"{context} tracked checkpoint is not clean {boundary}"
+            )
+        return {
+            "clean": True,
+            "commit": values[0],
+            "tree": values[1],
+        }
+
+    @classmethod
+    def _captured_command_log(
+        cls,
+        *,
+        arguments: Sequence[str],
+        cwd: Path,
+        source: Mapping[str, str],
+        command_id: str,
+        command: str,
+        tool: Mapping[str, str],
+        context: str,
+        maximum: int,
+    ) -> bytes:
+        before = cls._checkpoint_state(
+            cwd,
+            source,
+            context=context,
+            boundary="before execution",
+        )
+        identity_reserve = 64 * 1024
+        output = cls._run_bounded_command(
+            arguments,
+            cwd=cwd,
+            context=context,
+            maximum=maximum - identity_reserve,
+        )
+        after = cls._checkpoint_state(
+            cwd,
+            source,
+            context=context,
+            boundary="after execution",
+        )
+        identity: dict[str, object] = {
+            "argv": list(arguments),
+            "checkpoint": {
+                "clean_after": after["clean"],
+                "clean_before": before["clean"],
+                "commit_after": after["commit"],
+                "commit_before": before["commit"],
+                "kind": _CHECKPOINT_EXECUTION_KIND,
+                "tree_after": after["tree"],
+                "tree_before": before["tree"],
+            },
+            "command": command,
+            "command_id": command_id,
+            "exit_code": 0,
+            "source": dict(source),
+            "tool": dict(tool),
+        }
+        header = (cls._execution_identity_header(identity) + "\n").encode(
+            "utf-8"
+        )
+        payload = header + output
+        if len(payload) > maximum:
+            raise ValueError(f"{context} captured log exceeds the boundary")
+        return payload
+
+    def _run_checkpoint_commands(
+        self,
+        source: Mapping[str, str],
+        tool_identities: Mapping[str, Mapping[str, str]],
+    ) -> CapturedExecution:
+        if set(tool_identities) != {"xcodebuild", "swiftlint"}:
+            raise ValueError(
+                "R12 owned command tool identity inventory differs"
+            )
+        xcodebuild = dict(tool_identities["xcodebuild"])
+        swiftlint = dict(tool_identities["swiftlint"])
+        if (
+            xcodebuild.get("name") != "xcodebuild"
+            or swiftlint.get("name") != "swiftlint"
+        ):
+            raise ValueError(
+                "R12 owned command tool identity names differ"
+            )
+        with tempfile.TemporaryDirectory(
+            prefix="mirmir-r12-checkpoint-"
+        ) as temporary:
+            base = Path(os.path.realpath(temporary))
+            if not base.is_absolute() or not base.is_dir():
+                raise ValueError(
+                    "R12 temporary execution root cannot be canonicalized"
+                )
+            checkout = base / "checkpoint"
+            derived_data = base / "DerivedData"
+            add_result = self._git(
+                "worktree",
+                "add",
+                "--detach",
+                os.fspath(checkout),
+                source["commit"],
+            )
+            if add_result.returncode != 0:
+                raise ValueError(
+                    "R12 exact checkpoint worktree could not be created"
+                )
+            active = True
+            pending_error: BaseException | None = None
+            captured: CapturedExecution | None = None
+            try:
+                build_arguments = self._build_command_arguments(
+                    xcodebuild["executable_path"],
+                    source,
+                    os.fspath(derived_data),
+                )
+                build_payload = self._captured_command_log(
+                    arguments=build_arguments,
+                    cwd=checkout,
+                    source=source,
+                    command_id="build_for_testing",
+                    command=BUILD_COMMAND,
+                    tool=xcodebuild,
+                    context="R12 build-for-testing",
+                    maximum=_MAX_BUILD_LOG_BYTES,
+                )
+                products = derived_data / "Build/Products"
+                xctestruns = (
+                    sorted(products.glob("*.xctestrun"))
+                    if products.is_dir()
+                    else []
+                )
+                if (
+                    len(xctestruns) != 1
+                    or xctestruns[0].is_symlink()
+                    or not xctestruns[0].is_file()
+                ):
+                    raise ValueError(
+                        "R12 checkpoint build produced an ambiguous xctestrun"
+                    )
+                test_arguments = self._test_command_arguments(
+                    xcodebuild["executable_path"],
+                    source,
+                    os.fspath(xctestruns[0]),
+                    self.test_suites,
+                )
+                test_payload = self._captured_command_log(
+                    arguments=test_arguments,
+                    cwd=checkout,
+                    source=source,
+                    command_id="targeted_tests",
+                    command=TEST_COMMAND,
+                    tool=xcodebuild,
+                    context="R12 targeted XCTest",
+                    maximum=_MAX_TEST_LOG_BYTES,
+                )
+                lint_arguments = self._lint_command_arguments(
+                    swiftlint["executable_path"]
+                )
+                lint_payload = self._captured_command_log(
+                    arguments=lint_arguments,
+                    cwd=checkout,
+                    source=source,
+                    command_id="swiftlint",
+                    command=LINT_COMMAND,
+                    tool=swiftlint,
+                    context="R12 SwiftLint",
+                    maximum=_MAX_LINT_LOG_BYTES,
+                )
+                captured = CapturedExecution(
+                    build_log_payload=build_payload,
+                    test_log_payload=test_payload,
+                    lint_log_payload=lint_payload,
+                )
+            except BaseException as error:
+                pending_error = error
+            finally:
+                if active:
+                    remove_result = self._git(
+                        "worktree",
+                        "remove",
+                        "--force",
+                        os.fspath(checkout),
+                    )
+                    active = False
+                    if remove_result.returncode != 0 and pending_error is None:
+                        pending_error = ValueError(
+                            "R12 exact checkpoint worktree cleanup failed"
+                        )
+            if pending_error is not None:
+                raise pending_error
+            if captured is None:
+                raise ValueError("R12 checkpoint execution produced no capture")
+            return captured
+
+    def _write_captured_execution(
         self,
         revision: str,
-        *,
-        build_log: Path,
-        test_log: Path,
-        lint_log: Path,
     ) -> list[str]:
         try:
             source = self.resolve_source(revision)
@@ -1931,44 +3085,59 @@ class R12PhaseAcceptanceVerifier:
             require_current_source=True,
             allow_project_evolution=False,
         )
-        status = self._roadmap_phase_status()
-        if status not in {"in_progress", "evidence_ready"}:
-            errors.append(
-                "R12 evidence can only be derived while canonical phase status "
-                "is in_progress or evidence_ready"
-            )
+        roadmap_state, roadmap_errors = self._roadmap_state(
+            allowed_r12_statuses={"in_progress", "evidence_ready"}
+        )
+        errors.extend(roadmap_errors)
         inventory, inventory_errors = self._checkpoint_test_inventory(source)
         errors.extend(inventory_errors)
-        inputs: dict[str, bytes] = {}
-        for name, path, maximum in (
-            ("build", build_log, _MAX_BUILD_LOG_BYTES),
-            ("test", test_log, _MAX_TEST_LOG_BYTES),
-            ("lint", lint_log, _MAX_LINT_LOG_BYTES),
-        ):
-            try:
-                inputs[name] = self._read_input_file(
-                    path,
-                    context=f"R12 input {name} log",
-                    maximum=maximum,
-                )
-            except ValueError as error:
-                errors.append(str(error))
-                inputs[name] = b""
-        if inventory is not None:
-            errors.extend(self._build_log_errors(inputs["build"], source))
-            errors.extend(
-                self._test_log_errors(
-                    inputs["test"], source, inventory, self.test_suites
-                )
+        if errors or roadmap_state is None or inventory is None:
+            return sorted(set(errors))
+        try:
+            expected_tools = {
+                "xcodebuild": self._tool_identity("xcodebuild"),
+                "swiftlint": self._tool_identity("swiftlint"),
+            }
+            captured = self._run_checkpoint_commands(
+                source,
+                expected_tools,
             )
-        lint, lint_errors = self._lint_log(inputs["lint"])
+        except (
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+            subprocess.SubprocessError,
+        ) as error:
+            return [f"R12 checkpoint execution failed: {error}"]
+        inputs = {
+            "build": captured.build_log_payload,
+            "test": captured.test_log_payload,
+            "lint": captured.lint_log_payload,
+        }
+        errors.extend(
+            self._build_log_errors(
+                inputs["build"],
+                source,
+                expected_tool=expected_tools["xcodebuild"],
+            )
+        )
+        errors.extend(
+            self._test_log_errors(
+                inputs["test"],
+                source,
+                inventory,
+                self.test_suites,
+                expected_tool=expected_tools["xcodebuild"],
+            )
+        )
+        lint, lint_errors = self._lint_log(
+            inputs["lint"],
+            source,
+            expected_tool=expected_tools["swiftlint"],
+        )
         errors.extend(lint_errors)
-        if (
-            errors
-            or status is None
-            or inventory is None
-            or lint is None
-        ):
+        if errors or lint is None:
             return sorted(set(errors))
         build = ParsedBuild(inputs["build"])
         tests = ParsedTests(inputs["test"], inventory.identifiers)
@@ -1979,12 +3148,13 @@ class R12PhaseAcceptanceVerifier:
                 build=build,
                 tests=tests,
                 lint=lint,
+                expected_tools=expected_tools,
             )
             execution_payload = self._json_payload(execution)
             acceptance = self.expected_acceptance(
                 source=source,
                 execution_payload=execution_payload,
-                phase_status_before=status,
+                phase_status_before=roadmap_state.r12_status,
             )
             acceptance_payload = self._json_payload(acceptance)
             execution_schema = self._checkpoint_json(
@@ -2028,12 +3198,20 @@ class R12PhaseAcceptanceVerifier:
             return sorted(set(errors))
         return self.check_generated()
 
+    def write(self, revision: str) -> list[str]:
+        return self._write_captured_execution(revision)
+
 
 def emit_errors(errors: Iterable[str]) -> int:
     values = list(dict.fromkeys(errors))
     for error in values:
-        print(f"ERROR: {error}", file=sys.stderr)
-    return 1 if values else 0
+        if error.startswith("INCOMPLETE: "):
+            print(error)
+        else:
+            print(f"ERROR: {error}", file=sys.stderr)
+    return 1 if any(
+        not value.startswith("INCOMPLETE: ") for value in values
+    ) else 0
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -2042,9 +3220,6 @@ def build_argument_parser() -> argparse.ArgumentParser:
     group.add_argument("--check", action="store_true")
     group.add_argument("--check-generated", action="store_true")
     group.add_argument("--write", metavar="IMPLEMENTATION_COMMIT")
-    parser.add_argument("--build-log", type=Path)
-    parser.add_argument("--test-log", type=Path)
-    parser.add_argument("--lint-log", type=Path)
     return parser
 
 
@@ -2052,25 +3227,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_argument_parser()
     arguments = parser.parse_args(argv)
     verifier = R12PhaseAcceptanceVerifier(REPOSITORY_ROOT)
-    log_arguments = (
-        arguments.build_log,
-        arguments.test_log,
-        arguments.lint_log,
-    )
     if arguments.write is not None:
-        if any(value is None for value in log_arguments):
-            parser.error(
-                "--write requires --build-log, --test-log, and --lint-log"
-            )
-        errors = verifier.write(
-            arguments.write,
-            build_log=arguments.build_log,
-            test_log=arguments.test_log,
-            lint_log=arguments.lint_log,
-        )
+        errors = verifier.write(arguments.write)
     else:
-        if any(value is not None for value in log_arguments):
-            parser.error("log arguments are valid only with --write")
         errors = (
             verifier.check_generated()
             if arguments.check_generated

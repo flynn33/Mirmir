@@ -52,6 +52,9 @@
     "evidence_kind": {
       "const": "r12_exact_source_software_function_execution_receipt_v1"
     },
+    "execution_identities": {
+      "$ref": "#/$defs/executionIdentities"
+    },
     "limitations": {
       "items": {
         "minLength": 1,
@@ -100,6 +103,7 @@
     "source_bindings",
     "artifact_bindings",
     "commands",
+    "execution_identities",
     "verification",
     "contract_coverage",
     "acceptance_basis",
@@ -192,6 +196,139 @@
         "contract_areas",
         "test_identifier",
         "status"
+      ],
+      "type": "object"
+    },
+    "executionIdentities": {
+      "additionalProperties": false,
+      "properties": {
+        "build_for_testing": {
+          "$ref": "#/$defs/executionIdentity"
+        },
+        "swiftlint": {
+          "$ref": "#/$defs/executionIdentity"
+        },
+        "targeted_tests": {
+          "$ref": "#/$defs/executionIdentity"
+        }
+      },
+      "required": [
+        "build_for_testing",
+        "targeted_tests",
+        "swiftlint"
+      ],
+      "type": "object"
+    },
+    "executionIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "argv": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 32,
+          "minItems": 4,
+          "type": "array"
+        },
+        "checkpoint": {
+          "additionalProperties": false,
+          "properties": {
+            "clean_after": {
+              "const": true
+            },
+            "clean_before": {
+              "const": true
+            },
+            "commit_after": {
+              "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "commit_before": {
+              "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "kind": {
+              "const": "detached_clean_exact_git_checkpoint"
+            },
+            "tree_after": {
+              "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+              "type": "string"
+            },
+            "tree_before": {
+              "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "clean_before",
+            "clean_after",
+            "commit_before",
+            "commit_after",
+            "tree_before",
+            "tree_after",
+            "kind"
+          ],
+          "type": "object"
+        },
+        "command": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "command_id": {
+          "enum": [
+            "build_for_testing",
+            "targeted_tests",
+            "swiftlint"
+          ]
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "tool": {
+          "additionalProperties": false,
+          "properties": {
+            "executable_path": {
+              "pattern": "^/[^\\u0000]+$",
+              "type": "string"
+            },
+            "executable_sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "name": {
+              "enum": [
+                "swiftlint",
+                "xcodebuild"
+              ]
+            },
+            "version": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "executable_path",
+            "executable_sha256",
+            "version"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "argv",
+        "checkpoint",
+        "command",
+        "command_id",
+        "exit_code",
+        "source",
+        "tool"
       ],
       "type": "object"
     },
