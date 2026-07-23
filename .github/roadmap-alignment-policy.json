@@ -4,12 +4,12 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "63769d658a4f3bbe01064da9f58aa07b832f38209d44e3898f5e5c50cd8aa1e1",
-    "json_sha256": "d60d3d06b7230c555f2581891ff38a9bf8be6e5db71ccb42d2844b32bad9a3e2",
+    "markdown_sha256": "88b1bc8e3c560f6e28a1e2143f3b84c1a7f34c1a1f1bbdc4e13ae580dcd357db",
+    "json_sha256": "9989362488837efa986dc1293725c098f0db18d4d0a5965001ffcac247bdeca6",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
-    "revision_date": "2026-07-22"
+    "revision_date": "2026-07-23"
   },
   "contract": {
     "phase_ids": [
@@ -143,6 +143,9 @@
     ],
     ".github/workflows/roadmap-alignment.yml": [
       "name: Roadmap alignment",
+      "needs: r02-functional-acceptance",
+      "if: ${{ always() }}",
+      "run: test \"${{ needs.r02-functional-acceptance.result }}\" = \"success\"",
       "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683",
       "python3 Scripts/roadmap_alignment.py --check",
       "python3 Scripts/r00_inventory.py --check",
@@ -152,6 +155,7 @@
       "python3 Scripts/r01_observation_waiver.py --check",
       "Scripts/tests/test_r01_observation_waiver.py",
       "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r02_phase_acceptance.py",
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
@@ -167,6 +171,14 @@
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r02_phase_acceptance.py --check",
+      "r02-functional-acceptance:",
+      "runs-on: macos-26",
+      "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived -resultBundlePath /private/tmp/mirmir-r02-eeabc422-v2.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/AppleUpscaleContractsTests -only-testing:MirmirTests/EnhancementPipelineContractsTests -only-testing:MirmirTests/AppleUpscaleFIFOSessionTests -only-testing:MirmirTests/R02FixtureConformanceTests -only-testing:MirmirTests/ArchitectureGuardrailTests/test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager -only-testing:MirmirTests/UpscalerEngineAvailabilityTests/test_unavailableServiceRejectsSubmissionWithTypedReason CODE_SIGNING_ALLOWED=NO",
+      "python3 Scripts/r02_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r02-eeabc422-v2.xcresult",
+      "- name: Verify checked-in R02 acceptance",
+      "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+      "name: r02-functional-acceptance-xcresult",
       "python3 Scripts/r03_contracts.py --check-preregistration",
       "python3 Scripts/r03_contracts.py --check-fixtures",
       "python3 Scripts/r03_contracts.py --check-conformance",
@@ -228,6 +240,7 @@
       "python3 Scripts/r01_observation_waiver.py --check",
       "Scripts/tests/test_r01_observation_waiver.py",
       "Scripts/tests/test_r02_contracts.py",
+      "Scripts/tests/test_r02_phase_acceptance.py",
       "Scripts/tests/test_r03_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
@@ -243,6 +256,7 @@
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
+      "python3 Scripts/r02_phase_acceptance.py --check",
       "python3 Scripts/r03_contracts.py --check-preregistration",
       "python3 Scripts/r03_contracts.py --check-fixtures",
       "if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then",
@@ -397,6 +411,17 @@
         "docs/roadmaps/evidence/r01/phase-evidence.md",
         "project-notes/apple-upscale-capabilities.json",
         "project-notes/apple-upscale-capability-report.md"
+      ]
+    },
+    "R02": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r02_phase_acceptance.py",
+        "Scripts/tests/test_r02_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r02-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r02/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r02/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+        "docs/roadmaps/evidence/r02/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
     },
     "R03": {

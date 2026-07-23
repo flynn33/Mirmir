@@ -1,8 +1,8 @@
 # Mirmir Roadmaps
 
-The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-22.
+The current product direction is **Mirmir Apple-Native Adaptive Video Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-23.
 
-Current phase state: `R00: passed`; `R01: passed`; `R02: in_progress`;
+Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
 `R03: passed`; `R04: in_progress`; `R05: in_progress`;
 `R06: in_progress`; `R07: passed` under the operator-defined deterministic
 software-function gate; `R08: passed` under the declared-software-function
@@ -24,7 +24,24 @@ production-default, acceptance, publication, and release claims remain unmade.
 R06's policy-frozen local unpublished blocked closure is commit
 `9ed01ea938a933f6406fd67e88edb74e7c84f5f4`, tree
 `32365e745dbf53d59213fe2294a6b63ba2642df7`; its acceptance remains unclaimed.
-R07 began fixture-only local implementation from that exact blocked closure. Its
+
+R02's additive functional phase acceptance binds source
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, the immutable passing conformance,
+and a fresh six-suite Xcode run with 27 tests passed, zero failed, and zero
+skipped. Two direct tests bind production bootstrap to
+`UnavailableUpscalerEngineService` and prove its typed fail-closed
+`backendUnavailable(reason:)` rejection. This is the intentional R02
+production-unavailable boundary, not project completion or production
+enablement. R02 is `passed` only for `declared_software_function_only`. The
+frozen preregistration, conformance, local unpublished closure, and
+contemporaneous `phase_acceptance: not_claimed` state remain unchanged
+historical evidence. Production upscaling, a production default, Auto, holdout,
+quality or performance claims, product publication, and release remain
+unauthorized.
+
+R07 began fixture-only local implementation from the exact R06 blocked closure
+identified above. Its
 preregistration and deterministic fixture catalog freeze the temporal,
 artifact, chroma, spatial, aggregation, fixed-point, history, and tuning
 contracts before implementation. Its frozen historical product-gate result is
@@ -124,6 +141,7 @@ disabled.
 - [R02 Preregistration](evidence/r02/records/preregistration.json)
 - [R02 Deterministic Fixture Catalog](evidence/r02/records/fixtures/fixture-catalog.json)
 - [R02 Deterministic Software Conformance](evidence/r02/records/conformance.json) — local unpublished evidence; phase acceptance not claimed
+- [R02 Functional Phase Acceptance](evidence/r02/records/functional-phase-acceptance.json) — additive declared-software-function-only acceptance; 27 passed, 0 failed, 0 skipped across six suites, including direct production-bootstrap and typed unavailable-service rejection proof
 - [R03 Preregistration](evidence/r03/records/preregistration.json)
 - [R03 Deterministic Fixture Catalog](evidence/r03/records/fixtures/fixture-catalog.json)
 - [R03 Fail-Closed Baseline Conformance](evidence/r03/records/baseline-conformance.json) — local unpublished evidence; blocked result; phase acceptance not claimed
@@ -161,7 +179,7 @@ disabled.
 
 Verified source hashes:
 
-- Markdown: `63769d658a4f3bbe01064da9f58aa07b832f38209d44e3898f5e5c50cd8aa1e1`
-- JSON: `d60d3d06b7230c555f2581891ff38a9bf8be6e5db71ccb42d2844b32bad9a3e2`
+- Markdown: `88b1bc8e3c560f6e28a1e2143f3b84c1a7f34c1a1f1bbdc4e13ae580dcd357db`
+- JSON: `9989362488837efa986dc1293725c098f0db18d4d0a5965001ffcac247bdeca6`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

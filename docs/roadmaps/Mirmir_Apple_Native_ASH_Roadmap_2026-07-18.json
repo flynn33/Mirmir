@@ -195,7 +195,7 @@
     }
   ],
   "date": "2026-07-18",
-  "revision_date": "2026-07-22",
+  "revision_date": "2026-07-23",
   "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
   "phases": [
     {
@@ -221,7 +221,7 @@
       "exit": "common session contract across multiple backends",
       "id": "R02",
       "name": "Unified backend and stage architecture",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [

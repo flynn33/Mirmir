@@ -3,7 +3,7 @@
 - **Handoff version:** 2.0
 - **Roadmap version:** 1.0.1
 - **Publication date:** 2026-07-19
-- **Revision date:** 2026-07-22
+- **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
@@ -28,6 +28,11 @@
 - **R02 local unpublished closure:**
   `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`; tree
   `a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance not claimed
+- **R02 operator-defined functional acceptance source:**
+  `eeabc4224100bc8ed86ae1208189bee508844210`; tree
+  `ac402f993805cca499d2f688c6186c4684ce8dba`; 27 tests passed across six
+  settled R02 suites with zero failures and zero skips; acceptance scope
+  `declared_software_function_only`; R02 is `passed`
 - **R03 local preregistration source:** R02 local unpublished closure above;
   `accepted_merge_commit: null`
 - **R03 immutable v1 local blocked closure:**
@@ -94,7 +99,7 @@
   skips; exit outcome `qualified_local_residual`; acceptance scope
   `declared_software_function_only`; no comparative method was run or required;
   R09 is `passed`
-- **Continuation state:** `R01: passed`; `R02: in_progress`; `R03: passed`;
+- **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: in_progress`; `R05: in_progress`; `R06: in_progress`;
   `R07: passed`; `R08: passed`; `R09: passed`
 
@@ -138,6 +143,29 @@ commit `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
 software checks while keeping hardware, simulator, and operator observation
 `not_observed`; it makes no performance, product-qualification, publication, or
 acceptance claim.
+
+### R02 operator-defined functional acceptance — 2026-07-23
+
+The additive
+`docs/roadmaps/evidence/r02/records/functional-phase-acceptance.json` record
+binds source commit `eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, the immutable passing R02
+conformance, and a fresh six-suite Xcode run with 27 tests passed, zero failed,
+and zero skipped. The run verifies the declared registry, common
+backend/session, stage, planner, typed-outcome, FIFO lifecycle, identity,
+fallback, media, reopen, resource-lifetime, and atomic-publication software
+contracts. Two direct tests additionally bind production bootstrap to
+`UnavailableUpscalerEngineService` and prove its typed fail-closed
+`backendUnavailable(reason:)` rejection. This is the intentional R02
+production-unavailable boundary, not project completion or production
+enablement.
+
+The frozen preregistration, conformance, and local closure continue to record the
+truthful historical `phase_acceptance: not_claimed` state. The additive decision
+does not rewrite those bytes. R02 is `passed` only for
+`declared_software_function_only`; production upscaling, a production default,
+Auto, holdout, quality or performance claims, product publication, and release
+remain unauthorized.
 
 R03 local implementation begins only from a frozen preregistration that binds
 that exact commit and tree with `accepted_merge_commit: null`,
@@ -388,7 +416,7 @@ Before changing source:
    decision, and the roadmap-alignment governance document completely.
 3. Verify live remote `main`, inspect intervening commits after the source
    checkpoint, and fast-forward local `main` with `--ff-only`.
-4. Confirm `R00: passed`, `R01: passed`, `R02: in_progress`,
+4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: in_progress`, `R05: in_progress`,
    `R06: in_progress`, `R07: passed`, `R08: passed`, and `R09: passed` remain
    canonical. If any changed, reconcile the newer accepted roadmap before
@@ -723,8 +751,8 @@ binds ten passing verification categories. Every A01-A18 anchor cell remains
 `not_observed`/`diagnostic_only`; no runtime support, performance, product
 qualification, backend eligibility, or perceptual-quality result is claimed.
 The native assignment/model/live-run path remains optional supplemental
-evidence. R01 is `passed`, and R02 is `in_progress`; publication and merge authority
-remain unchanged.
+evidence. R01 and R02 are `passed`; publication and merge authority remain
+unchanged.
 
 Collect an aggregate matrix from four anchor environments:
 
@@ -917,6 +945,18 @@ Freeze this lifecycle contract before implementation:
   caches its result, and rejects later mutation; and
 - fallback is selected only by the planner or orchestrator and visibly links
   the failed route to the selected route.
+
+Accepted additive checkpoint: source
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, passed all 27 selected tests across
+the six settled R02 suites with zero failures and zero skips. The two added
+direct tests bind production bootstrap to `UnavailableUpscalerEngineService` and
+prove its typed fail-closed `backendUnavailable(reason:)` rejection. This
+intentional production-unavailable boundary is not project completion or
+production enablement. R02 is `passed` for `declared_software_function_only`.
+Its frozen local conformance and `phase_acceptance: not_claimed` state remain
+historical; no production/default, Auto, holdout, quality, performance,
+publication, or release authority follows.
 
 ### R03 - Deterministic Apple-native baseline suite
 

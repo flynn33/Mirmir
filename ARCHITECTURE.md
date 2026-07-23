@@ -9,7 +9,7 @@
 
 - Roadmap phase `R00`: `passed`
 - Roadmap phase `R01`: `passed`
-- Roadmap phase `R02`: `in_progress`
+- Roadmap phase `R02`: `passed` for declared software function
 - Roadmap phase `R03`: `passed`
 - Roadmap phase `R04`: `in_progress`
 - Roadmap phase `R05`: `in_progress`
@@ -56,11 +56,24 @@ media-transaction and Metal lifetime boundaries. Production remains unavailable.
 
 R02 deterministic conformance is recorded at local unpublished closure commit
 `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
-`a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance is not claimed. R03
-starts locally from that exact closure under a frozen 8-bit NV12, SDR BT.709,
-720p-to-1080p and 1080p-to-2160p baseline contract. Unavailable backend or
-support-stage execution is recorded as `not_observed`; it does not qualify a
-backend, select a production default, or support a performance or quality claim.
+`a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance was not claimed at
+that historical checkpoint. R03 starts locally from that exact closure under a
+frozen 8-bit NV12, SDR BT.709, 720p-to-1080p and 1080p-to-2160p baseline
+contract. Unavailable backend or support-stage execution is recorded as
+`not_observed`; it does not qualify a backend, select a production default, or
+support a performance or quality claim.
+
+The later additive R02 functional acceptance binds source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+fail-closed `backendUnavailable(reason:)` rejection. This is the intentional R02
+production-unavailable boundary, not project completion or production
+enablement. R02 is `passed` only for `declared_software_function_only`; the
+frozen `not_claimed` record remains historical. Production upscaling, a
+production default, Auto, holdout access, quality or performance claims, product
+publication, and release remain unauthorized.
 
 The additive R03 v2 decision binds source
 `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree

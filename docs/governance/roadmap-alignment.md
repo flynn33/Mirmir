@@ -19,7 +19,7 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   `in_progress`, `evidence_ready`, or `passed` requires every declared dependency
   to be `passed`, except the exact policy-scoped R03, R04, R05, R06, and R07
   `in_progress` local continuations from their recorded unpublished predecessor
-  closures and the separate evidence-bound R03, R07, R08, and R09 functional
+  closures and the separate evidence-bound R02, R03, R07, R08, and R09 functional
   acceptance contracts;
 - the complete canonical Markdown embedded between the stable README markers;
 - the generated `Roadmap Progress` indicators in the README;
@@ -40,7 +40,11 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   execution, create a tag or release, or use `pull_request_target`.
 
 Unit tests run before the repository and inventory checks. The stable required-check name is
-`Roadmap alignment`. The separate weekly metadata audit
+`Roadmap alignment`; that job depends on the macOS `R02 functional acceptance`
+job and always evaluates its result explicitly, so a failed, cancelled, or
+skipped prerequisite makes the required check fail. It cannot pass unless the
+fresh raw R02 Xcode result, its exact selected-test identities, build action,
+source-bound build surface, and checked-in acceptance all validate. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
 
@@ -51,7 +55,8 @@ operator decision and required start or closure evidence are recorded. Five narr
 when direct operator instruction authorizes local implementation from an exact,
 recorded phase-specific local closure:
 
-- R03 may be `in_progress` while R02 remains `in_progress` only when its regular
+- At the recorded local-continuation checkpoint, R03 could be `in_progress`
+  while R02 remained `in_progress` only when its regular
   preregistration exactly binds R02 closure commit
   `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4` and tree
   `a5e95d810abacbdb872ddc6e94125103831e6fba` as
@@ -121,17 +126,36 @@ preregistration and fixture-catalog files. The R08 start does not claim phase
 acceptance, native Core AI execution, product routing, residual authorization, or
 release authority.
 
-A separate R03-only functional acceptance override permits canonical R03 to be
-`passed` while R02 remains canonical `in_progress`. It applies only when the
-policy-bound `functional-phase-acceptance.json` bytes and identity are exact, the
-bound R02 common-session conformance passed, and the dedicated
-`r03_phase_acceptance.py` validator rechecks the complete R03 v2 evidence. The
-accepted function is genuine A11 execution on both canonical routes with
-repeatability, complete session/media preservation, reopen, atomic publication,
-lifecycle/resource release, processing identity, no fallback, and all applicable
-functional metrics passing. The override does not mark R02 passed, rewrite any
-historical record, select a production default, or authorize Auto, holdout,
-quality/performance claims, product publication, or release.
+A separate R02 functional acceptance contract permits canonical R02 to be
+`passed` only when the policy-bound
+`docs/roadmaps/evidence/r02/records/functional-phase-acceptance.json`, its
+schema, Xcode log, and result summary are exact and
+`Scripts/r02_phase_acceptance.py` rechecks source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, the immutable passing conformance,
+and all 27 selected tests across the six settled R02 suites. The two added direct
+tests bind production bootstrap to `UnavailableUpscalerEngineService` and prove
+its typed fail-closed `backendUnavailable(reason:)` rejection. This is the
+intentional R02 production-unavailable boundary, not project completion or
+production enablement. The accepted scope is
+`declared_software_function_only`. The frozen preregistration, conformance, local
+closure, and contemporaneous `phase_acceptance: not_claimed` state remain
+unchanged historical evidence. This contract does not authorize production
+upscaling, a production default, Auto, holdout, quality or performance claims,
+product publication, or release.
+
+The separate R03-only functional acceptance override formerly permitted
+canonical R03 to be `passed` while R02 remained canonical `in_progress`. It
+applies only when the policy-bound `functional-phase-acceptance.json` bytes and
+identity are exact, the bound R02 common-session conformance passed, and the
+dedicated `r03_phase_acceptance.py` validator rechecks the complete R03 v2
+evidence. The accepted function is genuine A11 execution on both canonical
+routes with repeatability, complete session/media preservation, reopen, atomic
+publication, lifecycle/resource release, processing identity, no fallback, and
+all applicable functional metrics passing. The override did not itself mark R02
+passed, rewrite any historical record, or select a production default. The later
+additive R02 acceptance is independent. Neither decision authorizes Auto,
+holdout, quality/performance claims, product publication, or release.
 
 A distinct R07-only functional acceptance override permits canonical R07 to be
 `passed` while R06 remains canonical `in_progress`. It applies only when the
@@ -183,8 +207,8 @@ qualification remain `not_observed` or `not_claimed`. This contract does not
 authorize production, Auto, holdout, claims, publication, R10 progression, or
 release.
 
-The operator's 2026-07-22 forward-acceptance decision applies prospectively to
-R04, R06, R08, R09, and later phases. Acceptance asks whether checkpoint-bound
+The operator's software-function acceptance decision applies to R02, R04, R06,
+R08, R09, and later phases. Acceptance asks whether checkpoint-bound
 tests prove that the software performs the task and honors the boundaries it
 claims. Comparison-based testing is outside the forward roadmap and cannot supply
 or withhold phase progression. Historical evidence and negative records remain
@@ -214,12 +238,13 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
 python3 Scripts/r02_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r02/records/conformance.json || python3 Scripts/r02_contracts.py --check-conformance
+python3 Scripts/r02_phase_acceptance.py --check
 python3 Scripts/r03_contracts.py --check-preregistration
 python3 Scripts/r03_contracts.py --check-fixtures
 test ! -f docs/roadmaps/evidence/r03/records/baseline-conformance.json || python3 Scripts/r03_contracts.py --check-conformance

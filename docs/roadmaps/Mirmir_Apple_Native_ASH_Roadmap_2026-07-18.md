@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0.1  
 **Publication date:** 2026-07-18  
-**Revision date:** 2026-07-22  
+**Revision date:** 2026-07-23  
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime  
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -591,7 +591,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -611,6 +611,30 @@ Make every Apple method interchangeable at a controlled object-oriented boundary
 ### Exit gate
 
 A deterministic fixture can run through multiple backends under one common session contract while preserving dimensions, frame order, PTS, duration, audio, metadata, and atomic publication.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+The additive functional phase-acceptance record binds source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode
+run with 27 tests passed, zero failed, and zero skipped. The accepted software
+function covers the immutable capability registry, common backend/session
+boundary, distinct stage roles, deterministic single-primary planning, typed
+outcomes, FIFO lifecycle, complete processing identity, visible fallback,
+media-identity preservation, reopen verification, resource lifetime, and atomic
+publication. Two direct tests additionally bind production bootstrap to
+`UnavailableUpscalerEngineService` and prove its typed fail-closed
+`backendUnavailable(reason:)` rejection. That unavailable bootstrap is the
+intentional R02 production boundary; it is not project completion or production
+enablement.
+
+The frozen R02 preregistration, conformance record, and local unpublished closure
+remain immutable historical evidence. Their contemporaneous
+`phase_acceptance: not_claimed` state is preserved; this later additive decision
+does not rewrite it. R02 is `passed` only for
+`declared_software_function_only`. Production upscaling, a production default,
+Auto, holdout access, quality or performance claims, product publication, and
+release remain unauthorized.
 
 ---
 

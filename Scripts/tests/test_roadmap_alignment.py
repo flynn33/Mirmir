@@ -159,6 +159,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("phase R01 status 'passed' requires a regular evidence file")
 
     def test_in_progress_r02_requires_every_start_contract_file(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         start_path = self.root / self.policy["phase_start_requirements"]["R02"][
             "paths"
         ][0]
@@ -177,6 +178,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_in_progress_r02_rejects_symlinked_start_contract(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         symlink_path = self.root / self.policy["phase_start_requirements"]["R02"][
             "paths"
         ][0]
@@ -186,6 +188,44 @@ class RoadmapAlignmentTests(unittest.TestCase):
         symlink_path.symlink_to(target)
         self.assert_error_contains(
             "phase R02 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_passed_r02_requires_every_functional_acceptance_file(self) -> None:
+        self.set_phase_status("R02", "passed")
+        for relative in self.policy["phase_evidence_requirements"]["R02"]["paths"]:
+            with self.subTest(relative=relative):
+                path = self.root / relative
+                original = path.read_bytes()
+                path.unlink()
+                self.assert_error_contains(
+                    "phase R02 status 'passed' requires a regular evidence file"
+                )
+                path.write_bytes(original)
+
+    def test_preclosure_r02_does_not_require_functional_acceptance_files(
+        self,
+    ) -> None:
+        self.set_phase_status("R02", "in_progress")
+        for relative in self.policy["phase_evidence_requirements"]["R02"]["paths"]:
+            (self.root / relative).unlink()
+        self.assertFalse(
+            any(
+                "phase R02 status 'passed' requires a regular evidence file" in error
+                for error in self.errors()
+            ),
+            self.errors(),
+        )
+
+    def test_passed_r02_rejects_symlinked_functional_acceptance_file(self) -> None:
+        self.set_phase_status("R02", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R02"]["paths"][-1]
+        path = self.root / relative
+        target = self.root / "r02-functional-acceptance-target.json"
+        target.write_bytes(path.read_bytes())
+        path.unlink()
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R02 status 'passed' requires a regular evidence file"
         )
 
     def test_in_progress_r04_requires_every_start_contract_file(self) -> None:
@@ -379,6 +419,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "in_progress")
         self.assertFalse(
             any("phase R03 is 'in_progress' before dependency R02" in error for error in self.errors()),
@@ -386,6 +427,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_r03_exception_never_waives_next_or_evidence_ready(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         for status in ("next", "evidence_ready"):
             with self.subTest(status=status):
                 self.set_phase_status("R03", status)
@@ -394,6 +436,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 )
 
     def test_passed_r03_uses_exact_functional_acceptance_override(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "passed")
         self.assertFalse(
             any(
@@ -415,6 +458,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         )
 
     def test_passed_r03_requires_exact_acceptance_record(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "passed")
         path = self.root / self.policy["phase_acceptance_overrides"]["R03"][
             "acceptance_record_binding"
@@ -801,6 +845,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("requires a regular preregistration file")
 
     def test_r03_exception_rejects_predecessor_binding_drift(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R03"][
             "preregistration_path"
@@ -812,6 +857,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.assert_error_contains("local continuation predecessor binding differs")
 
     def test_r03_exception_rejects_symlinked_preregistration(self) -> None:
+        self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "in_progress")
         relative = self.policy["local_continuation_exceptions"]["R03"][
             "preregistration_path"
@@ -1097,6 +1143,74 @@ class RoadmapAlignmentTests(unittest.TestCase):
             encoding="utf-8",
         )
         self.assert_error_contains("deterministic required workflow contains")
+
+    def test_r02_phase_acceptance_commands_are_required_in_ci_and_guardrails(
+        self,
+    ) -> None:
+        common_required = (
+            "Scripts/tests/test_r02_phase_acceptance.py",
+            "python3 Scripts/r02_phase_acceptance.py --check",
+        )
+        workflow_required = (
+            "r02-functional-acceptance:",
+            "needs: r02-functional-acceptance",
+            "if: ${{ always() }}",
+            (
+                'run: test "${{ needs.r02-functional-acceptance.result }}" '
+                '= "success"'
+            ),
+            "runs-on: macos-26",
+            (
+                "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir "
+                "-configuration Debug -destination platform=macOS,arch=arm64 "
+                "-derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived "
+                "-resultBundlePath /private/tmp/"
+                "mirmir-r02-eeabc422-v2.xcresult "
+                "-disableAutomaticPackageResolution test "
+                "-only-testing:MirmirTests/AppleUpscaleContractsTests "
+                "-only-testing:MirmirTests/EnhancementPipelineContractsTests "
+                "-only-testing:MirmirTests/AppleUpscaleFIFOSessionTests "
+                "-only-testing:MirmirTests/R02FixtureConformanceTests "
+                "-only-testing:MirmirTests/ArchitectureGuardrailTests/"
+                "test_productionCompositionUsesNoRetainedReferenceBackendOr"
+                "VTStager "
+                "-only-testing:MirmirTests/UpscalerEngineAvailabilityTests/"
+                "test_unavailableServiceRejectsSubmissionWithTypedReason "
+                "CODE_SIGNING_ALLOWED=NO"
+            ),
+            (
+                "python3 Scripts/r02_phase_acceptance.py --check-xcresult "
+                "/private/tmp/mirmir-r02-eeabc422-v2.xcresult"
+            ),
+            "- name: Verify checked-in R02 acceptance",
+            "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "name: r02-functional-acceptance-xcresult",
+        )
+        for relative in (
+            ".github/workflows/roadmap-alignment.yml",
+            "Scripts/verify-mirmir-guardrails.sh",
+        ):
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            required = common_required + (
+                workflow_required
+                if relative == ".github/workflows/roadmap-alignment.yml"
+                else ()
+            )
+            for phrase in required:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(phrase, original)
+                    path.write_text(
+                        original.replace(
+                            phrase,
+                            "removed-r02-phase-acceptance-command",
+                        ),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
 
     def test_r04_contract_commands_are_required_in_ci_and_guardrails(self) -> None:
         common_required = (

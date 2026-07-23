@@ -93,6 +93,7 @@ python3 -m unittest \
   Scripts/tests/test_r01_capabilities.py \
   Scripts/tests/test_r01_observation_waiver.py \
   Scripts/tests/test_r02_contracts.py \
+  Scripts/tests/test_r02_phase_acceptance.py \
   Scripts/tests/test_r03_contracts.py \
   Scripts/tests/test_r03_product_qualification.py \
   Scripts/tests/test_r03_phase_acceptance.py \
@@ -114,6 +115,7 @@ python3 Scripts/r02_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
   python3 Scripts/r02_contracts.py --check-conformance
 fi
+python3 Scripts/r02_phase_acceptance.py --check
 python3 Scripts/r03_contracts.py --check-preregistration
 python3 Scripts/r03_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then
@@ -281,16 +283,29 @@ hosted_test_shard_one=(
   "MirmirTests/ASHLUTCompilerV2Tests"
   "MirmirTests/ASHLUTFormat12V3Tests"
 )
+hosted_test_shard_two=(
+  "MirmirTests/ASHLUTLockedConfigurationJSONV2Tests"
+  "MirmirTests/ASHLockedAffineRuntimeV2Tests"
+  "MirmirTests/ASHLockedArtifactStoreV3Tests"
+  "MirmirTests/ASHLockedFramePipelineV3Tests"
+  "MirmirTests/ASHLockedGeometryRuntimeV2Tests"
+  "MirmirTests/ASHLockedLUTManifestV2Tests"
+)
 shard_one_arguments=()
 shard_two_arguments=()
+shard_three_arguments=()
 for test_class in "${hosted_test_shard_one[@]}"; do
   shard_one_arguments+=("-only-testing:$test_class")
-  shard_two_arguments+=("-skip-testing:$test_class")
+  shard_three_arguments+=("-skip-testing:$test_class")
+done
+for test_class in "${hosted_test_shard_two[@]}"; do
+  shard_two_arguments+=("-only-testing:$test_class")
+  shard_three_arguments+=("-skip-testing:$test_class")
 done
 
 # Keep the app-host lifetime below the macOS foreground-hang termination window
 # while preserving serial execution and exact, non-overlapping target coverage.
-echo "==> Testing Debug shard 1 of 2..."
+echo "==> Testing Debug shard 1 of 3..."
 xcodebuild \
   -project "$PROJECT_FILE" \
   -scheme "$SCHEME" \
@@ -301,7 +316,7 @@ xcodebuild \
   "${shard_one_arguments[@]}" \
   test
 
-echo "==> Testing Debug shard 2 of 2..."
+echo "==> Testing Debug shard 2 of 3..."
 xcodebuild \
   -project "$PROJECT_FILE" \
   -scheme "$SCHEME" \
@@ -310,6 +325,17 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA" \
   -disableAutomaticPackageResolution \
   "${shard_two_arguments[@]}" \
+  test
+
+echo "==> Testing Debug shard 3 of 3..."
+xcodebuild \
+  -project "$PROJECT_FILE" \
+  -scheme "$SCHEME" \
+  -configuration Debug \
+  -destination "$DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
+  "${shard_three_arguments[@]}" \
   test
 
 echo "==> Building Release..."

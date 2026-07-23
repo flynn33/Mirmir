@@ -6,6 +6,24 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R02 for `declared_software_function_only` under the operator-defined
+  software-function gate. The additive functional phase-acceptance record binds
+  source commit `eeabc4224100bc8ed86ae1208189bee508844210`, tree
+  `ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+  with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+  production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+  fail-closed `backendUnavailable(reason:)` rejection. This is the intentional
+  R02 production-unavailable boundary, not project completion or production
+  enablement. The frozen preregistration, conformance record, local unpublished
+  closure, and its contemporaneous `phase_acceptance: not_claimed` state remain
+  unchanged historical evidence. Production upscaling, a production default,
+  Auto, holdout, quality or performance claims, product publication, and release
+  remain unauthorized. The repository guardrail now divides hosted Xcode tests
+  into three exact, non-overlapping shards so each app-host run remains below the
+  observed macOS foreground lifetime boundary. The stable required roadmap check
+  now depends on the fresh macOS R02 job, whose validator binds the full app/test
+  build surface and shared scheme, compares raw test and build-action evidence
+  with the checked summary, and rejects symlinked evidence-output paths.
 - Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
   operator-defined “software does what it says it does” gate. The additive
   receipt and acceptance record bind implementation commit

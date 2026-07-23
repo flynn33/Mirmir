@@ -22,12 +22,21 @@
   reachable historical checkpoints. Their native assignment, model-freeze, and
   live-run path remains optional supplemental evidence and does not alter the
   recorded local not-observed inventory disposition.
-- Roadmap phase `R02`: `in_progress`. Its frozen preregistration binds local R01
-  closure commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
+- Roadmap phase `R02`: `passed` for `declared_software_function_only`. Its
+  frozen preregistration still binds local R01 closure commit
+  `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
   `2fbe72d85ace42cc925c45b17d53dd8866a8275b` as an unpublished predecessor,
-  with `accepted_merge_commit: null` and no acceptance claim. The operator's
-  continuation instruction permits local implementation through R07 but does
-  not authorize publication or production enablement.
+  and the frozen local conformance closure still records
+  `phase_acceptance: not_claimed` at that historical checkpoint. The later
+  additive functional acceptance binds source
+  `eeabc4224100bc8ed86ae1208189bee508844210`, tree
+  `ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+  with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+  production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+  fail-closed `backendUnavailable(reason:)` rejection. This is the intentional
+  R02 production-unavailable boundary, not project completion or production
+  enablement. Production upscaling, a production default, Auto, holdout, quality
+  or performance claims, publication, and release remain unauthorized.
 - Roadmap phase `R03`: `passed`. Its frozen v1 blocked record and narrower v2
   qualification remain historical evidence. The operator-overridden functional
   acceptance record binds the passing R02 common-session conformance and genuine

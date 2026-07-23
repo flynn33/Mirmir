@@ -20,9 +20,14 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
+    needs: r02-functional-acceptance
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Require passing R02 functional acceptance
+        run: test "${{ needs.r02-functional-acceptance.result }}" = "success"
+
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -40,6 +45,7 @@ jobs:
           Scripts/tests/test_r01_capabilities.py
           Scripts/tests/test_r01_observation_waiver.py
           Scripts/tests/test_r02_contracts.py
+          Scripts/tests/test_r02_phase_acceptance.py
           Scripts/tests/test_r03_contracts.py
           Scripts/tests/test_r03_product_qualification.py
           Scripts/tests/test_r03_phase_acceptance.py
@@ -77,6 +83,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
             python3 Scripts/r02_contracts.py --check-conformance
           fi
+
+      - name: Verify R02 functional phase acceptance
+        run: python3 Scripts/r02_phase_acceptance.py --check
 
       - name: Verify R03 preregistration
         run: python3 Scripts/r03_contracts.py --check-preregistration
@@ -216,3 +225,35 @@ jobs:
             phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
             python3 Scripts/phase_evidence.py --phase "$phase_id" --check
           done < <(find docs/roadmaps/evidence -type f -name 'phase-evidence.json' -print | sort)
+
+  r02-functional-acceptance:
+    name: R02 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run exact R02 selected tests
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived -resultBundlePath /private/tmp/mirmir-r02-eeabc422-v2.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/AppleUpscaleContractsTests -only-testing:MirmirTests/EnhancementPipelineContractsTests -only-testing:MirmirTests/AppleUpscaleFIFOSessionTests -only-testing:MirmirTests/R02FixtureConformanceTests -only-testing:MirmirTests/ArchitectureGuardrailTests/test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager -only-testing:MirmirTests/UpscalerEngineAvailabilityTests/test_unavailableServiceRejectsSubmissionWithTypedReason CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R02 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r02_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r02-eeabc422-v2.xcresult
+
+      - name: Verify checked-in R02 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r02_phase_acceptance.py --check
+
+      - name: Upload raw R02 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r02-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r02-eeabc422-v2.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true

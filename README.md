@@ -13,7 +13,7 @@ application bundle.
 ## Product Direction and Evidence Status
 
 The canonical product direction is the **Mirmir Apple-Native Adaptive Video
-Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-22. The canonical source files are
+Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-23. The canonical source files are
 [Markdown](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md) and
 [machine-readable JSON](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json).
 
@@ -39,45 +39,48 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R02` — Unified backend and stage architecture;
-`R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration
-and suitability decision; and `R06` — ASH orchestration engine v1
+**Current roadmap focus:** `R04` — VideoToolbox super-resolution integration;
+`R05` — MetalFX integration and suitability decision; and `R06` — ASH
+orchestration engine v1
 
-**Latest phase acceptance:** `R09` — `passed` with exit outcome
-`qualified_local_residual` under the declared-software-function-only gate.
+**Latest phase acceptance:** `R02` — `passed` under the
+declared-software-function-only gate.
 
-**Acceptance basis:** deterministic tests must verify that the residual service
-and ASH-authorized application stage perform their declared bounded task,
-preserve exact identity and NV12 representation, exclude protected regions, and
-fail closed on every rejected or unsafe input. Comparison-based testing supplies
-no acceptance authority.
+**Acceptance basis:** deterministic tests must verify that the registry,
+backend/session boundary, stage roles, planner, typed outcomes, FIFO lifecycle,
+processing identity, visible fallback, media transaction, reopen verification,
+resource lifetime, and atomic publication perform their declared task.
 
-**R09 evidence:** implementation commit
-`3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
-`5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
-across four suites, with zero failures and zero skips.
+**R02 evidence:** source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+with 27 tests passed, zero failed, and zero skipped. The two added direct tests
+bind production bootstrap to `UnavailableUpscalerEngineService` and prove its
+typed fail-closed `backendUnavailable(reason:)` rejection.
 
-**Execution scope:** declared bounded-residual software behavior under
-deterministic fixture simulation. Native Core AI, Xcode 27, model, hardware,
-simulator, and operator-observed execution remain `not_observed`; production
-default/Auto routing, holdout access, quality or performance claims,
-publication, and release remain unauthorized. R06 remains `in_progress` and
-unaccepted.
+**Execution scope:** declared R02 software behavior only. The frozen
+preregistration, conformance record, local unpublished closure, and its
+contemporaneous `phase_acceptance: not_claimed` state remain unchanged
+historical evidence. Production upscaling, a production default, Auto, holdout
+access, quality or performance claims, product publication, and release remain
+unauthorized. The unavailable bootstrap is R02's intentional production boundary,
+not project completion or production enablement. R04, R05, and R06 remain
+`in_progress` and unaccepted.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `6 / 14` roadmap phases passed (`42%`)
+**Overall:** `7 / 14` roadmap phases passed (`50%`)
 
-`[####------]`
+`[#####-----]`
 
-**Status:** ✅ Passed `6` · 🔄 In progress `4` · ⬜ Planned `4`
+**Status:** ✅ Passed `7` · 🔄 In progress `3` · ⬜ Planned `4`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
+**Current focus:** `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
-| `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
+| `R02` | Unified backend and stage architecture | `passed` | ✅ Passed |
 | `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
 | `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
 | `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
@@ -98,7 +101,7 @@ unaccepted.
 
 **Roadmap version:** 1.0.1<br>
 **Publication date:** 2026-07-18<br>
-**Revision date:** 2026-07-22<br>
+**Revision date:** 2026-07-23<br>
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime<br>
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -687,7 +690,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -707,6 +710,30 @@ Make every Apple method interchangeable at a controlled object-oriented boundary
 ### Exit gate
 
 A deterministic fixture can run through multiple backends under one common session contract while preserving dimensions, frame order, PTS, duration, audio, metadata, and atomic publication.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+The additive functional phase-acceptance record binds source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode
+run with 27 tests passed, zero failed, and zero skipped. The accepted software
+function covers the immutable capability registry, common backend/session
+boundary, distinct stage roles, deterministic single-primary planning, typed
+outcomes, FIFO lifecycle, complete processing identity, visible fallback,
+media-identity preservation, reopen verification, resource lifetime, and atomic
+publication. Two direct tests additionally bind production bootstrap to
+`UnavailableUpscalerEngineService` and prove its typed fail-closed
+`backendUnavailable(reason:)` rejection. That unavailable bootstrap is the
+intentional R02 production boundary; it is not project completion or production
+enablement.
+
+The frozen R02 preregistration, conformance record, and local unpublished closure
+remain immutable historical evidence. Their contemporaneous
+`phase_acceptance: not_claimed` state is preserved; this later additive decision
+does not rewrite it. R02 is `passed` only for
+`declared_software_function_only`. Production upscaling, a production default,
+Auto, holdout access, quality or performance claims, product publication, and
+release remain unauthorized.
 
 ---
 
