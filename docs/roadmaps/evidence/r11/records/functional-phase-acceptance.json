@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R11",
+  "evidence_kind": "r11_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "75479b9f30511330f2a18b656151dc551292cb1e",
+    "tree": "0dd42ec30b212456223ee582b549de30a0e3416f"
+  },
+  "execution_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r11/records/functional-execution-receipt.json",
+    "size_bytes": 6751,
+    "sha256": "e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb"
+  },
+  "run_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r11/records/traceability-run-receipt.json",
+    "size_bytes": 14751,
+    "sha256": "22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d"
+  },
+  "checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "source_ancestry_and_tree_exact",
+      "status": "passed"
+    },
+    {
+      "id": "contract_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "implementation_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "exact_76_test_inventory_and_execution",
+      "status": "passed"
+    },
+    {
+      "id": "unittest_log_parser_exact",
+      "status": "passed"
+    },
+    {
+      "id": "canonical_run_receipt_import_exact",
+      "status": "passed"
+    },
+    {
+      "id": "run_receipt_schema_and_content_exact",
+      "status": "passed"
+    },
+    {
+      "id": "nested_execution_receipt_typed_reopen_exact",
+      "status": "passed"
+    },
+    {
+      "id": "seven_identity_components_exact",
+      "status": "passed"
+    },
+    {
+      "id": "five_observation_states_and_aggregate_exact",
+      "status": "passed"
+    },
+    {
+      "id": "no_market_claim_unconditional",
+      "status": "passed"
+    },
+    {
+      "id": "comparison_methods_absent_not_required",
+      "status": "passed"
+    },
+    {
+      "id": "production_auto_market_product_release_blocked",
+      "status": "passed"
+    },
+    {
+      "id": "artifact_closure_and_read_only_sealing_exact",
+      "status": "passed"
+    }
+  ],
+  "functional_gate": {
+    "status": "passed",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "acceptance_scope": "declared_software_function_only",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed"
+  },
+  "claim_boundary": {
+    "claim_scope": "software_behavior_report",
+    "market_disposition": "no_market_claim",
+    "production_auto_mode": "blocked",
+    "market_leading_claim": "blocked"
+  },
+  "limitations": [
+    "R11 acceptance is limited to exact-source proof that the traceability, aggregation, and claim-boundary software perform their declared task.",
+    "The unconditional disposition is no_market_claim; product qualification, production Auto, market position, product publication, and release remain blocked or unauthorized.",
+    "No comparative, A/B, superiority, hardware, simulator, or operator observation gate is part of this acceptance."
+  ]
+}
