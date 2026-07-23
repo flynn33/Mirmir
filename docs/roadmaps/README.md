@@ -7,8 +7,8 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
 `R06: passed`; `R07: passed` under the operator-defined deterministic
 software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate;
-`R10: in_progress` after both exact predecessors R07 and R09 passed. R10
-acceptance is not claimed. R03's
+`R10: passed` under the deterministic bounded optimizer/calibration
+software-function gate; `R11: planned` and the next roadmap focus. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
 `diagnostic_only` checkpoint remains historical while its later additive
 declared-software-function acceptance passes. Native VideoToolbox model
@@ -164,15 +164,22 @@ R09 acceptance did not itself authorize R10 progression; the operator's later
 continuation instruction separately authorizes R10 implementation under the
 forward software-function gate.
 
-R10 is now `in_progress`. Its phase-start contract requires the frozen
-preregistration plus deterministic fixture, evaluation, and policy catalogs
-before an R10 run may publish a checkpoint or frozen fixture policy. This state
-authorizes bounded optimizer/calibration implementation and deterministic
-fixture testing only; it is not functional acceptance. Production Auto,
-holdout access, native execution, product qualification, quality/performance
-claims, publication, and release remain blocked, unauthorized, or unclaimed.
-Comparison-based methods remain outside the forward roadmap and provide no
-acceptance authority.
+The additive R10 functional receipt and phase-acceptance record bind
+implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and a checkpoint-bound run of 39
+passing optimizer and persistence tests with zero failures and zero skips. The
+accepted calibration evaluated nine candidates, scored three, rejected six,
+published ten content-addressed checkpoints, selected `fixture-valid-alpha`,
+and passed typed reopen against the exact evaluation catalog. R10 is `passed`
+only for `declared_software_function_only` under deterministic fixture
+simulation.
+
+Comparison, A/B, and superiority testing were not run and are not required.
+Hardware, simulator, and operator-observed execution remain `not_observed`.
+Fixture-policy evidence publication is authorized. Production Auto, holdout
+access, native execution, product qualification, product publication,
+quality/performance claims, and release remain unauthorized. R11 remains
+`planned` and is the next roadmap focus.
 
 The same forward-gate correction applies to later phases. R10 accepts on direct
 proof of deterministic bounded optimizer/calibration behavior. R11 accepts on
@@ -243,16 +250,18 @@ disabled.
 - [R09 Deterministic Fixture Catalog](evidence/r09/records/fixtures/fixture-catalog.json)
 - [R09 Functional Execution Receipt](evidence/r09/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 26 passed, 0 failed, 0 skipped
 - [R09 Functional Phase Acceptance](evidence/r09/records/functional-phase-acceptance.json) — declared-software-function-only gate passed with `qualified_local_residual`; comparative methods absent and non-gating
-- [R10 Preregistration](evidence/r10/records/preregistration.json) — phase-start contract; acceptance not claimed
+- [R10 Preregistration](evidence/r10/records/preregistration.json) — preserved phase-start contract
 - [R10 Deterministic Fixture Catalog](evidence/r10/records/fixtures/fixture-catalog.json)
 - [R10 Deterministic Evaluation Catalog](evidence/r10/records/fixtures/evaluation-catalog.json)
 - [R10 Deterministic Policy Catalog](evidence/r10/records/fixtures/policy-catalog.json)
+- [R10 Functional Execution Receipt](evidence/r10/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 39 passed, 0 failed, 0 skipped
+- [R10 Functional Phase Acceptance](evidence/r10/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison, A/B, and superiority methods absent and non-gating
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `97c1149259cca9526870c6c0bde63ac89e2ea2f20f83a94f030756ace7041990`
-- JSON: `4b32bd9ea1338f745e48dcd72ca9129176c4d70eefb6afab0cac720f7c618b5b`
+- Markdown: `98d54d81004912ccfecdd6ac2a0ccbcf9a8637c027264630d848946f21e1a798`
+- JSON: `f998b8316aa3a57838dcf0fafe22abf24c8a746a623c295c14605cc53c969ce3`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

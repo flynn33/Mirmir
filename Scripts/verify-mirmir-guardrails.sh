@@ -163,6 +163,57 @@ python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
 python3 Scripts/r09_contracts.py --all
 python3 Scripts/r09_phase_acceptance.py --check
+
+echo "==> Replaying exact R10 functional acceptance..."
+r10_source_commit="3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b"
+r10_source_tree="37951da694ab4fbca6f8c663bb2883e5084b861c"
+r10_validation_root="$(mktemp -d "${TMPDIR:-/tmp}/mirmir-r10-acceptance.XXXXXX")"
+r10_source_worktree="$r10_validation_root/source"
+r10_test_log="$r10_validation_root/unittest.log"
+r10_run_root="$r10_validation_root/calibration-run"
+
+cleanup_r10_validation() {
+  if [[ -d "$r10_source_worktree" ]]; then
+    git worktree remove --force "$r10_source_worktree" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$r10_validation_root" ]]; then
+    rm -rf -- "$r10_validation_root"
+  fi
+}
+trap cleanup_r10_validation EXIT
+
+git worktree add --detach "$r10_source_worktree" "$r10_source_commit"
+(
+  cd "$r10_source_worktree"
+  git rev-parse HEAD | grep -Fx "$r10_source_commit"
+  git rev-parse HEAD^{tree} | grep -Fx "$r10_source_tree"
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v \
+    validation.calibration_v2.tests.test_r10_optimizer \
+    validation.calibration_v2.tests.test_r10_persistence \
+    2>&1 | tee "$r10_test_log"
+  grep -c ' \.\.\. ok$' "$r10_test_log" | grep -Fx 39
+  PYTHONDONTWRITEBYTECODE=1 python3 \
+    validation/calibration_v2/tools/run_r10_fixture_calibration.py \
+    --source-commit "$r10_source_commit" \
+    --output-root "$r10_run_root"
+)
+test -d "$r10_run_root/terminals"
+test -z "$(find "$r10_run_root/terminals" -mindepth 1 -print -quit)"
+cmp \
+  "$r10_run_root/run-receipt.json" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/run-receipt.json
+diff --recursive --no-dereference \
+  "$r10_run_root/checkpoints" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/checkpoints
+diff --recursive --no-dereference \
+  "$r10_run_root/frozen-policies" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/frozen-policies
+
+git worktree remove --force "$r10_source_worktree"
+rm -rf -- "$r10_validation_root"
+trap - EXIT
+python3 Scripts/r10_phase_acceptance.py --check-generated
+python3 Scripts/r10_phase_acceptance.py --check
 python3 Scripts/r10_contracts.py --all
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then

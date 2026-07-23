@@ -437,6 +437,61 @@ R10_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
             "docs/roadmaps/evidence/r10/records/artifacts/"
             "functional-phase-acceptance/calibration-run/run-receipt.json"
         ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "e5f9dcb4b8743a7295d51b56db5f080b7be5ff577f4c21ead113bd9d70e00459.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "b50baea0852c30246249bb76825be8688498c19a95843ad3ef5345bff85754e8.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "371eee895f02d8e7611e572230cee0ca3ae6635156958ba59e8b1ce36dd22ca9.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "f1426d372d8445ea04b2d7d43ffc981f99f4255847f48a20ae209f6bac602546.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "791d221b1d343df9d0e5b937e9c22fea4382a0897cbaf57da747647c45e27005.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "569c6095fad79b7af4cf2b6898a5c10b64ce2026f53c5105da55373d820b7751.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "eb1a5576ff771f2b2ade778ab2fdfccacbbf966b0b199f1b36a679b1d74a6fb3.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "29e3aaf1cff5152956c2539db769f3fdd86f56e438fdd0913635479bb34ae494.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "f4a0ff2d141f36d7bc3bec0702fb15f11b5887d7b02ea8ab6b8b140363e0a841.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "15ccf94280dd40fd18364be8de5bede500a25e4dd5b848af641967d14f84b758.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/frozen-policies/"
+            "f090cbde0102bec3d5e9d18dc236268fa08f1c12d4513edfe00d91a4480a3495.json"
+        ),
     ],
 }
 
@@ -471,7 +526,11 @@ def render_progress(roadmap: dict[str, Any], policy: dict[str, Any]) -> str:
     status_order = progress["status_order"]
     passed = sum(phase["status"] in completed_statuses for phase in ordered)
     total = len(ordered)
-    percent = 0 if total == 0 else (passed * 100) // total
+    percent = (
+        0
+        if total == 0
+        else ((2 * passed * 100) + total) // (2 * total)
+    )
     width = int(progress["bar_width"])
     filled = 0 if total == 0 else (passed * width) // total
     bar = "[" + ("#" * filled) + ("-" * (width - filled)) + "]"

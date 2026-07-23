@@ -6,15 +6,22 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
-- Began R10 after both exact canonical predecessors, R07 and R09, passed. The
-  status is `in_progress`, not accepted. Its start contract requires a frozen
-  preregistration plus deterministic fixture, evaluation, and policy catalogs
-  before a bounded calibration run may publish a checkpoint or frozen fixture
-  policy. Implementation and deterministic fixture testing are authorized under
-  the forward software-function gate. Production Auto, holdout access, native
-  execution, product qualification, quality/performance claims, publication,
-  and release remain blocked, unauthorized, or unclaimed; comparison methods
-  remain outside the roadmap and non-authorizing.
+- Accepted R10 for `declared_software_function_only` under deterministic fixture
+  simulation. The additive receipt and phase-acceptance record bind
+  implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+  persistence tests with zero failures and zero skips. The accepted run
+  evaluated nine candidates, scored three, rejected six, published ten
+  content-addressed checkpoints, selected `fixture-valid-alpha`, and passed
+  typed reopening. It proves the declared finite bound, six independent
+  constraints, deterministic ordering and tie-breaking, exact resume,
+  transactional failure and cancellation, tamper/path-escape rejection,
+  concurrent idempotent publication, read-only sealing, and complete frozen
+  fixture-policy identity. Comparison, A/B, and superiority testing were not
+  run and are not required; hardware, simulator, and operator-observed execution
+  remain `not_observed`. Fixture-policy evidence publication is authorized.
+  Production Auto, holdout, product publication, quality/performance claims,
+  and release remain unauthorized. R11 remains `planned` and is the next focus.
 - Accepted R06 for `declared_software_function_only` under deterministic fixture
   integration. The additive acceptance binds source commit
   `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree

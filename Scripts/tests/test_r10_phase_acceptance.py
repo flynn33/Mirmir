@@ -149,10 +149,21 @@ class R10PhaseAcceptanceTests(unittest.TestCase):
             _run,
             verifier,
         ):
+            roadmap_path = repository / ROADMAP_PATH
+            roadmap = _read_json(roadmap_path)
+            phases = roadmap["phases"]
+            assert isinstance(phases, list)
+            phase = next(
+                item
+                for item in phases
+                if isinstance(item, dict) and item.get("id") == "R10"
+            )
+            phase["status"] = "in_progress"
+            _write_json(roadmap_path, roadmap)
             self.assertEqual(
                 next(
                     phase["status"]
-                    for phase in _read_json(repository / ROADMAP_PATH)["phases"]
+                    for phase in _read_json(roadmap_path)["phases"]
                     if phase["id"] == "R10"
                 ),
                 "in_progress",
@@ -160,6 +171,32 @@ class R10PhaseAcceptanceTests(unittest.TestCase):
             self.assertFalse((repository / EXECUTION_RECEIPT_PATH).exists())
             self.assertFalse((repository / ACCEPTANCE_PATH).exists())
             self.assertEqual(verifier.check(), [])
+
+    def test_checked_in_absence_is_rejected_after_r10_passes(self) -> None:
+        with acceptance_fixture() as (
+            repository,
+            _commit,
+            _log,
+            _run,
+            verifier,
+        ):
+            self.assertEqual(
+                next(
+                    phase["status"]
+                    for phase in _read_json(repository / ROADMAP_PATH)["phases"]
+                    if phase["id"] == "R10"
+                ),
+                "passed",
+            )
+            self.assertFalse((repository / EXECUTION_RECEIPT_PATH).exists())
+            self.assertFalse((repository / ACCEPTANCE_PATH).exists())
+            self.assertEqual(
+                verifier.check(),
+                [
+                    "R10 generated acceptance evidence is absent while "
+                    "canonical phase status is 'passed'"
+                ],
+            )
 
     def test_writer_imports_and_validates_complete_generated_bundle(self) -> None:
         with acceptance_fixture() as (

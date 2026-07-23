@@ -5,8 +5,8 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
-- **Current execution state:** `R00`-`R09: passed`; `R10: in_progress`;
-  `R11`-`R13: planned`
+- **Current execution state:** `R00`-`R10: passed`; `R11`-`R13: planned`;
+  R11 is the next roadmap focus
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
@@ -117,9 +117,19 @@
   skips; exit outcome `qualified_local_residual`; acceptance scope
   `declared_software_function_only`; no comparative method was run or required;
   R09 is `passed`
+- **R10 deterministic implementation checkpoint:**
+  `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`; tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`
+- **R10 declared-software-function acceptance:** 39 checkpoint-bound optimizer
+  and persistence tests passed with zero failures and zero skips; nine
+  candidates evaluated, three scored, six rejected, ten checkpoints published,
+  `fixture-valid-alpha` selected, and typed reopen passed; acceptance scope
+  `declared_software_function_only`; no comparative method was run or required;
+  R10 is `passed`
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: passed`; `R05: passed`; `R06: passed`;
-  `R07: passed`; `R08: passed`; `R09: passed`
+  `R07: passed`; `R08: passed`; `R09: passed`; `R10: passed`;
+  `R11: planned`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -511,7 +521,7 @@ Before changing source:
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
    `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
-   `R10: in_progress` remain canonical. If any changed, reconcile the newer
+   `R10: passed` remain canonical, with `R11: planned`. If any changed, reconcile the newer
    accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
    evidence. The additive R03 functional acceptance does not alter those
@@ -1358,31 +1368,29 @@ continuation instruction separately authorizes R10 implementation.
 
 ### R10 - Auto-policy optimization and bounded calibration
 
-R10 is `in_progress` after both exact canonical predecessors, R07 and R09,
-passed and the operator separately authorized continuation. Before an R10 run
-may publish a checkpoint or frozen fixture policy, preserve and validate these
-four phase-start records:
+R10 is `passed` after both exact canonical predecessors, R07 and R09, passed
+and the operator separately authorized continuation. Its preserved phase-start
+contract binds these four records:
 
 - `docs/roadmaps/evidence/r10/records/preregistration.json`
 - `docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json`
 - `docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json`
 - `docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json`
 
-Reuse preserved schedulers, schemas, validators, and evidence libraries through
-new R10 commands; the retired P06/P07 entry points remain fail-closed. Implement
-typed candidate, constraint, score, selection, and frozen-policy contracts; a
-finite causal-variable search; independent route, plane, temporal, protection,
-resource, and safety constraints; deterministic ordering and tie-breaking;
-exact checkpoint/resume identity; transactional failure and cancellation; and
-durable fixture-policy publication.
+The functional execution receipt and phase-acceptance record bind implementation
+commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+persistence tests with zero failures and zero skips. The accepted deterministic
+fixture run evaluated nine candidates, scored three, rejected six, published
+ten content-addressed checkpoints, selected `fixture-valid-alpha`, and passed
+typed reopen against the exact evaluation catalog.
 
-R10 accepts only when checkpoint-bound deterministic tests prove those bounded
-software behaviors. That functional acceptance is not claimed by the phase
-start and its acceptance evidence remains inactive while R10 is `in_progress`.
-Production Auto and holdout access remain separate and blocked.
-
-Production Auto and holdout access remain blocked. Any future change requires a
-new operator-authorized roadmap revision outside R10 functional closure.
+R10 passes only for `declared_software_function_only` under deterministic
+fixture simulation. Comparison, A/B, and superiority testing were not run and
+are not required. Hardware, simulator, and operator-observed execution remain
+`not_observed`. Fixture-policy evidence publication is authorized. Production
+Auto, holdout, product publication, quality or performance claims, and release
+remain unauthorized. R11 remains `planned` and is the next roadmap focus.
 
 ### R11 - Evidence traceability and claim boundary
 
@@ -1471,11 +1479,11 @@ accepted-dependency path; it was not another unpublished local-continuation
 exception. R06 later passed under its additive functional acceptance, and the
 frozen R06/R07 negative product records remain unchanged.
 
-R09 passed its separate bounded-experiment software-function gate while native
-Core AI/framework/model, hardware, simulator, and operator observations remain
-`not_observed`. The operator's later continuation instruction authorizes R10
-implementation under the forward software-function gate; with both R07 and R09
-passed and the four exact phase-start records frozen, R10 is now `in_progress`
-and unaccepted. Product qualification, production Auto, holdout access, claims,
-tags, releases, pushes, pull requests, approvals, merges, force-pushes, and
-repository-setting mutation retain their separate authority requirements.
+R10 passed its deterministic bounded optimizer/calibration software-function
+gate at implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`,
+tree `37951da694ab4fbca6f8c663bb2883e5084b861c`. Hardware, simulator, and
+operator observations remain `not_observed`; comparison supplied no acceptance
+authority. R11 remains `planned` and is the next roadmap focus. Product
+qualification, production Auto, holdout access, claims, tags, releases, pushes,
+pull requests, approvals, merges, force-pushes, and repository-setting mutation
+retain their separate authority requirements.

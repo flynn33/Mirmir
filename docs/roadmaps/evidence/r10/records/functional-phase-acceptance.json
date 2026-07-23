@@ -1,0 +1,110 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R10",
+  "evidence_kind": "r10_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+    "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+  },
+  "operator_override": {
+    "authority": "operator",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "comparison_requirement": "not_run_not_required",
+    "hardware_requirement": "waived_not_a_blocker",
+    "simulator_requirement": "waived_not_a_blocker",
+    "operator_observation_requirement": "waived_not_a_blocker"
+  },
+  "execution_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r10/records/functional-execution-receipt.json",
+    "size_bytes": 24620,
+    "sha256": "5e7d3ac93b2de7b621a4223b40aa4d8397c3a78582e94977c361debfb853cb3f"
+  },
+  "run_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/run-receipt.json",
+    "size_bytes": 8446,
+    "sha256": "20e0674e6f90e82f7d853e0dbecd4be0ed9f09a8eefb5062dc9f3525af977e18"
+  },
+  "functional_gate": {
+    "status": "passed",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed",
+    "acceptance": "accepted",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_fixture_simulation",
+    "roadmap_exit_outcome": "passed"
+  },
+  "checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "contract_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "implementation_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "exact_39_test_execution",
+      "status": "passed"
+    },
+    {
+      "id": "calibration_run_receipt_schema_exact",
+      "status": "passed"
+    },
+    {
+      "id": "dynamic_artifact_closure_exact",
+      "status": "passed"
+    },
+    {
+      "id": "processing_identity_exact",
+      "status": "passed"
+    },
+    {
+      "id": "counts_and_independent_constraints_exact",
+      "status": "passed"
+    },
+    {
+      "id": "typed_reopen_exact_evaluation_catalog",
+      "status": "passed"
+    },
+    {
+      "id": "resume_cancel_failure_filesystem_coverage_exact",
+      "status": "passed"
+    },
+    {
+      "id": "fixture_only_noncomparative_scope_exact",
+      "status": "passed"
+    },
+    {
+      "id": "production_auto_and_holdout_blocked",
+      "status": "passed"
+    }
+  ],
+  "observation_status": {
+    "deterministic_software_execution": "observed",
+    "deterministic_fixture_simulation": "observed",
+    "physical_hardware_execution": "not_observed",
+    "apple_simulator_execution": "not_observed",
+    "operator_observed_operation": "not_observed"
+  },
+  "authorization_boundary": {
+    "r10_phase_acceptance": "authorized",
+    "fixture_policy_evidence_publication": "authorized",
+    "production_auto": "not_authorized",
+    "holdout": "not_authorized",
+    "product_publication": "not_authorized",
+    "quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "release": "not_authorized"
+  },
+  "limitations": [
+    "R10 acceptance is limited to exact-source proof that the bounded optimizer and persistence software perform their declared deterministic task.",
+    "The frozen output is fixture-policy evidence only; production Auto, holdout, claims, product publication, and release remain unauthorized.",
+    "No comparative, A/B, superiority, hardware, simulator, or operator observation gate is part of this acceptance."
+  ]
+}

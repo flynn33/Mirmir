@@ -113,15 +113,20 @@
   production default, Auto, holdout, claims, publication, and release remain
   unauthorized. The R09 acceptance alone did not authorize R10 progression;
   the operator's later continuation instruction did so separately.
-- Roadmap phase `R10`: `in_progress`. Both exact predecessors, R07 and R09, are
-  `passed`. Its start contract freezes the preregistration and deterministic
-  fixture, evaluation, and policy catalogs before a calibration run may publish
-  a checkpoint or frozen fixture policy. Work is limited to deterministic
-  bounded optimizer/calibration software implementation and testing. R10
-  acceptance is not claimed, and production Auto, holdout, product
-  qualification, quality/performance claims, publication, and release remain
-  blocked, unauthorized, or unclaimed.
-- Future R11 acceptance requires traceable evidence and
+- Roadmap phase `R10`: `passed` for `declared_software_function_only` under
+  deterministic fixture simulation. Its receipt and acceptance bind
+  implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+  persistence tests with zero failures and zero skips. The accepted calibration
+  evaluated nine candidates, scored three, rejected six, published ten
+  checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
+  Comparison methods were not run or required. Hardware, simulator, and
+  operator observations remain `not_observed`. Fixture-policy evidence
+  publication is authorized; production Auto, holdout, product qualification,
+  product publication, quality/performance claims, and release remain
+  unauthorized.
+- Roadmap phase `R11`: `planned` and the next focus. Its acceptance requires
+  traceable evidence and
   claim-scope machinery that rejects unsupported claims and emits an honest
   no-claim disposition by default. Any production Auto, holdout, or
   market-claim action retains its separate authorization boundary.

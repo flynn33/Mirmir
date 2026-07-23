@@ -1375,7 +1375,7 @@ gate.
 
 ## R10 — Auto-policy optimization and bounded calibration
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
@@ -1386,13 +1386,39 @@ freezes a preregistration plus deterministic fixture, evaluation, and policy
 catalogs before an R10 run may publish a calibration checkpoint or frozen
 fixture policy.
 
-This start authorizes implementation and deterministic fixture testing only; it
-does not claim R10 acceptance. The future functional acceptance requirement
-remains inactive until R10 is proposed as `passed`. Production Auto, holdout
-access, native-framework or hardware execution, product qualification, quality
-or performance claims, publication, and release remain blocked, unauthorized,
+This start authorized implementation and deterministic fixture testing only; it
+did not itself claim R10 acceptance. Production Auto, holdout access,
+native-framework or hardware execution, product qualification, quality or
+performance claims, publication, and release remained blocked, unauthorized,
 or unclaimed. Comparative, A/B, blinded, ablation, and superiority methods
-remain outside the forward roadmap and provide no phase-progression authority.
+remained outside the forward roadmap and provided no phase-progression
+authority.
+
+### Functional phase acceptance — 2026-07-23
+
+The functional execution receipt and phase-acceptance record bind implementation
+commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and a checkpoint-bound run of
+39 selected optimizer and persistence tests with zero failures and zero skips.
+The deterministic fixture calibration evaluated nine candidates, scored three,
+rejected six, published ten content-addressed checkpoints, selected
+`fixture-valid-alpha`, and passed typed reopening against the exact evaluation
+catalog.
+
+The acceptance proves the declared finite search bound, six independent hard
+constraints, deterministic ordering and tie-breaking, exact checkpoint/resume,
+transactional cancellation and failure handling, tamper and path-escape
+rejection, concurrent idempotent publication, read-only sealing, and complete
+frozen fixture-policy identity. R10 is `passed` only for
+`declared_software_function_only` under `deterministic_fixture_simulation`.
+Comparison, A/B, and superiority testing were not run and are not required.
+Physical hardware, Apple simulator, and operator-observed execution remain
+`not_observed`.
+
+Fixture-policy evidence publication is authorized by this acceptance.
+Production Auto, holdout, product publication, quality or performance claims,
+and release remain `not_authorized`. R11 remains `planned` and is the next
+roadmap focus.
 
 ### Objective
 

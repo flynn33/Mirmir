@@ -18,6 +18,7 @@ from roadmap_alignment import (  # noqa: E402
     AlignmentVerifier,
     compare_github_metadata,
     fetch_github_metadata,
+    render_progress,
 )
 
 
@@ -1255,6 +1256,38 @@ class RoadmapAlignmentTests(unittest.TestCase):
         self.verifier().write_progress()
         self.assertEqual(self.errors(), [])
 
+    def test_progress_percentage_uses_deterministic_half_up_rounding(
+        self,
+    ) -> None:
+        _path, roadmap = self.roadmap_json()
+        rendered = render_progress(roadmap, self.policy)
+        self.assertIn(
+            "**Overall:** `11 / 14` roadmap phases passed (`79%`)",
+            rendered,
+        )
+
+        half_up_roadmap = copy.deepcopy(roadmap)
+        phase_order = self.policy["progress"]["phase_order"][:8]
+        for phase in half_up_roadmap["phases"]:
+            if phase["id"] in phase_order:
+                phase["status"] = "planned"
+        first_phase = next(
+            phase
+            for phase in half_up_roadmap["phases"]
+            if phase["id"] == phase_order[0]
+        )
+        first_phase["status"] = "passed"
+        half_up_policy = copy.deepcopy(self.policy)
+        half_up_policy["progress"]["phase_order"] = phase_order
+        half_up_rendered = render_progress(
+            half_up_roadmap,
+            half_up_policy,
+        )
+        self.assertIn(
+            "**Overall:** `1 / 8` roadmap phases passed (`13%`)",
+            half_up_rendered,
+        )
+
     def test_authorization_drift_fails(self) -> None:
         path, roadmap = self.roadmap_json()
         authorizations = roadmap["authorizations"]
@@ -1388,7 +1421,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance]"
             ),
             "if: ${{ always() }}",
             (
@@ -1532,7 +1565,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r04-functional-acceptance.result }}" '
@@ -1628,7 +1661,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r05-functional-acceptance.result }}" '
@@ -1762,7 +1795,7 @@ class RoadmapAlignmentTests(unittest.TestCase):
             (
                 "needs: [r02-functional-acceptance, "
                 "r04-functional-acceptance, r05-functional-acceptance, "
-                "r06-functional-acceptance]"
+                "r06-functional-acceptance, r10-functional-acceptance]"
             ),
             (
                 'test "${{ needs.r06-functional-acceptance.result }}" '
@@ -1932,25 +1965,127 @@ class RoadmapAlignmentTests(unittest.TestCase):
                     )
                     path.write_text(original, encoding="utf-8")
 
-    def test_r10_preacceptance_checks_are_present_in_ci_and_guardrails(
+    def test_r10_closure_checks_are_present_in_ci_and_guardrails(
         self,
     ) -> None:
-        required = (
+        common_required = (
             "validation/calibration_v2/tests/test_r10_optimizer.py",
             "validation/calibration_v2/tests/test_r10_persistence.py",
             "validation/calibration_v2/tests/test_run_r10_fixture_calibration.py",
             "Scripts/tests/test_r10_contracts.py",
             "Scripts/tests/test_r10_phase_acceptance.py",
+            "python3 Scripts/r10_phase_acceptance.py --check-generated",
+            "python3 Scripts/r10_phase_acceptance.py --check",
             "python3 Scripts/r10_contracts.py --all",
         )
-        for relative in (
-            ".github/workflows/roadmap-alignment.yml",
-            "Scripts/verify-mirmir-guardrails.sh",
-        ):
+        workflow_required = (
+            (
+                "needs: [r02-functional-acceptance, "
+                "r04-functional-acceptance, r05-functional-acceptance, "
+                "r06-functional-acceptance, r10-functional-acceptance]"
+            ),
+            (
+                'test "${{ needs.r10-functional-acceptance.result }}" '
+                '= "success"'
+            ),
+            "r10-functional-acceptance:",
+            "name: R10 functional acceptance",
+            "runs-on: ubuntu-latest",
+            (
+                "git worktree add --detach "
+                "/private/tmp/mirmir-r10-3a76c6a-source "
+                "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b"
+            ),
+            (
+                "working-directory: "
+                "/private/tmp/mirmir-r10-3a76c6a-source"
+            ),
+            (
+                "git rev-parse HEAD | grep -Fx "
+                "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b"
+            ),
+            (
+                "git rev-parse HEAD^{tree} | grep -Fx "
+                "37951da694ab4fbca6f8c663bb2883e5084b861c"
+            ),
+            (
+                "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v "
+                "validation.calibration_v2.tests.test_r10_optimizer "
+                "validation.calibration_v2.tests.test_r10_persistence"
+            ),
+            (
+                "PYTHONDONTWRITEBYTECODE=1 python3 "
+                "validation/calibration_v2/tools/"
+                "run_r10_fixture_calibration.py --source-commit "
+                "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b --output-root "
+                "/private/tmp/mirmir-r10-3a76c6a-calibration-run"
+            ),
+            (
+                "diff --recursive --no-dereference "
+                "/private/tmp/mirmir-r10-3a76c6a-calibration-run/checkpoints "
+                "docs/roadmaps/evidence/r10/records/artifacts/"
+                "functional-phase-acceptance/calibration-run/checkpoints"
+            ),
+            (
+                "diff --recursive --no-dereference "
+                "/private/tmp/mirmir-r10-3a76c6a-calibration-run/"
+                "frozen-policies docs/roadmaps/evidence/r10/records/artifacts/"
+                "functional-phase-acceptance/calibration-run/frozen-policies"
+            ),
+            (
+                "cmp /private/tmp/mirmir-r10-3a76c6a-calibration-run/"
+                "run-receipt.json docs/roadmaps/evidence/r10/records/artifacts/"
+                "functional-phase-acceptance/calibration-run/run-receipt.json"
+            ),
+            "test -d /private/tmp/mirmir-r10-3a76c6a-calibration-run/terminals",
+            "grep -Fx 39",
+        )
+        guardrail_required = (
+            (
+                'r10_source_commit='
+                '"3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b"'
+            ),
+            (
+                'r10_source_tree='
+                '"37951da694ab4fbca6f8c663bb2883e5084b861c"'
+            ),
+            (
+                'git worktree add --detach "$r10_source_worktree" '
+                '"$r10_source_commit"'
+            ),
+            'git rev-parse HEAD | grep -Fx "$r10_source_commit"',
+            'git rev-parse HEAD^{tree} | grep -Fx "$r10_source_tree"',
+            'grep -c \' \\.\\.\\. ok$\' "$r10_test_log" | grep -Fx 39',
+            "diff --recursive --no-dereference",
+            "cleanup_r10_validation",
+            "trap cleanup_r10_validation EXIT",
+        )
+        requirements = {
+            ".github/workflows/roadmap-alignment.yml": workflow_required,
+            "Scripts/verify-mirmir-guardrails.sh": guardrail_required,
+        }
+        for relative, specific_required in requirements.items():
             text = (self.root / relative).read_text(encoding="utf-8")
-            for phrase in required:
+            for phrase in common_required + specific_required:
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertIn(phrase, text)
+
+        workflow = (
+            self.root / ".github/workflows/roadmap-alignment.yml"
+        ).read_text(encoding="utf-8")
+        ordered_steps = (
+            "- name: Materialize exact R10 source checkpoint",
+            "- name: Verify exact R10 source identity",
+            "- name: Run exact R10 selected tests",
+            "- name: Run exact R10 fixture calibration",
+            "- name: Compare exact R10 fixture calibration closure",
+            "- name: Validate generated R10 acceptance evidence",
+            "- name: Verify checked-in R10 acceptance",
+            "- name: Verify deep R10 contracts",
+        )
+        positions = [workflow.index(step) for step in ordered_steps]
+        self.assertEqual(positions, sorted(positions))
+        self.assertEqual(workflow.count("  r10-functional-acceptance:"), 1)
 
     def test_r04_blocked_closure_language_is_required(self) -> None:
         phrase = "local_unpublished_blocked_closure"

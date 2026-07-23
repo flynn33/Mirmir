@@ -239,29 +239,36 @@ authorize production, Auto, holdout, claims, publication, or release. The R09
 acceptance did not itself authorize R10 progression; the operator's later
 continuation instruction separately authorizes R10 implementation.
 
-R10 is `in_progress` only because both exact canonical predecessors, R07 and
-R09, are `passed` and the operator separately authorized continuation. Its
-policy-frozen start requirement binds four regular, non-symlink records:
+R10's policy-frozen start requirement binds four regular, non-symlink records:
 `preregistration.json`, `fixture-catalog.json`, `evaluation-catalog.json`, and
 `policy-catalog.json` under `docs/roadmaps/evidence/r10/records/`. The alignment
 check rejects a missing or symlinked record, a changed path set, or canonical
 predecessors other than exact `["R07", "R09"]`.
 
-This is a start contract only. R10 functional acceptance files are not required
-while the phase is `in_progress`; that requirement becomes active only if R10
-is proposed as `passed`. Production Auto, holdout access, native execution,
-product qualification, quality/performance claims, publication, and release
-remain blocked, unauthorized, or unclaimed. Comparative methods remain outside
-the forward roadmap and non-authorizing.
+R10 is now `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its functional execution receipt and phase-acceptance
+record bind implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 selected optimizer and
+persistence tests with zero failures and zero skips. The accepted run evaluated
+nine candidates, scored three, rejected six, published ten content-addressed
+checkpoints, selected `fixture-valid-alpha`, and passed typed reopen against the
+exact evaluation catalog.
 
-The dormant `passed` requirement names only stable evidence paths: the R10
+The active `passed` requirement names only stable evidence paths: the R10
 phase-acceptance validator and tests; calibration-run, functional-receipt, and
 functional-acceptance schemas; functional execution and acceptance records; the
 unit-test log; and the checked-in calibration `run-receipt.json`. Final
 checkpoint and frozen-policy artifacts use content-addressed filenames, so
-policy does not fabricate their future leaf names. The later acceptance
-validator must resolve and verify those dynamic bindings from the run receipt
-before R10 can pass.
+policy does not fabricate their leaf names. The acceptance validator resolves
+and verifies those dynamic bindings from the run receipt before permitting R10
+to pass.
+
+Comparison, A/B, and superiority testing were not run and are not required.
+Hardware, simulator, and operator-observed execution remain `not_observed`.
+Fixture-policy evidence publication is authorized. Production Auto, holdout,
+product qualification, product publication, quality/performance claims, and
+release remain unauthorized.
 
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
@@ -312,11 +319,12 @@ facts. The operator's later `resume work` directive supplies the separate R09
 implementation authorization bound to accepted R08 functional evidence; no
 comparison grants that authority.
 
-R10 is `in_progress`; acceptance still requires checkpoint-bound proof that its optimizer/calibration
-software is deterministic, finitely bounded, constraint-preserving, resumable,
-transactional, and identity-complete. R11 acceptance requires traceable evidence
-and claim-scope machinery that rejects invalid inputs and unsupported claims and
-emits `no_market_claim` by default.
+R10 is `passed` because checkpoint-bound proof establishes that its
+optimizer/calibration software is deterministic, finitely bounded,
+constraint-preserving, resumable, transactional, and identity-complete. R11
+remains `planned` as the next roadmap focus. Its acceptance requires traceable
+evidence and claim-scope machinery that rejects invalid inputs and unsupported
+claims and emits `no_market_claim` by default.
 `market_leading_claim` remains blocked without exact supporting evidence and a
 separate operator authorization.
 

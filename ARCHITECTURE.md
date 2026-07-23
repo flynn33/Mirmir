@@ -17,7 +17,9 @@
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
-- Roadmap phase `R10`: `in_progress`
+- Roadmap phase `R10`: `passed` for deterministic bounded optimizer/calibration
+  software function
+- Roadmap phase `R11`: `planned` and the next roadmap focus
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -202,15 +204,27 @@ authorize R10 progression; the operator's later continuation instruction
 separately authorizes R10 implementation under the forward software-function
 gate.
 
-R10 is `in_progress` after both exact canonical predecessors, R07 and R09,
-passed. Its start contract freezes the preregistration and deterministic
-fixture, evaluation, and policy catalogs before any R10 run may publish a
-checkpoint or frozen fixture policy. The bounded optimizer/calibration service
-must remain deterministic, finitely bounded, constraint-preserving, resumable,
-transactional, and identity-complete. This start is implementation authority,
-not phase acceptance or production Auto authority.
+R10 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its functional receipt and phase-acceptance record bind
+implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+persistence tests with zero failures and zero skips. The accepted run evaluated
+nine candidates, scored three, rejected six, published ten content-addressed
+checkpoints, selected `fixture-valid-alpha`, and passed typed reopening against
+the exact evaluation catalog. The proof covers finite bounds, six independent
+constraints, deterministic ordering and tie-breaking, exact checkpoint/resume,
+transactional failure and cancellation, tamper and path-escape rejection,
+concurrent idempotent publication, read-only sealing, and complete frozen
+fixture-policy identity.
 
-The later R11 control boundary follows the same software-function rule. R11
+Comparison, A/B, and superiority testing were not run and are not required.
+Hardware, simulator, and operator-observed execution remain `not_observed`.
+Fixture-policy evidence publication is authorized; production Auto, holdout,
+product publication, quality or performance claims, and release remain
+unauthorized.
+
+R11 remains `planned` as the next roadmap focus and follows the same
+software-function rule. R11
 must implement traceable evidence and claim-scope machinery, reject unsupported
 claims, and emit an honest no-claim disposition by default. Any
 `market_leading_claim` remains separately blocked without exact evidence and

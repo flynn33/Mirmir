@@ -4,10 +4,13 @@
 
 ## R10 bounded optimizer/calibration
 
-R10 is `in_progress` after its exact predecessors R07 and R09 passed. New R10
-code may reuse deterministic implementation patterns from this directory, but
-only through R10-owned contracts and commands. The retired P06/P07 entry points
-remain fail-closed and carry no R10 execution or acceptance authority.
+R10 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its receipt and phase-acceptance record bind implementation
+commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+persistence tests with zero failures and zero skips. The accepted run evaluated
+nine candidates, scored three, rejected six, published ten content-addressed
+checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
 
 The R10 start contract freezes these four records before a run may publish a
 checkpoint or frozen fixture policy:
@@ -19,10 +22,13 @@ checkpoint or frozen fixture policy:
 
 The bounded optimizer and persistence modules are offline development,
 calibration, evidence, and test tooling. They are not linked into `Mirmir.app`.
-The phase start does not claim acceptance or authorize production Auto,
-holdout access, native execution, product qualification, quality/performance
-claims, publication, or release. Comparative methods remain outside the
-forward roadmap and provide no acceptance authority.
+The retired P06/P07 entry points remain fail-closed and carry no R10 execution
+or acceptance authority. Comparison, A/B, and superiority testing were not run
+and are not required. Hardware, simulator, and operator-observed execution
+remain `not_observed`. Fixture-policy evidence publication is authorized;
+production Auto, holdout access, native execution, product qualification,
+product publication, quality/performance claims, and release remain
+unauthorized. R11 remains `planned` and is the next roadmap focus.
 
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration
