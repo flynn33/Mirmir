@@ -1,0 +1,972 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R12",
+  "evidence_kind": "r12_exact_source_software_function_execution_receipt_v1",
+  "source": {
+    "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+    "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+  },
+  "predecessor_binding": {
+    "phase_id": "R11",
+    "phase_result": "passed",
+    "acceptance_scope": "declared_software_function_only",
+    "accepted_source": {
+      "commit": "75479b9f30511330f2a18b656151dc551292cb1e",
+      "tree": "0dd42ec30b212456223ee582b549de30a0e3416f"
+    },
+    "functional_phase_acceptance": {
+      "path": "docs/roadmaps/evidence/r11/records/functional-phase-acceptance.json",
+      "size_bytes": 2980,
+      "sha256": "66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618"
+    }
+  },
+  "source_bindings": [
+    {
+      "id": "r12_media_format_contract_v2",
+      "path": "Mirmir/Modules/UpscalerEngine/R12MediaFormatContractV2.swift",
+      "size_bytes": 41706,
+      "sha256": "b10278b76f6dcbea803fe5fcb41b1a45a41df9d958630865dd34caf5bcec4514"
+    },
+    {
+      "id": "r12_route_and_hardware_resolver",
+      "path": "Mirmir/Modules/UpscalerEngine/R12RouteAndHardwareResolver.swift",
+      "size_bytes": 41249,
+      "sha256": "79a9059ef6c33a0225c54f1f8f607f47c1500a4a03091965720062b02efaa747"
+    },
+    {
+      "id": "r12_chunk_checkpoint_ledger",
+      "path": "Mirmir/Modules/MediaPipeline/R12ChunkCheckpointLedger.swift",
+      "size_bytes": 81684,
+      "sha256": "18140786d71c7a83a975a5f1659438c2f6a4d9eef66323fcbc812f537f8f1eed"
+    },
+    {
+      "id": "r12_media_format_contract_v2_tests",
+      "path": "MirmirTests/R12MediaFormatContractV2Tests.swift",
+      "size_bytes": 22927,
+      "sha256": "88a3fbfeb5fb84b442057c4df824fa2e1c604acf8430282e85edffb0e03ebe42"
+    },
+    {
+      "id": "r12_route_and_hardware_resolver_tests",
+      "path": "MirmirTests/R12RouteAndHardwareResolverTests.swift",
+      "size_bytes": 51883,
+      "sha256": "3a37d33e8f719c57771a96682ab0516542b9bac753cfd66ea93bbf113e8e8ee6"
+    },
+    {
+      "id": "r12_chunk_checkpoint_ledger_tests",
+      "path": "MirmirTests/R12ChunkCheckpointLedgerTests.swift",
+      "size_bytes": 110994,
+      "sha256": "645d6a087f9caae9b641d972d845ebf121552b55ef9789f9eea7b00ed8b64b4e"
+    },
+    {
+      "id": "xcode_project",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "size_bytes": 211604,
+      "sha256": "5257ccff346fd79b3957accea14aaff96b1c04100cea659e9a08b4c551975745"
+    },
+    {
+      "id": "r12_phase_acceptance_validator",
+      "path": "Scripts/r12_phase_acceptance.py",
+      "size_bytes": 114425,
+      "sha256": "88dd0b8223a7c9ba4955dd43e0aa6b17bdd53794aa158bd0c9566a7568703903"
+    },
+    {
+      "id": "r12_phase_acceptance_validator_tests",
+      "path": "Scripts/tests/test_r12_phase_acceptance.py",
+      "size_bytes": 55039,
+      "sha256": "5638c3711d3fcd6f31087add2745aa83f8993c6f4d6fd7759c9f21f85766a64c"
+    },
+    {
+      "id": "r12_functional_execution_receipt_schema",
+      "path": "docs/roadmaps/evidence/schema/r12-functional-execution-receipt-v1.json",
+      "size_bytes": 13240,
+      "sha256": "0a98e1cbf4131a44e5290df3d471d1a65b071a281e65a52c39d4b4049a452808"
+    },
+    {
+      "id": "r12_functional_phase_acceptance_schema",
+      "path": "docs/roadmaps/evidence/schema/r12-functional-phase-acceptance-v1.json",
+      "size_bytes": 5129,
+      "sha256": "d2237e99c0133bfa03e9eaa364a1fe9cb4b2b38e892bb01478f23e8aed81f672"
+    }
+  ],
+  "artifact_bindings": [
+    {
+      "id": "build_for_testing_log",
+      "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/build-for-testing.log",
+      "size_bytes": 360894,
+      "sha256": "b9979c1db685aceddedda9e6f5e316522be9eda994ad229eb385959096e225f4"
+    },
+    {
+      "id": "targeted_xctest_log",
+      "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/targeted-xctest.log",
+      "size_bytes": 30475,
+      "sha256": "c83310bf94febab2b1f0b7a38f4d7a998f20e31d9c70db5fc855c2d41c41a793"
+    },
+    {
+      "id": "swiftlint_log",
+      "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/swiftlint.log",
+      "size_bytes": 18730,
+      "sha256": "6ebf588503a16ec475e17aca428d7ef7f149a685c67f561c248e94f3fd599990"
+    }
+  ],
+  "commands": {
+    "build_for_testing": "xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath <outside-repository> -disableAutomaticPackageResolution R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree> EXCLUDED_SOURCE_FILE_NAMES=*.metal",
+    "targeted_tests": "xcodebuild test-without-building -xctestrun <checkpoint-build.xctestrun> -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree>",
+    "swiftlint": "swiftlint lint --strict --no-cache"
+  },
+  "execution_identities": {
+    "build_for_testing": {
+      "argv": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
+        "build-for-testing",
+        "-project",
+        "Mirmir.xcodeproj",
+        "-scheme",
+        "Mirmir",
+        "-configuration",
+        "Debug",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-derivedDataPath",
+        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-54skz0a2/DerivedData",
+        "-disableAutomaticPackageResolution",
+        "R12_ACCEPTANCE_SOURCE_COMMIT=cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "R12_ACCEPTANCE_SOURCE_TREE=aa69f1bda79f2b5abefd81ea17848896557be999",
+        "EXCLUDED_SOURCE_FILE_NAMES=*.metal"
+      ],
+      "checkpoint": {
+        "clean_after": true,
+        "clean_before": true,
+        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "kind": "detached_clean_exact_git_checkpoint",
+        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
+        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "command": "xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath <outside-repository> -disableAutomaticPackageResolution R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree> EXCLUDED_SOURCE_FILE_NAMES=*.metal",
+      "command_id": "build_for_testing",
+      "exit_code": 0,
+      "source": {
+        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "tool": {
+        "executable_path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
+        "executable_sha256": "d8601086e5c80e9f46664d884ce1f661f8b6fbdf5523b24050bbae792dc15d82",
+        "name": "xcodebuild",
+        "version": "Xcode 26.2\nBuild version 17C52"
+      }
+    },
+    "targeted_tests": {
+      "argv": [
+        "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
+        "test-without-building",
+        "-xctestrun",
+        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-54skz0a2/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun",
+        "-destination",
+        "platform=macOS,arch=arm64",
+        "-only-testing:MirmirTests/R12MediaFormatContractV2Tests",
+        "-only-testing:MirmirTests/R12RouteAndHardwareResolverTests",
+        "-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests",
+        "R12_ACCEPTANCE_SOURCE_COMMIT=cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "R12_ACCEPTANCE_SOURCE_TREE=aa69f1bda79f2b5abefd81ea17848896557be999"
+      ],
+      "checkpoint": {
+        "clean_after": true,
+        "clean_before": true,
+        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "kind": "detached_clean_exact_git_checkpoint",
+        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
+        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "command": "xcodebuild test-without-building -xctestrun <checkpoint-build.xctestrun> -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree>",
+      "command_id": "targeted_tests",
+      "exit_code": 0,
+      "source": {
+        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "tool": {
+        "executable_path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
+        "executable_sha256": "d8601086e5c80e9f46664d884ce1f661f8b6fbdf5523b24050bbae792dc15d82",
+        "name": "xcodebuild",
+        "version": "Xcode 26.2\nBuild version 17C52"
+      }
+    },
+    "swiftlint": {
+      "argv": [
+        "/opt/homebrew/Cellar/swiftlint/0.63.2/bin/swiftlint",
+        "lint",
+        "--strict",
+        "--no-cache"
+      ],
+      "checkpoint": {
+        "clean_after": true,
+        "clean_before": true,
+        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "kind": "detached_clean_exact_git_checkpoint",
+        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
+        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "command": "swiftlint lint --strict --no-cache",
+      "command_id": "swiftlint",
+      "exit_code": 0,
+      "source": {
+        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+      },
+      "tool": {
+        "executable_path": "/opt/homebrew/Cellar/swiftlint/0.63.2/bin/swiftlint",
+        "executable_sha256": "b6598e7642ce5e39b203c2b83471a4719aecc663ce297e45fd4f5eea6c724c1c",
+        "name": "swiftlint",
+        "version": "0.63.2"
+      }
+    }
+  },
+  "verification": {
+    "build_for_testing": {
+      "status": "passed"
+    },
+    "targeted_tests": {
+      "selected_test_count": 85,
+      "passed_test_count": 85,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "suite_counts": [
+        {
+          "suite": "R12MediaFormatContractV2Tests",
+          "passed_test_count": 15
+        },
+        {
+          "suite": "R12RouteAndHardwareResolverTests",
+          "passed_test_count": 25
+        },
+        {
+          "suite": "R12ChunkCheckpointLedgerTests",
+          "passed_test_count": 45
+        }
+      ]
+    },
+    "swiftlint": {
+      "status": "passed",
+      "violation_count": 0,
+      "serious_violation_count": 0,
+      "linted_file_count": 340
+    }
+  },
+  "contract_coverage": [
+    {
+      "contract_id": "format.fixture_catalog_covers_declared_expansion_without_native_authority",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testFixtureCatalogCoversDeclaredExpansionWithoutNativeAuthority",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.metadata_and_structural_quality_contracts_are_explicit",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testMetadataAndStructuralQualityContractsAreExplicit",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.storage_depth_and_subsampling_cross_products_are_rejected_exactly",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testStorageDepthAndSubsamplingCrossProductsAreRejectedExactly",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.color_matrix_and_hdr_bit_depth_are_validated",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testColorMatrixAndHDRBitDepthAreValidated",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.chroma_siting_and_subsampled_dimensions_are_exact",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testChromaSitingAndSubsampledDimensionsAreExact",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.scan_and_deinterlace_policy_cannot_contradict_one_another",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testScanAndDeinterlacePolicyCannotContradictOneAnother",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.alpha_requires_explicit_planar444_storage_and_quality_preservation",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testAlphaRequiresExplicitPlanar444StorageAndQualityPreservation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.metadata_rules_reject_silent_hdr_and_subtitle_loss",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testMetadataRulesRejectSilentHDRAndSubtitleLoss",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.every_metadata_invariant_rejects_a_contradictory_rule",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testEveryMetadataInvariantRejectsAContradictoryRule",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.every_constructible_structural_weakening_is_rejected",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testEveryConstructibleStructuralWeakeningIsRejected",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.evidence_factories_prevent_fixture_promotion_to_native_observation",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testEvidenceFactoriesPreventFixturePromotionToNativeObservation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.backend_capability_is_exact_sorted_and_evidence_bound",
+      "contract_areas": [
+        "format",
+        "backend"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testBackendCapabilityIsExactSortedAndEvidenceBound",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.backend_capability_rejects_evidence_promotion_and_unsupported_format",
+      "contract_areas": [
+        "format",
+        "backend"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testBackendCapabilityRejectsEvidencePromotionAndUnsupportedFormat",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.canonical_contract_carries_only_non_authorizing_boundaries",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testCanonicalContractCarriesOnlyNonAuthorizingBoundaries",
+      "status": "passed"
+    },
+    {
+      "contract_id": "format.v2_is_additive_and_historical_v1_bytes_still_reopen_exactly",
+      "contract_areas": [
+        "format"
+      ],
+      "test_identifier": "MirmirTests.R12MediaFormatContractV2Tests.testV2IsAdditiveAndHistoricalV1BytesStillReopenExactly",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.exact_scale_derivation_reduces_without_floating_point_approximation",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testExactScaleDerivationReducesWithoutFloatingPointApproximation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.scale_derivation_rejects_non_uniform_and_nonpositive_factors",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testScaleDerivationRejectsNonUniformAndNonpositiveFactors",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.resolution_bounds_validate_ranges_alignments_and_boundaries",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testResolutionBoundsValidateRangesAlignmentsAndBoundaries",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.resolution_bounds_are_exact_at_limits_and_safe_near_integer_overflow",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testResolutionBoundsAreExactAtLimitsAndSafeNearIntegerOverflow",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.hardware_profile_canonicalizes_explicit_routes_and_rejects_duplicates",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testHardwareProfileCanonicalizesExplicitRoutesAndRejectsDuplicates",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.host_and_receipt_identities_fail_closed",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testHostAndReceiptIdentitiesFailClosed",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_rejects_made_up_tampered_and_noncanonical_bytes",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptRejectsMadeUpTamperedAndNoncanonicalBytes",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_file_loader_rejects_symlink_substitution",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptFileLoaderRejectsSymlinkSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_file_loader_rejects_symlinked_ancestor",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptFileLoaderRejectsSymlinkedAncestor",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_file_loader_rejects_preexisting_oversized_file",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptFileLoaderRejectsPreexistingOversizedFile",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_read_rejects_growth_after_descriptor_open",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptReadRejectsGrowthAfterDescriptorOpen",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_read_rejects_leaf_rename_after_descriptor_open",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptReadRejectsLeafRenameAfterDescriptorOpen",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_read_rejects_ancestor_substitution_after_open",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptReadRejectsAncestorSubstitutionAfterOpen",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.deterministic_fixture_selects_only_deterministic_contract_authority",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testDeterministicFixtureSelectsOnlyDeterministicContractAuthority",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.resolver_enforces_source_and_target_range_and_alignment_bounds",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testResolverEnforcesSourceAndTargetRangeAndAlignmentBounds",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.native_route_without_observation_is_unavailable",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testNativeRouteWithoutObservationIsUnavailable",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.canonical_receipt_integrity_does_not_claim_external_observation",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testCanonicalReceiptIntegrityDoesNotClaimExternalObservation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.every_native_observation_binding_mismatch_is_rejected",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testEveryNativeObservationBindingMismatchIsRejected",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.fixture_context_cannot_authorize_native_even_with_a_receipt",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testFixtureContextCannotAuthorizeNativeEvenWithAReceipt",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.fallback_ordering_is_stable_and_records_every_inspected_route",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testFallbackOrderingIsStableAndRecordsEveryInspectedRoute",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.hardware_profile_availability_precedes_route_claims",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testHardwareProfileAvailabilityPrecedesRouteClaims",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.native_requirement_rejects_deterministic_format_or_backend_evidence",
+      "contract_areas": [
+        "route",
+        "backend"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testNativeRequirementRejectsDeterministicFormatOrBackendEvidence",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.native_route_rejects_repeated_character_observation_hash",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testNativeRouteRejectsRepeatedCharacterObservationHash",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.duplicate_and_out_of_scope_native_evidence_is_rejected",
+      "contract_areas": [
+        "route"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testDuplicateAndOutOfScopeNativeEvidenceIsRejected",
+      "status": "passed"
+    },
+    {
+      "contract_id": "route.duplicate_catalog_facts_and_backend_format_mismatch_are_rejected",
+      "contract_areas": [
+        "route",
+        "backend"
+      ],
+      "test_identifier": "MirmirTests.R12RouteAndHardwareResolverTests.testDuplicateCatalogFactsAndBackendFormatMismatchAreRejected",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.interrupted_and_uninterrupted_execution_produce_identical_ledger",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testInterruptedAndUninterruptedExecutionProduceIdenticalLedger",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.safe_boundary_requires_sync_progress_single_video_and_unique_tracks",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testSafeBoundaryRequiresSyncProgressSingleVideoAndUniqueTracks",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.header_requires_unique_single_video_track_layout",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testHeaderRequiresUniqueSingleVideoTrackLayout",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.first_checkpoint_must_match_declared_track_layout",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testFirstCheckpointMustMatchDeclaredTrackLayout",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.time_and_video_continuity_and_first_chunk_offset_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testTimeAndVideoContinuityAndFirstChunkOffsetReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.track_layout_and_per_track_watermark_regression_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testTrackLayoutAndPerTrackWatermarkRegressionReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.stale_head_and_source_identity_drift_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testStaleHeadAndSourceIdentityDriftReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.exclusive_lock_serializes_competing_store_heads",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testExclusiveLockSerializesCompetingStoreHeads",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.sealed_artifact_mutation_and_missing_file_reject_on_reopen",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testSealedArtifactMutationAndMissingFileRejectOnReopen",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.symlink_hardlink_and_path_escape_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testSymlinkHardlinkAndPathEscapeReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.root_and_intermediate_directory_symlink_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testRootAndIntermediateDirectorySymlinkReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.ledger_symlink_and_hardlink_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testLedgerSymlinkAndHardlinkReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.tampered_and_noncanonical_ledger_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testTamperedAndNoncanonicalLedgerReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.canonical_but_semantically_unsafe_boundary_rejects",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCanonicalButSemanticallyUnsafeBoundaryRejects",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.canonical_unknown_field_rejects",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCanonicalUnknownFieldRejects",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.record_previous_hash_record_hash_and_ledger_head_tampering_reject",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testRecordPreviousHashRecordHashAndLedgerHeadTamperingReject",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.atomic_replacement_failure_leaves_last_cursor_reopenable",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testAtomicReplacementFailureLeavesLastCursorReopenable",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.resume_cursor_round_trips_all_track_watermarks_and_backend_state",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testResumeCursorRoundTripsAllTrackWatermarksAndBackendState",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.backend_state_must_continue_from_prior_resume_state",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testBackendStateMustContinueFromPriorResumeState",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.canonical_backend_start_state_tamper_rejects",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCanonicalBackendStartStateTamperRejects",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.artifact_policy_boundary_is_independent_from_ledger_limit",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testArtifactPolicyBoundaryIsIndependentFromLedgerLimit",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.append_reads_only_ledger_and_new_artifact_not_history",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testAppendReadsOnlyLedgerAndNewArtifactNotHistory",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.verified_bytes_are_owned_before_external_substitution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testVerifiedBytesAreOwnedBeforeExternalSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.verifier_rejects_malformed_mismatched_and_non_sync_envelopes",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testVerifierRejectsMalformedMismatchedAndNonSyncEnvelopes",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.verifier_rejects_canonical_artifact_hash_substitution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testVerifierRejectsCanonicalArtifactHashSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.directory_sync_failure_rolls_back_to_previous_ledger_head",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testDirectorySyncFailureRollsBackToPreviousLedgerHead",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.descriptor_read_rejects_pre_open_and_post_read_path_substitution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testDescriptorReadRejectsPreOpenAndPostReadPathSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.replace_rejects_pre_swap_path_substitution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testReplaceRejectsPreSwapPathSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.replace_rejects_post_read_temporary_content_mutation",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testReplaceRejectsPostReadTemporaryContentMutation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.post_swap_identity_substitution_rolls_back_prior_destination",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testPostSwapIdentitySubstitutionRollsBackPriorDestination",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.create_publishes_one_link_and_sync_failure_removes_destination",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCreatePublishesOneLinkAndSyncFailureRemovesDestination",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.failed_swap_back_preserves_prior_ledger_recovery_entry",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testFailedSwapBackPreservesPriorLedgerRecoveryEntry",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.create_rejects_temporary_and_destination_substitution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCreateRejectsTemporaryAndDestinationSubstitution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.ensure_directory_rolls_back_and_closes_on_every_creation_sync_failure",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testEnsureDirectoryRollsBackAndClosesOnEveryCreationSyncFailure",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.canonical_artifact_construction_rejects_before_unbounded_encoding",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testCanonicalArtifactConstructionRejectsBeforeUnboundedEncoding",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.pinned_transaction_rejects_out_of_root_without_descriptor_leak",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testPinnedTransactionRejectsOutOfRootWithoutDescriptorLeak",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.pinned_root_replacement_during_create_commits_neither_root",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testPinnedRootReplacementDuringCreateCommitsNeitherRoot",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.pinned_root_replacement_during_append_rolls_back_original_ledger",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testPinnedRootReplacementDuringAppendRollsBackOriginalLedger",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.pinned_root_replacement_during_reopen_fails_without_mutation",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testPinnedRootReplacementDuringReopenFailsWithoutMutation",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.lock_path_replacement_rolls_back_pinned_transaction",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testLockPathReplacementRollsBackPinnedTransaction",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.maximum_ledger_override_cannot_widen_production_read_cap",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testMaximumLedgerOverrideCannotWidenProductionReadCap",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.ledger_limit_rejects_create_and_append_before_publication",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testLedgerLimitRejectsCreateAndAppendBeforePublication",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.configured_root_symlink_is_rejected_without_resolution",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testConfiguredRootSymlinkIsRejectedWithoutResolution",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.verification_scope_is_deterministic_envelope_not_native_media",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testVerificationScopeIsDeterministicEnvelopeNotNativeMedia",
+      "status": "passed"
+    },
+    {
+      "contract_id": "resume.orphan_and_unsealed_chunks_do_not_advance_ledger",
+      "contract_areas": [
+        "resume"
+      ],
+      "test_identifier": "MirmirTests.R12ChunkCheckpointLedgerTests.testOrphanAndUnsealedChunksDoNotAdvanceLedger",
+      "status": "passed"
+    }
+  ],
+  "acceptance_basis": "software_does_what_it_says_it_does",
+  "observations": {
+    "native_hardware": "not_observed",
+    "simulator": "not_observed",
+    "operator": "not_observed",
+    "nonblocking_for_software_function_acceptance": true
+  },
+  "claim_boundary": {
+    "claim_scope": "software_behavior_report",
+    "product_qualification": "not_authorized",
+    "production_auto_mode": "not_authorized",
+    "market_disposition": "no_market_claim",
+    "release_publication": "not_authorized"
+  },
+  "comparison_policy": {
+    "comparison_method": "absent_not_required",
+    "ab_test": "absent_not_required",
+    "acceptance_dependency": "none"
+  },
+  "limitations": [
+    "R12 evidence proves only the checkpointed format, route, backend, and resume software contracts exercised by the targeted XCTest inventory.",
+    "Expanded P010, HDR, BT.2020, 4:2:2, 4:4:4, interlace, alpha, subtitle, and metadata cases are deterministic contract simulations; R12 does not claim that the production AVFoundation pipeline or A11 backend processes those formats.",
+    "Native hardware, simulator, and operator-observed execution were not observed and are nonblocking for this software-function acceptance.",
+    "No comparative, A/B, superiority, or historical product-comparison method was run or required.",
+    "Product qualification, production Auto, market claims, release publication, and product publication are not authorized by R12.",
+    "Artifact logs are generated mode 0400; Git may materialize committed artifacts mode 0644, while exact bytes, hashes, no-follow reads, and single-link identities remain required."
+  ]
+}
