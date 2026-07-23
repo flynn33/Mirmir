@@ -4,8 +4,8 @@
   "phase_id": "R12",
   "evidence_kind": "r12_exact_source_software_function_execution_receipt_v1",
   "source": {
-    "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-    "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+    "commit": "8b080b8c650a90886b4636625755341458c7c1d1",
+    "tree": "10f3f3db51daf811d817283742090c661dba59f9"
   },
   "predecessor_binding": {
     "phase_id": "R11",
@@ -73,8 +73,8 @@
     {
       "id": "r12_phase_acceptance_validator_tests",
       "path": "Scripts/tests/test_r12_phase_acceptance.py",
-      "size_bytes": 55039,
-      "sha256": "5638c3711d3fcd6f31087add2745aa83f8993c6f4d6fd7759c9f21f85766a64c"
+      "size_bytes": 56545,
+      "sha256": "a845abe4146bbc6c5d335bfdf27f0ac49d8d5e32720c0a662066ef31b226c13e"
     },
     {
       "id": "r12_functional_execution_receipt_schema",
@@ -93,20 +93,20 @@
     {
       "id": "build_for_testing_log",
       "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/build-for-testing.log",
-      "size_bytes": 360894,
-      "sha256": "b9979c1db685aceddedda9e6f5e316522be9eda994ad229eb385959096e225f4"
+      "size_bytes": 360895,
+      "sha256": "9d6acb529d7ba9d0c4713f0409244448593683a8f69f2031c659e90980f0cffb"
     },
     {
       "id": "targeted_xctest_log",
       "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/targeted-xctest.log",
       "size_bytes": 30475,
-      "sha256": "c83310bf94febab2b1f0b7a38f4d7a998f20e31d9c70db5fc855c2d41c41a793"
+      "sha256": "c0f6cd2cafb8747f0ec73dc6ab18dd9400ebd9b8a238f1651b1f573cdac82bbe"
     },
     {
       "id": "swiftlint_log",
       "path": "docs/roadmaps/evidence/r12/records/artifacts/functional-phase-acceptance/swiftlint.log",
       "size_bytes": 18730,
-      "sha256": "6ebf588503a16ec475e17aca428d7ef7f149a685c67f561c248e94f3fd599990"
+      "sha256": "9fec54d443bd717f3a9faaa5ab1ce2c3cf621d4aee57fc95ae10221d02ce30a3"
     }
   ],
   "commands": {
@@ -128,27 +128,27 @@
         "-destination",
         "platform=macOS,arch=arm64",
         "-derivedDataPath",
-        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-54skz0a2/DerivedData",
+        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-x_24vd4j/DerivedData",
         "-disableAutomaticPackageResolution",
-        "R12_ACCEPTANCE_SOURCE_COMMIT=cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "R12_ACCEPTANCE_SOURCE_TREE=aa69f1bda79f2b5abefd81ea17848896557be999",
+        "R12_ACCEPTANCE_SOURCE_COMMIT=8b080b8c650a90886b4636625755341458c7c1d1",
+        "R12_ACCEPTANCE_SOURCE_TREE=10f3f3db51daf811d817283742090c661dba59f9",
         "EXCLUDED_SOURCE_FILE_NAMES=*.metal"
       ],
       "checkpoint": {
         "clean_after": true,
         "clean_before": true,
-        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_after": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "commit_before": "8b080b8c650a90886b4636625755341458c7c1d1",
         "kind": "detached_clean_exact_git_checkpoint",
-        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
-        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "tree_after": "10f3f3db51daf811d817283742090c661dba59f9",
+        "tree_before": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "command": "xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath <outside-repository> -disableAutomaticPackageResolution R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree> EXCLUDED_SOURCE_FILE_NAMES=*.metal",
       "command_id": "build_for_testing",
       "exit_code": 0,
       "source": {
-        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "commit": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "tree": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "tool": {
         "executable_path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
@@ -162,30 +162,30 @@
         "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
         "test-without-building",
         "-xctestrun",
-        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-54skz0a2/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun",
+        "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-x_24vd4j/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun",
         "-destination",
         "platform=macOS,arch=arm64",
         "-only-testing:MirmirTests/R12MediaFormatContractV2Tests",
         "-only-testing:MirmirTests/R12RouteAndHardwareResolverTests",
         "-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests",
-        "R12_ACCEPTANCE_SOURCE_COMMIT=cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "R12_ACCEPTANCE_SOURCE_TREE=aa69f1bda79f2b5abefd81ea17848896557be999"
+        "R12_ACCEPTANCE_SOURCE_COMMIT=8b080b8c650a90886b4636625755341458c7c1d1",
+        "R12_ACCEPTANCE_SOURCE_TREE=10f3f3db51daf811d817283742090c661dba59f9"
       ],
       "checkpoint": {
         "clean_after": true,
         "clean_before": true,
-        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_after": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "commit_before": "8b080b8c650a90886b4636625755341458c7c1d1",
         "kind": "detached_clean_exact_git_checkpoint",
-        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
-        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "tree_after": "10f3f3db51daf811d817283742090c661dba59f9",
+        "tree_before": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "command": "xcodebuild test-without-building -xctestrun <checkpoint-build.xctestrun> -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree>",
       "command_id": "targeted_tests",
       "exit_code": 0,
       "source": {
-        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "commit": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "tree": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "tool": {
         "executable_path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
@@ -204,18 +204,18 @@
       "checkpoint": {
         "clean_after": true,
         "clean_before": true,
-        "commit_after": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "commit_before": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
+        "commit_after": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "commit_before": "8b080b8c650a90886b4636625755341458c7c1d1",
         "kind": "detached_clean_exact_git_checkpoint",
-        "tree_after": "aa69f1bda79f2b5abefd81ea17848896557be999",
-        "tree_before": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "tree_after": "10f3f3db51daf811d817283742090c661dba59f9",
+        "tree_before": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "command": "swiftlint lint --strict --no-cache",
       "command_id": "swiftlint",
       "exit_code": 0,
       "source": {
-        "commit": "cc3859db091df314581bbd4bfa4ce9d2a508e116",
-        "tree": "aa69f1bda79f2b5abefd81ea17848896557be999"
+        "commit": "8b080b8c650a90886b4636625755341458c7c1d1",
+        "tree": "10f3f3db51daf811d817283742090c661dba59f9"
       },
       "tool": {
         "executable_path": "/opt/homebrew/Cellar/swiftlint/0.63.2/bin/swiftlint",
