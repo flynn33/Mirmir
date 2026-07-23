@@ -66,7 +66,10 @@ def _copy_file(source_root: Path, target_root: Path, relative: Path) -> None:
 
 def _unittest_log(identifiers: tuple[str, ...]) -> bytes:
     lines = [
-        f"{identifier.rsplit('.', 1)[-1]} ({identifier}) ... ok"
+        (
+            f"{identifier.rsplit('.', 1)[-1]} "
+            f"({identifier.rsplit('.', 1)[0]}) ... ok"
+        )
         for identifier in identifiers
     ]
     lines.extend(
@@ -298,8 +301,8 @@ class R10PhaseAcceptanceTests(unittest.TestCase):
             valid.replace(b"Ran 39 tests", b"Ran 38 tests"),
             valid.replace(b"\nOK\n", b"\nFAILED (failures=1)\n"),
             valid.replace(
-                identifiers[0].encode("utf-8"),
-                b"forged.module.Test.test_forged",
+                identifiers[0].rsplit(".", 1)[0].encode("utf-8"),
+                b"forged.module.Test",
                 1,
             ),
         ):

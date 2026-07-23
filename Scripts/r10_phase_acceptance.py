@@ -1493,10 +1493,8 @@ class R10PhaseAcceptanceVerifier:
         for line in text.splitlines():
             result = _TEST_RESULT_PATTERN.fullmatch(line)
             if result is not None:
-                method, identifier, status_value = result.groups()
-                if identifier.rsplit(".", 1)[-1] != method:
-                    errors.append("R10 unittest log method/identifier differs")
-                observed.append(identifier)
+                method, container, status_value = result.groups()
+                observed.append(f"{container}.{method}")
                 statuses.append(status_value)
             summary = _RUN_SUMMARY_PATTERN.fullmatch(line)
             if summary is not None:
