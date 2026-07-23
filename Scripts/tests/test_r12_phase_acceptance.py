@@ -1534,6 +1534,8 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
             for error in current_errors
             if error.startswith("INCOMPLETE: ")
         )
+        if not current_errors:
+            expected_stdout = "R12 functional phase acceptance: PASS\n"
         expected_stderr = "".join(
             f"ERROR: {error}\n"
             for error in current_errors
