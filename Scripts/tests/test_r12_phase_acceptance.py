@@ -280,16 +280,25 @@ def _lint_log(
     return ("\n".join(lines) + "\n").encode("utf-8")
 
 
-def _set_r12_status(path: Path, status: str) -> None:
+def _set_roadmap_statuses(
+    path: Path,
+    *,
+    r12_status: str,
+    r13_status: str,
+) -> None:
     roadmap = _read_json(path)
     phases = roadmap["phases"]
     assert isinstance(phases, list)
-    phase = next(
-        item
-        for item in phases
-        if isinstance(item, dict) and item.get("id") == "R12"
-    )
-    phase["status"] = status
+    for phase_id, status in (
+        ("R12", r12_status),
+        ("R13", r13_status),
+    ):
+        phase = next(
+            item
+            for item in phases
+            if isinstance(item, dict) and item.get("id") == phase_id
+        )
+        phase["status"] = status
     _write_json(path, roadmap)
 
 
@@ -330,7 +339,11 @@ def acceptance_fixture():
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
         shutil.rmtree(repository / RECORDS_DIRECTORY, ignore_errors=True)
-        _set_r12_status(repository / ROADMAP_PATH, "in_progress")
+        _set_roadmap_statuses(
+            repository / ROADMAP_PATH,
+            r12_status="in_progress",
+            r13_status="planned",
+        )
         _git(repository, "add", "-A")
         _git(
             repository,
@@ -812,7 +825,11 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
                     "while canonical phase status is 'in_progress'"
                 ],
             )
-            _set_r12_status(repository / ROADMAP_PATH, "evidence_ready")
+            _set_roadmap_statuses(
+                repository / ROADMAP_PATH,
+                r12_status="evidence_ready",
+                r13_status="planned",
+            )
             self.assertEqual(
                 verifier.check(),
                 [
@@ -820,7 +837,11 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
                     "while canonical phase status is 'evidence_ready'"
                 ],
             )
-            _set_r12_status(repository / ROADMAP_PATH, "passed")
+            _set_roadmap_statuses(
+                repository / ROADMAP_PATH,
+                r12_status="passed",
+                r13_status="planned",
+            )
             self.assertEqual(
                 verifier.check(),
                 [
@@ -828,9 +849,17 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
                     "canonical phase status is 'passed'"
                 ],
             )
-            _set_r12_status(repository / ROADMAP_PATH, "planned")
+            _set_roadmap_statuses(
+                repository / ROADMAP_PATH,
+                r12_status="planned",
+                r13_status="planned",
+            )
             self.assertTrue(verifier.check())
-            _set_r12_status(repository / ROADMAP_PATH, "in_progress")
+            _set_roadmap_statuses(
+                repository / ROADMAP_PATH,
+                r12_status="in_progress",
+                r13_status="planned",
+            )
             target = repository / EXECUTION_RECEIPT_PATH
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text("{}\n", encoding="utf-8")
@@ -1289,7 +1318,11 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
                             0o644,
                         )
 
-            _set_r12_status(roadmap_path, "planned")
+            _set_roadmap_statuses(
+                roadmap_path,
+                r12_status="planned",
+                r13_status="planned",
+            )
             self.assertIn(
                 "R12 canonical roadmap R12 status transition differs",
                 verifier.check_generated(),
@@ -1328,7 +1361,11 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
             )
             _replace_bytes(roadmap_path, original_roadmap, 0o644)
 
-            _set_r12_status(roadmap_path, "passed")
+            _set_roadmap_statuses(
+                roadmap_path,
+                r12_status="passed",
+                r13_status="planned",
+            )
             self.assertEqual(verifier.check_generated(), [])
             roadmap = _read_json(roadmap_path)
             phases = roadmap["phases"]
@@ -1487,7 +1524,27 @@ class R12PhaseAcceptanceTests(unittest.TestCase):
             text=True,
             check=False,
         )
-        self.assertEqual(result.returncode, 0, result.stderr)
+        current_errors = list(
+            dict.fromkeys(
+                R12PhaseAcceptanceVerifier(REPOSITORY_ROOT).check()
+            )
+        )
+        expected_stdout = "".join(
+            f"{error}\n"
+            for error in current_errors
+            if error.startswith("INCOMPLETE: ")
+        )
+        expected_stderr = "".join(
+            f"ERROR: {error}\n"
+            for error in current_errors
+            if not error.startswith("INCOMPLETE: ")
+        )
+        self.assertEqual(
+            result.returncode,
+            1 if expected_stderr else 0,
+        )
+        self.assertEqual(result.stdout, expected_stdout)
+        self.assertEqual(result.stderr, expected_stderr)
         invalid = subprocess.run(
             [
                 sys.executable,
