@@ -300,10 +300,10 @@
       "depends_on": [
         "R10"
       ],
-      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits an honest no-market-claim disposition by default",
+      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits no_market_claim unconditionally while production_auto_mode and market_leading_claim remain blocked",
       "id": "R11",
       "name": "Evidence traceability and claim boundary",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [

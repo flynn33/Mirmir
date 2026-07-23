@@ -41,7 +41,7 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 **Current roadmap focus:** `R11` — Evidence traceability and claim boundary
 
-**Current phase status:** `R11` — `planned`; implementation has not started.
+**Current phase status:** `R11` — `in_progress`; acceptance is not claimed.
 
 **Latest phase acceptance:** `R10` — `passed`, limited to
 `declared_software_function_only` under deterministic fixture simulation.
@@ -53,21 +53,30 @@ persistence tests with zero failures and zero skips. The accepted run evaluated
 nine candidates, scored three, rejected six, published ten content-addressed
 checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
 
-**Authorization boundary:** fixture-policy evidence publication is authorized.
-Production Auto, holdout access, native execution, product qualification,
-product publication, quality/performance claims, and release remain
-unauthorized. Comparison, A/B, and superiority testing were not run and are not
-required. Hardware, simulator, and operator-observed execution remain
-`not_observed`. R11 remains `planned` and is the next roadmap focus.
+**R11 start contract:** the exact predecessor R10 is `passed`. The R11
+preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact functional
+execution and acceptance records. The required start records are the R11
+preregistration and deterministic fixture catalog.
+
+**Authorization boundary:** R11 deterministic traceability and claim-boundary
+implementation and fixture testing are authorized; functional acceptance
+evidence remains dormant. Every R11 disposition is `no_market_claim`.
+`production_auto_mode` and `market_leading_claim` remain blocked. Comparative
+and A/B methods are absent, not required, and non-authorizing. Product
+publication and release remain unauthorized.
 
 <!-- BEGIN ROADMAP PROGRESS -->
 **Overall:** `11 / 14` roadmap phases passed (`79%`)
 
 `[#######---]`
 
-**Status:** ✅ Passed `11` · ⬜ Planned `3`
+**Status:** ✅ Passed `11` · 🔄 In progress `1` · ⬜ Planned `2`
 
-**Current focus:** No phase is marked `next`, `in_progress`, or `evidence_ready`.
+**Current focus:** `R11` — Evidence traceability and claim boundary
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -82,7 +91,7 @@ required. Hardware, simulator, and operator-observed execution remain
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
 | `R10` | Auto-policy optimization and bounded calibration | `passed` | ✅ Passed |
-| `R11` | Evidence traceability and claim boundary | `planned` | ⬜ Planned |
+| `R11` | Evidence traceability and claim boundary | `in_progress` | 🔄 In progress |
 | `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
 | `R13` | Release hardening | `planned` | ⬜ Planned |
 <!-- END ROADMAP PROGRESS -->
@@ -1509,8 +1518,8 @@ Physical hardware, Apple simulator, and operator-observed execution remain
 
 Fixture-policy evidence publication is authorized by this acceptance.
 Production Auto, holdout, product publication, quality or performance claims,
-and release remain `not_authorized`. R11 remains `planned` and is the next
-roadmap focus.
+and release remain `not_authorized`. The later R11 start records bind this
+accepted evidence without broadening R10 acceptance or authorizing production.
 
 ### Objective
 
@@ -1549,7 +1558,37 @@ artifact with complete identity. Production Auto remains separately blocked.
 
 ## R11 — Evidence traceability and claim boundary
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R11 begins only after its exact canonical predecessor, R10, is `passed`. The
+R11 preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and phase-acceptance records. The R10 phase-acceptance binding has
+SHA-256 `f7f75fd69691dcca632f2ae8c220cfb34662bb1ecff6769c84602f3a21368785`.
+
+The start contract requires these regular, non-symlink records:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+`python3 Scripts/r11_contracts.py --all` validates the exact predecessor,
+schema, implementation-policy, fixture, identity, observation, aggregate,
+rejection, claim, comparison, and authorization bindings before R11 may be
+`in_progress`.
+
+This start authorizes deterministic traceability and claim-boundary software
+implementation and fixture testing only; it does not claim R11 acceptance.
+Future functional execution and acceptance evidence remains dormant until R11
+is proposed as `passed`. Every R11 disposition is unconditionally
+`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
+blocked, and no R11 artifact can authorize either. Comparative and A/B methods
+are absent, not required, and provide no acceptance authority. Product
+publication and release remain unauthorized.
 
 ### Objective
 
@@ -1566,16 +1605,15 @@ the software did and prevents unsupported product claims.
   and any claim broader than the evidence supports.
 - Produce deterministic aggregates from supplied observations and preserve the
   distinction between `not_applicable`, `not_observed`, failed, and absent data.
-- Emit an explicit `no_market_claim` disposition unless a claim has exact,
-  in-scope evidence and separate operator authorization.
+- Emit an explicit `no_market_claim` disposition unconditionally.
 
 ### Claim rule
 
 Comparative testing and market-position work are outside this roadmap. R11
 accepts when its machinery accurately reports observed software behavior,
-rejects unsupported inputs and claims, and emits `no_market_claim` by default.
-`market_leading_claim` remains blocked unless the operator separately authorizes
-a future claim process outside this roadmap.
+rejects unsupported inputs and claims, and emits `no_market_claim`
+unconditionally. `production_auto_mode` and `market_leading_claim` remain
+blocked; no R11 evidence or disposition can authorize either.
 
 ---
 
@@ -1698,7 +1736,8 @@ The roadmap succeeds when all of the following are true:
    explainable, resumable, and binds every selected output to exact decisions and
    assets; production Auto remains a separate authorization decision.
 9. Evidence and claim-scope machinery is traceable, rejects unsupported claims,
-   and produces an honest `no_market_claim` disposition by default.
+   and produces `no_market_claim` unconditionally while
+   `production_auto_mode` and `market_leading_claim` remain blocked.
 10. The application remains Apple-native at runtime; offline Python remains development, model-conversion, validation, and evidence tooling only.
 
 ---

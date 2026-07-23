@@ -19,7 +19,7 @@
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
 - Roadmap phase `R10`: `passed` for deterministic bounded optimizer/calibration
   software function
-- Roadmap phase `R11`: `planned` and the next roadmap focus
+- Roadmap phase `R11`: `in_progress`; acceptance is not claimed
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -223,12 +223,24 @@ Fixture-policy evidence publication is authorized; production Auto, holdout,
 product publication, quality or performance claims, and release remain
 unauthorized.
 
-R11 remains `planned` as the next roadmap focus and follows the same
-software-function rule. R11
-must implement traceable evidence and claim-scope machinery, reject unsupported
-claims, and emit an honest no-claim disposition by default. Any
-`market_leading_claim` remains separately blocked without exact evidence and
-operator authorization.
+R11 is `in_progress` after its exact predecessor R10 passed. Its
+preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, the accepted R10 implementation,
+and the exact R10 functional execution and acceptance records. The R11 start
+contract consists of the regular preregistration and deterministic fixture
+catalog, validated together by `python3 Scripts/r11_contracts.py --all`.
+
+The R11 traceability boundary requires seven complete identity components,
+preserves `observed`, `not_applicable`, `not_observed`, `failed`, and `absent`
+as distinct states, permits deterministic state-count aggregation only, and
+rejects missing, duplicate, mismatched, out-of-scope, or unauthorized evidence.
+This start authorizes deterministic traceability and claim-boundary
+implementation and fixture testing only; acceptance is not claimed and future
+acceptance evidence remains dormant. Every R11 disposition is
+`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
+blocked. Comparative and A/B methods are absent, not required, and
+non-authorizing.
 
 ## Target Apple-Native Adaptive Architecture
 

@@ -8,7 +8,8 @@ Current phase state: `R00: passed`; `R01: passed`; `R02: passed`;
 software-function gate; `R08: passed` under the declared-software-function
 gate; `R09: passed` under the bounded-residual software-function gate;
 `R10: passed` under the deterministic bounded optimizer/calibration
-software-function gate; `R11: planned` and the next roadmap focus. R03's
+software-function gate; `R11: in_progress` under its exact passed-R10 start
+contract; R11 acceptance is not claimed. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
 `diagnostic_only` checkpoint remains historical while its later additive
 declared-software-function acceptance passes. Native VideoToolbox model
@@ -178,14 +179,23 @@ Comparison, A/B, and superiority testing were not run and are not required.
 Hardware, simulator, and operator-observed execution remain `not_observed`.
 Fixture-policy evidence publication is authorized. Production Auto, holdout
 access, native execution, product qualification, product publication,
-quality/performance claims, and release remain unauthorized. R11 remains
-`planned` and is the next roadmap focus.
+quality/performance claims, and release remain unauthorized.
 
-The same forward-gate correction applies to later phases. R10 accepts on direct
-proof of deterministic bounded optimizer/calibration behavior. R11 accepts on
-traceable evidence and claim-scope machinery that rejects unsupported claims and
-emits `no_market_claim` by default. `market_leading_claim` remains blocked
-without exact supporting evidence and separate operator authorization.
+R11 is now `in_progress`. Its preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and phase-acceptance records. The regular R11 preregistration and
+deterministic fixture catalog validate through
+`python3 Scripts/r11_contracts.py --all`.
+
+This start authorizes deterministic traceability and claim-boundary
+implementation and fixture testing only; acceptance is not claimed and future
+functional acceptance evidence remains dormant. Every R11 disposition is
+`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
+blocked. Comparative and A/B methods are absent, not required, and
+non-authorizing. Product publication and release remain unauthorized.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -256,12 +266,14 @@ disabled.
 - [R10 Deterministic Policy Catalog](evidence/r10/records/fixtures/policy-catalog.json)
 - [R10 Functional Execution Receipt](evidence/r10/records/functional-execution-receipt.json) — checkpoint-bound deterministic fixture simulation; 39 passed, 0 failed, 0 skipped
 - [R10 Functional Phase Acceptance](evidence/r10/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison, A/B, and superiority methods absent and non-gating
+- [R11 Preregistration](evidence/r11/records/preregistration.json) — phase-start contract bound to exact accepted R10 evidence; acceptance not claimed
+- [R11 Deterministic Fixture Catalog](evidence/r11/records/fixtures/fixture-catalog.json) — five observation states, exact identities, deterministic aggregation, rejection cases, and unconditional `no_market_claim`
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `98d54d81004912ccfecdd6ac2a0ccbcf9a8637c027264630d848946f21e1a798`
-- JSON: `f998b8316aa3a57838dcf0fafe22abf24c8a746a623c295c14605cc53c969ce3`
+- Markdown: `c9d72db82b03757faa2b698c7256bdb95741f45f825938d994a5f9882a794197`
+- JSON: `f0b6fc00e80cf4fa53964ce3b7a7de2ce46813599963ecc9ca61de93b8767fd9`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

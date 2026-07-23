@@ -61,16 +61,16 @@ class RoadmapAlignmentTests(unittest.TestCase):
             for path in workflow_root.rglob("*")
             if path.is_file()
         )
-        dormant_r10_passed_evidence = set(
-            self.policy["phase_evidence_requirements"]["R10"]["paths"]
+        dormant_r11_passed_evidence = set(
+            self.policy["phase_evidence_requirements"]["R11"]["paths"]
         )
         for relative in sorted(paths):
             source = REPOSITORY_ROOT / relative
             if not source.exists():
                 self.assertIn(
                     relative,
-                    dormant_r10_passed_evidence,
-                    "only dormant R10 passed-evidence paths may be absent",
+                    dormant_r11_passed_evidence,
+                    "only dormant R11 passed-evidence paths may be absent",
                 )
                 continue
             destination = self.root / relative
@@ -562,6 +562,69 @@ class RoadmapAlignmentTests(unittest.TestCase):
             "phase R10 canonical predecessors differ from its start contract"
         )
 
+    def test_in_progress_r11_requires_every_start_contract_file(self) -> None:
+        self.set_phase_status("R11", "in_progress")
+        start_path = self.root / self.policy["phase_start_requirements"]["R11"][
+            "paths"
+        ][1]
+        start_path.unlink()
+        self.assert_error_contains(
+            "phase R11 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_in_progress_r11_rejects_symlinked_start_contract(self) -> None:
+        self.set_phase_status("R11", "in_progress")
+        relative = self.policy["phase_start_requirements"]["R11"]["paths"][0]
+        symlink_path = self.root / relative
+        target = self.root / "r11-start-target.json"
+        target.write_bytes(symlink_path.read_bytes())
+        symlink_path.unlink()
+        symlink_path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R11 status 'in_progress' requires a regular start-contract file"
+        )
+
+    def test_r11_phase_start_requirement_is_exact(self) -> None:
+        path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_catalog = copy.deepcopy(self.policy)
+        missing_catalog["phase_start_requirements"]["R11"]["paths"].pop()
+        mutations.append(missing_catalog)
+
+        missing_predecessor = copy.deepcopy(self.policy)
+        missing_predecessor["phase_start_requirements"]["R11"][
+            "predecessors"
+        ].pop()
+        mutations.append(missing_predecessor)
+
+        extra_status = copy.deepcopy(self.policy)
+        extra_status["phase_start_requirements"]["R11"]["statuses"].append("planned")
+        mutations.append(extra_status)
+
+        for mutation in mutations:
+            with self.subTest(mutation=mutation["phase_start_requirements"]["R11"]):
+                self.write_json(path, mutation)
+                self.assert_error_contains(
+                    "R11 phase_start_requirements differ from the frozen contract"
+                )
+
+    def test_r11_canonical_predecessors_match_start_contract(self) -> None:
+        path, roadmap = self.roadmap_json()
+        phase = next(value for value in roadmap["phases"] if value["id"] == "R11")
+        phase["depends_on"] = []
+        self.write_json(path, roadmap)
+        self.assert_error_contains(
+            "phase R11 canonical predecessors differ from its start contract"
+        )
+
+    def test_in_progress_r11_requires_passed_r10(self) -> None:
+        self.set_phase_status("R10", "in_progress")
+        self.set_phase_status("R11", "in_progress")
+        self.assert_error_contains(
+            "phase R11 is 'in_progress' before dependency R10 is passed"
+        )
+
     def test_in_progress_r03_uses_exact_local_continuation_exception(self) -> None:
         self.set_phase_status("R02", "in_progress")
         self.set_phase_status("R03", "in_progress")
@@ -1029,6 +1092,64 @@ class RoadmapAlignmentTests(unittest.TestCase):
                 self.write_json(policy_path, mutation)
                 self.assert_error_contains(
                     "R10 phase_evidence_requirements differ from the prospective "
+                    "software-function acceptance contract"
+                )
+
+    def test_passed_r11_requires_functional_acceptance_evidence(self) -> None:
+        self.set_phase_status("R11", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R11"]["paths"][-1]
+        (self.root / relative).unlink(missing_ok=True)
+        self.assert_error_contains(
+            "phase R11 status 'passed' requires a regular evidence file"
+        )
+
+    def test_in_progress_r11_does_not_require_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R11", "in_progress")
+        for relative in self.policy["phase_evidence_requirements"]["R11"]["paths"]:
+            (self.root / relative).unlink(missing_ok=True)
+        self.assertFalse(
+            any("phase R11 status" in error for error in self.errors()),
+            self.errors(),
+        )
+
+    def test_passed_r11_rejects_symlinked_functional_acceptance_evidence(
+        self,
+    ) -> None:
+        self.set_phase_status("R11", "passed")
+        relative = self.policy["phase_evidence_requirements"]["R11"]["paths"][-1]
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        target = self.root / "r11-functional-acceptance-target.json"
+        target.write_text("{}\n", encoding="utf-8")
+        path.symlink_to(target)
+        self.assert_error_contains(
+            "phase R11 status 'passed' requires a regular evidence file"
+        )
+
+    def test_r11_functional_evidence_requirement_is_exact(self) -> None:
+        policy_path = self.root / ".github/roadmap-alignment-policy.json"
+        mutations = []
+
+        missing_path = copy.deepcopy(self.policy)
+        missing_path["phase_evidence_requirements"]["R11"]["paths"].pop()
+        mutations.append(missing_path)
+
+        wrong_status = copy.deepcopy(self.policy)
+        wrong_status["phase_evidence_requirements"]["R11"][
+            "required_status"
+        ] = "in_progress"
+        mutations.append(wrong_status)
+
+        for mutation in mutations:
+            with self.subTest(
+                mutation=mutation["phase_evidence_requirements"]["R11"]
+            ):
+                self.write_json(policy_path, mutation)
+                self.assert_error_contains(
+                    "R11 phase_evidence_requirements differ from the prospective "
                     "software-function acceptance contract"
                 )
 
@@ -2086,6 +2207,60 @@ class RoadmapAlignmentTests(unittest.TestCase):
         positions = [workflow.index(step) for step in ordered_steps]
         self.assertEqual(positions, sorted(positions))
         self.assertEqual(workflow.count("  r10-functional-acceptance:"), 1)
+
+    def test_r11_pre_acceptance_checks_are_required_in_ci_and_guardrails(
+        self,
+    ) -> None:
+        test_modules = (
+            "validation/calibration_v2/tests/test_r11_traceability.py",
+            "validation/calibration_v2/tests/"
+            "test_run_r11_fixture_traceability.py",
+            "Scripts/tests/test_r11_contracts.py",
+        )
+        verifier = "python3 Scripts/r11_contracts.py --all"
+        forbidden_phase_acceptance = (
+            "Scripts/tests/test_r11_phase_acceptance.py",
+            "python3 Scripts/r11_phase_acceptance.py",
+        )
+        for relative in (
+            ".github/workflows/roadmap-alignment.yml",
+            "Scripts/verify-mirmir-guardrails.sh",
+        ):
+            path = self.root / relative
+            original = path.read_text(encoding="utf-8")
+            aggregate_start = original.index("python3 -m unittest")
+            aggregate_end = original.index(
+                "python3 Scripts/roadmap_alignment.py --check",
+                aggregate_start,
+            )
+            aggregate = original[aggregate_start:aggregate_end]
+
+            for module in test_modules:
+                with self.subTest(relative=relative, module=module):
+                    self.assertIn(module, aggregate)
+            self.assertIn(verifier, original)
+            for command in forbidden_phase_acceptance:
+                with self.subTest(relative=relative, command=command):
+                    self.assertNotIn(command, original)
+
+            for phrase in test_modules + (verifier,):
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertIn(
+                        phrase,
+                        self.policy["required_phrases"][relative],
+                    )
+                    path.write_text(
+                        original.replace(
+                            phrase,
+                            "removed-r11-pre-acceptance-command",
+                            1,
+                        ),
+                        encoding="utf-8",
+                    )
+                    self.assert_error_contains(
+                        f"required alignment text is missing: {phrase!r}"
+                    )
+                    path.write_text(original, encoding="utf-8")
 
     def test_r04_blocked_closure_language_is_required(self) -> None:
         phrase = "local_unpublished_blocked_closure"

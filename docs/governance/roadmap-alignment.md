@@ -31,10 +31,11 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
 - status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, R08,
-  R09, and R10 `in_progress`, `evidence_ready`, and `passed` states require
+  R09, R10, and R11 `in_progress`, `evidence_ready`, and `passed` states require
   regular, non-symlink start-contract files. R10 additionally requires exact
   R07 and R09 predecessors plus its preregistration and deterministic fixture,
-  evaluation, and policy catalogs;
+  evaluation, and policy catalogs. R11 requires exact predecessor R10 plus its
+  preregistration and deterministic fixture catalog;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -270,6 +271,36 @@ Fixture-policy evidence publication is authorized. Production Auto, holdout,
 product qualification, product publication, quality/performance claims, and
 release remain unauthorized.
 
+R11 is `in_progress` only after exact predecessor R10 passed and these regular,
+non-symlink start records existed:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+The preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and acceptance records. `python3 Scripts/r11_contracts.py --all`
+validates the predecessor, schema, implementation-policy, fixture, identity,
+observation, aggregate, rejection, claim, comparison, and authorization
+contracts before R11 can remain `in_progress`.
+
+The R11 `passed` evidence requirement is prospective and dormant while R11 is
+`in_progress`. Its stable paths are the future phase-acceptance validator and
+tests; functional execution and phase-acceptance schemas and records; the unit
+test log; and the traceability run receipt. A missing or symlinked future file
+does not block `in_progress`, but every listed path becomes mandatory if R11 is
+proposed as `passed`.
+
+This start authorizes deterministic traceability and claim-boundary
+implementation and fixture testing only; it is not phase acceptance. Every R11
+disposition is `no_market_claim`. `production_auto_mode` and
+`market_leading_claim` remain blocked, and no R11 artifact can authorize
+either. Comparative and A/B methods are absent, not required, and
+non-authorizing. Product publication and release remain unauthorized.
+
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
 regular exact files and `Scripts/r05_phase_acceptance.py` rechecks source commit
@@ -321,12 +352,11 @@ comparison grants that authority.
 
 R10 is `passed` because checkpoint-bound proof establishes that its
 optimizer/calibration software is deterministic, finitely bounded,
-constraint-preserving, resumable, transactional, and identity-complete. R11
-remains `planned` as the next roadmap focus. Its acceptance requires traceable
-evidence and claim-scope machinery that rejects invalid inputs and unsupported
-claims and emits `no_market_claim` by default.
-`market_leading_claim` remains blocked without exact supporting evidence and a
-separate operator authorization.
+constraint-preserving, resumable, transactional, and identity-complete. R11 is
+`in_progress`; acceptance is not claimed. Its future acceptance requires
+traceable evidence and claim-scope machinery that rejects invalid inputs and
+unsupported claims and emits `no_market_claim` unconditionally.
+`production_auto_mode` and `market_leading_claim` remain blocked.
 
 Update the digest for every changed canonical source and
 affected contract fields in the alignment policy in the same change.
@@ -336,7 +366,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py Scripts/tests/test_r11_contracts.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -372,6 +402,7 @@ python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
 python3 Scripts/r09_contracts.py --all
 python3 Scripts/r09_phase_acceptance.py --check
+python3 Scripts/r11_contracts.py --all
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 

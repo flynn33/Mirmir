@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "98d54d81004912ccfecdd6ac2a0ccbcf9a8637c027264630d848946f21e1a798",
-    "json_sha256": "f998b8316aa3a57838dcf0fafe22abf24c8a746a623c295c14605cc53c969ce3",
+    "markdown_sha256": "c9d72db82b03757faa2b698c7256bdb95741f45f825938d994a5f9882a794197",
+    "json_sha256": "f0b6fc00e80cf4fa53964ce3b7a7de2ce46813599963ecc9ca61de93b8767fd9",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -180,6 +180,9 @@
       "validation/calibration_v2/tests/test_run_r10_fixture_calibration.py",
       "Scripts/tests/test_r10_contracts.py",
       "Scripts/tests/test_r10_phase_acceptance.py",
+      "validation/calibration_v2/tests/test_r11_traceability.py",
+      "validation/calibration_v2/tests/test_run_r11_fixture_traceability.py",
+      "Scripts/tests/test_r11_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -261,6 +264,7 @@
       "python3 Scripts/r10_phase_acceptance.py --check-generated",
       "python3 Scripts/r10_phase_acceptance.py --check",
       "python3 Scripts/r10_contracts.py --all",
+      "python3 Scripts/r11_contracts.py --all",
       "git ls-files -- '.r01-local-assets'"
     ],
     ".github/workflows/roadmap-metadata-audit.yml": [
@@ -313,6 +317,9 @@
       "validation/calibration_v2/tests/test_run_r10_fixture_calibration.py",
       "Scripts/tests/test_r10_contracts.py",
       "Scripts/tests/test_r10_phase_acceptance.py",
+      "validation/calibration_v2/tests/test_r11_traceability.py",
+      "validation/calibration_v2/tests/test_run_r11_fixture_traceability.py",
+      "Scripts/tests/test_r11_contracts.py",
       "python3 Scripts/r02_contracts.py --check-preregistration",
       "python3 Scripts/r02_contracts.py --check-fixtures",
       "python3 Scripts/r02_contracts.py --check-conformance",
@@ -359,6 +366,7 @@
       "python3 Scripts/r10_phase_acceptance.py --check-generated",
       "python3 Scripts/r10_phase_acceptance.py --check",
       "python3 Scripts/r10_contracts.py --all",
+      "python3 Scripts/r11_contracts.py --all",
       "git ls-files -- '.r01-local-assets'"
     ],
     "docs/governance/roadmap-alignment.md": [
@@ -385,6 +393,7 @@
       "Scripts/tests/test_r08_phase_acceptance.py",
       "Scripts/tests/test_r09_contracts.py",
       "Scripts/tests/test_r09_phase_acceptance.py",
+      "Scripts/tests/test_r11_contracts.py",
       "Scripts/tests/test_r03_product_qualification.py",
       "Scripts/tests/test_r03_phase_acceptance.py",
       "python3 Scripts/r03_product_qualification.py --check-preregistration",
@@ -415,7 +424,11 @@
       "python3 Scripts/r08_phase_acceptance.py --check",
       "python3 Scripts/r09_contracts.py --all",
       "python3 Scripts/r09_phase_acceptance.py --check",
-      "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0"
+      "python3 Scripts/r11_contracts.py --all",
+      "0d81917a93cf56cae867c11b7c65fb3c85e53b7596929cf9eec2ef09c24634b0",
+      "no_market_claim",
+      "production_auto_mode",
+      "market_leading_claim"
     ],
     "docs/roadmaps/Mirmir_R01-R13_Execution_Handoff_2026-07-19.md": [
       "policy-frozen local closure commit and tree",
@@ -439,7 +452,12 @@
       "declared_software_function_only",
       "7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8",
       "diagnostic_only",
-      "6c4a6d3d5f8a59c553b10c23783c148ccb3388a5"
+      "6c4a6d3d5f8a59c553b10c23783c148ccb3388a5",
+      "8d4283d2f3fbb104ef589f002de2fd6ccadad0f8",
+      "python3 Scripts/r11_contracts.py --all",
+      "no_market_claim",
+      "production_auto_mode",
+      "market_leading_claim"
     ],
     "local-work-plan.md": [
       "superseded as the forward product plan",
@@ -475,7 +493,8 @@
       "R07",
       "R08",
       "R09",
-      "R10"
+      "R10",
+      "R11"
     ],
     "local-work-plan.md": [
       "R00",
@@ -488,7 +507,8 @@
       "R07",
       "R08",
       "R09",
-      "R10"
+      "R10",
+      "R11"
     ]
   },
   "phase_evidence_requirements": {
@@ -607,6 +627,19 @@
         "docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/checkpoints/15ccf94280dd40fd18364be8de5bede500a25e4dd5b848af641967d14f84b758.json",
         "docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/frozen-policies/f090cbde0102bec3d5e9d18dc236268fa08f1c12d4513edfe00d91a4480a3495.json"
       ]
+    },
+    "R11": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r11_phase_acceptance.py",
+        "Scripts/tests/test_r11_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r11-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r11-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r11/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r11/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/unittest.log",
+        "docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/traceability-run-receipt.json"
+      ]
     }
   },
   "phase_start_requirements": {
@@ -714,6 +747,20 @@
         "docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json",
         "docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json",
         "docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json"
+      ]
+    },
+    "R11": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "predecessors": [
+        "R10"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r11/records/preregistration.json",
+        "docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json"
       ]
     }
   },

@@ -369,6 +369,14 @@ R10_PHASE_START_REQUIREMENT = {
         "docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json",
     ],
 }
+R11_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "predecessors": ["R10"],
+    "paths": [
+        "docs/roadmaps/evidence/r11/records/preregistration.json",
+        "docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json",
+    ],
+}
 R08_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
     "required_status": "passed",
     "paths": [
@@ -491,6 +499,25 @@ R10_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
             "docs/roadmaps/evidence/r10/records/artifacts/"
             "functional-phase-acceptance/calibration-run/frozen-policies/"
             "f090cbde0102bec3d5e9d18dc236268fa08f1c12d4513edfe00d91a4480a3495.json"
+        ),
+    ],
+}
+R11_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r11_phase_acceptance.py",
+        "Scripts/tests/test_r11_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r11-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r11-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r11/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r11/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r11/records/artifacts/"
+            "functional-phase-acceptance/unittest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r11/records/artifacts/"
+            "functional-phase-acceptance/traceability-run-receipt.json"
         ),
     ],
 }
@@ -1488,6 +1515,12 @@ class AlignmentVerifier:
                 "R10 phase_evidence_requirements differ from the prospective "
                 "software-function acceptance contract",
             )
+        if requirements.get("R11") != R11_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R11 phase_evidence_requirements differ from the prospective "
+                "software-function acceptance contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1559,6 +1592,11 @@ class AlignmentVerifier:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R10 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R11") != R11_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R11 phase_start_requirements differ from the frozen contract",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)

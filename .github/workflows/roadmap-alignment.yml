@@ -71,6 +71,9 @@ jobs:
           validation/calibration_v2/tests/test_run_r10_fixture_calibration.py
           Scripts/tests/test_r10_contracts.py
           Scripts/tests/test_r10_phase_acceptance.py
+          validation/calibration_v2/tests/test_r11_traceability.py
+          validation/calibration_v2/tests/test_run_r11_fixture_traceability.py
+          Scripts/tests/test_r11_contracts.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -209,6 +212,9 @@ jobs:
 
       - name: Verify R10 authorization and start contracts
         run: python3 Scripts/r10_contracts.py --all
+
+      - name: Verify R11 authorization and start contracts
+        run: python3 Scripts/r11_contracts.py --all
 
       - name: Verify R01 system assets remain untracked
         shell: bash

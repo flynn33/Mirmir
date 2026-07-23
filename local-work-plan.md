@@ -125,11 +125,15 @@
   publication is authorized; production Auto, holdout, product qualification,
   product publication, quality/performance claims, and release remain
   unauthorized.
-- Roadmap phase `R11`: `planned` and the next focus. Its acceptance requires
-  traceable evidence and
-  claim-scope machinery that rejects unsupported claims and emits an honest
-  no-claim disposition by default. Any production Auto, holdout, or
-  market-claim action retains its separate authorization boundary.
+- Roadmap phase `R11`: `in_progress`; acceptance is not claimed. Its regular
+  preregistration and deterministic fixture catalog bind exact passed-R10
+  closure and validate through `python3 Scripts/r11_contracts.py --all`. Work
+  is limited to deterministic traceability and claim-boundary implementation
+  and fixture testing. Future acceptance evidence remains dormant. Every R11
+  disposition is `no_market_claim`; `production_auto_mode` and
+  `market_leading_claim` remain blocked. Comparative and A/B methods are absent,
+  not required, and non-authorizing. Product publication and release remain
+  unauthorized.
 - Production Auto, production Core AI residual routing, holdout access, market
   claims, and release publication: blocked by their roadmap gates.
 

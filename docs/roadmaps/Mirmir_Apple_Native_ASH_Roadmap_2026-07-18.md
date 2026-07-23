@@ -1417,8 +1417,8 @@ Physical hardware, Apple simulator, and operator-observed execution remain
 
 Fixture-policy evidence publication is authorized by this acceptance.
 Production Auto, holdout, product publication, quality or performance claims,
-and release remain `not_authorized`. R11 remains `planned` and is the next
-roadmap focus.
+and release remain `not_authorized`. The later R11 start records bind this
+accepted evidence without broadening R10 acceptance or authorizing production.
 
 ### Objective
 
@@ -1457,7 +1457,37 @@ artifact with complete identity. Production Auto remains separately blocked.
 
 ## R11 — Evidence traceability and claim boundary
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R11 begins only after its exact canonical predecessor, R10, is `passed`. The
+R11 preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and phase-acceptance records. The R10 phase-acceptance binding has
+SHA-256 `f7f75fd69691dcca632f2ae8c220cfb34662bb1ecff6769c84602f3a21368785`.
+
+The start contract requires these regular, non-symlink records:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+`python3 Scripts/r11_contracts.py --all` validates the exact predecessor,
+schema, implementation-policy, fixture, identity, observation, aggregate,
+rejection, claim, comparison, and authorization bindings before R11 may be
+`in_progress`.
+
+This start authorizes deterministic traceability and claim-boundary software
+implementation and fixture testing only; it does not claim R11 acceptance.
+Future functional execution and acceptance evidence remains dormant until R11
+is proposed as `passed`. Every R11 disposition is unconditionally
+`no_market_claim`. `production_auto_mode` and `market_leading_claim` remain
+blocked, and no R11 artifact can authorize either. Comparative and A/B methods
+are absent, not required, and provide no acceptance authority. Product
+publication and release remain unauthorized.
 
 ### Objective
 
@@ -1474,16 +1504,15 @@ the software did and prevents unsupported product claims.
   and any claim broader than the evidence supports.
 - Produce deterministic aggregates from supplied observations and preserve the
   distinction between `not_applicable`, `not_observed`, failed, and absent data.
-- Emit an explicit `no_market_claim` disposition unless a claim has exact,
-  in-scope evidence and separate operator authorization.
+- Emit an explicit `no_market_claim` disposition unconditionally.
 
 ### Claim rule
 
 Comparative testing and market-position work are outside this roadmap. R11
 accepts when its machinery accurately reports observed software behavior,
-rejects unsupported inputs and claims, and emits `no_market_claim` by default.
-`market_leading_claim` remains blocked unless the operator separately authorizes
-a future claim process outside this roadmap.
+rejects unsupported inputs and claims, and emits `no_market_claim`
+unconditionally. `production_auto_mode` and `market_leading_claim` remain
+blocked; no R11 evidence or disposition can authorize either.
 
 ---
 
@@ -1606,7 +1635,8 @@ The roadmap succeeds when all of the following are true:
    explainable, resumable, and binds every selected output to exact decisions and
    assets; production Auto remains a separate authorization decision.
 9. Evidence and claim-scope machinery is traceable, rejects unsupported claims,
-   and produces an honest `no_market_claim` disposition by default.
+   and produces `no_market_claim` unconditionally while
+   `production_auto_mode` and `market_leading_claim` remain blocked.
 10. The application remains Apple-native at runtime; offline Python remains development, model-conversion, validation, and evidence tooling only.
 
 ---

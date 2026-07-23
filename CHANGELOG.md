@@ -6,6 +6,20 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R11 after exact predecessor R10 passed. R11 is `in_progress`, not
+  accepted. Its preregistration binds accepted-R10 closure commit
+  `8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+  `ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+  `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+  execution and acceptance records. The regular R11 preregistration and
+  deterministic fixture catalog validate through
+  `python3 Scripts/r11_contracts.py --all`. This start authorizes deterministic
+  traceability and claim-boundary implementation and fixture testing only;
+  future acceptance evidence remains dormant. Every R11 disposition is
+  `no_market_claim`; `production_auto_mode` and `market_leading_claim` remain
+  blocked. Comparative and A/B methods are absent, not required, and
+  non-authorizing. Product publication and release remain unauthorized.
 - Accepted R10 for `declared_software_function_only` under deterministic fixture
   simulation. The additive receipt and phase-acceptance record bind
   implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
@@ -21,7 +35,7 @@ All notable project changes are recorded here.
   run and are not required; hardware, simulator, and operator-observed execution
   remain `not_observed`. Fixture-policy evidence publication is authorized.
   Production Auto, holdout, product publication, quality/performance claims,
-  and release remain unauthorized. R11 remains `planned` and is the next focus.
+  and release remain unauthorized. At that checkpoint, R11 remained `planned`.
 - Accepted R06 for `declared_software_function_only` under deterministic fixture
   integration. The additive acceptance binds source commit
   `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
@@ -137,9 +151,8 @@ All notable project changes are recorded here.
 - Corrected the R10 and R11 forward gates under the same 2026-07-22 operator
   decision. R10 now accepts on deterministic bounded optimizer/calibration
   behavior. R11 now accepts on traceable evidence and claim-scope machinery
-  that rejects unsupported claims and emits an honest no-claim disposition by
-  default. `market_leading_claim` remains blocked without exact evidence and
-  separate operator authorization.
+  that rejects unsupported claims and emits `no_market_claim` unconditionally.
+  `production_auto_mode` and `market_leading_claim` remain blocked.
 - Accepted R07 under the operator-defined deterministic software-function gate.
   The additive execution receipt and phase-acceptance record bind implementation
   commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree

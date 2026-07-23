@@ -5,8 +5,8 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
-- **Current execution state:** `R00`-`R10: passed`; `R11`-`R13: planned`;
-  R11 is the next roadmap focus
+- **Current execution state:** `R00`-`R10: passed`; `R11: in_progress`;
+  `R12`-`R13: planned`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
@@ -126,10 +126,18 @@
   `fixture-valid-alpha` selected, and typed reopen passed; acceptance scope
   `declared_software_function_only`; no comparative method was run or required;
   R10 is `passed`
+- **R11 phase start:** the regular preregistration and deterministic fixture
+  catalog bind accepted-R10 closure commit
+  `8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+  `ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+  `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+  execution and phase-acceptance records; `python3 Scripts/r11_contracts.py
+  --all` passes; R11 is `in_progress` and acceptance is not claimed
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: passed`; `R05: passed`; `R06: passed`;
   `R07: passed`; `R08: passed`; `R09: passed`; `R10: passed`;
-  `R11: planned`
+  `R11: in_progress`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -466,9 +474,9 @@ historical result.
 
 For R10, the required function is deterministic bounded optimizer/calibration
 behavior. For R11, the required function is traceable evidence and claim-scope
-machinery that rejects unsupported claims and emits `no_market_claim` by default.
-`market_leading_claim` remains blocked without exact supporting evidence and
-separate operator authorization.
+machinery that rejects unsupported claims and emits `no_market_claim`
+unconditionally. `production_auto_mode` and `market_leading_claim` remain
+blocked.
 
 R08 begins from accepted R07 merge commit
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
@@ -521,7 +529,8 @@ Before changing source:
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
    `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
-   `R10: passed` remain canonical, with `R11: planned`. If any changed, reconcile the newer
+   `R10: passed` remain canonical, with `R11: in_progress`. If any changed,
+   reconcile the newer
    accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
    evidence. The additive R03 functional acceptance does not alter those
@@ -1390,24 +1399,44 @@ fixture simulation. Comparison, A/B, and superiority testing were not run and
 are not required. Hardware, simulator, and operator-observed execution remain
 `not_observed`. Fixture-policy evidence publication is authorized. Production
 Auto, holdout, product publication, quality or performance claims, and release
-remain unauthorized. R11 remains `planned` and is the next roadmap focus.
+remain unauthorized.
 
 ### R11 - Evidence traceability and claim boundary
+
+R11 is `in_progress` after exact predecessor R10 passed. Its start contract
+requires these regular, non-symlink records:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+The preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and phase-acceptance records. Validate the start with
+`python3 Scripts/r11_contracts.py --all`.
+
+This phase start authorizes deterministic traceability and claim-boundary
+implementation and fixture testing only. It does not claim R11 acceptance;
+future functional execution and phase-acceptance evidence remains dormant until
+R11 is proposed as `passed`.
 
 Implement typed execution-receipt, subject, input, observation, aggregate,
 claim-scope, and disposition contracts. Bind every accepted observation and
 aggregate to exact source, software, subject, input, preprocessing, toolchain,
 and execution identity. Reject missing, duplicate, mismatched, out-of-scope, or
 unauthorized evidence and every claim broader than its evidence. Preserve
-`not_applicable`, `not_observed`, failed, and absent as distinct states, and emit
-`no_market_claim` unless an exact claim has in-scope evidence and separate
-operator authorization.
+`observed`, `not_applicable`, `not_observed`, failed, and absent as distinct
+states, and emit `no_market_claim` unconditionally.
 
 Comparison-based testing and market-position work are outside the roadmap. R11
 accepts when checkpoint-bound tests prove its traceability, validation,
-aggregation, claim-scope, rejection, and honest default-no-claim behavior.
-`production_auto_mode` and `market_leading_claim` remain blocked unless the
-operator separately authorizes a future exact action outside this phase.
+aggregation, claim-scope, rejection, and unconditional no-claim behavior.
+`production_auto_mode` and `market_leading_claim` remain blocked, and no R11
+artifact can authorize either. Comparative and A/B methods are absent, not
+required, and non-authorizing. Product publication and release remain
+unauthorized.
 
 ### R12 - Format, route, and product expansion
 
@@ -1462,9 +1491,9 @@ comparative results contribute no acceptance authority. R09 is `passed` with
 exit outcome `qualified_local_residual` under the separately authorized,
 accepted-R08-bound deterministic software-function gate.
 R10 requires deterministic bounded optimizer/calibration behavior. R11 requires
-traceable evidence and claim-scope behavior with an honest no-claim disposition.
-`market_leading_claim` remains blocked without exact supporting evidence and
-separate authorization.
+traceable evidence and claim-scope behavior with `no_market_claim`
+unconditionally. `production_auto_mode` and `market_leading_claim` remain
+blocked.
 A failed R06 or R07 product gate blocks dependent product work and requires an
 explicitly reviewed roadmap revision rather than relaxed thresholds. The R07
 functional acceptance is the operator-defined software gate and does not
@@ -1483,7 +1512,8 @@ R10 passed its deterministic bounded optimizer/calibration software-function
 gate at implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`,
 tree `37951da694ab4fbca6f8c663bb2883e5084b861c`. Hardware, simulator, and
 operator observations remain `not_observed`; comparison supplied no acceptance
-authority. R11 remains `planned` and is the next roadmap focus. Product
-qualification, production Auto, holdout access, claims, tags, releases, pushes,
-pull requests, approvals, merges, force-pushes, and repository-setting mutation
-retain their separate authority requirements.
+authority. R11 is now `in_progress` under its exact passed-R10 start contract;
+acceptance is not claimed. Product qualification, production Auto, holdout
+access, claims, tags, releases, pushes, pull requests, approvals, merges,
+force-pushes, and repository-setting mutation retain their separate authority
+requirements.
