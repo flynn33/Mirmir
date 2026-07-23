@@ -6,6 +6,15 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Began R10 after both exact canonical predecessors, R07 and R09, passed. The
+  status is `in_progress`, not accepted. Its start contract requires a frozen
+  preregistration plus deterministic fixture, evaluation, and policy catalogs
+  before a bounded calibration run may publish a checkpoint or frozen fixture
+  policy. Implementation and deterministic fixture testing are authorized under
+  the forward software-function gate. Production Auto, holdout access, native
+  execution, product qualification, quality/performance claims, publication,
+  and release remain blocked, unauthorized, or unclaimed; comparison methods
+  remain outside the roadmap and non-authorizing.
 - Accepted R06 for `declared_software_function_only` under deterministic fixture
   integration. The additive acceptance binds source commit
   `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree

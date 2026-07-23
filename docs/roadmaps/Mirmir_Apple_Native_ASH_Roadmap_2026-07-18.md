@@ -1375,7 +1375,24 @@ gate.
 
 ## R10 — Auto-policy optimization and bounded calibration
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R10 begins only after both of its exact canonical predecessors, R07 and R09,
+are `passed`. The operator's continuation instruction authorizes bounded local
+implementation under the forward software-function gate. The start contract
+freezes a preregistration plus deterministic fixture, evaluation, and policy
+catalogs before an R10 run may publish a calibration checkpoint or frozen
+fixture policy.
+
+This start authorizes implementation and deterministic fixture testing only; it
+does not claim R10 acceptance. The future functional acceptance requirement
+remains inactive until R10 is proposed as `passed`. Production Auto, holdout
+access, native-framework or hardware execution, product qualification, quality
+or performance claims, publication, and release remain blocked, unauthorized,
+or unclaimed. Comparative, A/B, blinded, ablation, and superiority methods
+remain outside the forward roadmap and provide no phase-progression authority.
 
 ### Objective
 

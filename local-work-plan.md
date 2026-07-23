@@ -110,10 +110,18 @@
   `declared_software_function_only`; comparison methods are excluded and
   non-authorizing. Native Core AI/framework/model, hardware, simulator, and
   operator observations remain `not_observed`. Product qualification,
-  production default, Auto, holdout, claims, publication, release, and R10
-  progression remain unauthorized.
-- Future R10 acceptance requires deterministic bounded optimizer/calibration
-  software behavior. Future R11 acceptance requires traceable evidence and
+  production default, Auto, holdout, claims, publication, and release remain
+  unauthorized. The R09 acceptance alone did not authorize R10 progression;
+  the operator's later continuation instruction did so separately.
+- Roadmap phase `R10`: `in_progress`. Both exact predecessors, R07 and R09, are
+  `passed`. Its start contract freezes the preregistration and deterministic
+  fixture, evaluation, and policy catalogs before a calibration run may publish
+  a checkpoint or frozen fixture policy. Work is limited to deterministic
+  bounded optimizer/calibration software implementation and testing. R10
+  acceptance is not claimed, and production Auto, holdout, product
+  qualification, quality/performance claims, publication, and release remain
+  blocked, unauthorized, or unclaimed.
+- Future R11 acceptance requires traceable evidence and
   claim-scope machinery that rejects unsupported claims and emits an honest
   no-claim disposition by default. Any production Auto, holdout, or
   market-claim action retains its separate authorization boundary.

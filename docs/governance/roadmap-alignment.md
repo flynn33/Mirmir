@@ -30,10 +30,11 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
   accepted source path;
-- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, R08, and R09 `in_progress`,
-  `evidence_ready`, and `passed` states require regular, non-symlink
-  preregistration and fixture-catalog files, whose dedicated validators preserve
-  exact unpublished predecessor truth and the operator-observation boundary;
+- status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, R08,
+  R09, and R10 `in_progress`, `evidence_ready`, and `passed` states require
+  regular, non-symlink start-contract files. R10 additionally requires exact
+  R07 and R09 predecessors plus its preregistration and deterministic fixture,
+  evaluation, and policy catalogs;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -238,6 +239,30 @@ authorize production, Auto, holdout, claims, publication, or release. The R09
 acceptance did not itself authorize R10 progression; the operator's later
 continuation instruction separately authorizes R10 implementation.
 
+R10 is `in_progress` only because both exact canonical predecessors, R07 and
+R09, are `passed` and the operator separately authorized continuation. Its
+policy-frozen start requirement binds four regular, non-symlink records:
+`preregistration.json`, `fixture-catalog.json`, `evaluation-catalog.json`, and
+`policy-catalog.json` under `docs/roadmaps/evidence/r10/records/`. The alignment
+check rejects a missing or symlinked record, a changed path set, or canonical
+predecessors other than exact `["R07", "R09"]`.
+
+This is a start contract only. R10 functional acceptance files are not required
+while the phase is `in_progress`; that requirement becomes active only if R10
+is proposed as `passed`. Production Auto, holdout access, native execution,
+product qualification, quality/performance claims, publication, and release
+remain blocked, unauthorized, or unclaimed. Comparative methods remain outside
+the forward roadmap and non-authorizing.
+
+The dormant `passed` requirement names only stable evidence paths: the R10
+phase-acceptance validator and tests; calibration-run, functional-receipt, and
+functional-acceptance schemas; functional execution and acceptance records; the
+unit-test log; and the checked-in calibration `run-receipt.json`. Final
+checkpoint and frozen-policy artifacts use content-addressed filenames, so
+policy does not fabricate their future leaf names. The later acceptance
+validator must resolve and verify those dynamic bindings from the run receipt
+before R10 can pass.
+
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
 regular exact files and `Scripts/r05_phase_acceptance.py` rechecks source commit
@@ -287,7 +312,7 @@ facts. The operator's later `resume work` directive supplies the separate R09
 implementation authorization bound to accepted R08 functional evidence; no
 comparison grants that authority.
 
-R10 acceptance requires checkpoint-bound proof that its optimizer/calibration
+R10 is `in_progress`; acceptance still requires checkpoint-bound proof that its optimizer/calibration
 software is deterministic, finitely bounded, constraint-preserving, resumable,
 transactional, and identity-complete. R11 acceptance requires traceable evidence
 and claim-scope machinery that rejects invalid inputs and unsupported claims and

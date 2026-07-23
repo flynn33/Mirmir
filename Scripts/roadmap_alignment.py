@@ -359,6 +359,16 @@ R08_PHASE_START_REQUIREMENT = {
         "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
     ],
 }
+R10_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "predecessors": ["R07", "R09"],
+    "paths": [
+        "docs/roadmaps/evidence/r10/records/preregistration.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json",
+    ],
+}
 R08_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
     "required_status": "passed",
     "paths": [
@@ -406,6 +416,26 @@ R09_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
         (
             "docs/roadmaps/evidence/r09/records/artifacts/"
             "functional-phase-acceptance/xcresult-summary.json"
+        ),
+    ],
+}
+R10_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r10_phase_acceptance.py",
+        "Scripts/tests/test_r10_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r10-calibration-run-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r10/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r10/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/unittest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/run-receipt.json"
         ),
     ],
 }
@@ -1393,6 +1423,12 @@ class AlignmentVerifier:
                 "R09 phase_evidence_requirements differ from the frozen "
                 "software-function acceptance contract",
             )
+        if requirements.get("R10") != R10_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R10 phase_evidence_requirements differ from the prospective "
+                "software-function acceptance contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1460,6 +1496,11 @@ class AlignmentVerifier:
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R08 phase_start_requirements differ from the frozen contract",
             )
+        if requirements.get("R10") != R10_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R10 phase_start_requirements differ from the frozen contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1469,6 +1510,7 @@ class AlignmentVerifier:
                 )
                 continue
             statuses = requirement.get("statuses")
+            predecessors = requirement.get("predecessors")
             paths = requirement.get("paths")
             if (
                 not isinstance(statuses, list)
@@ -1485,6 +1527,25 @@ class AlignmentVerifier:
                     f"phase start requirement fields are invalid for {phase_id}",
                 )
                 continue
+            if predecessors is not None and (
+                not isinstance(predecessors, list)
+                or not predecessors
+                or len(predecessors) != len(set(predecessors))
+                or not all(
+                    isinstance(predecessor, str) and predecessor
+                    for predecessor in predecessors
+                )
+            ):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase start predecessors are invalid for {phase_id}",
+                )
+                continue
+            if predecessors is not None and phase.get("depends_on") != predecessors:
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase {phase_id} canonical predecessors differ from its start contract",
+                )
             if phase.get("status") not in statuses:
                 continue
             for relative in paths:

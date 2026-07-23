@@ -1,0 +1,133 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r10-evaluation-catalog-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "score": {
+      "additionalProperties": false,
+      "properties": {
+        "quality_q16": {"maximum": 65536, "minimum": 0, "type": "integer"},
+        "temporal_stability_q16": {"maximum": 65536, "minimum": 0, "type": "integer"},
+        "protected_region_fidelity_q16": {"maximum": 65536, "minimum": 0, "type": "integer"},
+        "resource_efficiency_q16": {"maximum": 65536, "minimum": 0, "type": "integer"},
+        "safety_margin_q16": {"maximum": 65536, "minimum": 0, "type": "integer"}
+      },
+      "required": [
+        "quality_q16",
+        "temporal_stability_q16",
+        "protected_region_fidelity_q16",
+        "resource_efficiency_q16",
+        "safety_margin_q16"
+      ],
+      "type": "object"
+    },
+    "evaluation": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_id": {
+          "enum": ["fixture-valid-alpha", "fixture-valid-beta", "fixture-valid-gamma"],
+          "type": "string"
+        },
+        "candidate_sha256": {
+          "pattern": "^(?!0{64}$)[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "score": {"$ref": "#/$defs/score"}
+      },
+      "required": ["candidate_id", "candidate_sha256", "score"],
+      "type": "object"
+    },
+    "scoreDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "quality_q16",
+            "temporal_stability_q16",
+            "protected_region_fidelity_q16",
+            "resource_efficiency_q16",
+            "safety_margin_q16"
+          ],
+          "type": "string"
+        },
+        "minimum": {"const": 0, "type": "integer"},
+        "maximum": {"const": 65536, "type": "integer"},
+        "kind": {"const": "absolute_noncomparative_q16", "type": "string"}
+      },
+      "required": ["name", "minimum", "maximum", "kind"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "phase_id": {"const": "R10", "type": "string"},
+    "artifact_kind": {
+      "const": "r10_absolute_evaluation_catalog_record",
+      "type": "string"
+    },
+    "score_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "items": {"$ref": "#/$defs/scoreDimension"},
+          "maxItems": 5,
+          "minItems": 5,
+          "type": "array"
+        },
+        "ranking": {
+          "const": "higher_is_better_lexicographic_in_policy_order",
+          "type": "string"
+        },
+        "baseline_field": {"const": "absent", "type": "string"},
+        "control_field": {"const": "absent", "type": "string"},
+        "delta_field": {"const": "absent", "type": "string"}
+      },
+      "required": [
+        "dimensions",
+        "ranking",
+        "baseline_field",
+        "control_field",
+        "delta_field"
+      ],
+      "type": "object"
+    },
+    "evaluation_catalog": {
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": "1.0.0", "type": "string"},
+        "artifact_kind": {
+          "const": "r10_absolute_evaluation_catalog",
+          "type": "string"
+        },
+        "evaluations": {
+          "items": {"$ref": "#/$defs/evaluation"},
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        }
+      },
+      "required": ["schema_version", "artifact_kind", "evaluations"],
+      "type": "object"
+    },
+    "evaluator_sha256": {
+      "pattern": "^(?!0{64}$)[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "comparison_methods_used": {"const": false, "type": "boolean"},
+    "observation_scope": {
+      "const": "deterministic_fixture_scores_only",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "phase_id",
+    "artifact_kind",
+    "score_contract",
+    "evaluation_catalog",
+    "evaluator_sha256",
+    "comparison_methods_used",
+    "observation_scope"
+  ],
+  "type": "object"
+}

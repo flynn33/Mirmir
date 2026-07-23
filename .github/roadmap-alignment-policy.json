@@ -4,8 +4,8 @@
     "markdown_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md",
     "json_path": "docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json",
     "index_path": "docs/roadmaps/README.md",
-    "markdown_sha256": "48ce8a826a9689ba082e2347dbe65d89fb5194ff15f492e90971f0a62be7c266",
-    "json_sha256": "a85ad95f89d926cdc9739e1f757d3fcb14a09f5d205ff7f0b0f06345deeca1a2",
+    "markdown_sha256": "97c1149259cca9526870c6c0bde63ac89e2ea2f20f83a94f030756ace7041990",
+    "json_sha256": "4b32bd9ea1338f745e48dcd72ca9129176c4d70eefb6afab0cac720f7c618b5b",
     "schema_version": "1.0.0",
     "roadmap_version": "1.0.1",
     "date": "2026-07-18",
@@ -441,7 +441,8 @@
       "R06",
       "R07",
       "R08",
-      "R09"
+      "R09",
+      "R10"
     ],
     "local-work-plan.md": [
       "R00",
@@ -453,7 +454,8 @@
       "R06",
       "R07",
       "R08",
-      "R09"
+      "R09",
+      "R10"
     ]
   },
   "phase_evidence_requirements": {
@@ -547,6 +549,20 @@
         "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcodebuild.log",
         "docs/roadmaps/evidence/r09/records/artifacts/functional-phase-acceptance/xcresult-summary.json"
       ]
+    },
+    "R10": {
+      "required_status": "passed",
+      "paths": [
+        "Scripts/r10_phase_acceptance.py",
+        "Scripts/tests/test_r10_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r10-calibration-run-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r10/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r10/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/unittest.log",
+        "docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/run-receipt.json"
+      ]
     }
   },
   "phase_start_requirements": {
@@ -637,6 +653,23 @@
         "docs/roadmaps/evidence/r09/records/operator-authorization.json",
         "docs/roadmaps/evidence/r09/records/preregistration.json",
         "docs/roadmaps/evidence/r09/records/fixtures/fixture-catalog.json"
+      ]
+    },
+    "R10": {
+      "statuses": [
+        "in_progress",
+        "evidence_ready",
+        "passed"
+      ],
+      "predecessors": [
+        "R07",
+        "R09"
+      ],
+      "paths": [
+        "docs/roadmaps/evidence/r10/records/preregistration.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json"
       ]
     }
   },

@@ -2,6 +2,28 @@
 
 > **Preserved evidence tooling:** These ASH V3 calibration and gate tools remain for reproducibility and reuse. Their presence does not authorize legacy P06/P07/P08 execution under the current roadmap.
 
+## R10 bounded optimizer/calibration
+
+R10 is `in_progress` after its exact predecessors R07 and R09 passed. New R10
+code may reuse deterministic implementation patterns from this directory, but
+only through R10-owned contracts and commands. The retired P06/P07 entry points
+remain fail-closed and carry no R10 execution or acceptance authority.
+
+The R10 start contract freezes these four records before a run may publish a
+checkpoint or frozen fixture policy:
+
+- `docs/roadmaps/evidence/r10/records/preregistration.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json`
+
+The bounded optimizer and persistence modules are offline development,
+calibration, evidence, and test tooling. They are not linked into `Mirmir.app`.
+The phase start does not claim acceptance or authorize production Auto,
+holdout access, native execution, product qualification, quality/performance
+claims, publication, or release. Comparative methods remain outside the
+forward roadmap and provide no acceptance authority.
+
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration
 results. Their status fields

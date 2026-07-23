@@ -1,0 +1,465 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r10-preregistration-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "namedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"}
+      },
+      "required": ["id", "path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "predecessor": {
+      "additionalProperties": false,
+      "properties": {
+        "phase_id": {"enum": ["R07", "R09"], "type": "string"},
+        "path": {"minLength": 1, "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"},
+        "raw_sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"},
+        "phase_result": {"const": "passed", "type": "string"},
+        "acceptance": {"const": "accepted", "type": "string"},
+        "acceptance_scope": {
+          "const": "declared_software_function_only",
+          "type": "string"
+        },
+        "implementation_commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "implementation_tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "accepted_merge_commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "accepted_merge_tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": [
+        "phase_id",
+        "path",
+        "size_bytes",
+        "raw_sha256",
+        "phase_result",
+        "acceptance",
+        "acceptance_scope",
+        "implementation_commit",
+        "implementation_tree",
+        "accepted_merge_commit",
+        "accepted_merge_tree"
+      ],
+      "type": "object"
+    },
+    "identifiedRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"minLength": 1, "type": "string"},
+        "description": {"minLength": 1, "type": "string"}
+      },
+      "required": ["id", "description"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R10", "type": "string"},
+    "preregistration_state": {
+      "const": "contract_frozen_for_implementation",
+      "type": "string"
+    },
+    "predecessor_bindings": {
+      "items": {"$ref": "#/$defs/predecessor"},
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array"
+    },
+    "operator_continuation_authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {"const": "operator", "type": "string"},
+        "directive": {
+          "const": "continue_working_to_complete_the_roadmap_and_project",
+          "type": "string"
+        },
+        "r10_implementation": {"const": "authorized", "type": "string"},
+        "authorization_scope": {
+          "const": "forward_declared_software_function_gate",
+          "type": "string"
+        },
+        "production_auto": {"const": "not_authorized", "type": "string"},
+        "holdout": {"const": "not_authorized", "type": "string"}
+      },
+      "required": [
+        "authority",
+        "directive",
+        "r10_implementation",
+        "authorization_scope",
+        "production_auto",
+        "holdout"
+      ],
+      "type": "object"
+    },
+    "observation_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "physical_hardware_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "simulator_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "operator_observation_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "deterministic_fixture_simulation": {
+          "const": "required_for_software_function_verification",
+          "type": "string"
+        },
+        "unavailable_observation_blocks_phase": {"const": false, "type": "boolean"},
+        "fabricated_observation": {"const": "forbidden", "type": "string"}
+      },
+      "required": [
+        "physical_hardware_requirement",
+        "simulator_requirement",
+        "operator_observation_requirement",
+        "deterministic_fixture_simulation",
+        "unavailable_observation_blocks_phase",
+        "fabricated_observation"
+      ],
+      "type": "object"
+    },
+    "acceptance_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "acceptance_authority": {
+          "const": "deterministic_declared_software_function_only",
+          "type": "string"
+        },
+        "acceptance_basis": {
+          "const": "software_does_what_it_says_it_does",
+          "type": "string"
+        },
+        "comparative_testing": {"const": "excluded_not_required_non_authorizing", "type": "string"},
+        "a_b_testing": {"const": "excluded_not_required_non_authorizing", "type": "string"},
+        "superiority_requirement": {"const": "excluded_not_required_non_authorizing", "type": "string"},
+        "acceptance_dependency": {
+          "const": "exact_predecessors_and_preregistered_software_function_checks",
+          "type": "string"
+        },
+        "comparison_acceptance_dependency": {"const": "none", "type": "string"}
+      },
+      "required": [
+        "acceptance_authority",
+        "acceptance_basis",
+        "comparative_testing",
+        "a_b_testing",
+        "superiority_requirement",
+        "acceptance_dependency",
+        "comparison_acceptance_dependency"
+      ],
+      "type": "object"
+    },
+    "source_checkpoint_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "preregistration_self_binds_future_source_checkpoint": {
+          "const": false,
+          "type": "boolean"
+        },
+        "source_commit_and_tree_recorded": {
+          "const": "runtime_evidence_after_implementation_checkpoint_exists",
+          "type": "string"
+        },
+        "source_file_identity": {"const": "exact_git_show_bytes", "type": "string"},
+        "post_checkpoint_source_drift": {
+          "const": "invalidates_run_and_requires_new_checkpoint",
+          "type": "string"
+        }
+      },
+      "required": [
+        "preregistration_self_binds_future_source_checkpoint",
+        "source_commit_and_tree_recorded",
+        "source_file_identity",
+        "post_checkpoint_source_drift"
+      ],
+      "type": "object"
+    },
+    "implementation_contract_bindings": {
+      "items": {"$ref": "#/$defs/namedBinding"},
+      "minItems": 3,
+      "type": "array"
+    },
+    "schema_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "preregistration": {"$ref": "#/$defs/binding"},
+        "fixture_catalog": {"$ref": "#/$defs/binding"},
+        "evaluation_catalog": {"$ref": "#/$defs/binding"},
+        "policy_catalog": {"$ref": "#/$defs/binding"},
+        "calibration_run_receipt": {"$ref": "#/$defs/binding"},
+        "functional_execution_receipt": {"$ref": "#/$defs/binding"},
+        "functional_phase_acceptance": {"$ref": "#/$defs/binding"}
+      },
+      "required": [
+        "preregistration",
+        "fixture_catalog",
+        "evaluation_catalog",
+        "policy_catalog",
+        "calibration_run_receipt",
+        "functional_execution_receipt",
+        "functional_phase_acceptance"
+      ],
+      "type": "object"
+    },
+    "catalog_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "fixture_catalog": {"$ref": "#/$defs/binding"},
+        "evaluation_catalog": {"$ref": "#/$defs/binding"},
+        "policy_catalog": {"$ref": "#/$defs/binding"}
+      },
+      "required": ["fixture_catalog", "evaluation_catalog", "policy_catalog"],
+      "type": "object"
+    },
+    "candidate_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_count": {"const": 9, "type": "integer"},
+        "maximum_candidates": {"const": 9, "type": "integer"},
+        "causal_variables": {
+          "items": false,
+          "prefixItems": [
+            {"const": "quality_confidence_weight", "type": "string"},
+            {"const": "minimum_dwell_frames", "type": "string"},
+            {"const": "hysteresis_margin_q16", "type": "string"}
+          ],
+          "type": "array"
+        },
+        "numeric_value_scope": {
+          "const": "software_test_inputs_not_product_or_quality_thresholds",
+          "type": "string"
+        },
+        "candidate_order": {
+          "const": "ascending_canonical_candidate_bytes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_count",
+        "maximum_candidates",
+        "causal_variables",
+        "numeric_value_scope",
+        "candidate_order"
+      ],
+      "type": "object"
+    },
+    "constraint_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "constraint_order": {
+          "items": false,
+          "prefixItems": [
+            {"const": "route", "type": "string"},
+            {"const": "plane", "type": "string"},
+            {"const": "temporal", "type": "string"},
+            {"const": "protected_region", "type": "string"},
+            {"const": "resource", "type": "string"},
+            {"const": "safety", "type": "string"}
+          ],
+          "type": "array"
+        },
+        "independent_enforcement": {"const": true, "type": "boolean"},
+        "rejection_precedes_evaluator_observation": {"const": true, "type": "boolean"},
+        "rejection_fixtures": {
+          "const": "six_each_failing_exactly_one_distinct_constraint",
+          "type": "string"
+        },
+        "opaque_combined_constraint_scalar": {"const": "forbidden", "type": "string"}
+      },
+      "required": [
+        "constraint_order",
+        "independent_enforcement",
+        "rejection_precedes_evaluator_observation",
+        "rejection_fixtures",
+        "opaque_combined_constraint_scalar"
+      ],
+      "type": "object"
+    },
+    "absolute_score_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "dimensions": {
+          "items": false,
+          "prefixItems": [
+            {"const": "quality_q16", "type": "string"},
+            {"const": "temporal_stability_q16", "type": "string"},
+            {"const": "protected_region_fidelity_q16", "type": "string"},
+            {"const": "safety_margin_q16", "type": "string"},
+            {"const": "resource_efficiency_q16", "type": "string"}
+          ],
+          "type": "array"
+        },
+        "minimum": {"const": 0, "type": "integer"},
+        "maximum": {"const": 65536, "type": "integer"},
+        "ranking": {"const": "higher_is_better", "type": "string"},
+        "comparative_fields": {"const": "absent", "type": "string"},
+        "exact_tie_fixture": {"const": "required", "type": "string"}
+      },
+      "required": [
+        "dimensions",
+        "minimum",
+        "maximum",
+        "ranking",
+        "comparative_fields",
+        "exact_tie_fixture"
+      ],
+      "type": "object"
+    },
+    "ordering_and_selection_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "ranking": {
+          "const": "lexicographic_absolute_dimensions",
+          "type": "string"
+        },
+        "tie_breaker": {
+          "const": "ascending_canonical_candidate_bytes",
+          "type": "string"
+        },
+        "repeatability": {"const": "byte_exact", "type": "string"},
+        "post_hoc_threshold_relaxation": {"const": "forbidden", "type": "string"}
+      },
+      "required": [
+        "ranking",
+        "tie_breaker",
+        "repeatability",
+        "post_hoc_threshold_relaxation"
+      ],
+      "type": "object"
+    },
+    "checkpoint_resume_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_frequency": {"const": "initial_and_after_each_candidate", "type": "string"},
+        "exact_processing_identity_required": {"const": true, "type": "boolean"},
+        "exact_candidate_set_required": {"const": true, "type": "boolean"},
+        "attempt_hash_chain_required": {"const": true, "type": "boolean"},
+        "resume_result": {"const": "byte_exact_to_uninterrupted_run", "type": "string"}
+      },
+      "required": [
+        "checkpoint_frequency",
+        "exact_processing_identity_required",
+        "exact_candidate_set_required",
+        "attempt_hash_chain_required",
+        "resume_result"
+      ],
+      "type": "object"
+    },
+    "transaction_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "cancellation_boundary": {"const": "between_candidates", "type": "string"},
+        "callback_failure": {"const": "typed_failed_checkpoint", "type": "string"},
+        "partial_attempt_commit": {"const": "forbidden", "type": "string"},
+        "durable_progress_withheld_until_end": {"const": "forbidden", "type": "string"}
+      },
+      "required": [
+        "cancellation_boundary",
+        "callback_failure",
+        "partial_attempt_commit",
+        "durable_progress_withheld_until_end"
+      ],
+      "type": "object"
+    },
+    "persistence_and_publication_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "publication": {"const": "content_addressed_atomic_no_follow", "type": "string"},
+        "typed_reopen": {"const": "required_for_every_artifact", "type": "string"},
+        "dependency_closure": {"const": "revalidated_on_every_reopen", "type": "string"},
+        "sealed_mode": {"const": "owner_read_only_0400", "type": "string"},
+        "publication_scope": {
+          "const": "deterministic_fixture_policy_only",
+          "type": "string"
+        },
+        "unreviewed_post_freeze_change": {"const": "forbidden", "type": "string"}
+      },
+      "required": [
+        "publication",
+        "typed_reopen",
+        "dependency_closure",
+        "sealed_mode",
+        "publication_scope",
+        "unreviewed_post_freeze_change"
+      ],
+      "type": "object"
+    },
+    "checks": {
+      "items": {"$ref": "#/$defs/identifiedRule"},
+      "maxItems": 14,
+      "minItems": 14,
+      "type": "array"
+    },
+    "stop_rules": {
+      "items": {"$ref": "#/$defs/identifiedRule"},
+      "minItems": 10,
+      "type": "array"
+    },
+    "authorization_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "r10_implementation": {"const": "authorized", "type": "string"},
+        "phase_acceptance": {"const": "not_claimed_by_preregistration", "type": "string"},
+        "fixture_policy_publication": {
+          "const": "authorized_after_preregistered_run_checks_pass",
+          "type": "string"
+        },
+        "production_auto": {"const": "not_authorized", "type": "string"},
+        "holdout": {"const": "not_authorized", "type": "string"},
+        "product_publication": {"const": "not_authorized", "type": "string"},
+        "quality_claims": {"const": "not_authorized", "type": "string"},
+        "performance_claims": {"const": "not_authorized", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"}
+      },
+      "required": [
+        "r10_implementation",
+        "phase_acceptance",
+        "fixture_policy_publication",
+        "production_auto",
+        "holdout",
+        "product_publication",
+        "quality_claims",
+        "performance_claims",
+        "release"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "preregistration_state",
+    "predecessor_bindings",
+    "operator_continuation_authorization",
+    "observation_policy",
+    "acceptance_policy",
+    "source_checkpoint_policy",
+    "implementation_contract_bindings",
+    "schema_bindings",
+    "catalog_bindings",
+    "candidate_contract",
+    "constraint_contract",
+    "absolute_score_contract",
+    "ordering_and_selection_contract",
+    "checkpoint_resume_contract",
+    "transaction_contract",
+    "persistence_and_publication_contract",
+    "checks",
+    "stop_rules",
+    "authorization_boundary"
+  ],
+  "type": "object"
+}

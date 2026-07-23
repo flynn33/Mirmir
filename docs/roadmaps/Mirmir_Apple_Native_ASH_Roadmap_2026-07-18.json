@@ -288,12 +288,13 @@
     },
     {
       "depends_on": [
-        "R07"
+        "R07",
+        "R09"
       ],
       "exit": "operator-defined software-function gate: deterministic bounded optimizer and calibration machinery enforces declared search limits, independent constraints, identities, resumability, and frozen fixture-policy output",
       "id": "R10",
       "name": "Auto-policy optimization and bounded calibration",
-      "status": "planned"
+      "status": "in_progress"
     },
     {
       "depends_on": [

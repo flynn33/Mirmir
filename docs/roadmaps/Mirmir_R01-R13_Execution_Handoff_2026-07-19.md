@@ -5,6 +5,8 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
+- **Current execution state:** `R00`-`R09: passed`; `R10: in_progress`;
+  `R11`-`R13: planned`
 - **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
@@ -508,9 +510,9 @@ Before changing source:
    checkpoint, and fast-forward local `main` with `--ff-only`.
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
-   `R06: passed`, `R07: passed`, `R08: passed`, and `R09: passed` remain
-   canonical. If any changed, reconcile the newer accepted roadmap before
-   proceeding.
+   `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
+   `R10: in_progress` remain canonical. If any changed, reconcile the newer
+   accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
    evidence. The additive R03 functional acceptance does not alter those
    records. The additive R07 functional acceptance passes only R07 under
@@ -1356,6 +1358,16 @@ continuation instruction separately authorizes R10 implementation.
 
 ### R10 - Auto-policy optimization and bounded calibration
 
+R10 is `in_progress` after both exact canonical predecessors, R07 and R09,
+passed and the operator separately authorized continuation. Before an R10 run
+may publish a checkpoint or frozen fixture policy, preserve and validate these
+four phase-start records:
+
+- `docs/roadmaps/evidence/r10/records/preregistration.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json`
+
 Reuse preserved schedulers, schemas, validators, and evidence libraries through
 new R10 commands; the retired P06/P07 entry points remain fail-closed. Implement
 typed candidate, constraint, score, selection, and frozen-policy contracts; a
@@ -1365,8 +1377,9 @@ exact checkpoint/resume identity; transactional failure and cancellation; and
 durable fixture-policy publication.
 
 R10 accepts only when checkpoint-bound deterministic tests prove those bounded
-software behaviors. Production Auto and holdout access remain separate and
-blocked.
+software behaviors. That functional acceptance is not claimed by the phase
+start and its acceptance evidence remains inactive while R10 is `in_progress`.
+Production Auto and holdout access remain separate and blocked.
 
 Production Auto and holdout access remain blocked. Any future change requires a
 new operator-authorized roadmap revision outside R10 functional closure.
@@ -1461,7 +1474,8 @@ frozen R06/R07 negative product records remain unchanged.
 R09 passed its separate bounded-experiment software-function gate while native
 Core AI/framework/model, hardware, simulator, and operator observations remain
 `not_observed`. The operator's later continuation instruction authorizes R10
-implementation under the forward software-function gate. Product qualification,
-production Auto, holdout access, claims, tags, releases, pushes, pull requests,
-approvals, merges, force-pushes, and repository-setting mutation retain their
-separate authority requirements.
+implementation under the forward software-function gate; with both R07 and R09
+passed and the four exact phase-start records frozen, R10 is now `in_progress`
+and unaccepted. Product qualification, production Auto, holdout access, claims,
+tags, releases, pushes, pull requests, approvals, merges, force-pushes, and
+repository-setting mutation retain their separate authority requirements.

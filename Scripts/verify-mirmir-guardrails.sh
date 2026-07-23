@@ -108,7 +108,12 @@ python3 -m unittest \
   Scripts/tests/test_r08_contracts.py \
   Scripts/tests/test_r08_phase_acceptance.py \
   Scripts/tests/test_r09_contracts.py \
-  Scripts/tests/test_r09_phase_acceptance.py
+  Scripts/tests/test_r09_phase_acceptance.py \
+  validation/calibration_v2/tests/test_r10_optimizer.py \
+  validation/calibration_v2/tests/test_r10_persistence.py \
+  validation/calibration_v2/tests/test_run_r10_fixture_calibration.py \
+  Scripts/tests/test_r10_contracts.py \
+  Scripts/tests/test_r10_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -158,6 +163,7 @@ python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
 python3 Scripts/r09_contracts.py --all
 python3 Scripts/r09_phase_acceptance.py --check
+python3 Scripts/r10_contracts.py --all
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2

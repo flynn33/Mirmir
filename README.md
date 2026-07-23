@@ -42,37 +42,33 @@ and carries no implementation, acceptance, or phase-progression authority.
 **Current roadmap focus:** `R10` — Auto-policy optimization and bounded
 calibration
 
-**Latest phase acceptance:** `R06` — `passed` under the
-declared-software-function-only gate.
+**Current phase status:** `R10` — `in_progress`; acceptance is not claimed.
 
-**Acceptance basis:** deterministic tests must verify R06's context/profile
-mapping, eligibility filtering, scoring and stable tie-breaking, one traceable
-whole-frame plan, transition behavior, bounded masks, reason identity, and
-transactional state commit/rollback.
+**Latest phase acceptance:** `R09` — `passed` with exit outcome
+`qualified_local_residual`, limited to `declared_software_function_only` under
+deterministic fixture simulation.
 
-**R06 evidence:** source commit
-`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
-`beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh seven-suite macOS arm64
-Xcode run with 42 tests passed, zero failed, and zero skipped. The additive test
-proves higher-scoring ineligible candidates cannot enter the plan, while the
-real R07 coordinator suites prove transactional state commit and rollback around
-the real R06 orchestrator.
+**R10 start contract:** both exact predecessors, R07 and R09, are `passed`.
+The frozen preregistration and deterministic fixture, evaluation, and policy
+catalogs are required before an R10 run may publish a checkpoint or frozen
+fixture policy. R10 functional acceptance remains inactive while the phase is
+`in_progress`. R11 remains `planned` and may become `next` only after R10
+functional acceptance.
 
-**Execution scope:** deterministic R06 control-plane software only. The frozen
-`no_product_qualified_primary_backend` record remains unchanged historical
-evidence. R06 v1 still rejects product-scope orchestration. Product routing,
-product qualification, a production default, Auto, native-framework execution,
-hardware, simulator, operator observation, quality, performance, holdout access,
-publication, and release remain unauthorized or unclaimed.
+**Execution scope:** deterministic bounded optimizer/calibration implementation
+and fixture testing only. Production Auto, holdout access, native execution,
+product qualification, quality/performance claims, publication, and release
+remain blocked, unauthorized, or unclaimed. Comparison methods remain outside
+the forward roadmap and non-authorizing.
 
 <!-- BEGIN ROADMAP PROGRESS -->
 **Overall:** `10 / 14` roadmap phases passed (`71%`)
 
 `[#######---]`
 
-**Status:** ✅ Passed `10` · ⬜ Planned `4`
+**Status:** ✅ Passed `10` · 🔄 In progress `1` · ⬜ Planned `3`
 
-**Current focus:** No phase is marked `next`, `in_progress`, or `evidence_ready`.
+**Current focus:** `R10` — Auto-policy optimization and bounded calibration
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -86,7 +82,7 @@ publication, and release remain unauthorized or unclaimed.
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
-| `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
+| `R10` | Auto-policy optimization and bounded calibration | `in_progress` | 🔄 In progress |
 | `R11` | Evidence traceability and claim boundary | `planned` | ⬜ Planned |
 | `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
 | `R13` | Release hardening | `planned` | ⬜ Planned |
@@ -1472,7 +1468,24 @@ gate.
 
 ## R10 — Auto-policy optimization and bounded calibration
 
-**Status:** `planned`
+**Status:** `in_progress`
+
+### Phase start — 2026-07-23
+
+R10 begins only after both of its exact canonical predecessors, R07 and R09,
+are `passed`. The operator's continuation instruction authorizes bounded local
+implementation under the forward software-function gate. The start contract
+freezes a preregistration plus deterministic fixture, evaluation, and policy
+catalogs before an R10 run may publish a calibration checkpoint or frozen
+fixture policy.
+
+This start authorizes implementation and deterministic fixture testing only; it
+does not claim R10 acceptance. The future functional acceptance requirement
+remains inactive until R10 is proposed as `passed`. Production Auto, holdout
+access, native-framework or hardware execution, product qualification, quality
+or performance claims, publication, and release remain blocked, unauthorized,
+or unclaimed. Comparative, A/B, blinded, ablation, and superiority methods
+remain outside the forward roadmap and provide no phase-progression authority.
 
 ### Objective
 

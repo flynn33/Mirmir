@@ -17,6 +17,7 @@
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
+- Roadmap phase `R10`: `in_progress`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -201,12 +202,19 @@ authorize R10 progression; the operator's later continuation instruction
 separately authorizes R10 implementation under the forward software-function
 gate.
 
-The later R10/R11 control boundary follows the same software-function rule. R10
-must implement a deterministic, finitely bounded, constraint-preserving,
-resumable optimizer/calibration service. R11 must implement traceable evidence
-and claim-scope machinery, reject unsupported claims, and emit an honest
-no-claim disposition by default. Any `market_leading_claim` remains separately
-blocked without exact evidence and operator authorization.
+R10 is `in_progress` after both exact canonical predecessors, R07 and R09,
+passed. Its start contract freezes the preregistration and deterministic
+fixture, evaluation, and policy catalogs before any R10 run may publish a
+checkpoint or frozen fixture policy. The bounded optimizer/calibration service
+must remain deterministic, finitely bounded, constraint-preserving, resumable,
+transactional, and identity-complete. This start is implementation authority,
+not phase acceptance or production Auto authority.
+
+The later R11 control boundary follows the same software-function rule. R11
+must implement traceable evidence and claim-scope machinery, reject unsupported
+claims, and emit an honest no-claim disposition by default. Any
+`market_leading_claim` remains separately blocked without exact evidence and
+operator authorization.
 
 ## Target Apple-Native Adaptive Architecture
 
