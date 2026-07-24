@@ -14,6 +14,9 @@ from typing import Any
 
 
 DEFAULT_POLICY_PATH = Path(".github/roadmap-alignment-policy.json")
+CANDIDATE_PRESERVATION_VERIFIER_PATHS = frozenset(
+    {"analysis/ash-failure-patterns/test_failure_analysis.py"}
+)
 
 
 def read_json(path: Path) -> dict[str, Any]:
@@ -568,14 +571,36 @@ class InventoryVerifier:
                             f"{checkpoint_label} for {item['path']}"
                         )
                     if checkpoint_label == "source":
-                        unchanged = self.git(
+                        changed = self.git(
                             "diff",
-                            "--quiet",
+                            "--no-ext-diff",
+                            "--no-renames",
+                            "--name-only",
+                            "-z",
                             resolved[0],
                             "--",
                             item["path"],
                         )
-                        if unchanged.returncode != 0:
+                        permitted = {
+                            path
+                            for path in CANDIDATE_PRESERVATION_VERIFIER_PATHS
+                            if path == item["path"]
+                            or path.startswith(f"{item['path']}/")
+                        }
+                        changed_paths = {
+                            path for path in changed.stdout.split("\0") if path
+                        }
+                        invalid_permitted_paths = {
+                            path
+                            for path in changed_paths & permitted
+                            if (self.root / path).is_symlink()
+                            or not (self.root / path).is_file()
+                        }
+                        if (
+                            changed.returncode != 0
+                            or changed_paths - permitted
+                            or invalid_permitted_paths
+                        ):
                             self.add_error(
                                 "historical preservation path differs from the source "
                                 f"checkpoint in the candidate tree: {item['path']}"

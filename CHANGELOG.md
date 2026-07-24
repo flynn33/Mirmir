@@ -59,7 +59,8 @@ All notable project changes are recorded here.
   The preserved P06 analysis test now reopens its exact analysis and bound-run
   source blobs from their archival Git commits instead of comparing the
   historical snapshot to the current worktree. No historical evidence bytes or
-  identities changed.
+  identities changed. R00 permits candidate evolution only for that verifier
+  test file; every other preserved analysis and evidence path remains frozen.
 - Accepted R10 for `declared_software_function_only` under deterministic fixture
   simulation. The additive receipt and phase-acceptance record bind
   implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree

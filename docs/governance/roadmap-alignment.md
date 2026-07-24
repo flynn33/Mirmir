@@ -29,7 +29,11 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   generated project declarations, active paths, and decorated Swift imports;
 - the schema-closed, exact-commit R00 C01-C11 source inventory, its generated
   Markdown, its fail-closed evidence boundaries, and candidate drift across every
-  accepted source path;
+  accepted source path. Historical preservation identities remain exact at the
+  R00 checkpoint. In the candidate tree, only
+  `analysis/ash-failure-patterns/test_failure_analysis.py` may evolve so it can
+  reopen the frozen source blobs by commit; every preserved evidence, report,
+  analyzer, query, receipt, and artifact path remains byte-frozen;
 - status-sensitive phase-start contracts: R02, R03, R04, R05, R06, R07, R08,
   R09, R10, and R11 `in_progress`, `evidence_ready`, and `passed` states require
   regular, non-symlink start-contract files. R10 additionally requires exact

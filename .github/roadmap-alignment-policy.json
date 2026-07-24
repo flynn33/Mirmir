@@ -347,6 +347,10 @@
       "evidence-preservation action, not a product release",
       "repository is reference-only"
     ],
+    "Scripts/r00_inventory.py": [
+      "CANDIDATE_PRESERVATION_VERIFIER_PATHS",
+      "analysis/ash-failure-patterns/test_failure_analysis.py"
+    ],
     "Scripts/verify-mirmir-guardrails.sh": [
       "guardrail_temp_base_requested=\"${TMPDIR:-/tmp}\"",
       "\"$guardrail_temp_base_requested\" != /*",

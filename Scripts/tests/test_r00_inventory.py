@@ -12,7 +12,11 @@ from unittest.mock import patch
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "Scripts"))
 
-from r00_inventory import InventoryVerifier, render_inventory  # noqa: E402
+from r00_inventory import (  # noqa: E402
+    CANDIDATE_PRESERVATION_VERIFIER_PATHS,
+    InventoryVerifier,
+    render_inventory,
+)
 
 
 class R00InventoryTests(unittest.TestCase):
@@ -108,6 +112,51 @@ class R00InventoryTests(unittest.TestCase):
 
         with patch.object(verifier, "git", side_effect=simulated_git):
             self.assertEqual(verifier.check(), [])
+
+    def test_candidate_preservation_verifier_exception_is_exact(self) -> None:
+        self.assertEqual(
+            CANDIDATE_PRESERVATION_VERIFIER_PATHS,
+            frozenset(
+                {"analysis/ash-failure-patterns/test_failure_analysis.py"}
+            ),
+        )
+
+    def test_other_candidate_preservation_changes_fail_closed(self) -> None:
+        verifier = self.verifier_for(self.inventory)
+        original_git = verifier.git
+        checkpoint = self.inventory["source_checkpoint"]
+        preservation_root = "analysis/ash-failure-patterns"
+
+        def simulated_git(*arguments: str) -> subprocess.CompletedProcess[str]:
+            if arguments == (
+                "diff",
+                "--no-ext-diff",
+                "--no-renames",
+                "--name-only",
+                "-z",
+                checkpoint,
+                "--",
+                preservation_root,
+            ):
+                return subprocess.CompletedProcess(
+                    arguments,
+                    0,
+                    (
+                        "analysis/ash-failure-patterns/"
+                        "test_failure_analysis.py\0"
+                        "analysis/ash-failure-patterns/artifact.json\0"
+                    ),
+                    "",
+                )
+            return original_git(*arguments)
+
+        with patch.object(verifier, "git", side_effect=simulated_git):
+            errors = verifier.check()
+        self.assertIn(
+            "historical preservation path differs from the source checkpoint "
+            "in the candidate tree: analysis/ash-failure-patterns",
+            errors,
+        )
 
     def test_candidate_holdout_record_drift_fails(self) -> None:
         verifier = self.verifier_for(self.inventory)
