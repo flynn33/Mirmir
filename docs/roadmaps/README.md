@@ -10,8 +10,10 @@ gate; `R09: passed` under the bounded-residual software-function gate;
 `R10: passed` under the deterministic bounded optimizer/calibration
 software-function gate; `R11: passed` under its exact-source traceability and
 claim-boundary software-function gate; `R12: passed` under its exact-source
-declared-software-function gate; `R13: in_progress` under the operator's
-explicit continuation instruction. R13 acceptance is not claimed. R03's
+declared-software-function gate; `R13: passed` under its exact-source
+release-hardening software-function gate. The roadmap is complete for its
+accepted declared-software-function scope; the R13 outcome is
+`release_ready_candidate`, not a publication or release. R03's
 frozen v1 result remains fail-closed and `blocked`; R04's frozen
 `diagnostic_only` checkpoint remains historical while its later additive
 declared-software-function acceptance passes. Native VideoToolbox model
@@ -223,12 +225,21 @@ decode, upscale, encode, or preservation support for the expanded formats, and
 it grants no product qualification, production Auto, market claim, product
 publication, tag, or release authority.
 
-R13 is now `in_progress` after exact predecessor R12 passed and under the
-operator's explicit continuation instruction. Current work is limited to
-exact-app identity, user-mode, asset-state, resumability, lifecycle, telemetry,
-fault, and resource-hardening behavior. It aims to produce a release-ready
-candidate; neither its current status nor later acceptance authorizes a tag,
-publication, release, production Auto, or market claim.
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. Exact-source evidence binds commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+`5c8ae09251955d8274d391e93215b346db25bada`. Its 183 selected tests passed
+with zero failures and zero skips; strict lint covered 403 Swift files with
+zero violations. The genuine A11 MPS Lanczos and AVFoundation shipping path
+produced and reopened the retained QuickTime MOV, and the separately built
+Release app was archived and reopened with exact identity. Quality, Fast, and
+Deterministic are available; Auto remains `unavailable` and `not_authorized`.
+The outcome is `release_ready_candidate`, but the candidate was not published
+or released. Hardware, simulator, operator observation, Release-app execution,
+signing, notarization, Gatekeeper, and launch smoke remain `not_observed` and
+nonblocking. No publication, distribution, tag, release, Auto, or market claim
+is authorized.
 
 The operator-authorized additive R03 v2 correction passed as of 2026-07-21 for
 source `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -306,12 +317,16 @@ disabled.
 - [R11 Functional Phase Acceptance](evidence/r11/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison methods absent and non-gating
 - [R12 Functional Execution Receipt](evidence/r12/records/functional-execution-receipt.json) — exact-source contract execution; 85 passed, 0 failed, 0 skipped; strict lint covered 340 files with zero violations
 - [R12 Functional Phase Acceptance](evidence/r12/records/functional-phase-acceptance.json) — declared-software-function-only gate passed; comparison and A/B methods absent and non-gating
+- [R13 Release Candidate Receipt](evidence/r13/records/release-candidate-receipt.json) — exact Release app/archive identity and release-ready-candidate boundary
+- [R13 Output Reopen Receipt](evidence/r13/records/output-reopen-receipt.json) — retained QuickTime MOV reopen and controlled metadata verification
+- [R13 Functional Execution Receipt](evidence/r13/records/functional-execution-receipt.json) — exact-source execution; 183 passed, 0 failed, 0 skipped; strict lint covered 403 files with zero violations
+- [R13 Functional Phase Acceptance](evidence/r13/records/functional-phase-acceptance.json) — operator-defined software-function gate passed; comparison and A/B methods absent and non-gating
 - [R01-R13 Execution Handoff](Mirmir_R01-R13_Execution_Handoff_2026-07-19.md) — non-canonical implementation guidance
 - [Roadmap Alignment Governance](../governance/roadmap-alignment.md)
 
 Verified source hashes:
 
-- Markdown: `5656a78bd9c8341e8d806c77d27190e37a01699e624900eab6248e76a0950217`
-- JSON: `7bcfaa75e1588c51bf839aa6f78f3382d3f679ebe85a7756c5dea60e0d000617`
+- Markdown: `93a99f92a18b1a88a9130e0916e318f8e5249fe0a63768b1bb46550536c39531`
+- JSON: `e5264ab1009d568932614d3cf0f9985cdb5ef9d8c144d843c71e56bc77201178`
 
 The complete Markdown roadmap is also published in the root README between stable canonical-roadmap markers. The ASH V3 branch and its testing, partial, failure, and diagnostic evidence are preserved as historical engineering evidence, not as a release.

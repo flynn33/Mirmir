@@ -139,7 +139,8 @@ python3 -m unittest \
   validation/calibration_v2/tests/test_run_r11_fixture_traceability.py \
   Scripts/tests/test_r11_contracts.py \
   Scripts/tests/test_r11_phase_acceptance.py \
-  Scripts/tests/test_r12_phase_acceptance.py
+  Scripts/tests/test_r12_phase_acceptance.py \
+  Scripts/tests/test_r13_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -373,6 +374,47 @@ echo \
   shasum -a 256 -c -
 python3 Scripts/r12_phase_acceptance.py --check-generated
 python3 Scripts/r12_phase_acceptance.py --check
+
+echo "==> Verifying sealed R13 functional acceptance..."
+r13_source_commit="6c72e865e7622c11dcf1681f04ccc5cc240d8119"
+r13_source_tree="14852f416aef5d3156185a4b50767b531915cd82"
+r13_evidence_commit="5c8ae09251955d8274d391e93215b346db25bada"
+git cat-file -e "$r13_source_commit^{commit}"
+git rev-parse "$r13_source_commit^{tree}" | grep -Fx "$r13_source_tree"
+git merge-base --is-ancestor "$r13_source_commit" "$r13_evidence_commit"
+git merge-base --is-ancestor "$r13_evidence_commit" HEAD
+echo \
+  "cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f  docs/roadmaps/evidence/r13/records/functional-execution-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f  docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json" |
+  shasum -a 256 -c -
+echo \
+  "5fd16a27658fa614f3f589874aba17ad44fce4adc4b07a601014858bfcad2e67  docs/roadmaps/evidence/r13/records/release-candidate-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "17896f063796740dedc5109f0027b9f05e4ff54ce87301643b437c547f0dcd40  docs/roadmaps/evidence/r13/records/output-reopen-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "ae7e5c2c31249b1f5957ba2ceca8c62c5268ed250ee9e91aae6440c8e7867ec6  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/build-for-testing.log" |
+  shasum -a 256 -c -
+echo \
+  "4ed0b6217ad276ab7c7f26f18001b8861235586c5cdbb0d29d08316ac3997859  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/targeted-xctest.log" |
+  shasum -a 256 -c -
+echo \
+  "8e51236dd62f7f5d3992de83088665a16adaeafa4c60b9c3484481b05cd20f51  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/release-app-build.log" |
+  shasum -a 256 -c -
+echo \
+  "b6a9e9df07f59c1b8c37f56e8a2ab65ea41cdd9bc31fbc2a16c2d943a8600816  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/swiftlint.log" |
+  shasum -a 256 -c -
+echo \
+  "a7515b04619d27dcbf278968274058345135033d8272a3faaecc4e2a52e4dbe8  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-release-candidate.zip" |
+  shasum -a 256 -c -
+echo \
+  "b937bc33d6d27b1e1e6f795ce6abfb880dd8ad744f03c093684c089bbe7d20ce  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-output-reopen-fixture.mov" |
+  shasum -a 256 -c -
+python3 Scripts/r13_phase_acceptance.py --check-generated
+python3 Scripts/r13_phase_acceptance.py --check
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2

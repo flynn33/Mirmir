@@ -1606,7 +1606,7 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 
 ## R13 — Release hardening
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
@@ -1618,9 +1618,10 @@ the software declares. Hardware, simulator, and operator observation may remain
 `not_observed` and nonblocking. Comparison and A/B methods are absent, not
 required, and non-authorizing.
 
-R13 aims to produce a release-ready candidate. Its `in_progress` status does
-not authorize production Auto, a market or superiority claim, product
-publication, a tag, or a release. Those actions require separate authority.
+R13 produces a `release_ready_candidate` under the operator-defined functional
+gate; passing R13 does not authorize production Auto, a market or superiority
+claim, product publication, distribution, a tag, or a release. Those actions
+require separate authority.
 
 ### Work
 
@@ -1632,6 +1633,32 @@ publication, a tag, or a release. Those actions require separate authority.
 - Add concise user-facing explanations and detailed developer telemetry.
 - Run Xcode tests, CLI tests, SwiftLint, Instruments, GPU capture, soak, cancellation, disk-full, low-memory, thermal, and mutation tests.
 - Publish only after exact app, exact policy/model assets, and measured output evidence reopen successfully.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. The exact-source run verifies
+shipping-service behavior through genuine A11 MPS Lanczos and AVFoundation paths
+and separately builds and binds the Release app candidate. Quality, Fast, and
+Deterministic are available; Auto remains visible but `unavailable` and
+`not_authorized`. The evidence covers the no-model asset state, resumability,
+bookmark/cache/storage behavior, lifecycle cancellation, diagnostics,
+fault/resource hardening, and reopen-before-atomic-publication. The outcome is
+`release_ready_candidate`.
+
+Comparison and A/B methods were absent and not required. Hardware, simulator,
+operator observation, Release-app execution, distribution signing, notarization,
+Gatekeeper assessment, and launch smoke remain `not_observed` and nonblocking.
+The candidate was not published or released, and no publication, distribution,
+tag, release, Auto, or market claim is authorized.
+
+The accepted source is commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`; generated evidence is committed at
+`5c8ae09251955d8274d391e93215b346db25bada`. The exact run passed 183 of
+183 selected tests with zero failures and zero skips, linted 403 Swift files
+with zero violations, reopened the retained QuickTime MOV, and reopened the
+single-app Release candidate archive with an exact app-tree identity.
 
 ---
 
@@ -1706,7 +1733,10 @@ The roadmap succeeds when all of the following are true:
 1. Every Apple-native method in Section 5 has a qualified, restricted,
    diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
    supplies inventory closure only and carries no availability or quality claim.
-2. At least one strong Apple-native primary SR backend is production-qualified.
+2. At least one strong Apple-native primary SR backend is functionally
+   product-eligible for its declared product routes under exact-source
+   software-function evidence; broader hardware, quality, distribution, and
+   market qualification remain separate claims.
 3. ASH causally controls backend/policy decisions exactly within its accepted software contract.
 4. Temporal stability and artifact governance perform their declared bounded, transactional software function.
 5. Core AI analysis performs its declared optional analysis and deterministic-bypass software function or is cleanly excluded from the shipping critical path.

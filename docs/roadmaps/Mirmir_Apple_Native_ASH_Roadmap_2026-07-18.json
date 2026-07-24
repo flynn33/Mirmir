@@ -322,7 +322,7 @@
       "exit": "exact-app evidence and release-ready product",
       "id": "R13",
       "name": "Release hardening",
-      "status": "in_progress"
+      "status": "passed"
     }
   ],
   "roadmap_version": "1.0.1",

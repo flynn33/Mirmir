@@ -5,8 +5,12 @@
 - **Publication date:** 2026-07-19
 - **Revision date:** 2026-07-23
 - **Repository:** `flynn33/Mirmir`
-- **Current execution state:** `R00`-`R12: passed`; `R13: in_progress`
-- **Source checkpoint:** `79f458a09625389ae890bea63f712f4ff39a3c34`
+- **Current execution state:** `R00`-`R13: passed`; roadmap complete for
+  `declared_software_function_only`; R13 outcome `release_ready_candidate`,
+  not published or released
+- **Accepted R13 source checkpoint:**
+  `6c72e865e7622c11dcf1681f04ccc5cc240d8119`; tree
+  `14852f416aef5d3156185a4b50767b531915cd82`
 - **Original starting state:** `R00: passed`; `R01: next`
 - **R01 implementation checkpoint:** PR #16 merge
   `9747a032b24f3d2475f3cead9ebbf5bc87d19548`; implementation commit
@@ -145,10 +149,22 @@
   `67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`;
   acceptance scope `declared_software_function_only`; no comparison or A/B
   method was run or required; R12 is `passed`
+- **R13 declared-software-function acceptance:** exact source commit
+  `6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+  `14852f416aef5d3156185a4b50767b531915cd82`; additive evidence commit
+  `5c8ae09251955d8274d391e93215b346db25bada`; 183 selected tests passed with
+  zero failures and zero skips; strict SwiftLint covered 403 files with zero
+  violations; genuine A11 MPS Lanczos and AVFoundation execution produced and
+  reopened the retained QuickTime MOV; the separately built Release app
+  candidate was archived and reopened with exact identity; acceptance basis
+  `software_does_what_it_says_it_does`, scope
+  `declared_software_function_only`, outcome `release_ready_candidate`; the
+  candidate was not published or released, and Auto, publication,
+  distribution, tag, release, and market claims remain unauthorized
 - **Continuation state:** `R01: passed`; `R02: passed`; `R03: passed`;
   `R04: passed`; `R05: passed`; `R06: passed`;
   `R07: passed`; `R08: passed`; `R09: passed`; `R10: passed`;
-  `R11: passed`; `R12: passed`; `R13: in_progress`
+  `R11: passed`; `R12: passed`; `R13: passed`
 
 > This is non-canonical implementation guidance. The canonical roadmap Markdown,
 > canonical roadmap JSON, accepted architecture decision, and roadmap-alignment
@@ -540,10 +556,9 @@ Before changing source:
 4. Confirm `R00: passed`, `R01: passed`, `R02: passed`,
    `R03: passed`, `R04: passed`, `R05: passed`,
    `R06: passed`, `R07: passed`, `R08: passed`, `R09: passed`, and
-   `R10: passed`, `R11: passed`, and `R12: passed` remain canonical, with
-   `R13: in_progress`. If any changed,
-   reconcile the newer
-   accepted roadmap before proceeding.
+   `R10: passed`, `R11: passed`, `R12: passed`, and `R13: passed` remain
+   canonical. If any status or accepted evidence identity changed, reconcile
+   the newer accepted roadmap before proceeding.
 5. Preserve the exact frozen R06 and R07 blocked records as historical negative
    evidence. The additive R03 functional acceptance does not alter those
    records. The additive R07 functional acceptance passes only R07 under
@@ -555,9 +570,11 @@ Before changing source:
    local-continuation path in Section 3.1, later phases become actionable only
    through accepted dependencies, evidence, roadmap state, and operator controls.
 
-The source checkpoint records the accepted R00 state. A receiving environment
-must record its own exact starting commit rather than claiming that its working
-tree is still identical to this checkpoint.
+The source checkpoint at the top of this handoff records the accepted R13
+implementation. Earlier R00 checkpoints remain identified in their historical
+entries. A receiving environment must record its own exact starting commit
+rather than claiming that its working tree is still identical to either
+checkpoint.
 
 ## 2. Immutable operator controls
 
@@ -1475,22 +1492,28 @@ product publication, tags, and release remain unauthorized.
 
 ### R13 - Release hardening
 
-R13 is `in_progress` after exact predecessor R12 passed and under the
-operator's explicit continuation instruction. Current work is limited to the
-exact-app identity, user-mode, asset-state, resumability, lifecycle, telemetry,
-fault, and resource-hardening behavior that the software declares. Comparison
-and A/B methods are absent, not required, and non-authorizing. Hardware,
-simulator, and operator observation may remain `not_observed` and nonblocking.
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. The accepted source is commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`; evidence is committed at
+`5c8ae09251955d8274d391e93215b346db25bada`.
 
-Add the accepted user modes, asset-acquisition/specialization UI, resumability,
-concise explanations, detailed diagnostics, exact binary/model/policy/framework
-identity, and fault/resource hardening. Run unit and CLI tests, strict lint,
-instrumentation, GPU capture, soak, cancellation, disk-full, low-memory, thermal,
-mutation, and exact-app reopen evidence across supported tiers and formats.
+The exact-source run passed 183 selected tests with zero failures and zero
+skips and linted 403 Swift files with zero violations. It verifies the genuine
+A11 MPS Lanczos and AVFoundation shipping-service paths, the no-model asset
+state, resumability, bookmark/cache/storage behavior, lifecycle cancellation,
+diagnostics, fault/resource hardening, and reopen-before-atomic-publication. It
+separately builds, archives, and reopens the exact Release app candidate.
+Quality, Fast, and Deterministic are available; Auto remains visible but
+`unavailable` and `not_authorized`. The outcome is
+`release_ready_candidate`.
 
-R13 aims to produce a release-ready candidate only. Its implementation or later
-acceptance does not authorize a tag, release, publication, production Auto, or
-claim. Each requires its own accepted roadmap state and direct operator action.
+Comparison and A/B methods were absent and not required. Hardware, simulator,
+operator observation, Release-app execution, distribution signing,
+notarization, Gatekeeper assessment, and launch smoke remain `not_observed` and
+nonblocking. The candidate was not published or released. No publication,
+distribution, tag, release, Auto, or market claim is authorized; each requires
+separate operator action outside this completed roadmap.
 
 ## 7. Mandatory blockers and negative-result rules
 
@@ -1544,8 +1567,9 @@ R12 passed its exact-source declared-software-function gate at implementation
 commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
 `4971b4d38f92ea5edffe925e507f058e9ffc13d8`. Hardware, simulator, and operator
 observations remain `not_observed`; comparison and A/B methods supplied no
-acceptance authority. R13 is now `in_progress` under the operator's explicit
-continuation instruction. Product qualification, production Auto, holdout
-access, claims, tags, releases, pushes, pull requests, approvals, merges,
-force-pushes, and repository-setting mutation retain their separate authority
-requirements.
+acceptance authority. R13 subsequently passed its exact-source
+`software_does_what_it_says_it_does` gate with outcome
+`release_ready_candidate`. The candidate was not published or released.
+Production Auto, holdout access, claims, distribution, tags, releases, pushes,
+pull requests, approvals, merges, force-pushes, and repository-setting mutation
+retain their separate authority requirements.

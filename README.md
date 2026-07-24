@@ -39,47 +39,44 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R13` — Release hardening
+**Current roadmap status:** complete for the accepted
+`declared_software_function_only` scope; `R00` through `R13` are `passed`.
 
-**Current phase status:** `R13` — `in_progress`; acceptance is not claimed.
+**Latest phase acceptance:** `R13` — `passed` under the
+`software_does_what_it_says_it_does` basis, with outcome
+`release_ready_candidate`.
 
-**Latest phase acceptance:** `R12` — `passed`, limited to
-`declared_software_function_only`.
-
-**R12 functional closure:** the functional execution receipt and
-phase-acceptance record bind exact source commit
-`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
-`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
-`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
-85 selected tests with zero failures and zero skips: 15 format-contract tests,
-25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
-checked 340 files with zero violations.
+**R13 functional closure:** the exact-source records bind source commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+`5c8ae09251955d8274d391e93215b346db25bada`. The run passed all 183 selected
+tests with zero failures and zero skips and linted 403 Swift files with zero
+violations. It verifies the genuine A11 MPS Lanczos and AVFoundation shipping
+paths, reopens the retained QuickTime MOV, and separately builds, archives, and
+reopens the exact Release app candidate.
 
 The functional execution receipt has SHA-256
-`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`,
-and the phase-acceptance record has SHA-256
-`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+`cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f`;
+the phase-acceptance record has SHA-256
+`9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f`.
 
-**R13 phase start:** exact predecessor R12 is `passed`. Work begun on
-2026-07-23 is limited to release hardening and creation of a release-ready
-candidate. Hardware, simulator, and operator observation may remain
-`not_observed` and do not block that work.
-
-**Authorization boundary:** R12 acceptance proves only its declared contract
-software functions. Contract-only expansion is not a production-format support
-claim. R12 grants no product qualification, production Auto, market, product
-publication, or release-publication authority. R13 release-hardening work does
-not authorize a tag, publication, or release. Comparative and A/B methods are
-absent, not required, and non-authorizing.
+**Authorization boundary:** Quality, Fast, and Deterministic are available.
+Auto remains visible but `unavailable` and `not_authorized`; no model or
+fallback route is accepted. Comparison and A/B methods are absent and not
+required. Hardware, simulator, operator observation, Release-app execution,
+distribution signing, notarization, Gatekeeper assessment, and launch smoke are
+`not_observed` and nonblocking. The candidate was not published or released,
+and no publication, distribution, tag, release, Auto, or market claim is
+authorized.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `13 / 14` roadmap phases passed (`93%`)
+**Overall:** `14 / 14` roadmap phases passed (`100%`)
 
-`[#########-]`
+`[##########]`
 
-**Status:** ✅ Passed `13` · 🔄 In progress `1`
+**Status:** ✅ Passed `14`
 
-**Current focus:** `R13` — Release hardening
+**Current focus:** No phase is marked `next`, `in_progress`, or `evidence_ready`.
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
@@ -96,7 +93,7 @@ absent, not required, and non-authorizing.
 | `R10` | Auto-policy optimization and bounded calibration | `passed` | ✅ Passed |
 | `R11` | Evidence traceability and claim boundary | `passed` | ✅ Passed |
 | `R12` | Format, route, and product expansion | `passed` | ✅ Passed |
-| `R13` | Release hardening | `in_progress` | 🔄 In progress |
+| `R13` | Release hardening | `passed` | ✅ Passed |
 <!-- END ROADMAP PROGRESS -->
 
 ## Canonical Roadmap (Complete)
@@ -1710,7 +1707,7 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 
 ## R13 — Release hardening
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Phase start — 2026-07-23
 
@@ -1722,9 +1719,10 @@ the software declares. Hardware, simulator, and operator observation may remain
 `not_observed` and nonblocking. Comparison and A/B methods are absent, not
 required, and non-authorizing.
 
-R13 aims to produce a release-ready candidate. Its `in_progress` status does
-not authorize production Auto, a market or superiority claim, product
-publication, a tag, or a release. Those actions require separate authority.
+R13 produces a `release_ready_candidate` under the operator-defined functional
+gate; passing R13 does not authorize production Auto, a market or superiority
+claim, product publication, distribution, a tag, or a release. Those actions
+require separate authority.
 
 ### Work
 
@@ -1736,6 +1734,32 @@ publication, a tag, or a release. Those actions require separate authority.
 - Add concise user-facing explanations and detailed developer telemetry.
 - Run Xcode tests, CLI tests, SwiftLint, Instruments, GPU capture, soak, cancellation, disk-full, low-memory, thermal, and mutation tests.
 - Publish only after exact app, exact policy/model assets, and measured output evidence reopen successfully.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. The exact-source run verifies
+shipping-service behavior through genuine A11 MPS Lanczos and AVFoundation paths
+and separately builds and binds the Release app candidate. Quality, Fast, and
+Deterministic are available; Auto remains visible but `unavailable` and
+`not_authorized`. The evidence covers the no-model asset state, resumability,
+bookmark/cache/storage behavior, lifecycle cancellation, diagnostics,
+fault/resource hardening, and reopen-before-atomic-publication. The outcome is
+`release_ready_candidate`.
+
+Comparison and A/B methods were absent and not required. Hardware, simulator,
+operator observation, Release-app execution, distribution signing, notarization,
+Gatekeeper assessment, and launch smoke remain `not_observed` and nonblocking.
+The candidate was not published or released, and no publication, distribution,
+tag, release, Auto, or market claim is authorized.
+
+The accepted source is commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`; generated evidence is committed at
+`5c8ae09251955d8274d391e93215b346db25bada`. The exact run passed 183 of
+183 selected tests with zero failures and zero skips, linted 403 Swift files
+with zero violations, reopened the retained QuickTime MOV, and reopened the
+single-app Release candidate archive with an exact app-tree identity.
 
 ---
 
@@ -1810,7 +1834,10 @@ The roadmap succeeds when all of the following are true:
 1. Every Apple-native method in Section 5 has a qualified, restricted,
    diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
    supplies inventory closure only and carries no availability or quality claim.
-2. At least one strong Apple-native primary SR backend is production-qualified.
+2. At least one strong Apple-native primary SR backend is functionally
+   product-eligible for its declared product routes under exact-source
+   software-function evidence; broader hardware, quality, distribution, and
+   market qualification remain separate claims.
 3. ASH causally controls backend/policy decisions exactly within its accepted software contract.
 4. Temporal stability and artifact governance perform their declared bounded, transactional software function.
 5. Core AI analysis performs its declared optional analysis and deterministic-bypass software function or is cleanly excluded from the shipping critical path.
@@ -1874,12 +1901,13 @@ dependency. The app retains one UI module and separate service modules for Metal
 model-asset status, AVFoundation media IO, and upscale orchestration.
 
 Production launch activates the product modules directly and opens the Mirmir
-workspace. The developer host is available only in Debug builds when
-`MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a read-only module/status surface.
-
-Normal production upscaling remains deliberately unavailable. Start remains
-disabled and the workspace explains: “No production-default backend is enabled;
-product routing remains unavailable.”
+workspace. It composes `NotRequiredModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
+Fast, and Deterministic are available and bind to the genuine
+`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
+cannot submit. No silent fallback is permitted. The developer host is available
+only in Debug builds when `MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a
+read-only module/status surface.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module inventory and transaction
 boundaries.
@@ -1891,28 +1919,28 @@ boundaries.
 > reconstruction engine. The material below documents the preserved source and
 > evidence boundary; it does not declare a release.
 
-The normal product composition is fail-closed while the retained ASH V3 and
-VideoToolbox scaffolding remain directly testable reference/research code. Its
-application call graph is:
+R13 supersedes the historical R00 unavailable-engine composition. The current
+product call graph is:
 
 ```text
 MirmirAppBootstrap
   -> DefaultMetalRenderingService
-  -> RoadmapTransitionModelAssetsService
+  -> NotRequiredModelAssetsService
   -> AVFoundationMediaPipeline
-  -> UnavailableUpscalerEngineService
-       -> backendUnavailable(reason:)
+  -> R13ReleaseUpscalerEngineService
+       -> R13A11ProductSessionFactory
+            -> genuine r03.mps.lanczos A11
   -> MirmirModuleFactoryRegistry
   -> MirmirModuleHost
   -> MirmirViewRegistry
 ```
 
 The production bootstrap has no call site for `DefaultUpscalerEngineService`,
-`ASHLockedUpscaleBackendFactoryV3`, or `VTModelStager`. A direct transition-engine
-submission returns the typed `backendUnavailable` error and creates no output
-state. The product path does not fall back to the development P05 backend, a
-runtime LUT compiler or selector, a fixed control, or the former Lanczos polish
-path.
+`ASHLockedUpscaleBackendFactoryV3`, or `VTModelStager`. Quality, Fast, and
+Deterministic bind to one exact A11 product identity; Auto fails with a typed
+mode-unavailable result before admission. The product path does not silently
+fall back to the development P05 backend, a runtime LUT compiler or selector,
+or a fixed control.
 
 The CPU locked-reference backend remains available only through explicitly
 constructed development and test factories. It is used as a parity and
@@ -2152,8 +2180,8 @@ same-commit immutable gate publications.
 ## Notes
 
 - The main product workflow does not expose framework or architecture controls.
-- App boot does not load a release set. Normal R00 upscaling is unavailable and
-  creates no output session.
+- App boot requires no model release set. Quality, Fast, and Deterministic use
+  the exact R13 A11 product path; Auto remains unavailable and cannot submit.
 - Fixture tests prove only the behavior of their tested bytes. They do not
   establish perceptual superiority or authorize a P06/G07/G08 release.
 - App Intents `linkd.autoShortcut` messages can appear in local macOS test logs;

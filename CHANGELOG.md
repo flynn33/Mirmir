@@ -36,12 +36,30 @@ All notable project changes are recorded here.
   Hardware, simulator, and operator observation remain `not_observed` and
   nonblocking. R12 grants no product qualification, production Auto, market,
   product-publication, or release-publication authority.
-- Began R13 on 2026-07-23 after exact predecessor R12 passed. R13 is
-  `in_progress`, not accepted. Work is limited to release hardening and
-  creation of a release-ready candidate. Unavailable hardware, simulator, and
-  operator observation remain `not_observed` and nonblocking; comparison and
-  A/B methods are absent and not required. This phase start does not authorize
-  production Auto, a product or market claim, a tag, publication, or release.
+- Accepted R13 for `declared_software_function_only` under the
+  `software_does_what_it_says_it_does` basis. The exact-source records bind
+  source commit `6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+  `14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+  `5c8ae09251955d8274d391e93215b346db25bada`. The run passed 183 selected
+  tests with zero failures and zero skips, linted 403 Swift files with zero
+  violations, verified the genuine A11 MPS Lanczos and AVFoundation shipping
+  paths, reopened the retained QuickTime MOV, and separately built and reopened
+  the exact Release app archive. The outcome is `release_ready_candidate`.
+  Quality, Fast, and Deterministic are available; Auto remains `unavailable`
+  and `not_authorized`. Comparison and A/B methods were absent and not required.
+  Hardware, simulator, operator observation, Release-app execution,
+  distribution signing, notarization, Gatekeeper, and launch smoke remain
+  `not_observed` and nonblocking. The candidate was not published or released;
+  publication, distribution, tag, release, Auto, and market claims remain
+  unauthorized.
+- Corrected two historical-verification assumptions exposed by the final
+  repository-wide test pass. R04 now keeps preregistration, catalog, and schema
+  bytes frozen while verifying implementation bytes at the recorded R04 commit,
+  so later shared-source evolution does not rewrite or invalidate R04 evidence.
+  The preserved P06 analysis test now reopens its exact analysis and bound-run
+  source blobs from their archival Git commits instead of comparing the
+  historical snapshot to the current worktree. No historical evidence bytes or
+  identities changed.
 - Accepted R10 for `declared_software_function_only` under deterministic fixture
   simulation. The additive receipt and phase-acceptance record bind
   implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree

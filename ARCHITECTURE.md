@@ -23,7 +23,8 @@
   software function
 - Roadmap phase `R12`: `passed` for exact-source format, route, backend, and
   resumability contract software functions
-- Roadmap phase `R13`: `in_progress`; acceptance is not claimed
+- Roadmap phase `R13`: `passed` for exact-source release-hardening software
+  functions; outcome `release_ready_candidate`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -32,7 +33,7 @@ modules under `validation/` implement offline calibration, evidence production,
 schema validation, and gate finalization. They are not linked into or embedded
 in `Mirmir.app`.
 
-The R00 source uses an app-owned Pattern B runtime with one UI module and four
+The current source uses an app-owned Pattern B runtime with one UI module and four
 service modules assembled once through `MirmirAppBootstrap` and injected through
 Mirmir-owned factories. The Forsetti repository is reference-only; it is not a
 package, framework, submodule, vendored source, build, or runtime dependency.
@@ -47,9 +48,11 @@ renders `MirmirProductionRootView` only after the UI module and primary view are
 registered. Debug launch with `MIRMIR_DEVELOPER_WORKSPACE=1` adds a read-only
 module/status surface. It provides no activation or deactivation controls.
 
-Normal product upscaling remains fail-closed. The production composition injects
-an unavailable transition engine, Start remains disabled, and the UI reports:
-“No production-default backend is enabled; product routing remains unavailable.”
+Production launch composes `NotRequiredModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
+Fast, and Deterministic are available and bind to the genuine
+`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
+cannot submit. No silent fallback is permitted.
 
 R02 began from local R01 closure commit
 `555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
@@ -263,10 +266,17 @@ Hardware, simulator, and operator observation remain `not_observed` and
 nonblocking. R12 grants no product qualification, production Auto, market,
 product-publication, or release-publication authority.
 
-R13 is `in_progress` after exact predecessor R12 passed. Work begun on
-2026-07-23 is limited to release hardening and creation of a release-ready
-candidate. R13 acceptance is not claimed. This phase start does not authorize
-production Auto, a product or market claim, a tag, publication, or release.
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. Exact-source evidence binds source
+commit `6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+`5c8ae09251955d8274d391e93215b346db25bada`. It verifies the genuine A11 MPS
+Lanczos and AVFoundation shipping path and separately binds the Release app
+candidate. The outcome is `release_ready_candidate`, not a publication or
+release. Auto, distribution, tag, release, product publication, and market
+claims remain unauthorized; Release-app execution, signing, notarization,
+Gatekeeper, launch smoke, hardware, simulator, and operator observation remain
+`not_observed` and nonblocking.
 
 ## Target Apple-Native Adaptive Architecture
 
@@ -287,7 +297,7 @@ phases produce accepted evidence.
 | Activation | Module ID | Kind | Entry point | Responsibility |
 | ---: | --- | --- | --- | --- |
 | 1 | `com.mirmir.app.metal` | Service | `MetalRenderingServiceModule` | Metal device, queue, and texture-cache readiness |
-| 2 | `com.mirmir.app.model-assets` | Service | `ModelAssetsServiceModule` | Roadmap-transition model availability |
+| 2 | `com.mirmir.app.model-assets` | Service | `ModelAssetsServiceModule` | Truthful no-model-required release state |
 | 3 | `com.mirmir.app.media-pipeline` | Service | `MediaPipelineServiceModule` | AVFoundation read/write and atomic export |
 | 4 | `com.mirmir.app.upscaler-engine` | Service | `UpscalerEngineServiceModule` | Job orchestration and backend availability |
 | 5 | `com.mirmir.app.ui` | UI | `MirmirUIModule` | Product workspace and UI state |
@@ -298,7 +308,23 @@ identity returned by each factory. `MirmirModuleHost` requires the exact set,
 exactly one UI module, and the UI module last; startup failure rolls back every
 started module in reverse order. The former dynamic JSON manifests are removed.
 
-## R00 Product Composition and Preserved ASH V3 References
+## Historical R00 Product Composition and Preserved ASH V3 References
+
+This graph records the superseded R00 composition; it is not the current
+production call graph. R13 production launch instead follows:
+
+```text
+MirmirAppBootstrap
+  -> DefaultMetalRenderingService
+  -> NotRequiredModelAssetsService
+  -> AVFoundationMediaPipeline
+  -> R13ReleaseUpscalerEngineService
+       -> R13A11ProductSessionFactory
+            -> genuine r03.mps.lanczos A11
+  -> MirmirModuleFactoryRegistry
+  -> MirmirModuleHost
+  -> MirmirViewRegistry
+```
 
 ```text
 MirmirAppBootstrap
@@ -591,8 +617,10 @@ and require no tracked post-gate documentation edit.
 
 The source implements the app-owned runtime and preserves release-closure
 machinery as historical evidence, but source presence is not a release claim.
-Normal product upscaling remains unavailable because no production-default
-backend has been selected or enabled, so product routing remains unavailable.
+Current production Quality, Fast, and Deterministic requests bind to the exact
+R13 A11 product identity and genuine `r03.mps.lanczos` session factory. Auto
+remains visible but fails with a typed unavailable result before admission, and
+no silent fallback is accepted.
 The P06/P07 commands are fail-closed, P08 remains dormant and absent from normal
 workflows, and no G04-G08, holdout, release, quality, or market claim is
 authorized. Failed evidence is preserved and must not be rewritten as a pass.

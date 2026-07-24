@@ -74,10 +74,16 @@ Hardware, simulator, and operator observation remain `not_observed` and
 nonblocking. R12 grants no product qualification, production Auto, market,
 product-publication, or release-publication authority.
 
-R13 is `in_progress` as of 2026-07-23 after exact predecessor R12 passed. Its
-current scope is release hardening and creation of a release-ready candidate;
-acceptance is not claimed. This phase start does not authorize production Auto,
-a product or market claim, a tag, publication, or release.
+R13 is `passed` for `declared_software_function_only` under the operator's
+`software_does_what_it_says_it_does` basis. Exact-source release-hardening
+evidence verifies the genuine A11 MPS Lanczos and AVFoundation shipping path
+and separately binds a `release_ready_candidate`. Quality, Fast, and
+Deterministic are available; Auto remains `unavailable` and `not_authorized`.
+Hardware, simulator, operator observation, Release-app execution, signing,
+notarization, Gatekeeper, and launch smoke remain `not_observed` and
+nonblocking. Comparison and A/B methods were absent and not required. The
+candidate was not published or released, and no publication, distribution,
+tag, release, Auto, or market claim is authorized.
 
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration

@@ -36,9 +36,9 @@ The verifier reads `.github/roadmap-alignment-policy.json` and rejects drift in:
   R07 and R09 predecessors plus its preregistration and deterministic fixture,
   evaluation, and policy catalogs. R11 requires exact predecessor R10 plus its
   preregistration and deterministic fixture catalog;
-- status-sensitive functional evidence through R12: a `passed` phase must retain
-  every policy-frozen regular, non-symlink acceptance artifact, while no R13
-  acceptance evidence is required or claimed during its current start;
+- status-sensitive functional evidence through R13: a `passed` phase must retain
+  every policy-frozen regular, non-symlink acceptance artifact, including the
+  complete 15-file R13 validator/schema/record/artifact closure;
 - tracked Forsetti repository, framework, or vendored paths forbidden by policy;
 - the GitHub repository description and topics recorded as exact policy; and
 - workflow triggers or commands that could open legacy P06/P07/P08 or holdout
@@ -48,8 +48,8 @@ Unit tests run before the repository and inventory checks. The stable required-c
 `Roadmap alignment`; that job depends on the `R02 functional acceptance`,
 `R04 functional acceptance`, `R05 functional acceptance`,
 `R06 functional acceptance`, `R10 functional acceptance`, and
-`R11 functional acceptance` and `R12 functional acceptance` jobs and always
-evaluates all seven results
+`R11 functional acceptance`, `R12 functional acceptance`, and
+`R13 sealed functional acceptance` jobs and always evaluates all eight results
 explicitly, so a failed, cancelled, or skipped
 prerequisite makes the required check fail. It cannot pass unless each fresh raw
 result, exact selected-test inventory, checkpoint-bound source identity, and
@@ -75,6 +75,16 @@ validates each raw result,
 generated artifact closure, and checked acceptance. The separate weekly metadata audit
 uses three bounded attempts so description or topic changes made outside a pull
 request become visible without making the required check network-dependent.
+
+The hosted R13 job verifies accepted source commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, evidence ancestry through commit
+`5c8ae09251955d8274d391e93215b346db25bada`, the four sealed record hashes,
+and all six record-bound build/test/lint/media/archive artifact hashes.
+It does not rerun the machine-bound deep verifier because that verifier
+intentionally binds the exact local Xcode 26.2 and SwiftLint 0.63.2 executable
+paths and bytes. The local guardrail runs the deep generated-evidence and
+phase-acceptance checks on the proven matching toolchain.
 
 The local guardrail resolves its requested temporary base once with `pwd -P`
 after requiring an existing absolute directory. Its R10, R11, and R12 replay
@@ -362,10 +372,32 @@ product-comparison method was run or required. Product qualification,
 production Auto, market or quality claims, product publication, tags, and
 release remain blocked or unauthorized.
 
-R13 is `in_progress` after exact predecessors `[R11, R12]` passed. This starts
-release-hardening implementation only. It neither claims R13 acceptance nor
-authorizes product publication, a tag, or a release, and the policy deliberately
-requires no nonexistent R13 acceptance evidence.
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. Its exact-source run passed all
+183 selected tests with zero failures and zero skips and linted 403 Swift files
+with zero violations. Genuine A11 MPS Lanczos and AVFoundation execution produced
+and reopened the retained QuickTime MOV; the exact Release app was separately
+built, archived, and reopened. The outcome is `release_ready_candidate`.
+
+The R13 execution, phase-acceptance, candidate, and output-reopen records are
+byte-bound respectively at SHA-256
+`cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f`,
+`9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f`,
+`5fd16a27658fa614f3f589874aba17ad44fce4adc4b07a601014858bfcad2e67`,
+and `17896f063796740dedc5109f0027b9f05e4ff54ce87301643b437c547f0dcd40`.
+`Scripts/tests/test_r13_phase_acceptance.py`,
+`python3 Scripts/r13_phase_acceptance.py --check-generated`, and
+`python3 Scripts/r13_phase_acceptance.py --check` preserve the exact local
+toolchain, source, inventory, archive/reopen closure, acceptance outcome, and
+claim boundary.
+
+Quality, Fast, and Deterministic are available. Auto remains visible but
+`unavailable` and `not_authorized`. Comparison and A/B methods were absent and
+not required. Hardware, simulator, operator observation, Release-app execution,
+distribution signing, notarization, Gatekeeper, and launch smoke remain
+`not_observed` and nonblocking. The candidate was not published or released;
+publication, distribution, tag, release, Auto, and market claims remain
+unauthorized.
 
 The R05 functional acceptance contract permits canonical R05 to be `passed`
 only when the policy-bound schema, record, Xcode log, and result summary are
@@ -428,8 +460,9 @@ comparison grants that authority.
 
 R12 is `passed` because exact-source proof establishes that its declared format,
 route, backend-capability, fallback, and resumability contracts perform as
-specified while rejecting unsupported promotion. R13 is `in_progress`;
-acceptance and publication are not claimed. `production_auto_mode` and
+specified while rejecting unsupported promotion. R13 is `passed` with outcome
+`release_ready_candidate`; publication and release are not authorized or
+claimed. `production_auto_mode` and
 `market_leading_claim` remain blocked.
 
 Update the digest for every changed canonical source and
@@ -440,7 +473,7 @@ repository:
 ```sh
 python3 Scripts/roadmap_alignment.py --write-readme
 python3 Scripts/r00_inventory.py --write-markdown
-python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py Scripts/tests/test_r11_contracts.py Scripts/tests/test_r11_phase_acceptance.py Scripts/tests/test_r12_phase_acceptance.py
+python3 -m unittest Scripts/tests/test_roadmap_alignment.py Scripts/tests/test_r00_inventory.py Scripts/tests/test_r01_observation_waiver.py Scripts/tests/test_r02_contracts.py Scripts/tests/test_r02_phase_acceptance.py Scripts/tests/test_r03_contracts.py Scripts/tests/test_r03_product_qualification.py Scripts/tests/test_r03_phase_acceptance.py Scripts/tests/test_r04_contracts.py Scripts/tests/test_r04_phase_acceptance.py Scripts/tests/test_r05_contracts.py Scripts/tests/test_r05_phase_acceptance.py Scripts/tests/test_r06_contracts.py Scripts/tests/test_r06_phase_acceptance.py Scripts/tests/test_r07_contracts.py Scripts/tests/test_r07_phase_acceptance.py Scripts/tests/test_r08_contracts.py Scripts/tests/test_r08_phase_acceptance.py Scripts/tests/test_r09_contracts.py Scripts/tests/test_r09_phase_acceptance.py Scripts/tests/test_r11_contracts.py Scripts/tests/test_r11_phase_acceptance.py Scripts/tests/test_r12_phase_acceptance.py Scripts/tests/test_r13_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r02_contracts.py --check-preregistration
@@ -481,6 +514,8 @@ python3 Scripts/r11_phase_acceptance.py --check
 python3 Scripts/r11_contracts.py --all
 python3 Scripts/r12_phase_acceptance.py --check-generated
 python3 Scripts/r12_phase_acceptance.py --check
+python3 Scripts/r13_phase_acceptance.py --check-generated
+python3 Scripts/r13_phase_acceptance.py --check
 GITHUB_TOKEN="..." python3 Scripts/roadmap_alignment.py --check-github-metadata --metadata-attempts 3
 ```
 
@@ -513,11 +548,14 @@ states fail deterministically:
 
 ## Non-release boundaries
 
-This check does not run legacy P06/P07/P08 scripts, open holdout data, build a
-release product, execute product-acceptance tests, create tags, or publish
-releases. Its R12 job builds only the exact signed selected-test product. Passing
-the check does not authorize production Auto mode, G08, a product-quality claim,
-a market-position claim, or a release. It establishes repository alignment only.
+This check does not run legacy P06/P07/P08 scripts, open holdout data, create
+tags, upload R13 artifacts, distribute the candidate, or publish releases. Its
+R12 job builds only the exact signed selected-test product. Its R13 hosted job
+validates the already sealed candidate records by source/tree/ancestry/hash; it
+does not build, execute, upload, distribute, tag, or publish the R13 candidate.
+Passing the check does not authorize production Auto mode, G08, a
+product-quality claim, a market-position claim, distribution, publication, or a
+release. `release_ready_candidate` is an evidence outcome, not release authority.
 
 ## Amending the policy
 

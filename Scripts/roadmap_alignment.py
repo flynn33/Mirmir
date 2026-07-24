@@ -550,6 +550,53 @@ R12_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
         ),
     ],
 }
+R13_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r13_phase_acceptance.py",
+        "Scripts/tests/test_r13_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-functional-phase-acceptance-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-release-candidate-receipt-v1.json"
+        ),
+        "docs/roadmaps/evidence/r13/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r13/records/output-reopen-receipt.json",
+        "docs/roadmaps/evidence/r13/records/release-candidate-receipt.json",
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/build-for-testing.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/targeted-xctest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/release-app-build.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/swiftlint.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/r13-output-reopen-fixture.mov"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/r13-release-candidate.zip"
+        ),
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -1556,11 +1603,11 @@ class AlignmentVerifier:
                 "R12 phase_evidence_requirements differ from the frozen "
                 "software-function acceptance contract",
             )
-        if "R13" in requirements:
+        if requirements.get("R13") != R13_FUNCTIONAL_EVIDENCE_REQUIREMENT:
             self.add_error(
                 self.policy_path.relative_to(self.root).as_posix(),
-                "R13 phase_evidence_requirements must remain absent before "
-                "R13 acceptance evidence exists",
+                "R13 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
             )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)

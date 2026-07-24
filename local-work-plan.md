@@ -152,15 +152,19 @@
   Hardware, simulator, and operator observation remain `not_observed` and
   nonblocking. R12 grants no product qualification, production Auto, market,
   product-publication, or release-publication authority.
-- Roadmap phase `R13`: `in_progress` as of 2026-07-23 after exact predecessor
-  R12 passed; acceptance is not claimed. Work is limited to release hardening
-  and creation of a release-ready candidate. Unavailable hardware, simulator,
-  and operator observation remain `not_observed` and nonblocking; comparison
-  and A/B methods are absent and not required. This phase start does not
-  authorize production Auto, a product or market claim, a tag, publication, or
-  release.
+- Roadmap phase `R13`: `passed` as of 2026-07-23 for
+  `declared_software_function_only` under the
+  `software_does_what_it_says_it_does` basis. Exact-source release-hardening
+  evidence verifies the genuine A11 MPS Lanczos and AVFoundation shipping path
+  and separately binds a `release_ready_candidate`. Quality, Fast, and
+  Deterministic are available; Auto remains `unavailable` and
+  `not_authorized`. Hardware, simulator, operator observation, Release-app
+  execution, signing, notarization, Gatekeeper, and launch smoke remain
+  `not_observed` and nonblocking. Comparison and A/B methods were absent and not
+  required. The candidate was not published or released; publication,
+  distribution, tag, release, Auto, and market claims remain unauthorized.
 - Production Auto, production Core AI residual routing, holdout access, market
-  claims, and release publication: blocked by their roadmap gates.
+  claims, and release publication: not authorized.
 
 ## Historical ASH V3 Record
 
