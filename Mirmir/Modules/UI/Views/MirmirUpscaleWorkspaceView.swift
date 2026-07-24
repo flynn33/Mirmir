@@ -5,7 +5,6 @@ struct MirmirUpscaleWorkspaceView: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
     let isCompact: Bool
-
     var body: some View {
         ScrollView {
             VStack(spacing: theme.spacing.space4) {
@@ -208,9 +207,9 @@ private struct MirmirViewerPanel: View {
         case .probing:
             return "Analyzing source metadata."
         case .ready:
-            return "Live frame preview is not available in this alpha build."
+            return "Live preview is unavailable; choose an output to upscale."
         case .running:
-            return "Processing is active. Preview controls remain local to this shell."
+            return "Processing is active. Output is verified before publication."
         case .finished:
             return "Output is complete. Use Reveal Output to inspect the file."
         case .failed:
@@ -250,7 +249,7 @@ private struct MirmirSourceDropTarget: View {
                     }
                     .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
                     .accessibilityLabel("Choose Source")
-                    Text("Roadmap-qualified processing options will appear after capability and baseline work.")
+                    Text("Quality, Fast, and Deterministic use the qualified Apple MPS Lanczos route.")
                         .font(theme.typography.caption)
                         .foregroundStyle(theme.textTertiary)
                 }
@@ -314,7 +313,7 @@ private struct MirmirPlaybackControls: View {
         }
         .buttonStyle(MirmirIconButtonStyle(theme: theme))
         .disabled(true)
-        .help("\(label) is not available until live preview is implemented.")
+        .help("\(label) is unavailable because live preview is not included.")
         .accessibilityLabel(label)
     }
 
@@ -327,7 +326,9 @@ private struct MirmirPlaybackControls: View {
     }
 
     private var previewAvailabilityText: String {
-        viewModel.sourceProfile == nil ? "Preview controls enable after source analysis." : "Live frame playback is pending renderer wiring."
+        viewModel.sourceProfile == nil
+            ? "Choose a source to inspect its duration."
+            : "Live frame playback is not available."
     }
 
     private func format(seconds: Double) -> String {
@@ -365,16 +366,22 @@ private struct MirmirUpscaleInspector: View {
                         .help("Strategy selection is fixed for the supported resolution pair.")
                     }
 
-                    MirmirFieldRow("Profile", theme: theme) {
-                        Picker("Profile", selection: Binding.constant(MirmirQualityMode.balanced)) {
-                            ForEach(MirmirQualityMode.allCases) { mode in
+                    MirmirFieldRow("Mode", theme: theme) {
+                        Picker("Mode", selection: $viewModel.selectedMode) {
+                            ForEach(UpscaleMode.allCases) { mode in
                                 Text(mode.title).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .disabled(true)
-                        .help("Additional processing profiles are not implemented yet.")
+                        .help(viewModel.selectedModeSummary)
                     }
+                    Text(viewModel.selectedModeSummary)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(
+                            viewModel.engineAvailabilityReason == nil
+                                ? theme.textTertiary
+                                : theme.warning
+                        )
                 }
 
                 inspectorSection("Quality Controls") {
@@ -384,7 +391,7 @@ private struct MirmirUpscaleInspector: View {
                     )
                         .font(theme.typography.body)
                         .disabled(true)
-                        .help("Temporal consistency becomes configurable after a roadmap-qualified engine is available.")
+                        .help("This control is fixed and does not change the selected A11 release mode.")
 
                     segmentedLevel("Edge Fidelity", selection: .constant(.medium))
                     segmentedLevel("Detail Recovery", selection: .constant(.medium))
@@ -414,31 +421,10 @@ private struct MirmirUpscaleInspector: View {
                 }
 
                 inspectorSection("Action") {
-                    Button {
-                        viewModel.startUpscale()
-                    } label: {
-                        Label("Start Upscale", systemImage: "play.fill")
-                    }
-                    .buttonStyle(MirmirPrimaryButtonStyle(theme: theme))
-                    .disabled(!viewModel.canStart)
-                    .opacity(viewModel.canStart ? 1 : 0.48)
-                    .help(viewModel.canStartFailureReason ?? "Start Upscale")
-                    .accessibilityLabel("Start Upscale")
-
-                    if viewModel.state.isRunning {
-                        Button {
-                            viewModel.cancelUpscale()
-                        } label: {
-                            Label("Cancel Processing", systemImage: "stop.fill")
-                        }
-                        .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                        .accessibilityLabel("Cancel Processing")
-                    }
-
-                    Text(viewModel.canStartFailureReason ?? "Ready to start deterministic processing.")
-                        .font(theme.typography.caption)
-                        .foregroundStyle(viewModel.canStart ? theme.textTertiary : theme.warning)
-                        .fixedSize(horizontal: false, vertical: true)
+                    R13UpscaleActionPanel(
+                        viewModel: viewModel,
+                        theme: theme
+                    )
                 }
             }
         }
@@ -449,11 +435,11 @@ private struct MirmirUpscaleInspector: View {
             return "Not available"
         }
         guard let profile = viewModel.sourceProfile else {
-            return "2x Native"
+            return "Qualified A11 route"
         }
         let source = MirmirViewModel.fileLabel(for: profile.resolution)
         let target = MirmirViewModel.fileLabel(for: viewModel.targetResolution)
-        return "2x Native (\(source) to \(target))"
+        return "A11 MPS Lanczos (\(source) to \(target))"
     }
 
     private var destinationLabel: String {

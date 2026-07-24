@@ -1,24 +1,30 @@
 import Foundation
 
 public struct UpscaleJob: Sendable {
+    public let identifier: String
     public let inputURL: URL
     public let outputURL: URL
     public let targetResolution: VideoResolution
     public let codec: OutputCodec
     public let preserveAudio: Bool
+    public let mode: UpscaleMode
 
     public init(
+        identifier: String = UUID().uuidString,
         inputURL: URL,
         outputURL: URL,
         targetResolution: VideoResolution,
         codec: OutputCodec = .hevc,
-        preserveAudio: Bool = true
+        preserveAudio: Bool = true,
+        mode: UpscaleMode = .deterministic
     ) {
+        self.identifier = identifier
         self.inputURL = inputURL
         self.outputURL = outputURL
         self.targetResolution = targetResolution
         self.codec = codec
         self.preserveAudio = preserveAudio
+        self.mode = mode
     }
 }
 

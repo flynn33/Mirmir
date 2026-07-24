@@ -53,8 +53,8 @@ final class MirmirUIWorkflowTests: XCTestCase {
             viewModel.canStartFailureReason,
             UnavailableUpscalerEngineService.roadmapTransitionReason
         )
-        XCTAssertEqual(viewModel.engineReadinessText, "Engine Unavailable")
-        XCTAssertEqual(viewModel.engineSelectionText, "No qualified engine")
+        XCTAssertEqual(viewModel.engineReadinessText, "Selected Mode Unavailable")
+        XCTAssertEqual(viewModel.engineSelectionText, "No available release mode")
 
         viewModel.sourceProfile = sourceProfile
         viewModel.targetResolution = .p2160
@@ -232,7 +232,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
             "Library",
             "Upscale",
             "Queue",
-            "Presets",
+            "Modes",
             "Settings",
             "Before",
             "After",
@@ -255,7 +255,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
         let requiredControls = [
             "engineSelectionText",
             "Strategy",
-            "Profile",
+            "Mode",
             "Temporal Consistency",
             "Edge Fidelity",
             "Detail Recovery",
@@ -329,7 +329,8 @@ final class MirmirUIWorkflowTests: XCTestCase {
             "Mirmir/Modules/UI/Views/MirmirUpscaleWorkspaceView.swift",
             "Mirmir/Modules/UI/Views/MirmirStatusStripView.swift",
             "Mirmir/Modules/UI/Views/MirmirWorkspaceComponents.swift",
-            "Mirmir/Modules/UI/Views/MirmirWorkspaceScreens.swift"
+            "Mirmir/Modules/UI/Views/MirmirWorkspaceScreens.swift",
+            "Mirmir/Modules/UI/Views/R13UpscaleActionPanel.swift"
         ])
     }
 

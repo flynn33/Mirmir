@@ -31,12 +31,30 @@ final class MirmirAppBootstrapTests: XCTestCase {
         )
     }
 
-    func test_defaultBootstrapUsesRoadmapTransitionAvailability() {
+    func test_defaultBootstrapUsesReleaseA11ModesAndNoModelAssets() async {
         let bootstrap = MirmirAppBootstrap()
 
+        XCTAssertEqual(bootstrap.viewModel.engineAvailability, .available)
+        XCTAssertEqual(bootstrap.viewModel.selectedMode, .deterministic)
+        XCTAssertEqual(bootstrap.viewModel.selectedModeAvailability, .available)
         XCTAssertEqual(
-            bootstrap.viewModel.engineAvailability,
-            .unavailable(reason: UnavailableUpscalerEngineService.roadmapTransitionReason)
+            bootstrap.viewModel.engineSelectionText,
+            "Apple MPS Lanczos (A11)"
+        )
+
+        bootstrap.viewModel.selectedMode = .auto
+        XCTAssertEqual(
+            bootstrap.viewModel.canStartFailureReason,
+            R13ReleaseModePolicy.autoUnavailableReason
+        )
+
+        for _ in 0..<100 where bootstrap.viewModel.modelStatus != .notRequired {
+            await Task.yield()
+        }
+        XCTAssertEqual(bootstrap.viewModel.modelStatus, .notRequired)
+        XCTAssertEqual(
+            bootstrap.viewModel.modelAssetsStatusText,
+            "No model download required"
         )
     }
 

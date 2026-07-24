@@ -56,8 +56,15 @@ struct OutputMediaVerifier: OutputMediaVerifying {
         expectation: OutputMediaVerificationExpectation
     ) async throws -> OutputMediaVerificationResult {
         guard expectation.timing.frameCount > 0,
-              let expectedEndTime = expectation.timing.sessionEndTime else {
+              let expectedVideoEndTime = expectation.timing.sessionEndTime else {
             throw OutputMediaVerificationError.emptyTimingLedger
+        }
+        var expectedMediaEndTime = expectedVideoEndTime
+        if let expectedAAC = expectation.compressedAACIdentity {
+            let audioEndTime = CMTimeRangeGetEnd(expectedAAC.trackTimeRange)
+            if CMTimeCompare(audioEndTime, expectedMediaEndTime) > 0 {
+                expectedMediaEndTime = audioEndTime
+            }
         }
         let reopened = try await Self.reopen(url: url, expectation: expectation)
         let decoded = try Self.decodeFrames(
@@ -66,12 +73,13 @@ struct OutputMediaVerifier: OutputMediaVerifying {
         )
         try Self.verifyDurations(
             reopened: reopened,
-            expectedEndTime: expectedEndTime
+            expectedVideoEndTime: expectedVideoEndTime,
+            expectedMediaEndTime: expectedMediaEndTime
         )
         try await Self.verifyTimedMetadata(
             asset: reopened.asset,
             expected: expectation.timedMetadata,
-            expectedEndTime: expectedEndTime
+            expectedEndTime: expectedVideoEndTime
         )
         if let expectedAAC = expectation.compressedAACIdentity {
             let actualAAC = try await OutputMediaAACIdentityReader.read(
@@ -130,6 +138,21 @@ private extension OutputMediaVerifier {
                     expected: expectation.resolution,
                     actual: resolution
                 )
+            }
+            if let expectedTransform = expectation.preferredTransform {
+                let actualTransform = try await videoTrack.load(
+                    .preferredTransform
+                )
+                guard transformsMatch(
+                    expectedTransform,
+                    actualTransform
+                ) else {
+                    throw OutputMediaVerificationError
+                        .preferredTransformMismatch(
+                            expected: expectedTransform,
+                            actual: actualTransform
+                        )
+                }
             }
             if let expectedColor = expectation.videoColor {
                 try verifyVideoColor(
@@ -218,18 +241,22 @@ private extension OutputMediaVerifier {
 
     private static func verifyDurations(
         reopened: ReopenedOutput,
-        expectedEndTime: CMTime
+        expectedVideoEndTime: CMTime,
+        expectedMediaEndTime: CMTime
     ) throws {
-        guard CMTimeCompare(reopened.duration, expectedEndTime) == 0 else {
+        guard CMTimeCompare(
+            reopened.duration,
+            expectedMediaEndTime
+        ) == 0 else {
             throw OutputMediaVerificationError.mediaDurationMismatch(
-                expected: expectedEndTime,
+                expected: expectedMediaEndTime,
                 actual: reopened.duration
             )
         }
         let trackEnd = CMTimeRangeGetEnd(reopened.trackTimeRange)
-        guard CMTimeCompare(trackEnd, expectedEndTime) == 0 else {
+        guard CMTimeCompare(trackEnd, expectedVideoEndTime) == 0 else {
             throw OutputMediaVerificationError.trackEndMismatch(
-                expected: expectedEndTime,
+                expected: expectedVideoEndTime,
                 actual: trackEnd
             )
         }
@@ -260,7 +287,7 @@ private extension OutputMediaVerifier {
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
         guard reader.canAdd(output) else {
             throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed ASH identity",
+                scope: "timed Mirmir identity",
                 reason: "reader rejected the metadata track"
             )
         }
@@ -270,7 +297,7 @@ private extension OutputMediaVerifier {
         )
         guard reader.startReading() else {
             throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed ASH identity",
+                scope: "timed Mirmir identity",
                 reason: reader.error.map(String.init(describing:))
                     ?? "reader did not start"
             )
@@ -281,28 +308,28 @@ private extension OutputMediaVerifier {
         }
         guard reader.status == .completed else {
             throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed ASH identity",
+                scope: "timed Mirmir identity",
                 reason: reader.error.map(String.init(describing:))
                     ?? "reader status \(reader.status.rawValue)"
             )
         }
         guard groups.count == 1, let group = groups.first else {
             throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed ASH identity",
+                scope: "timed Mirmir identity",
                 reason: "expected one group, observed \(groups.count)"
             )
         }
         guard CMTimeCompare(group.timeRange.start, .zero) == 0,
               CMTimeCompare(CMTimeRangeGetEnd(group.timeRange), expectedEndTime) == 0 else {
             throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed ASH identity",
+                scope: "timed Mirmir identity",
                 reason: "group time range does not span the completed video"
             )
         }
         try await verifyMetadataItems(
             group.items,
             expected: expected,
-            scope: "timed ASH identity"
+            scope: "timed Mirmir identity"
         )
     }
 
@@ -314,8 +341,12 @@ private extension OutputMediaVerifier {
         guard !expected.isEmpty else { return }
         var observed: [String: String] = [:]
         for item in items {
-            guard let key = metadataKey(item), key.hasPrefix("com.mirmir.ash.") else {
-                continue
+            guard let key = metadataKey(item),
+                  MirmirTimedMetadataPolicy.isValidKey(key) else {
+                throw OutputMediaVerificationError.metadataMismatch(
+                    scope: scope,
+                    reason: "metadata item has an invalid or foreign key"
+                )
             }
             guard observed[key] == nil else {
                 throw OutputMediaVerificationError.metadataMismatch(
@@ -446,6 +477,15 @@ private extension OutputMediaVerifier {
         case .h264:
             return fourCCString(kCMVideoCodecType_H264)
         }
+    }
+
+    private static func transformsMatch(
+        _ lhs: CGAffineTransform,
+        _ rhs: CGAffineTransform
+    ) -> Bool {
+        [lhs.a - rhs.a, lhs.b - rhs.b, lhs.c - rhs.c, lhs.d - rhs.d,
+         lhs.tx - rhs.tx, lhs.ty - rhs.ty]
+            .allSatisfy { abs($0) <= 0.000_001 }
     }
 
     private static func fourCCString(_ value: FourCharCode) -> String {

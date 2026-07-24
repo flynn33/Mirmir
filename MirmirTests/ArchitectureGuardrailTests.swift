@@ -133,8 +133,10 @@ final class ArchitectureGuardrailTests: XCTestCase {
         XCTAssertFalse(bootstrap.contains("VTModelStager"))
         XCTAssertFalse(bootstrap.contains("ASHBackendStartupValidator"))
         XCTAssertFalse(bootstrap.contains("ASHDevelopmentUpscaleBackendFactory"))
-        XCTAssertTrue(bootstrap.contains("UnavailableUpscalerEngineService"))
-        XCTAssertTrue(bootstrap.contains("RoadmapTransitionModelAssetsService"))
+        XCTAssertFalse(bootstrap.contains("UnavailableUpscalerEngineService"))
+        XCTAssertFalse(bootstrap.contains("RoadmapTransitionModelAssetsService"))
+        XCTAssertTrue(bootstrap.contains("R13ReleaseUpscalerEngineService"))
+        XCTAssertTrue(bootstrap.contains("NotRequiredModelAssetsService"))
         XCTAssertTrue(strategy.contains("case direct3Over2"))
     }
 

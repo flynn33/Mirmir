@@ -4,36 +4,6 @@ import Combine
 import AppKit
 import UniformTypeIdentifiers
 
-enum MirmirQualityMode: String, CaseIterable, Identifiable {
-    case balanced
-    case quality
-    case fastPreview
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .balanced:
-            return "Balanced"
-        case .quality:
-            return "Quality"
-        case .fastPreview:
-            return "Fast"
-        }
-    }
-
-    var summary: String {
-        switch self {
-        case .balanced:
-            return "Prepared balanced profile for future roadmap-qualified processing."
-        case .quality:
-            return "Prepared for higher-detail processing when that mode is available."
-        case .fastPreview:
-            return "Prepared for quicker preview passes when preview output is available."
-        }
-    }
-}
-
 enum MirmirAdjustmentLevel: String, CaseIterable, Identifiable {
     case low
     case medium
@@ -64,22 +34,22 @@ struct MirmirEffectOption: Identifiable, Equatable {
         MirmirEffectOption(
             id: "edge-preservation",
             title: "Edge Preservation",
-            disabledReason: "Not available in the current alpha build."
+            disabledReason: "This optional effect is not available."
         ),
         MirmirEffectOption(
             id: "compression-cleanup",
             title: "Compression Cleanup",
-            disabledReason: "Not available in the current alpha build."
+            disabledReason: "This optional effect is not available."
         ),
         MirmirEffectOption(
             id: "texture-grain-protection",
             title: "Texture / Grain Protection",
-            disabledReason: "Not available in the current alpha build."
+            disabledReason: "This optional effect is not available."
         ),
         MirmirEffectOption(
             id: "temporal-stability",
             title: "Temporal Stability",
-            disabledReason: "Not available in the current alpha build."
+            disabledReason: "This optional effect is not available."
         )
     ]
 }
@@ -99,7 +69,7 @@ final class MirmirViewModel: ObservableObject {
     @Published var sourceProfile: SourceProfile?
     @Published var targetResolution: VideoResolution = .p1080
     @Published var codec: OutputCodec = .hevc
-    @Published var qualityMode: MirmirQualityMode = .balanced
+    @Published var selectedMode: UpscaleMode = .deterministic
     @Published var temporalConsistencyEnabled = true
     @Published var edgeFidelityLevel: MirmirAdjustmentLevel = .medium
     @Published var detailRecoveryLevel: MirmirAdjustmentLevel = .medium
@@ -107,18 +77,29 @@ final class MirmirViewModel: ObservableObject {
     @Published private(set) var engineAvailability: UpscalerEngineAvailability
     @Published var progress: UpscaleProgress?
     @Published var state: JobState = .idle
-    @Published private(set) var outputURL: URL?
-    @Published private(set) var outputSelectionError: String?
+    @Published var outputURL: URL?
+    @Published var outputSelectionError: String?
+    @Published var recoverableJobs:
+        [R13RecoverableUpscaleJob] = []
+    @Published var recoveryRejectedEntryCount = 0
+    @Published var recoveryIsProbing = false
+    @Published var recoveryError: String?
+    @Published var releaseDiagnosticsText =
+        "No release events recorded."
+    @Published var releaseDiagnosticLines: [String] = []
 
-    private let mediaPipeline: MediaPipelineService
-    private let upscalerEngine: UpscalerEngineService
+    let mediaPipeline: MediaPipelineService
+    let upscalerEngine: UpscalerEngineService
     private let modelAssets: ModelAssetsService
 
     private var modelStatusTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
+    var recoveryTask: Task<Void, Never>?
+    var recoveryGeneration = 0
+    var releaseDiagnosticsTask: Task<Void, Never>?
     private var jobHandle: UpscalerJobHandle?
 
-    private var jobIsRunning: Bool {
+    var jobIsRunning: Bool {
         if case .running = state { return true }
         return false
     }
@@ -135,11 +116,15 @@ final class MirmirViewModel: ObservableObject {
         self.modelAssets = modelAssets
         self.engineAvailability = upscalerEngine.availability
         startObservingModelStatus()
+        loadRecoverableJobs()
+        refreshReleaseDiagnostics()
     }
 
     deinit {
         modelStatusTask?.cancel()
         progressTask?.cancel()
+        recoveryTask?.cancel()
+        releaseDiagnosticsTask?.cancel()
     }
 
     var effectOptions: [MirmirEffectOption] {
@@ -151,26 +136,8 @@ final class MirmirViewModel: ObservableObject {
         return Self.targets(for: resolution)
     }
 
-    var engineReadinessText: String {
-        switch engineAvailability {
-        case .available:
-            return "Engine Ready"
-        case .unavailable:
-            return "Engine Unavailable"
-        }
-    }
-
-    var engineSelectionText: String {
-        switch engineAvailability {
-        case .available:
-            return "Reference engine"
-        case .unavailable:
-            return "No qualified engine"
-        }
-    }
-
-    var engineAvailabilityReason: String? {
-        engineAvailability.unavailableReason
+    var selectedModeAvailability: UpscalerEngineAvailability {
+        upscalerEngine.availability(for: selectedMode)
     }
 
     var canStartFailureReason: String? {
@@ -244,6 +211,7 @@ final class MirmirViewModel: ObservableObject {
 
     func loadSource(url: URL) {
         guard !jobIsRunning else { return }
+        cancelRecoveryProbe()
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
             clearOutputSelection()
@@ -316,66 +284,95 @@ final class MirmirViewModel: ObservableObject {
             outputURL: destination,
             targetResolution: targetResolution,
             codec: codec,
-            preserveAudio: source.hasAudio
+            preserveAudio: source.hasAudio,
+            mode: selectedMode
         )
+        submit(job: job, source: source)
+    }
 
+    func submit(job: UpscaleJob, source: SourceProfile) {
         do {
             let handle = try upscalerEngine.submit(job)
-            jobHandle = handle
-            state = .running
-            progress = UpscaleProgress(framesProcessed: 0, totalFrames: source.estimatedFrameCount, throughputFPS: 0, etaSeconds: nil)
+            observeSubmittedJob(job: job, source: source, handle: handle)
+        } catch {
+            state = .failed(userFacingJobError(error))
+        }
+    }
 
-            progressTask?.cancel()
-            progressTask = Task { [weak self] in
-                guard let self else { return }
-                for await update in handle.progressStream {
-                    await MainActor.run { self.progress = update }
-                }
-                do {
-                    let url = try await handle.waitForCompletion()
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        self.jobHandle = nil
-                        self.progressTask = nil
-                        self.state = .finished(url)
+    func observeSubmittedJob(
+        job: UpscaleJob,
+        source: SourceProfile,
+        handle: UpscalerJobHandle
+    ) {
+        jobHandle = handle
+        state = .running
+        progress = UpscaleProgress(
+            framesProcessed: 0,
+            totalFrames: source.estimatedFrameCount,
+            throughputFPS: 0,
+            etaSeconds: nil
+        )
+
+        progressTask?.cancel()
+        progressTask = Task { [weak self] in
+            guard let self else { return }
+            for await update in handle.progressStream {
+                await MainActor.run { self.progress = update }
+            }
+            do {
+                let url = try await handle.waitForCompletion()
+                await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    self.jobHandle = nil
+                    self.progressTask = nil
+                    self.state = .finished(url)
+                    self.recoverableJobs.removeAll {
+                        $0.id == job.identifier
                     }
-                } catch is CancellationError {
+                    self.refreshReleaseDiagnostics()
+                }
+            } catch is CancellationError {
+                await MainActor.run {
+                    self.jobHandle = nil
+                    self.progressTask = nil
+                    if self.jobIsRunning {
+                        self.state = .ready
+                    }
+                    self.refreshReleaseDiagnostics()
+                }
+                return
+            } catch let engineError as UpscalerEngineError {
+                if case .cancelled = engineError {
                     await MainActor.run {
                         self.jobHandle = nil
                         self.progressTask = nil
                         if self.jobIsRunning {
                             self.state = .ready
                         }
+                        self.refreshReleaseDiagnostics()
                     }
                     return
-                } catch let engineError as UpscalerEngineError {
-                    if case .cancelled = engineError {
-                        await MainActor.run {
-                            self.jobHandle = nil
-                            self.progressTask = nil
-                            if self.jobIsRunning {
-                                self.state = .ready
-                            }
-                        }
-                        return
-                    }
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        self.jobHandle = nil
-                        self.progressTask = nil
-                        self.state = .failed(String(describing: engineError))
-                    }
-                } catch {
-                    await MainActor.run {
-                        guard !Task.isCancelled else { return }
-                        self.jobHandle = nil
-                        self.progressTask = nil
-                        self.state = .failed(String(describing: error))
-                    }
+                }
+                await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    self.jobHandle = nil
+                    self.progressTask = nil
+                    self.state = .failed(
+                        self.userFacingJobError(engineError)
+                    )
+                    self.refreshReleaseDiagnostics()
+                }
+            } catch {
+                await MainActor.run {
+                    guard !Task.isCancelled else { return }
+                    self.jobHandle = nil
+                    self.progressTask = nil
+                    self.state = .failed(
+                        self.userFacingJobError(error)
+                    )
+                    self.refreshReleaseDiagnostics()
                 }
             }
-        } catch {
-            state = .failed(String(describing: error))
         }
     }
 
@@ -389,6 +386,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func upscaleAnotherVideo() {
+        cancelRecoveryProbe()
         jobHandle?.cancel()
         jobHandle = nil
         progressTask?.cancel()
@@ -426,7 +424,9 @@ final class MirmirViewModel: ObservableObject {
         let base = source.url.deletingPathExtension().lastPathComponent
         return dir.appendingPathComponent("\(base)_mirmir_\(Self.fileLabel(for: target)).mp4")
     }
+}
 
+extension MirmirViewModel {
     static var unsupportedFileMessage: String {
         "Unsupported video format. Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG file."
     }

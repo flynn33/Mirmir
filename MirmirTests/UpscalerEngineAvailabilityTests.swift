@@ -68,6 +68,20 @@ final class UpscalerEngineAvailabilityTests: XCTestCase {
         }
     }
 
+    func test_notRequiredModelAssetsServiceIsTruthfulReadyAndPassive() async throws {
+        let service = NotRequiredModelAssetsService()
+        var iterator = service.statusStream(for: .video).makeAsyncIterator()
+
+        XCTAssertEqual(service.currentStatus(for: .video), .notRequired)
+        let firstStatus = await iterator.next()
+        let terminalStatus = await iterator.next()
+        XCTAssertEqual(firstStatus, .notRequired)
+        XCTAssertNil(terminalStatus)
+
+        try await service.ensureReady(for: .video)
+        XCTAssertEqual(service.currentStatus(for: .video), .notRequired)
+    }
+
     func test_modelStagerDoesNotAcquireWithoutExplicitAuthority() async {
         let provider = VTModelConfigurationProbe(status: .downloadRequired)
         let stager = VTModelStager(

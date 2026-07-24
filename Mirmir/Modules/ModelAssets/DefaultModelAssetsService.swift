@@ -162,7 +162,7 @@ final class DefaultModelAssetsService: ModelAssetsService, @unchecked Sendable {
             return .downloadAlreadyInProgress(progress: progress)
         case .failed(let reason):
             return .downloadFailed(reason)
-        case .unknown, .downloadRequired, .downloading, .ready:
+        case .unknown, .notRequired, .downloadRequired, .downloading, .ready:
             return nil
         }
     }

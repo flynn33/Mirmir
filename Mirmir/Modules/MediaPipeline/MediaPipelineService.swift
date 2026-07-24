@@ -11,6 +11,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case cannotAddWriterInput(String)
     case unsupportedAudioTrackCount(Int)
     case unsupportedAudioFormat(String)
+    case unsupportedOutputContainer(String)
     case unsupportedColorProfile(String)
     case outputPreparationFailed(URL, Error)
     case outputVerificationFailed(URL, String)
@@ -41,7 +42,9 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
         case .unsupportedAudioTrackCount(let count):
             return "Audio preservation currently supports exactly one audio track; the source contains \(count)."
         case .unsupportedAudioFormat(let format):
-            return "Audio preservation does not support source format \(format); AAC is required for MP4 passthrough."
+            return "Audio preservation does not support source format \(format); AAC is required for passthrough."
+        case .unsupportedOutputContainer(let pathExtension):
+            return "Unsupported output container extension .\(pathExtension); Mirmir writes MP4 or QuickTime Movie output."
         case .unsupportedColorProfile(let profile):
             return "The source uses unsupported HDR or wide-color metadata (\(profile)); this build supports 8-bit SDR Rec.709."
         case .outputPreparationFailed(let url, let error):
@@ -57,7 +60,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
         case .writerStartFailed:
             return "AVAssetWriter.startWriting() returned false."
         case .outputMetadataMismatch(let reason):
-            return "ASH output identity metadata is invalid: \(reason)"
+            return "Mirmir output identity metadata is invalid: \(reason)"
         case .unsupportedAssetDimensions(let res):
             return "Unsupported source resolution \(res). Mirmir supports 720p and 1080p sources."
         case .audioBridgeFailed(let error):
@@ -78,6 +81,8 @@ public protocol MediaSession: AnyObject, Sendable {
     var sourceProfile: SourceProfile { get }
     var outputProfile: OutputProfile { get }
     var outputPixelBufferPool: CVPixelBufferPool { get }
+    var prepublicationOutputURL: URL { get }
+    var publishedOutputIdentity: MediaOutputPublicationIdentity? { get }
     var terminalCleanupError: MediaPipelineError? { get }
 
     /// Pulls the next decoded source frame, or `nil` at end-of-stream.
@@ -93,13 +98,58 @@ public protocol MediaSession: AnyObject, Sendable {
     /// final reconstructed frame.
     func finish(finalMetadata: [String: String]) async throws
 
+    /// Flushes and reopens the completed output, then runs the caller's final
+    /// identity/checkpoint validation before the destination can be published.
+    func finish(
+        finalMetadata: [String: String],
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws
+
+    /// Flushes the completed writer, invokes the first hook immediately before
+    /// reopening the temporary media, and invokes the second hook after the
+    /// reopen verification but before publishing the destination.
+    func finish(
+        finalMetadata: [String: String],
+        beforeReopen: @escaping @Sendable () async throws -> Void,
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws
+
     /// Cancels the session and tears down reader/writer resources.
     func cancel()
 }
 
 public extension MediaSession {
+    var prepublicationOutputURL: URL {
+        outputProfile.url
+    }
+
+    var publishedOutputIdentity: MediaOutputPublicationIdentity? {
+        nil
+    }
+
     func finish(finalMetadata _: [String: String]) async throws {
         try await finish()
+    }
+
+    func finish(
+        finalMetadata: [String: String],
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        try await finish(
+            finalMetadata: finalMetadata,
+            beforeReopen: {},
+            validatingBeforePublish: validatingBeforePublish
+        )
+    }
+
+    func finish(
+        finalMetadata: [String: String],
+        beforeReopen: @escaping @Sendable () async throws -> Void,
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        try await beforeReopen()
+        try await validatingBeforePublish()
+        try await finish(finalMetadata: finalMetadata)
     }
 }
 

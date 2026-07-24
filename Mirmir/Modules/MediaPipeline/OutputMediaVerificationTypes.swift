@@ -1,4 +1,5 @@
 import AudioToolbox
+import CoreGraphics
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -104,6 +105,7 @@ struct OutputMediaVerificationExpectation: @unchecked Sendable, Equatable {
     let timedMetadata: [String: String]
     let videoColor: OutputMediaVideoColorExpectation?
     let compressedAACIdentity: OutputMediaAACIdentity?
+    let preferredTransform: CGAffineTransform?
 
     init(
         resolution: VideoResolution,
@@ -111,7 +113,8 @@ struct OutputMediaVerificationExpectation: @unchecked Sendable, Equatable {
         timing: FrameTimingLedgerSnapshot,
         timedMetadata: [String: String] = [:],
         videoColor: OutputMediaVideoColorExpectation? = nil,
-        compressedAACIdentity: OutputMediaAACIdentity? = nil
+        compressedAACIdentity: OutputMediaAACIdentity? = nil,
+        preferredTransform: CGAffineTransform? = nil
     ) {
         self.resolution = resolution
         self.codec = codec
@@ -119,6 +122,7 @@ struct OutputMediaVerificationExpectation: @unchecked Sendable, Equatable {
         self.timedMetadata = timedMetadata
         self.videoColor = videoColor
         self.compressedAACIdentity = compressedAACIdentity
+        self.preferredTransform = preferredTransform
     }
 }
 
@@ -138,6 +142,10 @@ enum OutputMediaVerificationError: Error, Equatable, CustomStringConvertible {
     case missingVideoFormatDescription
     case codecMismatch(expected: String, actual: String)
     case dimensionsMismatch(expected: VideoResolution, actual: VideoResolution)
+    case preferredTransformMismatch(
+        expected: CGAffineTransform,
+        actual: CGAffineTransform
+    )
     case readerCreationFailed(String)
     case readerStartFailed(String)
     case readerFailed(String)
@@ -169,6 +177,8 @@ enum OutputMediaVerificationError: Error, Equatable, CustomStringConvertible {
             return "Output codec \(actual) does not match expected codec \(expected)."
         case .dimensionsMismatch(let expected, let actual):
             return "Output dimensions \(actual) do not match expected dimensions \(expected)."
+        case .preferredTransformMismatch(let expected, let actual):
+            return "Output preferred transform \(actual) does not match expected transform \(expected)."
         case .readerCreationFailed(let reason):
             return "Output verification reader creation failed: \(reason)."
         case .readerStartFailed(let reason):
