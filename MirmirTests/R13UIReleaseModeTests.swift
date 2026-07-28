@@ -249,6 +249,36 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertEqual(viewModel.recoveryRejectedEntryCount, 3)
     }
 
+    func testDefaultOutputURLUsesAuthorizedDirectory() {
+        let viewModel = makeReadyViewModel(
+            engine: R13UIModeEngineService()
+        )
+        let source = SourceProfile(
+            url: URL(fileURLWithPath: "/tmp/clip.mov"),
+            resolution: .p1080,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: nil,
+            hasAudio: false
+        )
+        let authorizedDirectory = URL(
+            fileURLWithPath: "/Volumes/NVME/Output",
+            isDirectory: true
+        )
+
+        XCTAssertEqual(
+            viewModel.defaultOutputURL(
+                for: source,
+                target: .p2160,
+                in: authorizedDirectory
+            ),
+            authorizedDirectory.appendingPathComponent(
+                "clip_mirmir_2160p.mp4"
+            )
+        )
+    }
+
     private func makeReadyViewModel(
         engine: R13UIModeEngineService
     ) -> MirmirViewModel {

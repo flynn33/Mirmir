@@ -1,6 +1,42 @@
 import XCTest
 @testable import Mirmir
 
+final class R13SourceFrameCounterTests: XCTestCase {
+    func testZeroSampleBufferDoesNotChangeFrameCount() throws {
+        XCTAssertEqual(
+            try R13AVFoundationSourceFrameCounter.addingSampleCount(
+                0,
+                to: 8_494
+            ),
+            8_494
+        )
+    }
+
+    func testPositiveSampleBufferAddsToFrameCount() throws {
+        XCTAssertEqual(
+            try R13AVFoundationSourceFrameCounter.addingSampleCount(
+                2,
+                to: 8_494
+            ),
+            8_496
+        )
+    }
+
+    func testSampleCountOverflowStillFailsClosed() {
+        XCTAssertThrowsError(
+            try R13AVFoundationSourceFrameCounter.addingSampleCount(
+                1,
+                to: .max
+            )
+        ) {
+            XCTAssertEqual(
+                $0 as? R13ReleaseEnvironmentError,
+                .arithmeticOverflow(field: "source_frame_count")
+            )
+        }
+    }
+}
+
 final class R13ReleaseDiagnosticsTests: XCTestCase {
     func testDiagnosticsAreDeterministicallyOrderedAndStrictlyBounded() async throws {
         let policy = try R13ReleaseDiagnosticsPolicy(

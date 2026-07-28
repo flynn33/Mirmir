@@ -242,13 +242,22 @@ final class MirmirViewModel: ObservableObject {
 
     func chooseOutputFile() -> URL? {
         guard let source = sourceProfile else { return nil }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.mpeg4Movie]
-        panel.title = "Save upscaled video as"
-        let defaultURL = defaultOutputURL(for: source, target: targetResolution)
-        panel.nameFieldStringValue = defaultURL.lastPathComponent
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.title = "Select a folder for the upscaled video"
+        panel.prompt = "Select Folder"
         panel.directoryURL = source.url.deletingLastPathComponent()
-        guard panel.runModal() == .OK, let url = panel.url else { return nil }
+        guard panel.runModal() == .OK, let directoryURL = panel.url else {
+            return nil
+        }
+        let url = defaultOutputURL(
+            for: source,
+            target: targetResolution,
+            in: directoryURL
+        )
         guard acceptOutputURLSelectedByUser(url) else { return nil }
         return url
     }
@@ -419,14 +428,31 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
-    func defaultOutputURL(for source: SourceProfile, target: VideoResolution) -> URL {
-        let dir = source.url.deletingLastPathComponent()
-        let base = source.url.deletingPathExtension().lastPathComponent
-        return dir.appendingPathComponent("\(base)_mirmir_\(Self.fileLabel(for: target)).mp4")
-    }
 }
 
 extension MirmirViewModel {
+    func defaultOutputURL(
+        for source: SourceProfile,
+        target: VideoResolution
+    ) -> URL {
+        defaultOutputURL(
+            for: source,
+            target: target,
+            in: source.url.deletingLastPathComponent()
+        )
+    }
+
+    func defaultOutputURL(
+        for source: SourceProfile,
+        target: VideoResolution,
+        in directoryURL: URL
+    ) -> URL {
+        let base = source.url.deletingPathExtension().lastPathComponent
+        return directoryURL.appendingPathComponent(
+            "\(base)_mirmir_\(Self.fileLabel(for: target)).mp4"
+        )
+    }
+
     static var unsupportedFileMessage: String {
         "Unsupported video format. Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG file."
     }

@@ -29,25 +29,33 @@ struct R13ReleaseHardeningRuntime: Sendable {
         resourceGovernor: R13ResourceGovernor,
         faultInjector: any R13FaultInjecting,
         diagnostics: R13ReleaseDiagnostics,
-        sourceSnapshotter: (any R13SourceSnapshotting)? = nil
+        sourceSnapshotter: (any R13SourceSnapshotting)? = nil,
+        restartFileSystem: any R13RestartFileSystem =
+            R13LocalRestartFileSystem()
     ) {
         self.jobsRootURL = jobsRootURL
         self.sourceMeasurer = sourceMeasurer
         self.sourceSnapshotter = sourceSnapshotter
             ?? R13LocalSourceSnapshotter(
                 sourceMeasurer: sourceMeasurer,
+                fileSystem: restartFileSystem,
                 minimumFreeDiskBytes:
                     documents.resourcePolicy.minimumFreeDiskBytes
             )
         self.frameCounter = frameCounter
         self.environmentCollector = environmentCollector
         self.documents = documents
-        restartStore = R13RestartJobStore(jobsRootURL: jobsRootURL)
+        restartStore = R13RestartJobStore(
+            jobsRootURL: jobsRootURL,
+            fileSystem: restartFileSystem
+        )
         bookmarkStore = R13SecurityScopedBookmarkStore(
-            jobsRootURL: jobsRootURL
+            jobsRootURL: jobsRootURL,
+            fileSystem: restartFileSystem
         )
         recoveryStore = R13RecoveryDescriptorStore(
-            jobsRootURL: jobsRootURL
+            jobsRootURL: jobsRootURL,
+            fileSystem: restartFileSystem
         )
         self.bookmarkResolver = bookmarkResolver
         self.storagePreflight = storagePreflight
@@ -69,7 +77,10 @@ extension R13ReleaseHardeningRuntime {
         let jobsRootURL = applicationSupport
             .appendingPathComponent("Mirmir", isDirectory: true)
             .appendingPathComponent("Jobs", isDirectory: true)
-        try R13LocalRestartFileSystem().ensureDirectory(jobsRootURL)
+        let restartFileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: applicationSupport
+        )
+        try restartFileSystem.ensureDirectory(jobsRootURL)
         let documents = try R13ReleaseHardeningDocuments.production()
         let diagnostics = R13ReleaseDiagnostics(
             policy: try R13ReleaseDiagnosticsPolicy(
@@ -95,7 +106,8 @@ extension R13ReleaseHardeningRuntime {
             outputCapacityProbe: R13FoundationAvailableCapacityProbe(),
             resourceGovernor: governor,
             faultInjector: R13FaultInjectorFactory.production(),
-            diagnostics: diagnostics
+            diagnostics: diagnostics,
+            restartFileSystem: restartFileSystem
         )
     }
 

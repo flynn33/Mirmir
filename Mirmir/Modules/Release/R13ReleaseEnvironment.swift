@@ -191,21 +191,19 @@ struct R13AVFoundationSourceFrameCounter:
                 String(describing: reader.error)
             )
         }
+        defer {
+            if reader.status == .reading {
+                reader.cancelReading()
+            }
+        }
 
         var frameCount = 0
         while let sampleBuffer = output.copyNextSampleBuffer() {
             try Task.checkCancellation()
-            let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
-            let (next, overflow) = frameCount.addingReportingOverflow(
-                sampleCount
+            frameCount = try Self.addingSampleCount(
+                CMSampleBufferGetNumSamples(sampleBuffer),
+                to: frameCount
             )
-            guard sampleCount > 0, !overflow else {
-                reader.cancelReading()
-                throw R13ReleaseEnvironmentError.arithmeticOverflow(
-                    field: "source_frame_count"
-                )
-            }
-            frameCount = next
         }
         guard reader.status == .completed else {
             throw R13ReleaseEnvironmentError.frameCountReaderFailed(
@@ -216,6 +214,21 @@ struct R13AVFoundationSourceFrameCounter:
             throw R13ReleaseEnvironmentError.frameCountUnavailable
         }
         return frameCount
+    }
+
+    static func addingSampleCount(
+        _ sampleCount: Int,
+        to frameCount: Int
+    ) throws -> Int {
+        let (next, overflow) = frameCount.addingReportingOverflow(
+            sampleCount
+        )
+        guard sampleCount >= 0, !overflow else {
+            throw R13ReleaseEnvironmentError.arithmeticOverflow(
+                field: "source_frame_count"
+            )
+        }
+        return next
     }
 }
 
