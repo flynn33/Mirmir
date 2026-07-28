@@ -3,6 +3,63 @@ import XCTest
 @testable import Mirmir
 
 final class R13RestartJobInitializationTests: XCTestCase {
+    func testTrustedRootTraversalCreatesNestedDirectory() throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: fixture.root
+        )
+        let nested = fixture.jobsRoot
+            .appendingPathComponent("nested", isDirectory: true)
+
+        try fileSystem.ensureDirectory(nested)
+
+        XCTAssertNoThrow(try fileSystem.validateDirectory(nested))
+    }
+
+    func testTrustedRootTraversalRejectsPathOutsideRoot() throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: fixture.root
+        )
+        let outside = fixture.root.deletingLastPathComponent()
+
+        XCTAssertThrowsError(try fileSystem.validateDirectory(outside)) {
+            XCTAssertEqual(
+                $0 as? R13RestartJobError,
+                .unsafeFilesystemEntry(outside.path)
+            )
+        }
+    }
+
+    func testTrustedRootTraversalRejectsSymlinkedDescendant() throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: fixture.root
+        )
+        let linkedDirectory = fixture.root.appendingPathComponent(
+            "linked",
+            isDirectory: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: linkedDirectory,
+            withDestinationURL: fixture.root.deletingLastPathComponent()
+        )
+        let nested = linkedDirectory.appendingPathComponent(
+            "nested",
+            isDirectory: true
+        )
+
+        XCTAssertThrowsError(try fileSystem.ensureDirectory(nested)) {
+            XCTAssertEqual(
+                $0 as? R13RestartJobError,
+                .unsafeFilesystemEntry(nested.path)
+            )
+        }
+    }
+
     func testInitializationFailureLeavesFinalIDRetryable()
         async throws {
         let fixture = try R13RestartInitializationFixture()

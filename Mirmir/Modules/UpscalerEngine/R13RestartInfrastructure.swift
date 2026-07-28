@@ -33,17 +33,46 @@ protocol R13RestartFileSystem: Sendable {
 }
 
 struct R13LocalRestartFileSystem: R13RestartFileSystem {
+    private let trustedRootURL: URL?
+
+    init() {
+        trustedRootURL = nil
+    }
+
+    init(trustedRootURL: URL) throws {
+        let resolvedRoot = R13RestartPath.resolvingExistingAncestor(
+            of: trustedRootURL
+        )
+        guard resolvedRoot.isFileURL,
+              resolvedRoot.path.hasPrefix("/") else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                trustedRootURL.path
+            )
+        }
+        let descriptor = open(
+            resolvedRoot.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                trustedRootURL.path
+            )
+        }
+        close(descriptor)
+        self.trustedRootURL = resolvedRoot
+    }
+
     func ensureDirectory(_ url: URL) throws {
-        let components = try pathComponents(url)
+        let traversal = try directoryTraversal(for: url)
         var descriptor = open(
-            "/",
+            traversal.startingPath,
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
         guard descriptor >= 0 else {
             throw R13RestartJobError.unsafeFilesystemEntry(url.path)
         }
         defer { close(descriptor) }
-        for component in components {
+        for component in traversal.components {
             var nextDescriptor = openat(
                 descriptor,
                 component,
@@ -244,16 +273,21 @@ struct R13LocalRestartFileSystem: R13RestartFileSystem {
 }
 
 private extension R13LocalRestartFileSystem {
+    private struct DirectoryTraversal {
+        let startingPath: String
+        let components: [String]
+    }
+
     private func openDirectory(_ url: URL) throws -> Int32 {
-        let components = try pathComponents(url)
+        let traversal = try directoryTraversal(for: url)
         var descriptor = open(
-            "/",
+            traversal.startingPath,
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
         guard descriptor >= 0 else {
             throw R13RestartJobError.unsafeFilesystemEntry(url.path)
         }
-        for component in components {
+        for component in traversal.components {
             let nextDescriptor = openat(
                 descriptor,
                 component,
@@ -267,6 +301,28 @@ private extension R13LocalRestartFileSystem {
             descriptor = nextDescriptor
         }
         return descriptor
+    }
+
+    private func directoryTraversal(
+        for url: URL
+    ) throws -> DirectoryTraversal {
+        let components = try pathComponents(url)
+        guard let trustedRootURL else {
+            return DirectoryTraversal(
+                startingPath: "/",
+                components: components
+            )
+        }
+        let trustedComponents = try pathComponents(trustedRootURL)
+        guard components.starts(with: trustedComponents) else {
+            throw R13RestartJobError.unsafeFilesystemEntry(url.path)
+        }
+        return DirectoryTraversal(
+            startingPath: trustedRootURL.path,
+            components: Array(
+                components.dropFirst(trustedComponents.count)
+            )
+        )
     }
 
     private func withParentDirectory<T>(

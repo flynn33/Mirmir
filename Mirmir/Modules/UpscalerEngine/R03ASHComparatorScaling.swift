@@ -185,6 +185,11 @@ private final class R03ASHComparatorSessionDriver: AppleUpscaleSessionDriver,
     @unchecked Sendable {
     private typealias ProcessingTask = Task<any ASHUpscaleFrameCompletion, Error>
 
+    private struct ProcessingBuffers: @unchecked Sendable {
+        let source: CVPixelBuffer
+        let destination: CVPixelBuffer
+    }
+
     private struct ActiveProcessing: Sendable {
         let generation: UInt64
         let task: ProcessingTask
@@ -264,10 +269,14 @@ private final class R03ASHComparatorSessionDriver: AppleUpscaleSessionDriver,
                 presentationTimestampValue: frame.presentationTimestamp.value,
                 presentationTimestampTimescale: frame.presentationTimestamp.timescale
             )
-            let task = Task { [ashBackend] in
+            let buffers = ProcessingBuffers(
+                source: frame.pixelBuffer,
+                destination: output
+            )
+            let task = Task { @Sendable [ashBackend, buffers, context] in
                 try await ashBackend.process(
-                    source: frame.pixelBuffer,
-                    into: output,
+                    source: buffers.source,
+                    into: buffers.destination,
                     context: context
                 )
             }
