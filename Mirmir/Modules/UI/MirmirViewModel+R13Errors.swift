@@ -2,6 +2,9 @@ import Foundation
 
 extension MirmirViewModel {
     func userFacingJobError(_ error: Error) -> String {
+        if let cacheError = error as? R13CacheLocationError {
+            return cacheError.localizedDescription
+        }
         if let restartError = error as? R13RestartJobError {
             return userFacingRestartError(restartError)
         }

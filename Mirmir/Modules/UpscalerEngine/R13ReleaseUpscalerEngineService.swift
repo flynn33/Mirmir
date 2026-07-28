@@ -24,53 +24,15 @@ typealias R13ReleaseUpscaleSessionFactory = @Sendable (
 
 typealias R13ReleaseResourceReleaseObserver = @Sendable (_ identity: String) -> Void
 typealias R13ReleaseBeforeHandleStart = @Sendable () -> Void
-
-enum R13A11ProductSessionFactory {
-    static func makeSession(
-        route: R03ScaleRoute
-    ) async throws -> R13ReleaseUpscaleSessionBinding {
-        let backend = try R03DeterministicBackend
-            .makeProductQualifiedMPSLanczos(route: route)
-        let outcome = await backend.makeSession(
-            configuration: try backend.makeConfiguration(),
-            context: try R03A11ProductAdmission.makeProductSessionContext()
-        )
-        switch outcome {
-        case .created(let session):
-            let sessionIdentity = await session.identity
-            guard sessionIdentity == backend.routeIdentity else {
-                await session.cancel()
-                throw UpscalerEngineError.strategyFailed(
-                    "A11 session identity did not match its admitted route."
-                )
-            }
-            return R13ReleaseUpscaleSessionBinding(
-                session: session,
-                route: route,
-                routeIdentity: backend.routeIdentity
-            )
-        case .unavailable(let unavailable):
-            throw UpscalerEngineError.backendUnavailable(
-                reason: unavailable.reason
-            )
-        case .rejected(let rejected):
-            throw UpscalerEngineError.strategyFailed(
-                "A11 session admission was rejected: \(rejected.reason)"
-            )
-        case .failed(let failure):
-            throw UpscalerEngineError.strategyFailed(
-                "A11 session creation failed: \(failure.reason)"
-            )
-        }
-    }
-}
-
+typealias R13ReleaseHardeningRuntimeProvider = @Sendable () throws
+    -> R13ReleaseHardeningRuntime?
 final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
     R13RecoverableUpscalerEngine,
     R13ReleaseDiagnosticsProviding,
     @unchecked Sendable {
-    private enum ActiveJobState {
+    enum ActiveJobState {
         case idle
+        case changingCacheLocation
         case reserved
         case stoppingReserved
         case active(R13ReleaseUpscalerJobHandle)
@@ -80,11 +42,19 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
     private let sessionFactory: R13ReleaseUpscaleSessionFactory
     private let normalizer: any R13NV12FrameNormalizing
     private let inputReleaseObserver: R13ReleaseResourceReleaseObserver
-    let hardeningRuntime: R13ReleaseHardeningRuntime?
+    let hardeningRuntimeProvider:
+        R13ReleaseHardeningRuntimeProvider
     private let beforeHandleStart: R13ReleaseBeforeHandleStart
-    private let activeJobState = OSAllocatedUnfairLock(
+    let cacheLocationStore: R13CacheLocationStore?
+    let activeJobState = OSAllocatedUnfairLock(
         initialState: ActiveJobState.idle
     )
+    let hardeningRuntimeState:
+        OSAllocatedUnfairLock<R13ReleaseHardeningRuntime?>
+
+    var hardeningRuntime: R13ReleaseHardeningRuntime? {
+        hardeningRuntimeState.withLock { $0 }
+    }
 
     var availability: UpscalerEngineAvailability { .available }
 
@@ -96,13 +66,26 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         normalizer: any R13NV12FrameNormalizing = R13NV12FrameNormalizer(),
         inputReleaseObserver: @escaping R13ReleaseResourceReleaseObserver = { _ in },
         hardeningRuntime: R13ReleaseHardeningRuntime? = nil,
+        cacheLocationStore: R13CacheLocationStore? = nil,
         beforeHandleStart: @escaping R13ReleaseBeforeHandleStart = {}
     ) {
         self.media = media
         self.sessionFactory = sessionFactory
         self.normalizer = normalizer
         self.inputReleaseObserver = inputReleaseObserver
-        self.hardeningRuntime = hardeningRuntime
+        self.cacheLocationStore = cacheLocationStore
+        if let cacheLocationStore {
+            hardeningRuntimeProvider = {
+                try R13ReleaseHardeningRuntime.production(
+                    cacheLocation: cacheLocationStore.configuration()
+                )
+            }
+        } else {
+            hardeningRuntimeProvider = { hardeningRuntime }
+        }
+        hardeningRuntimeState = OSAllocatedUnfairLock(
+            initialState: hardeningRuntime
+        )
         self.beforeHandleStart = beforeHandleStart
     }
 
@@ -135,6 +118,22 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         guard reserved else {
             throw UpscalerEngineError.jobAlreadyRunning
         }
+        let hardeningRuntime: R13ReleaseHardeningRuntime?
+        do {
+            hardeningRuntime = try resolveHardeningRuntime()
+        } catch {
+            activeJobState.withLock { state in
+                switch state {
+                case .reserved, .stoppingReserved:
+                    state = .idle
+                case .idle, .changingCacheLocation, .active:
+                    preconditionFailure(
+                        "R13 active-job reservation changed unexpectedly."
+                    )
+                }
+            }
+            throw error
+        }
 
         let handle = R13ReleaseUpscalerJobHandle(
             job: job,
@@ -157,7 +156,7 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
             case .stoppingReserved:
                 state = .active(handle)
                 return true
-            case .idle, .active:
+            case .idle, .changingCacheLocation, .active:
                 preconditionFailure(
                     "R13 active-job reservation changed unexpectedly."
                 )
@@ -170,27 +169,6 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         }
         return handle
     }
-
-    func start() {}
-
-    func stop() {
-        let activeHandle: R13ReleaseUpscalerJobHandle? =
-            activeJobState.withLock { state in
-            switch state {
-            case .idle:
-                return nil
-            case .reserved:
-                state = .stoppingReserved
-                return nil
-            case .stoppingReserved:
-                return nil
-            case .active(let handle):
-                return handle
-            }
-        }
-        activeHandle?.cancel()
-    }
-
 }
 
 struct R13ReleaseJobRuntime: Sendable {

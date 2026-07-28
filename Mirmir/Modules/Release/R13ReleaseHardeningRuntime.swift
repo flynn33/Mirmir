@@ -1,7 +1,8 @@
 import Foundation
 
 struct R13ReleaseHardeningRuntime: Sendable {
-    private let jobsRootURL: URL
+    let jobsRootURL: URL
+    private let cacheLocationAccess: R13CacheLocationAccess?
     private let sourceMeasurer: any R13RestartSourceMeasuring
     private let sourceSnapshotter: any R13SourceSnapshotting
     private let frameCounter: any R13SourceFrameCountMeasuring
@@ -30,10 +31,12 @@ struct R13ReleaseHardeningRuntime: Sendable {
         faultInjector: any R13FaultInjecting,
         diagnostics: R13ReleaseDiagnostics,
         sourceSnapshotter: (any R13SourceSnapshotting)? = nil,
+        cacheLocationAccess: R13CacheLocationAccess? = nil,
         restartFileSystem: any R13RestartFileSystem =
             R13LocalRestartFileSystem()
     ) {
         self.jobsRootURL = jobsRootURL
+        self.cacheLocationAccess = cacheLocationAccess
         self.sourceMeasurer = sourceMeasurer
         self.sourceSnapshotter = sourceSnapshotter
             ?? R13LocalSourceSnapshotter(
@@ -67,50 +70,6 @@ struct R13ReleaseHardeningRuntime: Sendable {
 }
 
 extension R13ReleaseHardeningRuntime {
-    static func production() throws -> R13ReleaseHardeningRuntime {
-        let applicationSupport = try FileManager.default.url(
-            for: .applicationSupportDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        )
-        let jobsRootURL = applicationSupport
-            .appendingPathComponent("Mirmir", isDirectory: true)
-            .appendingPathComponent("Jobs", isDirectory: true)
-        let restartFileSystem = try R13LocalRestartFileSystem(
-            trustedRootURL: applicationSupport
-        )
-        try restartFileSystem.ensureDirectory(jobsRootURL)
-        let documents = try R13ReleaseHardeningDocuments.production()
-        let diagnostics = R13ReleaseDiagnostics(
-            policy: try R13ReleaseDiagnosticsPolicy(
-                maximumRecords: 256,
-                maximumTotalBytes: 65_536
-            )
-        )
-        let governor = R13ResourceGovernor(
-            policy: documents.resourcePolicy,
-            probes: R13ProductionResourceProbe.make(
-                storageURL: jobsRootURL
-            )
-        )
-        return R13ReleaseHardeningRuntime(
-            jobsRootURL: jobsRootURL,
-            sourceMeasurer: R13LocalRestartSourceMeasurer(),
-            frameCounter: R13AVFoundationSourceFrameCounter(),
-            environmentCollector:
-                R13ProductionReleaseEnvironmentCollector(),
-            documents: documents,
-            bookmarkResolver: R13FoundationBookmarkResolver(),
-            storagePreflight: R13StoragePreflight(),
-            outputCapacityProbe: R13FoundationAvailableCapacityProbe(),
-            resourceGovernor: governor,
-            faultInjector: R13FaultInjectorFactory.production(),
-            diagnostics: diagnostics,
-            restartFileSystem: restartFileSystem
-        )
-    }
-
     func prepare(
         job: UpscaleJob,
         source: SourceProfile,

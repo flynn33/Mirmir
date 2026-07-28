@@ -65,6 +65,7 @@
 		2480AD980A475DCDF3D5B91E /* R07FunctionalCoordinatorAnalysis.swift in Sources */ = {isa = PBXBuildFile; fileRef = F512C5A3BE91109A123432E9 /* R07FunctionalCoordinatorAnalysis.swift */; };
 		261A87170AE11A0E388E76E1 /* R13ReleaseHardeningDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1136666F4F6EA8BADFA2597 /* R13ReleaseHardeningDiagnostics.swift */; };
 		2774931432179C30D230C63D /* R13NV12FramePixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 483ADD8FD0269F09E239A534 /* R13NV12FramePixelBuffer.swift */; };
+		2854446B8B62FD95B5F2ED52 /* R13ConfigurableCacheUpscalerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DF8B614B4D6E141262C4EB /* R13ConfigurableCacheUpscalerEngine.swift */; };
 		287485E73ACFF8D14A9EE8AE /* ASHMetalSpatialRuntimeV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34555FF0EE9591F826189B62 /* ASHMetalSpatialRuntimeV3Tests.swift */; };
 		28755B7301799D0DA094E945 /* ASHTelemetryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F705073C74E0938AFE1C4748 /* ASHTelemetryTests.swift */; };
 		28CD56D4E4C75E8C51715B5B /* R05MetalFXColorBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3AACEE17E79A48FEF8F7B00 /* R05MetalFXColorBridge.swift */; };
@@ -88,6 +89,7 @@
 		32AECDB17AE7839CDAC797C1 /* AppleUpscaleCapabilityFixtureContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85F6B7D4C72F5BEEC34C057 /* AppleUpscaleCapabilityFixtureContract.swift */; };
 		334CE082DEB57538C8B57BDC /* R13StoragePreflightTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E752FFE2A48687713DF7912 /* R13StoragePreflightTests.swift */; };
 		33899520F6995EF6651494E5 /* MirmirViewRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E57D8744A1068882CAD219 /* MirmirViewRegistryTests.swift */; };
+		33E98D50FFCB25AB8A072D1B /* R13A11ProductSessionFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8963E15A75B11CA724C97E60 /* R13A11ProductSessionFactory.swift */; };
 		3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */; };
 		35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1C3BE8FFF2C0D5C3C85B71B /* RoadmapTransitionModelAssetsService.swift */; };
 		366CB844822B5367FA5FCB52 /* ASHLUTBinaryFormatV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01C64B4A118F1BA7772B6868 /* ASHLUTBinaryFormatV2Tests.swift */; };
@@ -130,6 +132,7 @@
 		4969FFE15E02CDAADB1EB897 /* ASHCoordinateDiagnosticRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4444573C99DD7948CD688864 /* ASHCoordinateDiagnosticRuntimeV3.swift */; };
 		4A42EC0C6C498A7901EC27B2 /* ArchitectureGuardrailTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5501535BB6CEE6E2BF54BA2E /* ArchitectureGuardrailTests.swift */; };
 		4B1B760FE6D02CF7A54A799C /* R07FunctionalSupportExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 924628EB6E4DA3633257DF7B /* R07FunctionalSupportExecutor.swift */; };
+		4C24E87F0ECE5EC648027BE5 /* R13CacheLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014304381B202E6F353CF642 /* R13CacheLocation.swift */; };
 		4C4AC4E69CC8C3BF6E56D2E5 /* R13RecoverableJobs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E85FEF260B3F4D3F98E126C8 /* R13RecoverableJobs.swift */; };
 		4CAC33FF29D2C5D87FC2A2E5 /* MirmirModuleTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51E83080111DA62CEFB632B7 /* MirmirModuleTestSupport.swift */; };
 		4D24088421385E79A6F0ECEF /* R03MPSScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E39A5FE99B1C886AC4F46D0 /* R03MPSScaling.swift */; };
@@ -147,6 +150,7 @@
 		529103EF8FA22597BD7B70E1 /* ASHSpatialReferencePipelineV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF87D2D34EEE56328850BF4 /* ASHSpatialReferencePipelineV2.swift */; };
 		52BAB99685EFC54160A6F696 /* R09ASHResidualAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC402570E884246F237CBA6 /* R09ASHResidualAuthorization.swift */; };
 		53C033FE2B934A22C937428F /* ASHLockedReleaseLUTManifestV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */; };
+		546F517E2832B4050EED1057 /* R13CacheLocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */; };
 		558A05DD71EF2A2790278455 /* AppleUpscaleCapabilityWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A28245796CF46D6746515B4 /* AppleUpscaleCapabilityWorker.swift */; };
 		559A76D9D1E7FF82A6571199 /* R08AnalysisOutputDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A173CE5E54A507227B4602A1 /* R08AnalysisOutputDecoderTests.swift */; };
 		56ADDA68EF63F3F008D0454E /* ASHReconstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */; };
@@ -212,6 +216,7 @@
 		7EE4F9F2188A3F8805B49B1A /* AppleUpscaleCapabilityLiveContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7C63339DECCFCDED19ABE9 /* AppleUpscaleCapabilityLiveContext.swift */; };
 		7F1382B36C08F1B58C6170B0 /* MirmirModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */; };
 		7F5DBD024923B5E1805B276D /* R13SourceSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39F860076F2B463D20B9D3E /* R13SourceSnapshotTests.swift */; };
+		80BBD07B85CDC41DB87A4B90 /* R13ReleaseUpscalerEngineService+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 897EFE836B22EEEDE152095C /* R13ReleaseUpscalerEngineService+Lifecycle.swift */; };
 		80BDF6DF1BA08F9F2DD5099C /* ASHCalibrationCLIProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34FEF5FDE0529745ECF2CD7D /* ASHCalibrationCLIProtocol.swift */; };
 		80F5E4A5711B3E26AF356E80 /* ASHLockedRuntimeTestSupportV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = F812295681F2487F358C8A9B /* ASHLockedRuntimeTestSupportV2.swift */; };
 		811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9833C96F05E187004E393DAD /* MirmirRootView.swift */; };
@@ -249,6 +254,7 @@
 		8C92C3B6639A30FA3D93FFE8 /* ASHGenericPhaseCompilerDiagnosticV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D35E5AC50EE7E8056467A3 /* ASHGenericPhaseCompilerDiagnosticV3.swift */; };
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
 		8D776C36DE79EB0F011C4695 /* AppleUpscaleCapabilityLiveErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E7738087E5B1AB4AA431C8 /* AppleUpscaleCapabilityLiveErrors.swift */; };
+		8DFE033006E1C35962924E24 /* R13ReleaseHardeningRuntime+Production.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B51B7B3E19633D0AA0739E /* R13ReleaseHardeningRuntime+Production.swift */; };
 		8ED5EF31CA1E3E95B0466965 /* R03ASHComparatorScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA994E8113587B05BD50C04C /* R03ASHComparatorScaling.swift */; };
 		8ED68CF36107664F63789347 /* R03MPSCoreImageScalingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36AAC920201EAAB6C35D9E5E /* R03MPSCoreImageScalingTests.swift */; };
 		8FD4D7CFF79EC3B3A653EA41 /* ASHMetalFrameResourceRingV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 854DE548F652D39CC9238815 /* ASHMetalFrameResourceRingV3Tests.swift */; };
@@ -334,6 +340,7 @@
 		BB93356CCD8A6DA568A121CD /* ASHLockedAffineRuntimeV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0494D66D2CCAAC9E68C2098E /* ASHLockedAffineRuntimeV2Tests.swift */; };
 		BB9D1D1F05348B33FEF145D4 /* ASHVideoAnalyzerV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7740B412333DCABCD736E48A /* ASHVideoAnalyzerV2.swift */; };
 		BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */; };
+		BC4CB4A345D751A851158494 /* MirmirViewModel+CacheLocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 733E9F5DA39D7E2DC49F98F2 /* MirmirViewModel+CacheLocation.swift */; };
 		BED239DCE7EFB07EE2C3E1E6 /* ASHRuntimeConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A932C98B8380D14BB5584E2 /* ASHRuntimeConfiguration.swift */; };
 		C098AEFA81215843C179FEB5 /* NotRequiredModelAssetsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD518B9915CB23119DFA5263 /* NotRequiredModelAssetsService.swift */; };
 		C0E576956E54A15022B6EA40 /* MirmirViewRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */; };
@@ -453,6 +460,7 @@
 
 /* Begin PBXFileReference section */
 		0094B29F70CD99DA3D843C3C /* ASHAnalysisGridV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAnalysisGridV2Tests.swift; sourceTree = "<group>"; };
+		014304381B202E6F353CF642 /* R13CacheLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13CacheLocation.swift; sourceTree = "<group>"; };
 		0158FCB56F360A4A3ACDDBA9 /* ASHP08NativeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08NativeSupport.swift; sourceTree = "<group>"; };
 		01C64B4A118F1BA7772B6868 /* ASHLUTBinaryFormatV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTBinaryFormatV2Tests.swift; sourceTree = "<group>"; };
 		02E347AE2D83CC5AF980CF38 /* NoopServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoopServices.swift; sourceTree = "<group>"; };
@@ -536,6 +544,7 @@
 		34555FF0EE9591F826189B62 /* ASHMetalSpatialRuntimeV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeV3Tests.swift; sourceTree = "<group>"; };
 		347A64D3B3552787D88B4DCF /* ASHP08PerformanceRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08PerformanceRuntime.swift; sourceTree = "<group>"; };
 		34FEF5FDE0529745ECF2CD7D /* ASHCalibrationCLIProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCalibrationCLIProtocol.swift; sourceTree = "<group>"; };
+		35DF8B614B4D6E141262C4EB /* R13ConfigurableCacheUpscalerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ConfigurableCacheUpscalerEngine.swift; sourceTree = "<group>"; };
 		361DB51CD0B47DF7580337BE /* R07TemporalHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07TemporalHistory.swift; sourceTree = "<group>"; };
 		367539453417B8A36D76D0D8 /* ASHRiskStateDiagnosticV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHRiskStateDiagnosticV3Tests.swift; sourceTree = "<group>"; };
 		36AAC920201EAAB6C35D9E5E /* R03MPSCoreImageScalingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03MPSCoreImageScalingTests.swift; sourceTree = "<group>"; };
@@ -642,6 +651,7 @@
 		71A1099CC8EDD6E01524476D /* AppleUpscaleCapabilityLiveProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityLiveProbeTests.swift; sourceTree = "<group>"; };
 		71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTheme.swift; sourceTree = "<group>"; };
 		730DE64225D23C3A54C33491 /* ASHCoordinateModelContractV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateModelContractV3.swift; sourceTree = "<group>"; };
+		733E9F5DA39D7E2DC49F98F2 /* MirmirViewModel+CacheLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirmirViewModel+CacheLocation.swift"; sourceTree = "<group>"; };
 		73437DCE9E7DC1F3D8CAB459 /* ASHMetalSpatialKernelsV3.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ASHMetalSpatialKernelsV3.metal; sourceTree = "<group>"; };
 		73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicMediaOutput.swift; sourceTree = "<group>"; };
 		743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
@@ -672,6 +682,8 @@
 		86AF5A364ACEADB2F80650AE /* MirmirModuleHostTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleHostTests.swift; sourceTree = "<group>"; };
 		87A2D10F701125D55E41E172 /* R05MetalFXContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXContracts.swift; sourceTree = "<group>"; };
 		87DF56556BD38E52A6939975 /* MediaTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaTypes.swift; sourceTree = "<group>"; };
+		8963E15A75B11CA724C97E60 /* R13A11ProductSessionFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13A11ProductSessionFactory.swift; sourceTree = "<group>"; };
+		897EFE836B22EEEDE152095C /* R13ReleaseUpscalerEngineService+Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "R13ReleaseUpscalerEngineService+Lifecycle.swift"; sourceTree = "<group>"; };
 		8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTypesV3.swift; sourceTree = "<group>"; };
 		8D59C820268D33A10DE3D040 /* ASHCalibrationCorrectiveDiagnosticCLITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCalibrationCorrectiveDiagnosticCLITests.swift; sourceTree = "<group>"; };
 		8E4FBE5A13E688C70EDAE28E /* R07FunctionalCoordinatorTransactionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07FunctionalCoordinatorTransactionTests.swift; sourceTree = "<group>"; };
@@ -777,6 +789,7 @@
 		C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04VideoToolboxSessionAdapter.swift; sourceTree = "<group>"; };
 		C7798801B4B25996A20D6313 /* R13ReleaseModePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseModePolicyTests.swift; sourceTree = "<group>"; };
 		C7876C4579EEF452766E0024 /* R13ReleaseJobContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseJobContracts.swift; sourceTree = "<group>"; };
+		C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13CacheLocationTests.swift; sourceTree = "<group>"; };
 		C7E8A2E1970E76848DC5FF3E /* R06ASHPolicyCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R06ASHPolicyCatalogTests.swift; sourceTree = "<group>"; };
 		C85D82848BCD8102B08CB9FC /* R12MediaFormatContractV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R12MediaFormatContractV2Tests.swift; sourceTree = "<group>"; };
 		C88967A0FF28DF45A373F6B4 /* R08CoreAIAnalysisContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R08CoreAIAnalysisContractsTests.swift; sourceTree = "<group>"; };
@@ -859,6 +872,7 @@
 		F512C5A3BE91109A123432E9 /* R07FunctionalCoordinatorAnalysis.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07FunctionalCoordinatorAnalysis.swift; sourceTree = "<group>"; };
 		F579C353EE3649D8527DEC24 /* R05MetalFXSpatialDriverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05MetalFXSpatialDriverTests.swift; sourceTree = "<group>"; };
 		F58EF26E079148CBCD9719AA /* UpscaleMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleMode.swift; sourceTree = "<group>"; };
+		F6B51B7B3E19633D0AA0739E /* R13ReleaseHardeningRuntime+Production.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "R13ReleaseHardeningRuntime+Production.swift"; sourceTree = "<group>"; };
 		F705073C74E0938AFE1C4748 /* ASHTelemetryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHTelemetryTests.swift; sourceTree = "<group>"; };
 		F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsService.swift; sourceTree = "<group>"; };
 		F80E22F8D26DCCA97DB4ABD7 /* R13RestartJobContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13RestartJobContractsTests.swift; sourceTree = "<group>"; };
@@ -903,6 +917,7 @@
 		0969BACD587742BADA8210D0 /* Release */ = {
 			isa = PBXGroup;
 			children = (
+				014304381B202E6F353CF642 /* R13CacheLocation.swift */,
 				1E437DE61F8A3DF0E546AC0A /* R13FaultInjection.swift */,
 				E85FEF260B3F4D3F98E126C8 /* R13RecoverableJobs.swift */,
 				CAC6662D092BDBD2950F07EA /* R13ReleaseDiagnostics.swift */,
@@ -911,6 +926,7 @@
 				548F69B4C911BBBD295B1C01 /* R13ReleaseHardeningCalculations.swift */,
 				B1136666F4F6EA8BADFA2597 /* R13ReleaseHardeningDiagnostics.swift */,
 				7DF5F74CA649219BC9EC5871 /* R13ReleaseHardeningRuntime.swift */,
+				F6B51B7B3E19633D0AA0739E /* R13ReleaseHardeningRuntime+Production.swift */,
 				25FB8D957283222352E2B8BF /* R13ReleaseIdentity.swift */,
 				329358467C2D7788C646F437 /* R13ResourceGovernance.swift */,
 				7B0EA761DDDCB17B4C1E5236 /* R13ResourceGovernanceValidation.swift */,
@@ -979,6 +995,8 @@
 				E28312A49884E8A911267C2B /* R09NV12PlanarCodec.swift */,
 				59F8235F46FA29D421C8A0C7 /* R12MediaFormatContractV2.swift */,
 				A460A8860E4ECC3EAC83A5F4 /* R12RouteAndHardwareResolver.swift */,
+				8963E15A75B11CA724C97E60 /* R13A11ProductSessionFactory.swift */,
+				35DF8B614B4D6E141262C4EB /* R13ConfigurableCacheUpscalerEngine.swift */,
 				90455B209820CC54A168F139 /* R13NV12FrameCache.swift */,
 				A6163A21AE6B257612A540D0 /* R13NV12FrameNormalizer.swift */,
 				483ADD8FD0269F09E239A534 /* R13NV12FramePixelBuffer.swift */,
@@ -986,6 +1004,7 @@
 				C7876C4579EEF452766E0024 /* R13ReleaseJobContracts.swift */,
 				CB719A8C991D796EF0ED2632 /* R13ReleaseTaskStartGate.swift */,
 				C616CA4BC24EEC81094A7A9B /* R13ReleaseUpscalerEngineService.swift */,
+				897EFE836B22EEEDE152095C /* R13ReleaseUpscalerEngineService+Lifecycle.swift */,
 				B5B537B4145C4027F441DE4D /* R13RestartInfrastructure.swift */,
 				B8ACACE9ECC6BD1818A191CE /* R13RestartJobContracts.swift */,
 				F2F422D19C2DF4BC4EDCD61B /* R13RestartJobStore.swift */,
@@ -1363,6 +1382,7 @@
 				D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */,
 				FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */,
 				2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */,
+				733E9F5DA39D7E2DC49F98F2 /* MirmirViewModel+CacheLocation.swift */,
 				D259C92623089BED06FB4F15 /* MirmirViewModel+R13Diagnostics.swift */,
 				CF71B1B64A956F1475256633 /* MirmirViewModel+R13Errors.swift */,
 				9590C1AC9D2C350B523F09DA /* MirmirViewModel+R13Recovery.swift */,
@@ -1482,6 +1502,7 @@
 				C85D82848BCD8102B08CB9FC /* R12MediaFormatContractV2Tests.swift */,
 				AC2D430A656071EA8D864EF1 /* R12RouteAndHardwareResolverTests.swift */,
 				D274FF6BAA4E796485D5FEFD /* R13A11ProductBackendTests.swift */,
+				C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */,
 				B98908B5F02AAE802BF8352A /* R13EngineRecoveryScopeTests.swift */,
 				D93E239AEC453C9440CF12CB /* R13FaultInjectionTests.swift */,
 				7A054C7CB40D09EEFD599472 /* R13HardeningStorageLifecycleTests.swift */,
@@ -1782,6 +1803,7 @@
 				314B5895FAC5B24C86324FF4 /* R12MediaFormatContractV2Tests.swift in Sources */,
 				A90450EF453DD1BC6FD8AEB5 /* R12RouteAndHardwareResolverTests.swift in Sources */,
 				756238363E4E4719A6B3B580 /* R13A11ProductBackendTests.swift in Sources */,
+				546F517E2832B4050EED1057 /* R13CacheLocationTests.swift in Sources */,
 				E0CFC989FAF81373CB6D85B2 /* R13EngineRecoveryScopeTests.swift in Sources */,
 				A417DE48BF7026C4EAE3AD1E /* R13FaultInjectionTests.swift in Sources */,
 				BB2A7B57E764A1BC2FD82298 /* R13HardeningStorageLifecycleTests.swift in Sources */,
@@ -1972,6 +1994,7 @@
 				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
 				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
 				EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */,
+				BC4CB4A345D751A851158494 /* MirmirViewModel+CacheLocation.swift in Sources */,
 				FAA08B30BFCAA95CF4B37476 /* MirmirViewModel+R13Diagnostics.swift in Sources */,
 				29D999D0F19EA9CC90E4150A /* MirmirViewModel+R13Errors.swift in Sources */,
 				82372491C75582326B51AB67 /* MirmirViewModel+R13Recovery.swift in Sources */,
@@ -2038,6 +2061,9 @@
 				18106E6712D7179E8BB37C12 /* R12ChunkCheckpointLedger.swift in Sources */,
 				924A03BDD41DD819F111219F /* R12MediaFormatContractV2.swift in Sources */,
 				1054E679780BBF4FB0AD32E8 /* R12RouteAndHardwareResolver.swift in Sources */,
+				33E98D50FFCB25AB8A072D1B /* R13A11ProductSessionFactory.swift in Sources */,
+				4C24E87F0ECE5EC648027BE5 /* R13CacheLocation.swift in Sources */,
+				2854446B8B62FD95B5F2ED52 /* R13ConfigurableCacheUpscalerEngine.swift in Sources */,
 				5251FD81563F372758658570 /* R13FaultInjection.swift in Sources */,
 				7A1568B0A50C3BD3400AA84E /* R13NV12FrameCache.swift in Sources */,
 				96F504BDA84D6BFB7D61CC62 /* R13NV12FrameNormalizer.swift in Sources */,
@@ -2049,10 +2075,12 @@
 				E09BB61A378D3EF1A51D9CFD /* R13ReleaseHardeningAttempt.swift in Sources */,
 				11C2BAC014A7C0F4C5A162A9 /* R13ReleaseHardeningCalculations.swift in Sources */,
 				261A87170AE11A0E388E76E1 /* R13ReleaseHardeningDiagnostics.swift in Sources */,
+				8DFE033006E1C35962924E24 /* R13ReleaseHardeningRuntime+Production.swift in Sources */,
 				3A32078DF8323F255D51737F /* R13ReleaseHardeningRuntime.swift in Sources */,
 				3CA6A4A1ABC6B8803B23BF53 /* R13ReleaseIdentity.swift in Sources */,
 				E080A75FB0BB96B568B2CE9D /* R13ReleaseJobContracts.swift in Sources */,
 				F84258363C682F5669602019 /* R13ReleaseTaskStartGate.swift in Sources */,
+				80BBD07B85CDC41DB87A4B90 /* R13ReleaseUpscalerEngineService+Lifecycle.swift in Sources */,
 				297AC583AD6DE974C42EDBAF /* R13ReleaseUpscalerEngineService.swift in Sources */,
 				9825428B1C731CB96D964DA7 /* R13ResourceGovernance.swift in Sources */,
 				72DF8240DCD8B3DEA0381612 /* R13ResourceGovernanceValidation.swift in Sources */,
