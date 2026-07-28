@@ -4,6 +4,93 @@ import XCTest
 @testable import Mirmir
 
 final class AtomicMediaOutputTests: XCTestCase {
+    func testPublicationIdentityExposesItsValueContract() {
+        let sha256 = String(repeating: "a", count: 64)
+        let identity = MediaOutputPublicationIdentity(
+            sha256: sha256,
+            byteCount: 42
+        )
+
+        XCTAssertEqual(identity.sha256, sha256)
+        XCTAssertEqual(identity.byteCount, 42)
+    }
+
+    func testStableIdentifierDerivesStableIsolatedTemporaryPath() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+
+        let first = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "r13-job-001"
+        )
+        let reconstructed = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "r13-job-001"
+        )
+        let other = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "r13-job-002"
+        )
+
+        XCTAssertEqual(first.temporaryURL, reconstructed.temporaryURL)
+        XCTAssertNotEqual(first.temporaryURL, other.temporaryURL)
+    }
+
+    func testInvalidStableIdentifiersAreRejectedBeforePathConstruction() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let invalidIdentifiers = [
+            "",
+            ".",
+            "..",
+            "../escape",
+            "nested/path",
+            "windows\\path",
+            "line\nbreak",
+            "unicode-\u{00E9}",
+            String(repeating: "a", count: 161)
+        ]
+
+        for identifier in invalidIdentifiers {
+            XCTAssertThrowsError(
+                try AtomicMediaOutput(
+                    destinationURL: fixture.destination,
+                    temporaryIdentifier: identifier
+                ),
+                "Expected rejection for \(String(reflecting: identifier))."
+            ) { error in
+                XCTAssertEqual(
+                    error as? AtomicMediaOutputError,
+                    .invalidTemporaryIdentifier(identifier)
+                )
+            }
+        }
+    }
+
+    func testCleanupRemovesOnlyTheIdentityBoundPartial() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let first = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "r13-job-first"
+        )
+        let second = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "r13-job-second"
+        )
+        try Data("first".utf8).write(to: first.temporaryURL)
+        try Data("second".utf8).write(to: second.temporaryURL)
+        try first.beginWriting()
+        try second.beginWriting()
+
+        let cleanup = first.cancel()
+
+        XCTAssertTrue(cleanup.temporaryFileRemoved)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: first.temporaryURL.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: second.temporaryURL.path))
+        XCTAssertEqual(try Data(contentsOf: second.temporaryURL), Data("second".utf8))
+    }
+
     func testStateMachinePublishesOnlyAfterVerificationAndTerminalCallsAreIdempotent() throws {
         let fixture = try TemporaryOutputFixture()
         defer { fixture.remove() }
@@ -24,6 +111,8 @@ final class AtomicMediaOutputTests: XCTestCase {
 
         XCTAssertEqual(transaction.snapshot.state, .published)
         XCTAssertEqual(try Data(contentsOf: fixture.destination), Data("completed".utf8))
+        XCTAssertEqual(transaction.publishedOutputIdentity?.byteCount, 9)
+        XCTAssertEqual(transaction.publishedOutputIdentity?.sha256.count, 64)
         XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.temporaryURL.path))
         XCTAssertTrue(transaction.cancel().temporaryFileRemoved)
         XCTAssertTrue(transaction.fail().temporaryFileRemoved)
@@ -202,9 +291,87 @@ final class AtomicMediaOutputTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.temporaryURL.path))
         XCTAssertEqual(transaction.snapshot.state, .failed)
     }
+
+    func testMutationAfterVerificationFailsClosedBeforeRename() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "mutated-before-publish"
+        )
+        try Data("verified".utf8).write(to: transaction.temporaryURL)
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.beginVerifying()
+        try Data("tampered".utf8).write(to: transaction.temporaryURL)
+
+        XCTAssertThrowsError(try transaction.publish()) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .verifiedTemporaryFileChanged(transaction.temporaryURL)
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.destination.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.temporaryURL.path))
+        XCTAssertEqual(transaction.snapshot.state, .failed)
+        XCTAssertNil(transaction.publishedOutputIdentity)
+    }
+
+    func testPathSubstitutionAfterVerificationFailsClosedBeforeRename() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "substituted-before-publish"
+        )
+        try Data("verified".utf8).write(to: transaction.temporaryURL)
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.beginVerifying()
+        try FileManager.default.removeItem(at: transaction.temporaryURL)
+        try Data("replacement".utf8).write(to: transaction.temporaryURL)
+
+        XCTAssertThrowsError(try transaction.publish()) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .verifiedTemporaryFileChanged(transaction.temporaryURL)
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.destination.path))
+        XCTAssertEqual(transaction.snapshot.state, .failed)
+    }
+
+    func testMutationAtPublicationBoundaryRemovesRenamedOutputAndFails() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let fileSystem = InjectedAtomicMediaFileSystem(
+            temporaryMutationPayload: Data("corrupted".utf8)
+        )
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            fileSystem: fileSystem,
+            temporaryIdentifier: "mutation-at-rename"
+        )
+        try Data("candidate".utf8).write(to: transaction.temporaryURL)
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.beginVerifying()
+
+        XCTAssertThrowsError(try transaction.publish()) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .verifiedTemporaryFileChanged(transaction.temporaryURL)
+            )
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.destination.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: transaction.temporaryURL.path))
+        XCTAssertEqual(transaction.snapshot.state, .failed)
+        XCTAssertNil(transaction.publishedOutputIdentity)
+    }
+
 }
 
-private struct TemporaryOutputFixture {
+struct TemporaryOutputFixture {
     let directory: URL
     let destination: URL
 
@@ -234,7 +401,7 @@ private struct TemporaryOutputFixture {
     }
 }
 
-private final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sendable {
+final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sendable {
     struct InjectedFailure: Error {}
 
     private struct State {
@@ -242,18 +409,30 @@ private final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unche
         var removalCallCount = 0
     }
 
-    private let local = LocalAtomicMediaFileSystem()
+    private let local: LocalAtomicMediaFileSystem
     private let publicationFails: Bool
     private let publicationRacePayload: Data?
+    private let temporaryMutationPayload: Data?
+    private let verifiedRemovalFails: Bool
+    private let cleanupSubstitutionPayload: Data?
     private let state: OSAllocatedUnfairLock<State>
 
     init(
         removalFailures: Int = 0,
         publicationFails: Bool = false,
-        publicationRacePayload: Data? = nil
+        publicationRacePayload: Data? = nil,
+        temporaryMutationPayload: Data? = nil,
+        verifiedRemovalFails: Bool = false,
+        cleanupSubstitutionPayload: Data? = nil,
+        localFileSystem: LocalAtomicMediaFileSystem =
+            LocalAtomicMediaFileSystem()
     ) {
+        self.local = localFileSystem
         self.publicationFails = publicationFails
         self.publicationRacePayload = publicationRacePayload
+        self.temporaryMutationPayload = temporaryMutationPayload
+        self.verifiedRemovalFails = verifiedRemovalFails
+        self.cleanupSubstitutionPayload = cleanupSubstitutionPayload
         self.state = OSAllocatedUnfairLock(initialState: State(
             removalFailuresRemaining: removalFailures
         ))
@@ -284,10 +463,28 @@ private final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unche
         try local.removeItem(at: url)
     }
 
+    func removeItem(
+        at url: URL,
+        ifMatching identity: AtomicMediaCleanupFileIdentity
+    ) throws {
+        if let cleanupSubstitutionPayload {
+            try? local.removeItem(at: url)
+            try cleanupSubstitutionPayload.write(to: url)
+        }
+        if verifiedRemovalFails { throw InjectedFailure() }
+        try local.removeItem(at: url, ifMatching: identity)
+    }
+
     func publishAtomically(from temporaryURL: URL, to destinationURL: URL) throws {
         if publicationFails { throw InjectedFailure() }
         if let publicationRacePayload {
             try publicationRacePayload.write(to: destinationURL)
+        }
+        if let temporaryMutationPayload {
+            let handle = try FileHandle(forWritingTo: temporaryURL)
+            try handle.truncate(atOffset: 0)
+            try handle.write(contentsOf: temporaryMutationPayload)
+            try handle.close()
         }
         try local.publishAtomically(from: temporaryURL, to: destinationURL)
     }

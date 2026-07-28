@@ -20,7 +20,11 @@ struct MirmirDashboardScreen: View {
 
             MirmirPanel(theme: theme) {
                 VStack(alignment: .leading, spacing: theme.spacing.space3) {
-                    screenHeader("Upscale workflow", "Prepare source and output selections while roadmap capability work continues.", theme: theme)
+                    screenHeader(
+                        "Upscale workflow",
+                        "Choose a source, output, and supported mode to run verified upscaling.",
+                        theme: theme
+                    )
                     Text(viewModel.canStartFailureReason ?? "Use the Upscale workspace to configure and start processing.")
                         .font(theme.typography.body)
                         .foregroundStyle(theme.textSecondary)
@@ -184,54 +188,67 @@ struct MirmirQueueScreen: View {
     }
 }
 
-struct MirmirPresetsScreen: View {
+struct MirmirModesScreen: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
-
-    private let presets = [
-        ("Balanced", "Prepared balanced processing profile", "Controls remain inactive"),
-        ("Detail Max", "Prepared detail recovery profile", "High detail, medium edge"),
-        ("Edge Max", "Prepared edge fidelity profile", "High edge, medium detail"),
-        ("Smooth", "Prepared low-edge profile", "Temporal on, low edge"),
-        ("Custom", "Current inspector settings", "Editable after preset storage is available")
-    ]
 
     var body: some View {
         MirmirScreenScaffold(theme: theme) {
             MirmirPanel(theme: theme) {
                 VStack(alignment: .leading, spacing: theme.spacing.space4) {
-                    HStack {
-                        screenHeader("Presets", "Repeatable upscale configurations.", theme: theme)
-                        Spacer()
-                        Button("Save Preset") {}
-                            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                            .disabled(true)
-                    }
+                    screenHeader(
+                        "Release Modes",
+                        "Quality, Fast, and Deterministic use the same deterministic A11 path. Auto remains unavailable.",
+                        theme: theme
+                    )
 
-                    ForEach(presets, id: \.0) { preset in
-                        presetRow(name: preset.0, description: preset.1, summary: preset.2)
+                    ForEach(UpscaleMode.allCases) { mode in
+                        modeRow(mode)
                     }
                 }
             }
         }
     }
 
-    private func presetRow(name: String, description: String, summary: String) -> some View {
-        HStack(spacing: theme.spacing.space3) {
-            Image(systemName: name == viewModel.qualityMode.title ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(name == viewModel.qualityMode.title ? theme.success : theme.textTertiary)
-            VStack(alignment: .leading, spacing: theme.spacing.space1) {
-                Text(name)
-                    .font(theme.typography.bodyEmphasis)
-                Text(description)
-                    .font(theme.typography.caption)
-                    .foregroundStyle(theme.textSecondary)
-                Text(summary)
-                    .font(theme.typography.caption)
-                    .foregroundStyle(theme.textTertiary)
+    private func modeRow(_ mode: UpscaleMode) -> some View {
+        let availability = viewModel.upscalerEngine.availability(for: mode)
+        let isAvailable = availability == .available
+        let isSelected = viewModel.selectedMode == mode
+        let status = isAvailable
+            ? (isSelected ? "Selected" : "Available")
+            : "Unavailable"
+
+        return Button {
+            viewModel.selectedMode = mode
+        } label: {
+            HStack(spacing: theme.spacing.space3) {
+                Image(
+                    systemName: isSelected
+                        ? "checkmark.circle.fill"
+                        : "circle"
+                )
+                .foregroundStyle(
+                    isSelected ? theme.success : theme.textTertiary
+                )
+                VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                    Text(mode.title)
+                        .font(theme.typography.bodyEmphasis)
+                    Text(mode.summary)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textSecondary)
+                }
+                Spacer()
+                Text(status)
+                    .font(theme.typography.captionEmphasis)
+                    .foregroundStyle(
+                        isAvailable ? theme.textSecondary : theme.warning
+                    )
             }
-            Spacer()
         }
+        .buttonStyle(.plain)
+        .disabled(!isAvailable)
+        .help(availability.unavailableReason ?? mode.summary)
+        .accessibilityValue(status)
         .padding(theme.spacing.space3)
         .background(
             RoundedRectangle(cornerRadius: theme.radius.medium)
@@ -260,15 +277,14 @@ struct MirmirSettingsScreen: View {
                         .pickerStyle(.segmented)
                     }
 
-                    MirmirFieldRow("Default Profile", theme: theme) {
-                        Picker("Default Profile", selection: Binding.constant(MirmirQualityMode.balanced)) {
-                            ForEach(MirmirQualityMode.allCases) { mode in
-                                Text(mode.title).tag(mode)
+                    MirmirFieldRow("Default Mode", theme: theme) {
+                        Picker("Default Mode", selection: $viewModel.selectedMode) {
+                            ForEach(UpscaleMode.allCases) { mode in
+                                Text(mode.releasePickerTitle).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
-                        .disabled(true)
-                        .help("Additional processing profiles are not implemented yet.")
+                        .help(viewModel.selectedModeSummary)
                     }
 
                     MirmirFieldRow("Default Output Format", theme: theme) {
@@ -326,10 +342,27 @@ struct MirmirDiagnosticsScreen: View {
                     if let reason = viewModel.engineAvailabilityReason {
                         diagnosticRow("Availability", reason)
                     }
-                    diagnosticRow("Model assets", String(describing: viewModel.modelStatus))
+                    diagnosticRow("Model assets", viewModel.modelAssetsStatusText)
+                    diagnosticRow("Model specialization", viewModel.modelSpecializationText)
                     diagnosticRow("Workflow state", viewModel.state.statusTitle)
+                    diagnosticRow(
+                        "Release events",
+                        viewModel.releaseDiagnosticsText
+                    )
+                    ForEach(
+                        viewModel.releaseDiagnosticLines,
+                        id: \.self
+                    ) { line in
+                        Text(line)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(theme.textSecondary)
+                            .textSelection(.enabled)
+                    }
                 }
             }
+        }
+        .task {
+            viewModel.refreshReleaseDiagnostics()
         }
     }
 

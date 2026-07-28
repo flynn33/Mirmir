@@ -72,9 +72,12 @@ final class MirmirAppBootstrap: ObservableObject {
         }
 
         let metalService = try DefaultMetalRenderingService()
-        let modelAssetsService = RoadmapTransitionModelAssetsService()
+        let modelAssetsService = NotRequiredModelAssetsService()
         let mediaPipelineService = AVFoundationMediaPipeline(metal: metalService)
-        let upscalerEngineService = UnavailableUpscalerEngineService()
+        let upscalerEngineService = R13ReleaseUpscalerEngineService(
+            media: mediaPipelineService,
+            hardeningRuntime: try R13ReleaseHardeningRuntime.production()
+        )
 
         return MirmirServices(
             metal: metalService,

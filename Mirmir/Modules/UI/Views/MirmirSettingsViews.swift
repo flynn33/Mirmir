@@ -22,13 +22,12 @@ struct MirmirSettingsView: View {
             Text("General")
                 .font(.title3.weight(.semibold))
 
-            Picker("Default Quality", selection: Binding.constant(MirmirQualityMode.balanced)) {
-                ForEach(MirmirQualityMode.allCases) { mode in
+            Picker("Default Mode", selection: $viewModel.selectedMode) {
+                ForEach(UpscaleMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
-            .disabled(true)
-            .help("Additional processing profiles are not implemented yet.")
+            .help(viewModel.selectedModeSummary)
             .pickerStyle(.segmented)
 
             Picker("Default Codec", selection: $viewModel.codec) {
@@ -57,7 +56,9 @@ struct MirmirSettingsView: View {
             if let reason = viewModel.engineAvailabilityReason {
                 Text(reason)
             }
-            Text("Model assets: \(String(describing: viewModel.modelStatus))")
+            Text("Model assets: \(viewModel.modelAssetsStatusText)")
+            Text(viewModel.modelAssetsDetailText)
+            Text(viewModel.modelSpecializationText)
 
             Spacer()
         }
@@ -74,7 +75,7 @@ struct MirmirAboutView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Mirmir")
                 .font(.title2.weight(.semibold))
-            Text("Mirmir is preparing a roadmap-qualified video-enhancement pipeline for supported media.")
+            Text("Mirmir upscales supported 720p and 1080p SDR video with its qualified Apple MPS Lanczos path and verifies completed output before publication.")
                 .fixedSize(horizontal: false, vertical: true)
 
             if let reason = viewModel.engineAvailabilityReason {

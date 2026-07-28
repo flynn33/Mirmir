@@ -1,0 +1,425 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R04",
+  "evidence_kind": "r04_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "ab77e97867d51168e90c0190f6430d4acd769e68",
+    "tree": "446f71bb584f5d1fffcd20a17ac5e5507d3222b6"
+  },
+  "operator_override": {
+    "authority": "operator",
+    "authorization_date": "2026-07-23",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "override_id": "r04.software-function-only-phase-acceptance.v1",
+    "hardware_simulator_operator_observation": "waived_not_a_blocker",
+    "comparative_requirement": "not_required_for_phase_acceptance",
+    "historical_evidence_policy": "preserve_r04_preregistration_fixture_and_conformance_unchanged"
+  },
+  "functional_gate": {
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_simulated_runtime_integration",
+    "required_test_suites": [
+      "R04VideoToolboxContractsTests",
+      "R04VideoToolboxSessionAdapterTests",
+      "UpscalerEngineAvailabilityTests",
+      "R04FunctionalPhaseAcceptanceTests"
+    ],
+    "required_selected_test_count": 42,
+    "required_behavior_ids": [
+      "source_checkpoint_exact",
+      "frozen_evidence_valid_and_unchanged",
+      "implementation_bindings_exact",
+      "execution_artifacts_exact",
+      "selected_test_set_exact",
+      "route_catalog_and_identity_contract",
+      "quality_2x_and_typed_1p5x_rejection",
+      "low_latency_exact_dimension_query",
+      "quality_history_and_reset_lifecycle",
+      "configuration_and_request_contract",
+      "fifo_submission_contract",
+      "runtime_unavailable_without_fallback",
+      "cancellation_propagation_without_fallback",
+      "media_identity_preserved",
+      "reopen_verification_before_atomic_publication",
+      "resource_lifetime_exactly_once",
+      "model_asset_authority_fail_closed",
+      "native_observation_boundary_truthful",
+      "authorization_boundary_exact"
+    ],
+    "frozen_diagnostic_evidence_role": "preserved_boundary_only_not_acceptance_basis",
+    "native_videotoolbox_model_execution": "not_required_not_observed",
+    "hardware_simulator_operator_observation": "not_required_not_observed",
+    "raw_xcresult_ci_validation": "required"
+  },
+  "evidence_bindings": [
+    {
+      "id": "r04_preregistration",
+      "path": "docs/roadmaps/evidence/r04/records/preregistration.json",
+      "size_bytes": 10650,
+      "sha256": "238d70794695c8527175211d77caed4192eb774511cf99aacb8640ed49cd6ea0"
+    },
+    {
+      "id": "r04_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r04/records/fixtures/fixture-catalog.json",
+      "size_bytes": 7144,
+      "sha256": "7ca46591d6d73f3c8f0875f8d5b966e30a708b8c300cef85253973459031a579"
+    },
+    {
+      "id": "r04_integration_conformance",
+      "path": "docs/roadmaps/evidence/r04/records/integration-conformance.json",
+      "size_bytes": 4383,
+      "sha256": "49321c85a33837b10f9bbc81bf200d060731ceb7ed701197fe897dc2e3d448bf"
+    },
+    {
+      "id": "r04_preregistration_schema",
+      "path": "docs/roadmaps/evidence/schema/r04-preregistration-v1.json",
+      "size_bytes": 8660,
+      "sha256": "36374be5046d9373c39ec2b7bef0d12ba186128e08588935809ed4768b9bb652"
+    },
+    {
+      "id": "r04_fixture_catalog_schema",
+      "path": "docs/roadmaps/evidence/schema/r04-fixture-catalog-v1.json",
+      "size_bytes": 4418,
+      "sha256": "8c5b09e11755a20ae20813192c44e2e212acb006223d7229adabf641c7aeeecd"
+    },
+    {
+      "id": "r04_integration_conformance_schema",
+      "path": "docs/roadmaps/evidence/schema/r04-integration-conformance-v1.json",
+      "size_bytes": 4211,
+      "sha256": "44b929f772ede74e4078404dac28745954348b5cf884f909b6eadc001fec8d4d"
+    }
+  ],
+  "implementation_bindings": [
+    {
+      "id": "apple_upscale_contracts_source",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleContracts.swift",
+      "size_bytes": 21360,
+      "sha256": "dabebc008d44dd588b6e8d95ae84899b4f383d03e81c994f060f9e318213ee0f"
+    },
+    {
+      "id": "apple_upscale_fifo_session_source",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleFIFOSession.swift",
+      "size_bytes": 14989,
+      "sha256": "d6000c7b5d41f1b666487941cb96e436049e2f3f572c36d881c4be7b6f8ec1c8"
+    },
+    {
+      "id": "default_upscaler_service_source",
+      "path": "Mirmir/Modules/UpscalerEngine/DefaultUpscalerEngineService.swift",
+      "size_bytes": 10418,
+      "sha256": "e3e7b7dda82603a4b2823eea149ac694ffd10cb043ebe0b746d68acdfaaafbe0"
+    },
+    {
+      "id": "unavailable_upscaler_service_source",
+      "path": "Mirmir/Modules/UpscalerEngine/UnavailableUpscalerEngineService.swift",
+      "size_bytes": 756,
+      "sha256": "da4639d8766e678a5731803c90e461b2ed75be1b94985f3ab2410aa7a600602d"
+    },
+    {
+      "id": "r04_videotoolbox_contracts_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R04VideoToolboxContracts.swift",
+      "size_bytes": 24961,
+      "sha256": "591dadd402c0e601a5548018476ae5cf93cba5c2b5b89522c373bef6a6168af1"
+    },
+    {
+      "id": "r04_videotoolbox_session_adapter_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R04VideoToolboxSessionAdapter.swift",
+      "size_bytes": 39514,
+      "sha256": "c10f5d366837afcd9e4a777c202fa11d00957ec1c1373ed50469b64fd08e4d14"
+    },
+    {
+      "id": "vt_super_resolution_driver_source",
+      "path": "Mirmir/Modules/UpscalerEngine/VTSuperResolutionDriver.swift",
+      "size_bytes": 40091,
+      "sha256": "ea094b2059791a1bd699f394e9fcf1949055bbee734df4c7764996d4f287bb22"
+    },
+    {
+      "id": "default_model_assets_service_source",
+      "path": "Mirmir/Modules/ModelAssets/DefaultModelAssetsService.swift",
+      "size_bytes": 6472,
+      "sha256": "743fee2ffeef374477d4f177a60637e0ad8f8254ee8d84c6916f50902b82f8be"
+    },
+    {
+      "id": "model_assets_service_source",
+      "path": "Mirmir/Modules/ModelAssets/ModelAssetsService.swift",
+      "size_bytes": 2061,
+      "sha256": "8d8a52b5c600c77f23eee92516ae3ec79e4820d6a4c7f0f3de4beb7b2580225b"
+    },
+    {
+      "id": "roadmap_transition_model_assets_service_source",
+      "path": "Mirmir/Modules/ModelAssets/RoadmapTransitionModelAssetsService.swift",
+      "size_bytes": 671,
+      "sha256": "d5a471c4311091060ed7a8c254b6cde89080e7b55ffecc6a60f78c8ca4e7ea3c"
+    },
+    {
+      "id": "vt_model_stager_source",
+      "path": "Mirmir/Modules/ModelAssets/VTModelStager.swift",
+      "size_bytes": 4812,
+      "sha256": "e1b3e82a6f6dff3fab515fc6b7fd9f1941f3b0217cc0c2b045940787dd76a6c3"
+    },
+    {
+      "id": "avfoundation_media_pipeline_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift",
+      "size_bytes": 17621,
+      "sha256": "fdf5e8b274c5ccfd536e8fa9bf6220c506dfe869042b90f7d0dcb3b165a621b2"
+    },
+    {
+      "id": "avfoundation_media_session_configuration_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
+      "size_bytes": 10788,
+      "sha256": "e0465fcc71fe5e1a77f2bc0436a9448d6486ec47c856691ea37f263ede5a3c3d"
+    },
+    {
+      "id": "avfoundation_media_session_finalization_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift",
+      "size_bytes": 9620,
+      "sha256": "d0a7d72d3151b2842fd8a0e45aafca5e090305315fb014d222909c235636b095"
+    },
+    {
+      "id": "atomic_media_output_source",
+      "path": "Mirmir/Modules/MediaPipeline/AtomicMediaOutput.swift",
+      "size_bytes": 13858,
+      "sha256": "134228c681e096c5a82999190f2ce80be83900389f48d7f194de5bfae19a0764"
+    },
+    {
+      "id": "output_media_aac_identity_reader_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaAACIdentityReader.swift",
+      "size_bytes": 14389,
+      "sha256": "00ad35290bef1d2093ee686fd8736e1ef24f53e3c6d4f2ed957e0417a11cea66"
+    },
+    {
+      "id": "output_media_identity_verification_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaIdentityVerification.swift",
+      "size_bytes": 10036,
+      "sha256": "217d6230356066e1f40738598cb3dba761152f525ad451266a0b97b15ef70959"
+    },
+    {
+      "id": "output_media_verification_types_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerificationTypes.swift",
+      "size_bytes": 9462,
+      "sha256": "4a8b0ea5bd5177224050d748df350920886ed98875508767cf0a3920cae368df"
+    },
+    {
+      "id": "output_media_verifier_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift",
+      "size_bytes": 17930,
+      "sha256": "10d6094d03cdc7e0a6b9467ecdac28c0450d9d86dc7669c18912fcbfd1032c38"
+    },
+    {
+      "id": "r03_nv12_scaling_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R03NV12Scaling.swift",
+      "size_bytes": 7466,
+      "sha256": "f7256175d5775c3c01fc464d3388cc09c913bcfb2c8018aae110f0a10a191b1c"
+    },
+    {
+      "id": "mirmir_view_model_source",
+      "path": "Mirmir/Modules/UI/MirmirViewModel.swift",
+      "size_bytes": 15293,
+      "sha256": "68db4b93c51e9b729b5fcf51e296fc67b6db703df11126a229013dccc7bbb175"
+    },
+    {
+      "id": "r04_videotoolbox_contracts_tests",
+      "path": "MirmirTests/R04VideoToolboxContractsTests.swift",
+      "size_bytes": 11826,
+      "sha256": "d250af2fe833ab22e551230ad701bfc336c2c15e6eb9a47199720a6b647ae023"
+    },
+    {
+      "id": "r04_videotoolbox_session_adapter_tests",
+      "path": "MirmirTests/R04VideoToolboxSessionAdapterTests.swift",
+      "size_bytes": 42502,
+      "sha256": "984ba46509b8b1a2a925725a5a2bcb8911cea0cd1531761e50dce90bb9d7d70f"
+    },
+    {
+      "id": "upscaler_engine_availability_tests",
+      "path": "MirmirTests/UpscalerEngineAvailabilityTests.swift",
+      "size_bytes": 13614,
+      "sha256": "549c684a5b8c9f77c22cb6fd27dc2365e5f4e5dae92b58c09a2682381b68de44"
+    },
+    {
+      "id": "r04_functional_phase_acceptance_tests",
+      "path": "MirmirTests/R04FunctionalPhaseAcceptanceTests.swift",
+      "size_bytes": 29076,
+      "sha256": "5844c902f4d9746048260438a3c7778dac8db2f9bf81d718ce515be41eedb626"
+    },
+    {
+      "id": "r02_fixture_conformance_test_support",
+      "path": "MirmirTests/R02FixtureConformanceTestSupport.swift",
+      "size_bytes": 43968,
+      "sha256": "8db8f0a36176a918bcae5d13d0577c90695cd954c020b60be0d663066a04236c"
+    },
+    {
+      "id": "r03_product_qualification_media_test_support",
+      "path": "MirmirTests/R03ProductQualificationMediaTestSupport.swift",
+      "size_bytes": 32464,
+      "sha256": "c28ca227ca9ff3175a9b81b0bbe5d52a2435bac2f47fc9e326cc97754170582e"
+    },
+    {
+      "id": "noop_services_tests",
+      "path": "MirmirTests/NoopServices.swift",
+      "size_bytes": 3442,
+      "sha256": "91615e9993a8a76b02eb7e2d15b1b46e10bd05dda409e3a264fc79255c7395ef"
+    },
+    {
+      "id": "project_manifest",
+      "path": "project.yml",
+      "size_bytes": 3501,
+      "sha256": "b7f9c7b3f32350101752ba285140c121f57227279f3a5a00a506486e787c6876"
+    },
+    {
+      "id": "xcode_project",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "size_bytes": 207258,
+      "sha256": "5a97da9c679eefa086bcd13dd7ed5d3089e4c674bb7f0cc6838bcc01db614b08"
+    },
+    {
+      "id": "xcode_scheme",
+      "path": "Mirmir.xcodeproj/xcshareddata/xcschemes/Mirmir.xcscheme",
+      "size_bytes": 4494,
+      "sha256": "69d7c7e21199d27be2acc849e724bcbf3d841e87d9070fabc5affd4629b3721a"
+    },
+    {
+      "id": "ash_calibration_cli_support_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift",
+      "size_bytes": 11641,
+      "sha256": "828a55558fdf72da2ae4be06cc2e37b61d03f5c7a4e8ae883df0fecafed3a797"
+    },
+    {
+      "id": "ash_calibration_cli_protocol_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift",
+      "size_bytes": 160132,
+      "sha256": "fa7b1d4ead1f3159c552dff528fffae594628e3ac6165881bbecbfe34cc2b3f2"
+    },
+    {
+      "id": "ash_upscale_backend_factory_source",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHUpscaleBackendFactory.swift",
+      "size_bytes": 2707,
+      "sha256": "e555712e30e934d7041d937895ed675374d947f367fc49ea0a92a48ef6a641de"
+    }
+  ],
+  "artifact_bindings": [
+    {
+      "id": "r04_functional_xcodebuild_log",
+      "path": "docs/roadmaps/evidence/r04/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+      "size_bytes": 1536,
+      "sha256": "2931d1dca5d474734395a840257b0120a1b6a0c6d3ba2bfe72bf1813132143c8"
+    },
+    {
+      "id": "r04_functional_xcresult_summary",
+      "path": "docs/roadmaps/evidence/r04/records/artifacts/functional-phase-acceptance/xcresult-summary.json",
+      "size_bytes": 7423,
+      "sha256": "b75e8a3003b138902e1df135ec808713c1dddcdbd49d19192e22e3c3b13a635e"
+    }
+  ],
+  "derived_checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "frozen_evidence_valid_and_unchanged",
+      "status": "passed"
+    },
+    {
+      "id": "implementation_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "execution_artifacts_exact",
+      "status": "passed"
+    },
+    {
+      "id": "selected_test_set_exact",
+      "status": "passed"
+    },
+    {
+      "id": "route_catalog_and_identity_contract",
+      "status": "passed"
+    },
+    {
+      "id": "quality_2x_and_typed_1p5x_rejection",
+      "status": "passed"
+    },
+    {
+      "id": "low_latency_exact_dimension_query",
+      "status": "passed"
+    },
+    {
+      "id": "quality_history_and_reset_lifecycle",
+      "status": "passed"
+    },
+    {
+      "id": "configuration_and_request_contract",
+      "status": "passed"
+    },
+    {
+      "id": "fifo_submission_contract",
+      "status": "passed"
+    },
+    {
+      "id": "runtime_unavailable_without_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "cancellation_propagation_without_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "media_identity_preserved",
+      "status": "passed"
+    },
+    {
+      "id": "reopen_verification_before_atomic_publication",
+      "status": "passed"
+    },
+    {
+      "id": "resource_lifetime_exactly_once",
+      "status": "passed"
+    },
+    {
+      "id": "model_asset_authority_fail_closed",
+      "status": "passed"
+    },
+    {
+      "id": "native_observation_boundary_truthful",
+      "status": "passed"
+    },
+    {
+      "id": "authorization_boundary_exact",
+      "status": "passed"
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed",
+    "acceptance": "accepted",
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_simulated_runtime_integration"
+  },
+  "authorizations": {
+    "r04_phase_acceptance": "authorized",
+    "r04_phase_status": "passed",
+    "phase_progression": "authorized",
+    "deterministic_simulated_runtime_integration": "authorized",
+    "native_videotoolbox_execution": "not_claimed",
+    "native_model_execution": "not_claimed",
+    "hardware_observation": "not_claimed",
+    "simulator_observation": "not_claimed",
+    "operator_observation": "not_claimed",
+    "product_qualification": "not_claimed",
+    "production_upscaling": "not_authorized",
+    "production_default": "not_authorized",
+    "auto_mode": "not_authorized",
+    "holdout": "not_authorized",
+    "quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "product_publication": "not_authorized",
+    "release": "not_authorized"
+  },
+  "limitations": [
+    "R04 acceptance is limited to checkpoint-bound proof that the route, session, FIFO, lifecycle, model-authority, and media-transaction software performs its declared deterministic task with simulated runtimes.",
+    "The functional media transactions preserve declared timing, color, audio, metadata, processing identity, and resource-lifetime behavior and verify the reopened container before atomic publication.",
+    "Native VideoToolbox configuration or processing, native model execution, hardware, simulator, and operator-observed operation were not observed and are not claimed; the optional Metal shader source was excluded because the Metal Toolchain was unavailable.",
+    "R04 acceptance makes no product/default/Auto, comparative, quality, performance, publication, or release authorization."
+  ]
+}

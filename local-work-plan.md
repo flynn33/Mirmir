@@ -22,12 +22,21 @@
   reachable historical checkpoints. Their native assignment, model-freeze, and
   live-run path remains optional supplemental evidence and does not alter the
   recorded local not-observed inventory disposition.
-- Roadmap phase `R02`: `in_progress`. Its frozen preregistration binds local R01
-  closure commit `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
+- Roadmap phase `R02`: `passed` for `declared_software_function_only`. Its
+  frozen preregistration still binds local R01 closure commit
+  `555ae5a1afce1e492bdc89b6b14f2ba269edc524` and tree
   `2fbe72d85ace42cc925c45b17d53dd8866a8275b` as an unpublished predecessor,
-  with `accepted_merge_commit: null` and no acceptance claim. The operator's
-  continuation instruction permits local implementation through R07 but does
-  not authorize publication or production enablement.
+  and the frozen local conformance closure still records
+  `phase_acceptance: not_claimed` at that historical checkpoint. The later
+  additive functional acceptance binds source
+  `eeabc4224100bc8ed86ae1208189bee508844210`, tree
+  `ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+  with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+  production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+  fail-closed `backendUnavailable(reason:)` rejection. This is the intentional
+  R02 production-unavailable boundary, not project completion or production
+  enablement. Production upscaling, a production default, Auto, holdout, quality
+  or performance claims, publication, and release remain unauthorized.
 - Roadmap phase `R03`: `passed`. Its frozen v1 blocked record and narrower v2
   qualification remain historical evidence. The operator-overridden functional
   acceptance record binds the passing R02 common-session conformance and genuine
@@ -35,9 +44,41 @@
   preservation, lifecycle, identity, and no fallback. Production remains
   unavailable; default, Auto, holdout, performance, product-quality,
   product-publication, and release claims remain unauthorized.
-- Roadmap phase `R06`: `in_progress` and unaccepted. Its frozen blocked closure
-  remains truthful historical evidence and is not changed by the later R07
-  acceptance.
+- Roadmap phase `R04`: `passed` for `declared_software_function_only`. Its
+  additive acceptance binds source
+  `ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+  `446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and 42 passing tests across four
+  suites. Deterministic simulation through the real R04 quality and low-latency
+  backends and production FIFO verifies complete 2× media transactions,
+  capability-gated 1.5× admission, cancellation, identity, reopen, resource
+  release, atomic publication, and no silent fallback. The frozen
+  `diagnostic_only` record remains historical; native model/framework execution,
+  hardware, simulator, and operator observation remain `not_observed`. No
+  production default, Auto, product, quality, performance, publication, or
+  release authority follows.
+- Roadmap phase `R05`: `passed` with exit outcome `diagnostic_only`, limited to
+  `declared_software_function_only`. Its additive acceptance binds source
+  `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+  `adce5b65fd3d752a1467925232847e086d0b3e7a`, and 46 passing tests across five
+  suites. Deterministic simulation through the real spatial backend and
+  production FIFO verifies source-derived A07 1.5× and 2× output and a complete
+  reopened 2× H.264/AAC/timed-metadata transaction before atomic publication.
+  A08-A10 retain successful typed decoded-video rejections. The frozen
+  `diagnostic_only` suitability record remains historical; native MetalFX,
+  hardware, simulator, operator observation, product qualification, quality,
+  and performance remain `not_observed` or `not_claimed`. No production default,
+  Auto, publication, or release authority follows.
+- Roadmap phase `R06`: `passed` for `declared_software_function_only` under
+  deterministic fixture integration. Its additive acceptance binds source
+  `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+  `beb0f8c666550c6c36dae5a2185cac58d2494132`, and 42 passing tests across seven
+  R06/R07 suites. The tests verify deterministic orchestration and prove
+  higher-scoring ineligible candidates cannot enter the plan; the real R07
+  coordinator tests prove transactional state commit and rollback. The frozen
+  blocked closure remains truthful historical evidence. R06 v1 still rejects
+  product-scope orchestration; product routing, qualification, default, Auto,
+  native/hardware observation, quality, performance, publication, and release
+  remain unclaimed or unauthorized.
 - Roadmap phase `R07`: `passed` under the operator-defined deterministic
   software-function gate. The additive receipt and acceptance record bind
   implementation commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
@@ -69,15 +110,61 @@
   `declared_software_function_only`; comparison methods are excluded and
   non-authorizing. Native Core AI/framework/model, hardware, simulator, and
   operator observations remain `not_observed`. Product qualification,
-  production default, Auto, holdout, claims, publication, release, and R10
-  progression remain unauthorized.
-- Future R10 acceptance requires deterministic bounded optimizer/calibration
-  software behavior. Future R11 acceptance requires traceable evidence and
-  claim-scope machinery that rejects unsupported claims and emits an honest
-  no-claim disposition by default. Any production Auto, holdout, or
-  market-claim action retains its separate authorization boundary.
+  production default, Auto, holdout, claims, publication, and release remain
+  unauthorized. The R09 acceptance alone did not authorize R10 progression;
+  the operator's later continuation instruction did so separately.
+- Roadmap phase `R10`: `passed` for `declared_software_function_only` under
+  deterministic fixture simulation. Its receipt and acceptance bind
+  implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+  persistence tests with zero failures and zero skips. The accepted calibration
+  evaluated nine candidates, scored three, rejected six, published ten
+  checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
+  Comparison methods were not run or required. Hardware, simulator, and
+  operator observations remain `not_observed`. Fixture-policy evidence
+  publication is authorized; production Auto, holdout, product qualification,
+  product publication, quality/performance claims, and release remain
+  unauthorized.
+- Roadmap phase `R11`: `passed` for `declared_software_function_only` under
+  deterministic fixture simulation. Its functional execution receipt and
+  phase-acceptance record bind exact source commit
+  `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+  `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+  with zero failures and zero skips. The exact five-state run validates all
+  seven identity components, typed aggregation, rejection behavior, and
+  unconditional `no_market_claim`. No comparison method was run or required.
+  Hardware, simulator, and operator-observed operation remain `not_observed`.
+  Product qualification, production Auto, market claims, publication, tags,
+  and release remain blocked or unauthorized.
+- Roadmap phase `R12`: `passed` for `declared_software_function_only`. Its
+  functional execution receipt and phase-acceptance record bind exact source
+  commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+  `4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+  `3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+  85 selected tests with zero failures and zero skips: 15 format-contract tests,
+  25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+  checked 340 files with zero violations. The functional execution receipt has
+  SHA-256 `09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+  the phase-acceptance record has SHA-256
+  `67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+  Expanded-format acceptance is contract-only and does not claim production
+  format support. Comparison and A/B methods were absent and not required.
+  Hardware, simulator, and operator observation remain `not_observed` and
+  nonblocking. R12 grants no product qualification, production Auto, market,
+  product-publication, or release-publication authority.
+- Roadmap phase `R13`: `passed` as of 2026-07-23 for
+  `declared_software_function_only` under the
+  `software_does_what_it_says_it_does` basis. Exact-source release-hardening
+  evidence verifies the genuine A11 MPS Lanczos and AVFoundation shipping path
+  and separately binds a `release_ready_candidate`. Quality, Fast, and
+  Deterministic are available; Auto remains `unavailable` and
+  `not_authorized`. Hardware, simulator, operator observation, Release-app
+  execution, signing, notarization, Gatekeeper, and launch smoke remain
+  `not_observed` and nonblocking. Comparison and A/B methods were absent and not
+  required. The candidate was not published or released; publication,
+  distribution, tag, release, Auto, and market claims remain unauthorized.
 - Production Auto, production Core AI residual routing, holdout access, market
-  claims, and release publication: blocked by their roadmap gates.
+  claims, and release publication: not authorized.
 
 ## Historical ASH V3 Record
 

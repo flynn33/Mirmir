@@ -4,7 +4,7 @@ import XCTest
 @testable import Mirmir
 
 final class OutputMediaMetadataVerificationTests: XCTestCase {
-    func testSessionEmbedsAndReopensExactFinalASHIdentity() async throws {
+    func testSessionEmbedsAndReopensExactFinalMirmirIdentity() async throws {
         let fixture = try MediaOutputFixture()
         defer { fixture.remove() }
         let duration = CMTime(value: 1, timescale: 30)
@@ -15,7 +15,9 @@ final class OutputMediaMetadataVerificationTests: XCTestCase {
         )
         let staticMetadata = [
             "com.mirmir.ash.configuration-id": "fixture-configuration",
-            "com.mirmir.ash.release-manifest-sha256": String(repeating: "a", count: 64)
+            "com.mirmir.ash.release-manifest-sha256": String(repeating: "a", count: 64),
+            "com.mirmir.release.backend-id": "mps-lanczos",
+            "com.mirmir.release.model-assets": "not_required"
         ]
         let template = staticMetadata.merging([
             "com.mirmir.ash.numerical-fallback-count": "0"
@@ -57,6 +59,32 @@ final class OutputMediaMetadataVerificationTests: XCTestCase {
                 ),
                 timedMetadata: finalMetadata
             )
+        )
+    }
+
+    func testControlledMetadataPolicyRejectsForeignBareAndWhitespaceKeys() throws {
+        try MirmirTimedMetadataPolicy.validate([
+            "com.mirmir.release.backend-id": "mps-lanczos",
+            "com.mirmir.ash.configuration-id": "fixture"
+        ])
+
+        for key in [
+            "com.mirmir",
+            "com.mirmir.",
+            "com.mirmirx.release.backend-id",
+            "org.example.backend-id",
+            "com.mirmir.release.bad key",
+            "com.mirmir.release.bad\nkey"
+        ] {
+            XCTAssertThrowsError(
+                try MirmirTimedMetadataPolicy.validate([key: "value"]),
+                "Expected controlled metadata-key rejection for \(String(reflecting: key))."
+            )
+        }
+        XCTAssertThrowsError(
+            try MirmirTimedMetadataPolicy.validate([
+                "com.mirmir.release.backend-id": ""
+            ])
         )
     }
 

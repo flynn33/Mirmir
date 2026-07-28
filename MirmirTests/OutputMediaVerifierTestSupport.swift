@@ -105,13 +105,17 @@ struct MediaOutputFixture {
 }
 
 enum MediaTestFailure: Error {
+    case cannotCreateReader
     case cannotCreateWriter
+    case cannotAddReaderOutput
     case cannotAddWriterInput
+    case cannotStartReader
     case cannotStartWriter
     case missingPixelBufferPool
     case cannotCreatePixelBuffer(CVReturn)
     case appendFailed
     case writerFailed
+    case readerFailed
     case timeout
 }
 
@@ -132,7 +136,8 @@ func writeOneFrameVideo(
     to url: URL,
     resolution: VideoResolution,
     duration: CMTime,
-    pixelFormat: OSType = PixelBufferBridge.preferredFormat
+    pixelFormat: OSType = PixelBufferBridge.preferredFormat,
+    preferredTransform: CGAffineTransform = .identity
 ) async throws {
     let writer: AVAssetWriter
     do {
@@ -154,6 +159,7 @@ func writeOneFrameVideo(
         ]
     )
     input.mediaTimeScale = 600
+    input.transform = preferredTransform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
         assetWriterInput: input,
         sourcePixelBufferAttributes: [
@@ -185,6 +191,116 @@ func writeOneFrameVideo(
     writer.endSession(atSourceTime: duration)
     await writer.finishWriting()
     guard writer.status == .completed else { throw MediaTestFailure.writerFailed }
+}
+
+func muxVideoAndAAC(
+    videoURL: URL,
+    audioURL: URL,
+    destinationURL: URL
+) async throws {
+    let videoAsset = AVURLAsset(url: videoURL)
+    let audioAsset = AVURLAsset(url: audioURL)
+    guard let videoTrack = try await videoAsset
+        .loadTracks(withMediaType: .video).first,
+          let audioTrack = try await audioAsset
+            .loadTracks(withMediaType: .audio).first,
+          let videoFormat = try await videoTrack
+            .load(.formatDescriptions).first,
+          let audioFormat = try await audioTrack
+            .load(.formatDescriptions).first else {
+        throw MediaTestFailure.cannotCreateReader
+    }
+    let videoReader = try AVAssetReader(asset: videoAsset)
+    let audioReader = try AVAssetReader(asset: audioAsset)
+    let videoOutput = AVAssetReaderTrackOutput(
+        track: videoTrack,
+        outputSettings: nil
+    )
+    let audioOutput = AVAssetReaderTrackOutput(
+        track: audioTrack,
+        outputSettings: nil
+    )
+    guard videoReader.canAdd(videoOutput),
+          audioReader.canAdd(audioOutput) else {
+        throw MediaTestFailure.cannotAddReaderOutput
+    }
+    videoReader.add(videoOutput)
+    audioReader.add(audioOutput)
+
+    let writer = try AVAssetWriter(url: destinationURL, fileType: .mp4)
+    let videoInput = AVAssetWriterInput(
+        mediaType: .video,
+        outputSettings: nil,
+        sourceFormatHint: videoFormat
+    )
+    videoInput.transform = try await videoTrack.load(.preferredTransform)
+    let audioInput = AVAssetWriterInput(
+        mediaType: .audio,
+        outputSettings: nil,
+        sourceFormatHint: audioFormat
+    )
+    guard writer.canAdd(videoInput), writer.canAdd(audioInput) else {
+        throw MediaTestFailure.cannotAddWriterInput
+    }
+    writer.add(videoInput)
+    writer.add(audioInput)
+    guard videoReader.startReading(), audioReader.startReading() else {
+        throw MediaTestFailure.cannotStartReader
+    }
+    guard writer.startWriting() else {
+        throw MediaTestFailure.cannotStartWriter
+    }
+    writer.startSession(atSourceTime: .zero)
+    try await appendCompressedSamples(
+        from: videoOutput,
+        reader: videoReader,
+        to: videoInput,
+        writer: writer
+    )
+    try await appendCompressedSamples(
+        from: audioOutput,
+        reader: audioReader,
+        to: audioInput,
+        writer: writer
+    )
+    let videoEnd = CMTimeRangeGetEnd(
+        try await videoTrack.load(.timeRange)
+    )
+    let audioEnd = CMTimeRangeGetEnd(
+        try await audioTrack.load(.timeRange)
+    )
+    writer.endSession(
+        atSourceTime: CMTimeCompare(audioEnd, videoEnd) > 0
+            ? audioEnd
+            : videoEnd
+    )
+    await writer.finishWriting()
+    guard writer.status == .completed else {
+        throw MediaTestFailure.writerFailed
+    }
+}
+
+private func appendCompressedSamples(
+    from output: AVAssetReaderTrackOutput,
+    reader: AVAssetReader,
+    to input: AVAssetWriterInput,
+    writer: AVAssetWriter
+) async throws {
+    while let sample = output.copyNextSampleBuffer() {
+        while !input.isReadyForMoreMediaData {
+            guard writer.status == .writing else {
+                throw MediaTestFailure.writerFailed
+            }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        guard input.append(sample) else {
+            throw MediaTestFailure.appendFailed
+        }
+    }
+    guard reader.status == .completed else {
+        throw MediaTestFailure.readerFailed
+    }
+    input.markAsFinished()
 }
 
 func fillNV12(_ pixelBuffer: CVPixelBuffer) throws {

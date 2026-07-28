@@ -195,7 +195,7 @@
     }
   ],
   "date": "2026-07-18",
-  "revision_date": "2026-07-22",
+  "revision_date": "2026-07-23",
   "goal": "Use Apple-native reconstruction and enhancement engines, ASH as the deterministic orchestration and temporal-governance layer, and Core AI as optional on-device learned analysis and bounded residual intelligence.",
   "phases": [
     {
@@ -221,7 +221,7 @@
       "exit": "common session contract across multiple backends",
       "id": "R02",
       "name": "Unified backend and stage architecture",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -239,7 +239,7 @@
       "exit": "operator-defined software-function gate: quality and low-latency VT integration contracts enforce declared route, media, lifecycle, identity, and failure behavior",
       "id": "R04",
       "name": "VideoToolbox super-resolution integration",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -248,7 +248,7 @@
       "exit": "qualified, restricted, diagnostic-only, rejected, or not_observed disposition for each MetalFX path",
       "id": "R05",
       "name": "MetalFX integration and suitability decision",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -257,7 +257,7 @@
       "exit": "operator-defined software-function gate: verified ASH orchestration, transition, mask, identity, and transactional contracts",
       "id": "R06",
       "name": "ASH orchestration engine v1",
-      "status": "in_progress"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -288,21 +288,22 @@
     },
     {
       "depends_on": [
-        "R07"
+        "R07",
+        "R09"
       ],
       "exit": "operator-defined software-function gate: deterministic bounded optimizer and calibration machinery enforces declared search limits, independent constraints, identities, resumability, and frozen fixture-policy output",
       "id": "R10",
       "name": "Auto-policy optimization and bounded calibration",
-      "status": "planned"
+      "status": "passed"
     },
     {
       "depends_on": [
         "R10"
       ],
-      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits an honest no-market-claim disposition by default",
+      "exit": "operator-defined software-function gate: traceable evidence and claim-scope machinery validates exact identities, rejects unsupported claims, and emits no_market_claim unconditionally while production_auto_mode and market_leading_claim remain blocked",
       "id": "R11",
       "name": "Evidence traceability and claim boundary",
-      "status": "planned"
+      "status": "passed"
     },
     {
       "depends_on": [
@@ -311,16 +312,17 @@
       "exit": "explicit contracts for every new format and route",
       "id": "R12",
       "name": "Format, route, and product expansion",
-      "status": "planned"
+      "status": "passed"
     },
     {
       "depends_on": [
-        "R11"
+        "R11",
+        "R12"
       ],
       "exit": "exact-app evidence and release-ready product",
       "id": "R13",
       "name": "Release hardening",
-      "status": "planned"
+      "status": "passed"
     }
   ],
   "roadmap_version": "1.0.1",

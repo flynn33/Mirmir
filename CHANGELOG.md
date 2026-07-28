@@ -6,6 +6,143 @@ All notable project changes are recorded here.
 
 ### Roadmap and Evidence Status
 
+- Accepted R11 for `declared_software_function_only` under deterministic fixture
+  simulation. The functional execution receipt and phase-acceptance record bind
+  exact source commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+  `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+  with zero failures and zero skips. The exact-source run produced one record
+  for each of the five typed observation states, validated all seven identity
+  components and the mixed aggregate, rejected unsupported evidence and claims,
+  and emitted `no_market_claim` unconditionally. The canonical and sealed run
+  receipts are byte-identical at SHA-256
+  `22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+  No comparison method was run or required. Hardware, simulator, and
+  operator-observed operation remain `not_observed`. Product qualification,
+  production Auto, market claims, product publication, tags, and release remain
+  blocked or unauthorized.
+- Accepted R12 for `declared_software_function_only`. The functional execution
+  receipt and phase-acceptance record bind exact source commit
+  `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+  `4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+  `3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+  85 selected tests with zero failures and zero skips: 15 format-contract tests,
+  25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+  checked 340 files with zero violations. The functional execution receipt has
+  SHA-256 `09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+  the phase-acceptance record has SHA-256
+  `67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+  Expanded-format acceptance is contract-only and does not claim production
+  format support. Comparison and A/B methods were absent and not required.
+  Hardware, simulator, and operator observation remain `not_observed` and
+  nonblocking. R12 grants no product qualification, production Auto, market,
+  product-publication, or release-publication authority.
+- Accepted R13 for `declared_software_function_only` under the
+  `software_does_what_it_says_it_does` basis. The exact-source records bind
+  source commit `6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+  `14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+  `5c8ae09251955d8274d391e93215b346db25bada`. The run passed 183 selected
+  tests with zero failures and zero skips, linted 403 Swift files with zero
+  violations, verified the genuine A11 MPS Lanczos and AVFoundation shipping
+  paths, reopened the retained QuickTime MOV, and separately built and reopened
+  the exact Release app archive. The outcome is `release_ready_candidate`.
+  Quality, Fast, and Deterministic are available; Auto remains `unavailable`
+  and `not_authorized`. Comparison and A/B methods were absent and not required.
+  Hardware, simulator, operator observation, Release-app execution,
+  distribution signing, notarization, Gatekeeper, and launch smoke remain
+  `not_observed` and nonblocking. The candidate was not published or released;
+  publication, distribution, tag, release, Auto, and market claims remain
+  unauthorized.
+- Corrected two historical-verification assumptions exposed by the final
+  repository-wide test pass. R04 now keeps preregistration, catalog, and schema
+  bytes frozen while verifying implementation bytes at the recorded R04 commit,
+  so later shared-source evolution does not rewrite or invalidate R04 evidence.
+  The preserved P06 analysis test now reopens its exact analysis and bound-run
+  source blobs from their archival Git commits instead of comparing the
+  historical snapshot to the current worktree. No historical evidence bytes or
+  identities changed. R00 permits candidate evolution only for that verifier
+  test file; every other preserved analysis and evidence path remains frozen.
+- Accepted R10 for `declared_software_function_only` under deterministic fixture
+  simulation. The additive receipt and phase-acceptance record bind
+  implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+  `37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+  persistence tests with zero failures and zero skips. The accepted run
+  evaluated nine candidates, scored three, rejected six, published ten
+  content-addressed checkpoints, selected `fixture-valid-alpha`, and passed
+  typed reopening. It proves the declared finite bound, six independent
+  constraints, deterministic ordering and tie-breaking, exact resume,
+  transactional failure and cancellation, tamper/path-escape rejection,
+  concurrent idempotent publication, read-only sealing, and complete frozen
+  fixture-policy identity. Comparison, A/B, and superiority testing were not
+  run and are not required; hardware, simulator, and operator-observed execution
+  remain `not_observed`. Fixture-policy evidence publication is authorized.
+  Production Auto, holdout, product publication, quality/performance claims,
+  and release remain unauthorized. At that checkpoint, R11 remained `planned`.
+- Accepted R06 for `declared_software_function_only` under deterministic fixture
+  integration. The additive acceptance binds source commit
+  `6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+  `beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh seven-suite macOS
+  arm64 Xcode run with 42 tests passed, zero failed, and zero skipped. The
+  selection verifies deterministic context/profile mapping, eligibility
+  filtering, scoring, stable tie-breaking, transitions, one traceable
+  whole-frame plan, bounded masks, reason identity, and transactional state
+  behavior. The additive test proves higher-scoring ineligible candidates cannot
+  enter the plan, and the real R07 coordinator suites prove commit/rollback
+  around the real R06 orchestrator. The frozen
+  `no_product_qualified_primary_backend` evidence remains historical. R06 v1
+  still rejects product-scope orchestration; no product routing, qualification,
+  default, Auto, native/hardware observation, quality, performance, publication,
+  or release authority follows.
+- Accepted R05 with exit outcome `diagnostic_only`, limited to
+  `declared_software_function_only`. The additive acceptance binds source commit
+  `7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+  `adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh five-suite macOS arm64
+  Xcode run with 46 tests passed, zero failed, and zero skipped. Deterministic
+  simulation through the real spatial backend and production FIFO verifies
+  source-derived A07 1.5× and 2× output, complete identity/lifecycle behavior,
+  and a reopened 2160p H.264/AAC/timed-metadata transaction before atomic
+  publication. The real spatial-driver suite verifies support-before-
+  construction, the explicit color bridge, ordering, cancellation, and typed
+  failures. A08-A10 retain successful `rejected_for_decoded_video`
+  dispositions. The frozen preregistration and `diagnostic_only` suitability
+  record remain unchanged historical evidence; comparison was not run or
+  required. Native MetalFX execution, hardware, simulator, operator observation,
+  product qualification, quality, and performance remain `not_observed` or
+  `not_claimed`; no production default, Auto, publication, or release authority
+  follows.
+- Accepted R04 for `declared_software_function_only` under the operator-defined
+  software-function gate. The additive acceptance binds source commit
+  `ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+  `446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh four-suite macOS arm64
+  Xcode run with 42 tests passed, zero failed, and zero skipped. Deterministic
+  simulation through the real R04 quality and low-latency backends and production
+  FIFO verifies complete 2× media transactions, exact-dimension 1.5× admission,
+  active cancellation, media identity, reopen-before-publication, resource
+  release, atomic publication, and no silent fallback. The frozen preregistration
+  and `diagnostic_only` conformance record remain unchanged historical evidence.
+  Native VideoToolbox model execution and readiness, hardware, simulator, and
+  operator observation remain `not_observed`; no production default, Auto,
+  native-framework, product qualification, quality, performance, publication, or
+  release claim follows.
+- Accepted R02 for `declared_software_function_only` under the operator-defined
+  software-function gate. The additive functional phase-acceptance record binds
+  source commit `eeabc4224100bc8ed86ae1208189bee508844210`, tree
+  `ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+  with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+  production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+  fail-closed `backendUnavailable(reason:)` rejection. This is the intentional
+  R02 production-unavailable boundary, not project completion or production
+  enablement. The frozen preregistration, conformance record, local unpublished
+  closure, and its contemporaneous `phase_acceptance: not_claimed` state remain
+  unchanged historical evidence. Production upscaling, a production default,
+  Auto, holdout, quality or performance claims, product publication, and release
+  remain unauthorized. The repository guardrail now divides hosted Xcode tests
+  into three exact, non-overlapping shards so each app-host run remains below the
+  observed macOS foreground lifetime boundary. The stable required roadmap check
+  now depends on the fresh macOS R02 job, whose validator binds the checkpoint's
+  full app/test build surface and shared scheme without forbidding later roadmap
+  evolution, compares raw test and build-action evidence with the checked
+  summary, runs the selected tests from a detached exact-source worktree, and
+  rejects symlinked evidence-output paths.
 - Accepted R09 with roadmap exit outcome `qualified_local_residual` under the
   operator-defined “software does what it says it does” gate. The additive
   receipt and acceptance record bind implementation commit
@@ -55,9 +192,8 @@ All notable project changes are recorded here.
 - Corrected the R10 and R11 forward gates under the same 2026-07-22 operator
   decision. R10 now accepts on deterministic bounded optimizer/calibration
   behavior. R11 now accepts on traceable evidence and claim-scope machinery
-  that rejects unsupported claims and emits an honest no-claim disposition by
-  default. `market_leading_claim` remains blocked without exact evidence and
-  separate operator authorization.
+  that rejects unsupported claims and emits `no_market_claim` unconditionally.
+  `production_auto_mode` and `market_leading_claim` remain blocked.
 - Accepted R07 under the operator-defined deterministic software-function gate.
   The additive execution receipt and phase-acceptance record bind implementation
   commit `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree

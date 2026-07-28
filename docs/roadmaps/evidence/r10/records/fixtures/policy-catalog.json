@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R10",
+  "artifact_kind": "r10_bounded_calibration_policy_catalog",
+  "contract_id": "r10-bounded-calibration-policy-v1",
+  "causal_variables": [
+    {
+      "name": "quality_confidence_weight",
+      "type": "integer",
+      "allowed_values": [4, 5],
+      "value_scope": "software_test_inputs_not_product_or_quality_thresholds"
+    },
+    {
+      "name": "minimum_dwell_frames",
+      "type": "integer",
+      "allowed_values": [12, 16],
+      "value_scope": "software_test_inputs_not_product_or_quality_thresholds"
+    },
+    {
+      "name": "hysteresis_margin_q16",
+      "type": "integer",
+      "allowed_values": [8192, 12288, 16384],
+      "value_scope": "software_test_inputs_not_product_or_quality_thresholds"
+    }
+  ],
+  "maximum_candidates": 9,
+  "constraint_order": [
+    "route",
+    "plane",
+    "temporal",
+    "protected_region",
+    "resource",
+    "safety"
+  ],
+  "absolute_score_dimensions": [
+    {
+      "name": "quality_q16",
+      "minimum": 0,
+      "maximum": 65536,
+      "ranking": "higher_is_better",
+      "interpretation": "absolute_fixture_score_not_comparative_measurement"
+    },
+    {
+      "name": "temporal_stability_q16",
+      "minimum": 0,
+      "maximum": 65536,
+      "ranking": "higher_is_better",
+      "interpretation": "absolute_fixture_score_not_comparative_measurement"
+    },
+    {
+      "name": "protected_region_fidelity_q16",
+      "minimum": 0,
+      "maximum": 65536,
+      "ranking": "higher_is_better",
+      "interpretation": "absolute_fixture_score_not_comparative_measurement"
+    },
+    {
+      "name": "safety_margin_q16",
+      "minimum": 0,
+      "maximum": 65536,
+      "ranking": "higher_is_better",
+      "interpretation": "absolute_fixture_score_not_comparative_measurement"
+    },
+    {
+      "name": "resource_efficiency_q16",
+      "minimum": 0,
+      "maximum": 65536,
+      "ranking": "higher_is_better",
+      "interpretation": "absolute_fixture_score_not_comparative_measurement"
+    }
+  ],
+  "ordering_contract": {
+    "candidate_order": "ascending_canonical_candidate_bytes",
+    "rejection_order": "constraint_order_before_evaluator_observation",
+    "ranking": "lexicographic_absolute_score_dimension_order",
+    "tie_breaker": "ascending_canonical_candidate_bytes"
+  },
+  "publication_scope": "deterministic_fixture_policy_only",
+  "production_auto_authorized": false,
+  "holdout_authorized": false,
+  "comparative_metrics_used": false,
+  "threshold_relaxation_allowed": false,
+  "post_freeze_change_allowed": false
+}

@@ -1,0 +1,151 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r10-policy-catalog-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "causalVariable": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "quality_confidence_weight",
+            "minimum_dwell_frames",
+            "hysteresis_margin_q16"
+          ],
+          "type": "string"
+        },
+        "type": {"const": "integer", "type": "string"},
+        "allowed_values": {
+          "items": {"type": "integer"},
+          "minItems": 2,
+          "uniqueItems": true,
+          "type": "array"
+        },
+        "value_scope": {
+          "const": "software_test_inputs_not_product_or_quality_thresholds",
+          "type": "string"
+        }
+      },
+      "required": ["name", "type", "allowed_values", "value_scope"],
+      "type": "object"
+    },
+    "scoreDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "quality_q16",
+            "temporal_stability_q16",
+            "protected_region_fidelity_q16",
+            "safety_margin_q16",
+            "resource_efficiency_q16"
+          ],
+          "type": "string"
+        },
+        "minimum": {"const": 0, "type": "integer"},
+        "maximum": {"const": 65536, "type": "integer"},
+        "ranking": {"const": "higher_is_better", "type": "string"},
+        "interpretation": {
+          "const": "absolute_fixture_score_not_comparative_measurement",
+          "type": "string"
+        }
+      },
+      "required": ["name", "minimum", "maximum", "ranking", "interpretation"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "phase_id": {"const": "R10", "type": "string"},
+    "artifact_kind": {
+      "const": "r10_bounded_calibration_policy_catalog",
+      "type": "string"
+    },
+    "contract_id": {
+      "const": "r10-bounded-calibration-policy-v1",
+      "type": "string"
+    },
+    "causal_variables": {
+      "items": {"$ref": "#/$defs/causalVariable"},
+      "maxItems": 3,
+      "minItems": 3,
+      "type": "array"
+    },
+    "maximum_candidates": {"const": 9, "type": "integer"},
+    "constraint_order": {
+      "items": false,
+      "maxItems": 6,
+      "minItems": 6,
+      "prefixItems": [
+        {"const": "route", "type": "string"},
+        {"const": "plane", "type": "string"},
+        {"const": "temporal", "type": "string"},
+        {"const": "protected_region", "type": "string"},
+        {"const": "resource", "type": "string"},
+        {"const": "safety", "type": "string"}
+      ],
+      "type": "array"
+    },
+    "absolute_score_dimensions": {
+      "items": {"$ref": "#/$defs/scoreDimension"},
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array"
+    },
+    "ordering_contract": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_order": {
+          "const": "ascending_canonical_candidate_bytes",
+          "type": "string"
+        },
+        "rejection_order": {
+          "const": "constraint_order_before_evaluator_observation",
+          "type": "string"
+        },
+        "ranking": {
+          "const": "lexicographic_absolute_score_dimension_order",
+          "type": "string"
+        },
+        "tie_breaker": {
+          "const": "ascending_canonical_candidate_bytes",
+          "type": "string"
+        }
+      },
+      "required": [
+        "candidate_order",
+        "rejection_order",
+        "ranking",
+        "tie_breaker"
+      ],
+      "type": "object"
+    },
+    "publication_scope": {
+      "const": "deterministic_fixture_policy_only",
+      "type": "string"
+    },
+    "production_auto_authorized": {"const": false, "type": "boolean"},
+    "holdout_authorized": {"const": false, "type": "boolean"},
+    "comparative_metrics_used": {"const": false, "type": "boolean"},
+    "threshold_relaxation_allowed": {"const": false, "type": "boolean"},
+    "post_freeze_change_allowed": {"const": false, "type": "boolean"}
+  },
+  "required": [
+    "schema_version",
+    "phase_id",
+    "artifact_kind",
+    "contract_id",
+    "causal_variables",
+    "maximum_candidates",
+    "constraint_order",
+    "absolute_score_dimensions",
+    "ordering_contract",
+    "publication_scope",
+    "production_auto_authorized",
+    "holdout_authorized",
+    "comparative_metrics_used",
+    "threshold_relaxation_allowed",
+    "post_freeze_change_allowed"
+  ],
+  "type": "object"
+}

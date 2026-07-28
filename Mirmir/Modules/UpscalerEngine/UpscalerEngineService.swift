@@ -12,6 +12,8 @@ public enum UpscalerEngineAvailability: Equatable, Sendable {
 
 public enum UpscalerEngineError: Error, CustomStringConvertible {
     case backendUnavailable(reason: String)
+    case modeUnavailable(mode: UpscaleMode, reason: String)
+    case invalidJobIdentifier(String)
     case modelAssetsNotReady
     case unsupportedSourceResolution(VideoResolution)
     case inputOutputCollision
@@ -23,6 +25,10 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
         switch self {
         case .backendUnavailable(let reason):
             return reason
+        case .modeUnavailable(_, let reason):
+            return reason
+        case .invalidJobIdentifier(let identifier):
+            return "Upscale job identifier is invalid: \(identifier)"
         case .modelAssetsNotReady:
             return "VTFrameProcessor super-resolution model assets are not ready."
         case .unsupportedSourceResolution(let res):
@@ -48,7 +54,14 @@ public protocol UpscalerJobHandle: AnyObject, Sendable {
 public protocol UpscalerEngineService: AnyObject, Sendable {
     var availability: UpscalerEngineAvailability { get }
 
+    func availability(for mode: UpscaleMode) -> UpscalerEngineAvailability
     func submit(_ job: UpscaleJob) throws -> UpscalerJobHandle
     func start()
     func stop()
+}
+
+public extension UpscalerEngineService {
+    func availability(for _: UpscaleMode) -> UpscalerEngineAvailability {
+        availability
+    }
 }

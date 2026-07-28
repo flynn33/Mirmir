@@ -20,9 +20,22 @@ concurrency:
 jobs:
   roadmap-alignment:
     name: Roadmap alignment
+    needs: [r02-functional-acceptance, r04-functional-acceptance, r05-functional-acceptance, r06-functional-acceptance, r10-functional-acceptance, r11-functional-acceptance, r12-functional-acceptance, r13-functional-acceptance]
+    if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Require passing functional acceptances
+        run: |
+          test "${{ needs.r02-functional-acceptance.result }}" = "success"
+          test "${{ needs.r04-functional-acceptance.result }}" = "success"
+          test "${{ needs.r05-functional-acceptance.result }}" = "success"
+          test "${{ needs.r06-functional-acceptance.result }}" = "success"
+          test "${{ needs.r10-functional-acceptance.result }}" = "success"
+          test "${{ needs.r11-functional-acceptance.result }}" = "success"
+          test "${{ needs.r12-functional-acceptance.result }}" = "success"
+          test "${{ needs.r13-functional-acceptance.result }}" = "success"
+
       - name: Check out repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -40,18 +53,33 @@ jobs:
           Scripts/tests/test_r01_capabilities.py
           Scripts/tests/test_r01_observation_waiver.py
           Scripts/tests/test_r02_contracts.py
+          Scripts/tests/test_r02_phase_acceptance.py
           Scripts/tests/test_r03_contracts.py
           Scripts/tests/test_r03_product_qualification.py
           Scripts/tests/test_r03_phase_acceptance.py
           Scripts/tests/test_r04_contracts.py
+          Scripts/tests/test_r04_phase_acceptance.py
           Scripts/tests/test_r05_contracts.py
+          Scripts/tests/test_r05_phase_acceptance.py
           Scripts/tests/test_r06_contracts.py
+          Scripts/tests/test_r06_phase_acceptance.py
           Scripts/tests/test_r07_contracts.py
           Scripts/tests/test_r07_phase_acceptance.py
           Scripts/tests/test_r08_contracts.py
           Scripts/tests/test_r08_phase_acceptance.py
           Scripts/tests/test_r09_contracts.py
           Scripts/tests/test_r09_phase_acceptance.py
+          validation/calibration_v2/tests/test_r10_optimizer.py
+          validation/calibration_v2/tests/test_r10_persistence.py
+          validation/calibration_v2/tests/test_run_r10_fixture_calibration.py
+          Scripts/tests/test_r10_contracts.py
+          Scripts/tests/test_r10_phase_acceptance.py
+          validation/calibration_v2/tests/test_r11_traceability.py
+          validation/calibration_v2/tests/test_run_r11_fixture_traceability.py
+          Scripts/tests/test_r11_contracts.py
+          Scripts/tests/test_r11_phase_acceptance.py
+          Scripts/tests/test_r12_phase_acceptance.py
+          Scripts/tests/test_r13_phase_acceptance.py
 
       - name: Verify roadmap alignment
         run: python3 Scripts/roadmap_alignment.py --check
@@ -77,6 +105,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
             python3 Scripts/r02_contracts.py --check-conformance
           fi
+
+      - name: Verify R02 functional phase acceptance
+        run: python3 Scripts/r02_phase_acceptance.py --check
 
       - name: Verify R03 preregistration
         run: python3 Scripts/r03_contracts.py --check-preregistration
@@ -119,6 +150,9 @@ jobs:
             python3 Scripts/r04_contracts.py --check-conformance
           fi
 
+      - name: Verify R04 functional phase acceptance
+        run: python3 Scripts/r04_phase_acceptance.py --check
+
       - name: Verify R05 preregistration
         run: python3 Scripts/r05_contracts.py --check-preregistration
 
@@ -132,6 +166,9 @@ jobs:
             python3 Scripts/r05_contracts.py --check-conformance
           fi
 
+      - name: Verify R05 functional phase acceptance
+        run: python3 Scripts/r05_phase_acceptance.py --check
+
       - name: Verify R06 preregistration
         run: python3 Scripts/r06_contracts.py --check-preregistration
 
@@ -144,6 +181,9 @@ jobs:
           if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
             python3 Scripts/r06_contracts.py --check-conformance
           fi
+
+      - name: Verify R06 functional phase acceptance
+        run: python3 Scripts/r06_phase_acceptance.py --check
 
       - name: Verify R07 preregistration
         run: python3 Scripts/r07_contracts.py --check-preregistration
@@ -175,6 +215,21 @@ jobs:
 
       - name: Verify R09 functional phase acceptance
         run: python3 Scripts/r09_phase_acceptance.py --check
+
+      - name: Verify R10 authorization and start contracts
+        run: python3 Scripts/r10_contracts.py --all
+
+      - name: Verify R11 authorization and start contracts
+        run: python3 Scripts/r11_contracts.py --all
+
+      - name: Verify R11 functional phase acceptance
+        run: python3 Scripts/r11_phase_acceptance.py --check
+
+      - name: Verify R12 generated functional acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check-generated
+
+      - name: Verify R12 functional phase acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check
 
       - name: Verify R01 system assets remain untracked
         shell: bash
@@ -214,5 +269,326 @@ jobs:
         run: |
           while IFS= read -r manifest_path; do
             phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
-            python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+            if [[ "$phase_id" == "R06" ]]; then
+              ./Scripts/verify-r06-layered-evidence.sh
+            else
+              python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+            fi
           done < <(find docs/roadmaps/evidence -type f -name 'phase-evidence.json' -print | sort)
+
+  r02-functional-acceptance:
+    name: R02 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R02 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r02-eeabc422-source eeabc4224100bc8ed86ae1208189bee508844210
+
+      - name: Run exact R02 selected tests
+        working-directory: /private/tmp/mirmir-r02-eeabc422-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived -resultBundlePath /private/tmp/mirmir-r02-eeabc422-v2.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/AppleUpscaleContractsTests -only-testing:MirmirTests/EnhancementPipelineContractsTests -only-testing:MirmirTests/AppleUpscaleFIFOSessionTests -only-testing:MirmirTests/R02FixtureConformanceTests -only-testing:MirmirTests/ArchitectureGuardrailTests/test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager -only-testing:MirmirTests/UpscalerEngineAvailabilityTests/test_unavailableServiceRejectsSubmissionWithTypedReason CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R02 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r02_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r02-eeabc422-v2.xcresult
+
+      - name: Verify checked-in R02 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r02_phase_acceptance.py --check
+
+      - name: Upload raw R02 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r02-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r02-eeabc422-v2.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r04-functional-acceptance:
+    name: R04 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R04 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r04-ab77e978-source ab77e97867d51168e90c0190f6430d4acd769e68
+
+      - name: Run exact R04 selected tests
+        working-directory: /private/tmp/mirmir-r04-ab77e978-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r04-ab77e978-derived -resultBundlePath /private/tmp/mirmir-r04-ab77e978.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R04VideoToolboxContractsTests -only-testing:MirmirTests/R04VideoToolboxSessionAdapterTests -only-testing:MirmirTests/UpscalerEngineAvailabilityTests -only-testing:MirmirTests/R04FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R04 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r04_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r04-ab77e978.xcresult
+
+      - name: Verify checked-in R04 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r04_phase_acceptance.py --check
+
+      - name: Upload raw R04 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r04-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r04-ab77e978.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r05-functional-acceptance:
+    name: R05 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R05 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r05-7e1ab673-source 7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8
+
+      - name: Run exact R05 selected tests
+        working-directory: /private/tmp/mirmir-r05-7e1ab673-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r05-7e1ab673-derived -resultBundlePath /private/tmp/mirmir-r05-7e1ab673.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R05MetalFXContractsTests -only-testing:MirmirTests/R05MetalFXColorBridgeTests -only-testing:MirmirTests/R05MetalFXSpatialDriverTests -only-testing:MirmirTests/R05MetalFXSpatialBackendTests -only-testing:MirmirTests/R05FunctionalPhaseAcceptanceTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R05 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r05_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r05-7e1ab673.xcresult
+
+      - name: Verify checked-in R05 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r05_phase_acceptance.py --check
+
+      - name: Upload raw R05 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r05-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r05-7e1ab673.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r06-functional-acceptance:
+    name: R06 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R06 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r06-6c4a6d3d-source 6c4a6d3d5f8a59c553b10c23783c148ccb3388a5
+
+      - name: Run exact R06 selected tests
+        working-directory: /private/tmp/mirmir-r06-6c4a6d3d-source
+        run: xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r06-6c4a6d3d-derived -resultBundlePath /private/tmp/mirmir-r06-6c4a6d3d.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/R06ASHDecisionContextTests -only-testing:MirmirTests/R06ASHMasksAndAblationsTests -only-testing:MirmirTests/R06ASHOrchestratorTests -only-testing:MirmirTests/R06ASHPolicyCatalogTests -only-testing:MirmirTests/R06FunctionalPhaseAcceptanceTests -only-testing:MirmirTests/R07FunctionalCoordinatorTests -only-testing:MirmirTests/R07FunctionalCoordinatorTransactionTests 'EXCLUDED_SOURCE_FILE_NAMES=*.metal' CODE_SIGNING_ALLOWED=NO
+
+      - name: Validate raw R06 xcresult
+        if: ${{ always() }}
+        run: python3 Scripts/r06_phase_acceptance.py --check-xcresult /private/tmp/mirmir-r06-6c4a6d3d.xcresult
+
+      - name: Verify checked-in R06 acceptance
+        if: ${{ always() }}
+        run: python3 Scripts/r06_phase_acceptance.py --check
+
+      - name: Upload raw R06 xcresult
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r06-functional-acceptance-xcresult
+          path: /private/tmp/mirmir-r06-6c4a6d3d.xcresult
+          if-no-files-found: warn
+          retention-days: 14
+          include-hidden-files: true
+
+  r10-functional-acceptance:
+    name: R10 functional acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R10 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r10-3a76c6a-source 3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b
+
+      - name: Verify exact R10 source identity
+        working-directory: /private/tmp/mirmir-r10-3a76c6a-source
+        run: |
+          git rev-parse HEAD | grep -Fx 3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b
+          git rev-parse HEAD^{tree} | grep -Fx 37951da694ab4fbca6f8c663bb2883e5084b861c
+
+      - name: Run exact R10 selected tests
+        working-directory: /private/tmp/mirmir-r10-3a76c6a-source
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v validation.calibration_v2.tests.test_r10_optimizer validation.calibration_v2.tests.test_r10_persistence 2>&1 | tee /private/tmp/mirmir-r10-3a76c6a-unittest.log
+          grep -c ' \.\.\. ok$' /private/tmp/mirmir-r10-3a76c6a-unittest.log | grep -Fx 39
+
+      - name: Run exact R10 fixture calibration
+        working-directory: /private/tmp/mirmir-r10-3a76c6a-source
+        run: PYTHONDONTWRITEBYTECODE=1 python3 validation/calibration_v2/tools/run_r10_fixture_calibration.py --source-commit 3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b --output-root /private/tmp/mirmir-r10-3a76c6a-calibration-run
+
+      - name: Compare exact R10 fixture calibration closure
+        run: |
+          test -d /private/tmp/mirmir-r10-3a76c6a-calibration-run/terminals
+          test -z "$(find /private/tmp/mirmir-r10-3a76c6a-calibration-run/terminals -mindepth 1 -print -quit)"
+          cmp /private/tmp/mirmir-r10-3a76c6a-calibration-run/run-receipt.json docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/run-receipt.json
+          diff --recursive --no-dereference /private/tmp/mirmir-r10-3a76c6a-calibration-run/checkpoints docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/checkpoints
+          diff --recursive --no-dereference /private/tmp/mirmir-r10-3a76c6a-calibration-run/frozen-policies docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/frozen-policies
+
+      - name: Validate generated R10 acceptance evidence
+        run: python3 Scripts/r10_phase_acceptance.py --check-generated
+
+      - name: Verify checked-in R10 acceptance
+        run: python3 Scripts/r10_phase_acceptance.py --check
+
+      - name: Verify deep R10 contracts
+        run: python3 Scripts/r10_contracts.py --all
+
+  r11-functional-acceptance:
+    name: R11 functional acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R11 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r11-75479b9-source 75479b9f30511330f2a18b656151dc551292cb1e
+
+      - name: Verify exact R11 source identity
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: |
+          git rev-parse HEAD | grep -Fx 75479b9f30511330f2a18b656151dc551292cb1e
+          git rev-parse HEAD^{tree} | grep -Fx 0dd42ec30b212456223ee582b549de30a0e3416f
+
+      - name: Run exact R11 selected tests
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: |
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v validation.calibration_v2.tests.test_r11_traceability validation.calibration_v2.tests.test_run_r11_fixture_traceability Scripts.tests.test_r11_contracts 2>&1 | tee /private/tmp/mirmir-r11-75479b9-unittest.log
+          grep -c ' \.\.\. ok$' /private/tmp/mirmir-r11-75479b9-unittest.log | grep -Fx 76
+
+      - name: Run exact R11 traceability fixture
+        working-directory: /private/tmp/mirmir-r11-75479b9-source
+        run: PYTHONDONTWRITEBYTECODE=1 python3 validation/calibration_v2/tools/run_r11_fixture_traceability.py --source-commit 75479b9f30511330f2a18b656151dc551292cb1e --output-root /private/tmp/mirmir-r11-75479b9-traceability-run
+
+      - name: Compare exact R11 traceability closure
+        run: |
+          cmp /private/tmp/mirmir-r11-75479b9-traceability-run/traceability-run-receipt.json docs/roadmaps/evidence/r11/records/traceability-run-receipt.json
+          cmp /private/tmp/mirmir-r11-75479b9-traceability-run/traceability-run-receipt.json docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/traceability-run-receipt.json
+
+      - name: Validate generated R11 acceptance evidence
+        run: python3 Scripts/r11_phase_acceptance.py --check-generated
+
+      - name: Verify checked-in R11 acceptance
+        run: python3 Scripts/r11_phase_acceptance.py --check
+
+      - name: Verify deep R11 contracts
+        run: python3 Scripts/r11_contracts.py --all
+
+  r12-functional-acceptance:
+    name: R12 functional acceptance
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Materialize exact R12 source checkpoint
+        run: git worktree add --detach /private/tmp/mirmir-r12-2f5e298-source 2f5e2987fe6a0e88d39790f177c717b62d29d6e4
+
+      - name: Verify exact R12 source identity
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        run: |
+          git rev-parse HEAD | grep -Fx 2f5e2987fe6a0e88d39790f177c717b62d29d6e4
+          git rev-parse HEAD^{tree} | grep -Fx 4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+      - name: Verify R12 evidence checkpoint ancestry
+        run: git merge-base --is-ancestor 3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6 HEAD
+
+      - name: Build exact R12 selected-test product
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        run: xcodebuild build-for-testing -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r12-2f5e298-derived -disableAutomaticPackageResolution R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4 R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8 'EXCLUDED_SOURCE_FILE_NAMES=*.metal'
+
+      - name: Run exact R12 selected tests
+        working-directory: /private/tmp/mirmir-r12-2f5e298-source
+        shell: bash
+        run: |
+          test "$(find /private/tmp/mirmir-r12-2f5e298-derived/Build/Products -type f -name '*.xctestrun' | wc -l | tr -d ' ')" = 1
+          r12_xctestrun="$(find /private/tmp/mirmir-r12-2f5e298-derived/Build/Products -type f -name '*.xctestrun' -print -quit)"
+          xcodebuild test-without-building -xctestrun "$r12_xctestrun" -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4 R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+      - name: Validate generated R12 acceptance evidence
+        run: |
+          echo "67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080  docs/roadmaps/evidence/r12/records/functional-phase-acceptance.json" | shasum -a 256 -c -
+          echo "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27  docs/roadmaps/evidence/r12/records/functional-execution-receipt.json" | shasum -a 256 -c -
+          python3 Scripts/r12_phase_acceptance.py --check-generated
+
+      - name: Verify checked-in R12 acceptance
+        run: python3 Scripts/r12_phase_acceptance.py --check
+
+  r13-functional-acceptance:
+    name: R13 sealed functional acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact R13 source identity
+        run: |
+          git cat-file -e 6c72e865e7622c11dcf1681f04ccc5cc240d8119^{commit}
+          git rev-parse 6c72e865e7622c11dcf1681f04ccc5cc240d8119^{tree} | grep -Fx 14852f416aef5d3156185a4b50767b531915cd82
+
+      - name: Verify R13 evidence ancestry
+        run: |
+          git merge-base --is-ancestor 6c72e865e7622c11dcf1681f04ccc5cc240d8119 5c8ae09251955d8274d391e93215b346db25bada
+          git merge-base --is-ancestor 5c8ae09251955d8274d391e93215b346db25bada HEAD
+
+      - name: Validate sealed R13 acceptance evidence
+        run: |
+          echo "cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f  docs/roadmaps/evidence/r13/records/functional-execution-receipt.json" | shasum -a 256 -c -
+          echo "9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f  docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json" | shasum -a 256 -c -
+          echo "5fd16a27658fa614f3f589874aba17ad44fce4adc4b07a601014858bfcad2e67  docs/roadmaps/evidence/r13/records/release-candidate-receipt.json" | shasum -a 256 -c -
+          echo "17896f063796740dedc5109f0027b9f05e4ff54ce87301643b437c547f0dcd40  docs/roadmaps/evidence/r13/records/output-reopen-receipt.json" | shasum -a 256 -c -
+          echo "ae7e5c2c31249b1f5957ba2ceca8c62c5268ed250ee9e91aae6440c8e7867ec6  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/build-for-testing.log" | shasum -a 256 -c -
+          echo "4ed0b6217ad276ab7c7f26f18001b8861235586c5cdbb0d29d08316ac3997859  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/targeted-xctest.log" | shasum -a 256 -c -
+          echo "8e51236dd62f7f5d3992de83088665a16adaeafa4c60b9c3484481b05cd20f51  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/release-app-build.log" | shasum -a 256 -c -
+          echo "b6a9e9df07f59c1b8c37f56e8a2ab65ea41cdd9bc31fbc2a16c2d943a8600816  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/swiftlint.log" | shasum -a 256 -c -
+          echo "a7515b04619d27dcbf278968274058345135033d8272a3faaecc4e2a52e4dbe8  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-release-candidate.zip" | shasum -a 256 -c -
+          echo "b937bc33d6d27b1e1e6f795ce6abfb880dd8ad744f03c093684c089bbe7d20ce  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-output-reopen-fixture.mov" | shasum -a 256 -c -
+          python3 -m json.tool docs/roadmaps/evidence/r13/records/functional-execution-receipt.json >/dev/null
+          python3 -m json.tool docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json >/dev/null
+          python3 -m json.tool docs/roadmaps/evidence/r13/records/release-candidate-receipt.json >/dev/null
+          python3 -m json.tool docs/roadmaps/evidence/r13/records/output-reopen-receipt.json >/dev/null

@@ -29,6 +29,20 @@ struct UpscaleControlsView: View {
             }
             .pickerStyle(.segmented)
 
+            Picker("Mode", selection: $viewModel.selectedMode) {
+                ForEach(UpscaleMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            Text(viewModel.selectedModeSummary)
+                .font(.caption)
+                .foregroundStyle(
+                    viewModel.engineAvailabilityReason == nil
+                        ? Color.secondary
+                        : Color.orange
+                )
+
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Output").foregroundStyle(.secondary)

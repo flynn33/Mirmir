@@ -4,10 +4,35 @@ import Foundation
 
 extension AVFoundationMediaSession {
     func finish() async throws {
-        try await finish(finalMetadata: outputProfile.timedMetadataTemplate)
+        try await finish(
+            finalMetadata: outputProfile.timedMetadataTemplate,
+            validatingBeforePublish: {}
+        )
     }
 
     func finish(finalMetadata: [String: String]) async throws {
+        try await finish(
+            finalMetadata: finalMetadata,
+            validatingBeforePublish: {}
+        )
+    }
+
+    func finish(
+        finalMetadata: [String: String],
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws {
+        try await finish(
+            finalMetadata: finalMetadata,
+            beforeReopen: {},
+            validatingBeforePublish: validatingBeforePublish
+        )
+    }
+
+    func finish(
+        finalMetadata: [String: String],
+        beforeReopen: @escaping @Sendable () async throws -> Void,
+        validatingBeforePublish: @escaping @Sendable () async throws -> Void
+    ) async throws {
         do {
             try checkCancellation()
             try outputTransaction.beginFinishing()
@@ -24,8 +49,16 @@ extension AVFoundationMediaSession {
                 finalMetadata,
                 sessionEndTime: sessionEndTime
             )
-            writer.endSession(atSourceTime: sessionEndTime)
-            await finishWriter(at: sessionEndTime)
+            var mediaEndTime = sessionEndTime
+            if let audioIdentity = expectedCompressedAACIdentity {
+                let audioEndTime = CMTimeRangeGetEnd(
+                    audioIdentity.trackTimeRange
+                )
+                if CMTimeCompare(audioEndTime, mediaEndTime) > 0 {
+                    mediaEndTime = audioEndTime
+                }
+            }
+            await finishWriter(at: mediaEndTime)
 
             try checkCancellation()
             guard writer.status == .completed else {
@@ -33,12 +66,16 @@ extension AVFoundationMediaSession {
                 throw MediaPipelineError.writerFailed(writer.error)
             }
 
+            try await beforeReopen()
+            try checkCancellation()
             try outputTransaction.beginVerifying()
             let verification = try await verifyOutput(
                 timing: timing,
                 finalMetadata: finalMetadata
             )
             recordVerification(verification)
+            try checkCancellation()
+            try await validatingBeforePublish()
             try checkCancellation()
             try publishOutput()
         } catch {
@@ -190,7 +227,8 @@ extension AVFoundationMediaSession {
                     timing: timing,
                     timedMetadata: finalMetadata,
                     videoColor: .sdrBT709VideoRangeLeft,
-                    compressedAACIdentity: expectedCompressedAACIdentity
+                    compressedAACIdentity: expectedCompressedAACIdentity,
+                    preferredTransform: expectedVideoTransform
                 )
             )
             telemetry.endStage(verificationStage)

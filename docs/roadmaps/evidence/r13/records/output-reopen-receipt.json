@@ -1,0 +1,145 @@
+{
+  "artifact_binding": {
+    "path": "docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-output-reopen-fixture.mov",
+    "sha256": "b937bc33d6d27b1e1e6f795ce6abfb880dd8ad744f03c093684c089bbe7d20ce",
+    "size_bytes": 4293
+  },
+  "evidence_kind": "r13_output_reopen_receipt_v1",
+  "execution_identity": {
+    "argv": [
+      "/usr/bin/xcrun",
+      "swift",
+      "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r13-checkpoint-1ngx9yw8/r13-output-reopen.swift",
+      "/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r13-checkpoint-1ngx9yw8/r13-output-reopen-fixture.mov"
+    ],
+    "checkpoint": {
+      "clean_after": true,
+      "clean_before": true,
+      "commit_after": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+      "commit_before": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+      "kind": "detached_clean_exact_git_checkpoint",
+      "tree_after": "14852f416aef5d3156185a4b50767b531915cd82",
+      "tree_before": "14852f416aef5d3156185a4b50767b531915cd82"
+    },
+    "command": "xcrun swift <outside-repository>/r13-output-reopen.swift <outside-repository>/r13-output-reopen-fixture.mov",
+    "command_id": "output_reopen",
+    "exit_code": 0,
+    "source": {
+      "commit": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+      "tree": "14852f416aef5d3156185a4b50767b531915cd82"
+    },
+    "tool": {
+      "executable_path": "/usr/bin/xcrun",
+      "executable_sha256": "a439970aea2b4e435eac6518ff62c97fd1c57d8c731974027ad211b515c7a7b8",
+      "name": "xcrun",
+      "version": "xcrun version 72."
+    }
+  },
+  "observed_media": {
+    "container_type": "com.apple.quicktime-movie",
+    "controlled_metadata": [
+      {
+        "key": "com.mirmir.release.app",
+        "value": "com.mirmir.integration-tests:1.0.0:13"
+      },
+      {
+        "key": "com.mirmir.release.app-executable-bytes",
+        "value": "4096"
+      },
+      {
+        "key": "com.mirmir.release.app-executable-sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "key": "com.mirmir.release.backend-id",
+        "value": "r03.mps.lanczos"
+      },
+      {
+        "key": "com.mirmir.release.backend-revision",
+        "value": "1"
+      },
+      {
+        "key": "com.mirmir.release.capability-id",
+        "value": "A11"
+      },
+      {
+        "key": "com.mirmir.release.configuration-id",
+        "value": "r03.mps.lanczos.scale_3_over_2.420v-bt709-video-left.v1"
+      },
+      {
+        "key": "com.mirmir.release.effective-mode",
+        "value": "deterministic"
+      },
+      {
+        "key": "com.mirmir.release.fallback-history",
+        "value": "[]"
+      },
+      {
+        "key": "com.mirmir.release.framework",
+        "value": "MetalPerformanceShaders:integration-1:integration-build"
+      },
+      {
+        "key": "com.mirmir.release.identity-sha256",
+        "value": "0b8aa7e8a0e463ed135cac17f48798abb4bbf0b1ad2b43cc60dd5fed9c252ca1"
+      },
+      {
+        "key": "com.mirmir.release.material-decision-id",
+        "value": "r03.a11.genuine-mps-lanczos-product-admission.v1"
+      },
+      {
+        "key": "com.mirmir.release.model-status",
+        "value": "not_required"
+      },
+      {
+        "key": "com.mirmir.release.output",
+        "value": "1920x1080:h264:audio-omitted"
+      },
+      {
+        "key": "com.mirmir.release.policy-id",
+        "value": "r03.a11.product-qualified.no-fallback.v1"
+      },
+      {
+        "key": "com.mirmir.release.policy-sha256",
+        "value": "0e8231a9bb12e512976be67b6b130f26868ae04e4e77537ac64ef37d94ac207e"
+      },
+      {
+        "key": "com.mirmir.release.requested-mode",
+        "value": "quality"
+      },
+      {
+        "key": "com.mirmir.release.resource-manifest-sha256",
+        "value": "4f6d8136e3c74df7ac5af0b72c5c8734dbe267c227d83878825464bf30103ba8"
+      },
+      {
+        "key": "com.mirmir.release.route-id",
+        "value": "scale_3_over_2"
+      },
+      {
+        "key": "com.mirmir.release.runtime",
+        "value": "macOS:15.4:integration-runtime:arm64"
+      },
+      {
+        "key": "com.mirmir.release.source-bytes",
+        "value": "1015"
+      },
+      {
+        "key": "com.mirmir.release.source-sha256",
+        "value": "59a30be8670a63c1ba36c9b6d3e67a4f34d2b34b4d06973bc93daf04475ba9fb"
+      }
+    ],
+    "duration_seconds": 0.03333333333333333,
+    "frame_count": 5,
+    "height": 1080,
+    "video_track_count": 1,
+    "width": 1920
+  },
+  "phase_id": "R13",
+  "producer_test_identifier": "MirmirTests.R13ReleaseIntegrationTests.testShippingServiceBindsExactReleaseIdentityAndReopensControlledMetadata",
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "source": {
+    "commit": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+    "tree": "14852f416aef5d3156185a4b50767b531915cd82"
+  },
+  "status": "passed"
+}

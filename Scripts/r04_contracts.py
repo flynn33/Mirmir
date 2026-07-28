@@ -226,9 +226,15 @@ SOURCE_CONTRACT_PATHS = (
     Path("MirmirTests/R04VideoToolboxSessionAdapterTests.swift"),
     Path("MirmirTests/UpscalerEngineAvailabilityTests.swift"),
 )
-CURRENT_BYTE_SOURCE_CONTRACT_PATHS = frozenset(SOURCE_CONTRACT_PATHS) - {
-    AGGREGATE_PROJECT_PATH
-}
+FROZEN_CURRENT_CONTRACT_PATHS = frozenset(
+    {
+        PREREGISTRATION_PATH,
+        FIXTURE_CATALOG_PATH,
+        PREREGISTRATION_SCHEMA_PATH,
+        FIXTURE_CATALOG_SCHEMA_PATH,
+        CONFORMANCE_SCHEMA_PATH,
+    }
+)
 CONFORMANCE_RESULT = {
     "status": "diagnostic_only",
     "default_backend_id": None,
@@ -425,7 +431,7 @@ class R04ContractVerifier:
                     f"{relative.as_posix()}"
                 )
             elif (
-                relative in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                relative in FROZEN_CURRENT_CONTRACT_PATHS
                 and historical.stdout != current.read_bytes()
             ):
                 errors.append(

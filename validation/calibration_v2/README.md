@@ -2,6 +2,89 @@
 
 > **Preserved evidence tooling:** These ASH V3 calibration and gate tools remain for reproducibility and reuse. Their presence does not authorize legacy P06/P07/P08 execution under the current roadmap.
 
+## R10 bounded optimizer/calibration
+
+R10 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its receipt and phase-acceptance record bind implementation
+commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+persistence tests with zero failures and zero skips. The accepted run evaluated
+nine candidates, scored three, rejected six, published ten content-addressed
+checkpoints, selected `fixture-valid-alpha`, and passed typed reopen.
+
+The R10 start contract freezes these four records before a run may publish a
+checkpoint or frozen fixture policy:
+
+- `docs/roadmaps/evidence/r10/records/preregistration.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json`
+- `docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json`
+
+The bounded optimizer and persistence modules are offline development,
+calibration, evidence, and test tooling. They are not linked into `Mirmir.app`.
+The retired P06/P07 entry points remain fail-closed and carry no R10 execution
+or acceptance authority. Comparison, A/B, and superiority testing were not run
+and are not required. Hardware, simulator, and operator-observed execution
+remain `not_observed`. Fixture-policy evidence publication is authorized;
+production Auto, holdout access, native execution, product qualification,
+product publication, quality/performance claims, and release remain
+unauthorized.
+
+## R11 traceability and claim boundary
+
+R11 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its exact passed-R10 predecessor binding and deterministic
+traceability fixtures remain frozen in:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+`python3 Scripts/r11_contracts.py --all` validates the start and accepted
+closure. The functional records bind exact source commit
+`75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic run validates the five
+distinct typed states, all seven identity components, mixed aggregation,
+rejection behavior, and unconditional `no_market_claim`.
+
+The R11 traceability module and fixture runner remain offline development,
+evidence, and test tooling; they are not linked into `Mirmir.app`. No comparison
+method was run or required. Hardware, simulator, and operator-observed operation
+remain `not_observed`. Product qualification, production Auto, market claims,
+product publication, tags, and release remain blocked or unauthorized.
+
+## R12 format, route, backend, and resumability contracts
+
+R12 is `passed` for `declared_software_function_only`. Its functional execution
+receipt and phase-acceptance record bind exact source commit
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+85 selected tests with zero failures and zero skips: 15 format-contract tests,
+25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+checked 340 files with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+Expanded-format acceptance is contract-only and does not claim production
+format support. Comparison and A/B methods were absent and not required.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking. R12 grants no product qualification, production Auto, market,
+product-publication, or release-publication authority.
+
+R13 is `passed` for `declared_software_function_only` under the operator's
+`software_does_what_it_says_it_does` basis. Exact-source release-hardening
+evidence verifies the genuine A11 MPS Lanczos and AVFoundation shipping path
+and separately binds a `release_ready_candidate`. Quality, Fast, and
+Deterministic are available; Auto remains `unavailable` and `not_authorized`.
+Hardware, simulator, operator observation, Release-app execution, signing,
+notarization, Gatekeeper, and launch smoke remain `not_observed` and
+nonblocking. Comparison and A/B methods were absent and not required. The
+candidate was not published or released, and no publication, distribution,
+tag, release, Auto, or market claim is authorized.
+
 This directory owns preregistered P05 spatial semantics and P06 calibration
 and LUT contracts. The files are inputs to calibration, not calibration
 results. Their status fields

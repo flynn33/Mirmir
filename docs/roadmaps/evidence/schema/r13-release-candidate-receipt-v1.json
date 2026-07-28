@@ -1,0 +1,675 @@
+{
+  "$id": "https://github.com/flynn33/Mirmir/docs/roadmaps/evidence/schema/r13-release-candidate-receipt-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance_basis": {
+      "const": "software_does_what_it_says_it_does"
+    },
+    "app_identity": {
+      "$ref": "#/$defs/appIdentity"
+    },
+    "candidate_archive": {
+      "$ref": "#/$defs/candidateArchive"
+    },
+    "candidate_build_boundary": {
+      "$ref": "#/$defs/candidateBuildBoundary"
+    },
+    "claim_boundary": {
+      "$ref": "#/$defs/claimBoundary"
+    },
+    "comparison_policy": {
+      "$ref": "#/$defs/comparisonPolicy"
+    },
+    "distribution_boundary": {
+      "$ref": "#/$defs/distributionBoundary"
+    },
+    "evidence_kind": {
+      "const": "r13_exact_release_candidate_receipt_v1"
+    },
+    "execution_boundary": {
+      "$ref": "#/$defs/executionBoundary"
+    },
+    "limitations": {
+      "$ref": "#/$defs/limitations"
+    },
+    "mode_policy": {
+      "$ref": "#/$defs/modePolicy"
+    },
+    "observations": {
+      "$ref": "#/$defs/observations"
+    },
+    "outcome": {
+      "const": "release_ready_candidate"
+    },
+    "output_media_artifact_binding": {
+      "$ref": "#/$defs/fileBinding"
+    },
+    "output_reopen_receipt_binding": {
+      "$ref": "#/$defs/fileBinding"
+    },
+    "output_reopen_evidence": {
+      "$ref": "#/$defs/outputReopenEvidence"
+    },
+    "phase_id": {
+      "const": "R13"
+    },
+    "roadmap_version": {
+      "const": "1.0.1"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "toolchain_identity": {
+      "$ref": "#/$defs/toolchain"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "outcome",
+    "app_identity",
+    "candidate_archive",
+    "candidate_build_boundary",
+    "execution_boundary",
+    "distribution_boundary",
+    "output_reopen_receipt_binding",
+    "output_reopen_evidence",
+    "output_media_artifact_binding",
+    "toolchain_identity",
+    "acceptance_basis",
+    "observations",
+    "mode_policy",
+    "claim_boundary",
+    "comparison_policy",
+    "limitations"
+  ],
+  "title": "R13 exact release-candidate receipt",
+  "type": "object",
+  "$defs": {
+    "appBundle": {
+      "additionalProperties": false,
+      "properties": {
+        "build_version": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "bundle_identifier": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "executable": {
+          "$ref": "#/$defs/fileBinding"
+        },
+        "executable_name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "info_plist": {
+          "$ref": "#/$defs/fileBinding"
+        },
+        "short_version": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "build_version",
+        "bundle_identifier",
+        "executable",
+        "executable_name",
+        "info_plist",
+        "short_version"
+      ],
+      "type": "object"
+    },
+    "appIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle": {
+          "$ref": "#/$defs/appBundle"
+        },
+        "bundle_path": {
+          "const": "<outside-repository>/DerivedData/Build/Products/Release/Mirmir.app"
+        },
+        "file_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "file_manifest": {
+          "items": {
+            "$ref": "#/$defs/manifestEntry"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "frameworks": {
+          "$ref": "#/$defs/frameworkIdentity"
+        },
+        "total_size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "bundle",
+        "bundle_path",
+        "file_count",
+        "file_manifest",
+        "frameworks",
+        "total_size_bytes",
+        "tree_sha256"
+      ],
+      "type": "object"
+    },
+    "candidateArchive": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_binding": {
+          "$ref": "#/$defs/fileBinding"
+        },
+        "format": {
+          "const": "zip_deflate_single_mirmir_app_v1"
+        },
+        "reopen_status": {
+          "const": "passed"
+        },
+        "reopened_app_tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "top_level": {
+          "const": "Mirmir.app"
+        }
+      },
+      "required": [
+        "artifact_binding",
+        "format",
+        "reopen_status",
+        "reopened_app_tree_sha256",
+        "top_level"
+      ],
+      "type": "object"
+    },
+    "candidateBuildBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "default_metallib": {
+          "const": "absent"
+        },
+        "metal_source_compilation": {
+          "const": "excluded"
+        },
+        "release_candidate_gpu_execution": {
+          "const": "not_observed"
+        }
+      },
+      "required": [
+        "default_metallib",
+        "metal_source_compilation",
+        "release_candidate_gpu_execution"
+      ],
+      "type": "object"
+    },
+    "claimBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_mode": {
+          "const": "not_authorized"
+        },
+        "claim_scope": {
+          "const": "software_behavior_report"
+        },
+        "fallback": {
+          "const": "none"
+        },
+        "market_claim": {
+          "const": "not_authorized"
+        },
+        "model": {
+          "const": "not_required"
+        },
+        "product_publication": {
+          "const": "not_authorized"
+        },
+        "release_publication": {
+          "const": "not_authorized"
+        },
+        "tag_publication": {
+          "const": "not_authorized"
+        }
+      },
+      "required": [
+        "auto_mode",
+        "claim_scope",
+        "fallback",
+        "market_claim",
+        "model",
+        "product_publication",
+        "release_publication",
+        "tag_publication"
+      ],
+      "type": "object"
+    },
+    "comparisonPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "ab_test": {
+          "const": "absent_not_required"
+        },
+        "acceptance_dependency": {
+          "const": "none"
+        },
+        "comparison_method": {
+          "const": "absent_not_required"
+        }
+      },
+      "required": [
+        "ab_test",
+        "acceptance_dependency",
+        "comparison_method"
+      ],
+      "type": "object"
+    },
+    "distributionBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "distributable_claim": {
+          "const": "not_authorized"
+        },
+        "distribution_authority": {
+          "const": "not_authorized"
+        },
+        "distribution_signing_identity": {
+          "const": "not_observed"
+        },
+        "gatekeeper": {
+          "const": "not_observed"
+        },
+        "launch_smoke": {
+          "const": "not_observed"
+        },
+        "notarization": {
+          "const": "not_observed"
+        },
+        "notarized_claim": {
+          "const": "not_authorized"
+        }
+      },
+      "required": [
+        "distributable_claim",
+        "distribution_authority",
+        "distribution_signing_identity",
+        "gatekeeper",
+        "launch_smoke",
+        "notarization",
+        "notarized_claim"
+      ],
+      "type": "object"
+    },
+    "executionBoundary": {
+      "additionalProperties": false,
+      "properties": {
+        "output_execution": {
+          "const": "debug_xctest_genuine_a11_mps_avfoundation"
+        },
+        "release_app_execution": {
+          "const": "not_observed"
+        },
+        "release_app_produced_output": {
+          "const": false
+        }
+      },
+      "required": [
+        "output_execution",
+        "release_app_execution",
+        "release_app_produced_output"
+      ],
+      "type": "object"
+    },
+    "fileBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "frameworkIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "items": {
+            "$ref": "#/$defs/manifestEntry"
+          },
+          "type": "array"
+        },
+        "status": {
+          "enum": [
+            "none_embedded",
+            "present"
+          ]
+        },
+        "tree_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "entries",
+        "status",
+        "tree_sha256"
+      ],
+      "type": "object"
+    },
+    "host": {
+      "additionalProperties": false,
+      "properties": {
+        "machine": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "release": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "system": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "machine",
+        "release",
+        "system"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "manifestEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "mode",
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "modePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "auto_authority": {
+          "const": "not_authorized"
+        },
+        "auto_availability": {
+          "const": "unavailable"
+        },
+        "fallback": {
+          "const": "none"
+        },
+        "model": {
+          "const": "not_required"
+        }
+      },
+      "required": [
+        "auto_authority",
+        "auto_availability",
+        "fallback",
+        "model"
+      ],
+      "type": "object"
+    },
+    "observations": {
+      "additionalProperties": false,
+      "properties": {
+        "debug_xctest_mps_lanczos_execution": {
+          "const": "observed_both_product_routes"
+        },
+        "gpu_profiling": {
+          "const": "not_observed"
+        },
+        "hardware_qualification": {
+          "const": "not_observed"
+        },
+        "instruments": {
+          "const": "not_observed"
+        },
+        "nonblocking_for_software_function_acceptance": {
+          "const": true
+        },
+        "operator": {
+          "const": "not_observed"
+        },
+        "release_candidate_gpu_execution": {
+          "const": "not_observed"
+        },
+        "simulator": {
+          "const": "not_observed"
+        }
+      },
+      "required": [
+        "debug_xctest_mps_lanczos_execution",
+        "gpu_profiling",
+        "hardware_qualification",
+        "instruments",
+        "operator",
+        "release_candidate_gpu_execution",
+        "simulator",
+        "nonblocking_for_software_function_acceptance"
+      ],
+      "type": "object"
+    },
+    "controlledMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "pattern": "^com\\.mirmir\\.release\\.[a-z0-9-]+$",
+          "type": "string"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "value"
+      ],
+      "type": "object"
+    },
+    "observedMedia": {
+      "additionalProperties": false,
+      "properties": {
+        "container_type": {
+          "const": "com.apple.quicktime-movie"
+        },
+        "controlled_metadata": {
+          "items": {
+            "$ref": "#/$defs/controlledMetadata"
+          },
+          "maxItems": 22,
+          "minItems": 22,
+          "type": "array"
+        },
+        "duration_seconds": {
+          "minimum": 0,
+          "type": "number"
+        },
+        "frame_count": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "height": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "video_track_count": {
+          "const": 1
+        },
+        "width": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "container_type",
+        "controlled_metadata",
+        "duration_seconds",
+        "frame_count",
+        "height",
+        "video_track_count",
+        "width"
+      ],
+      "type": "object"
+    },
+    "outputReopenEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "observed_media": {
+          "$ref": "#/$defs/observedMedia"
+        },
+        "producer_test_identifier": {
+          "const": "MirmirTests.R13ReleaseIntegrationTests.testShippingServiceBindsExactReleaseIdentityAndReopensControlledMetadata"
+        },
+        "status": {
+          "const": "passed"
+        }
+      },
+      "required": [
+        "observed_media",
+        "producer_test_identifier",
+        "status"
+      ],
+      "type": "object"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/gitOid"
+        },
+        "tree": {
+          "$ref": "#/$defs/gitOid"
+        }
+      },
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "type": "object"
+    },
+    "gitOid": {
+      "pattern": "^(?!0{40}$)[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "tool": {
+      "additionalProperties": false,
+      "properties": {
+        "executable_path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "executable_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "name": {
+          "enum": [
+            "swift",
+            "swiftlint",
+            "xcodebuild",
+            "xcrun"
+          ]
+        },
+        "version": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "executable_path",
+        "executable_sha256",
+        "name",
+        "version"
+      ],
+      "type": "object"
+    },
+    "toolchain": {
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "$ref": "#/$defs/host"
+        },
+        "swift": {
+          "$ref": "#/$defs/tool"
+        },
+        "swiftlint": {
+          "$ref": "#/$defs/tool"
+        },
+        "xcodebuild": {
+          "$ref": "#/$defs/tool"
+        },
+        "xcrun": {
+          "$ref": "#/$defs/tool"
+        }
+      },
+      "required": [
+        "host",
+        "swift",
+        "swiftlint",
+        "xcodebuild",
+        "xcrun"
+      ],
+      "type": "object"
+    }
+  }
+}

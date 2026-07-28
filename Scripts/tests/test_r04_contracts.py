@@ -4,8 +4,10 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import subprocess
 import sys
 import unittest
+from unittest import mock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -20,9 +22,9 @@ from r04_contracts import (  # noqa: E402
     CONFORMANCE_PATH,
     CONFORMANCE_RESULT,
     CONFORMANCE_SCHEMA_PATH,
-    CURRENT_BYTE_SOURCE_CONTRACT_PATHS,
     FIXTURE_CATALOG_PATH,
     FIXTURE_CATALOG_SCHEMA_PATH,
+    FROZEN_CURRENT_CONTRACT_PATHS,
     IMPLEMENTATION_SOURCE,
     NOT_OBSERVED_CHECK_IDS,
     PREDECESSOR,
@@ -174,13 +176,92 @@ class R04ContractTests(unittest.TestCase):
             SOURCE_CONTRACT_PATHS,
         )
         self.assertIn(AGGREGATE_PROJECT_PATH, SOURCE_CONTRACT_PATHS)
-        self.assertNotIn(AGGREGATE_PROJECT_PATH, CURRENT_BYTE_SOURCE_CONTRACT_PATHS)
+        self.assertEqual(
+            FROZEN_CURRENT_CONTRACT_PATHS,
+            frozenset(
+                {
+                    PREREGISTRATION_PATH,
+                    FIXTURE_CATALOG_PATH,
+                    PREREGISTRATION_SCHEMA_PATH,
+                    FIXTURE_CATALOG_SCHEMA_PATH,
+                    CONFORMANCE_SCHEMA_PATH,
+                }
+            ),
+        )
+        self.assertNotIn(AGGREGATE_PROJECT_PATH, FROZEN_CURRENT_CONTRACT_PATHS)
         self.assertTrue(
             all(
-                path in CURRENT_BYTE_SOURCE_CONTRACT_PATHS
+                path not in FROZEN_CURRENT_CONTRACT_PATHS
                 for path in SOURCE_CONTRACT_PATHS
-                if path != AGGREGATE_PROJECT_PATH
+                if path.suffix == ".swift"
             )
+        )
+
+    def test_later_r13_source_evolution_preserves_historical_conformance(
+        self,
+    ) -> None:
+        evolved_paths = (
+            Path("Mirmir/Modules/ModelAssets/DefaultModelAssetsService.swift"),
+            Path("Mirmir/Modules/ModelAssets/ModelAssetsService.swift"),
+            Path("MirmirTests/UpscalerEngineAvailabilityTests.swift"),
+        )
+        for relative in evolved_paths:
+            with self.subTest(path=relative.as_posix()):
+                historical = self.verifier.git_bytes(
+                    "show",
+                    f"{IMPLEMENTATION_SOURCE['commit']}:{relative.as_posix()}",
+                )
+                self.assertEqual(historical.returncode, 0)
+                self.assertNotEqual(
+                    historical.stdout,
+                    (REPOSITORY_ROOT / relative).read_bytes(),
+                )
+
+        errors: list[str] = []
+        self.verifier._check_source(
+            dict(IMPLEMENTATION_SOURCE),
+            "R04 conformance source",
+            errors,
+        )
+        self.assertEqual(errors, [])
+
+    def test_missing_historical_implementation_blob_fails_closed(self) -> None:
+        missing = Path(
+            "Mirmir/Modules/UpscalerEngine/R04VideoToolboxContracts.swift"
+        )
+        expected_arguments = (
+            "show",
+            f"{IMPLEMENTATION_SOURCE['commit']}:{missing.as_posix()}",
+        )
+        original_git_bytes = self.verifier.git_bytes
+
+        def git_bytes_with_missing_source(
+            *arguments: str,
+        ) -> subprocess.CompletedProcess[bytes]:
+            if arguments == expected_arguments:
+                return subprocess.CompletedProcess(
+                    args=["git", *arguments],
+                    returncode=1,
+                    stdout=b"",
+                    stderr=b"missing",
+                )
+            return original_git_bytes(*arguments)
+
+        errors: list[str] = []
+        with mock.patch.object(
+            self.verifier,
+            "git_bytes",
+            side_effect=git_bytes_with_missing_source,
+        ):
+            self.verifier._check_source(
+                dict(IMPLEMENTATION_SOURCE),
+                "R04 conformance source",
+                errors,
+            )
+        self.assertIn(
+            "R04 conformance source does not contain the frozen R04 "
+            f"implementation bytes: {missing.as_posix()}",
+            errors,
         )
 
     def test_conformance_binding_path_is_not_self_selected(self) -> None:

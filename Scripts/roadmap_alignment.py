@@ -359,6 +359,24 @@ R08_PHASE_START_REQUIREMENT = {
         "docs/roadmaps/evidence/r08/records/fixtures/fixture-catalog.json",
     ],
 }
+R10_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "predecessors": ["R07", "R09"],
+    "paths": [
+        "docs/roadmaps/evidence/r10/records/preregistration.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/fixture-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/evaluation-catalog.json",
+        "docs/roadmaps/evidence/r10/records/fixtures/policy-catalog.json",
+    ],
+}
+R11_PHASE_START_REQUIREMENT = {
+    "statuses": ["in_progress", "evidence_ready", "passed"],
+    "predecessors": ["R10"],
+    "paths": [
+        "docs/roadmaps/evidence/r11/records/preregistration.json",
+        "docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json",
+    ],
+}
 R08_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
     "required_status": "passed",
     "paths": [
@@ -409,6 +427,176 @@ R09_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
         ),
     ],
 }
+R10_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r10_phase_acceptance.py",
+        "Scripts/tests/test_r10_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r10-calibration-run-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r10-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r10/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r10/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/unittest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/run-receipt.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "e5f9dcb4b8743a7295d51b56db5f080b7be5ff577f4c21ead113bd9d70e00459.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "b50baea0852c30246249bb76825be8688498c19a95843ad3ef5345bff85754e8.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "371eee895f02d8e7611e572230cee0ca3ae6635156958ba59e8b1ce36dd22ca9.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "f1426d372d8445ea04b2d7d43ffc981f99f4255847f48a20ae209f6bac602546.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "791d221b1d343df9d0e5b937e9c22fea4382a0897cbaf57da747647c45e27005.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "569c6095fad79b7af4cf2b6898a5c10b64ce2026f53c5105da55373d820b7751.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "eb1a5576ff771f2b2ade778ab2fdfccacbbf966b0b199f1b36a679b1d74a6fb3.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "29e3aaf1cff5152956c2539db769f3fdd86f56e438fdd0913635479bb34ae494.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "f4a0ff2d141f36d7bc3bec0702fb15f11b5887d7b02ea8ab6b8b140363e0a841.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/checkpoints/"
+            "15ccf94280dd40fd18364be8de5bede500a25e4dd5b848af641967d14f84b758.json"
+        ),
+        (
+            "docs/roadmaps/evidence/r10/records/artifacts/"
+            "functional-phase-acceptance/calibration-run/frozen-policies/"
+            "f090cbde0102bec3d5e9d18dc236268fa08f1c12d4513edfe00d91a4480a3495.json"
+        ),
+    ],
+}
+R11_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r11_phase_acceptance.py",
+        "Scripts/tests/test_r11_phase_acceptance.py",
+        "docs/roadmaps/evidence/schema/r11-functional-execution-receipt-v1.json",
+        "docs/roadmaps/evidence/schema/r11-functional-phase-acceptance-v1.json",
+        "docs/roadmaps/evidence/r11/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r11/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r11/records/artifacts/"
+            "functional-phase-acceptance/unittest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r11/records/artifacts/"
+            "functional-phase-acceptance/traceability-run-receipt.json"
+        ),
+    ],
+}
+R12_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r12_phase_acceptance.py",
+        "Scripts/tests/test_r12_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r12-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r12-functional-phase-acceptance-v1.json"
+        ),
+        "docs/roadmaps/evidence/r12/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r12/records/functional-phase-acceptance.json",
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/build-for-testing.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/targeted-xctest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r12/records/artifacts/"
+            "functional-phase-acceptance/swiftlint.log"
+        ),
+    ],
+}
+R13_FUNCTIONAL_EVIDENCE_REQUIREMENT = {
+    "required_status": "passed",
+    "paths": [
+        "Scripts/r13_phase_acceptance.py",
+        "Scripts/tests/test_r13_phase_acceptance.py",
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-functional-execution-receipt-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-functional-phase-acceptance-v1.json"
+        ),
+        (
+            "docs/roadmaps/evidence/schema/"
+            "r13-release-candidate-receipt-v1.json"
+        ),
+        "docs/roadmaps/evidence/r13/records/functional-execution-receipt.json",
+        "docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json",
+        "docs/roadmaps/evidence/r13/records/output-reopen-receipt.json",
+        "docs/roadmaps/evidence/r13/records/release-candidate-receipt.json",
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/build-for-testing.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/targeted-xctest.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/release-app-build.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/swiftlint.log"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/r13-output-reopen-fixture.mov"
+        ),
+        (
+            "docs/roadmaps/evidence/r13/records/artifacts/"
+            "functional-phase-acceptance/r13-release-candidate.zip"
+        ),
+    ],
+}
 
 
 def sha256(path: Path) -> str:
@@ -441,7 +629,11 @@ def render_progress(roadmap: dict[str, Any], policy: dict[str, Any]) -> str:
     status_order = progress["status_order"]
     passed = sum(phase["status"] in completed_statuses for phase in ordered)
     total = len(ordered)
-    percent = 0 if total == 0 else (passed * 100) // total
+    percent = (
+        0
+        if total == 0
+        else ((2 * passed * 100) + total) // (2 * total)
+    )
     width = int(progress["bar_width"])
     filled = 0 if total == 0 else (passed * width) // total
     bar = "[" + ("#" * filled) + ("-" * (width - filled)) + "]"
@@ -1393,6 +1585,30 @@ class AlignmentVerifier:
                 "R09 phase_evidence_requirements differ from the frozen "
                 "software-function acceptance contract",
             )
+        if requirements.get("R10") != R10_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R10 phase_evidence_requirements differ from the prospective "
+                "software-function acceptance contract",
+            )
+        if requirements.get("R11") != R11_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R11 phase_evidence_requirements differ from the prospective "
+                "software-function acceptance contract",
+            )
+        if requirements.get("R12") != R12_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R12 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
+            )
+        if requirements.get("R13") != R13_FUNCTIONAL_EVIDENCE_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R13 phase_evidence_requirements differ from the frozen "
+                "software-function acceptance contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1460,6 +1676,16 @@ class AlignmentVerifier:
                 self.policy_path.relative_to(self.root).as_posix(),
                 "R08 phase_start_requirements differ from the frozen contract",
             )
+        if requirements.get("R10") != R10_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R10 phase_start_requirements differ from the frozen contract",
+            )
+        if requirements.get("R11") != R11_PHASE_START_REQUIREMENT:
+            self.add_error(
+                self.policy_path.relative_to(self.root).as_posix(),
+                "R11 phase_start_requirements differ from the frozen contract",
+            )
         for phase_id, requirement in requirements.items():
             phase = phase_by_id.get(phase_id)
             if phase is None or not isinstance(requirement, dict):
@@ -1469,6 +1695,7 @@ class AlignmentVerifier:
                 )
                 continue
             statuses = requirement.get("statuses")
+            predecessors = requirement.get("predecessors")
             paths = requirement.get("paths")
             if (
                 not isinstance(statuses, list)
@@ -1485,6 +1712,25 @@ class AlignmentVerifier:
                     f"phase start requirement fields are invalid for {phase_id}",
                 )
                 continue
+            if predecessors is not None and (
+                not isinstance(predecessors, list)
+                or not predecessors
+                or len(predecessors) != len(set(predecessors))
+                or not all(
+                    isinstance(predecessor, str) and predecessor
+                    for predecessor in predecessors
+                )
+            ):
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase start predecessors are invalid for {phase_id}",
+                )
+                continue
+            if predecessors is not None and phase.get("depends_on") != predecessors:
+                self.add_error(
+                    self.policy_path.relative_to(self.root).as_posix(),
+                    f"phase {phase_id} canonical predecessors differ from its start contract",
+                )
             if phase.get("status") not in statuses:
                 continue
             for relative in paths:

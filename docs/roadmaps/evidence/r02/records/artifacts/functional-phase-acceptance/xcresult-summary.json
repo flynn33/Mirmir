@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0.0",
+  "phase_id": "R02",
+  "evidence_kind": "r02_functional_selected_test_summary_v1",
+  "source": {
+    "commit": "eeabc4224100bc8ed86ae1208189bee508844210",
+    "tree": "ac402f993805cca499d2f688c6186c4684ce8dba"
+  },
+  "execution_mode": "deterministic_fixture_execution",
+  "expected_selected_test_count": 27,
+  "selected_test_count": 27,
+  "passed_test_count": 27,
+  "failed_test_count": 0,
+  "skipped_test_count": 0,
+  "test_suites": [
+    {
+      "id": "AppleUpscaleContractsTests",
+      "expected_test_count": 7,
+      "passed_test_count": 7,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "testAllFiveOrchestrationOutcomesCarryCompleteRouteIdentity()",
+          "status": "passed"
+        },
+        {
+          "id": "testBackendAndActorSessionCompileThroughCommonExistentials()",
+          "status": "passed"
+        },
+        {
+          "id": "testCapabilityRegistryPreservesOrderAndDoesNotInferEligibility()",
+          "status": "passed"
+        },
+        {
+          "id": "testCapabilityRegistryRejectsDuplicateAndFabricatedQualification()",
+          "status": "passed"
+        },
+        {
+          "id": "testFramePreservesEveryFrozenFieldAndTokenReleasesExactlyOnce()",
+          "status": "passed"
+        },
+        {
+          "id": "testInvalidFrameTimingAndDimensionsFailClosed()",
+          "status": "passed"
+        },
+        {
+          "id": "testProcessingIdentityRequiresContiguousVisibleFallback()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "AppleUpscaleFIFOSessionTests",
+      "expected_test_count": 7,
+      "passed_test_count": 7,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "testCancelUnblocksActiveDriverRejectsQueueAndDiscardsLateSuccess()",
+          "status": "passed"
+        },
+        {
+          "id": "testConcurrentSubmissionsRemainFIFOAcrossDriverSuspension()",
+          "status": "passed"
+        },
+        {
+          "id": "testDriverRouteAndFallbackIdentityMismatchFailClosed()",
+          "status": "passed"
+        },
+        {
+          "id": "testFailureAndRejectionReleaseInputOwnershipExactlyOnce()",
+          "status": "passed"
+        },
+        {
+          "id": "testFinishFencesAdmissionDrainsAndCachesOneFinalization()",
+          "status": "passed"
+        },
+        {
+          "id": "testResetOrdersBetweenSubmissionsAndAdvancesOnlyHistoryGeneration()",
+          "status": "passed"
+        },
+        {
+          "id": "testSequenceAndTimingValidationRejectBeforeDriverInvocation()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "ArchitectureGuardrailTests",
+      "expected_test_count": 1,
+      "passed_test_count": 1,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "EnhancementPipelineContractsTests",
+      "expected_test_count": 7,
+      "passed_test_count": 7,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "testFiveStageProtocolsInvokeDistinctTypedOperations()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlanCreatesOnlyContiguousVisibleFallbackLinks()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlannerPreservesSuppliedNonalphabeticOrderAndExactlyOnePrimary()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlannerRejectsDuplicateStageIDsAcrossPrimaryAndFallbackRoles()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlannerRejectsMissingAndMultiplePrimaryStages()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlannerRejectsPrimaryAndDuplicateFallbackRoutes()",
+          "status": "passed"
+        },
+        {
+          "id": "testPlanSnapshotsIdentityBeforeMutableStageConformersChange()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "R02FixtureConformanceTests",
+      "expected_test_count": 4,
+      "passed_test_count": 4,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "testBackendRejectsInvalidCapabilityConfigurationAndContextBeforeCreation()",
+          "status": "passed"
+        },
+        {
+          "id": "testBothFixtureBackendsProcessEveryFixtureThroughCommonSession()",
+          "status": "passed"
+        },
+        {
+          "id": "testFrozenMP4AACTransactionVerifiesBeforeAtomicPublicationForBothBackends()",
+          "status": "passed"
+        },
+        {
+          "id": "testFrozenSwiftGeneratorsMatchCatalogAndMaterializeRowAwareNV12()",
+          "status": "passed"
+        }
+      ]
+    },
+    {
+      "id": "UpscalerEngineAvailabilityTests",
+      "expected_test_count": 1,
+      "passed_test_count": 1,
+      "failed_test_count": 0,
+      "skipped_test_count": 0,
+      "tests": [
+        {
+          "id": "test_unavailableServiceRejectsSubmissionWithTypedReason()",
+          "status": "passed"
+        }
+      ]
+    }
+  ],
+  "toolchain": {
+    "platform": "macos_host",
+    "architecture": "arm64",
+    "command": "xcodebuild -quiet -project Mirmir.xcodeproj -scheme Mirmir -configuration Debug -destination platform=macOS,arch=arm64 -derivedDataPath /private/tmp/mirmir-r02-eeabc422-v2-derived -resultBundlePath /private/tmp/mirmir-r02-eeabc422-v2.xcresult -disableAutomaticPackageResolution test -only-testing:MirmirTests/AppleUpscaleContractsTests -only-testing:MirmirTests/EnhancementPipelineContractsTests -only-testing:MirmirTests/AppleUpscaleFIFOSessionTests -only-testing:MirmirTests/R02FixtureConformanceTests -only-testing:MirmirTests/ArchitectureGuardrailTests/test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager -only-testing:MirmirTests/UpscalerEngineAvailabilityTests/test_unavailableServiceRejectsSubmissionWithTypedReason CODE_SIGNING_ALLOWED=NO"
+  }
+}

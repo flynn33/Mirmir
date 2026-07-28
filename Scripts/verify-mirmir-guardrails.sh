@@ -10,6 +10,27 @@ DERIVED_DATA="${DERIVED_DATA:-/tmp/mirmir-guardrails-deriveddata}"
 DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
 export DEVELOPER_DIR
 
+guardrail_temp_base_requested="${TMPDIR:-/tmp}"
+if [[
+  "$guardrail_temp_base_requested" != /* ||
+  ! -d "$guardrail_temp_base_requested"
+]]; then
+  echo "Guardrail temporary base must be an existing absolute directory." >&2
+  exit 1
+fi
+if ! guardrail_temp_base="$(
+  cd -- "$guardrail_temp_base_requested" &&
+    pwd -P
+)"; then
+  echo "Guardrail temporary base cannot be resolved physically." >&2
+  exit 1
+fi
+if [[ "$guardrail_temp_base" != /* || ! -d "$guardrail_temp_base" ]]; then
+  echo "Guardrail canonical temporary base is invalid." >&2
+  exit 1
+fi
+readonly guardrail_temp_base
+
 cd "$REPO_ROOT"
 
 build_scan_pattern() {
@@ -93,18 +114,33 @@ python3 -m unittest \
   Scripts/tests/test_r01_capabilities.py \
   Scripts/tests/test_r01_observation_waiver.py \
   Scripts/tests/test_r02_contracts.py \
+  Scripts/tests/test_r02_phase_acceptance.py \
   Scripts/tests/test_r03_contracts.py \
   Scripts/tests/test_r03_product_qualification.py \
   Scripts/tests/test_r03_phase_acceptance.py \
   Scripts/tests/test_r04_contracts.py \
+  Scripts/tests/test_r04_phase_acceptance.py \
   Scripts/tests/test_r05_contracts.py \
+  Scripts/tests/test_r05_phase_acceptance.py \
   Scripts/tests/test_r06_contracts.py \
+  Scripts/tests/test_r06_phase_acceptance.py \
   Scripts/tests/test_r07_contracts.py \
   Scripts/tests/test_r07_phase_acceptance.py \
   Scripts/tests/test_r08_contracts.py \
   Scripts/tests/test_r08_phase_acceptance.py \
   Scripts/tests/test_r09_contracts.py \
-  Scripts/tests/test_r09_phase_acceptance.py
+  Scripts/tests/test_r09_phase_acceptance.py \
+  validation/calibration_v2/tests/test_r10_optimizer.py \
+  validation/calibration_v2/tests/test_r10_persistence.py \
+  validation/calibration_v2/tests/test_run_r10_fixture_calibration.py \
+  Scripts/tests/test_r10_contracts.py \
+  Scripts/tests/test_r10_phase_acceptance.py \
+  validation/calibration_v2/tests/test_r11_traceability.py \
+  validation/calibration_v2/tests/test_run_r11_fixture_traceability.py \
+  Scripts/tests/test_r11_contracts.py \
+  Scripts/tests/test_r11_phase_acceptance.py \
+  Scripts/tests/test_r12_phase_acceptance.py \
+  Scripts/tests/test_r13_phase_acceptance.py
 python3 Scripts/roadmap_alignment.py --check
 python3 Scripts/r00_inventory.py --check
 python3 Scripts/r01_preregistration.py --check
@@ -114,6 +150,7 @@ python3 Scripts/r02_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r02/records/conformance.json ]]; then
   python3 Scripts/r02_contracts.py --check-conformance
 fi
+python3 Scripts/r02_phase_acceptance.py --check
 python3 Scripts/r03_contracts.py --check-preregistration
 python3 Scripts/r03_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r03/records/baseline-conformance.json ]]; then
@@ -129,16 +166,19 @@ python3 Scripts/r04_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r04/records/integration-conformance.json ]]; then
   python3 Scripts/r04_contracts.py --check-conformance
 fi
+python3 Scripts/r04_phase_acceptance.py --check
 python3 Scripts/r05_contracts.py --check-preregistration
 python3 Scripts/r05_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r05/records/suitability-conformance.json ]]; then
   python3 Scripts/r05_contracts.py --check-conformance
 fi
+python3 Scripts/r05_phase_acceptance.py --check
 python3 Scripts/r06_contracts.py --check-preregistration
 python3 Scripts/r06_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r06/records/orchestration-conformance.json ]]; then
   python3 Scripts/r06_contracts.py --check-conformance
 fi
+python3 Scripts/r06_phase_acceptance.py --check
 python3 Scripts/r07_contracts.py --check-preregistration
 python3 Scripts/r07_contracts.py --check-fixtures
 if [[ -f docs/roadmaps/evidence/r07/records/temporal-artifact-conformance.json ]]; then
@@ -150,6 +190,231 @@ python3 Scripts/r08_contracts.py --check-fixtures
 python3 Scripts/r08_phase_acceptance.py --check
 python3 Scripts/r09_contracts.py --all
 python3 Scripts/r09_phase_acceptance.py --check
+
+echo "==> Replaying exact R10 functional acceptance..."
+r10_source_commit="3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b"
+r10_source_tree="37951da694ab4fbca6f8c663bb2883e5084b861c"
+r10_validation_root="$(
+  mktemp -d "$guardrail_temp_base/mirmir-r10-acceptance.XXXXXX"
+)"
+r10_source_worktree="$r10_validation_root/source"
+r10_test_log="$r10_validation_root/unittest.log"
+r10_run_root="$r10_validation_root/calibration-run"
+
+cleanup_r10_validation() {
+  if [[ -d "$r10_source_worktree" ]]; then
+    git worktree remove --force "$r10_source_worktree" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$r10_validation_root" ]]; then
+    rm -rf -- "$r10_validation_root"
+  fi
+}
+trap cleanup_r10_validation EXIT
+
+git worktree add --detach "$r10_source_worktree" "$r10_source_commit"
+(
+  cd "$r10_source_worktree"
+  git rev-parse HEAD | grep -Fx "$r10_source_commit"
+  git rev-parse HEAD^{tree} | grep -Fx "$r10_source_tree"
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v \
+    validation.calibration_v2.tests.test_r10_optimizer \
+    validation.calibration_v2.tests.test_r10_persistence \
+    2>&1 | tee "$r10_test_log"
+  grep -c ' \.\.\. ok$' "$r10_test_log" | grep -Fx 39
+  PYTHONDONTWRITEBYTECODE=1 python3 \
+    validation/calibration_v2/tools/run_r10_fixture_calibration.py \
+    --source-commit "$r10_source_commit" \
+    --output-root "$r10_run_root"
+)
+test -d "$r10_run_root/terminals"
+test -z "$(find "$r10_run_root/terminals" -mindepth 1 -print -quit)"
+cmp \
+  "$r10_run_root/run-receipt.json" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/run-receipt.json
+diff --recursive --no-dereference \
+  "$r10_run_root/checkpoints" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/checkpoints
+diff --recursive --no-dereference \
+  "$r10_run_root/frozen-policies" \
+  docs/roadmaps/evidence/r10/records/artifacts/functional-phase-acceptance/calibration-run/frozen-policies
+
+git worktree remove --force "$r10_source_worktree"
+rm -rf -- "$r10_validation_root"
+trap - EXIT
+python3 Scripts/r10_phase_acceptance.py --check-generated
+python3 Scripts/r10_phase_acceptance.py --check
+python3 Scripts/r10_contracts.py --all
+
+echo "==> Replaying exact R11 functional acceptance..."
+r11_source_commit="75479b9f30511330f2a18b656151dc551292cb1e"
+r11_source_tree="0dd42ec30b212456223ee582b549de30a0e3416f"
+r11_validation_root="$(
+  mktemp -d "$guardrail_temp_base/mirmir-r11-acceptance.XXXXXX"
+)"
+r11_source_worktree="$r11_validation_root/source"
+r11_test_log="$r11_validation_root/unittest.log"
+r11_run_root="$r11_validation_root/traceability-run"
+
+cleanup_r11_validation() {
+  if [[ -d "$r11_source_worktree" ]]; then
+    git worktree remove --force "$r11_source_worktree" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$r11_validation_root" ]]; then
+    rm -rf -- "$r11_validation_root"
+  fi
+}
+trap cleanup_r11_validation EXIT
+
+git worktree add --detach "$r11_source_worktree" "$r11_source_commit"
+(
+  cd "$r11_source_worktree"
+  git rev-parse HEAD | grep -Fx "$r11_source_commit"
+  git rev-parse HEAD^{tree} | grep -Fx "$r11_source_tree"
+  PYTHONDONTWRITEBYTECODE=1 python3 -m unittest -v \
+    validation.calibration_v2.tests.test_r11_traceability \
+    validation.calibration_v2.tests.test_run_r11_fixture_traceability \
+    Scripts.tests.test_r11_contracts \
+    2>&1 | tee "$r11_test_log"
+  grep -c ' \.\.\. ok$' "$r11_test_log" | grep -Fx 76
+  PYTHONDONTWRITEBYTECODE=1 python3 \
+    validation/calibration_v2/tools/run_r11_fixture_traceability.py \
+    --source-commit "$r11_source_commit" \
+    --output-root "$r11_run_root"
+)
+cmp \
+  "$r11_run_root/traceability-run-receipt.json" \
+  docs/roadmaps/evidence/r11/records/traceability-run-receipt.json
+cmp \
+  "$r11_run_root/traceability-run-receipt.json" \
+  docs/roadmaps/evidence/r11/records/artifacts/functional-phase-acceptance/traceability-run-receipt.json
+
+git worktree remove --force "$r11_source_worktree"
+rm -rf -- "$r11_validation_root"
+trap - EXIT
+python3 Scripts/r11_phase_acceptance.py --check-generated
+python3 Scripts/r11_phase_acceptance.py --check
+python3 Scripts/r11_contracts.py --all
+
+echo "==> Replaying exact R12 functional acceptance..."
+r12_source_commit="2f5e2987fe6a0e88d39790f177c717b62d29d6e4"
+r12_source_tree="4971b4d38f92ea5edffe925e507f058e9ffc13d8"
+r12_validation_root="$(
+  mktemp -d "$guardrail_temp_base/mirmir-r12-acceptance.XXXXXX"
+)"
+r12_source_worktree="$r12_validation_root/source"
+r12_derived_data="$r12_validation_root/DerivedData"
+r12_test_log="$r12_validation_root/targeted-xctest.log"
+
+cleanup_r12_validation() {
+  if [[ -d "$r12_source_worktree" ]]; then
+    git worktree remove --force "$r12_source_worktree" >/dev/null 2>&1 || true
+  fi
+  if [[ -d "$r12_validation_root" ]]; then
+    rm -rf -- "$r12_validation_root"
+  fi
+}
+trap cleanup_r12_validation EXIT
+
+git worktree add --detach "$r12_source_worktree" "$r12_source_commit"
+(
+  cd "$r12_source_worktree"
+  git rev-parse HEAD | grep -Fx "$r12_source_commit"
+  git rev-parse HEAD^{tree} | grep -Fx "$r12_source_tree"
+  xcodebuild build-for-testing \
+    -project Mirmir.xcodeproj \
+    -scheme Mirmir \
+    -configuration Debug \
+    -destination platform=macOS,arch=arm64 \
+    -derivedDataPath "$r12_derived_data" \
+    -disableAutomaticPackageResolution \
+    "R12_ACCEPTANCE_SOURCE_COMMIT=$r12_source_commit" \
+    "R12_ACCEPTANCE_SOURCE_TREE=$r12_source_tree" \
+    'EXCLUDED_SOURCE_FILE_NAMES=*.metal'
+  test "$(
+    find "$r12_derived_data/Build/Products" \
+      -type f \
+      -name '*.xctestrun' |
+      wc -l |
+      tr -d ' '
+  )" = 1
+  r12_xctestrun="$(
+    find "$r12_derived_data/Build/Products" \
+      -type f \
+      -name '*.xctestrun' \
+      -print \
+      -quit
+  )"
+  xcodebuild test-without-building \
+    -xctestrun "$r12_xctestrun" \
+    -destination platform=macOS,arch=arm64 \
+    -only-testing:MirmirTests/R12MediaFormatContractV2Tests \
+    -only-testing:MirmirTests/R12RouteAndHardwareResolverTests \
+    -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests \
+    "R12_ACCEPTANCE_SOURCE_COMMIT=$r12_source_commit" \
+    "R12_ACCEPTANCE_SOURCE_TREE=$r12_source_tree" \
+    2>&1 |
+    tee "$r12_test_log"
+  grep -c \
+    "^Test Case '-\\[MirmirTests\\.R12.*\\]' passed" \
+    "$r12_test_log" |
+    grep -Fx 85
+)
+
+git worktree remove --force "$r12_source_worktree"
+rm -rf -- "$r12_validation_root"
+trap - EXIT
+git merge-base --is-ancestor \
+  3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6 \
+  HEAD
+echo \
+  "67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080  docs/roadmaps/evidence/r12/records/functional-phase-acceptance.json" |
+  shasum -a 256 -c -
+echo \
+  "09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27  docs/roadmaps/evidence/r12/records/functional-execution-receipt.json" |
+  shasum -a 256 -c -
+python3 Scripts/r12_phase_acceptance.py --check-generated
+python3 Scripts/r12_phase_acceptance.py --check
+
+echo "==> Verifying sealed R13 functional acceptance..."
+r13_source_commit="6c72e865e7622c11dcf1681f04ccc5cc240d8119"
+r13_source_tree="14852f416aef5d3156185a4b50767b531915cd82"
+r13_evidence_commit="5c8ae09251955d8274d391e93215b346db25bada"
+git cat-file -e "$r13_source_commit^{commit}"
+git rev-parse "$r13_source_commit^{tree}" | grep -Fx "$r13_source_tree"
+git merge-base --is-ancestor "$r13_source_commit" "$r13_evidence_commit"
+git merge-base --is-ancestor "$r13_evidence_commit" HEAD
+echo \
+  "cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f  docs/roadmaps/evidence/r13/records/functional-execution-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f  docs/roadmaps/evidence/r13/records/functional-phase-acceptance.json" |
+  shasum -a 256 -c -
+echo \
+  "5fd16a27658fa614f3f589874aba17ad44fce4adc4b07a601014858bfcad2e67  docs/roadmaps/evidence/r13/records/release-candidate-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "17896f063796740dedc5109f0027b9f05e4ff54ce87301643b437c547f0dcd40  docs/roadmaps/evidence/r13/records/output-reopen-receipt.json" |
+  shasum -a 256 -c -
+echo \
+  "ae7e5c2c31249b1f5957ba2ceca8c62c5268ed250ee9e91aae6440c8e7867ec6  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/build-for-testing.log" |
+  shasum -a 256 -c -
+echo \
+  "4ed0b6217ad276ab7c7f26f18001b8861235586c5cdbb0d29d08316ac3997859  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/targeted-xctest.log" |
+  shasum -a 256 -c -
+echo \
+  "8e51236dd62f7f5d3992de83088665a16adaeafa4c60b9c3484481b05cd20f51  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/release-app-build.log" |
+  shasum -a 256 -c -
+echo \
+  "b6a9e9df07f59c1b8c37f56e8a2ab65ea41cdd9bc31fbc2a16c2d943a8600816  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/swiftlint.log" |
+  shasum -a 256 -c -
+echo \
+  "a7515b04619d27dcbf278968274058345135033d8272a3faaecc4e2a52e4dbe8  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-release-candidate.zip" |
+  shasum -a 256 -c -
+echo \
+  "b937bc33d6d27b1e1e6f795ce6abfb880dd8ad744f03c093684c089bbe7d20ce  docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-output-reopen-fixture.mov" |
+  shasum -a 256 -c -
+python3 Scripts/r13_phase_acceptance.py --check-generated
+python3 Scripts/r13_phase_acceptance.py --check
 
 if git ls-files -- '.r01-local-assets' | grep -q .; then
   echo "R01 local system/model assets must never be tracked." >&2
@@ -181,7 +446,11 @@ fi
 while IFS= read -r manifest_path; do
   phase_id="$(basename "$(dirname "$manifest_path")" | tr '[:lower:]' '[:upper:]')"
   echo "==> Verifying ${phase_id} phase evidence..."
-  python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+  if [[ "$phase_id" == "R06" ]]; then
+    ./Scripts/verify-r06-layered-evidence.sh
+  else
+    python3 Scripts/phase_evidence.py --phase "$phase_id" --check
+  fi
 done < <(find docs/roadmaps/evidence \
   -type f -name 'phase-evidence.json' -print | sort)
 
@@ -281,16 +550,29 @@ hosted_test_shard_one=(
   "MirmirTests/ASHLUTCompilerV2Tests"
   "MirmirTests/ASHLUTFormat12V3Tests"
 )
+hosted_test_shard_two=(
+  "MirmirTests/ASHLUTLockedConfigurationJSONV2Tests"
+  "MirmirTests/ASHLockedAffineRuntimeV2Tests"
+  "MirmirTests/ASHLockedArtifactStoreV3Tests"
+  "MirmirTests/ASHLockedFramePipelineV3Tests"
+  "MirmirTests/ASHLockedGeometryRuntimeV2Tests"
+  "MirmirTests/ASHLockedLUTManifestV2Tests"
+)
 shard_one_arguments=()
 shard_two_arguments=()
+shard_three_arguments=()
 for test_class in "${hosted_test_shard_one[@]}"; do
   shard_one_arguments+=("-only-testing:$test_class")
-  shard_two_arguments+=("-skip-testing:$test_class")
+  shard_three_arguments+=("-skip-testing:$test_class")
+done
+for test_class in "${hosted_test_shard_two[@]}"; do
+  shard_two_arguments+=("-only-testing:$test_class")
+  shard_three_arguments+=("-skip-testing:$test_class")
 done
 
 # Keep the app-host lifetime below the macOS foreground-hang termination window
 # while preserving serial execution and exact, non-overlapping target coverage.
-echo "==> Testing Debug shard 1 of 2..."
+echo "==> Testing Debug shard 1 of 3..."
 xcodebuild \
   -project "$PROJECT_FILE" \
   -scheme "$SCHEME" \
@@ -301,7 +583,7 @@ xcodebuild \
   "${shard_one_arguments[@]}" \
   test
 
-echo "==> Testing Debug shard 2 of 2..."
+echo "==> Testing Debug shard 2 of 3..."
 xcodebuild \
   -project "$PROJECT_FILE" \
   -scheme "$SCHEME" \
@@ -310,6 +592,17 @@ xcodebuild \
   -derivedDataPath "$DERIVED_DATA" \
   -disableAutomaticPackageResolution \
   "${shard_two_arguments[@]}" \
+  test
+
+echo "==> Testing Debug shard 3 of 3..."
+xcodebuild \
+  -project "$PROJECT_FILE" \
+  -scheme "$SCHEME" \
+  -configuration Debug \
+  -destination "$DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  -disableAutomaticPackageResolution \
+  "${shard_three_arguments[@]}" \
   test
 
 echo "==> Building Release..."

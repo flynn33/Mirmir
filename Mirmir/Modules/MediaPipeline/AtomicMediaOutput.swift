@@ -23,8 +23,11 @@ enum AtomicMediaOutputState: String, Equatable, Sendable {
 enum AtomicMediaOutputError: Error, Equatable, Sendable, CustomStringConvertible {
     case invalidDestination(URL)
     case destinationAlreadyExists(URL)
+    case invalidTemporaryIdentifier(String)
     case invalidTransition(from: AtomicMediaOutputState, to: AtomicMediaOutputState)
     case temporaryFileMissing(URL)
+    case verifiedTemporaryFileChanged(URL)
+    case publishedDestinationCleanupFailed(destination: URL, reason: String)
     case publishFailed(destination: URL, reason: String, cleanupFailure: String?)
     case cleanupFailed(temporary: URL, attempts: Int, reason: String?)
 
@@ -34,10 +37,17 @@ enum AtomicMediaOutputError: Error, Equatable, Sendable, CustomStringConvertible
             return "Output destination directory does not exist: \(url.deletingLastPathComponent().path)"
         case .destinationAlreadyExists(let url):
             return "Output destination already exists and will not be replaced: \(url.lastPathComponent)."
+        case .invalidTemporaryIdentifier(let identifier):
+            return "Output transaction identifier is invalid: \(identifier)"
         case .invalidTransition(let source, let destination):
             return "Invalid output transaction transition: \(source.rawValue) -> \(destination.rawValue)."
         case .temporaryFileMissing(let url):
             return "Output transaction temporary file is missing: \(url.lastPathComponent)."
+        case .verifiedTemporaryFileChanged(let url):
+            return "Verified temporary output changed before publication: \(url.lastPathComponent)."
+        case .publishedDestinationCleanupFailed(let destination, let reason):
+            return "Published destination cleanup failed at "
+                + "\(destination.lastPathComponent): \(reason)"
         case .publishFailed(let destination, let reason, let cleanupFailure):
             let cleanup = cleanupFailure.map { " Cleanup also failed: \($0)" } ?? ""
             return "Atomic output publication failed at \(destination.lastPathComponent): \(reason).\(cleanup)"
@@ -59,51 +69,24 @@ struct AtomicMediaOutputSnapshot: Equatable, Sendable {
     let cleanup: AtomicMediaOutputCleanupResult?
 }
 
+public struct MediaOutputPublicationIdentity: Equatable, Sendable {
+    public let sha256: String
+    public let byteCount: UInt64
+
+    public init(sha256: String, byteCount: UInt64) {
+        self.sha256 = sha256
+        self.byteCount = byteCount
+    }
+}
+
 protocol AtomicMediaFileSystem: Sendable {
     func directoryExists(at url: URL) -> Bool
     func fileExists(at url: URL) -> Bool
     func removeItem(at url: URL) throws
+    func removeItem(
+        at url: URL, ifMatching identity: AtomicMediaCleanupFileIdentity
+    ) throws
     func publishAtomically(from temporaryURL: URL, to destinationURL: URL) throws
-}
-
-struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
-    func directoryExists(at url: URL) -> Bool {
-        var isDirectory: ObjCBool = false
-        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
-            && isDirectory.boolValue
-    }
-
-    func fileExists(at url: URL) -> Bool {
-        FileManager.default.fileExists(atPath: url.path)
-    }
-
-    func removeItem(at url: URL) throws {
-        try FileManager.default.removeItem(at: url)
-    }
-
-    func publishAtomically(from temporaryURL: URL, to destinationURL: URL) throws {
-        let result = temporaryURL.path.withCString { temporaryPath in
-            destinationURL.path.withCString { destinationPath in
-                renameatx_np(
-                    AT_FDCWD,
-                    temporaryPath,
-                    AT_FDCWD,
-                    destinationPath,
-                    UInt32(RENAME_EXCL)
-                )
-            }
-        }
-        guard result == 0 else {
-            throw NSError(
-                domain: NSPOSIXErrorDomain,
-                code: Int(errno),
-                userInfo: [
-                    NSFilePathErrorKey: destinationURL.path,
-                    NSLocalizedDescriptionKey: String(cString: strerror(errno))
-                ]
-            )
-        }
-    }
 }
 
 final class AtomicMediaOutput: @unchecked Sendable {
@@ -113,6 +96,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
     private struct MutableState {
         var state = AtomicMediaOutputState.created
         var cleanup: AtomicMediaOutputCleanupResult?
+        var publishedIdentity: MediaOutputPublicationIdentity?
         var telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared
     }
 
@@ -120,6 +104,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
     private let cleanupAttemptLimit: Int
     private let lock = NSLock()
     private var mutableState = MutableState()
+    private var verifiedTemporaryFile: AtomicMediaVerifiedTemporaryFile?
 
     init(
         destinationURL: URL,
@@ -134,6 +119,9 @@ final class AtomicMediaOutput: @unchecked Sendable {
         }
         guard !fileSystem.fileExists(at: destinationURL) else {
             throw AtomicMediaOutputError.destinationAlreadyExists(destinationURL)
+        }
+        guard Self.isValidTemporaryIdentifier(temporaryIdentifier) else {
+            throw AtomicMediaOutputError.invalidTemporaryIdentifier(temporaryIdentifier)
         }
         precondition(cleanupAttemptLimit > 0, "Cleanup attempt limit must be positive.")
 
@@ -150,6 +138,25 @@ final class AtomicMediaOutput: @unchecked Sendable {
         )
     }
 
+    static func isValidTemporaryIdentifier(_ identifier: String) -> Bool {
+        guard !identifier.isEmpty,
+              identifier.utf8.count <= 160,
+              identifier != ".",
+              identifier != ".." else {
+            return false
+        }
+        return identifier.unicodeScalars.allSatisfy { scalar in
+            switch scalar.value {
+            case 48...57, 65...90, 97...122:
+                return true
+            case 45, 46, 58, 95:
+                return true
+            default:
+                return false
+            }
+        }
+    }
+
     var snapshot: AtomicMediaOutputSnapshot {
         lock.lock()
         defer { lock.unlock() }
@@ -157,6 +164,12 @@ final class AtomicMediaOutput: @unchecked Sendable {
             state: mutableState.state,
             cleanup: mutableState.cleanup
         )
+    }
+
+    var publishedOutputIdentity: MediaOutputPublicationIdentity? {
+        lock.lock()
+        defer { lock.unlock() }
+        return mutableState.publishedIdentity
     }
 
     func attachTelemetry(_ telemetry: any ASHTelemetryRecording) {
@@ -183,7 +196,25 @@ final class AtomicMediaOutput: @unchecked Sendable {
     }
 
     func beginVerifying() throws {
-        try transition(from: .finishing, to: .verifying)
+        lock.lock()
+        guard mutableState.state == .finishing else {
+            let currentState = mutableState.state
+            lock.unlock()
+            throw AtomicMediaOutputError.invalidTransition(
+                from: currentState,
+                to: .verifying
+            )
+        }
+        do {
+            verifiedTemporaryFile = try AtomicMediaVerifiedTemporaryFile(url: temporaryURL)
+        } catch {
+            lock.unlock()
+            throw error
+        }
+        mutableState.state = .verifying
+        let telemetry = mutableState.telemetry
+        lock.unlock()
+        recordTransition(telemetry: telemetry, from: .finishing, to: .verifying)
     }
 
     func publish() throws {
@@ -201,6 +232,15 @@ final class AtomicMediaOutput: @unchecked Sendable {
             recordTransition(telemetry: telemetry, from: .verifying, to: .failed)
             throw AtomicMediaOutputError.temporaryFileMissing(temporaryURL)
         }
+        guard let verifiedTemporaryFile else {
+            mutableState.state = .failed
+            let telemetry = mutableState.telemetry
+            lock.unlock()
+            recordTransition(telemetry: telemetry, from: .verifying, to: .failed)
+            throw AtomicMediaOutputError.verifiedTemporaryFileChanged(
+                temporaryURL
+            )
+        }
 
         guard !fileSystem.fileExists(at: destinationURL) else {
             let cleanup = cleanupTemporaryLocked()
@@ -213,8 +253,13 @@ final class AtomicMediaOutput: @unchecked Sendable {
             throw AtomicMediaOutputError.destinationAlreadyExists(destinationURL)
         }
 
+        var publicationCompleted = false
         do {
+            try verifiedTemporaryFile.validatePathAndContents(
+                at: temporaryURL
+            )
             try fileSystem.publishAtomically(from: temporaryURL, to: destinationURL)
+            publicationCompleted = true
             guard fileSystem.fileExists(at: destinationURL),
                   !fileSystem.fileExists(at: temporaryURL) else {
                 throw NSError(
@@ -223,7 +268,13 @@ final class AtomicMediaOutput: @unchecked Sendable {
                     userInfo: [NSLocalizedDescriptionKey: "atomic publish postcondition failed"]
                 )
             }
+            try verifiedTemporaryFile.validatePathAndContents(
+                at: destinationURL
+            )
             mutableState.state = .published
+            mutableState.publishedIdentity =
+                verifiedTemporaryFile.publicationIdentity
+            self.verifiedTemporaryFile = nil
             let telemetry = mutableState.telemetry
             lock.unlock()
             recordTransition(telemetry: telemetry, from: .verifying, to: .published)
@@ -232,24 +283,10 @@ final class AtomicMediaOutput: @unchecked Sendable {
                 details: ["destination_name": destinationURL.lastPathComponent]
             ))
         } catch {
-            let reason = String(describing: error)
-            let fileSystemError = error as NSError
-            let destinationWonRace = fileSystemError.domain == NSPOSIXErrorDomain
-                && fileSystemError.code == Int(EEXIST)
-            let cleanup = cleanupTemporaryLocked()
-            mutableState.cleanup = cleanup
-            mutableState.state = .failed
-            let telemetry = mutableState.telemetry
-            lock.unlock()
-            recordTransition(telemetry: telemetry, from: .verifying, to: .failed)
-            recordCleanup(telemetry: telemetry, result: cleanup, terminalState: .failed)
-            if destinationWonRace {
-                throw AtomicMediaOutputError.destinationAlreadyExists(destinationURL)
-            }
-            throw AtomicMediaOutputError.publishFailed(
-                destination: destinationURL,
-                reason: reason,
-                cleanupFailure: cleanup.error.map(String.init(describing:))
+            throw handlePublicationFailureLocked(
+                error,
+                publicationCompleted: publicationCompleted,
+                verifiedTemporaryFile: verifiedTemporaryFile
             )
         }
     }
@@ -267,8 +304,10 @@ final class AtomicMediaOutput: @unchecked Sendable {
     deinit {
         _ = fail()
     }
+}
 
-    private func transition(from expected: AtomicMediaOutputState, to target: AtomicMediaOutputState) throws {
+private extension AtomicMediaOutput {
+    func transition(from expected: AtomicMediaOutputState, to target: AtomicMediaOutputState) throws {
         lock.lock()
         guard mutableState.state == expected else {
             let currentState = mutableState.state
@@ -281,7 +320,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
         recordTransition(telemetry: telemetry, from: expected, to: target)
     }
 
-    private func terminate(as terminalState: AtomicMediaOutputState) -> AtomicMediaOutputCleanupResult {
+    func terminate(as terminalState: AtomicMediaOutputState) -> AtomicMediaOutputCleanupResult {
         precondition(terminalState == .failed || terminalState == .cancelled)
         lock.lock()
         if mutableState.state.isTerminal {
@@ -298,6 +337,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
         let cleanup = cleanupTemporaryLocked()
         mutableState.cleanup = cleanup
         mutableState.state = terminalState
+        verifiedTemporaryFile = nil
         let telemetry = mutableState.telemetry
         lock.unlock()
 
@@ -306,7 +346,90 @@ final class AtomicMediaOutput: @unchecked Sendable {
         return cleanup
     }
 
-    private func cleanupTemporaryLocked() -> AtomicMediaOutputCleanupResult {
+    func handlePublicationFailureLocked(
+        _ error: Error,
+        publicationCompleted: Bool,
+        verifiedTemporaryFile: AtomicMediaVerifiedTemporaryFile
+    ) -> AtomicMediaOutputError {
+        let reason = String(describing: error)
+        let fileSystemError = error as NSError
+        let destinationWonRace = fileSystemError.domain == NSPOSIXErrorDomain
+            && fileSystemError.code == Int(EEXIST)
+        var destinationCleanupError: AtomicMediaOutputError?
+        if publicationCompleted {
+            do {
+                let cleanupIdentity = try verifiedTemporaryFile.makeCleanupIdentity()
+                try fileSystem.removeItem(
+                    at: destinationURL,
+                    ifMatching: cleanupIdentity
+                )
+            } catch {
+                if let outputError = error as? AtomicMediaOutputError,
+                   case .publishedDestinationCleanupFailed = outputError {
+                    destinationCleanupError = outputError
+                } else {
+                    destinationCleanupError =
+                        .publishedDestinationCleanupFailed(
+                        destination: destinationURL,
+                        reason: String(describing: error)
+                    )
+                }
+            }
+        }
+        let temporaryCleanup = cleanupTemporaryLocked()
+        let cleanup = combinedCleanupResult(
+            temporaryCleanup,
+            destinationCleanupError: destinationCleanupError
+        )
+        mutableState.cleanup = cleanup
+        mutableState.state = .failed
+        self.verifiedTemporaryFile = nil
+        let telemetry = mutableState.telemetry
+        lock.unlock()
+        recordTransition(telemetry: telemetry, from: .verifying, to: .failed)
+        recordCleanup(telemetry: telemetry, result: cleanup, terminalState: .failed)
+
+        if destinationWonRace {
+            return .destinationAlreadyExists(destinationURL)
+        }
+        if cleanup.error == nil,
+           let outputError = error as? AtomicMediaOutputError,
+           case .verifiedTemporaryFileChanged = outputError {
+            return outputError
+        }
+        return .publishFailed(
+            destination: destinationURL,
+            reason: reason,
+            cleanupFailure: cleanup.error.map(String.init(describing:))
+        )
+    }
+
+    func combinedCleanupResult(
+        _ temporaryCleanup: AtomicMediaOutputCleanupResult,
+        destinationCleanupError: AtomicMediaOutputError?
+    ) -> AtomicMediaOutputCleanupResult {
+        guard let destinationCleanupError else {
+            return temporaryCleanup
+        }
+        let combinedError: AtomicMediaOutputError
+        if let temporaryError = temporaryCleanup.error {
+            combinedError = .publishedDestinationCleanupFailed(
+                destination: destinationURL,
+                reason: String(describing: destinationCleanupError)
+                    + "; temporary cleanup also failed: "
+                    + String(describing: temporaryError)
+            )
+        } else {
+            combinedError = destinationCleanupError
+        }
+        return AtomicMediaOutputCleanupResult(
+            attempts: temporaryCleanup.attempts,
+            temporaryFileRemoved: temporaryCleanup.temporaryFileRemoved,
+            error: combinedError
+        )
+    }
+
+    func cleanupTemporaryLocked() -> AtomicMediaOutputCleanupResult {
         guard fileSystem.fileExists(at: temporaryURL) else {
             return AtomicMediaOutputCleanupResult(
                 attempts: 0,
@@ -339,7 +462,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
         )
     }
 
-    private func recordTransition(
+    func recordTransition(
         telemetry: any ASHTelemetryRecording,
         from source: AtomicMediaOutputState,
         to destination: AtomicMediaOutputState
@@ -354,7 +477,7 @@ final class AtomicMediaOutput: @unchecked Sendable {
         ))
     }
 
-    private func recordCleanup(
+    func recordCleanup(
         telemetry: any ASHTelemetryRecording,
         result: AtomicMediaOutputCleanupResult,
         terminalState: AtomicMediaOutputState

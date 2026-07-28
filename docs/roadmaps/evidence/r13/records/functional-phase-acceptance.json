@@ -1,0 +1,156 @@
+{
+  "checks": [
+    {
+      "id": "source_checkpoint_commit_tree_and_ancestry_exact",
+      "status": "passed"
+    },
+    {
+      "id": "r11_and_r12_accepted_source_identities_exact",
+      "status": "passed"
+    },
+    {
+      "id": "source_test_project_schema_validator_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "debug_build_for_testing_succeeded",
+      "status": "passed"
+    },
+    {
+      "id": "targeted_r13_xctest_inventory_passed",
+      "status": "passed"
+    },
+    {
+      "id": "debug_xctest_genuine_mps_lanczos_both_routes_passed",
+      "status": "passed"
+    },
+    {
+      "id": "release_app_build_succeeded",
+      "status": "passed"
+    },
+    {
+      "id": "swiftlint_strict_zero_violations",
+      "status": "passed"
+    },
+    {
+      "id": "built_app_tree_executable_bundle_framework_identity_exact",
+      "status": "passed"
+    },
+    {
+      "id": "release_candidate_and_output_reopen_receipts_exact",
+      "status": "passed"
+    },
+    {
+      "id": "backend_routes_modes_and_auto_contracts_passed",
+      "status": "passed"
+    },
+    {
+      "id": "assets_bootstrap_and_ui_contracts_passed",
+      "status": "passed"
+    },
+    {
+      "id": "identity_metadata_and_prepublish_contracts_passed",
+      "status": "passed"
+    },
+    {
+      "id": "resume_cache_bookmark_and_storage_contracts_passed",
+      "status": "passed"
+    },
+    {
+      "id": "resource_fault_and_diagnostics_contracts_passed",
+      "status": "passed"
+    },
+    {
+      "id": "comparison_and_ab_methods_absent_not_required",
+      "status": "passed"
+    },
+    {
+      "id": "observation_requirements_nonblocking",
+      "status": "passed"
+    },
+    {
+      "id": "release_tag_publish_and_market_claim_not_authorized",
+      "status": "passed"
+    },
+    {
+      "id": "artifact_closure_hashes_exact",
+      "status": "passed"
+    }
+  ],
+  "claim_boundary": {
+    "auto_mode": "not_authorized",
+    "claim_scope": "software_behavior_report",
+    "fallback": "none",
+    "market_claim": "not_authorized",
+    "model": "not_required",
+    "product_publication": "not_authorized",
+    "release_publication": "not_authorized",
+    "tag_publication": "not_authorized"
+  },
+  "comparison_policy": {
+    "ab_test": "absent_not_required",
+    "acceptance_dependency": "none",
+    "comparison_method": "absent_not_required"
+  },
+  "distribution_boundary": {
+    "distributable_claim": "not_authorized",
+    "distribution_authority": "not_authorized",
+    "distribution_signing_identity": "not_observed",
+    "gatekeeper": "not_observed",
+    "launch_smoke": "not_observed",
+    "notarization": "not_observed",
+    "notarized_claim": "not_authorized"
+  },
+  "evidence_kind": "r13_functional_phase_acceptance_v1",
+  "execution_boundary": {
+    "output_execution": "debug_xctest_genuine_a11_mps_avfoundation",
+    "release_app_execution": "not_observed",
+    "release_app_produced_output": false
+  },
+  "execution_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r13/records/functional-execution-receipt.json",
+    "sha256": "cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f",
+    "size_bytes": 127476
+  },
+  "functional_gate": {
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "acceptance_scope": "declared_software_function_only",
+    "outcome": "release_ready_candidate",
+    "phase_status_after": "passed",
+    "phase_status_before": "in_progress",
+    "status": "passed"
+  },
+  "limitations": [
+    "R13 evidence proves the behavior exercised by the exact checkpointed Debug XCTest inventory; it separately proves build and archive identity, not execution, of the exact clean Release app.",
+    "Automated Debug XCTest executed the genuine MPS Lanczos A11 backend for both product routes; this is functional execution, not GPU profiling or hardware qualification.",
+    "Release-candidate GPU execution, GPU profiling, hardware qualification, simulator, Instruments, and operator observations are not_observed and are nonblocking.",
+    "No comparative, historical-comparison, or A/B result is required or used.",
+    "Auto is unavailable and not_authorized, model acquisition is not_required, and no fallback route is accepted.",
+    "This acceptance authorizes a release-ready candidate outcome; it does not authorize a tag, release publication, product publication, or market claim.",
+    "The available Release toolchain build excludes Metal source files; the candidate contains no default.metallib and makes no Release-candidate GPU execution claim.",
+    "The retained MOV is produced by Debug XCTest through the genuine default A11 MPS Lanczos backend and AVFoundation media pipeline, with a deterministic test-scoped release environment; the separately built Release app did not produce that output and its execution was not observed.",
+    "Distribution signing identity, notarization, Gatekeeper, launch smoke, and Release-app execution were not observed; distribution, notarized, and distributable claims are not authorized."
+  ],
+  "observations": {
+    "debug_xctest_mps_lanczos_execution": "observed_both_product_routes",
+    "gpu_profiling": "not_observed",
+    "hardware_qualification": "not_observed",
+    "instruments": "not_observed",
+    "nonblocking_for_software_function_acceptance": true,
+    "operator": "not_observed",
+    "release_candidate_gpu_execution": "not_observed",
+    "simulator": "not_observed"
+  },
+  "phase_id": "R13",
+  "release_candidate_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r13/records/release-candidate-receipt.json",
+    "sha256": "5fd16a27658fa614f3f589874aba17ad44fce4adc4b07a601014858bfcad2e67",
+    "size_bytes": 13083
+  },
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "source": {
+    "commit": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+    "tree": "14852f416aef5d3156185a4b50767b531915cd82"
+  }
+}

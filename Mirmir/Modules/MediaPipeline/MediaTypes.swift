@@ -120,19 +120,22 @@ public struct OutputProfile: Sendable {
     public let codec: OutputCodec
     public let preserveAudio: Bool
     public let timedMetadataTemplate: [String: String]
+    public let transactionIdentifier: String
 
     public init(
         url: URL,
         resolution: VideoResolution,
         codec: OutputCodec,
         preserveAudio: Bool,
-        timedMetadataTemplate: [String: String] = [:]
+        timedMetadataTemplate: [String: String] = [:],
+        transactionIdentifier: String = UUID().uuidString
     ) {
         self.url = url
         self.resolution = resolution
         self.codec = codec
         self.preserveAudio = preserveAudio
         self.timedMetadataTemplate = timedMetadataTemplate
+        self.transactionIdentifier = transactionIdentifier
     }
 }
 

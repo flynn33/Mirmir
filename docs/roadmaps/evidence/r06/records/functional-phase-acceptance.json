@@ -1,0 +1,393 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R06",
+  "evidence_kind": "r06_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "6c4a6d3d5f8a59c553b10c23783c148ccb3388a5",
+    "tree": "beb0f8c666550c6c36dae5a2185cac58d2494132"
+  },
+  "operator_override": {
+    "authority": "operator",
+    "authorization_date": "2026-07-23",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "override_id": "r06.software-function-only-phase-acceptance.v1",
+    "hardware_simulator_operator_observation": "waived_not_a_blocker",
+    "comparative_requirement": "not_required_for_phase_acceptance",
+    "historical_evidence_policy": "preserve_r06_blocked_evidence_unchanged_non_authorizing"
+  },
+  "functional_gate": {
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_fixture_integration",
+    "required_test_suites": [
+      "R06ASHDecisionContextTests",
+      "R06ASHMasksAndAblationsTests",
+      "R06ASHOrchestratorTests",
+      "R06ASHPolicyCatalogTests",
+      "R06FunctionalPhaseAcceptanceTests",
+      "R07FunctionalCoordinatorTests",
+      "R07FunctionalCoordinatorTransactionTests"
+    ],
+    "required_selected_test_count": 42,
+    "required_behavior_ids": [
+      "source_checkpoint_exact",
+      "frozen_evidence_valid_and_unchanged",
+      "historical_blocked_reason_preserved",
+      "implementation_bindings_exact",
+      "execution_artifacts_exact",
+      "selected_test_set_exact",
+      "decision_context_fields_and_validation",
+      "fixed_point_domains_fail_closed",
+      "bounded_masks_and_ablations",
+      "policy_catalog_sixteen_profiles",
+      "eligibility_filter_before_scoring",
+      "candidate_order_invariance",
+      "one_traceable_whole_frame_plan",
+      "input_immutability",
+      "hysteresis_dwell_and_transition",
+      "typed_failures_and_no_silent_fallback",
+      "product_gate_precedes_validation",
+      "product_scope_rejected_unimplemented",
+      "r07_coordinator_fixture_integration",
+      "transaction_failure_preserves_state",
+      "native_observation_boundary_truthful",
+      "authorization_boundary_exact"
+    ],
+    "historical_blocked_evidence_role": "preserved_non_authorizing_not_acceptance_basis",
+    "historical_blocked_reason": "no_product_qualified_primary_backend",
+    "product_scope_orchestration": "unsupported_rejected_unimplemented",
+    "product_scope_rerun": "not_claimed",
+    "hardware_simulator_operator_observation": "not_required_not_observed",
+    "raw_xcresult_ci_validation": "required"
+  },
+  "evidence_bindings": [
+    {
+      "id": "r06_preregistration",
+      "path": "docs/roadmaps/evidence/r06/records/preregistration.json",
+      "size_bytes": 15319,
+      "sha256": "2b430d75ae1692067a4c1d6e3f6def8bc553c171f30396e0896ae0a3be49beaf"
+    },
+    {
+      "id": "r06_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r06/records/fixtures/fixture-catalog.json",
+      "size_bytes": 10786,
+      "sha256": "2f06fff3a214019ba5f871c918a2ceba9e1019a89342988cf7e8866d929e11a1"
+    },
+    {
+      "id": "r06_orchestration_conformance",
+      "path": "docs/roadmaps/evidence/r06/records/orchestration-conformance.json",
+      "size_bytes": 5800,
+      "sha256": "19f25269e9cb62ba162e2c53d716a79a392fef740a0be0c7d981cbdac3bfeccc"
+    },
+    {
+      "id": "r06_phase_evidence_json",
+      "path": "docs/roadmaps/evidence/r06/phase-evidence.json",
+      "size_bytes": 11395,
+      "sha256": "555508b60108903019798d31e34f3cecd6575e18a39cff07069237e7cf823f00"
+    },
+    {
+      "id": "r06_phase_evidence_markdown",
+      "path": "docs/roadmaps/evidence/r06/phase-evidence.md",
+      "size_bytes": 3740,
+      "sha256": "cfda04a5e4df8dac656f4897841bad9940f32eed7c54c6dd083865095c3a75a1"
+    },
+    {
+      "id": "r06_preregistration_schema",
+      "path": "docs/roadmaps/evidence/schema/r06-preregistration-v1.json",
+      "size_bytes": 10803,
+      "sha256": "e750cb9ee04a9c5aaaec0c1d79bf271db72c362f24dd87e7e3233d02c9726e11"
+    },
+    {
+      "id": "r06_fixture_catalog_schema",
+      "path": "docs/roadmaps/evidence/schema/r06-fixture-catalog-v1.json",
+      "size_bytes": 9210,
+      "sha256": "98d31118299039d3b5bd367a790e6f7b5b488db3989e081e4fa97ab31d99ad70"
+    },
+    {
+      "id": "r06_orchestration_conformance_schema",
+      "path": "docs/roadmaps/evidence/schema/r06-orchestration-conformance-v1.json",
+      "size_bytes": 5051,
+      "sha256": "eceff197b0d9489f57e3db6b23c60954d9a8fdba5564e34699626884778cbd6b"
+    }
+  ],
+  "implementation_bindings": [
+    {
+      "id": "ash_state_source",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift",
+      "size_bytes": 6556,
+      "sha256": "c96f0ef0a1e087cc3c7ac0bf821caa88d72a7e959deabae3749a6f1ad5ebdee2"
+    },
+    {
+      "id": "ash_code_source",
+      "path": "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift",
+      "size_bytes": 3389,
+      "sha256": "b0e97c0016ee73979138e5fe5fe585a359044969e5a5df63c7561c09abe58ddc"
+    },
+    {
+      "id": "r06_decision_context_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHDecisionContext.swift",
+      "size_bytes": 13965,
+      "sha256": "962790b0c79d77dafba4134d0ba58f221125a038f388581c7ff0526a1729047b"
+    },
+    {
+      "id": "r06_masks_and_ablations_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHMasksAndAblations.swift",
+      "size_bytes": 7529,
+      "sha256": "274c0ae5fc31eb9f07c1cc345f2ec0174c53b2daf5fc564f4b227ce74f797864"
+    },
+    {
+      "id": "r06_orchestrator_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHOrchestrator.swift",
+      "size_bytes": 22953,
+      "sha256": "a55502f19fd827b416379212c749b3bcffdb8136f6185d2b28f21576ad9821e4"
+    },
+    {
+      "id": "r06_policy_catalog_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R06ASHPolicyCatalog.swift",
+      "size_bytes": 3836,
+      "sha256": "00ddacea5bcfe1fe87d0af35650f38636e431bdb31c3bef6fe30d802135fe27b"
+    },
+    {
+      "id": "r07_functional_coordinator_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinator.swift",
+      "size_bytes": 11741,
+      "sha256": "cc65a33e78239b65009770bb6c9897e26c2bf30b043c72da59fca7a2cea1efc8"
+    },
+    {
+      "id": "r07_functional_coordinator_analysis_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorAnalysis.swift",
+      "size_bytes": 11715,
+      "sha256": "5a905c8672228f747f2c0efe13aa0e6751c7e6fcf1f458b0e9fc7105a0155723"
+    },
+    {
+      "id": "r07_functional_coordinator_runtime_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorRuntime.swift",
+      "size_bytes": 11793,
+      "sha256": "aeb52f8b00da4d8a89f385def9b7e8322ab0709e673fdfacdd16ddf06410df0f"
+    },
+    {
+      "id": "r07_functional_coordinator_validation_source",
+      "path": "Mirmir/Modules/UpscalerEngine/R07FunctionalCoordinatorValidation.swift",
+      "size_bytes": 6016,
+      "sha256": "fb6dfce042d9e1fbb07e7bc782e539be9aead8b3d29ddf548334fbaa1dd68b2f"
+    },
+    {
+      "id": "r06_decision_context_tests",
+      "path": "MirmirTests/UpscalerEngine/R06ASHDecisionContextTests.swift",
+      "size_bytes": 15312,
+      "sha256": "f07d7995814d341bcf0d70f649f4a2ed5b0b19920266902598c27a3366f0ffbd"
+    },
+    {
+      "id": "r06_masks_and_ablations_tests",
+      "path": "MirmirTests/UpscalerEngine/R06ASHMasksAndAblationsTests.swift",
+      "size_bytes": 10438,
+      "sha256": "4d3654ce20a850001cb56314c98dfbddcc2dbe7813a7c60986f8a12e966397ef"
+    },
+    {
+      "id": "r06_orchestrator_tests",
+      "path": "MirmirTests/UpscalerEngine/R06ASHOrchestratorTests.swift",
+      "size_bytes": 22136,
+      "sha256": "a2e95b603b5fedbd8780bee2b72a05a53612aca2b710cfb17cd2668c625b0b1d"
+    },
+    {
+      "id": "r06_policy_catalog_tests",
+      "path": "MirmirTests/UpscalerEngine/R06ASHPolicyCatalogTests.swift",
+      "size_bytes": 3589,
+      "sha256": "0739520cb9e8f76c964fe73aa514bee0d40467b3a4ae92197ef33a319a6ad121"
+    },
+    {
+      "id": "r06_functional_phase_acceptance_tests",
+      "path": "MirmirTests/R06FunctionalPhaseAcceptanceTests.swift",
+      "size_bytes": 7758,
+      "sha256": "c841507ab6994b3f3145aec3c612c75ef657fd1c1b0216b52c832320f70ab216"
+    },
+    {
+      "id": "r07_functional_coordinator_tests",
+      "path": "MirmirTests/UpscalerEngine/R07FunctionalCoordinatorTests.swift",
+      "size_bytes": 9986,
+      "sha256": "2695e5764b64191d81a91d087959c4ee037981db667867acc710db6f8616eae4"
+    },
+    {
+      "id": "r07_functional_coordinator_transaction_tests",
+      "path": "MirmirTests/UpscalerEngine/R07FunctionalCoordinatorTransactionTests.swift",
+      "size_bytes": 3187,
+      "sha256": "e555a3361cb4e8272e55a760b15cdf5b9a0af3acf81c7c027cd7a23517a56e8f"
+    },
+    {
+      "id": "r07_functional_test_support",
+      "path": "MirmirTests/UpscalerEngine/R07FunctionalTestSupport.swift",
+      "size_bytes": 17217,
+      "sha256": "60950c1ca05affd018fbe87a00104d5690b7d4fbb168a98548841a0a353b9bf4"
+    },
+    {
+      "id": "project_manifest",
+      "path": "project.yml",
+      "size_bytes": 3501,
+      "sha256": "b7f9c7b3f32350101752ba285140c121f57227279f3a5a00a506486e787c6876"
+    },
+    {
+      "id": "xcode_project",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "size_bytes": 208394,
+      "sha256": "7e5b3b28177554c1d7ea88646042c3ab196510f37faee62c73ad278a436cf753"
+    },
+    {
+      "id": "xcode_scheme",
+      "path": "Mirmir.xcodeproj/xcshareddata/xcschemes/Mirmir.xcscheme",
+      "size_bytes": 4494,
+      "sha256": "69d7c7e21199d27be2acc849e724bcbf3d841e87d9070fabc5affd4629b3721a"
+    },
+    {
+      "id": "ash_calibration_cli_support_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift",
+      "size_bytes": 11641,
+      "sha256": "828a55558fdf72da2ae4be06cc2e37b61d03f5c7a4e8ae883df0fecafed3a797"
+    },
+    {
+      "id": "ash_calibration_cli_protocol_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift",
+      "size_bytes": 160132,
+      "sha256": "fa7b1d4ead1f3159c552dff528fffae594628e3ac6165881bbecbfe34cc2b3f2"
+    }
+  ],
+  "artifact_bindings": [
+    {
+      "id": "r06_functional_xcodebuild_log",
+      "path": "docs/roadmaps/evidence/r06/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+      "size_bytes": 2019,
+      "sha256": "9cb95a39f6d22a6116198eba2dd9c6a60cd68eac158110e1408cf3629c616479"
+    },
+    {
+      "id": "r06_functional_xcresult_summary",
+      "path": "docs/roadmaps/evidence/r06/records/artifacts/functional-phase-acceptance/xcresult-summary.json",
+      "size_bytes": 8115,
+      "sha256": "fc40f7b81dd6a7b5272887f826de9a696d6a0c290b782f23d503da451cdfca82"
+    }
+  ],
+  "derived_checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "frozen_evidence_valid_and_unchanged",
+      "status": "passed"
+    },
+    {
+      "id": "historical_blocked_reason_preserved",
+      "status": "passed"
+    },
+    {
+      "id": "implementation_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "execution_artifacts_exact",
+      "status": "passed"
+    },
+    {
+      "id": "selected_test_set_exact",
+      "status": "passed"
+    },
+    {
+      "id": "decision_context_fields_and_validation",
+      "status": "passed"
+    },
+    {
+      "id": "fixed_point_domains_fail_closed",
+      "status": "passed"
+    },
+    {
+      "id": "bounded_masks_and_ablations",
+      "status": "passed"
+    },
+    {
+      "id": "policy_catalog_sixteen_profiles",
+      "status": "passed"
+    },
+    {
+      "id": "eligibility_filter_before_scoring",
+      "status": "passed"
+    },
+    {
+      "id": "candidate_order_invariance",
+      "status": "passed"
+    },
+    {
+      "id": "one_traceable_whole_frame_plan",
+      "status": "passed"
+    },
+    {
+      "id": "input_immutability",
+      "status": "passed"
+    },
+    {
+      "id": "hysteresis_dwell_and_transition",
+      "status": "passed"
+    },
+    {
+      "id": "typed_failures_and_no_silent_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "product_gate_precedes_validation",
+      "status": "passed"
+    },
+    {
+      "id": "product_scope_rejected_unimplemented",
+      "status": "passed"
+    },
+    {
+      "id": "r07_coordinator_fixture_integration",
+      "status": "passed"
+    },
+    {
+      "id": "transaction_failure_preserves_state",
+      "status": "passed"
+    },
+    {
+      "id": "native_observation_boundary_truthful",
+      "status": "passed"
+    },
+    {
+      "id": "authorization_boundary_exact",
+      "status": "passed"
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed",
+    "acceptance": "accepted",
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_fixture_integration"
+  },
+  "authorizations": {
+    "r06_phase_acceptance": "authorized",
+    "r06_phase_status": "passed",
+    "phase_progression": "authorized",
+    "deterministic_fixture_integration": "authorized",
+    "historical_blocked_evidence": "preserved_non_authorizing",
+    "product_scope_orchestration": "rejected_unimplemented",
+    "product_qualification": "not_claimed",
+    "product_routing": "not_authorized",
+    "production_upscaling": "not_authorized",
+    "production_default": "not_authorized",
+    "auto_mode": "not_authorized",
+    "holdout": "not_authorized",
+    "native_framework_execution": "not_claimed",
+    "hardware_observation": "not_claimed",
+    "simulator_observation": "not_claimed",
+    "operator_observation": "not_claimed",
+    "quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "product_publication": "not_authorized",
+    "release": "not_authorized"
+  },
+  "limitations": [
+    "R06 acceptance is limited to checkpoint-bound deterministic fixture proof that the decision context, masks, policy catalog, scoring, eligibility, selection, transition, and coordinator transaction software performs its declared task.",
+    "The historical no_product_qualified_primary_backend blocked conformance and phase evidence remain unchanged and non-authorizing; no product-scope rerun is claimed.",
+    "R06 v1 product-scope orchestration intentionally rejects before scoring and plan construction and remains unsupported and unimplemented for product routing.",
+    "R06 acceptance does not claim product qualification, production routing or default, Auto, holdout, native-framework or hardware observation, quality, performance, publication, or release."
+  ]
+}

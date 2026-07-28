@@ -1,0 +1,213 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R11",
+  "preregistration_state": "contract_frozen_for_local_implementation",
+  "predecessor_binding": {
+    "direct_predecessors": [
+      "R10"
+    ],
+    "phase_id": "R10",
+    "phase_result": "passed",
+    "acceptance": "accepted",
+    "acceptance_scope": "declared_software_function_only",
+    "closure_source": {
+      "commit": "8d4283d2f3fbb104ef589f002de2fd6ccadad0f8",
+      "tree": "ee0461cff1fea9461f619ce904376ebdb128a2f5"
+    },
+    "accepted_implementation_source": {
+      "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+      "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+    },
+    "functional_execution_receipt": {
+      "path": "docs/roadmaps/evidence/r10/records/functional-execution-receipt.json",
+      "size_bytes": 24620,
+      "sha256": "5e7d3ac93b2de7b621a4223b40aa4d8397c3a78582e94977c361debfb853cb3f"
+    },
+    "functional_phase_acceptance": {
+      "path": "docs/roadmaps/evidence/r10/records/functional-phase-acceptance.json",
+      "size_bytes": 3631,
+      "sha256": "f7f75fd69691dcca632f2ae8c220cfb34662bb1ecff6769c84602f3a21368785"
+    }
+  },
+  "implementation_binding_policy": "current_contract_bytes_preregistered_execution_source_bound_later",
+  "implementation_contract_bindings": [
+    {
+      "id": "traceability_core",
+      "path": "validation/calibration_v2/r11_traceability.py",
+      "size_bytes": 47281,
+      "sha256": "873ad5bd4b5907ec4fbbc5062df8d50600774757342366d2cdedb71db0905d02"
+    },
+    {
+      "id": "traceability_core_tests",
+      "path": "validation/calibration_v2/tests/test_r11_traceability.py",
+      "size_bytes": 28537,
+      "sha256": "decd4153577cf2b08f2013bd60570e3e6a6ba2ebd279e47be1880ae26abb35bc"
+    }
+  ],
+  "identity_contract": {
+    "component_order": [
+      "source",
+      "software",
+      "subject",
+      "input",
+      "preprocessing",
+      "toolchain",
+      "execution"
+    ],
+    "component_fields": {
+      "source": [
+        "commit",
+        "tree"
+      ],
+      "software": [
+        "component_id",
+        "implementation_manifest_sha256",
+        "contract_sha256"
+      ],
+      "subject": [
+        "subject_id",
+        "subject_kind",
+        "behavior_contract_sha256"
+      ],
+      "input": [
+        "input_id",
+        "input_kind",
+        "payload_sha256"
+      ],
+      "preprocessing": [
+        "pipeline_id",
+        "configuration_sha256"
+      ],
+      "toolchain": [
+        "platform",
+        "architecture",
+        "runtime_id",
+        "runtime_version",
+        "command_sha256"
+      ],
+      "execution": [
+        "execution_id",
+        "execution_mode",
+        "invocation_sha256"
+      ]
+    },
+    "component_digest_algorithm": "sha256_canonical_json_seven_component_documents",
+    "complete_identity_required": true,
+    "missing_component_result": "rejected",
+    "duplicate_component_result": "rejected",
+    "mismatched_component_result": "rejected"
+  },
+  "observation_contract": {
+    "state_order": [
+      "observed",
+      "not_applicable",
+      "not_observed",
+      "failed",
+      "absent"
+    ],
+    "observed_value_contract": "canonical_json_value_required",
+    "non_observed_codes": {
+      "not_applicable": "not_applicable_by_contract",
+      "not_observed": "execution_not_observed",
+      "failed": "execution_failed",
+      "absent": "evidence_explicitly_absent"
+    },
+    "explicit_absent_record_required": true,
+    "missing_is_not_absent": true
+  },
+  "aggregation_contract": {
+    "method": "deterministic_state_counts",
+    "aggregate_state_order": [
+      "observed",
+      "not_applicable",
+      "not_observed",
+      "failed",
+      "absent",
+      "mixed"
+    ],
+    "preserves_each_state_count": true,
+    "mixed_rule": "mixed_when_multiple_observation_state_counts_are_nonzero",
+    "averages_authorized": false,
+    "opaque_scalar_authorized": false
+  },
+  "claim_contract": {
+    "permitted_claims": [
+      "software_behavior_report"
+    ],
+    "market_disposition": "no_market_claim",
+    "production_auto_mode": "blocked",
+    "market_leading_claim": "blocked"
+  },
+  "comparison_policy": {
+    "comparison_methods": "absent_not_required",
+    "comparison_success_cases": "absent",
+    "acceptance_dependency": "none"
+  },
+  "fixture_catalog_binding": {
+    "path": "docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json",
+    "size_bytes": 15391,
+    "sha256": "485833ef668c681a846e6499bf2dd90ee45ae5a4cd52cf4d1baefd211456cc2f"
+  },
+  "schema_bindings": [
+    {
+      "id": "preregistration",
+      "path": "docs/roadmaps/evidence/schema/r11-preregistration-v1.json",
+      "size_bytes": 17120,
+      "sha256": "52429be2a10e021ce7e0e0565ac905c9d02e32e0a04346449374c09d2fdaec5f"
+    },
+    {
+      "id": "fixture_catalog",
+      "path": "docs/roadmaps/evidence/schema/r11-fixture-catalog-v1.json",
+      "size_bytes": 14122,
+      "sha256": "803d8ea6dc15eaec6b334efbc9d2fa8eae0d22cdcf6023c9e95b48e696957e5d"
+    },
+    {
+      "id": "traceability_run_receipt",
+      "path": "docs/roadmaps/evidence/schema/r11-traceability-run-receipt-v1.json",
+      "size_bytes": 26782,
+      "sha256": "c52480aeed6864760baaa7d216cccfc1595cbf6cc17c721f0c9b5e7efa2c2593"
+    },
+    {
+      "id": "functional_execution_receipt",
+      "path": "docs/roadmaps/evidence/schema/r11-functional-execution-receipt-v1.json",
+      "size_bytes": 7398,
+      "sha256": "ce3951e509b05d6655699d59685ae0dd378b13834f22e2d84fb37b2f22420a0c"
+    },
+    {
+      "id": "functional_phase_acceptance",
+      "path": "docs/roadmaps/evidence/schema/r11-functional-phase-acceptance-v1.json",
+      "size_bytes": 3832,
+      "sha256": "b879125bb02c8f90770ff2bd095cd26b6059111b4ccdb0345510b4676730594d"
+    }
+  ],
+  "checks": [
+    "accepted_r10_binding_exact",
+    "seven_identity_components_exact",
+    "five_observation_states_exact",
+    "deterministic_complete_aggregate_exact",
+    "missing_duplicate_mismatch_rejected",
+    "software_behavior_report_only",
+    "no_market_claim_unconditional",
+    "production_and_market_authority_blocked",
+    "comparison_methods_and_success_cases_absent",
+    "schemas_and_fixture_catalog_exact"
+  ],
+  "stop_rules": [
+    "accepted_r10_binding_drift",
+    "schema_or_fixture_byte_drift",
+    "identity_component_missing_duplicate_or_mismatch",
+    "observation_state_out_of_scope",
+    "aggregate_count_or_state_mismatch",
+    "claim_scope_expansion",
+    "forged_production_or_market_authorization",
+    "comparison_method_or_success_case_introduced"
+  ],
+  "authorization_boundary": {
+    "r11_implementation": "authorized",
+    "fixture_evidence_publication": "authorized",
+    "production_auto_mode": "blocked",
+    "market_leading_claim": "blocked",
+    "release": "not_authorized"
+  }
+}

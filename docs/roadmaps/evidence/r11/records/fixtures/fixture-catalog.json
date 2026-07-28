@@ -1,0 +1,392 @@
+{
+  "aggregate_cases": [
+    {
+      "expected_aggregate": {
+        "aggregate_state": "mixed",
+        "expected_observation_ids": [
+          "observation-absent",
+          "observation-failed",
+          "observation-not-applicable",
+          "observation-not-observed",
+          "observation-observed"
+        ],
+        "identity": {
+          "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+          "execution": {
+            "execution_id": "r11.fixture.mixed-state",
+            "execution_mode": "deterministic_fixture_simulation",
+            "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+          },
+          "input": {
+            "input_id": "r11.fixture.catalog",
+            "input_kind": "repository_fixture",
+            "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+          },
+          "preprocessing": {
+            "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+            "pipeline_id": "identity-preserving-fixture-v1"
+          },
+          "software": {
+            "component_id": "mirmir.r11.traceability",
+            "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+            "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+          },
+          "source": {
+            "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+            "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+          },
+          "subject": {
+            "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+            "subject_id": "r11.fixture.claim-boundary",
+            "subject_kind": "declared_software_behavior"
+          },
+          "toolchain": {
+            "architecture": "arm64",
+            "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+            "platform": "macos",
+            "runtime_id": "python",
+            "runtime_version": "3.11.9"
+          }
+        },
+        "observation_sha256_values": [
+          "e67fd4bec177ffe1441cf625c6ec42187b46173d525fd8186d965a064e783fd6",
+          "bf778566403b341b18389bb589c4985f171408e858267b158fd1029e8b425b28",
+          "4abc0bbebf7bdb3c21724cc02d73f64863b818b671cf38306bf1d2cf01ec45f4",
+          "1d8e72d82ddd4ca2832f7bba2b0a5ec5f5ae066505f760b3d101ad73f0ba6a56",
+          "085aa0c0c95adbfd8df39a1e7d9068aadb476bb6288c83ca1d454aea8810084d"
+        ],
+        "observed_values": [
+          {
+            "observation_id": "observation-observed",
+            "value": "declared_behavior_passed"
+          }
+        ],
+        "state_counts": {
+          "absent": 1,
+          "failed": 1,
+          "not_applicable": 1,
+          "not_observed": 1,
+          "observed": 1
+        }
+      },
+      "id": "aggregate-five-state-mixed",
+      "observation_ids": [
+        "observation-absent",
+        "observation-failed",
+        "observation-not-applicable",
+        "observation-not-observed",
+        "observation-observed"
+      ]
+    }
+  ],
+  "catalog_state": "frozen_for_r11_implementation",
+  "claim_boundary": {
+    "claim_scope": "software_behavior_report",
+    "market_disposition": "no_market_claim",
+    "market_leading_claim": "blocked",
+    "production_auto_mode": "blocked"
+  },
+  "comparison_policy": {
+    "acceptance_dependency": "none",
+    "comparison_method": "absent_not_required",
+    "comparison_success_case": "absent"
+  },
+  "identity_component_order": [
+    "source",
+    "software",
+    "subject",
+    "input",
+    "preprocessing",
+    "toolchain",
+    "execution"
+  ],
+  "observation_state_order": [
+    "observed",
+    "not_applicable",
+    "not_observed",
+    "failed",
+    "absent"
+  ],
+  "observations": [
+    {
+      "failure_code": null,
+      "identity": {
+        "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+        "execution": {
+          "execution_id": "r11.fixture.mixed-state",
+          "execution_mode": "deterministic_fixture_simulation",
+          "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+        },
+        "input": {
+          "input_id": "r11.fixture.catalog",
+          "input_kind": "repository_fixture",
+          "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+        },
+        "preprocessing": {
+          "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+          "pipeline_id": "identity-preserving-fixture-v1"
+        },
+        "software": {
+          "component_id": "mirmir.r11.traceability",
+          "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+          "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+        },
+        "source": {
+          "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+          "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+        },
+        "subject": {
+          "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+          "subject_id": "r11.fixture.claim-boundary",
+          "subject_kind": "declared_software_behavior"
+        },
+        "toolchain": {
+          "architecture": "arm64",
+          "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+          "platform": "macos",
+          "runtime_id": "python",
+          "runtime_version": "3.11.9"
+        }
+      },
+      "observation_id": "observation-observed",
+      "reason_code": null,
+      "state": "observed",
+      "value": "declared_behavior_passed"
+    },
+    {
+      "failure_code": null,
+      "identity": {
+        "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+        "execution": {
+          "execution_id": "r11.fixture.mixed-state",
+          "execution_mode": "deterministic_fixture_simulation",
+          "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+        },
+        "input": {
+          "input_id": "r11.fixture.catalog",
+          "input_kind": "repository_fixture",
+          "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+        },
+        "preprocessing": {
+          "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+          "pipeline_id": "identity-preserving-fixture-v1"
+        },
+        "software": {
+          "component_id": "mirmir.r11.traceability",
+          "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+          "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+        },
+        "source": {
+          "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+          "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+        },
+        "subject": {
+          "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+          "subject_id": "r11.fixture.claim-boundary",
+          "subject_kind": "declared_software_behavior"
+        },
+        "toolchain": {
+          "architecture": "arm64",
+          "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+          "platform": "macos",
+          "runtime_id": "python",
+          "runtime_version": "3.11.9"
+        }
+      },
+      "observation_id": "observation-not-applicable",
+      "reason_code": "declared_not_applicable",
+      "state": "not_applicable",
+      "value": null
+    },
+    {
+      "failure_code": null,
+      "identity": {
+        "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+        "execution": {
+          "execution_id": "r11.fixture.mixed-state",
+          "execution_mode": "deterministic_fixture_simulation",
+          "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+        },
+        "input": {
+          "input_id": "r11.fixture.catalog",
+          "input_kind": "repository_fixture",
+          "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+        },
+        "preprocessing": {
+          "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+          "pipeline_id": "identity-preserving-fixture-v1"
+        },
+        "software": {
+          "component_id": "mirmir.r11.traceability",
+          "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+          "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+        },
+        "source": {
+          "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+          "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+        },
+        "subject": {
+          "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+          "subject_id": "r11.fixture.claim-boundary",
+          "subject_kind": "declared_software_behavior"
+        },
+        "toolchain": {
+          "architecture": "arm64",
+          "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+          "platform": "macos",
+          "runtime_id": "python",
+          "runtime_version": "3.11.9"
+        }
+      },
+      "observation_id": "observation-not-observed",
+      "reason_code": "simulator_not_observed",
+      "state": "not_observed",
+      "value": null
+    },
+    {
+      "failure_code": "fixture_execution_failed",
+      "identity": {
+        "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+        "execution": {
+          "execution_id": "r11.fixture.mixed-state",
+          "execution_mode": "deterministic_fixture_simulation",
+          "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+        },
+        "input": {
+          "input_id": "r11.fixture.catalog",
+          "input_kind": "repository_fixture",
+          "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+        },
+        "preprocessing": {
+          "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+          "pipeline_id": "identity-preserving-fixture-v1"
+        },
+        "software": {
+          "component_id": "mirmir.r11.traceability",
+          "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+          "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+        },
+        "source": {
+          "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+          "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+        },
+        "subject": {
+          "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+          "subject_id": "r11.fixture.claim-boundary",
+          "subject_kind": "declared_software_behavior"
+        },
+        "toolchain": {
+          "architecture": "arm64",
+          "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+          "platform": "macos",
+          "runtime_id": "python",
+          "runtime_version": "3.11.9"
+        }
+      },
+      "observation_id": "observation-failed",
+      "reason_code": "execution_failed",
+      "state": "failed",
+      "value": null
+    },
+    {
+      "failure_code": null,
+      "identity": {
+        "derived_digest_sha256": "3876a1d5af2715f42e34fa580ad283815cb9d3537c57e91058de753b7f492168",
+        "execution": {
+          "execution_id": "r11.fixture.mixed-state",
+          "execution_mode": "deterministic_fixture_simulation",
+          "invocation_sha256": "91a5bcd7aceb6270cf6594842c95e2827751ecf8a9245e2bbea1bcc0bd0af225"
+        },
+        "input": {
+          "input_id": "r11.fixture.catalog",
+          "input_kind": "repository_fixture",
+          "payload_sha256": "a69a777112fa1c45c8e2d3916c5d266900d4c2cdb74172aa50fd7d076ae0fe95"
+        },
+        "preprocessing": {
+          "configuration_sha256": "830f93a7febb57ad90baf41bdd71fb38ee788fda28bfb70fd7eddc69b17bff0f",
+          "pipeline_id": "identity-preserving-fixture-v1"
+        },
+        "software": {
+          "component_id": "mirmir.r11.traceability",
+          "contract_sha256": "854c503df0c776256d1ed90a2fe67171fba6cceb32849b9a8ecef1c137b2d3af",
+          "implementation_manifest_sha256": "6ff8d70f29411334ed25457b02eafb6f6c2154dca5e016748d7048964226e440"
+        },
+        "source": {
+          "commit": "3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b",
+          "tree": "37951da694ab4fbca6f8c663bb2883e5084b861c"
+        },
+        "subject": {
+          "behavior_contract_sha256": "379136ea6a4b4a937e1dc7b44f7adbc7cbb49894ddfcfe87646a9570e599df23",
+          "subject_id": "r11.fixture.claim-boundary",
+          "subject_kind": "declared_software_behavior"
+        },
+        "toolchain": {
+          "architecture": "arm64",
+          "command_sha256": "c2a8c0545b893b0e2a22262910c4c90fae3a761bc6c2a38d1b45679ee7fb4680",
+          "platform": "macos",
+          "runtime_id": "python",
+          "runtime_version": "3.11.9"
+        }
+      },
+      "observation_id": "observation-absent",
+      "reason_code": "source_data_absent",
+      "state": "absent",
+      "value": null
+    }
+  ],
+  "phase_id": "R11",
+  "rejection_cases": [
+    {
+      "expected_reason": "missing_identity_component",
+      "expected_status": "rejected",
+      "id": "reject-missing-identity-component",
+      "mutation": {
+        "operation": "remove_identity_component",
+        "target": "identity.source"
+      },
+      "source_observation_id": "observation-observed"
+    },
+    {
+      "expected_reason": "duplicate_identity_component",
+      "expected_status": "rejected",
+      "id": "reject-duplicate-identity-component",
+      "mutation": {
+        "operation": "duplicate_identity_component",
+        "target": "identity.software"
+      },
+      "source_observation_id": "observation-observed"
+    },
+    {
+      "expected_reason": "identity_digest_mismatch",
+      "expected_status": "rejected",
+      "id": "reject-identity-digest-mismatch",
+      "mutation": {
+        "operation": "replace_identity_value_without_digest",
+        "target": "identity.subject.subject_id"
+      },
+      "source_observation_id": "observation-observed"
+    },
+    {
+      "expected_reason": "claim_scope_out_of_scope",
+      "expected_status": "rejected",
+      "id": "reject-claim-scope-out-of-scope",
+      "mutation": {
+        "operation": "set_claim_scope_out_of_scope",
+        "target": "claim_boundary.claim_scope"
+      },
+      "source_observation_id": "observation-observed"
+    },
+    {
+      "expected_reason": "forged_authorization",
+      "expected_status": "rejected",
+      "id": "reject-forged-authorization",
+      "mutation": {
+        "operation": "set_production_auto_mode_authorized",
+        "target": "claim_boundary.production_auto_mode"
+      },
+      "source_observation_id": "observation-observed"
+    }
+  ],
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0"
+}

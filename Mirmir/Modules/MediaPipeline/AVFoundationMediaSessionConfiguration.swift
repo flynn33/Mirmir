@@ -34,17 +34,39 @@ extension AVFoundationMediaSession {
         return ReaderOutputs(video: videoOutput, audio: audioOutput)
     }
 
-    static func makeOutputTransaction(outputURL: URL) throws -> AtomicMediaOutput {
+    static func makeOutputTransaction(
+        outputURL: URL,
+        transactionIdentifier: String
+    ) throws -> AtomicMediaOutput {
         do {
-            return try AtomicMediaOutput(destinationURL: outputURL)
+            return try AtomicMediaOutput(
+                destinationURL: outputURL,
+                temporaryIdentifier: transactionIdentifier
+            )
         } catch {
             throw MediaPipelineError.outputPreparationFailed(outputURL, error)
         }
     }
 
     static func makeWriter(outputTransaction: AtomicMediaOutput, outputURL: URL) throws -> AVAssetWriter {
+        let fileType: AVFileType
         do {
-            return try AVAssetWriter(url: outputTransaction.temporaryURL, fileType: .mp4)
+            fileType = try writerFileType(for: outputURL)
+        } catch {
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
+            throw error
+        }
+        do {
+            return try AVAssetWriter(
+                url: outputTransaction.temporaryURL,
+                fileType: fileType
+            )
         } catch {
             let cleanup = outputTransaction.fail()
             if let cleanupError = cleanup.error {
@@ -57,21 +79,38 @@ extension AVFoundationMediaSession {
         }
     }
 
+    static func writerFileType(for outputURL: URL) throws -> AVFileType {
+        let pathExtension = outputURL.pathExtension.lowercased()
+        switch pathExtension {
+        case "mp4":
+            return .mp4
+        case "mov":
+            return .mov
+        default:
+            throw MediaPipelineError.unsupportedOutputContainer(pathExtension)
+        }
+    }
+
     static func configureWriterInputs(
         writer: AVAssetWriter,
         output: OutputProfile,
+        sourceResolution: VideoResolution,
         videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform,
         audioOutput: AVAssetReaderTrackOutput?,
         audioFormatDescription: CMFormatDescription?
     ) throws -> WriterInputs {
+        let outputTransform = try scaledVideoTransform(
+            videoTransform,
+            sourceResolution: sourceResolution,
+            outputResolution: output.resolution
+        )
         let videoInput = try makeVideoInput(
             output: output,
             videoTimeScale: videoTimeScale,
-            videoTransform: videoTransform
+            videoTransform: outputTransform
         )
         writer.movieTimeScale = videoTimeScale
-        let adaptor = makeVideoAdaptor(videoInput: videoInput, resolution: output.resolution)
         guard writer.canAdd(videoInput) else {
             throw MediaPipelineError.cannotAddWriterInput("video")
         }
@@ -89,9 +128,41 @@ extension AVFoundationMediaSession {
         )
         return WriterInputs(
             video: videoInput,
-            adaptor: adaptor,
             audio: audioInput,
-            timedMetadata: timedMetadata
+            timedMetadata: timedMetadata,
+            videoTransform: outputTransform
+        )
+    }
+
+    static func scaledVideoTransform(
+        _ transform: CGAffineTransform,
+        sourceResolution: VideoResolution,
+        outputResolution: VideoResolution
+    ) throws -> CGAffineTransform {
+        guard sourceResolution.width > 0,
+              sourceResolution.height > 0 else {
+            throw MediaPipelineError.invalidFrameTiming(
+                "source encoded dimensions must be positive"
+            )
+        }
+        let horizontalScale = CGFloat(outputResolution.width)
+            / CGFloat(sourceResolution.width)
+        let verticalScale = CGFloat(outputResolution.height)
+            / CGFloat(sourceResolution.height)
+        guard horizontalScale.isFinite,
+              verticalScale.isFinite,
+              abs(horizontalScale - verticalScale) <= 0.000_001 else {
+            throw MediaPipelineError.invalidFrameTiming(
+                "output must scale both encoded axes uniformly to preserve orientation"
+            )
+        }
+        return CGAffineTransform(
+            a: transform.a,
+            b: transform.b,
+            c: transform.c,
+            d: transform.d,
+            tx: transform.tx * horizontalScale,
+            ty: transform.ty * verticalScale
         )
     }
 
@@ -170,13 +241,7 @@ extension AVFoundationMediaSession {
         mediaTimeScale: CMTimeScale
     ) throws -> TimedMetadataWriter? {
         guard !template.isEmpty else { return nil }
-        guard template.allSatisfy({ key, value in
-            key.hasPrefix("com.mirmir.ash.") && !value.isEmpty
-        }) else {
-            throw MediaPipelineError.outputMetadataMismatch(
-                "timed metadata template contains an invalid key or empty value"
-            )
-        }
+        try MirmirTimedMetadataPolicy.validate(template)
         let templateGroup = makeASHMetadataGroup(
             template,
             timeRange: CMTimeRange(
@@ -192,7 +257,7 @@ extension AVFoundationMediaSession {
         input.expectsMediaDataInRealTime = false
         input.mediaTimeScale = mediaTimeScale
         guard writer.canAdd(input) else {
-            throw MediaPipelineError.cannotAddWriterInput("ASH identity metadata")
+            throw MediaPipelineError.cannotAddWriterInput("Mirmir identity metadata")
         }
         writer.add(input)
         return TimedMetadataWriter(
@@ -238,21 +303,46 @@ extension AVFoundationMediaSession {
         return videoInput
     }
 
-    private static func makeVideoAdaptor(
-        videoInput: AVAssetWriterInput,
-        resolution: VideoResolution
-    ) -> AVAssetWriterInputPixelBufferAdaptor {
-        let adaptorAttrs: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
-            kCVPixelBufferWidthKey as String: NSNumber(value: resolution.width),
-            kCVPixelBufferHeightKey as String: NSNumber(value: resolution.height),
-            kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
-            kCVPixelBufferMetalCompatibilityKey as String: true
-        ]
-        return AVAssetWriterInputPixelBufferAdaptor(
-            assetWriterInput: videoInput,
-            sourcePixelBufferAttributes: adaptorAttrs
+    static func makeVideoSampleBuffer(
+        pixelBuffer: CVPixelBuffer,
+        timing: FrameTiming
+    ) throws -> CMSampleBuffer {
+        var formatDescription: CMVideoFormatDescription?
+        let formatStatus = CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            formatDescriptionOut: &formatDescription
         )
+        guard formatStatus == noErr, let formatDescription else {
+            throw MediaPipelineError.writerFailed(
+                NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(formatStatus)
+                )
+            )
+        }
+        var sampleTiming = CMSampleTimingInfo(
+            duration: timing.duration,
+            presentationTimeStamp: timing.presentationTime,
+            decodeTimeStamp: .invalid
+        )
+        var sampleBuffer: CMSampleBuffer?
+        let sampleStatus = CMSampleBufferCreateReadyWithImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: pixelBuffer,
+            formatDescription: formatDescription,
+            sampleTiming: &sampleTiming,
+            sampleBufferOut: &sampleBuffer
+        )
+        guard sampleStatus == noErr, let sampleBuffer else {
+            throw MediaPipelineError.writerFailed(
+                NSError(
+                    domain: NSOSStatusErrorDomain,
+                    code: Int(sampleStatus)
+                )
+            )
+        }
+        return sampleBuffer
     }
 
     private static func makeAudioInput(
@@ -284,9 +374,9 @@ struct ReaderOutputs {
 
 struct WriterInputs {
     let video: AVAssetWriterInput
-    let adaptor: AVAssetWriterInputPixelBufferAdaptor
     let audio: AVAssetWriterInput?
     let timedMetadata: TimedMetadataWriter?
+    let videoTransform: CGAffineTransform
 }
 
 struct TimedMetadataWriter {

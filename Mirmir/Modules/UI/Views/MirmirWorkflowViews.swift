@@ -61,8 +61,8 @@ struct MirmirWorkflowRootView: View {
             )
         case .queue:
             MirmirQueueScreen(viewModel: viewModel, theme: theme)
-        case .presets:
-            MirmirPresetsScreen(viewModel: viewModel, theme: theme)
+        case .modes:
+            MirmirModesScreen(viewModel: viewModel, theme: theme)
         case .settings:
             MirmirSettingsScreen(
                 viewModel: viewModel,
@@ -82,7 +82,7 @@ enum MirmirWorkspaceDestination: String, CaseIterable, Identifiable {
     case library
     case upscale
     case queue
-    case presets
+    case modes
     case settings
     case about
     case diagnostics
@@ -94,7 +94,7 @@ enum MirmirWorkspaceDestination: String, CaseIterable, Identifiable {
         .library,
         .upscale,
         .queue,
-        .presets,
+        .modes,
         .settings
     ]
 
@@ -113,8 +113,8 @@ enum MirmirWorkspaceDestination: String, CaseIterable, Identifiable {
             return "Upscale"
         case .queue:
             return "Queue"
-        case .presets:
-            return "Presets"
+        case .modes:
+            return "Modes"
         case .settings:
             return "Settings"
         case .about:
@@ -134,7 +134,7 @@ enum MirmirWorkspaceDestination: String, CaseIterable, Identifiable {
             return "arrow.up.left.and.arrow.down.right"
         case .queue:
             return "list.bullet.rectangle"
-        case .presets:
+        case .modes:
             return "slider.horizontal.3"
         case .settings:
             return "gearshape"
@@ -282,7 +282,7 @@ private struct MirmirWorkspaceHeader: View {
     }
 
     private var engineStatusIcon: String {
-        switch viewModel.engineAvailability {
+        switch viewModel.selectedModeAvailability {
         case .available:
             return "checkmark.circle"
         case .unavailable:
@@ -291,7 +291,7 @@ private struct MirmirWorkspaceHeader: View {
     }
 
     private var engineStatusColor: Color {
-        switch viewModel.engineAvailability {
+        switch viewModel.selectedModeAvailability {
         case .available:
             return theme.success
         case .unavailable:

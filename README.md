@@ -13,7 +13,7 @@ application bundle.
 ## Product Direction and Evidence Status
 
 The canonical product direction is the **Mirmir Apple-Native Adaptive Video
-Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-22. The canonical source files are
+Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-23. The canonical source files are
 [Markdown](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md) and
 [machine-readable JSON](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.json).
 
@@ -39,56 +39,61 @@ and carries no implementation, acceptance, or phase-progression authority.
 
 ## Roadmap Progress
 
-**Current roadmap focus:** `R02` — Unified backend and stage architecture;
-`R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration
-and suitability decision; and `R06` — ASH orchestration engine v1
+**Current roadmap status:** complete for the accepted
+`declared_software_function_only` scope; `R00` through `R13` are `passed`.
 
-**Latest phase acceptance:** `R09` — `passed` with exit outcome
-`qualified_local_residual` under the declared-software-function-only gate.
+**Latest phase acceptance:** `R13` — `passed` under the
+`software_does_what_it_says_it_does` basis, with outcome
+`release_ready_candidate`.
 
-**Acceptance basis:** deterministic tests must verify that the residual service
-and ASH-authorized application stage perform their declared bounded task,
-preserve exact identity and NV12 representation, exclude protected regions, and
-fail closed on every rejected or unsafe input. Comparison-based testing supplies
-no acceptance authority.
+**R13 functional closure:** the exact-source records bind source commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+`5c8ae09251955d8274d391e93215b346db25bada`. The run passed all 183 selected
+tests with zero failures and zero skips and linted 403 Swift files with zero
+violations. It verifies the genuine A11 MPS Lanczos and AVFoundation shipping
+paths, reopens the retained QuickTime MOV, and separately builds, archives, and
+reopens the exact Release app candidate.
 
-**R09 evidence:** implementation commit
-`3ba7b2b5fdbde3a3f90f011cb548b85d46b2ac8b`, tree
-`5f19024af0837d5efd54855bcf0fd705a50eadc9`, and 26 passing selected tests
-across four suites, with zero failures and zero skips.
+The functional execution receipt has SHA-256
+`cb12549e9749cb1529d91bd54442ddb0a90443d6d19277f93b4502fac18b970f`;
+the phase-acceptance record has SHA-256
+`9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f`.
 
-**Execution scope:** declared bounded-residual software behavior under
-deterministic fixture simulation. Native Core AI, Xcode 27, model, hardware,
-simulator, and operator-observed execution remain `not_observed`; production
-default/Auto routing, holdout access, quality or performance claims,
-publication, and release remain unauthorized. R06 remains `in_progress` and
-unaccepted.
+**Authorization boundary:** Quality, Fast, and Deterministic are available.
+Auto remains visible but `unavailable` and `not_authorized`; no model or
+fallback route is accepted. Comparison and A/B methods are absent and not
+required. Hardware, simulator, operator observation, Release-app execution,
+distribution signing, notarization, Gatekeeper assessment, and launch smoke are
+`not_observed` and nonblocking. The candidate was not published or released,
+and no publication, distribution, tag, release, Auto, or market claim is
+authorized.
 
 <!-- BEGIN ROADMAP PROGRESS -->
-**Overall:** `6 / 14` roadmap phases passed (`42%`)
+**Overall:** `14 / 14` roadmap phases passed (`100%`)
 
-`[####------]`
+`[##########]`
 
-**Status:** ✅ Passed `6` · 🔄 In progress `4` · ⬜ Planned `4`
+**Status:** ✅ Passed `14`
 
-**Current focus:** `R02` — Unified backend and stage architecture; `R04` — VideoToolbox super-resolution integration; `R05` — MetalFX integration and suitability decision; `R06` — ASH orchestration engine v1
+**Current focus:** No phase is marked `next`, `in_progress`, or `evidence_ready`.
 
 | Phase | Roadmap phase | Status | Progress |
 | --- | --- | --- | --- |
 | `R00` | Strategic reset and evidence preservation | `passed` | ✅ Passed |
 | `R01` | Apple capability laboratory | `passed` | ✅ Passed |
-| `R02` | Unified backend and stage architecture | `in_progress` | 🔄 In progress |
+| `R02` | Unified backend and stage architecture | `passed` | ✅ Passed |
 | `R03` | Deterministic Apple-native baseline suite | `passed` | ✅ Passed |
-| `R04` | VideoToolbox super-resolution integration | `in_progress` | 🔄 In progress |
-| `R05` | MetalFX integration and suitability decision | `in_progress` | 🔄 In progress |
-| `R06` | ASH orchestration engine v1 | `in_progress` | 🔄 In progress |
+| `R04` | VideoToolbox super-resolution integration | `passed` | ✅ Passed |
+| `R05` | MetalFX integration and suitability decision | `passed` | ✅ Passed |
+| `R06` | ASH orchestration engine v1 | `passed` | ✅ Passed |
 | `R07` | Temporal stability and artifact governance | `passed` | ✅ Passed |
 | `R08` | Core AI analysis-only integration | `passed` | ✅ Passed |
 | `R09` | Core AI bounded residual experiment | `passed` | ✅ Passed |
-| `R10` | Auto-policy optimization and bounded calibration | `planned` | ⬜ Planned |
-| `R11` | Evidence traceability and claim boundary | `planned` | ⬜ Planned |
-| `R12` | Format, route, and product expansion | `planned` | ⬜ Planned |
-| `R13` | Release hardening | `planned` | ⬜ Planned |
+| `R10` | Auto-policy optimization and bounded calibration | `passed` | ✅ Passed |
+| `R11` | Evidence traceability and claim boundary | `passed` | ✅ Passed |
+| `R12` | Format, route, and product expansion | `passed` | ✅ Passed |
+| `R13` | Release hardening | `passed` | ✅ Passed |
 <!-- END ROADMAP PROGRESS -->
 
 ## Canonical Roadmap (Complete)
@@ -98,7 +103,7 @@ unaccepted.
 
 **Roadmap version:** 1.0.1<br>
 **Publication date:** 2026-07-18<br>
-**Revision date:** 2026-07-22<br>
+**Revision date:** 2026-07-23<br>
 **Product target:** Native macOS application built with Swift, SwiftUI, AVFoundation, CoreVideo, VideoToolbox, Metal, MetalFX, Metal Performance Shaders, Core Image, Accelerate, Core AI, and an app-owned Pattern B module runtime<br>
 **Status:** Strategic replacement for the ASH-as-primary-upscaler direction and the failed monolithic P06 release-closure path
 
@@ -687,7 +692,7 @@ mode without later evidence that separately satisfies its production gate.
 
 ## R02 — Unified backend and stage architecture
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -707,6 +712,30 @@ Make every Apple method interchangeable at a controlled object-oriented boundary
 ### Exit gate
 
 A deterministic fixture can run through multiple backends under one common session contract while preserving dimensions, frame order, PTS, duration, audio, metadata, and atomic publication.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+The additive functional phase-acceptance record binds source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode
+run with 27 tests passed, zero failed, and zero skipped. The accepted software
+function covers the immutable capability registry, common backend/session
+boundary, distinct stage roles, deterministic single-primary planning, typed
+outcomes, FIFO lifecycle, complete processing identity, visible fallback,
+media-identity preservation, reopen verification, resource lifetime, and atomic
+publication. Two direct tests additionally bind production bootstrap to
+`UnavailableUpscalerEngineService` and prove its typed fail-closed
+`backendUnavailable(reason:)` rejection. That unavailable bootstrap is the
+intentional R02 production boundary; it is not project completion or production
+enablement.
+
+The frozen R02 preregistration, conformance record, and local unpublished closure
+remain immutable historical evidence. Their contemporaneous
+`phase_acceptance: not_claimed` state is preserved; this later additive decision
+does not rewrite it. R02 is `passed` only for
+`declared_software_function_only`. Production upscaling, a production default,
+Auto, holdout access, quality or performance claims, product publication, and
+release remain unauthorized.
 
 ---
 
@@ -838,13 +867,15 @@ atomic publication, and an empty fallback history.
 
 ---
 
-## R04 — VideoToolbox super-resolution production integration
+## R04 — VideoToolbox super-resolution integration
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
-Use Apple’s native video-oriented ML super-resolution engine as the primary Quality path.
+Implement honest, separately identified quality and low-latency VideoToolbox
+super-resolution paths whose runtime, media, lifecycle, identity, and failure
+boundaries are explicit and verifiable.
 
 ### Work
 
@@ -904,13 +935,37 @@ contract rejection. Model-backed processing, model readiness, hardware,
 simulator, operator-observed operation, quality, and performance were not
 observed.
 
-R04 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
-The quality, protected-region, temporal, throughput, memory, and perceptual exit
-gates remain unobserved and are not claimed satisfied.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result and `not_observed` native runtime subjects remain unchanged after the
+later additive functional acceptance.
 
-### Current operator-defined exit gate
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and a fresh macOS arm64 Xcode run
+of 42 tests across the R04 contracts, session adapter, availability, and
+functional phase-acceptance suites. All 42 tests passed with zero failures and
+zero skips.
+
+The deterministic simulated runtime processes source-derived frames through the
+real R04 quality and low-latency backends and the production FIFO. Both direct
+2× routes complete verified 2160p H.264/AAC media transactions with preserved
+color, frame order, timestamps, duration, audio, metadata, processing identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. The low-latency 1.5× route executes only after the exact dimensions
+pass the runtime support query. Active cancellation propagates through both
+backend identities without processing or fallback.
+
+R04 is therefore `passed` only for `declared_software_function_only`. The
+focused Xcode run excluded Metal shader compilation because the optional Metal
+Toolchain was unavailable; R04 adds no Metal shader. Native VideoToolbox model
+execution, model readiness/download, hardware, simulator, and operator-observed
+operation remain `not_observed`. No backend is selected as a production
+default, and no Auto, native-framework, product-qualification, quality,
+performance, publication, or release claim follows.
+
+### Satisfied operator-defined exit gate
 
 - Both direct 2× and supported 3/2×/1.5× routes are handled through runtime capability, not assumptions.
 - Outputs reopen and preserve media identity.
@@ -925,7 +980,7 @@ claim.
 
 ## R05 — MetalFX integration and suitability decision
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -994,9 +1049,39 @@ all A08 through A10 subjects carry their frozen
 simulator, operator-observed operation, end-to-end media reopen, baseline
 comparison, quality, and performance were not observed.
 
-R05 remains canonical `in_progress`, local unpublished, and unaccepted. No
-backend is selected as a production default; product qualification, quality and
-performance claims, acceptance, publication, and release remain unauthorized.
+This checkpoint remains immutable historical evidence. Its `diagnostic_only`
+result, `not_observed` native runtime subjects, and unclaimed acceptance state
+remain unchanged after the later additive functional acceptance.
+
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and a fresh macOS arm64 Xcode run
+of 46 tests across the R05 contracts, color bridge, spatial driver, spatial
+backend, and functional phase-acceptance suites. All 46 tests passed with zero
+failures and zero skips.
+
+The deterministic simulated driver produces source-derived output through the
+real R05 spatial backend and production FIFO for both A07 1.5× and 2× routes.
+The 2× route also completes a reopened 2160p H.264/AAC media transaction with
+preserved color, frame order, timestamps, duration, audio, timed metadata,
+processing identity, resource release, verification-before-publication, atomic
+publication, and no silent fallback. The frozen suites separately verify the
+real spatial driver's support-before-construction, explicit BT.709 video-range
+NV12/linear-RGBA16Float bridge, ordered completion, cancellation, and typed
+failure behavior. A08, A09, and A10 retain their honest
+`rejected_for_decoded_video` outcomes; those rejections are successful
+dispositions for R05.
+
+R05 is therefore `passed` with exit outcome `diagnostic_only`, limited to
+`declared_software_function_only`. Comparison-based testing was not run or
+required. The focused Xcode run excluded Metal shader compilation because the
+optional Metal Toolchain was unavailable; R05 adds no Metal shader. Native
+MetalFX execution, hardware, simulator, operator-observed operation, product
+qualification, quality, and performance remain `not_observed` or `not_claimed`.
+No backend is selected as a production default, and no Auto, publication, or
+release authority follows.
 
 ### Exit outcomes
 
@@ -1012,7 +1097,7 @@ A rejection is a valid successful result.
 
 ## R06 — ASH orchestration engine v1
 
-**Status:** `in_progress`
+**Status:** `passed`
 
 ### Objective
 
@@ -1083,9 +1168,9 @@ passed. The frozen product-admission result nevertheless remains fail-closed
 `eligible_backend_count: 0` and null selected route, plan, and output. All
 product, hardware, simulator, and operator observations remain `not_observed`.
 
-This is a local unpublished blocked closure, not phase acceptance. R06 remains
-canonical `in_progress`. No quality, performance, product, production-default,
-acceptance, publication, or release claim follows from this checkpoint.
+This is an immutable local unpublished blocked closure, not phase acceptance.
+No quality, performance, product, production-default, acceptance, publication,
+or release claim follows from this checkpoint.
 
 ### Qualified-backend follow-up — 2026-07-21
 
@@ -1093,11 +1178,39 @@ The later R03 v2 decision product-qualified A11 for functional product
 eligibility. The earlier R06 `no_product_qualified_primary_backend` result
 remains truthful historical evidence from its bound source and is not rewritten.
 Its cause is now cleared prospectively for a separately preregistered additive
-R06 product-gate rerun. No such rerun is recorded here; R06 remains
-`in_progress`, unaccepted, and without a production-default, quality,
-performance, publication, or release claim.
+R06 product-gate rerun. No product-gate rerun is recorded here, and the later
+functional acceptance does not claim product routing or rewrite this history.
 
-### Current operator-defined exit gate
+### Functional software acceptance — 2026-07-23
+
+The additive functional acceptance binds source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and a fresh macOS arm64 Xcode run
+of 42 tests across the four frozen R06 suites, the additive functional suite,
+and the R07 coordinator and transaction suites. All 42 tests passed with zero
+failures and zero skips.
+
+The tests prove deterministic context/profile mapping, eligibility filtering,
+integer scoring and stable tie-breaking, one whole-frame plan, reason identity,
+hysteresis, dwell, scene-cut reset, fatal failover, bounded masks, and
+configuration controls. The additive test supplies higher-scoring
+fixture-ineligible and non-whole-frame candidates and proves they cannot enter
+the selected plan, candidate ordering cannot change the result, and value inputs
+remain unchanged. The real R07 coordinator tests prove state commits only after
+the full transaction succeeds and rolls back on failure.
+
+R06 is therefore `passed` only for `declared_software_function_only` under
+deterministic fixture integration. It is control-plane software and produces a
+plan rather than pixels or a media container, so media reopen is outside its
+declared responsibility. The focused Xcode run excluded Metal shader
+compilation because the optional Metal Toolchain was unavailable; R06 adds no
+Metal shader. The frozen blocked conformance remains unchanged historical
+evidence. R06 v1 continues to reject product-scope orchestration; no product
+routing, product qualification, production default, Auto, native-framework,
+hardware, simulator, operator-observed operation, quality, performance,
+publication, or release claim follows.
+
+### Satisfied operator-defined exit gate
 
 ASH orchestration passes its forward software-function gate when deterministic
 tests prove eligible-backend filtering, scoring and stable tie-breaking,
@@ -1133,8 +1246,9 @@ preregistration binds the exact local R06 blocked closure commit
 `32365e745dbf53d59213fe2294a6b63ba2642df7` as
 `local_unpublished_blocked_closure`, with `predecessor_result: blocked`,
 `accepted_merge_commit: null`, `acceptance_state: not_claimed`, and
-`continuation_scope: local_implementation_only`. R06 remains canonical
-`in_progress`, local unpublished, and unaccepted; R08 remains `planned`.
+`continuation_scope: local_implementation_only`. At that historical start
+checkpoint, R06 was canonical `in_progress`, local unpublished, and unaccepted;
+R08 was `planned`.
 
 The R07 local slice is fixture-only temporal and artifact-governance
 implementation. Exact temporal, chroma, artifact, churn, protected-region,
@@ -1189,9 +1303,10 @@ This passes R07 only for
 `functional_deterministic_software_phase_acceptance`. Execution is deterministic
 fixture simulation. Native framework execution, physical hardware, product
 routing, a production default, Auto, media-quality or performance measurement,
-product publication, and release are not claimed or authorized. R06 remains
-`in_progress` and unaccepted, and its frozen evidence is unchanged. R08 remains
-`planned`.
+product publication, and release are not claimed or authorized. This R07
+acceptance did not rewrite R06's frozen evidence. R06's later additive
+functional acceptance is recorded above, and R08 later passed under its separate
+functional acceptance.
 
 ### Superseded historical gate
 
@@ -1352,14 +1467,59 @@ superiority methods were not run, were not required, and supplied no acceptance
 authority. Native Core AI and its framework, a model asset, hardware, simulator,
 and operator-observed execution remain `not_observed`. This acceptance makes no
 native Core AI, model-quality, product-qualification, production-default, Auto,
-holdout, quality, performance, publication, or release claim, and it does not
-authorize R10 progression.
+holdout, quality, performance, publication, or release claim, and it did not
+itself authorize R10 progression. The operator's later continuation instruction
+separately authorizes R10 implementation under the forward software-function
+gate.
 
 ---
 
 ## R10 — Auto-policy optimization and bounded calibration
 
-**Status:** `planned`
+**Status:** `passed`
+
+### Phase start — 2026-07-23
+
+R10 begins only after both of its exact canonical predecessors, R07 and R09,
+are `passed`. The operator's continuation instruction authorizes bounded local
+implementation under the forward software-function gate. The start contract
+freezes a preregistration plus deterministic fixture, evaluation, and policy
+catalogs before an R10 run may publish a calibration checkpoint or frozen
+fixture policy.
+
+This start authorized implementation and deterministic fixture testing only; it
+did not itself claim R10 acceptance. Production Auto, holdout access,
+native-framework or hardware execution, product qualification, quality or
+performance claims, publication, and release remained blocked, unauthorized,
+or unclaimed. Comparative, A/B, blinded, ablation, and superiority methods
+remained outside the forward roadmap and provided no phase-progression
+authority.
+
+### Functional phase acceptance — 2026-07-23
+
+The functional execution receipt and phase-acceptance record bind implementation
+commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and a checkpoint-bound run of
+39 selected optimizer and persistence tests with zero failures and zero skips.
+The deterministic fixture calibration evaluated nine candidates, scored three,
+rejected six, published ten content-addressed checkpoints, selected
+`fixture-valid-alpha`, and passed typed reopening against the exact evaluation
+catalog.
+
+The acceptance proves the declared finite search bound, six independent hard
+constraints, deterministic ordering and tie-breaking, exact checkpoint/resume,
+transactional cancellation and failure handling, tamper and path-escape
+rejection, concurrent idempotent publication, read-only sealing, and complete
+frozen fixture-policy identity. R10 is `passed` only for
+`declared_software_function_only` under `deterministic_fixture_simulation`.
+Comparison, A/B, and superiority testing were not run and are not required.
+Physical hardware, Apple simulator, and operator-observed execution remain
+`not_observed`.
+
+Fixture-policy evidence publication is authorized by this acceptance.
+Production Auto, holdout, product publication, quality or performance claims,
+and release remain `not_authorized`. The later R11 start records bind this
+accepted evidence without broadening R10 acceptance or authorizing production.
 
 ### Objective
 
@@ -1398,7 +1558,62 @@ artifact with complete identity. Production Auto remains separately blocked.
 
 ## R11 — Evidence traceability and claim boundary
 
-**Status:** `planned`
+**Status:** `passed`
+
+### Phase start — 2026-07-23
+
+R11 begins only after its exact canonical predecessor, R10, is `passed`. The
+R11 preregistration binds accepted-R10 closure commit
+`8d4283d2f3fbb104ef589f002de2fd6ccadad0f8`, tree
+`ee0461cff1fea9461f619ce904376ebdb128a2f5`, accepted implementation commit
+`3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and the exact R10 functional
+execution and phase-acceptance records. The R10 phase-acceptance binding has
+SHA-256 `f7f75fd69691dcca632f2ae8c220cfb34662bb1ecff6769c84602f3a21368785`.
+
+The start contract requires these regular, non-symlink records:
+
+- `docs/roadmaps/evidence/r11/records/preregistration.json`
+- `docs/roadmaps/evidence/r11/records/fixtures/fixture-catalog.json`
+
+`python3 Scripts/r11_contracts.py --all` validates the exact predecessor,
+schema, implementation-policy, fixture, identity, observation, aggregate,
+rejection, claim, comparison, and authorization bindings before R11 may be
+`in_progress`.
+
+This start authorized deterministic traceability and claim-boundary software
+implementation and fixture testing only; it did not itself claim R11
+acceptance. Every R11 disposition remained unconditionally `no_market_claim`.
+`production_auto_mode` and `market_leading_claim` remained blocked, and no R11
+artifact could authorize either. Comparative and A/B methods remained absent,
+not required, and non-authorizing. Product publication and release remained
+unauthorized.
+
+### Functional phase acceptance — 2026-07-23
+
+The functional execution receipt and phase-acceptance record bind exact source
+commit `75479b9f30511330f2a18b656151dc551292cb1e`, tree
+`0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected tests
+with zero failures and zero skips. The deterministic traceability run produced
+exactly five records: one each for `observed`, `not_applicable`,
+`not_observed`, `failed`, and `absent`. It reopened the typed nested receipt,
+validated all seven identity components, produced the exact mixed aggregate,
+rejected unsupported evidence and claims, and emitted `no_market_claim`
+unconditionally.
+
+The canonical and sealed traceability run receipts are byte-identical at
+SHA-256 `22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+The functional execution receipt has SHA-256
+`e1446876fde099bc172159087aceb77545c1b9bd5f081dde19d1e0cb60238bcb`;
+the phase-acceptance record has SHA-256
+`66cca6e35780fa9ebb73c8667b3d744df9599601dccf5e95ddacc000adebe618`.
+
+R11 is `passed` only for `declared_software_function_only` under deterministic
+fixture simulation. No comparative, A/B, superiority, or historical
+product-comparison method was run or required. Hardware, simulator, and
+operator-observed operation remain `not_observed`. Product qualification,
+production Auto, market position, public product claims, product publication,
+and release remain blocked or unauthorized.
 
 ### Objective
 
@@ -1415,22 +1630,63 @@ the software did and prevents unsupported product claims.
   and any claim broader than the evidence supports.
 - Produce deterministic aggregates from supplied observations and preserve the
   distinction between `not_applicable`, `not_observed`, failed, and absent data.
-- Emit an explicit `no_market_claim` disposition unless a claim has exact,
-  in-scope evidence and separate operator authorization.
+- Emit an explicit `no_market_claim` disposition unconditionally.
 
 ### Claim rule
 
 Comparative testing and market-position work are outside this roadmap. R11
 accepts when its machinery accurately reports observed software behavior,
-rejects unsupported inputs and claims, and emits `no_market_claim` by default.
-`market_leading_claim` remains blocked unless the operator separately authorizes
-a future claim process outside this roadmap.
+rejects unsupported inputs and claims, and emits `no_market_claim`
+unconditionally. `production_auto_mode` and `market_leading_claim` remain
+blocked; no R11 evidence or disposition can authorize either.
 
 ---
 
 ## R12 — Format, route, and product expansion
 
-**Status:** `planned`
+**Status:** `passed`
+
+### Phase start — 2026-07-23
+
+R12 began after exact predecessor R11 passed its declared-software-function
+gate. Its start authority was limited to implementing and testing explicit
+format, route, capability, fallback, preservation, and resumability contracts.
+The phase start did not itself claim R12 acceptance. Deterministic contract
+simulation was permitted; unavailable hardware, simulator, and operator
+observation were recorded as `not_observed` and did not block that
+software-function work.
+
+That phase start did not authorize production Auto, market or superiority
+claims, product publication, a tag, or a release. Comparative and A/B methods
+were absent, not required, and non-authorizing.
+
+### Functional phase acceptance — 2026-07-23
+
+The exact-source functional execution receipt and phase-acceptance record bind
+source commit `2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and 85 passing selected tests
+with zero failures and zero skips: 15 format-contract tests, 25 route/backend
+tests, and 45 resumability/checkpoint tests. Strict SwiftLint covered 340 files
+with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+The additive evidence is recorded at commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`.
+
+R12 is `passed` only for `declared_software_function_only`: exact-source tests
+prove the format, route, capability, fallback, preservation, backend, and
+resumability contracts that the R12 software declares. Comparison and A/B
+methods were absent, not required, and provided no acceptance authority.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking.
+
+This acceptance does not claim production decode, upscale, encode, or
+preservation support for the expanded formats. It grants no product
+qualification, production Auto, market claim, product publication, tag, or
+release authority.
 
 ### Work
 
@@ -1451,7 +1707,22 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 
 ## R13 — Release hardening
 
-**Status:** `planned`
+**Status:** `passed`
+
+### Phase start — 2026-07-23
+
+R13 begins after exact predecessor R12 passed its
+`declared_software_function_only` gate. Current authority is limited to
+implementing and testing exact-app identity, user-mode, asset-state,
+resumability, lifecycle, telemetry, fault, and resource-hardening behavior that
+the software declares. Hardware, simulator, and operator observation may remain
+`not_observed` and nonblocking. Comparison and A/B methods are absent, not
+required, and non-authorizing.
+
+R13 produces a `release_ready_candidate` under the operator-defined functional
+gate; passing R13 does not authorize production Auto, a market or superiority
+claim, product publication, distribution, a tag, or a release. Those actions
+require separate authority.
 
 ### Work
 
@@ -1463,6 +1734,32 @@ Every newly supported format has an explicit color, range, chroma-siting, metada
 - Add concise user-facing explanations and detailed developer telemetry.
 - Run Xcode tests, CLI tests, SwiftLint, Instruments, GPU capture, soak, cancellation, disk-full, low-memory, thermal, and mutation tests.
 - Publish only after exact app, exact policy/model assets, and measured output evidence reopen successfully.
+
+### Operator-defined functional acceptance — 2026-07-23
+
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. The exact-source run verifies
+shipping-service behavior through genuine A11 MPS Lanczos and AVFoundation paths
+and separately builds and binds the Release app candidate. Quality, Fast, and
+Deterministic are available; Auto remains visible but `unavailable` and
+`not_authorized`. The evidence covers the no-model asset state, resumability,
+bookmark/cache/storage behavior, lifecycle cancellation, diagnostics,
+fault/resource hardening, and reopen-before-atomic-publication. The outcome is
+`release_ready_candidate`.
+
+Comparison and A/B methods were absent and not required. Hardware, simulator,
+operator observation, Release-app execution, distribution signing, notarization,
+Gatekeeper assessment, and launch smoke remain `not_observed` and nonblocking.
+The candidate was not published or released, and no publication, distribution,
+tag, release, Auto, or market claim is authorized.
+
+The accepted source is commit
+`6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`; generated evidence is committed at
+`5c8ae09251955d8274d391e93215b346db25bada`. The exact run passed 183 of
+183 selected tests with zero failures and zero skips, linted 403 Swift files
+with zero violations, reopened the retained QuickTime MOV, and reopened the
+single-app Release candidate archive with an exact app-tree identity.
 
 ---
 
@@ -1537,7 +1834,10 @@ The roadmap succeeds when all of the following are true:
 1. Every Apple-native method in Section 5 has a qualified, restricted,
    diagnostic-only, rejected, or `not_observed` disposition. `not_observed`
    supplies inventory closure only and carries no availability or quality claim.
-2. At least one strong Apple-native primary SR backend is production-qualified.
+2. At least one strong Apple-native primary SR backend is functionally
+   product-eligible for its declared product routes under exact-source
+   software-function evidence; broader hardware, quality, distribution, and
+   market qualification remain separate claims.
 3. ASH causally controls backend/policy decisions exactly within its accepted software contract.
 4. Temporal stability and artifact governance perform their declared bounded, transactional software function.
 5. Core AI analysis performs its declared optional analysis and deterministic-bypass software function or is cleanly excluded from the shipping critical path.
@@ -1547,7 +1847,8 @@ The roadmap succeeds when all of the following are true:
    explainable, resumable, and binds every selected output to exact decisions and
    assets; production Auto remains a separate authorization decision.
 9. Evidence and claim-scope machinery is traceable, rejects unsupported claims,
-   and produces an honest `no_market_claim` disposition by default.
+   and produces `no_market_claim` unconditionally while
+   `production_auto_mode` and `market_leading_claim` remain blocked.
 10. The application remains Apple-native at runtime; offline Python remains development, model-conversion, validation, and evidence tooling only.
 
 ---
@@ -1600,12 +1901,13 @@ dependency. The app retains one UI module and separate service modules for Metal
 model-asset status, AVFoundation media IO, and upscale orchestration.
 
 Production launch activates the product modules directly and opens the Mirmir
-workspace. The developer host is available only in Debug builds when
-`MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a read-only module/status surface.
-
-Normal production upscaling remains deliberately unavailable. Start remains
-disabled and the workspace explains: “No production-default backend is enabled;
-product routing remains unavailable.”
+workspace. It composes `NotRequiredModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
+Fast, and Deterministic are available and bind to the genuine
+`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
+cannot submit. No silent fallback is permitted. The developer host is available
+only in Debug builds when `MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a
+read-only module/status surface.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module inventory and transaction
 boundaries.
@@ -1617,28 +1919,28 @@ boundaries.
 > reconstruction engine. The material below documents the preserved source and
 > evidence boundary; it does not declare a release.
 
-The normal product composition is fail-closed while the retained ASH V3 and
-VideoToolbox scaffolding remain directly testable reference/research code. Its
-application call graph is:
+R13 supersedes the historical R00 unavailable-engine composition. The current
+product call graph is:
 
 ```text
 MirmirAppBootstrap
   -> DefaultMetalRenderingService
-  -> RoadmapTransitionModelAssetsService
+  -> NotRequiredModelAssetsService
   -> AVFoundationMediaPipeline
-  -> UnavailableUpscalerEngineService
-       -> backendUnavailable(reason:)
+  -> R13ReleaseUpscalerEngineService
+       -> R13A11ProductSessionFactory
+            -> genuine r03.mps.lanczos A11
   -> MirmirModuleFactoryRegistry
   -> MirmirModuleHost
   -> MirmirViewRegistry
 ```
 
 The production bootstrap has no call site for `DefaultUpscalerEngineService`,
-`ASHLockedUpscaleBackendFactoryV3`, or `VTModelStager`. A direct transition-engine
-submission returns the typed `backendUnavailable` error and creates no output
-state. The product path does not fall back to the development P05 backend, a
-runtime LUT compiler or selector, a fixed control, or the former Lanczos polish
-path.
+`ASHLockedUpscaleBackendFactoryV3`, or `VTModelStager`. Quality, Fast, and
+Deterministic bind to one exact A11 product identity; Auto fails with a typed
+mode-unavailable result before admission. The product path does not silently
+fall back to the development P05 backend, a runtime LUT compiler or selector,
+or a fixed control.
 
 The CPU locked-reference backend remains available only through explicitly
 constructed development and test factories. It is used as a parity and
@@ -1878,8 +2180,8 @@ same-commit immutable gate publications.
 ## Notes
 
 - The main product workflow does not expose framework or architecture controls.
-- App boot does not load a release set. Normal R00 upscaling is unavailable and
-  creates no output session.
+- App boot requires no model release set. Quality, Fast, and Deterministic use
+  the exact R13 A11 product path; Auto remains unavailable and cannot submit.
 - Fixture tests prove only the behavior of their tested bytes. They do not
   establish perceptual superiority or authorize a P06/G07/G08 release.
 - App Intents `linkd.autoShortcut` messages can appear in local macOS test logs;

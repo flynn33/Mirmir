@@ -1,0 +1,226 @@
+R12_EXECUTION_IDENTITY={"argv":["/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild","test-without-building","-xctestrun","/private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-7036q3ci/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun","-destination","platform=macOS,arch=arm64","-only-testing:MirmirTests/R12MediaFormatContractV2Tests","-only-testing:MirmirTests/R12RouteAndHardwareResolverTests","-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests","R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4","R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8"],"checkpoint":{"clean_after":true,"clean_before":true,"commit_after":"2f5e2987fe6a0e88d39790f177c717b62d29d6e4","commit_before":"2f5e2987fe6a0e88d39790f177c717b62d29d6e4","kind":"detached_clean_exact_git_checkpoint","tree_after":"4971b4d38f92ea5edffe925e507f058e9ffc13d8","tree_before":"4971b4d38f92ea5edffe925e507f058e9ffc13d8"},"command":"xcodebuild test-without-building -xctestrun <checkpoint-build.xctestrun> -destination platform=macOS,arch=arm64 -only-testing:MirmirTests/R12MediaFormatContractV2Tests -only-testing:MirmirTests/R12RouteAndHardwareResolverTests -only-testing:MirmirTests/R12ChunkCheckpointLedgerTests R12_ACCEPTANCE_SOURCE_COMMIT=<source.commit> R12_ACCEPTANCE_SOURCE_TREE=<source.tree>","command_id":"targeted_tests","exit_code":0,"source":{"commit":"2f5e2987fe6a0e88d39790f177c717b62d29d6e4","tree":"4971b4d38f92ea5edffe925e507f058e9ffc13d8"},"tool":{"executable_path":"/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild","executable_sha256":"d8601086e5c80e9f46664d884ce1f661f8b6fbdf5523b24050bbae792dc15d82","name":"xcodebuild","version":"Xcode 26.2\nBuild version 17C52"}}
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -xctestrun /private/var/folders/tz/42vs04ls56q51168sddqb5940000gn/T/mirmir-r12-checkpoint-7036q3ci/DerivedData/Build/Products/Mirmir_macosx26.2-arm64.xctestrun -destination platform=macOS,arch=arm64 "-only-testing:MirmirTests/R12MediaFormatContractV2Tests" "-only-testing:MirmirTests/R12RouteAndHardwareResolverTests" "-only-testing:MirmirTests/R12ChunkCheckpointLedgerTests" R12_ACCEPTANCE_SOURCE_COMMIT=2f5e2987fe6a0e88d39790f177c717b62d29d6e4 R12_ACCEPTANCE_SOURCE_TREE=4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+Build settings from command line:
+    R12_ACCEPTANCE_SOURCE_COMMIT = 2f5e2987fe6a0e88d39790f177c717b62d29d6e4
+    R12_ACCEPTANCE_SOURCE_TREE = 4971b4d38f92ea5edffe925e507f058e9ffc13d8
+
+2026-07-23 15:35:49.646 xcodebuild[37715:29806621] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-07-23 15:35:49.651 xcodebuild[37715:29806621] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+--- xcodebuild: WARNING: Using the first of multiple matching destinations:
+{ platform:macOS, arch:arm64, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:Mac Catalyst, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:DriverKit, id:00006040-0016283C11F8801C, name:My Mac }
+{ platform:macOS, arch:arm64, variant:Designed for [iPad,iPhone], id:00006040-0016283C11F8801C, name:My Mac }
+2026-07-23 15:35:49.956 xcodebuild[37715:29806621] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-07-23 15:35:50.955973-0500 Mirmir[37720:29806783] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.956112-0500 Mirmir[37720:29806783] [Application] Error registering app with intents framework: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.958166-0500 Mirmir[37720:29806782] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.958183-0500 Mirmir[37720:29806782] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.960435-0500 Mirmir[37720:29806792] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.960450-0500 Mirmir[37720:29806792] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.962582-0500 Mirmir[37720:29806782] [Connection] Will NOT re-try to establish the connection
+2026-07-23 15:35:50.962608-0500 Mirmir[37720:29806783] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.962621-0500 Mirmir[37720:29806783] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 "connection to service named com.apple.linkd.autoShortcut" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}
+2026-07-23 15:35:50.977390-0500 Mirmir[37720:29806717] ApplePersistenceIgnoreState: Existing state will not be touched. New state will be written to /Users/jimdaley/Library/Containers/com.mirmir.app/Data/tmp/com.mirmir.app.savedState
+2026-07-23 15:35:51.057181-0500 Mirmir[37720:29806717] [com.mirmir.app.metal] Metal rendering ready
+2026-07-23 15:35:51.057223-0500 Mirmir[37720:29806717] [com.mirmir.app.model-assets] Model assets service started
+2026-07-23 15:35:51.057250-0500 Mirmir[37720:29806717] [com.mirmir.app.media-pipeline] Media pipeline started
+2026-07-23 15:35:51.057262-0500 Mirmir[37720:29806717] [com.mirmir.app.upscaler-engine] Upscaler engine started
+2026-07-23 15:35:51.057274-0500 Mirmir[37720:29806717] [com.mirmir.app.ui] Mirmir UI module activated
+Test Suite 'Selected tests' started at 2026-07-23 15:35:51.181.
+Test Suite 'MirmirTests.xctest' started at 2026-07-23 15:35:51.181.
+Test Suite 'R12ChunkCheckpointLedgerTests' started at 2026-07-23 15:35:51.181.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testAppendReadsOnlyLedgerAndNewArtifactNotHistory]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testAppendReadsOnlyLedgerAndNewArtifactNotHistory]' passed (0.012 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testArtifactPolicyBoundaryIsIndependentFromLedgerLimit]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testArtifactPolicyBoundaryIsIndependentFromLedgerLimit]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testAtomicReplacementFailureLeavesLastCursorReopenable]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testAtomicReplacementFailureLeavesLastCursorReopenable]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testBackendStateMustContinueFromPriorResumeState]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testBackendStateMustContinueFromPriorResumeState]' passed (0.011 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalArtifactConstructionRejectsBeforeUnboundedEncoding]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalArtifactConstructionRejectsBeforeUnboundedEncoding]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalBackendStartStateTamperRejects]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalBackendStartStateTamperRejects]' passed (0.009 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalButSemanticallyUnsafeBoundaryRejects]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalButSemanticallyUnsafeBoundaryRejects]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalUnknownFieldRejects]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCanonicalUnknownFieldRejects]' passed (0.004 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testConfiguredRootSymlinkIsRejectedWithoutResolution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testConfiguredRootSymlinkIsRejectedWithoutResolution]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCreatePublishesOneLinkAndSyncFailureRemovesDestination]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCreatePublishesOneLinkAndSyncFailureRemovesDestination]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCreateRejectsTemporaryAndDestinationSubstitution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testCreateRejectsTemporaryAndDestinationSubstitution]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testDescriptorReadRejectsPreOpenAndPostReadPathSubstitution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testDescriptorReadRejectsPreOpenAndPostReadPathSubstitution]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testDirectorySyncFailureRollsBackToPreviousLedgerHead]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testDirectorySyncFailureRollsBackToPreviousLedgerHead]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testEnsureDirectoryRollsBackAndClosesOnEveryCreationSyncFailure]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testEnsureDirectoryRollsBackAndClosesOnEveryCreationSyncFailure]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testExclusiveLockSerializesCompetingStoreHeads]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testExclusiveLockSerializesCompetingStoreHeads]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testFailedSwapBackPreservesPriorLedgerRecoveryEntry]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testFailedSwapBackPreservesPriorLedgerRecoveryEntry]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testFirstCheckpointMustMatchDeclaredTrackLayout]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testFirstCheckpointMustMatchDeclaredTrackLayout]' passed (0.004 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testHeaderRequiresUniqueSingleVideoTrackLayout]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testHeaderRequiresUniqueSingleVideoTrackLayout]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testInterruptedAndUninterruptedExecutionProduceIdenticalLedger]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testInterruptedAndUninterruptedExecutionProduceIdenticalLedger]' passed (0.035 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLedgerLimitRejectsCreateAndAppendBeforePublication]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLedgerLimitRejectsCreateAndAppendBeforePublication]' passed (0.005 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLedgerSymlinkAndHardlinkReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLedgerSymlinkAndHardlinkReject]' passed (0.005 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLockPathReplacementRollsBackPinnedTransaction]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testLockPathReplacementRollsBackPinnedTransaction]' passed (0.009 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testMaximumLedgerOverrideCannotWidenProductionReadCap]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testMaximumLedgerOverrideCannotWidenProductionReadCap]' passed (0.004 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testOrphanAndUnsealedChunksDoNotAdvanceLedger]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testOrphanAndUnsealedChunksDoNotAdvanceLedger]' passed (0.003 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringAppendRollsBackOriginalLedger]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringAppendRollsBackOriginalLedger]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringCreateCommitsNeitherRoot]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringCreateCommitsNeitherRoot]' passed (0.003 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringReopenFailsWithoutMutation]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedRootReplacementDuringReopenFailsWithoutMutation]' passed (0.004 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedTransactionRejectsOutOfRootWithoutDescriptorLeak]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPinnedTransactionRejectsOutOfRootWithoutDescriptorLeak]' passed (0.005 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPostSwapIdentitySubstitutionRollsBackPriorDestination]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testPostSwapIdentitySubstitutionRollsBackPriorDestination]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testRecordPreviousHashRecordHashAndLedgerHeadTamperingReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testRecordPreviousHashRecordHashAndLedgerHeadTamperingReject]' passed (0.026 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testReplaceRejectsPostReadTemporaryContentMutation]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testReplaceRejectsPostReadTemporaryContentMutation]' passed (0.008 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testReplaceRejectsPreSwapPathSubstitution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testReplaceRejectsPreSwapPathSubstitution]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testResumeCursorRoundTripsAllTrackWatermarksAndBackendState]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testResumeCursorRoundTripsAllTrackWatermarksAndBackendState]' passed (0.007 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testRootAndIntermediateDirectorySymlinkReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testRootAndIntermediateDirectorySymlinkReject]' passed (0.009 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSafeBoundaryRequiresSyncProgressSingleVideoAndUniqueTracks]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSafeBoundaryRequiresSyncProgressSingleVideoAndUniqueTracks]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSealedArtifactMutationAndMissingFileRejectOnReopen]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSealedArtifactMutationAndMissingFileRejectOnReopen]' passed (0.017 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testStaleHeadAndSourceIdentityDriftReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testStaleHeadAndSourceIdentityDriftReject]' passed (0.009 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSymlinkHardlinkAndPathEscapeReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testSymlinkHardlinkAndPathEscapeReject]' passed (0.006 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTamperedAndNoncanonicalLedgerReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTamperedAndNoncanonicalLedgerReject]' passed (0.007 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTimeAndVideoContinuityAndFirstChunkOffsetReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTimeAndVideoContinuityAndFirstChunkOffsetReject]' passed (0.013 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTrackLayoutAndPerTrackWatermarkRegressionReject]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testTrackLayoutAndPerTrackWatermarkRegressionReject]' passed (0.010 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerificationScopeIsDeterministicEnvelopeNotNativeMedia]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerificationScopeIsDeterministicEnvelopeNotNativeMedia]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifiedBytesAreOwnedBeforeExternalSubstitution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifiedBytesAreOwnedBeforeExternalSubstitution]' passed (0.010 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifierRejectsCanonicalArtifactHashSubstitution]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifierRejectsCanonicalArtifactHashSubstitution]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifierRejectsMalformedMismatchedAndNonSyncEnvelopes]' started.
+Test Case '-[MirmirTests.R12ChunkCheckpointLedgerTests testVerifierRejectsMalformedMismatchedAndNonSyncEnvelopes]' passed (0.002 seconds).
+Test Suite 'R12ChunkCheckpointLedgerTests' passed at 2026-07-23 15:35:51.481.
+	 Executed 45 tests, with 0 failures (0 unexpected) in 0.294 (0.300) seconds
+Test Suite 'R12MediaFormatContractV2Tests' started at 2026-07-23 15:35:51.482.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testAlphaRequiresExplicitPlanar444StorageAndQualityPreservation]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testAlphaRequiresExplicitPlanar444StorageAndQualityPreservation]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testBackendCapabilityIsExactSortedAndEvidenceBound]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testBackendCapabilityIsExactSortedAndEvidenceBound]' passed (0.007 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testBackendCapabilityRejectsEvidencePromotionAndUnsupportedFormat]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testBackendCapabilityRejectsEvidencePromotionAndUnsupportedFormat]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testCanonicalContractCarriesOnlyNonAuthorizingBoundaries]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testCanonicalContractCarriesOnlyNonAuthorizingBoundaries]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testChromaSitingAndSubsampledDimensionsAreExact]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testChromaSitingAndSubsampledDimensionsAreExact]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testColorMatrixAndHDRBitDepthAreValidated]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testColorMatrixAndHDRBitDepthAreValidated]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEveryConstructibleStructuralWeakeningIsRejected]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEveryConstructibleStructuralWeakeningIsRejected]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEveryMetadataInvariantRejectsAContradictoryRule]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEveryMetadataInvariantRejectsAContradictoryRule]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEvidenceFactoriesPreventFixturePromotionToNativeObservation]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testEvidenceFactoriesPreventFixturePromotionToNativeObservation]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testFixtureCatalogCoversDeclaredExpansionWithoutNativeAuthority]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testFixtureCatalogCoversDeclaredExpansionWithoutNativeAuthority]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testMetadataAndStructuralQualityContractsAreExplicit]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testMetadataAndStructuralQualityContractsAreExplicit]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testMetadataRulesRejectSilentHDRAndSubtitleLoss]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testMetadataRulesRejectSilentHDRAndSubtitleLoss]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testScanAndDeinterlacePolicyCannotContradictOneAnother]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testScanAndDeinterlacePolicyCannotContradictOneAnother]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testStorageDepthAndSubsamplingCrossProductsAreRejectedExactly]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testStorageDepthAndSubsamplingCrossProductsAreRejectedExactly]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testV2IsAdditiveAndHistoricalV1BytesStillReopenExactly]' started.
+Test Case '-[MirmirTests.R12MediaFormatContractV2Tests testV2IsAdditiveAndHistoricalV1BytesStillReopenExactly]' passed (0.001 seconds).
+Test Suite 'R12MediaFormatContractV2Tests' passed at 2026-07-23 15:35:51.497.
+	 Executed 15 tests, with 0 failures (0 unexpected) in 0.013 (0.015) seconds
+Test Suite 'R12RouteAndHardwareResolverTests' started at 2026-07-23 15:35:51.497.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsPreexistingOversizedFile]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsPreexistingOversizedFile]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsSymlinkedAncestor]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsSymlinkedAncestor]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsSymlinkSubstitution]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptFileLoaderRejectsSymlinkSubstitution]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptIntegrityDoesNotClaimExternalObservation]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptIntegrityDoesNotClaimExternalObservation]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsAncestorSubstitutionAfterOpen]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsAncestorSubstitutionAfterOpen]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsGrowthAfterDescriptorOpen]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsGrowthAfterDescriptorOpen]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsLeafRenameAfterDescriptorOpen]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptReadRejectsLeafRenameAfterDescriptorOpen]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptRejectsMadeUpTamperedAndNoncanonicalBytes]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testCanonicalReceiptRejectsMadeUpTamperedAndNoncanonicalBytes]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDeterministicFixtureSelectsOnlyDeterministicContractAuthority]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDeterministicFixtureSelectsOnlyDeterministicContractAuthority]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDuplicateAndOutOfScopeNativeEvidenceIsRejected]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDuplicateAndOutOfScopeNativeEvidenceIsRejected]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDuplicateCatalogFactsAndBackendFormatMismatchAreRejected]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testDuplicateCatalogFactsAndBackendFormatMismatchAreRejected]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testEveryNativeObservationBindingMismatchIsRejected]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testEveryNativeObservationBindingMismatchIsRejected]' passed (0.003 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testExactScaleDerivationReducesWithoutFloatingPointApproximation]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testExactScaleDerivationReducesWithoutFloatingPointApproximation]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testFallbackOrderingIsStableAndRecordsEveryInspectedRoute]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testFallbackOrderingIsStableAndRecordsEveryInspectedRoute]' passed (0.002 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testFixtureContextCannotAuthorizeNativeEvenWithAReceipt]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testFixtureContextCannotAuthorizeNativeEvenWithAReceipt]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHardwareProfileAvailabilityPrecedesRouteClaims]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHardwareProfileAvailabilityPrecedesRouteClaims]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHardwareProfileCanonicalizesExplicitRoutesAndRejectsDuplicates]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHardwareProfileCanonicalizesExplicitRoutesAndRejectsDuplicates]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHostAndReceiptIdentitiesFailClosed]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testHostAndReceiptIdentitiesFailClosed]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRequirementRejectsDeterministicFormatOrBackendEvidence]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRequirementRejectsDeterministicFormatOrBackendEvidence]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRouteRejectsRepeatedCharacterObservationHash]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRouteRejectsRepeatedCharacterObservationHash]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRouteWithoutObservationIsUnavailable]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testNativeRouteWithoutObservationIsUnavailable]' passed (0.001 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolutionBoundsAreExactAtLimitsAndSafeNearIntegerOverflow]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolutionBoundsAreExactAtLimitsAndSafeNearIntegerOverflow]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolutionBoundsValidateRangesAlignmentsAndBoundaries]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolutionBoundsValidateRangesAlignmentsAndBoundaries]' passed (0.000 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolverEnforcesSourceAndTargetRangeAndAlignmentBounds]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testResolverEnforcesSourceAndTargetRangeAndAlignmentBounds]' passed (0.003 seconds).
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testScaleDerivationRejectsNonUniformAndNonpositiveFactors]' started.
+Test Case '-[MirmirTests.R12RouteAndHardwareResolverTests testScaleDerivationRejectsNonUniformAndNonpositiveFactors]' passed (0.000 seconds).
+Test Suite 'R12RouteAndHardwareResolverTests' passed at 2026-07-23 15:35:51.531.
+	 Executed 25 tests, with 0 failures (0 unexpected) in 0.031 (0.035) seconds
+Test Suite 'MirmirTests.xctest' passed at 2026-07-23 15:35:51.531.
+	 Executed 85 tests, with 0 failures (0 unexpected) in 0.338 (0.350) seconds
+Test Suite 'Selected tests' passed at 2026-07-23 15:35:51.531.
+	 Executed 85 tests, with 0 failures (0 unexpected) in 0.338 (0.351) seconds
+2026-07-23 15:35:51.815 xcodebuild[37715:29806621] [MT] IDETestOperationsObserverDebug: 1.837 elapsed -- Testing started completed.
+2026-07-23 15:35:51.815 xcodebuild[37715:29806621] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-07-23 15:35:51.815 xcodebuild[37715:29806621] [MT] IDETestOperationsObserverDebug: 1.837 sec, +1.837 sec -- end
+
+Test session results, code coverage, and logs:
+	/Users/jimdaley/Library/Developer/Xcode/DerivedData/Mirmir-ecfpepaorauqynblqelihontrggy/Logs/Test/Test-Mirmir-2026.07.23_15-35-49--0500.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

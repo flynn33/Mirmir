@@ -1,0 +1,376 @@
+{
+  "schema_version": "1.0.0",
+  "roadmap_version": "1.0.1",
+  "phase_id": "R02",
+  "evidence_kind": "r02_operator_functional_phase_acceptance_v1",
+  "source": {
+    "commit": "eeabc4224100bc8ed86ae1208189bee508844210",
+    "tree": "ac402f993805cca499d2f688c6186c4684ce8dba"
+  },
+  "operator_override": {
+    "authority": "operator",
+    "authorization_date": "2026-07-23",
+    "acceptance_basis": "software_does_what_it_says_it_does",
+    "override_id": "r02.software-function-only-phase-acceptance.v1",
+    "hardware_simulator_operator_observation": "waived_not_a_blocker",
+    "comparative_requirement": "not_required_for_phase_acceptance",
+    "historical_evidence_policy": "preserve_r02_preregistration_and_conformance_unchanged"
+  },
+  "functional_gate": {
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_fixture_execution",
+    "required_test_suites": [
+      "AppleUpscaleContractsTests",
+      "EnhancementPipelineContractsTests",
+      "AppleUpscaleFIFOSessionTests",
+      "R02FixtureConformanceTests",
+      "ArchitectureGuardrailTests",
+      "UpscalerEngineAvailabilityTests"
+    ],
+    "required_selected_test_count": 27,
+    "required_conformance_check_ids": [
+      "registry_disposition_preserved",
+      "backend_creation_contract",
+      "stage_protocols_distinct",
+      "planner_exactly_one_primary",
+      "planner_deterministic_order",
+      "frame_identity_complete",
+      "fifo_serial_submission",
+      "actor_reentrancy_guarded",
+      "reset_semantics",
+      "finish_semantics",
+      "cancel_semantics",
+      "stale_completion_blocked",
+      "resource_lifetime_exactly_once",
+      "sequence_and_timing",
+      "typed_outcome_coverage",
+      "planner_visible_fallback",
+      "silent_fallback_absent",
+      "processing_identity_complete",
+      "multiple_backends_common_session",
+      "dimensions_preserved",
+      "frame_order_preserved",
+      "pts_preserved",
+      "duration_preserved",
+      "color_preserved",
+      "audio_preserved",
+      "metadata_preserved",
+      "reopen_verification",
+      "atomic_publication",
+      "production_unavailable"
+    ],
+    "required_metric_ids": [
+      "dimension_mismatch_count",
+      "frame_order_violation_count",
+      "pts_mismatch_count",
+      "duration_mismatch_count",
+      "audio_identity_mismatch_count",
+      "metadata_identity_mismatch_count",
+      "resource_lifetime_violation_count",
+      "lifecycle_violation_count",
+      "silent_fallback_count",
+      "incomplete_identity_count",
+      "atomic_publication_violation_count",
+      "backend_count",
+      "fixture_count",
+      "primary_backend_count",
+      "outcome_case_count",
+      "color_identity_mismatch_count",
+      "terminalizations_per_session",
+      "production_backend_count"
+    ],
+    "hardware_simulator_operator_observation": "not_required_not_observed",
+    "raw_xcresult_ci_validation": "required"
+  },
+  "comparison_policy": {
+    "comparative_quality_testing": "not_run_not_required",
+    "a_b_testing": "not_run_not_required",
+    "blinded_testing": "not_run_not_required",
+    "superiority_requirement": "not_applicable",
+    "acceptance_dependency": "none",
+    "common_session_multiple_backend_test": "required_noncomparative_interface_conformance"
+  },
+  "evidence_bindings": [
+    {
+      "id": "r02_preregistration",
+      "path": "docs/roadmaps/evidence/r02/records/preregistration.json",
+      "size_bytes": 12839,
+      "sha256": "9d6628198ffe11898e75b77be5db728e3bc41578cc75687c4366dba50970b0cc"
+    },
+    {
+      "id": "r02_fixture_catalog",
+      "path": "docs/roadmaps/evidence/r02/records/fixtures/fixture-catalog.json",
+      "size_bytes": 8865,
+      "sha256": "245d3f73186322503aa1ebfaf5a5865994063997cda240374340427f4a3bebf3"
+    },
+    {
+      "id": "r02_deterministic_conformance",
+      "path": "docs/roadmaps/evidence/r02/records/conformance.json",
+      "size_bytes": 13488,
+      "sha256": "8eaccc72d82beb4bbe26dfa7af52809743e017e3ad9ba09d3cc4febc7f8187b1"
+    }
+  ],
+  "implementation_bindings": [
+    {
+      "id": "apple_upscale_contracts_source",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleContracts.swift",
+      "size_bytes": 21360,
+      "sha256": "dabebc008d44dd588b6e8d95ae84899b4f383d03e81c994f060f9e318213ee0f"
+    },
+    {
+      "id": "enhancement_pipeline_contracts_source",
+      "path": "Mirmir/Modules/UpscalerEngine/EnhancementPipelineContracts.swift",
+      "size_bytes": 10971,
+      "sha256": "b9e2dc8b704c21f4e49ca10d07e73d59c3b468abc670b798980332f724ba1d38"
+    },
+    {
+      "id": "apple_upscale_fifo_session_source",
+      "path": "Mirmir/Modules/UpscalerEngine/AppleUpscaleFIFOSession.swift",
+      "size_bytes": 14989,
+      "sha256": "d6000c7b5d41f1b666487941cb96e436049e2f3f572c36d881c4be7b6f8ec1c8"
+    },
+    {
+      "id": "production_bootstrap_source",
+      "path": "Mirmir/App/MirmirAppBootstrap.swift",
+      "size_bytes": 3145,
+      "sha256": "34e186964fbb4f2429c3582b7cfd7be4ab5930f57004ae3698bf5dd62ac18552"
+    },
+    {
+      "id": "unavailable_upscaler_service_source",
+      "path": "Mirmir/Modules/UpscalerEngine/UnavailableUpscalerEngineService.swift",
+      "size_bytes": 756,
+      "sha256": "da4639d8766e678a5731803c90e461b2ed75be1b94985f3ab2410aa7a600602d"
+    },
+    {
+      "id": "avfoundation_media_pipeline_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaPipeline.swift",
+      "size_bytes": 17621,
+      "sha256": "fdf5e8b274c5ccfd536e8fa9bf6220c506dfe869042b90f7d0dcb3b165a621b2"
+    },
+    {
+      "id": "avfoundation_media_session_configuration_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionConfiguration.swift",
+      "size_bytes": 10788,
+      "sha256": "e0465fcc71fe5e1a77f2bc0436a9448d6486ec47c856691ea37f263ede5a3c3d"
+    },
+    {
+      "id": "avfoundation_media_session_finalization_source",
+      "path": "Mirmir/Modules/MediaPipeline/AVFoundationMediaSessionFinalization.swift",
+      "size_bytes": 9620,
+      "sha256": "d0a7d72d3151b2842fd8a0e45aafca5e090305315fb014d222909c235636b095"
+    },
+    {
+      "id": "output_media_aac_identity_reader_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaAACIdentityReader.swift",
+      "size_bytes": 14389,
+      "sha256": "00ad35290bef1d2093ee686fd8736e1ef24f53e3c6d4f2ed957e0417a11cea66"
+    },
+    {
+      "id": "output_media_identity_verification_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaIdentityVerification.swift",
+      "size_bytes": 10036,
+      "sha256": "217d6230356066e1f40738598cb3dba761152f525ad451266a0b97b15ef70959"
+    },
+    {
+      "id": "output_media_verification_types_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerificationTypes.swift",
+      "size_bytes": 9462,
+      "sha256": "4a8b0ea5bd5177224050d748df350920886ed98875508767cf0a3920cae368df"
+    },
+    {
+      "id": "output_media_verifier_source",
+      "path": "Mirmir/Modules/MediaPipeline/OutputMediaVerifier.swift",
+      "size_bytes": 17930,
+      "sha256": "10d6094d03cdc7e0a6b9467ecdac28c0450d9d86dc7669c18912fcbfd1032c38"
+    },
+    {
+      "id": "apple_upscale_contracts_tests",
+      "path": "MirmirTests/AppleUpscaleContractsTests.swift",
+      "size_bytes": 17499,
+      "sha256": "fc2be13d3df421162e338231c6bf6f73f28605b80cdf5addaa2f933a0f2cbab6"
+    },
+    {
+      "id": "enhancement_pipeline_contracts_tests",
+      "path": "MirmirTests/EnhancementPipelineContractsTests.swift",
+      "size_bytes": 20218,
+      "sha256": "d77888349aac317dfdad827b4be5f3c3494f6d4b4aa9a0498ba8c72d4abb9609"
+    },
+    {
+      "id": "apple_upscale_fifo_session_tests",
+      "path": "MirmirTests/AppleUpscaleFIFOSessionTests.swift",
+      "size_bytes": 32550,
+      "sha256": "65833a1b8a672b397b33bcb6bf7299857392fefd8f7ad31b6c28889c6e10b2c8"
+    },
+    {
+      "id": "r02_fixture_conformance_tests",
+      "path": "MirmirTests/R02FixtureConformanceTests.swift",
+      "size_bytes": 27227,
+      "sha256": "72645d41296456e2c98d598a7fad32f7c305a4f6b4326299b2377e2c7cde7dde"
+    },
+    {
+      "id": "r02_fixture_conformance_support",
+      "path": "MirmirTests/R02FixtureConformanceTestSupport.swift",
+      "size_bytes": 43968,
+      "sha256": "8db8f0a36176a918bcae5d13d0577c90695cd954c020b60be0d663066a04236c"
+    },
+    {
+      "id": "architecture_guardrail_tests",
+      "path": "MirmirTests/ArchitectureGuardrailTests.swift",
+      "size_bytes": 12108,
+      "sha256": "e28e0a17ffa37068d0b65cf41ede4af77a9ce05a86145321dcb9f1d07bf25c17"
+    },
+    {
+      "id": "upscaler_engine_availability_tests",
+      "path": "MirmirTests/UpscalerEngineAvailabilityTests.swift",
+      "size_bytes": 13614,
+      "sha256": "549c684a5b8c9f77c22cb6fd27dc2365e5f4e5dae92b58c09a2682381b68de44"
+    },
+    {
+      "id": "project_manifest",
+      "path": "project.yml",
+      "size_bytes": 3501,
+      "sha256": "b7f9c7b3f32350101752ba285140c121f57227279f3a5a00a506486e787c6876"
+    },
+    {
+      "id": "xcode_project",
+      "path": "Mirmir.xcodeproj/project.pbxproj",
+      "size_bytes": 206690,
+      "sha256": "d6fcdbc24dcd3e4af4032b4ef029afad7f2518021d8e7777fa9df81cc0e45f3a"
+    },
+    {
+      "id": "xcode_scheme",
+      "path": "Mirmir.xcodeproj/xcshareddata/xcschemes/Mirmir.xcscheme",
+      "size_bytes": 4494,
+      "sha256": "69d7c7e21199d27be2acc849e724bcbf3d841e87d9070fabc5affd4629b3721a"
+    },
+    {
+      "id": "ash_calibration_cli_support_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift",
+      "size_bytes": 11641,
+      "sha256": "828a55558fdf72da2ae4be06cc2e37b61d03f5c7a4e8ae883df0fecafed3a797"
+    },
+    {
+      "id": "ash_calibration_cli_protocol_source",
+      "path": "validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift",
+      "size_bytes": 160132,
+      "sha256": "fa7b1d4ead1f3159c552dff528fffae594628e3ac6165881bbecbfe34cc2b3f2"
+    }
+  ],
+  "artifact_bindings": [
+    {
+      "id": "r02_functional_xcodebuild_log",
+      "path": "docs/roadmaps/evidence/r02/records/artifacts/functional-phase-acceptance/xcodebuild.log",
+      "size_bytes": 1928,
+      "sha256": "896be0ed5edebe5e3d04923001659515fba085ecb0ce9be8ac6abd72403378d8"
+    },
+    {
+      "id": "r02_functional_xcresult_summary",
+      "path": "docs/roadmaps/evidence/r02/records/artifacts/functional-phase-acceptance/xcresult-summary.json",
+      "size_bytes": 6092,
+      "sha256": "cb38be5cfb2998c87b9b11a659fcb841e705a253cb318dde3f09166b1899f43a"
+    }
+  ],
+  "derived_checks": [
+    {
+      "id": "source_checkpoint_exact",
+      "status": "passed"
+    },
+    {
+      "id": "frozen_evidence_valid_and_unchanged",
+      "status": "passed"
+    },
+    {
+      "id": "implementation_bindings_exact",
+      "status": "passed"
+    },
+    {
+      "id": "execution_artifacts_exact",
+      "status": "passed"
+    },
+    {
+      "id": "selected_test_set_exact",
+      "status": "passed"
+    },
+    {
+      "id": "capability_registry_and_common_protocols",
+      "status": "passed"
+    },
+    {
+      "id": "stage_protocols_and_immutable_plan",
+      "status": "passed"
+    },
+    {
+      "id": "planner_single_primary_and_visible_fallback",
+      "status": "passed"
+    },
+    {
+      "id": "fifo_order_and_actor_reentrancy",
+      "status": "passed"
+    },
+    {
+      "id": "reset_finish_cancel_lifecycle",
+      "status": "passed"
+    },
+    {
+      "id": "typed_outcomes_and_complete_identity",
+      "status": "passed"
+    },
+    {
+      "id": "resource_lifetime_exactly_once",
+      "status": "passed"
+    },
+    {
+      "id": "multiple_backends_common_session",
+      "status": "passed"
+    },
+    {
+      "id": "media_contract_preservation",
+      "status": "passed"
+    },
+    {
+      "id": "reopen_verification_and_atomic_publication",
+      "status": "passed"
+    },
+    {
+      "id": "production_unavailable",
+      "status": "passed"
+    },
+    {
+      "id": "native_observation_boundary_truthful",
+      "status": "passed"
+    },
+    {
+      "id": "authorization_boundary_exact",
+      "status": "passed"
+    }
+  ],
+  "result": {
+    "status": "passed",
+    "phase_status_before": "in_progress",
+    "phase_status_after": "passed",
+    "acceptance": "accepted",
+    "acceptance_scope": "declared_software_function_only",
+    "execution_mode": "deterministic_fixture_execution"
+  },
+  "authorizations": {
+    "r02_phase_acceptance": "authorized",
+    "r02_phase_status": "passed",
+    "phase_progression": "authorized",
+    "product_qualification": "not_claimed",
+    "production_upscaling": "not_authorized",
+    "production_default": "not_authorized",
+    "auto_mode": "not_authorized",
+    "holdout": "not_authorized",
+    "quality_claims": "not_authorized",
+    "performance_claims": "not_authorized",
+    "product_publication": "not_authorized",
+    "release": "not_authorized",
+    "native_framework_claims": "not_authorized"
+  },
+  "limitations": [
+    "R02 acceptance is limited to checkpoint-bound proof that the unified backend, session, stage, planner, lifecycle, identity, and media-transaction software performs its declared deterministic task.",
+    "The two fixture backends verify common-interface interchangeability; they are not a comparative-quality or A/B experiment.",
+    "Hardware, simulator, operator-observed, native-framework, quality, and performance observations remain truthfully unclaimed and are not blockers.",
+    "R02 acceptance does not authorize product qualification, production upscaling, a production default, Auto, holdout, claims, publication, or release."
+  ]
+}

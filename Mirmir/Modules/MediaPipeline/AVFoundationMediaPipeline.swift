@@ -182,13 +182,22 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     let writer: AVAssetWriter
     let videoInput: AVAssetWriterInput
-    private let videoAdaptor: AVAssetWriterInputPixelBufferAdaptor
     let audioInput: AVAssetWriterInput?
     let timedMetadataWriter: TimedMetadataWriter?
     let outputTransaction: AtomicMediaOutput
     let outputVerifier: any OutputMediaVerifying
     let telemetry: any ASHTelemetryRecording
     let expectedCompressedAACIdentity: OutputMediaAACIdentity?
+    let expectedVideoTransform: CGAffineTransform
+
+    var prepublicationOutputURL: URL {
+        outputTransaction.temporaryURL
+    }
+
+    var publishedOutputIdentity: MediaOutputPublicationIdentity? {
+        outputTransaction.publishedOutputIdentity
+    }
+
     let lifecycleLock = NSLock()
     let timingLock = NSLock()
 
@@ -295,12 +304,16 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             audioTrack: audioTrack,
             preserveAudio: output.preserveAudio
         )
-        let outputTransaction = try Self.makeOutputTransaction(outputURL: output.url)
+        let outputTransaction = try Self.makeOutputTransaction(
+            outputURL: output.url,
+            transactionIdentifier: output.transactionIdentifier
+        )
         outputTransaction.attachTelemetry(telemetry)
         let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
         let writerInputs = try Self.configureWriterInputs(
             writer: writer,
             output: output,
+            sourceResolution: source.resolution,
             videoTimeScale: videoTimeScale,
             videoTransform: videoTransform,
             audioOutput: readerOutputs.audio,
@@ -324,13 +337,13 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.audioOutput = readerOutputs.audio
         self.writer = writer
         self.videoInput = writerInputs.video
-        self.videoAdaptor = writerInputs.adaptor
         self.audioInput = writerInputs.audio
         self.timedMetadataWriter = writerInputs.timedMetadata
         self.outputTransaction = outputTransaction
         self.outputVerifier = outputVerifier
         self.telemetry = telemetry
         self.expectedCompressedAACIdentity = expectedCompressedAACIdentity
+        self.expectedVideoTransform = writerInputs.videoTransform
         telemetry.recordMedia(ASHMediaObservation(
             kind: "reader_writer_started",
             details: [
@@ -422,10 +435,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             try timingLock.withLock {
                 var candidateLedger = timingLedger
                 try candidateLedger.append(timing)
-                guard videoAdaptor.append(
-                    pixelBuffer,
-                    withPresentationTime: timing.presentationTime
-                ) else {
+                let sampleBuffer = try Self.makeVideoSampleBuffer(
+                    pixelBuffer: pixelBuffer,
+                    timing: timing
+                )
+                guard videoInput.append(sampleBuffer) else {
                     throw MediaPipelineError.writerFailed(writer.error)
                 }
                 timingLedger = candidateLedger

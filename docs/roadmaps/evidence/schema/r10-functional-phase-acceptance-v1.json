@@ -1,0 +1,266 @@
+{
+  "$id": "https://mirmir.local/docs/roadmaps/evidence/schema/r10-functional-phase-acceptance-v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {"minLength": 1, "type": "string"},
+        "size_bytes": {"minimum": 1, "type": "integer"},
+        "sha256": {"pattern": "^(?!0{64}$)[0-9a-f]{64}$", "type": "string"}
+      },
+      "required": ["path", "size_bytes", "sha256"],
+      "type": "object"
+    },
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"},
+        "tree": {"pattern": "^(?!0{40}$)[0-9a-f]{40}$", "type": "string"}
+      },
+      "required": ["commit", "tree"],
+      "type": "object"
+    },
+    "passedCheck": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "source_checkpoint_exact",
+            "contract_bindings_exact",
+            "implementation_bindings_exact",
+            "exact_39_test_execution",
+            "calibration_run_receipt_schema_exact",
+            "dynamic_artifact_closure_exact",
+            "processing_identity_exact",
+            "counts_and_independent_constraints_exact",
+            "typed_reopen_exact_evaluation_catalog",
+            "resume_cancel_failure_filesystem_coverage_exact",
+            "fixture_only_noncomparative_scope_exact",
+            "production_auto_and_holdout_blocked"
+          ],
+          "type": "string"
+        },
+        "status": {"const": "passed", "type": "string"}
+      },
+      "required": ["id", "status"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {"const": "1.0.0", "type": "string"},
+    "roadmap_version": {"const": "1.0.1", "type": "string"},
+    "phase_id": {"const": "R10", "type": "string"},
+    "evidence_kind": {
+      "const": "r10_operator_functional_phase_acceptance_v1",
+      "type": "string"
+    },
+    "source": {"$ref": "#/$defs/source"},
+    "operator_override": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {"const": "operator", "type": "string"},
+        "acceptance_basis": {
+          "const": "software_does_what_it_says_it_does",
+          "type": "string"
+        },
+        "comparison_requirement": {"const": "not_run_not_required", "type": "string"},
+        "hardware_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "simulator_requirement": {"const": "waived_not_a_blocker", "type": "string"},
+        "operator_observation_requirement": {
+          "const": "waived_not_a_blocker",
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "acceptance_basis",
+        "comparison_requirement",
+        "hardware_requirement",
+        "simulator_requirement",
+        "operator_observation_requirement"
+      ],
+      "type": "object"
+    },
+    "execution_receipt_binding": {"$ref": "#/$defs/binding"},
+    "run_receipt_binding": {"$ref": "#/$defs/binding"},
+    "functional_gate": {
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "passed", "type": "string"},
+        "phase_status_before": {"const": "in_progress", "type": "string"},
+        "phase_status_after": {"const": "passed", "type": "string"},
+        "acceptance": {"const": "accepted", "type": "string"},
+        "acceptance_basis": {
+          "const": "software_does_what_it_says_it_does",
+          "type": "string"
+        },
+        "acceptance_scope": {
+          "const": "declared_software_function_only",
+          "type": "string"
+        },
+        "execution_mode": {
+          "const": "deterministic_fixture_simulation",
+          "type": "string"
+        },
+        "roadmap_exit_outcome": {"const": "passed", "type": "string"}
+      },
+      "required": [
+        "status",
+        "phase_status_before",
+        "phase_status_after",
+        "acceptance",
+        "acceptance_basis",
+        "acceptance_scope",
+        "execution_mode",
+        "roadmap_exit_outcome"
+      ],
+      "type": "object"
+    },
+    "checks": {
+      "items": false,
+      "maxItems": 12,
+      "minItems": 12,
+      "prefixItems": [
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "source_checkpoint_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "contract_bindings_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "implementation_bindings_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "exact_39_test_execution"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "calibration_run_receipt_schema_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "dynamic_artifact_closure_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "processing_identity_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "counts_and_independent_constraints_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "typed_reopen_exact_evaluation_catalog"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "resume_cancel_failure_filesystem_coverage_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "fixture_only_noncomparative_scope_exact"}}}
+          ]
+        },
+        {
+          "allOf": [
+            {"$ref": "#/$defs/passedCheck"},
+            {"properties": {"id": {"const": "production_auto_and_holdout_blocked"}}}
+          ]
+        }
+      ],
+      "uniqueItems": true,
+      "type": "array"
+    },
+    "observation_status": {
+      "additionalProperties": false,
+      "properties": {
+        "deterministic_software_execution": {"const": "observed", "type": "string"},
+        "deterministic_fixture_simulation": {"const": "observed", "type": "string"},
+        "physical_hardware_execution": {"const": "not_observed", "type": "string"},
+        "apple_simulator_execution": {"const": "not_observed", "type": "string"},
+        "operator_observed_operation": {"const": "not_observed", "type": "string"}
+      },
+      "required": [
+        "deterministic_software_execution",
+        "deterministic_fixture_simulation",
+        "physical_hardware_execution",
+        "apple_simulator_execution",
+        "operator_observed_operation"
+      ],
+      "type": "object"
+    },
+    "authorization_boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "r10_phase_acceptance": {"const": "authorized", "type": "string"},
+        "fixture_policy_evidence_publication": {"const": "authorized", "type": "string"},
+        "production_auto": {"const": "not_authorized", "type": "string"},
+        "holdout": {"const": "not_authorized", "type": "string"},
+        "product_publication": {"const": "not_authorized", "type": "string"},
+        "quality_claims": {"const": "not_authorized", "type": "string"},
+        "performance_claims": {"const": "not_authorized", "type": "string"},
+        "release": {"const": "not_authorized", "type": "string"}
+      },
+      "required": [
+        "r10_phase_acceptance",
+        "fixture_policy_evidence_publication",
+        "production_auto",
+        "holdout",
+        "product_publication",
+        "quality_claims",
+        "performance_claims",
+        "release"
+      ],
+      "type": "object"
+    },
+    "limitations": {
+      "items": {"minLength": 1, "type": "string"},
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema_version",
+    "roadmap_version",
+    "phase_id",
+    "evidence_kind",
+    "source",
+    "operator_override",
+    "execution_receipt_binding",
+    "run_receipt_binding",
+    "functional_gate",
+    "checks",
+    "observation_status",
+    "authorization_boundary",
+    "limitations"
+  ],
+  "type": "object"
+}

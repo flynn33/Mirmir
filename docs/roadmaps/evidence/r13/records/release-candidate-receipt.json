@@ -1,0 +1,340 @@
+{
+  "acceptance_basis": "software_does_what_it_says_it_does",
+  "app_identity": {
+    "bundle": {
+      "build_version": "1",
+      "bundle_identifier": "com.mirmir.app",
+      "executable": {
+        "path": "Contents/MacOS/Mirmir",
+        "sha256": "d423ac0cbb322aa725e63b71c2381b33494864853e316e68c45a8939cc8f3f6f",
+        "size_bytes": 6794960
+      },
+      "executable_name": "Mirmir",
+      "info_plist": {
+        "path": "Contents/Info.plist",
+        "sha256": "5b77eb4696fe963c4c31a0e968d9fff4feedeed2b393462bcadda7af106f4109",
+        "size_bytes": 1623
+      },
+      "short_version": "1.0.0"
+    },
+    "bundle_path": "<outside-repository>/DerivedData/Build/Products/Release/Mirmir.app",
+    "file_count": 14,
+    "file_manifest": [
+      {
+        "mode": 420,
+        "path": "Contents/Info.plist",
+        "sha256": "5b77eb4696fe963c4c31a0e968d9fff4feedeed2b393462bcadda7af106f4109",
+        "size_bytes": 1623
+      },
+      {
+        "mode": 493,
+        "path": "Contents/MacOS/Mirmir",
+        "sha256": "d423ac0cbb322aa725e63b71c2381b33494864853e316e68c45a8939cc8f3f6f",
+        "size_bytes": 6794960
+      },
+      {
+        "mode": 420,
+        "path": "Contents/PkgInfo",
+        "sha256": "82502191c9484b04d685374f9879a0066069c49b8acae7a04b01d38d07e8eca0",
+        "size_bytes": 8
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/AppIcon.icns",
+        "sha256": "874c87295342f5047c3bdf161da3840edb06fa8165bd31b9bcdaf7d02b16a36a",
+        "size_bytes": 49757
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/Assets.car",
+        "sha256": "e82d4fe60a4635ddb91bb36a1899e6116a822738f84d746126e942eeab19df72",
+        "size_bytes": 448248
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/ash-asset-manifest.json",
+        "sha256": "64a725bd9118d97ae4f3d7f27cf21eb1676fd394a464d09429daa6d8eee0e6e5",
+        "size_bytes": 1600
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/ash-state-reference.csv",
+        "sha256": "20e885ce6f83ca584ec13b53161dd25f5ed2e42baeeb60633b0ce19d2975c310",
+        "size_bytes": 24759
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/ash_mapping_v1.json",
+        "sha256": "aef24e8eba2441025e1e440e2791215d32d163e0b7b91d25bb7e9b7018260c79",
+        "size_bytes": 2274
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/ash_video_mapping_v2.seed.json",
+        "sha256": "2ebdffa39909012e3284888fd23ede66a68a8a2e270fdfc278b287d109a60e88",
+        "size_bytes": 7078
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/branch-topology.json",
+        "sha256": "e114168b20ce2842126b949399b07750160fb0acbdf3971a028f5fcc15d3748c",
+        "size_bytes": 55401
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/codewords.csv",
+        "sha256": "cccb4077ec79e52d428f4fc41dabb6e91e565c95b7f8cca2d53356e7cd408fe4",
+        "size_bytes": 418
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/computational-certificate.json",
+        "sha256": "b0ea48e16ede4d09d8361fcb374c7f3072d9c498685623b9bc747103efb9febf",
+        "size_bytes": 62489
+      },
+      {
+        "mode": 420,
+        "path": "Contents/Resources/operator_bank_v2.seed.json",
+        "sha256": "7909a226c80fae86a4f38a4f0e52bfb99205f47e1dcecb7c121d1eb62801b137",
+        "size_bytes": 4299
+      },
+      {
+        "mode": 420,
+        "path": "Contents/_CodeSignature/CodeResources",
+        "sha256": "092ad1561384866ae7c16507d9f16270ca0d9134a4c232af1b089a467a88cabb",
+        "size_bytes": 4688
+      }
+    ],
+    "frameworks": {
+      "entries": [],
+      "status": "none_embedded",
+      "tree_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "total_size_bytes": 7457602,
+    "tree_sha256": "731e103390ae87e2eb6296e08208e394f96c52b85f759c3dac6f55f83c9de1f3"
+  },
+  "candidate_archive": {
+    "artifact_binding": {
+      "path": "docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-release-candidate.zip",
+      "sha256": "a7515b04619d27dcbf278968274058345135033d8272a3faaecc4e2a52e4dbe8",
+      "size_bytes": 2450967
+    },
+    "format": "zip_deflate_single_mirmir_app_v1",
+    "reopen_status": "passed",
+    "reopened_app_tree_sha256": "731e103390ae87e2eb6296e08208e394f96c52b85f759c3dac6f55f83c9de1f3",
+    "top_level": "Mirmir.app"
+  },
+  "candidate_build_boundary": {
+    "default_metallib": "absent",
+    "metal_source_compilation": "excluded",
+    "release_candidate_gpu_execution": "not_observed"
+  },
+  "claim_boundary": {
+    "auto_mode": "not_authorized",
+    "claim_scope": "software_behavior_report",
+    "fallback": "none",
+    "market_claim": "not_authorized",
+    "model": "not_required",
+    "product_publication": "not_authorized",
+    "release_publication": "not_authorized",
+    "tag_publication": "not_authorized"
+  },
+  "comparison_policy": {
+    "ab_test": "absent_not_required",
+    "acceptance_dependency": "none",
+    "comparison_method": "absent_not_required"
+  },
+  "distribution_boundary": {
+    "distributable_claim": "not_authorized",
+    "distribution_authority": "not_authorized",
+    "distribution_signing_identity": "not_observed",
+    "gatekeeper": "not_observed",
+    "launch_smoke": "not_observed",
+    "notarization": "not_observed",
+    "notarized_claim": "not_authorized"
+  },
+  "evidence_kind": "r13_exact_release_candidate_receipt_v1",
+  "execution_boundary": {
+    "output_execution": "debug_xctest_genuine_a11_mps_avfoundation",
+    "release_app_execution": "not_observed",
+    "release_app_produced_output": false
+  },
+  "limitations": [
+    "R13 evidence proves the behavior exercised by the exact checkpointed Debug XCTest inventory; it separately proves build and archive identity, not execution, of the exact clean Release app.",
+    "Automated Debug XCTest executed the genuine MPS Lanczos A11 backend for both product routes; this is functional execution, not GPU profiling or hardware qualification.",
+    "Release-candidate GPU execution, GPU profiling, hardware qualification, simulator, Instruments, and operator observations are not_observed and are nonblocking.",
+    "No comparative, historical-comparison, or A/B result is required or used.",
+    "Auto is unavailable and not_authorized, model acquisition is not_required, and no fallback route is accepted.",
+    "This acceptance authorizes a release-ready candidate outcome; it does not authorize a tag, release publication, product publication, or market claim.",
+    "The available Release toolchain build excludes Metal source files; the candidate contains no default.metallib and makes no Release-candidate GPU execution claim.",
+    "The retained MOV is produced by Debug XCTest through the genuine default A11 MPS Lanczos backend and AVFoundation media pipeline, with a deterministic test-scoped release environment; the separately built Release app did not produce that output and its execution was not observed.",
+    "Distribution signing identity, notarization, Gatekeeper, launch smoke, and Release-app execution were not observed; distribution, notarized, and distributable claims are not authorized."
+  ],
+  "mode_policy": {
+    "auto_authority": "not_authorized",
+    "auto_availability": "unavailable",
+    "fallback": "none",
+    "model": "not_required"
+  },
+  "observations": {
+    "debug_xctest_mps_lanczos_execution": "observed_both_product_routes",
+    "gpu_profiling": "not_observed",
+    "hardware_qualification": "not_observed",
+    "instruments": "not_observed",
+    "nonblocking_for_software_function_acceptance": true,
+    "operator": "not_observed",
+    "release_candidate_gpu_execution": "not_observed",
+    "simulator": "not_observed"
+  },
+  "outcome": "release_ready_candidate",
+  "output_media_artifact_binding": {
+    "path": "docs/roadmaps/evidence/r13/records/artifacts/functional-phase-acceptance/r13-output-reopen-fixture.mov",
+    "sha256": "b937bc33d6d27b1e1e6f795ce6abfb880dd8ad744f03c093684c089bbe7d20ce",
+    "size_bytes": 4293
+  },
+  "output_reopen_evidence": {
+    "observed_media": {
+      "container_type": "com.apple.quicktime-movie",
+      "controlled_metadata": [
+        {
+          "key": "com.mirmir.release.app",
+          "value": "com.mirmir.integration-tests:1.0.0:13"
+        },
+        {
+          "key": "com.mirmir.release.app-executable-bytes",
+          "value": "4096"
+        },
+        {
+          "key": "com.mirmir.release.app-executable-sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "key": "com.mirmir.release.backend-id",
+          "value": "r03.mps.lanczos"
+        },
+        {
+          "key": "com.mirmir.release.backend-revision",
+          "value": "1"
+        },
+        {
+          "key": "com.mirmir.release.capability-id",
+          "value": "A11"
+        },
+        {
+          "key": "com.mirmir.release.configuration-id",
+          "value": "r03.mps.lanczos.scale_3_over_2.420v-bt709-video-left.v1"
+        },
+        {
+          "key": "com.mirmir.release.effective-mode",
+          "value": "deterministic"
+        },
+        {
+          "key": "com.mirmir.release.fallback-history",
+          "value": "[]"
+        },
+        {
+          "key": "com.mirmir.release.framework",
+          "value": "MetalPerformanceShaders:integration-1:integration-build"
+        },
+        {
+          "key": "com.mirmir.release.identity-sha256",
+          "value": "0b8aa7e8a0e463ed135cac17f48798abb4bbf0b1ad2b43cc60dd5fed9c252ca1"
+        },
+        {
+          "key": "com.mirmir.release.material-decision-id",
+          "value": "r03.a11.genuine-mps-lanczos-product-admission.v1"
+        },
+        {
+          "key": "com.mirmir.release.model-status",
+          "value": "not_required"
+        },
+        {
+          "key": "com.mirmir.release.output",
+          "value": "1920x1080:h264:audio-omitted"
+        },
+        {
+          "key": "com.mirmir.release.policy-id",
+          "value": "r03.a11.product-qualified.no-fallback.v1"
+        },
+        {
+          "key": "com.mirmir.release.policy-sha256",
+          "value": "0e8231a9bb12e512976be67b6b130f26868ae04e4e77537ac64ef37d94ac207e"
+        },
+        {
+          "key": "com.mirmir.release.requested-mode",
+          "value": "quality"
+        },
+        {
+          "key": "com.mirmir.release.resource-manifest-sha256",
+          "value": "4f6d8136e3c74df7ac5af0b72c5c8734dbe267c227d83878825464bf30103ba8"
+        },
+        {
+          "key": "com.mirmir.release.route-id",
+          "value": "scale_3_over_2"
+        },
+        {
+          "key": "com.mirmir.release.runtime",
+          "value": "macOS:15.4:integration-runtime:arm64"
+        },
+        {
+          "key": "com.mirmir.release.source-bytes",
+          "value": "1015"
+        },
+        {
+          "key": "com.mirmir.release.source-sha256",
+          "value": "59a30be8670a63c1ba36c9b6d3e67a4f34d2b34b4d06973bc93daf04475ba9fb"
+        }
+      ],
+      "duration_seconds": 0.03333333333333333,
+      "frame_count": 5,
+      "height": 1080,
+      "video_track_count": 1,
+      "width": 1920
+    },
+    "producer_test_identifier": "MirmirTests.R13ReleaseIntegrationTests.testShippingServiceBindsExactReleaseIdentityAndReopensControlledMetadata",
+    "status": "passed"
+  },
+  "output_reopen_receipt_binding": {
+    "path": "docs/roadmaps/evidence/r13/records/output-reopen-receipt.json",
+    "sha256": "17896f063796740dedc5109f0027b9f05e4ff54ce87301643b437c547f0dcd40",
+    "size_bytes": 4839
+  },
+  "phase_id": "R13",
+  "roadmap_version": "1.0.1",
+  "schema_version": "1.0.0",
+  "source": {
+    "commit": "6c72e865e7622c11dcf1681f04ccc5cc240d8119",
+    "tree": "14852f416aef5d3156185a4b50767b531915cd82"
+  },
+  "toolchain_identity": {
+    "host": {
+      "machine": "arm64",
+      "release": "25.5.0",
+      "system": "Darwin"
+    },
+    "swift": {
+      "executable_path": "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend",
+      "executable_sha256": "0cd90e3092b0cbb2c27fdd69a66a2e850399e333cf68958cfd436461260a9e9d",
+      "name": "swift",
+      "version": "Apple Swift version 6.2.3 (swiftlang-6.2.3.3.21 clang-1700.6.3.2)\nTarget: arm64-apple-macosx26.0"
+    },
+    "swiftlint": {
+      "executable_path": "/opt/homebrew/Cellar/swiftlint/0.63.2/bin/swiftlint",
+      "executable_sha256": "b6598e7642ce5e39b203c2b83471a4719aecc663ce297e45fd4f5eea6c724c1c",
+      "name": "swiftlint",
+      "version": "0.63.2"
+    },
+    "xcodebuild": {
+      "executable_path": "/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild",
+      "executable_sha256": "d8601086e5c80e9f46664d884ce1f661f8b6fbdf5523b24050bbae792dc15d82",
+      "name": "xcodebuild",
+      "version": "Xcode 26.2\nBuild version 17C52"
+    },
+    "xcrun": {
+      "executable_path": "/usr/bin/xcrun",
+      "executable_sha256": "a439970aea2b4e435eac6518ff62c97fd1c57d8c731974027ad211b515c7a7b8",
+      "name": "xcrun",
+      "version": "xcrun version 72."
+    }
+  }
+}

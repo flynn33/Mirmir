@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 
@@ -14,6 +15,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 BOUND_ROOT = ROOT.parent / "Mirmir"
 ANALYSIS_ROOT = Path(__file__).resolve().parent
+# The snapshot's analysis_repository_head predates tracked creation of these
+# analysis files. This later content-addressed commit archives the exact six
+# analysis blobs sealed by source_files; bound-run blobs remain sourced from
+# the snapshot-recorded bound_repository_head.
+ANALYSIS_ARCHIVE_COMMIT = "94225943a726c68fbafbadae96fa8bad267e262f"
 EVIDENCE_PATH = ANALYSIS_ROOT / "evidence/p06-current-source-snapshot-final.json"
 EVIDENCE_RELATIVE_PATH = EVIDENCE_PATH.relative_to(ROOT).as_posix()
 ARTIFACT_PATH = ANALYSIS_ROOT / "artifact.json"
@@ -28,6 +34,44 @@ def _load_module(name: str, path: Path):
     module = importlib.util.module_from_spec(specification)
     specification.loader.exec_module(module)
     return module
+
+
+def _require_git_commit(repository_root: Path, revision: str) -> None:
+    result = subprocess.run(
+        [
+            "/usr/bin/git",
+            "-C",
+            str(repository_root),
+            "cat-file",
+            "-e",
+            f"{revision}^{{commit}}",
+        ],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"historical commit is unavailable: {revision}")
+
+
+def _read_git_blob(repository_root: Path, revision: str, relative_path: str) -> bytes:
+    result = subprocess.run(
+        [
+            "/usr/bin/git",
+            "-C",
+            str(repository_root),
+            "show",
+            f"{revision}:{relative_path}",
+        ],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"historical source is unavailable: {revision}:{relative_path}"
+        )
+    return result.stdout
 
 
 ANALYZER = _load_module(
@@ -273,17 +317,35 @@ class FailureAnalysisTests(unittest.TestCase):
         for table in first["manifest"]["tables"]:
             self.assertIn(table["sourceId"], source_ids)
 
-    def test_snapshot_source_hashes_match_current_bytes(self) -> None:
+    def test_snapshot_source_hashes_match_historical_git_blobs(self) -> None:
         evidence = json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
+        analysis_head = evidence["scope"]["analysis_repository_head"]
+        bound_head = evidence["scope"]["bound_repository_head"]
+        _require_git_commit(ROOT, analysis_head)
+        _require_git_commit(ROOT, ANALYSIS_ARCHIVE_COMMIT)
+        _require_git_commit(BOUND_ROOT, bound_head)
         for source in evidence["source_files"]:
-            source_root = (
-                BOUND_ROOT
-                if source["repository_role"] == "bound_run"
-                else ROOT
-            )
-            payload = (source_root / source["path"]).read_bytes()
+            self.assertIn(source["repository_role"], {"analysis", "bound_run"})
+            if source["repository_role"] == "bound_run":
+                source_root = BOUND_ROOT
+                revision = bound_head
+            else:
+                source_root = ROOT
+                revision = ANALYSIS_ARCHIVE_COMMIT
+            payload = _read_git_blob(source_root, revision, source["path"])
             self.assertEqual(len(payload), source["size_bytes"])
             self.assertEqual(hashlib.sha256(payload).hexdigest(), source["sha256"])
+
+    def test_historical_source_lookup_rejects_missing_commit_and_path(self) -> None:
+        with self.assertRaisesRegex(RuntimeError, "historical commit is unavailable"):
+            _require_git_commit(ROOT, "0" * 40)
+        _require_git_commit(ROOT, ANALYSIS_ARCHIVE_COMMIT)
+        with self.assertRaisesRegex(RuntimeError, "historical source is unavailable"):
+            _read_git_blob(
+                ROOT,
+                ANALYSIS_ARCHIVE_COMMIT,
+                "analysis/ash-failure-patterns/missing-source.py",
+            )
 
     def test_report_rejects_invalid_or_misattributed_evidence(self) -> None:
         evidence = json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))

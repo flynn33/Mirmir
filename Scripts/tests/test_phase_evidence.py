@@ -930,6 +930,12 @@ class PhaseEvidenceTests(unittest.TestCase):
     def test_r06_closure_has_only_r05_as_direct_predecessor(self) -> None:
         self.assertEqual(PHASE_CLOSURE_PREDECESSORS["R06"], ("R05",))
 
+    def test_r10_closure_combines_direct_and_practical_predecessors(self) -> None:
+        self.assertEqual(
+            PHASE_CLOSURE_PREDECESSORS["R10"],
+            ("R07", "R09"),
+        )
+
     def test_r06_result_vocabulary_remains_passed_or_blocked(self) -> None:
         self.assertEqual(
             PHASE_OUTCOME_DISPOSITIONS["R06"],

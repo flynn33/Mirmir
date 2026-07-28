@@ -184,7 +184,11 @@ private func canonicalAACHeaderSHA256(
     return hasher.finalize(sampleCount: 0)
 }
 
-private func writeAACFixture(to url: URL, seed: Int = 0) throws {
+func writeAACFixture(
+    to url: URL,
+    seed: Int = 0,
+    frameCount: AVAudioFrameCount = 480
+) throws {
     let processingFormat = try XCTUnwrap(
         AVAudioFormat(
             standardFormatWithSampleRate: 48_000,
@@ -202,7 +206,6 @@ private func writeAACFixture(to url: URL, seed: Int = 0) throws {
         commonFormat: .pcmFormatFloat32,
         interleaved: false
     )
-    let frameCount: AVAudioFrameCount = 480
     let buffer = try XCTUnwrap(
         AVAudioPCMBuffer(
             pcmFormat: processingFormat,

@@ -9,14 +9,22 @@
 
 - Roadmap phase `R00`: `passed`
 - Roadmap phase `R01`: `passed`
-- Roadmap phase `R02`: `in_progress`
+- Roadmap phase `R02`: `passed` for declared software function
 - Roadmap phase `R03`: `passed`
-- Roadmap phase `R04`: `in_progress`
-- Roadmap phase `R05`: `in_progress`
-- Roadmap phase `R06`: `in_progress` and unaccepted
+- Roadmap phase `R04`: `passed` for declared software function
+- Roadmap phase `R05`: `passed` with diagnostic-only suitability outcome
+- Roadmap phase `R06`: `passed` for deterministic control-plane software
 - Roadmap phase `R07`: `passed` for deterministic software function
 - Roadmap phase `R08`: `passed` for declared analysis-only software function
 - Roadmap phase `R09`: `passed` for declared bounded-residual software function
+- Roadmap phase `R10`: `passed` for deterministic bounded optimizer/calibration
+  software function
+- Roadmap phase `R11`: `passed` for exact-source traceability and claim-boundary
+  software function
+- Roadmap phase `R12`: `passed` for exact-source format, route, backend, and
+  resumability contract software functions
+- Roadmap phase `R13`: `passed` for exact-source release-hardening software
+  functions; outcome `release_ready_candidate`
 
 Mirmir is a native Apple-silicon (`arm64`) macOS application. Its application
 target is implemented in Swift and SwiftUI over Foundation, AVFoundation,
@@ -25,7 +33,7 @@ modules under `validation/` implement offline calibration, evidence production,
 schema validation, and gate finalization. They are not linked into or embedded
 in `Mirmir.app`.
 
-The R00 source uses an app-owned Pattern B runtime with one UI module and four
+The current source uses an app-owned Pattern B runtime with one UI module and four
 service modules assembled once through `MirmirAppBootstrap` and injected through
 Mirmir-owned factories. The Forsetti repository is reference-only; it is not a
 package, framework, submodule, vendored source, build, or runtime dependency.
@@ -40,9 +48,11 @@ renders `MirmirProductionRootView` only after the UI module and primary view are
 registered. Debug launch with `MIRMIR_DEVELOPER_WORKSPACE=1` adds a read-only
 module/status surface. It provides no activation or deactivation controls.
 
-Normal product upscaling remains fail-closed. The production composition injects
-an unavailable transition engine, Start remains disabled, and the UI reports:
-“No production-default backend is enabled; product routing remains unavailable.”
+Production launch composes `NotRequiredModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
+Fast, and Deterministic are available and bind to the genuine
+`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
+cannot submit. No silent fallback is permitted.
 
 R02 began from local R01 closure commit
 `555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
@@ -56,11 +66,24 @@ media-transaction and Metal lifetime boundaries. Production remains unavailable.
 
 R02 deterministic conformance is recorded at local unpublished closure commit
 `673b0582c0b4d6b4ad81de6b01ba9e3f35f4e3d4`, tree
-`a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance is not claimed. R03
-starts locally from that exact closure under a frozen 8-bit NV12, SDR BT.709,
-720p-to-1080p and 1080p-to-2160p baseline contract. Unavailable backend or
-support-stage execution is recorded as `not_observed`; it does not qualify a
-backend, select a production default, or support a performance or quality claim.
+`a5e95d810abacbdb872ddc6e94125103831e6fba`; acceptance was not claimed at
+that historical checkpoint. R03 starts locally from that exact closure under a
+frozen 8-bit NV12, SDR BT.709, 720p-to-1080p and 1080p-to-2160p baseline
+contract. Unavailable backend or support-stage execution is recorded as
+`not_observed`; it does not qualify a backend, select a production default, or
+support a performance or quality claim.
+
+The later additive R02 functional acceptance binds source commit
+`eeabc4224100bc8ed86ae1208189bee508844210`, tree
+`ac402f993805cca499d2f688c6186c4684ce8dba`, and a fresh six-suite Xcode run
+with 27 tests passed, zero failed, and zero skipped. Two direct tests bind
+production bootstrap to `UnavailableUpscalerEngineService` and prove its typed
+fail-closed `backendUnavailable(reason:)` rejection. This is the intentional R02
+production-unavailable boundary, not project completion or production
+enablement. R02 is `passed` only for `declared_software_function_only`; the
+frozen `not_claimed` record remains historical. Production upscaling, a
+production default, Auto, holdout access, quality or performance claims, product
+publication, and release remain unauthorized.
 
 The additive R03 v2 decision binds source
 `dfdf1f12ecb22be1c6395d57017bf750fd76496f`, tree
@@ -70,6 +93,49 @@ operator-overridden functional acceptance record then revalidates the passing
 R02 common-session and R03 A11 software evidence and marks R03 `passed`. The
 production composition still injects the unavailable service; no default, Auto,
 holdout, quality, performance, product-publication, or release authority follows.
+
+The additive R04 functional acceptance binds source commit
+`ab77e97867d51168e90c0190f6430d4acd769e68`, tree
+`446f71bb584f5d1fffcd20a17ac5e5507d3222b6`, and 42 passing tests across the
+contracts, session-adapter, availability, and functional suites. Its
+deterministic runtime drives source-derived frames through the real separate
+quality and low-latency R04 backends and production FIFO, proving complete 2×
+media transactions, runtime-gated 1.5× admission, cancellation, identity,
+reopen-before-publication, resource release, atomic publication, and no silent
+fallback. R04 is `passed` only for `declared_software_function_only`. Native
+VideoToolbox model execution and readiness, hardware, simulator, and operator
+observation remain `not_observed`; the unavailable production composition and
+all default, Auto, product, quality, performance, publication, and release
+boundaries remain unchanged.
+
+The additive R05 functional acceptance binds source commit
+`7e1ab67340e4d6d95a3d92e8a48bc6cd356005b8`, tree
+`adce5b65fd3d752a1467925232847e086d0b3e7a`, and 46 passing tests across the
+contracts, color-bridge, spatial-driver, spatial-backend, and functional suites.
+Its deterministic driver produces source-derived A07 1.5× and 2× output through
+the real backend and production FIFO; the 2× route completes a reopened
+H.264/AAC/timed-metadata transaction before atomic publication. The frozen
+suites verify the real driver's support query, explicit NV12/linear-RGBA16Float
+bridge, ordering, cancellation, and typed failure boundaries. A08-A10 remain
+honest decoded-video rejections. R05 is `passed` with exit outcome
+`diagnostic_only`, limited to `declared_software_function_only`. Native MetalFX
+execution, hardware, simulator, operator observation, product qualification,
+quality, and performance remain `not_observed` or `not_claimed`; the unavailable
+production composition and all default, Auto, publication, and release
+boundaries remain unchanged.
+
+The additive R06 functional acceptance binds source commit
+`6c4a6d3d5f8a59c553b10c23783c148ccb3388a5`, tree
+`beb0f8c666550c6c36dae5a2185cac58d2494132`, and 42 passing tests across seven
+R06/R07 suites. It verifies deterministic context/profile mapping, eligibility
+filtering, scoring, stable tie-breaking, transitions, one traceable whole-frame
+plan, bounded masks, and reason identity. A direct test proves higher-scoring
+ineligible candidates cannot enter the plan; the real R07 coordinator suites
+prove transactional state commit and rollback. R06 is `passed` only for
+`declared_software_function_only`. Its frozen blocked product-gate evidence
+remains historical, and R06 v1 still rejects product-scope orchestration. No
+product routing, qualification, default, Auto, native/hardware observation,
+quality, performance, publication, or release authority follows.
 
 R07 implementation checkpoint
 `1b46ad469265a6ba837a8449d28b8850889f1d3f`, tree
@@ -85,8 +151,9 @@ software function. Its frozen comparison requirement is outside the forward
 roadmap and non-authorizing. The fixture executor records simulation identity
 separately from referenced native identities; it does not claim native framework
 or physical-hardware execution. The product composition remains unavailable,
-R06 remains `in_progress` and unaccepted, and no production default, Auto,
-quality, performance, publication, or release authority follows.
+and no production default, Auto, quality, performance, publication, or release
+authority follows. R06's later additive functional acceptance is described
+above and does not rewrite R07's frozen predecessor evidence.
 
 R08 begins from accepted R07 merge commit
 `3fd13e57ec95b1ed98df71f4c83ab165bdfbab6b`, tree
@@ -139,14 +206,77 @@ NV12 software contracts under deterministic fixture simulation. R09 is
 `passed` for `declared_software_function_only`; native Core AI/framework/model,
 hardware, simulator, and operator observations remain `not_observed`, and no
 product qualification, production/default/Auto routing, quality, performance,
-publication, release, or R10 progression authority follows.
+publication, or release authority follows. The R09 acceptance did not itself
+authorize R10 progression; the operator's later continuation instruction
+separately authorizes R10 implementation under the forward software-function
+gate.
 
-The later R10/R11 control boundary follows the same software-function rule. R10
-must implement a deterministic, finitely bounded, constraint-preserving,
-resumable optimizer/calibration service. R11 must implement traceable evidence
-and claim-scope machinery, reject unsupported claims, and emit an honest
-no-claim disposition by default. Any `market_leading_claim` remains separately
-blocked without exact evidence and operator authorization.
+R10 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its functional receipt and phase-acceptance record bind
+implementation commit `3a76c6a03ea0f52f2a2395925badd5d5d1c03c6b`, tree
+`37951da694ab4fbca6f8c663bb2883e5084b861c`, and 39 passing optimizer and
+persistence tests with zero failures and zero skips. The accepted run evaluated
+nine candidates, scored three, rejected six, published ten content-addressed
+checkpoints, selected `fixture-valid-alpha`, and passed typed reopening against
+the exact evaluation catalog. The proof covers finite bounds, six independent
+constraints, deterministic ordering and tie-breaking, exact checkpoint/resume,
+transactional failure and cancellation, tamper and path-escape rejection,
+concurrent idempotent publication, read-only sealing, and complete frozen
+fixture-policy identity.
+
+Comparison, A/B, and superiority testing were not run and are not required.
+Hardware, simulator, and operator-observed execution remain `not_observed`.
+Fixture-policy evidence publication is authorized; production Auto, holdout,
+product publication, quality or performance claims, and release remain
+unauthorized.
+
+R11 is `passed` for `declared_software_function_only` under deterministic
+fixture simulation. Its functional execution receipt and phase-acceptance
+record bind exact source commit `75479b9f30511330f2a18b656151dc551292cb1e`,
+tree `0dd42ec30b212456223ee582b549de30a0e3416f`, and 76 passing selected
+tests with zero failures and zero skips. The accepted traceability run preserves
+`observed`, `not_applicable`, `not_observed`, `failed`, and `absent` as distinct
+states, validates all seven identity components, produces the exact mixed
+aggregate, rejects missing, duplicate, mismatched, out-of-scope, and
+unauthorized evidence, and emits `no_market_claim` unconditionally.
+
+The canonical and sealed traceability receipts are byte-identical at SHA-256
+`22714b672ee6f5090cf7c02faeecfbe0a1c805d385ea10e680225fa38596190d`.
+No comparison method was run or required. Hardware, simulator, and
+operator-observed operation remain `not_observed`. Product qualification,
+production Auto, market position and superiority claims, product publication,
+and release remain blocked or unauthorized.
+
+R12 is `passed` for `declared_software_function_only`. Its functional execution
+receipt and phase-acceptance record bind exact source commit
+`2f5e2987fe6a0e88d39790f177c717b62d29d6e4`, tree
+`4971b4d38f92ea5edffe925e507f058e9ffc13d8`, and evidence commit
+`3f31f7aa5bfc9e01eb1124f0f9db7b8ea6e17ff6`. The exact-source run passed all
+85 selected tests with zero failures and zero skips: 15 format-contract tests,
+25 route/backend-contract tests, and 45 resumability tests. Strict SwiftLint
+checked 340 files with zero violations.
+
+The functional execution receipt has SHA-256
+`09c6e370dcba37e39141477b254005a40aedc9e79a9d9e83c7667b7b7bf1af27`;
+the phase-acceptance record has SHA-256
+`67a175f14ab43688022ca72f84b956cd7081ed1972e3fb52bf9cef57af831080`.
+Expanded-format acceptance is contract-only and does not claim production
+format support. Comparison and A/B methods were absent and not required.
+Hardware, simulator, and operator observation remain `not_observed` and
+nonblocking. R12 grants no product qualification, production Auto, market,
+product-publication, or release-publication authority.
+
+R13 is `passed` for `declared_software_function_only` under the
+`software_does_what_it_says_it_does` basis. Exact-source evidence binds source
+commit `6c72e865e7622c11dcf1681f04ccc5cc240d8119`, tree
+`14852f416aef5d3156185a4b50767b531915cd82`, and evidence commit
+`5c8ae09251955d8274d391e93215b346db25bada`. It verifies the genuine A11 MPS
+Lanczos and AVFoundation shipping path and separately binds the Release app
+candidate. The outcome is `release_ready_candidate`, not a publication or
+release. Auto, distribution, tag, release, product publication, and market
+claims remain unauthorized; Release-app execution, signing, notarization,
+Gatekeeper, launch smoke, hardware, simulator, and operator observation remain
+`not_observed` and nonblocking.
 
 ## Target Apple-Native Adaptive Architecture
 
@@ -167,7 +297,7 @@ phases produce accepted evidence.
 | Activation | Module ID | Kind | Entry point | Responsibility |
 | ---: | --- | --- | --- | --- |
 | 1 | `com.mirmir.app.metal` | Service | `MetalRenderingServiceModule` | Metal device, queue, and texture-cache readiness |
-| 2 | `com.mirmir.app.model-assets` | Service | `ModelAssetsServiceModule` | Roadmap-transition model availability |
+| 2 | `com.mirmir.app.model-assets` | Service | `ModelAssetsServiceModule` | Truthful no-model-required release state |
 | 3 | `com.mirmir.app.media-pipeline` | Service | `MediaPipelineServiceModule` | AVFoundation read/write and atomic export |
 | 4 | `com.mirmir.app.upscaler-engine` | Service | `UpscalerEngineServiceModule` | Job orchestration and backend availability |
 | 5 | `com.mirmir.app.ui` | UI | `MirmirUIModule` | Product workspace and UI state |
@@ -178,7 +308,23 @@ identity returned by each factory. `MirmirModuleHost` requires the exact set,
 exactly one UI module, and the UI module last; startup failure rolls back every
 started module in reverse order. The former dynamic JSON manifests are removed.
 
-## R00 Product Composition and Preserved ASH V3 References
+## Historical R00 Product Composition and Preserved ASH V3 References
+
+This graph records the superseded R00 composition; it is not the current
+production call graph. R13 production launch instead follows:
+
+```text
+MirmirAppBootstrap
+  -> DefaultMetalRenderingService
+  -> NotRequiredModelAssetsService
+  -> AVFoundationMediaPipeline
+  -> R13ReleaseUpscalerEngineService
+       -> R13A11ProductSessionFactory
+            -> genuine r03.mps.lanczos A11
+  -> MirmirModuleFactoryRegistry
+  -> MirmirModuleHost
+  -> MirmirViewRegistry
+```
 
 ```text
 MirmirAppBootstrap
@@ -471,8 +617,10 @@ and require no tracked post-gate documentation edit.
 
 The source implements the app-owned runtime and preserves release-closure
 machinery as historical evidence, but source presence is not a release claim.
-Normal product upscaling remains unavailable because no production-default
-backend has been selected or enabled, so product routing remains unavailable.
+Current production Quality, Fast, and Deterministic requests bind to the exact
+R13 A11 product identity and genuine `r03.mps.lanczos` session factory. Auto
+remains visible but fails with a typed unavailable result before admission, and
+no silent fallback is accepted.
 The P06/P07 commands are fail-closed, P08 remains dormant and absent from normal
 workflows, and no G04-G08, holdout, release, quality, or market claim is
 authorized. Failed evidence is preserved and must not be rewritten as a pass.
