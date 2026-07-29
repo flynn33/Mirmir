@@ -19,6 +19,14 @@ extension MirmirViewModel {
         guard canChangeCacheLocation,
               let configurable =
                 upscalerEngine as? any R13CacheLocationConfiguring else {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "cache",
+                    operation: "select_cache_location",
+                    code: "cache_location_change_blocked"
+                )
+            }
             return
         }
         let panel = NSOpenPanel()
@@ -37,15 +45,42 @@ extension MirmirViewModel {
         guard panel.runModal() == .OK, let url = panel.url else {
             return
         }
+        let correlationID = UUID()
+        let resource = MirmirDiagnosticResourceInput(
+            role: "cache_location",
+            url: url,
+            location: .userSelected
+        )
         do {
             applyCacheLocationStatus(
                 try configurable.selectCacheLocation(url)
             )
             cacheLocationSelectionError = nil
             reloadRecoverableJobsForCacheLocationChange()
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "cache",
+                    operation: "select_cache_location",
+                    code: "cache_location_selected",
+                    correlationID: correlationID,
+                    resources: [resource]
+                )
+            }
         } catch {
             cacheLocationSelectionError =
                 userFacingCacheLocationError(error)
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "cache",
+                    operation: "select_cache_location",
+                    code: "cache_location_selection_failed",
+                    correlationID: correlationID,
+                    resources: [resource],
+                    error: error
+                )
+            }
         }
     }
 
@@ -53,6 +88,14 @@ extension MirmirViewModel {
         guard canChangeCacheLocation,
               let configurable =
                 upscalerEngine as? any R13CacheLocationConfiguring else {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "cache",
+                    operation: "restore_default_cache",
+                    code: "cache_default_restore_blocked"
+                )
+            }
             return
         }
         do {
@@ -61,9 +104,26 @@ extension MirmirViewModel {
             )
             cacheLocationSelectionError = nil
             reloadRecoverableJobsForCacheLocationChange()
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "cache",
+                    operation: "restore_default_cache",
+                    code: "cache_default_restored"
+                )
+            }
         } catch {
             cacheLocationSelectionError =
                 userFacingCacheLocationError(error)
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "cache",
+                    operation: "restore_default_cache",
+                    code: "cache_default_restore_failed",
+                    error: error
+                )
+            }
         }
     }
 
@@ -72,9 +132,18 @@ extension MirmirViewModel {
             upscalerEngine as? any R13CacheLocationConfiguring else {
             return
         }
-        applyCacheLocationStatus(
-            configurable.cacheLocationStatus()
-        )
+        let status = configurable.cacheLocationStatus()
+        applyCacheLocationStatus(status)
+        if status.availabilityError != nil {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "cache",
+                    operation: "refresh_cache_location",
+                    code: "cache_location_unavailable"
+                )
+            }
+        }
     }
 
     func defaultOutputURL(

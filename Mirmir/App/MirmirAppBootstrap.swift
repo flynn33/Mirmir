@@ -18,10 +18,13 @@ final class MirmirAppBootstrap: ObservableObject {
     @Published private(set) var productionState: ProductionState = .idle
 
     convenience init() {
+        let diagnostics = MirmirDiagnosticStore.application
         do {
             try self.init(
-                services: Self.makeProductionServices(),
-                diagnostics: MirmirDiagnosticStore.productionOrInMemory()
+                services: Self.makeProductionServices(
+                    diagnostics: diagnostics
+                ),
+                diagnostics: diagnostics
             )
         } catch {
             preconditionFailure("Failed to compose Mirmir: \(Self.describe(error))")
@@ -39,7 +42,8 @@ final class MirmirAppBootstrap: ObservableObject {
         let viewModel = MirmirViewModel(
             mediaPipeline: services.media,
             upscalerEngine: services.upscaler,
-            modelAssets: services.modelAssets
+            modelAssets: services.modelAssets,
+            diagnostics: diagnosticStore
         )
         let viewRegistry = MirmirViewRegistry()
         try viewRegistry.register(viewID: MirmirUIConstants.primaryViewID) {
@@ -55,12 +59,20 @@ final class MirmirAppBootstrap: ObservableObject {
     func bootForProduction() {
         guard productionState == .idle else { return }
         productionState = .booting
+        recordBootstrapEvent(
+            severity: .info,
+            code: "app_boot_started"
+        )
 
         do {
             try moduleHost.start()
             guard moduleHost.isActive(moduleID: MirmirModuleCatalog.ui.moduleID) else {
                 moduleHost.stop()
                 productionState = .failed("UI module did not activate")
+                recordBootstrapEvent(
+                    severity: .critical,
+                    code: "app_boot_ui_module_inactive"
+                )
                 return
             }
             guard viewRegistry.registeredViewIDs.contains(MirmirUIConstants.primaryViewID) else {
@@ -68,25 +80,59 @@ final class MirmirAppBootstrap: ObservableObject {
                 productionState = .failed(
                     "UI view \(MirmirUIConstants.primaryViewID) is not registered"
                 )
+                recordBootstrapEvent(
+                    severity: .critical,
+                    code: "app_boot_root_view_missing"
+                )
                 return
             }
             productionState = .ready
+            recordBootstrapEvent(
+                severity: .info,
+                code: "app_boot_succeeded"
+            )
         } catch {
             productionState = .failed(Self.describe(error))
+            recordBootstrapEvent(
+                severity: .critical,
+                code: "app_boot_failed",
+                error: error
+            )
         }
     }
 
-    private static func makeProductionServices() throws -> MirmirServices {
+    private func recordBootstrapEvent(
+        severity: MirmirDiagnosticSeverity,
+        code: String,
+        error: Error? = nil
+    ) {
+        let recorder = MirmirDiagnosticRecorder(store: diagnostics)
+        recorder.enqueue(
+            severity: severity,
+            subsystem: "application",
+            operation: "bootstrap",
+            code: code,
+            error: error
+        )
+    }
+
+    private static func makeProductionServices(
+        diagnostics: MirmirDiagnosticStore
+    ) throws -> MirmirServices {
         guard #available(macOS 15.4, *) else {
             preconditionFailure("Mirmir requires macOS 15.4 or later.")
         }
 
         let metalService = try DefaultMetalRenderingService()
         let modelAssetsService = NotRequiredModelAssetsService()
-        let mediaPipelineService = AVFoundationMediaPipeline(metal: metalService)
+        let mediaPipelineService = AVFoundationMediaPipeline(
+            metal: metalService,
+            diagnostics: diagnostics
+        )
         let upscalerEngineService = R13ReleaseUpscalerEngineService(
             media: mediaPipelineService,
-            cacheLocationStore: R13CacheLocationStore()
+            cacheLocationStore: R13CacheLocationStore(),
+            diagnostics: diagnostics
         )
 
         return MirmirServices(

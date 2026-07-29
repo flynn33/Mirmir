@@ -86,6 +86,23 @@ struct R13ReleaseHardeningDiagnosticRecorder: Sendable {
     let diagnostics: R13ReleaseDiagnostics
     let jobIdentitySHA256: String
     let policyResources: R13ReleasePolicyResourceBinding
+    let persistentDiagnostics: MirmirDiagnosticRecorder
+    let correlationID: UUID?
+
+    init(
+        diagnostics: R13ReleaseDiagnostics,
+        jobIdentitySHA256: String,
+        policyResources: R13ReleasePolicyResourceBinding,
+        persistentDiagnostics: MirmirDiagnosticRecorder =
+            MirmirDiagnosticRecorder(store: nil),
+        correlationID: UUID? = nil
+    ) {
+        self.diagnostics = diagnostics
+        self.jobIdentitySHA256 = jobIdentitySHA256
+        self.policyResources = policyResources
+        self.persistentDiagnostics = persistentDiagnostics
+        self.correlationID = correlationID
+    }
 
     func recordIdentity(
         _ identity: R13ReleaseIdentity,
@@ -310,6 +327,44 @@ struct R13ReleaseHardeningDiagnosticRecorder: Sendable {
             fields: fields
         )
         _ = await diagnostics.record(event)
+        guard severity != .info else { return }
+        persistentDiagnostics.enqueue(
+            severity: severity == .warning ? .warning : .error,
+            subsystem: "release_hardening",
+            operation: "hardening_event",
+            code: code.rawValue,
+            correlationID: correlationID,
+            additionalFields: fields.compactMap(
+                Self.persistentField
+            )
+        )
+    }
+
+    private static func persistentField(
+        _ field: R13ReleaseDiagnosticField
+    ) -> MirmirDiagnosticField? {
+        let value: MirmirDiagnosticFieldValue
+        switch field.key {
+        case .releaseIdentitySHA256, .jobIdentitySHA256,
+             .policySHA256, .resourceManifestSHA256:
+            guard let hash = try? MirmirDiagnosticFieldValue.sha256(
+                field.value
+            ) else {
+                return nil
+            }
+            value = hash
+        case .mode, .backendID, .routeID, .outcome, .reason,
+             .faultPoint:
+            guard let identifier =
+                try? MirmirDiagnosticFieldValue.identifier(field.value) else {
+                return nil
+            }
+            value = identifier
+        }
+        return try? MirmirDiagnosticField(
+            key: field.key.rawValue,
+            value: value
+        )
     }
 
     private static func reason(

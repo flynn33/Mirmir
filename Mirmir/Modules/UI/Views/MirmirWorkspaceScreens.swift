@@ -304,7 +304,23 @@ struct MirmirSettingsScreen: View {
                     }
 
                     settingsNote("Processing", viewModel.canStartFailureReason ?? "Processing is available.")
-                    settingsNote("Diagnostics", viewModel.engineReadinessText)
+                    MirmirFieldRow("Diagnostic Log", theme: theme) {
+                        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+                            Text(
+                                "View the persistent, privacy-filtered log and "
+                                    + "export it as JSON or Markdown."
+                            )
+                            .font(theme.typography.body)
+                            .foregroundStyle(theme.textTertiary)
+
+                            SettingsLink {
+                                Label(
+                                    "Open Diagnostic Log Settings…",
+                                    systemImage: "doc.text.magnifyingglass"
+                                )
+                            }
+                        }
+                    }
                     settingsNote("Advanced", "Advanced controls remain inactive until additional processing options are available.")
                 }
             }

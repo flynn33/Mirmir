@@ -16,6 +16,8 @@ final class AVFoundationMediaPipeline:
     private let metal: MetalRenderingService
     private let telemetry: any ASHTelemetryRecording
     private let outputVerifier: any OutputMediaVerifying
+    private let diagnostics: MirmirDiagnosticStore?
+    private let diagnosticRecorder: MirmirDiagnosticRecorder
     private static let expectedColorMetadata = [
         ExpectedColorMetadata(
             key: kCMFormatDescriptionExtension_ColorPrimaries as String,
@@ -37,11 +39,14 @@ final class AVFoundationMediaPipeline:
     init(
         metal: MetalRenderingService,
         telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared,
-        outputVerifier: any OutputMediaVerifying = OutputMediaVerifier()
+        outputVerifier: any OutputMediaVerifying = OutputMediaVerifier(),
+        diagnostics: MirmirDiagnosticStore? = nil
     ) {
         self.metal = metal
         self.telemetry = telemetry
         self.outputVerifier = outputVerifier
+        self.diagnostics = diagnostics
+        self.diagnosticRecorder = MirmirDiagnosticRecorder(store: diagnostics)
     }
 
     func start() {}
@@ -51,56 +56,208 @@ final class AVFoundationMediaPipeline:
         AVFoundationMediaPipeline(
             metal: metal,
             telemetry: telemetry,
-            outputVerifier: outputVerifier
+            outputVerifier: outputVerifier,
+            diagnostics: diagnostics
         )
     }
 
     func probe(url: URL) async throws -> SourceProfile {
         let stage = telemetry.beginStage(.mediaProbe)
         defer { telemetry.endStage(stage) }
-        let asset = AVURLAsset(url: url, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
-        let videoTracks = try await asset.loadTracks(withMediaType: .video)
-        guard let videoTrack = videoTracks.first else {
-            throw MediaPipelineError.noVideoTrack(url)
-        }
-        let size = try await videoTrack.load(.naturalSize)
-        let fps = Double(try await videoTrack.load(.nominalFrameRate))
-        let formats = try await videoTrack.load(.formatDescriptions)
-        try await Self.validateSupportedColorProfile(track: videoTrack, formats: formats)
-        let durationCM = try await asset.load(.duration)
-        let hasAudio = try await !asset.loadTracks(withMediaType: .audio).isEmpty
-
-        let resolution = VideoResolution(
-            width: Int(abs(size.width).rounded()),
-            height: Int(abs(size.height).rounded())
-        )
-
-        let codecHint: String? = formats.first.map { desc in
-            let fourCC = CMFormatDescriptionGetMediaSubType(desc)
-            return Self.fourCCString(fourCC)
-        }
-
-        let durationSeconds = CMTimeGetSeconds(durationCM).isFinite ? CMTimeGetSeconds(durationCM) : 0
-        let estimatedFrameCount = Int((durationSeconds * fps).rounded())
-
-        let profile = SourceProfile(
+        let correlationID = UUID()
+        let resource = MirmirDiagnosticResourceInput(
+            role: "source_video",
             url: url,
-            resolution: resolution,
-            frameRate: fps,
-            durationSeconds: durationSeconds,
-            estimatedFrameCount: max(estimatedFrameCount, 0),
-            codecHint: codecHint,
-            hasAudio: hasAudio
+            location: .userSelected
         )
-        telemetry.recordMedia(ASHMediaObservation(
-            kind: "media_probe",
-            details: [
-                "encoded_dimensions": "\(resolution.width)x\(resolution.height)",
-                "estimated_frame_count": String(profile.estimatedFrameCount),
-                "has_audio": String(profile.hasAudio)
-            ]
-        ))
-        return profile
+        diagnosticRecorder.enqueue(
+            severity: .info,
+            subsystem: "media",
+            operation: "media_probe",
+            code: "media_probe_started",
+            correlationID: correlationID,
+            resources: [resource]
+        )
+        var failureStage = "asset_initialization"
+        do {
+            let asset = AVURLAsset(
+                url: url,
+                options: [
+                    AVURLAssetPreferPreciseDurationAndTimingKey: true
+                ]
+            )
+            failureStage = "load_video_tracks"
+            let videoTracks = try await asset.loadTracks(withMediaType: .video)
+            guard let videoTrack = videoTracks.first else {
+                throw MediaPipelineError.noVideoTrack(url)
+            }
+            failureStage = "load_presentation_dimensions"
+            let size = try await videoTrack.load(.naturalSize)
+            failureStage = "validate_presentation_dimensions"
+            let resolution = try Self.presentationResolution(from: size)
+            failureStage = "load_frame_rate"
+            let fps = Double(try await videoTrack.load(.nominalFrameRate))
+            failureStage = "load_format_descriptions"
+            let formats = try await videoTrack.load(.formatDescriptions)
+            failureStage = "validate_color_profile"
+            try await Self.validateSupportedColorProfile(
+                track: videoTrack,
+                formats: formats
+            )
+            failureStage = "load_duration"
+            let durationCM = try await asset.load(.duration)
+            failureStage = "load_audio_tracks"
+            let hasAudio = try await !asset
+                .loadTracks(withMediaType: .audio)
+                .isEmpty
+
+            let codedResolution = Self.codedResolution(
+                from: formats.first,
+                fallback: resolution
+            )
+            let pixelAspectRatio = Self.pixelAspectRatio(
+                from: formats.first
+            )
+            let codecHint: String? = formats.first.map { description in
+                Self.fourCCString(
+                    CMFormatDescriptionGetMediaSubType(description)
+                )
+            }
+            let rawDuration = CMTimeGetSeconds(durationCM)
+            let durationSeconds = rawDuration.isFinite ? rawDuration : 0
+            let estimatedFrameCount = Self.estimatedFrameCount(
+                durationSeconds: durationSeconds,
+                frameRate: fps
+            )
+            let profile = SourceProfile(
+                url: url,
+                resolution: resolution,
+                codedResolution: codedResolution,
+                pixelAspectRatio: pixelAspectRatio,
+                frameRate: fps,
+                durationSeconds: durationSeconds,
+                estimatedFrameCount: estimatedFrameCount,
+                codecHint: codecHint,
+                hasAudio: hasAudio
+            )
+            telemetry.recordMedia(ASHMediaObservation(
+                kind: "media_probe",
+                details: [
+                    "encoded_dimensions":
+                        "\(resolution.width)x\(resolution.height)",
+                    "coded_dimensions":
+                        "\(codedResolution.width)x\(codedResolution.height)",
+                    "estimated_frame_count":
+                        String(profile.estimatedFrameCount),
+                    "has_audio": String(profile.hasAudio)
+                ]
+            ))
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "media",
+                operation: "media_probe",
+                code: "media_probe_succeeded",
+                correlationID: correlationID,
+                source: profile,
+                resources: [resource]
+            )
+            return profile
+        } catch {
+            diagnosticRecorder.enqueue(
+                severity: .error,
+                subsystem: "media",
+                operation: "media_probe",
+                code: "media_probe_failed_\(failureStage)",
+                correlationID: correlationID,
+                resources: [resource],
+                error: error
+            )
+            throw error
+        }
+    }
+
+    private static func estimatedFrameCount(
+        durationSeconds: Double,
+        frameRate: Double
+    ) -> Int {
+        guard durationSeconds.isFinite,
+              frameRate.isFinite,
+              durationSeconds > 0,
+              frameRate > 0 else {
+            return 0
+        }
+        let product = durationSeconds * frameRate
+        guard product.isFinite else { return Int.max }
+        guard product < Double(Int.max) else { return Int.max }
+        return max(Int(product.rounded()), 0)
+    }
+
+    private static func presentationResolution(
+        from size: CGSize
+    ) throws -> VideoResolution {
+        let width = abs(size.width)
+        let height = abs(size.height)
+        let maximumDimension = Double(Int32.max)
+        guard width.isFinite,
+              height.isFinite,
+              width >= 1,
+              height >= 1,
+              width <= maximumDimension,
+              height <= maximumDimension else {
+            throw MediaPipelineError.invalidAssetDimensions
+        }
+        let roundedWidth = width.rounded()
+        let roundedHeight = height.rounded()
+        guard roundedWidth >= 1, roundedHeight >= 1 else {
+            throw MediaPipelineError.invalidAssetDimensions
+        }
+        return VideoResolution(
+            width: Int(roundedWidth),
+            height: Int(roundedHeight)
+        )
+    }
+
+    private static func codedResolution(
+        from format: CMFormatDescription?,
+        fallback: VideoResolution
+    ) -> VideoResolution {
+        guard let format,
+              CMFormatDescriptionGetMediaType(format) == kCMMediaType_Video else {
+            return fallback
+        }
+        let dimensions = CMVideoFormatDescriptionGetDimensions(format)
+        guard dimensions.width > 0, dimensions.height > 0 else {
+            return fallback
+        }
+        return VideoResolution(
+            width: Int(dimensions.width),
+            height: Int(dimensions.height)
+        )
+    }
+
+    private static func pixelAspectRatio(
+        from format: CMFormatDescription?
+    ) -> VideoPixelAspectRatio? {
+        guard let format,
+              let extensions = CMFormatDescriptionGetExtensions(format)
+                as NSDictionary?,
+              let ratio = extensions[
+                kCMFormatDescriptionExtension_PixelAspectRatio
+              ] as? NSDictionary,
+              let horizontal = ratio[
+                kCMFormatDescriptionKey_PixelAspectRatioHorizontalSpacing
+              ] as? NSNumber,
+              let vertical = ratio[
+                kCMFormatDescriptionKey_PixelAspectRatioVerticalSpacing
+              ] as? NSNumber,
+              horizontal.intValue > 0,
+              vertical.intValue > 0 else {
+            return nil
+        }
+        return VideoPixelAspectRatio(
+            horizontalSpacing: horizontal.intValue,
+            verticalSpacing: vertical.intValue
+        )
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {

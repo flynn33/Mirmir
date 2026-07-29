@@ -95,6 +95,8 @@ final class MirmirViewModel: ObservableObject {
 
     let mediaPipeline: MediaPipelineService
     let upscalerEngine: UpscalerEngineService
+    let diagnosticStore: MirmirDiagnosticStore
+    let diagnosticRecorder: MirmirDiagnosticRecorder
     private let modelAssets: ModelAssetsService
 
     private var modelStatusTask: Task<Void, Never>?
@@ -114,11 +116,18 @@ final class MirmirViewModel: ObservableObject {
     init(
         mediaPipeline: MediaPipelineService,
         upscalerEngine: UpscalerEngineService,
-        modelAssets: ModelAssetsService
+        modelAssets: ModelAssetsService,
+        diagnostics: MirmirDiagnosticStore? = nil
     ) {
+        let diagnosticStore = diagnostics
+            ?? MirmirDiagnosticStore(inMemoryWith: .production)
         self.mediaPipeline = mediaPipeline
         self.upscalerEngine = upscalerEngine
         self.modelAssets = modelAssets
+        self.diagnosticStore = diagnosticStore
+        self.diagnosticRecorder = MirmirDiagnosticRecorder(
+            store: diagnosticStore
+        )
         self.engineAvailability = upscalerEngine.availability
         startObservingModelStatus()
         refreshCacheLocation()
@@ -219,13 +228,41 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func loadSource(url: URL) {
-        guard !jobIsRunning else { return }
+        let correlationID = UUID()
+        let sourceResource = MirmirDiagnosticResourceInput(
+            role: "source_video",
+            url: url,
+            location: .userSelected
+        )
+        guard !jobIsRunning else {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "source_probe",
+                    code: "source_probe_blocked_active_job",
+                    correlationID: correlationID,
+                    resources: [sourceResource]
+                )
+            }
+            return
+        }
         cancelRecoveryProbe()
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
             clearOutputSelection()
             progress = nil
             state = .failed(Self.unsupportedFileMessage)
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "source_selection",
+                    code: "source_type_rejected",
+                    correlationID: correlationID,
+                    resources: [sourceResource]
+                )
+            }
             return
         }
 
@@ -233,18 +270,53 @@ final class MirmirViewModel: ObservableObject {
         clearOutputSelection()
         progress = nil
         state = .probing
-        Task {
+        Task { [diagnosticRecorder] in
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "media",
+                operation: "source_probe",
+                code: "source_probe_started",
+                correlationID: correlationID,
+                resources: [sourceResource]
+            )
             do {
                 let profile = try await mediaPipeline.probe(url: url)
                 self.sourceProfile = profile
+                diagnosticRecorder.enqueue(
+                    severity: .info,
+                    subsystem: "media",
+                    operation: "source_probe",
+                    code: "source_probe_succeeded",
+                    correlationID: correlationID,
+                    source: profile,
+                    resources: [sourceResource]
+                )
                 guard let firstTarget = Self.targets(for: profile.resolution).first else {
                     self.state = .failed(self.unsupportedResolutionMessage(profile.resolution))
+                    diagnosticRecorder.enqueue(
+                        severity: .warning,
+                        subsystem: "workflow",
+                        operation: "target_selection",
+                        code: "no_upscale_target_available",
+                        correlationID: correlationID,
+                        source: profile,
+                        resources: [sourceResource]
+                    )
                     return
                 }
                 self.targetResolution = firstTarget
                 self.state = .ready
             } catch {
                 self.state = .failed(self.userFacingProbeError(error))
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "media",
+                    operation: "source_probe",
+                    code: "source_probe_failed",
+                    correlationID: correlationID,
+                    resources: [sourceResource],
+                    error: error
+                )
             }
         }
     }
@@ -273,29 +345,93 @@ final class MirmirViewModel: ObservableObject {
 
     @discardableResult
     func acceptOutputURLSelectedByUser(_ url: URL) -> Bool {
+        let correlationID = UUID()
+        let outputResource = MirmirDiagnosticResourceInput(
+            role: "output_video",
+            url: url,
+            location: .userSelected
+        )
         guard let sourceProfile else {
             clearOutputSelection()
             outputSelectionError = "Choose a source video first."
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "select_output",
+                    code: "output_selection_rejected_no_source",
+                    correlationID: correlationID,
+                    resources: [outputResource]
+                )
+            }
             return false
         }
         guard url.isFileURL else {
             clearOutputSelection()
             outputSelectionError = "Choose a local file-system destination."
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "select_output",
+                    code: "output_selection_rejected_non_file_url",
+                    correlationID: correlationID,
+                    source: sourceProfile,
+                    resources: [outputResource]
+                )
+            }
             return false
         }
         guard !FileURLIdentity.refersToSameFile(sourceProfile.url, url) else {
             clearOutputSelection()
             outputSelectionError = Self.sourceOutputConflictMessage
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "select_output",
+                    code: "output_selection_rejected_source_collision",
+                    correlationID: correlationID,
+                    source: sourceProfile,
+                    resources: [outputResource]
+                )
+            }
             return false
         }
 
         outputURL = url
         outputSelectionError = nil
+        Task { [diagnosticRecorder] in
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "workflow",
+                operation: "select_output",
+                code: "output_selection_accepted",
+                correlationID: correlationID,
+                source: sourceProfile,
+                resources: [outputResource]
+            )
+        }
         return true
     }
 
     func startUpscale() {
-        guard canStart, let source = sourceProfile, let destination = outputURL else { return }
+        guard canStart,
+              let source = sourceProfile,
+              let destination = outputURL else {
+            let code = diagnosticBlockedStartCode
+            let source = sourceProfile
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "workflow",
+                    operation: "job_start",
+                    code: code,
+                    source: source
+                )
+            }
+            return
+        }
 
         let job = UpscaleJob(
             inputURL: source.url,
@@ -309,11 +445,42 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func submit(job: UpscaleJob, source: SourceProfile) {
+        Task { [diagnosticRecorder] in
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "workflow",
+                operation: "job_submit",
+                code: "job_submit_requested",
+                job: job,
+                source: source
+            )
+        }
         do {
             let handle = try upscalerEngine.submit(job)
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .info,
+                    subsystem: "workflow",
+                    operation: "job_submit",
+                    code: "job_submit_accepted",
+                    job: job,
+                    source: source
+                )
+            }
             observeSubmittedJob(job: job, source: source, handle: handle)
         } catch {
             state = .failed(userFacingJobError(error))
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "workflow",
+                    operation: "job_submit",
+                    code: "job_submit_rejected",
+                    job: job,
+                    source: source,
+                    error: error
+                )
+            }
         }
     }
 
@@ -330,6 +497,16 @@ final class MirmirViewModel: ObservableObject {
             throughputFPS: 0,
             etaSeconds: nil
         )
+        Task { [diagnosticRecorder] in
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "workflow",
+                operation: "job_execution",
+                code: "job_execution_observed",
+                job: job,
+                source: source
+            )
+        }
 
         progressTask?.cancel()
         progressTask = Task { [weak self] in
@@ -349,6 +526,15 @@ final class MirmirViewModel: ObservableObject {
                     }
                     self.refreshReleaseDiagnostics()
                 }
+                self.diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "workflow",
+                    operation: "job_terminal",
+                    code: "job_completed",
+                    job: job,
+                    source: source,
+                    progress: self.progress
+                )
             } catch is CancellationError {
                 await MainActor.run {
                     self.jobHandle = nil
@@ -358,6 +544,15 @@ final class MirmirViewModel: ObservableObject {
                     }
                     self.refreshReleaseDiagnostics()
                 }
+                self.diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "workflow",
+                    operation: "job_terminal",
+                    code: "job_cancelled",
+                    job: job,
+                    source: source,
+                    progress: self.progress
+                )
                 return
             } catch let engineError as UpscalerEngineError {
                 if case .cancelled = engineError {
@@ -369,6 +564,16 @@ final class MirmirViewModel: ObservableObject {
                         }
                         self.refreshReleaseDiagnostics()
                     }
+                    self.diagnosticRecorder.enqueue(
+                        severity: .notice,
+                        subsystem: "workflow",
+                        operation: "job_terminal",
+                        code: "job_cancelled",
+                        job: job,
+                        source: source,
+                        progress: self.progress,
+                        error: engineError
+                    )
                     return
                 }
                 await MainActor.run {
@@ -380,6 +585,16 @@ final class MirmirViewModel: ObservableObject {
                     )
                     self.refreshReleaseDiagnostics()
                 }
+                self.diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "workflow",
+                    operation: "job_terminal",
+                    code: "job_failed",
+                    job: job,
+                    source: source,
+                    progress: self.progress,
+                    error: engineError
+                )
             } catch {
                 await MainActor.run {
                     guard !Task.isCancelled else { return }
@@ -390,12 +605,55 @@ final class MirmirViewModel: ObservableObject {
                     )
                     self.refreshReleaseDiagnostics()
                 }
+                self.diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "workflow",
+                    operation: "job_terminal",
+                    code: "job_failed",
+                    job: job,
+                    source: source,
+                    progress: self.progress,
+                    error: error
+                )
             }
         }
     }
 
     func cancelUpscale() {
+        if jobHandle != nil {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "workflow",
+                    operation: "job_cancel",
+                    code: "job_cancel_requested",
+                    source: sourceProfile,
+                    progress: progress
+                )
+            }
+        }
         jobHandle?.cancel()
+    }
+
+    private var diagnosticBlockedStartCode: String {
+        switch state {
+        case .running:
+            return "job_start_blocked_active_job"
+        case .probing:
+            return "job_start_blocked_probe_active"
+        case .failed:
+            return "job_start_blocked_failed_state"
+        case .finished:
+            return "job_start_blocked_finished_state"
+        case .idle, .ready:
+            if sourceProfile == nil {
+                return "job_start_blocked_no_source"
+            }
+            if outputURL == nil {
+                return "job_start_blocked_no_output"
+            }
+            return "job_start_blocked_validation"
+        }
     }
 
     func revealOutputInFinder() {
@@ -421,6 +679,13 @@ final class MirmirViewModel: ObservableObject {
                 try await modelAssets.ensureReady(for: .video)
             } catch {
                 modelStatus = .failed(reason: String(describing: error))
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "model_assets",
+                    operation: "ensure_ready",
+                    code: "model_assets_preparation_failed",
+                    error: error
+                )
             }
         }
     }
@@ -432,6 +697,14 @@ final class MirmirViewModel: ObservableObject {
             for await status in stream {
                 await MainActor.run {
                     self?.modelStatus = status
+                }
+                if case .failed = status, let self {
+                    self.diagnosticRecorder.enqueue(
+                        severity: .error,
+                        subsystem: "model_assets",
+                        operation: "observe_status",
+                        code: "model_assets_status_failed"
+                    )
                 }
             }
         }

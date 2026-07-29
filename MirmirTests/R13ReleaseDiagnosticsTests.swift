@@ -38,6 +38,102 @@ final class R13SourceFrameCounterTests: XCTestCase {
 }
 
 final class R13ReleaseDiagnosticsTests: XCTestCase {
+    func testHardeningRecorderMirrorsOnlyWarningsAndErrorsPersistently()
+        async throws {
+        let diagnostics = R13ReleaseDiagnostics(
+            policy: try R13ReleaseDiagnosticsPolicy(
+                maximumRecords: 8,
+                maximumTotalBytes: 8_192
+            )
+        )
+        let persistentStore = MirmirDiagnosticStore()
+        let correlationID = UUID(
+            uuidString: "00000000-0000-0000-0000-000000000013"
+        )!
+        let jobIdentity = hash("a")
+        let recorder = R13ReleaseHardeningDiagnosticRecorder(
+            diagnostics: diagnostics,
+            jobIdentitySHA256: jobIdentity,
+            policyResources: try R13ReleasePolicyResourceBinding(
+                policySHA256: hash("b"),
+                resourceManifestSHA256: hash("c")
+            ),
+            persistentDiagnostics: MirmirDiagnosticRecorder(
+                store: persistentStore
+            ),
+            correlationID: correlationID
+        )
+
+        try await recorder.recordCacheCommit()
+        try await recorder.recordFault(point: .beforeMetadataReopen)
+        try await recorder.recordSourceSnapshotCleanupFailed()
+
+        let ringSnapshot = await diagnostics.snapshot()
+        XCTAssertEqual(
+            ringSnapshot.records.map(\.event.code),
+            [
+                .cacheFrameCommitted,
+                .faultObserved,
+                .sourceSnapshotCleanupFailed
+            ]
+        )
+
+        let persistentSnapshot = try await persistentStore.snapshot()
+        XCTAssertEqual(
+            persistentSnapshot.records.map(\.event.code.rawValue),
+            [
+                "fault_observed",
+                "source_snapshot_cleanup_failed"
+            ]
+        )
+        XCTAssertEqual(
+            persistentSnapshot.records.map(\.event.severity),
+            [.warning, .error]
+        )
+        XCTAssertEqual(
+            persistentSnapshot.records.map(\.event.correlationID?.rawValue),
+            [
+                correlationID.uuidString.lowercased(),
+                correlationID.uuidString.lowercased()
+            ]
+        )
+
+        let warningFields = fields(
+            in: try XCTUnwrap(persistentSnapshot.records.first)
+        )
+        XCTAssertEqual(
+            warningFields,
+            [
+                "fault_point": "before_metadata_reopen",
+                "job_identity_sha256": jobIdentity,
+                "outcome": "rejected",
+                "reason": "injected_fault"
+            ]
+        )
+        let errorFields = fields(
+            in: try XCTUnwrap(persistentSnapshot.records.last)
+        )
+        XCTAssertEqual(
+            errorFields,
+            [
+                "job_identity_sha256": jobIdentity,
+                "outcome": "not_observed",
+                "reason": "source_snapshot_cleanup_failed"
+            ]
+        )
+        XCTAssertFalse(
+            persistentSnapshot.records.contains {
+                $0.event.code.rawValue == "cache_frame_committed"
+            }
+        )
+        let persistentJSON = try await persistentStore.exportJSON()
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(
+                persistentJSON
+            )
+        )
+    }
+
     func testDiagnosticsAreDeterministicallyOrderedAndStrictlyBounded() async throws {
         let policy = try R13ReleaseDiagnosticsPolicy(
             maximumRecords: 2,
@@ -235,6 +331,16 @@ private extension R13ReleaseDiagnosticsTests {
 
     func hash(_ character: Character) -> String {
         String(repeating: String(character), count: 64)
+    }
+
+    func fields(
+        in record: MirmirDiagnosticRecord
+    ) -> [String: String] {
+        Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
     }
 }
 

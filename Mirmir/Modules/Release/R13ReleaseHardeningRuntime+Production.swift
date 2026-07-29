@@ -1,7 +1,9 @@
 import Foundation
 
 extension R13ReleaseHardeningRuntime {
-    static func production() throws -> R13ReleaseHardeningRuntime {
+    static func production(
+        diagnostics: MirmirDiagnosticStore? = nil
+    ) throws -> R13ReleaseHardeningRuntime {
         let applicationSupport = try FileManager.default.url(
             for: .applicationSupportDirectory,
             in: .userDomainMask,
@@ -16,12 +18,14 @@ extension R13ReleaseHardeningRuntime {
                 trustedRootURL: applicationSupport,
                 jobsRootURL: jobsRootURL,
                 access: nil
-            )
+            ),
+            diagnostics: diagnostics
         )
     }
 
     static func production(
-        cacheLocation: R13CacheLocationConfiguration
+        cacheLocation: R13CacheLocationConfiguration,
+        diagnostics persistentStore: MirmirDiagnosticStore? = nil
     ) throws -> R13ReleaseHardeningRuntime {
         let restartFileSystem = try R13LocalRestartFileSystem(
             trustedRootURL: cacheLocation.trustedRootURL
@@ -56,7 +60,10 @@ extension R13ReleaseHardeningRuntime {
             faultInjector: R13FaultInjectorFactory.production(),
             diagnostics: diagnostics,
             cacheLocationAccess: cacheLocation.access,
-            restartFileSystem: restartFileSystem
+            restartFileSystem: restartFileSystem,
+            persistentDiagnostics: MirmirDiagnosticRecorder(
+                store: persistentStore
+            )
         )
     }
 }

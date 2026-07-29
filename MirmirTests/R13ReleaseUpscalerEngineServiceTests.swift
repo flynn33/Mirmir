@@ -1,4 +1,6 @@
+import Darwin
 import Foundation
+import os.lock
 import XCTest
 @testable import Mirmir
 
@@ -202,6 +204,124 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         XCTAssertFalse(events.contains("media.cancel"))
     }
 
+    func testGeometryFailureDiagnosticCapturesActualAndExpectedDimensions()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let decodedResolution = VideoResolution(
+            width: 1_440,
+            height: 1_080
+        )
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p1080,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: decodedResolution,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            diagnostics: diagnostics
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-decoded-geometry-mismatch",
+                target: .p2160,
+                mode: .deterministic
+            )
+        )
+
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("Decoded geometry mismatch must fail normalization.")
+        } catch let error as R03NV12ScalingError {
+            XCTAssertEqual(
+                error,
+                .invalidDimensions(
+                    expectedWidth: 1_920,
+                    expectedHeight: 1_080,
+                    actualWidth: 1_440,
+                    actualHeight: 1_080
+                )
+            )
+        } catch {
+            XCTFail("Unexpected engine error: \(error)")
+        }
+
+        let mismatch = try await waitForDiagnostic(
+            code: "release_first_decoded_frame_geometry_mismatch",
+            in: diagnostics
+        )
+        let frameFailure = try await waitForDiagnostic(
+            code: "release_frame_processing_failed",
+            in: diagnostics
+        )
+        let mismatchFields = Dictionary(
+            uniqueKeysWithValues: mismatch.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        let failureFields = Dictionary(
+            uniqueKeysWithValues: frameFailure.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+
+        XCTAssertEqual(
+            mismatchFields["actual_decoded_dimensions"],
+            "1440x1080"
+        )
+        XCTAssertEqual(
+            mismatchFields["expected_normalized_dimensions"],
+            "1920x1080"
+        )
+        XCTAssertEqual(
+            failureFields["actual_decoded_dimensions"],
+            "1440x1080"
+        )
+        XCTAssertEqual(
+            failureFields["expected_normalized_dimensions"],
+            "1920x1080"
+        )
+        XCTAssertEqual(
+            failureFields["error_actual_dimensions"],
+            "1440x1080"
+        )
+        XCTAssertEqual(
+            failureFields["error_expected_dimensions"],
+            "1920x1080"
+        )
+        XCTAssertEqual(failureFields["failure_category"], "invalid_dimensions")
+
+        let snapshot = try await diagnostics.snapshot()
+        let terminalCodes = snapshot.records.map(\.event.code.rawValue).filter {
+            [
+                "release_job_completed",
+                "release_job_cancelled",
+                "release_job_failed"
+            ].contains($0)
+        }
+        XCTAssertEqual(terminalCodes, ["release_job_failed"])
+        let appleSession = try XCTUnwrap(factory.session(for: .scale2x))
+        let appleSnapshot = await appleSession.snapshot()
+        XCTAssertEqual(appleSnapshot.submittedSequenceNumbers, [])
+        XCTAssertGreaterThanOrEqual(appleSnapshot.cancelCount, 1)
+        XCTAssertGreaterThanOrEqual(
+            try XCTUnwrap(media.lastSession).cancelCount,
+            1
+        )
+    }
+
     func testCancellationCancelsBothSessionsAndReleasesPendingInput() async throws {
         let eventLog = R13ReleaseTestEventLog()
         let media = R13ReleaseTestMediaPipeline(
@@ -253,6 +373,200 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             eventLog.contains("input.release.r13.a11.input.quality.0")
         )
         XCTAssertFalse(eventLog.contains("output.release.0"))
+    }
+
+    func testConcurrentSubmissionDiagnosticCapturesActiveState() async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [
+                try R13ReleaseTestFrames.make(resolution: .p720, index: 0)
+            ],
+            eventLog: eventLog
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .suspendUntilCancelled,
+            eventLog: eventLog
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            diagnostics: diagnostics
+        )
+        let activeHandle = try service.submit(
+            makeJob(
+                identifier: "r13-active-diagnostic",
+                target: .p1080,
+                mode: .quality
+            )
+        )
+        try await waitForEvent("apple.submit.0", in: eventLog)
+
+        XCTAssertThrowsError(
+            try service.submit(
+                makeJob(
+                    identifier: "r13-rejected-diagnostic",
+                    target: .p1080,
+                    mode: .fast
+                )
+            )
+        ) { error in
+            guard let engineError = error as? UpscalerEngineError,
+                  case .jobAlreadyRunning = engineError else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+        }
+
+        let rejected = try await waitForDiagnostic(
+            code: "release_job_submit_rejected_already_running",
+            in: diagnostics
+        )
+        let expectedStateField = try MirmirDiagnosticField(
+            key: "active_job_state",
+            value: MirmirDiagnosticFieldValue.identifier("active")
+        )
+        XCTAssertEqual(rejected.event.severity, .warning)
+        XCTAssertTrue(rejected.event.fields.contains(expectedStateField))
+
+        activeHandle.cancel()
+        do {
+            _ = try await activeHandle.waitForCompletion()
+            XCTFail("Cancellation must terminate the release job.")
+        } catch let error as UpscalerEngineError {
+            guard case .cancelled = error else {
+                return XCTFail("Unexpected engine error: \(error)")
+            }
+        }
+        let snapshot = try await diagnostics.snapshot()
+        let terminalCodes = snapshot.records.map(\.event.code.rawValue).filter {
+            [
+                "release_job_completed",
+                "release_job_cancelled",
+                "release_job_failed"
+            ].contains($0)
+        }
+        XCTAssertEqual(terminalCodes, ["release_job_cancelled"])
+    }
+
+    func testHeldDiagnosticJournalLockDoesNotStallJobOrRetainActiveState()
+        async throws {
+        let directoryURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-r13-diagnostic-lock-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? FileManager.default.removeItem(at: directoryURL) }
+        let diagnostics = try MirmirDiagnosticStore(
+            persistentDirectoryURL: directoryURL
+        )
+        let lockURL = directoryURL.appendingPathComponent(
+            MirmirDiagnosticStore.lockFileName,
+            isDirectory: false
+        )
+        var lockDescriptor = open(
+            lockURL.path,
+            O_RDWR | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard lockDescriptor >= 0 else {
+            return XCTFail("Unable to open the diagnostic journal lock.")
+        }
+        defer {
+            if lockDescriptor >= 0 {
+                _ = flock(lockDescriptor, LOCK_UN)
+                close(lockDescriptor)
+            }
+        }
+        guard flock(lockDescriptor, LOCK_EX | LOCK_NB) == 0 else {
+            return XCTFail("Unable to acquire the diagnostic journal lock.")
+        }
+
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [],
+            eventLog: eventLog
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            diagnostics: diagnostics
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-diagnostic-lock-independence",
+                target: .p1080,
+                mode: .deterministic
+            )
+        )
+        let completionState = OSAllocatedUnfairLock(
+            initialState: R13BoundedJobCompletion.pending
+        )
+        let completed = expectation(
+            description: "Job completes while diagnostic flock remains held."
+        )
+        let completionTask = Task {
+            do {
+                let outputURL = try await handle.waitForCompletion()
+                completionState.withLock {
+                    $0 = .success(outputURL)
+                }
+            } catch {
+                let identity = error as NSError
+                completionState.withLock {
+                    $0 = .failure(
+                        domain: identity.domain,
+                        code: identity.code
+                    )
+                }
+            }
+            completed.fulfill()
+        }
+        defer { completionTask.cancel() }
+
+        await fulfillment(of: [completed], timeout: 2)
+
+        switch completionState.withLock({ $0 }) {
+        case .pending:
+            XCTFail("The job did not terminate before the diagnostic timeout.")
+        case .failure(let domain, let code):
+            XCTFail("The job failed with \(domain) error \(code).")
+        case .success(let outputURL):
+            XCTAssertEqual(
+                outputURL.lastPathComponent,
+                "r13-diagnostic-lock-independence.mp4"
+            )
+        }
+        let activeStateIsIdle = service.activeJobState.withLock { state in
+            if case .idle = state {
+                return true
+            }
+            return false
+        }
+        XCTAssertTrue(
+            activeStateIsIdle,
+            "Diagnostic persistence retained the active-job reservation."
+        )
+
+        XCTAssertEqual(flock(lockDescriptor, LOCK_UN), 0)
+        close(lockDescriptor)
+        lockDescriptor = -1
+        await diagnostics.diagnosticSubmissionQueue.flush()
+        let snapshot = try await diagnostics.snapshot()
+        XCTAssertEqual(
+            snapshot.records.filter {
+                $0.event.code.rawValue == "release_job_completed"
+            }.count,
+            1
+        )
     }
 
     private func makeService(
@@ -317,4 +631,32 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         }
         XCTFail("Timed out waiting for \(event). Events: \(eventLog.events)")
     }
+
+    private func waitForDiagnostic(
+        code: String,
+        in store: MirmirDiagnosticStore
+    ) async throws -> MirmirDiagnosticRecord {
+        for _ in 0..<200 {
+            let snapshot = try await store.snapshot()
+            if let record = snapshot.records.first(
+                where: { $0.event.code.rawValue == code }
+            ) {
+                return record
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        let snapshot = try await store.snapshot()
+        return try XCTUnwrap(
+            snapshot.records.first {
+                $0.event.code.rawValue == code
+            },
+            "Timed out waiting for diagnostic \(code)."
+        )
+    }
+}
+
+private enum R13BoundedJobCompletion: Sendable {
+    case pending
+    case success(URL)
+    case failure(domain: String, code: Int)
 }
