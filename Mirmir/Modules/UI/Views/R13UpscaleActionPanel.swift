@@ -105,7 +105,9 @@ struct R13UpscaleActionPanel: View {
         )
         .font(theme.typography.caption)
         .foregroundStyle(
-            viewModel.canStart ? theme.textTertiary : theme.warning
+            viewModel.canStart || viewModel.jobIsRunning
+                ? theme.textTertiary
+                : theme.warning
         )
         .fixedSize(horizontal: false, vertical: true)
     }

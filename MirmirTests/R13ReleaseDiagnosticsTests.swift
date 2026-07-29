@@ -1,7 +1,7 @@
 import XCTest
 @testable import Mirmir
 
-final class R13SourceFrameCounterTests: XCTestCase {
+final class R13ReleaseDiagnosticsTests: XCTestCase {
     func testZeroSampleBufferDoesNotChangeFrameCount() throws {
         XCTAssertEqual(
             try R13AVFoundationSourceFrameCounter.addingSampleCount(
@@ -35,9 +35,7 @@ final class R13SourceFrameCounterTests: XCTestCase {
             )
         }
     }
-}
 
-final class R13ReleaseDiagnosticsTests: XCTestCase {
     func testHardeningRecorderMirrorsOnlyWarningsAndErrorsPersistently()
         async throws {
         let diagnostics = R13ReleaseDiagnostics(

@@ -167,7 +167,7 @@ final class MirmirViewModel: ObservableObject {
         case .probing:
             return "Mirmir is reading the source video."
         case .running:
-            return "An upscale is already running."
+            return "Upscale in progress."
         case .finished:
             return "Upscale another video to start a new job."
         case .failed(let reason):

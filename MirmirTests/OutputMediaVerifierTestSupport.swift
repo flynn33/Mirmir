@@ -137,7 +137,8 @@ func writeOneFrameVideo(
     resolution: VideoResolution,
     duration: CMTime,
     pixelFormat: OSType = PixelBufferBridge.preferredFormat,
-    preferredTransform: CGAffineTransform = .identity
+    preferredTransform: CGAffineTransform = .identity,
+    pixelAspectRatio: VideoPixelAspectRatio? = nil
 ) async throws {
     let writer: AVAssetWriter
     do {
@@ -145,18 +146,27 @@ func writeOneFrameVideo(
     } catch {
         throw MediaTestFailure.cannotCreateWriter
     }
+    var videoSettings: [String: Any] = [
+        AVVideoCodecKey: AVVideoCodecType.h264,
+        AVVideoWidthKey: resolution.width,
+        AVVideoHeightKey: resolution.height,
+        AVVideoColorPropertiesKey: [
+            AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+            AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+            AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
+        ]
+    ]
+    if let pixelAspectRatio {
+        videoSettings[AVVideoPixelAspectRatioKey] = [
+            AVVideoPixelAspectRatioHorizontalSpacingKey:
+                pixelAspectRatio.horizontalSpacing,
+            AVVideoPixelAspectRatioVerticalSpacingKey:
+                pixelAspectRatio.verticalSpacing
+        ]
+    }
     let input = AVAssetWriterInput(
         mediaType: .video,
-        outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.h264,
-            AVVideoWidthKey: resolution.width,
-            AVVideoHeightKey: resolution.height,
-            AVVideoColorPropertiesKey: [
-                AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-                AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-                AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2
-            ]
-        ]
+        outputSettings: videoSettings
     )
     input.mediaTimeScale = 600
     input.transform = preferredTransform
@@ -318,4 +328,27 @@ func fillNV12(_ pixelBuffer: CVPixelBuffer) throws {
         let bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, planeIndex)
         memset(baseAddress, planeIndex == 0 ? 64 : 128, height * bytesPerRow)
     }
+}
+
+func pixelAspectRatio(
+    in pixelBuffer: CVPixelBuffer
+) throws -> VideoPixelAspectRatio {
+    guard let dictionary = CVBufferCopyAttachment(
+        pixelBuffer,
+        kCVImageBufferPixelAspectRatioKey,
+        nil
+    ) as? NSDictionary,
+          let horizontal = dictionary[
+            kCVImageBufferPixelAspectRatioHorizontalSpacingKey
+          ] as? NSNumber,
+          let vertical = dictionary[
+            kCVImageBufferPixelAspectRatioVerticalSpacingKey
+          ] as? NSNumber,
+          let ratio = VideoPixelAspectRatio(
+            horizontalSpacing: horizontal.intValue,
+            verticalSpacing: vertical.intValue
+          ) else {
+        throw MediaTestFailure.readerFailed
+    }
+    return ratio
 }

@@ -340,7 +340,7 @@ private func makeR13ExpectedIntegrationIdentity(
     )
 }
 
-private func assertR13ReopenedOutput(
+func assertR13ReopenedOutput(
     at url: URL,
     resolution: VideoResolution
 ) async throws {

@@ -1,6 +1,7 @@
 import CoreVideo
 import Darwin
 import Foundation
+import VideoToolbox
 
 extension R13NV12Frame {
     static func captureTightActivePlanes(
@@ -211,6 +212,193 @@ extension R13NV12Frame {
                 key,
                 value,
                 .shouldPropagate
+            )
+        }
+    }
+}
+
+final class R13NV12GeometryTransfer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var transferSession: VTPixelTransferSession?
+
+    deinit {
+        lock.lock()
+        if let transferSession {
+            VTPixelTransferSessionInvalidate(transferSession)
+        }
+        transferSession = nil
+        lock.unlock()
+    }
+
+    func transfer(
+        from source: CVPixelBuffer,
+        to destination: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        let session = try transferSessionLocked()
+        try Self.setDestinationCleanAperture(
+            on: session,
+            resolution: resolution
+        )
+        let status = VTPixelTransferSessionTransferImage(
+            session,
+            from: source,
+            to: destination
+        )
+        guard status == noErr else {
+            throw R03NV12ScalingError.scalingFailed(
+                plane: -1,
+                status: Int(status)
+            )
+        }
+    }
+
+    static func installCanonicalAttachments(
+        on pixelBuffer: CVPixelBuffer,
+        resolution: VideoResolution
+    ) {
+        let pixelAspectRatio = [
+            kCVImageBufferPixelAspectRatioHorizontalSpacingKey as String:
+                NSNumber(value: 1),
+            kCVImageBufferPixelAspectRatioVerticalSpacingKey as String:
+                NSNumber(value: 1)
+        ] as CFDictionary
+        let cleanAperture = [
+            kCVImageBufferCleanApertureWidthKey as String:
+                NSNumber(value: resolution.width),
+            kCVImageBufferCleanApertureHeightKey as String:
+                NSNumber(value: resolution.height),
+            kCVImageBufferCleanApertureHorizontalOffsetKey as String:
+                NSNumber(value: 0),
+            kCVImageBufferCleanApertureVerticalOffsetKey as String:
+                NSNumber(value: 0)
+        ] as CFDictionary
+        CVBufferSetAttachment(
+            pixelBuffer,
+            kCVImageBufferPixelAspectRatioKey,
+            pixelAspectRatio,
+            .shouldPropagate
+        )
+        CVBufferSetAttachment(
+            pixelBuffer,
+            kCVImageBufferCleanApertureKey,
+            cleanAperture,
+            .shouldPropagate
+        )
+        CVBufferRemoveAttachment(
+            pixelBuffer,
+            kCVImageBufferPreferredCleanApertureKey
+        )
+        CVBufferRemoveAttachment(
+            pixelBuffer,
+            kCVImageBufferDisplayDimensionsKey
+        )
+    }
+
+    private func transferSessionLocked() throws -> VTPixelTransferSession {
+        if let transferSession {
+            return transferSession
+        }
+        var candidate: VTPixelTransferSession?
+        let status = VTPixelTransferSessionCreate(
+            allocator: kCFAllocatorDefault,
+            pixelTransferSessionOut: &candidate
+        )
+        guard status == noErr, let candidate else {
+            throw R03NV12ScalingError.runtimeUnavailable(
+                "r13_pixel_transfer_session_create_\(status)"
+            )
+        }
+        do {
+            try Self.configureTransferSession(candidate)
+            transferSession = candidate
+            return candidate
+        } catch {
+            VTPixelTransferSessionInvalidate(candidate)
+            throw error
+        }
+    }
+
+    private static func configureTransferSession(
+        _ session: VTPixelTransferSession
+    ) throws {
+        let squarePixelAspectRatio = [
+            kCVImageBufferPixelAspectRatioHorizontalSpacingKey as String:
+                NSNumber(value: 1),
+            kCVImageBufferPixelAspectRatioVerticalSpacingKey as String:
+                NSNumber(value: 1)
+        ] as CFDictionary
+        let properties: [(key: CFString, value: CFTypeRef)] = [
+            (
+                kVTPixelTransferPropertyKey_ScalingMode,
+                kVTScalingMode_Letterbox
+            ),
+            (
+                kVTPixelTransferPropertyKey_DestinationPixelAspectRatio,
+                squarePixelAspectRatio
+            ),
+            (
+                kVTPixelTransferPropertyKey_DestinationColorPrimaries,
+                kCVImageBufferColorPrimaries_ITU_R_709_2
+            ),
+            (
+                kVTPixelTransferPropertyKey_DestinationTransferFunction,
+                kCVImageBufferTransferFunction_ITU_R_709_2
+            ),
+            (
+                kVTPixelTransferPropertyKey_DestinationYCbCrMatrix,
+                kCVImageBufferYCbCrMatrix_ITU_R_709_2
+            ),
+            (
+                kVTPixelTransferPropertyKey_RealTime,
+                kCFBooleanFalse
+            )
+        ]
+        for property in properties {
+            try setProperty(
+                on: session,
+                key: property.key,
+                value: property.value
+            )
+        }
+    }
+
+    private static func setDestinationCleanAperture(
+        on session: VTPixelTransferSession,
+        resolution: VideoResolution
+    ) throws {
+        let cleanAperture = [
+            kCVImageBufferCleanApertureWidthKey as String:
+                NSNumber(value: resolution.width),
+            kCVImageBufferCleanApertureHeightKey as String:
+                NSNumber(value: resolution.height),
+            kCVImageBufferCleanApertureHorizontalOffsetKey as String:
+                NSNumber(value: 0),
+            kCVImageBufferCleanApertureVerticalOffsetKey as String:
+                NSNumber(value: 0)
+        ] as CFDictionary
+        try setProperty(
+            on: session,
+            key: kVTPixelTransferPropertyKey_DestinationCleanAperture,
+            value: cleanAperture
+        )
+    }
+
+    private static func setProperty(
+        on session: VTPixelTransferSession,
+        key: CFString,
+        value: CFTypeRef
+    ) throws {
+        let status = VTSessionSetProperty(
+            session,
+            key: key,
+            value: value
+        )
+        guard status == noErr else {
+            throw R03NV12ScalingError.runtimeUnavailable(
+                "r13_pixel_transfer_property_\(status)"
             )
         }
     }

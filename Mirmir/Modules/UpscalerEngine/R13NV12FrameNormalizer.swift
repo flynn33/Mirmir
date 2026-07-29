@@ -1,3 +1,4 @@
+import CoreMedia
 import CoreVideo
 import Darwin
 import Foundation
@@ -5,31 +6,62 @@ import Foundation
 protocol R13NV12FrameNormalizing: Sendable {
     func normalize(
         _ source: CVPixelBuffer,
-        resolution: VideoResolution
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
     ) throws -> CVPixelBuffer
 }
 
 final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable {
     private let poolLock = NSLock()
     private var pools: [VideoResolution: CVPixelBufferPool] = [:]
+    private let geometryTransfer = R13NV12GeometryTransfer()
 
     func normalize(
         _ source: CVPixelBuffer,
-        resolution: VideoResolution
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
     ) throws -> CVPixelBuffer {
-        try validateSourceLayout(source, resolution: resolution)
-        let destination = try PixelBufferBridge.dequeue(
-            from: try pool(for: resolution)
+        try validateSourceLayout(
+            source,
+            resolution: codedResolution
         )
-        try copyActivePlaneBytes(
-            from: source,
-            to: destination,
-            resolution: resolution
+        try validateSourcePixelAspectRatio(
+            source,
+            expected: pixelAspectRatio
+        )
+        try validateSourcePresentationGeometry(
+            source,
+            expected: presentationResolution
+        )
+        let destination = try PixelBufferBridge.dequeue(
+            from: try pool(for: presentationResolution)
+        )
+        let hasNonSquarePixels = pixelAspectRatio.map {
+            $0.horizontalSpacing != $0.verticalSpacing
+        } ?? false
+        if codedResolution == presentationResolution && !hasNonSquarePixels {
+            try copyActivePlaneBytes(
+                from: source,
+                to: destination,
+                resolution: codedResolution
+            )
+        } else {
+            try geometryTransfer.transfer(
+                from: source,
+                to: destination,
+                resolution: presentationResolution
+            )
+        }
+        R13NV12GeometryTransfer.installCanonicalAttachments(
+            on: destination,
+            resolution: presentationResolution
         )
         R03NV12Contract.installColorAttachments(on: destination)
         try R03NV12Contract.validate(
             pixelBuffer: destination,
-            resolution: resolution
+            resolution: presentationResolution
         )
         return destination
     }
@@ -111,6 +143,107 @@ final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable
                 expectedHeight: expectedHeight,
                 actualWidth: actualWidth,
                 actualHeight: actualHeight
+            )
+        }
+    }
+
+    private func validateSourcePixelAspectRatio(
+        _ source: CVPixelBuffer,
+        expected: VideoPixelAspectRatio?
+    ) throws {
+        let actual = sourcePixelAspectRatio(source)
+        if let expected {
+            guard actual == expected else {
+                throw R03NV12ScalingError.colorAttachmentMismatch(
+                    key: kCVImageBufferPixelAspectRatioKey as String,
+                    expected:
+                        "\(expected.horizontalSpacing):"
+                        + "\(expected.verticalSpacing)",
+                    actual: actual.map {
+                        "\($0.horizontalSpacing):\($0.verticalSpacing)"
+                    }
+                )
+            }
+            return
+        }
+        guard actual == nil
+                || actual == VideoPixelAspectRatio(
+                    horizontalSpacing: 1,
+                    verticalSpacing: 1
+                ) else {
+            throw R03NV12ScalingError.colorAttachmentMismatch(
+                key: kCVImageBufferPixelAspectRatioKey as String,
+                expected: "1:1 or absent",
+                actual: actual.map {
+                    "\($0.horizontalSpacing):\($0.verticalSpacing)"
+                }
+            )
+        }
+    }
+
+    private func sourcePixelAspectRatio(
+        _ source: CVPixelBuffer
+    ) -> VideoPixelAspectRatio? {
+        guard let dictionary = CVBufferCopyAttachment(
+            source,
+            kCVImageBufferPixelAspectRatioKey,
+            nil
+        ) as? NSDictionary,
+              let horizontal = dictionary[
+                kCVImageBufferPixelAspectRatioHorizontalSpacingKey
+              ] as? NSNumber,
+              let vertical = dictionary[
+                kCVImageBufferPixelAspectRatioVerticalSpacingKey
+              ] as? NSNumber else {
+            return nil
+        }
+        return VideoPixelAspectRatio(
+            horizontalSpacing: horizontal.intValue,
+            verticalSpacing: vertical.intValue
+        )
+    }
+
+    private func validateSourcePresentationGeometry(
+        _ source: CVPixelBuffer,
+        expected: VideoResolution
+    ) throws {
+        var formatDescription: CMVideoFormatDescription?
+        let status = CMVideoFormatDescriptionCreateForImageBuffer(
+            allocator: kCFAllocatorDefault,
+            imageBuffer: source,
+            formatDescriptionOut: &formatDescription
+        )
+        guard status == noErr, let formatDescription else {
+            throw R03NV12ScalingError.runtimeUnavailable(
+                "r13_source_format_description_create_\(status)"
+            )
+        }
+        let dimensions = CMVideoFormatDescriptionGetPresentationDimensions(
+            formatDescription,
+            usePixelAspectRatio: true,
+            useCleanAperture: true
+        )
+        guard dimensions.width.isFinite,
+              dimensions.height.isFinite,
+              dimensions.width >= 1,
+              dimensions.height >= 1 else {
+            throw R03NV12ScalingError.invalidDimensions(
+                expectedWidth: expected.width,
+                expectedHeight: expected.height,
+                actualWidth: 0,
+                actualHeight: 0
+            )
+        }
+        let actual = VideoResolution(
+            width: Int(dimensions.width.rounded()),
+            height: Int(dimensions.height.rounded())
+        )
+        guard actual == expected else {
+            throw R03NV12ScalingError.invalidDimensions(
+                expectedWidth: expected.width,
+                expectedHeight: expected.height,
+                actualWidth: actual.width,
+                actualHeight: actual.height
             )
         }
     }

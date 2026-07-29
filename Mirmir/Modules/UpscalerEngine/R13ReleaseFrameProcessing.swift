@@ -33,7 +33,7 @@ extension R13ReleaseUpscalerJobHandle {
         }
         try await processWithBackend(
             record,
-            sourceResolution: source.resolution,
+            source: source,
             route: route,
             runtime: runtime,
             session: upscaleBinding.session,
@@ -45,7 +45,7 @@ extension R13ReleaseUpscalerJobHandle {
 
     private static func processWithBackend(
         _ record: FrameRecord,
-        sourceResolution: VideoResolution,
+        source: SourceProfile,
         route: R03ScaleRoute,
         runtime: R13ReleaseJobRuntime,
         session: any AppleUpscaleSession,
@@ -54,7 +54,9 @@ extension R13ReleaseUpscalerJobHandle {
     ) async throws {
         let normalized = try runtime.normalizer.normalize(
             record.pixelBuffer,
-            resolution: sourceResolution
+            codedResolution: source.codedResolution,
+            presentationResolution: source.resolution,
+            pixelAspectRatio: source.pixelAspectRatio
         )
         let inputTokenIdentity =
             "r13.a11.input.\(runtime.modeBinding.requestedMode.rawValue).\(record.frameIndex)"

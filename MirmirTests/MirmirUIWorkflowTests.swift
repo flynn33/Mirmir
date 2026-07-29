@@ -39,6 +39,18 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertFalse(viewModel.canStart)
     }
 
+    func test_runningStateReportsProgressWithoutClaimingDuplicateSubmission() {
+        let viewModel = makeViewModel()
+
+        viewModel.state = .running
+
+        XCTAssertEqual(
+            viewModel.canStartFailureReason,
+            "Upscale in progress."
+        )
+        XCTAssertFalse(viewModel.canStart)
+    }
+
     func test_unavailableEngineDisablesStartAndExplainsRoadmapTransition() {
         let engine = RecordingUnavailableEngineService()
         let viewModel = MirmirViewModel(

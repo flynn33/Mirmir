@@ -3,6 +3,7 @@ import CoreMedia
 import CoreVideo
 import Foundation
 import os.lock
+import XCTest
 @testable import Mirmir
 
 enum R13IntegrationMediaError: Error, Equatable {
@@ -320,4 +321,78 @@ func readR13ReleaseMetadata(at url: URL) async throws -> [String: String] {
         }
     }
     return observed
+}
+
+extension R13ReleaseIntegrationTests {
+    func testShippingServiceUpscalesAnamorphic1080pAtPresentationGeometry()
+        async throws {
+        let workspace = try R13IntegrationWorkspace()
+        defer { workspace.remove() }
+        let codedResolution = VideoResolution(width: 1_440, height: 1_080)
+        let sourcePixelAspectRatio = try XCTUnwrap(
+            VideoPixelAspectRatio(
+                horizontalSpacing: 4,
+                verticalSpacing: 3
+            )
+        )
+        try await writeOneFrameVideo(
+            to: workspace.sourceURL,
+            resolution: codedResolution,
+            duration: CMTime(value: 1, timescale: 30),
+            pixelAspectRatio: sourcePixelAspectRatio
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let media = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService(),
+            diagnostics: diagnostics
+        )
+        let source = try await media.probe(url: workspace.sourceURL)
+        XCTAssertEqual(source.resolution, .p1080)
+        XCTAssertEqual(source.codedResolution, codedResolution)
+        XCTAssertEqual(source.pixelAspectRatio, sourcePixelAspectRatio)
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            diagnostics: diagnostics
+        )
+        let job = UpscaleJob(
+            identifier: "r13-anamorphic-1080p",
+            inputURL: workspace.sourceURL,
+            outputURL: workspace.outputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+
+        let result = try await service.submit(job).waitForCompletion()
+
+        XCTAssertEqual(result, workspace.outputURL)
+        try await assertR13ReopenedOutput(
+            at: result,
+            resolution: .p2160
+        )
+        let output = try await media.probe(url: result)
+        XCTAssertEqual(output.resolution, .p2160)
+        XCTAssertEqual(output.codedResolution, .p2160)
+        if let outputPixelAspectRatio = output.pixelAspectRatio {
+            XCTAssertEqual(
+                outputPixelAspectRatio,
+                try XCTUnwrap(
+                    VideoPixelAspectRatio(
+                        horizontalSpacing: 1,
+                        verticalSpacing: 1
+                    )
+                )
+            )
+        }
+        let snapshot = try await diagnostics.snapshot()
+        XCTAssertTrue(snapshot.records.contains {
+            $0.event.code.rawValue
+                == "release_first_decoded_frame_observed"
+        })
+        XCTAssertFalse(snapshot.records.contains {
+            $0.event.code.rawValue
+                == "release_first_decoded_frame_geometry_mismatch"
+        })
+    }
 }
