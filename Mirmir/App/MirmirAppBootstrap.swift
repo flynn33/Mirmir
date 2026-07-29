@@ -76,7 +76,7 @@ final class MirmirAppBootstrap: ObservableObject {
         let mediaPipelineService = AVFoundationMediaPipeline(metal: metalService)
         let upscalerEngineService = R13ReleaseUpscalerEngineService(
             media: mediaPipelineService,
-            hardeningRuntime: try R13ReleaseHardeningRuntime.production()
+            cacheLocationStore: R13CacheLocationStore()
         )
 
         return MirmirServices(

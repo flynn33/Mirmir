@@ -37,6 +37,8 @@ struct MirmirSettingsView: View {
             }
             .pickerStyle(.segmented)
 
+            MirmirCacheLocationSettings(viewModel: viewModel)
+
             Text(viewModel.engineReadinessText)
                 .font(.callout)
                 .foregroundStyle(.secondary)
@@ -64,6 +66,53 @@ struct MirmirSettingsView: View {
         }
         .font(.callout)
         .foregroundStyle(.secondary)
+    }
+}
+
+struct MirmirCacheLocationSettings: View {
+    @ObservedObject var viewModel: MirmirViewModel
+    var showsTitle = true
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if showsTitle {
+                Text("Cache Location")
+                    .font(.headline)
+            }
+            Text(viewModel.cacheLocationPath)
+                .font(.callout.monospaced())
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .textSelection(.enabled)
+
+            if viewModel.cacheLocationIsConfigurable {
+                HStack {
+                    Button("Choose…") {
+                        viewModel.chooseCacheLocation()
+                    }
+                    if viewModel.cacheLocationIsCustom {
+                        Button("Use Internal Storage") {
+                            viewModel.useDefaultCacheLocation()
+                        }
+                    }
+                }
+                .disabled(!viewModel.canChangeCacheLocation)
+            }
+
+            if let message = viewModel.cacheLocationStatusMessage {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(
+                "Choose any writable folder on an internal disk, "
+                    + "external drive, or mounted network share."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
     }
 }
 

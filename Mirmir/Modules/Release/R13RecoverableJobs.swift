@@ -102,13 +102,13 @@ extension R13ReleaseUpscalerEngineService {
     }
 
     func recoverableJobs() async throws -> R13RecoverableJobCatalog {
-        try await hardeningRuntime?.recoverableJobs() ?? .empty
+        try await resolveHardeningRuntime()?.recoverableJobs() ?? .empty
     }
 
     func resolveRecoverableJob(
         id: String
     ) async throws -> R13ResolvedRecoverableUpscaleJob {
-        guard let hardeningRuntime else {
+        guard let hardeningRuntime = try resolveHardeningRuntime() else {
             throw R13RestartJobError.jobMissing(id)
         }
         return try await hardeningRuntime.resolveRecoverableJob(id: id)
@@ -119,7 +119,7 @@ extension R13ReleaseUpscalerEngineService {
         sourceURL: URL,
         outputDirectoryURL: URL
     ) async throws -> R13ResolvedRecoverableUpscaleJob {
-        guard let hardeningRuntime else {
+        guard let hardeningRuntime = try resolveHardeningRuntime() else {
             throw R13RestartJobError.jobMissing(id)
         }
         return try await hardeningRuntime.reauthorizeRecoverableJob(

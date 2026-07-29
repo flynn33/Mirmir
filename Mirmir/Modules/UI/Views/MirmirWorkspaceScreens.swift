@@ -296,6 +296,13 @@ struct MirmirSettingsScreen: View {
                         .pickerStyle(.segmented)
                     }
 
+                    MirmirFieldRow("Cache Location", theme: theme) {
+                        MirmirCacheLocationSettings(
+                            viewModel: viewModel,
+                            showsTitle: false
+                        )
+                    }
+
                     settingsNote("Processing", viewModel.canStartFailureReason ?? "Processing is available.")
                     settingsNote("Diagnostics", viewModel.engineReadinessText)
                     settingsNote("Advanced", "Advanced controls remain inactive until additional processing options are available.")

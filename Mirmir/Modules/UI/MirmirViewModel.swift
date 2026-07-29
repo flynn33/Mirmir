@@ -79,6 +79,11 @@ final class MirmirViewModel: ObservableObject {
     @Published var state: JobState = .idle
     @Published var outputURL: URL?
     @Published var outputSelectionError: String?
+    @Published var cacheLocationPath =
+        "Managed by the configured runtime"
+    @Published var cacheLocationIsCustom = false
+    @Published var cacheLocationError: String?
+    @Published var cacheLocationSelectionError: String?
     @Published var recoverableJobs:
         [R13RecoverableUpscaleJob] = []
     @Published var recoveryRejectedEntryCount = 0
@@ -116,6 +121,7 @@ final class MirmirViewModel: ObservableObject {
         self.modelAssets = modelAssets
         self.engineAvailability = upscalerEngine.availability
         startObservingModelStatus()
+        refreshCacheLocation()
         loadRecoverableJobs()
         refreshReleaseDiagnostics()
     }
@@ -143,6 +149,9 @@ final class MirmirViewModel: ObservableObject {
     var canStartFailureReason: String? {
         if let engineAvailabilityReason {
             return engineAvailabilityReason
+        }
+        if let cacheLocationError {
+            return cacheLocationError
         }
 
         switch state {
@@ -428,73 +437,4 @@ final class MirmirViewModel: ObservableObject {
         }
     }
 
-}
-
-extension MirmirViewModel {
-    func defaultOutputURL(
-        for source: SourceProfile,
-        target: VideoResolution
-    ) -> URL {
-        defaultOutputURL(
-            for: source,
-            target: target,
-            in: source.url.deletingLastPathComponent()
-        )
-    }
-
-    func defaultOutputURL(
-        for source: SourceProfile,
-        target: VideoResolution,
-        in directoryURL: URL
-    ) -> URL {
-        let base = source.url.deletingPathExtension().lastPathComponent
-        return directoryURL.appendingPathComponent(
-            "\(base)_mirmir_\(Self.fileLabel(for: target)).mp4"
-        )
-    }
-
-    static var unsupportedFileMessage: String {
-        "Unsupported video format. Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG file."
-    }
-
-    static func fileLabel(for resolution: VideoResolution) -> String {
-        switch resolution {
-        case .p720:
-            return "720p"
-        case .p1080:
-            return "1080p"
-        case .p1440:
-            return "1440p"
-        case .p2160:
-            return "2160p"
-        default:
-            return "\(resolution.width)x\(resolution.height)"
-        }
-    }
-
-    private static func supportedContentTypes() -> [UTType] {
-        let extensionTypes = supportedVideoExtensions.compactMap { UTType(filenameExtension: $0) }
-        return Array(Set(extensionTypes + [.movie, .video, .quickTimeMovie, .mpeg4Movie]))
-    }
-
-    static var sourceOutputConflictMessage: String {
-        "The output file must be different from the source video."
-    }
-
-    static func urlsReferToSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
-        FileURLIdentity.refersToSameFile(lhs, rhs)
-    }
-
-    private func clearOutputSelection() {
-        outputURL = nil
-        outputSelectionError = nil
-    }
-
-    private func userFacingProbeError(_ error: Error) -> String {
-        "Mirmir could not read this video. \(String(describing: error))"
-    }
-
-    private func unsupportedResolutionMessage(_ resolution: VideoResolution) -> String {
-        "Mirmir supports 720p to 1080p and 1080p to 4K upscaling. This source is \(resolution)."
-    }
 }
