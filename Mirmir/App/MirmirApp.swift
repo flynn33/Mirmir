@@ -37,5 +37,15 @@ struct MirmirApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
         }
+
+        Settings {
+            if p08LaunchDisposition == .normal {
+                MirmirDiagnosticSettingsView(
+                    store: MirmirDiagnosticStore.application
+                )
+            } else {
+                EmptyView()
+            }
+        }
     }
 }

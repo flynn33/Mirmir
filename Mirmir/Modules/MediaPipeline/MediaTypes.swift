@@ -27,9 +27,24 @@ public struct VideoResolution: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
+public struct VideoPixelAspectRatio: Equatable, Sendable {
+    public let horizontalSpacing: Int
+    public let verticalSpacing: Int
+
+    public init?(horizontalSpacing: Int, verticalSpacing: Int) {
+        guard horizontalSpacing > 0, verticalSpacing > 0 else {
+            return nil
+        }
+        self.horizontalSpacing = horizontalSpacing
+        self.verticalSpacing = verticalSpacing
+    }
+}
+
 public struct SourceProfile: Sendable {
     public let url: URL
     public let resolution: VideoResolution
+    public let codedResolution: VideoResolution
+    public let pixelAspectRatio: VideoPixelAspectRatio?
     public let frameRate: Double
     public let durationSeconds: Double
     public let estimatedFrameCount: Int
@@ -39,6 +54,8 @@ public struct SourceProfile: Sendable {
     public init(
         url: URL,
         resolution: VideoResolution,
+        codedResolution: VideoResolution? = nil,
+        pixelAspectRatio: VideoPixelAspectRatio? = nil,
         frameRate: Double,
         durationSeconds: Double,
         estimatedFrameCount: Int,
@@ -47,6 +64,8 @@ public struct SourceProfile: Sendable {
     ) {
         self.url = url
         self.resolution = resolution
+        self.codedResolution = codedResolution ?? resolution
+        self.pixelAspectRatio = pixelAspectRatio
         self.frameRate = frameRate
         self.durationSeconds = durationSeconds
         self.estimatedFrameCount = estimatedFrameCount

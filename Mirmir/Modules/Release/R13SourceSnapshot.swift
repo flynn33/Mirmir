@@ -6,6 +6,8 @@ extension SourceProfile {
         SourceProfile(
             url: url,
             resolution: resolution,
+            codedResolution: codedResolution,
+            pixelAspectRatio: pixelAspectRatio,
             frameRate: frameRate,
             durationSeconds: durationSeconds,
             estimatedFrameCount: estimatedFrameCount,

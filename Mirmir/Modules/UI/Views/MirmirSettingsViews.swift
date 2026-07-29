@@ -1,4 +1,6 @@
+import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MirmirSettingsView: View {
     @ObservedObject var viewModel: MirmirViewModel
@@ -145,5 +147,411 @@ struct MirmirAboutView: View {
             Spacer()
         }
         .padding(20)
+    }
+}
+
+struct MirmirDiagnosticSettingsView: View {
+    let store: MirmirDiagnosticStore
+
+    @State private var snapshot: MirmirDiagnosticSnapshot?
+    @State private var persistenceHealth:
+        MirmirDiagnosticPersistenceHealth?
+    @State private var renderedLog = ""
+    @State private var isRefreshing = false
+    @State private var isExporting = false
+    @State private var statusMessage: String?
+    @State private var failureMessage: String?
+    @State private var exportDocument = MirmirDiagnosticExportDocument()
+    @State private var exportContentType = UTType.json
+    @State private var exportFilename = "Mirmir-Diagnostics.json"
+    @State private var presentsExporter = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            header
+            storageStatus
+            retentionSummary
+            exportControls
+            logViewer
+            operationStatus
+        }
+        .padding(20)
+        .frame(
+            minWidth: 720,
+            idealWidth: 840,
+            minHeight: 560,
+            idealHeight: 680
+        )
+        .task {
+            guard snapshot == nil else { return }
+            await refresh()
+        }
+        .fileExporter(
+            isPresented: $presentsExporter,
+            document: exportDocument,
+            contentType: exportContentType,
+            defaultFilename: exportFilename
+        ) { result in
+            completeExport(result)
+        }
+    }
+
+    private var header: some View {
+        HStack(alignment: .firstTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Diagnostic Log")
+                    .font(.title2.weight(.semibold))
+                Text(
+                    "Review the privacy-filtered local log or export it "
+                        + "for troubleshooting."
+                )
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            Button {
+                Task { await refresh() }
+            } label: {
+                Label("Refresh", systemImage: "arrow.clockwise")
+            }
+            .keyboardShortcut("r", modifiers: [.command])
+            .disabled(isRefreshing || isExporting)
+        }
+    }
+
+    @ViewBuilder
+    private var storageStatus: some View {
+        switch store.storageKind {
+        case .persistent:
+            if let persistenceHealth {
+                if persistenceHealth.failedOperationCount > 0 {
+                    Label(
+                        "Persistent storage encountered "
+                            + "\(persistenceHealth.failedOperationCount) failed "
+                            + "operation(s). Last failure: "
+                            + "\(persistenceHealth.lastFailedOperation ?? "unknown").",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .foregroundStyle(.orange)
+                    .textSelection(.enabled)
+                } else {
+                    Label(
+                        "Persistent storage is active.",
+                        systemImage: "externaldrive.fill.badge.checkmark"
+                    )
+                    .foregroundStyle(.green)
+                }
+            } else {
+                Label(
+                    "Checking persistent storage health…",
+                    systemImage: "externaldrive.badge.questionmark"
+                )
+                .foregroundStyle(.secondary)
+            }
+        case .memoryOnly:
+            Label(
+                "Persistent storage is unavailable. "
+                    + "This session's log will be lost when Mirmir exits.",
+                systemImage: "exclamationmark.triangle.fill"
+            )
+            .foregroundStyle(.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var retentionSummary: some View {
+        GroupBox("Retention") {
+            if let snapshot {
+                Grid(
+                    alignment: .leading,
+                    horizontalSpacing: 24,
+                    verticalSpacing: 8
+                ) {
+                    GridRow {
+                        metric("Retained records", snapshot.retainedRecordCount)
+                        metric(
+                            "Retained size",
+                            snapshot.retainedByteCount.formatted(
+                                .byteCount(style: .file)
+                            )
+                        )
+                    }
+                    GridRow {
+                        metric("Pruned records", snapshot.prunedRecordCount)
+                        metric("Rejected records", snapshot.rejectedRecordCount)
+                    }
+                    GridRow {
+                        metric(
+                            "Recovered corrupt tails",
+                            snapshot.recoveredCorruptTailCount
+                        )
+                        metric(
+                            "Recovered corrupt bytes",
+                            snapshot.recoveredCorruptByteCount.formatted(
+                                .byteCount(style: .file)
+                            )
+                        )
+                    }
+                    GridRow {
+                        metric(
+                            "Persistence failures",
+                            snapshot.persistenceFailureCount
+                        )
+                        metric(
+                            "Last failed operation",
+                            snapshot.lastPersistenceFailureOperation ?? "None"
+                        )
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else if isRefreshing {
+                ProgressView()
+                    .controlSize(.small)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                Text("No snapshot has been loaded.")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var exportControls: some View {
+        HStack {
+            Text("Export")
+                .font(.headline)
+
+            Spacer()
+
+            Button("JSON…") {
+                prepareExport(.json)
+            }
+            .disabled(isRefreshing || isExporting)
+
+            Button("Markdown…") {
+                prepareExport(.markdown)
+            }
+            .disabled(isRefreshing || isExporting)
+        }
+    }
+
+    private var logViewer: some View {
+        GroupBox("Records") {
+            ScrollView([.horizontal, .vertical]) {
+                Text(logDisplayText)
+                    .font(.system(.caption, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .topLeading
+                    )
+                    .padding(8)
+            }
+            .frame(minHeight: 300)
+            .background(.background.secondary)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(.separator, lineWidth: 1)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var operationStatus: some View {
+        if let failureMessage {
+            Label(failureMessage, systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .foregroundStyle(.red)
+                .textSelection(.enabled)
+        } else if let statusMessage {
+            Text(statusMessage)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var logDisplayText: String {
+        if !renderedLog.isEmpty {
+            return renderedLog
+        }
+        if isRefreshing {
+            return "Loading the diagnostic log…"
+        }
+        return "No diagnostic records are available."
+    }
+
+    private func metric<Value: CustomStringConvertible>(
+        _ title: String,
+        _ value: Value
+    ) -> some View {
+        LabeledContent(title) {
+            Text(value.description)
+                .monospacedDigit()
+                .textSelection(.enabled)
+        }
+    }
+
+    @MainActor
+    private func refresh() async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        defer { isRefreshing = false }
+        failureMessage = nil
+        statusMessage = nil
+        persistenceHealth = await store.persistenceHealth()
+
+        do {
+            let loadedSnapshot = try await store.snapshot()
+            let markdownData = try await Task.detached(priority: .utility) {
+                try MirmirDiagnosticExport.markdown(loadedSnapshot)
+            }.value
+            guard !Task.isCancelled else { return }
+
+            snapshot = loadedSnapshot
+            persistenceHealth = await store.persistenceHealth()
+            renderedLog = String(decoding: markdownData, as: UTF8.self)
+            statusMessage =
+                "Snapshot loaded at "
+                + MirmirDiagnosticExport.utcTimestamp(
+                    loadedSnapshot.exportedAtUnixMilliseconds
+                )
+                + "."
+        } catch is CancellationError {
+            return
+        } catch {
+            persistenceHealth = await store.persistenceHealth()
+            failureMessage = Self.failureDescription(
+                error,
+                action: "read the diagnostic log"
+            )
+        }
+    }
+
+    @MainActor
+    private func prepareExport(_ format: MirmirDiagnosticExportFormat) {
+        guard !isExporting else { return }
+        isExporting = true
+        failureMessage = nil
+        statusMessage = "Preparing \(format.displayName) export…"
+
+        Task {
+            do {
+                let data: Data
+                switch format {
+                case .json:
+                    data = try await store.exportJSON()
+                case .markdown:
+                    data = try await store.exportMarkdown()
+                }
+                persistenceHealth = await store.persistenceHealth()
+                guard !Task.isCancelled else {
+                    isExporting = false
+                    return
+                }
+
+                exportDocument = MirmirDiagnosticExportDocument(data: data)
+                exportContentType = format.contentType
+                exportFilename = format.defaultFilename
+                statusMessage = nil
+                presentsExporter = true
+            } catch is CancellationError {
+                isExporting = false
+            } catch {
+                persistenceHealth = await store.persistenceHealth()
+                isExporting = false
+                failureMessage = Self.failureDescription(
+                    error,
+                    action: "prepare the \(format.displayName) export"
+                )
+            }
+        }
+    }
+
+    @MainActor
+    private func completeExport(_ result: Result<URL, Error>) {
+        isExporting = false
+        switch result {
+        case .success:
+            failureMessage = nil
+            statusMessage = "Diagnostic log exported."
+        case .failure(let error as CocoaError)
+            where error.code == .userCancelled:
+            statusMessage = "Export cancelled."
+        case .failure(let error):
+            failureMessage = Self.failureDescription(
+                error,
+                action: "write the diagnostic export"
+            )
+        }
+    }
+
+    private static func failureDescription(
+        _ error: Error,
+        action: String
+    ) -> String {
+        let identity = error as NSError
+        return "Unable to \(action). "
+            + "\(identity.domain) error \(identity.code)."
+    }
+}
+
+private enum MirmirDiagnosticExportFormat {
+    case json
+    case markdown
+
+    static let markdownContentType =
+        UTType(filenameExtension: "md") ?? .plainText
+
+    var displayName: String {
+        switch self {
+        case .json:
+            return "JSON"
+        case .markdown:
+            return "Markdown"
+        }
+    }
+
+    var contentType: UTType {
+        switch self {
+        case .json:
+            return .json
+        case .markdown:
+            return Self.markdownContentType
+        }
+    }
+
+    var defaultFilename: String {
+        switch self {
+        case .json:
+            return "Mirmir-Diagnostics.json"
+        case .markdown:
+            return "Mirmir-Diagnostics.md"
+        }
+    }
+}
+
+private struct MirmirDiagnosticExportDocument: FileDocument {
+    static var readableContentTypes: [UTType] {
+        [.json, MirmirDiagnosticExportFormat.markdownContentType]
+    }
+
+    let data: Data
+
+    init(data: Data = Data()) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        guard let data = configuration.file.regularFileContents else {
+            throw CocoaError(.fileReadCorruptFile)
+        }
+        self.data = data
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }

@@ -49,6 +49,102 @@ final class MirmirDiagnosticStoreTests: XCTestCase {
         XCTAssertFalse(journal.isEmpty)
     }
 
+    func testPostInitializationPersistenceFailureIsReportedAfterJournalRecovery()
+        async throws {
+        let fixture = try DiagnosticStoreFixture()
+        defer { fixture.cleanup() }
+        let store = try MirmirDiagnosticStore(
+            persistentDirectoryURL: fixture.directoryURL,
+            policy: try policy(),
+            clock: fixedClock(wall: 3_000, uptime: 30)
+        )
+        let initialHealth = await store.persistenceHealth()
+        XCTAssertEqual(initialHealth.storageKind, .persistent)
+        XCTAssertEqual(initialHealth.failedOperationCount, 0)
+        XCTAssertNil(initialHealth.lastFailedOperation)
+
+        let fileManager = FileManager.default
+        let backupURL = fixture.directoryURL.appendingPathComponent(
+            "diagnostics-v1.restore",
+            isDirectory: false
+        )
+        var journalRequiresRestoration = false
+        defer {
+            if journalRequiresRestoration {
+                try? fileManager.removeItem(at: fixture.journalURL)
+                try? fileManager.moveItem(
+                    at: backupURL,
+                    to: fixture.journalURL
+                )
+            }
+        }
+        try fileManager.moveItem(at: fixture.journalURL, to: backupURL)
+        journalRequiresRestoration = true
+        try fileManager.createSymbolicLink(
+            at: fixture.journalURL,
+            withDestinationURL: backupURL
+        )
+
+        do {
+            _ = try await store.record(
+                event(code: "persistence_failure_trigger")
+            )
+            XCTFail("The symlinked journal must reject persistence.")
+        } catch let error as MirmirDiagnosticStoreError {
+            XCTAssertEqual(
+                error,
+                .persistenceFailure(operation: "record")
+            )
+        }
+        let degradedHealth = await store.persistenceHealth()
+        XCTAssertEqual(degradedHealth.storageKind, .persistent)
+        XCTAssertEqual(degradedHealth.failedOperationCount, 1)
+        XCTAssertEqual(degradedHealth.lastFailedOperation, "record")
+
+        try fileManager.removeItem(at: fixture.journalURL)
+        try fileManager.moveItem(at: backupURL, to: fixture.journalURL)
+        journalRequiresRestoration = false
+        let restoredValues = try fixture.journalURL.resourceValues(
+            forKeys: [.isRegularFileKey, .isSymbolicLinkKey]
+        )
+        XCTAssertEqual(restoredValues.isRegularFile, true)
+        XCTAssertEqual(restoredValues.isSymbolicLink, false)
+
+        let recoveredRecord = try await store.record(
+            event(code: "persistence_recovered")
+        )
+        XCTAssertEqual(recoveredRecord.sequence, 0)
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.persistenceFailureCount, 1)
+        XCTAssertEqual(
+            snapshot.lastPersistenceFailureOperation,
+            "record"
+        )
+        XCTAssertEqual(
+            snapshot.records.map(\.event.code.rawValue),
+            ["persistence_recovered"]
+        )
+
+        let json = try await store.exportJSON()
+        let decoded = try JSONDecoder().decode(
+            MirmirDiagnosticSnapshot.self,
+            from: json
+        )
+        XCTAssertEqual(decoded.persistenceFailureCount, 1)
+        XCTAssertEqual(decoded.lastPersistenceFailureOperation, "record")
+        let markdownData = try await store.exportMarkdown()
+        let markdown = try XCTUnwrap(
+            String(
+                data: markdownData,
+                encoding: .utf8
+            )
+        )
+        XCTAssertTrue(markdown.contains("- Persistence failures: 1"))
+        XCTAssertTrue(
+            markdown.contains("- Last persistence failure: record")
+        )
+    }
+
     func testCountRetentionPrunesOldestFirst() async throws {
         let store = MirmirDiagnosticStore(
             inMemoryWith: try policy(maximumRecords: 2),
@@ -130,8 +226,11 @@ final class MirmirDiagnosticStoreTests: XCTestCase {
     }
 
     func testOversizedRecordIsRejectedWithoutConsumingSequence() async throws {
-        let store = MirmirDiagnosticStore(
-            inMemoryWith: try policy(
+        let fixture = try DiagnosticStoreFixture()
+        defer { fixture.cleanup() }
+        let store = try MirmirDiagnosticStore(
+            persistentDirectoryURL: fixture.directoryURL,
+            policy: try policy(
                 maximumTotalBytes: 4_096,
                 maximumRecordBytes: 350
             ),
@@ -164,6 +263,12 @@ final class MirmirDiagnosticStoreTests: XCTestCase {
         XCTAssertEqual(accepted.sequence, 0)
         XCTAssertEqual(snapshot.records.map(\.sequence), [0])
         XCTAssertEqual(snapshot.rejectedRecordCount, 1)
+        XCTAssertEqual(snapshot.persistenceFailureCount, 0)
+        XCTAssertNil(snapshot.lastPersistenceFailureOperation)
+        let health = await store.persistenceHealth()
+        XCTAssertEqual(health.storageKind, .persistent)
+        XCTAssertEqual(health.failedOperationCount, 0)
+        XCTAssertNil(health.lastFailedOperation)
     }
 
     func testConcurrentActorCallersReceiveUniqueMonotonicSequences() async throws {

@@ -88,6 +88,24 @@ struct MirmirDiagnosticErrorIdentity: Codable, Equatable, Sendable {
             : frames
     }
 
+    init(errors: [Error]) {
+        var combined: [MirmirDiagnosticErrorFrame] = []
+        for error in errors where combined.count < Self.maximumFrames {
+            for frame in Self.init(error).frames
+            where combined.count < Self.maximumFrames {
+                guard !combined.contains(frame) else { continue }
+                combined.append(frame)
+            }
+        }
+        frames = combined.isEmpty
+            ? [MirmirDiagnosticErrorFrame(
+                type: "untrusted",
+                domain: "untrusted",
+                code: 0
+            )]
+            : combined
+    }
+
     private init(validatedFrames: [MirmirDiagnosticErrorFrame]) {
         frames = validatedFrames
     }

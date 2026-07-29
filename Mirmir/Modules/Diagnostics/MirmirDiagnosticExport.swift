@@ -11,6 +11,8 @@ struct MirmirDiagnosticSnapshot: Codable, Equatable, Sendable {
     let rejectedRecordCount: UInt64
     let recoveredCorruptTailCount: UInt64
     let recoveredCorruptByteCount: UInt64
+    let persistenceFailureCount: UInt64
+    let lastPersistenceFailureOperation: String?
     let records: [MirmirDiagnosticRecord]
 
     init(
@@ -20,11 +22,19 @@ struct MirmirDiagnosticSnapshot: Codable, Equatable, Sendable {
         rejectedRecordCount: UInt64,
         recoveredCorruptTailCount: UInt64,
         recoveredCorruptByteCount: UInt64,
+        persistenceFailureCount: UInt64 = 0,
+        lastPersistenceFailureOperation: String? = nil,
         records: [MirmirDiagnosticRecord]
     ) throws {
         guard exportedAtUnixMilliseconds >= 0,
               retainedByteCount >= 0 else {
             throw MirmirDiagnosticValidationError.invalidTimestamp
+        }
+        if let lastPersistenceFailureOperation {
+            _ = try MirmirDiagnosticToken(
+                lastPersistenceFailureOperation,
+                field: "last_persistence_failure_operation"
+            )
         }
         let ordered = records.sorted { $0.sequence < $1.sequence }
         for (left, right) in zip(ordered, ordered.dropFirst())
@@ -39,6 +49,9 @@ struct MirmirDiagnosticSnapshot: Codable, Equatable, Sendable {
         self.rejectedRecordCount = rejectedRecordCount
         self.recoveredCorruptTailCount = recoveredCorruptTailCount
         self.recoveredCorruptByteCount = recoveredCorruptByteCount
+        self.persistenceFailureCount = persistenceFailureCount
+        self.lastPersistenceFailureOperation =
+            lastPersistenceFailureOperation
         self.records = ordered
     }
 
@@ -51,6 +64,9 @@ struct MirmirDiagnosticSnapshot: Codable, Equatable, Sendable {
         case rejectedRecordCount = "rejected_record_count"
         case recoveredCorruptTailCount = "recovered_corrupt_tail_count"
         case recoveredCorruptByteCount = "recovered_corrupt_byte_count"
+        case persistenceFailureCount = "persistence_failure_count"
+        case lastPersistenceFailureOperation =
+            "last_persistence_failure_operation"
         case records
     }
 
@@ -108,6 +124,14 @@ struct MirmirDiagnosticSnapshot: Codable, Equatable, Sendable {
                     UInt64.self,
                     forKey: .recoveredCorruptByteCount
                 ),
+                persistenceFailureCount: container.decodeIfPresent(
+                    UInt64.self,
+                    forKey: .persistenceFailureCount
+                ) ?? 0,
+                lastPersistenceFailureOperation: container.decodeIfPresent(
+                    String.self,
+                    forKey: .lastPersistenceFailureOperation
+                ),
                 records: records
             )
         } catch let error as DecodingError {
@@ -160,6 +184,9 @@ enum MirmirDiagnosticExport {
             "- Rejected records: \(snapshot.rejectedRecordCount)",
             "- Recovered corrupt tails: \(snapshot.recoveredCorruptTailCount)",
             "- Recovered corrupt bytes: \(snapshot.recoveredCorruptByteCount)",
+            "- Persistence failures: \(snapshot.persistenceFailureCount)",
+            "- Last persistence failure: "
+                + (snapshot.lastPersistenceFailureOperation ?? "none"),
             "",
             "## Records"
         ]

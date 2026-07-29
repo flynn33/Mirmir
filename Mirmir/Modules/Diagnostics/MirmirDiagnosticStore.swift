@@ -1,9 +1,21 @@
 import Foundation
 import OSLog
 
+enum MirmirDiagnosticStorageKind: String, Sendable {
+    case persistent
+    case memoryOnly = "memory_only"
+}
+
+struct MirmirDiagnosticPersistenceHealth: Equatable, Sendable {
+    let storageKind: MirmirDiagnosticStorageKind
+    let failedOperationCount: UInt64
+    let lastFailedOperation: String?
+}
+
 actor MirmirDiagnosticStore {
     static let journalFileName = "diagnostics-v1.jsonl"
     static let lockFileName = "diagnostics-v1.lock"
+    static let application = productionOrInMemory()
 
     static let logger = Logger(
         subsystem: "com.mirmir.app",
@@ -18,11 +30,17 @@ actor MirmirDiagnosticStore {
     private let lockURL: URL?
     private let fileSystem: (any MirmirDiagnosticFileSystem)?
     private var state: MirmirDiagnosticStoreState
+    private var persistenceFailureCount: UInt64
+    private var lastPersistenceFailureOperation: String?
+    nonisolated let storageKind: MirmirDiagnosticStorageKind
+    nonisolated let diagnosticSubmissionQueue: MirmirDiagnosticSubmissionQueue
 
     init(
         inMemoryWith policy: MirmirDiagnosticRetentionPolicy = .production,
         clock: MirmirDiagnosticClock = .production,
-        sessionID: UUID = UUID()
+        sessionID: UUID = UUID(),
+        initialPersistenceFailureCount: UInt64 = 0,
+        initialPersistenceFailureOperation: String? = nil
     ) {
         var initialState = MirmirDiagnosticStoreState.empty
         initialState.journalByteCount =
@@ -35,6 +53,20 @@ actor MirmirDiagnosticStore {
         self.lockURL = nil
         self.fileSystem = nil
         self.state = initialState
+        self.persistenceFailureCount = initialPersistenceFailureCount
+        if let initialPersistenceFailureOperation,
+           MirmirDiagnosticToken.isValid(
+               initialPersistenceFailureOperation
+           ) {
+            self.lastPersistenceFailureOperation =
+                initialPersistenceFailureOperation
+        } else if initialPersistenceFailureCount > 0 {
+            self.lastPersistenceFailureOperation = "unknown"
+        } else {
+            self.lastPersistenceFailureOperation = nil
+        }
+        self.storageKind = .memoryOnly
+        self.diagnosticSubmissionQueue = MirmirDiagnosticSubmissionQueue()
     }
 
     init(
@@ -71,6 +103,10 @@ actor MirmirDiagnosticStore {
         self.journalURL = journalURL
         self.lockURL = lockURL
         self.fileSystem = fileSystem
+        self.storageKind = .persistent
+        self.diagnosticSubmissionQueue = MirmirDiagnosticSubmissionQueue()
+        self.persistenceFailureCount = 0
+        self.lastPersistenceFailureOperation = nil
         self.state = try Self.persistenceBoundary(operation: "load") {
             try fileSystem.withExclusiveLock(at: lockURL) { transaction in
                 try Self.loadAndRepair(
@@ -105,8 +141,20 @@ actor MirmirDiagnosticStore {
             return try production()
         } catch {
             reportPersistenceFailure(error, operation: "production_fallback")
-            return MirmirDiagnosticStore(inMemoryWith: .production)
+            return MirmirDiagnosticStore(
+                inMemoryWith: .production,
+                initialPersistenceFailureCount: 1,
+                initialPersistenceFailureOperation: "production_fallback"
+            )
         }
+    }
+
+    func persistenceHealth() -> MirmirDiagnosticPersistenceHealth {
+        MirmirDiagnosticPersistenceHealth(
+            storageKind: storageKind,
+            failedOperationCount: persistenceFailureCount,
+            lastFailedOperation: lastPersistenceFailureOperation
+        )
     }
 
     @discardableResult
@@ -170,14 +218,20 @@ actor MirmirDiagnosticStore {
             }
             return record
         } catch let error as MirmirDiagnosticStoreError {
+            registerOperationalFailureIfNeeded(
+                error,
+                operation: "record"
+            )
             throw error
         } catch {
+            registerPersistenceFailure(operation: "record")
             Self.reportPersistenceFailure(error, operation: "record")
             throw error
         }
     }
 
-    func snapshot() throws -> MirmirDiagnosticSnapshot {
+    func snapshot() async throws -> MirmirDiagnosticSnapshot {
+        await diagnosticSubmissionQueue.flush()
         let now = clock.wallMilliseconds()
         let uptime = clock.uptimeNanoseconds()
         do {
@@ -201,35 +255,81 @@ actor MirmirDiagnosticStore {
             ) {
                 state.journalByteCount = try Self.journalData(state).count
             }
-            return try Self.snapshot(state: state, exportedAt: now)
+            return try Self.snapshot(
+                state: state,
+                exportedAt: now,
+                rejectedSubmissionCount:
+                    diagnosticSubmissionQueue.rejectedSubmissionCount(),
+                persistenceFailureCount: persistenceFailureCount,
+                lastPersistenceFailureOperation:
+                    lastPersistenceFailureOperation
+            )
         } catch let error as MirmirDiagnosticStoreError {
+            registerOperationalFailureIfNeeded(
+                error,
+                operation: "snapshot"
+            )
             throw error
         } catch {
+            registerPersistenceFailure(operation: "snapshot")
             Self.reportPersistenceFailure(error, operation: "snapshot")
             throw error
         }
     }
 
-    func exportJSON() throws -> Data {
-        try MirmirDiagnosticExport.json(snapshot())
+    func exportJSON() async throws -> Data {
+        try MirmirDiagnosticExport.json(await snapshot())
     }
 
-    func exportMarkdown() throws -> Data {
-        try MirmirDiagnosticExport.markdown(snapshot())
+    func exportMarkdown() async throws -> Data {
+        try MirmirDiagnosticExport.markdown(await snapshot())
     }
 
     private static func snapshot(
         state: MirmirDiagnosticStoreState,
-        exportedAt: Int64
+        exportedAt: Int64,
+        rejectedSubmissionCount: UInt64 = 0,
+        persistenceFailureCount: UInt64 = 0,
+        lastPersistenceFailureOperation: String? = nil
     ) throws -> MirmirDiagnosticSnapshot {
         try MirmirDiagnosticSnapshot(
             exportedAtUnixMilliseconds: exportedAt,
             retainedByteCount: state.retainedRecordByteCount,
             prunedRecordCount: state.prunedRecordCount,
-            rejectedRecordCount: state.rejectedRecordCount,
+            rejectedRecordCount: saturatingAdd(
+                state.rejectedRecordCount,
+                rejectedSubmissionCount
+            ),
             recoveredCorruptTailCount: state.recoveredCorruptTailCount,
             recoveredCorruptByteCount: state.recoveredCorruptByteCount,
+            persistenceFailureCount: persistenceFailureCount,
+            lastPersistenceFailureOperation:
+                lastPersistenceFailureOperation,
             records: state.records.map(\.record)
         )
+    }
+
+    private func registerOperationalFailureIfNeeded(
+        _ error: MirmirDiagnosticStoreError,
+        operation: String
+    ) {
+        switch error {
+        case .invalidRetentionPolicy, .recordExceedsByteLimit:
+            return
+        case .journalCapacityInsufficient, .sequenceExhausted,
+             .unsupportedJournalSchema, .malformedJournal,
+             .persistenceFailure:
+            registerPersistenceFailure(operation: operation)
+        }
+    }
+
+    private func registerPersistenceFailure(operation: String) {
+        persistenceFailureCount = Self.saturatingIncrement(
+            persistenceFailureCount
+        )
+        lastPersistenceFailureOperation =
+            MirmirDiagnosticToken.isValid(operation)
+            ? operation
+            : "unknown"
     }
 }

@@ -17,6 +17,7 @@ struct R13ReleaseHardeningRuntime: Sendable {
     private let resourceGovernor: R13ResourceGovernor
     private let faultInjector: any R13FaultInjecting
     let diagnostics: R13ReleaseDiagnostics
+    private let persistentDiagnostics: MirmirDiagnosticRecorder
 
     init(
         jobsRootURL: URL,
@@ -33,7 +34,9 @@ struct R13ReleaseHardeningRuntime: Sendable {
         sourceSnapshotter: (any R13SourceSnapshotting)? = nil,
         cacheLocationAccess: R13CacheLocationAccess? = nil,
         restartFileSystem: any R13RestartFileSystem =
-            R13LocalRestartFileSystem()
+            R13LocalRestartFileSystem(),
+        persistentDiagnostics: MirmirDiagnosticRecorder =
+            MirmirDiagnosticRecorder(store: nil)
     ) {
         self.jobsRootURL = jobsRootURL
         self.cacheLocationAccess = cacheLocationAccess
@@ -66,6 +69,7 @@ struct R13ReleaseHardeningRuntime: Sendable {
         self.resourceGovernor = resourceGovernor
         self.faultInjector = faultInjector
         self.diagnostics = diagnostics
+        self.persistentDiagnostics = persistentDiagnostics
     }
 }
 
@@ -142,7 +146,9 @@ extension R13ReleaseHardeningRuntime {
                 let recorder = R13ReleaseHardeningDiagnosticRecorder(
                     diagnostics: diagnostics,
                     jobIdentitySHA256: jobIdentitySHA256,
-                    policyResources: documents.policyResources
+                    policyResources: documents.policyResources,
+                    persistentDiagnostics: persistentDiagnostics,
+                    correlationID: UUID(uuidString: job.identifier)
                 )
                 let faultGate = R13ReleaseFaultGate(
                     injector: faultInjector,
@@ -450,7 +456,9 @@ extension R13ReleaseHardeningRuntime {
             jobIdentitySHA256: R13CryptoKitRestartDigest().sha256(
                 Data(jobID.utf8)
             ),
-            policyResources: documents.policyResources
+            policyResources: documents.policyResources,
+            persistentDiagnostics: persistentDiagnostics,
+            correlationID: UUID(uuidString: jobID)
         )
     }
 }

@@ -20,6 +20,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case readerStartFailed
     case writerStartFailed
     case outputMetadataMismatch(String)
+    case invalidAssetDimensions
     case unsupportedAssetDimensions(VideoResolution)
     case audioBridgeFailed(Error)
     case readerFailed(Error?)
@@ -61,6 +62,8 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "AVAssetWriter.startWriting() returned false."
         case .outputMetadataMismatch(let reason):
             return "Mirmir output identity metadata is invalid: \(reason)"
+        case .invalidAssetDimensions:
+            return "The source reports invalid or unrepresentable video dimensions."
         case .unsupportedAssetDimensions(let res):
             return "Unsupported source resolution \(res). Mirmir supports 720p and 1080p sources."
         case .audioBridgeFailed(let error):

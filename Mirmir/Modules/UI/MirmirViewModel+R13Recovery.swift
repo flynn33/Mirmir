@@ -63,6 +63,21 @@ extension MirmirViewModel {
                 self.recoveryRejectedEntryCount =
                     catalog.rejectedEntryCount
                 self.recoveryError = nil
+                if catalog.rejectedEntryCount > 0 {
+                    let countField = try? MirmirDiagnosticField(
+                        key: "rejected_entry_count",
+                        value: .unsignedInteger(
+                            UInt64(max(catalog.rejectedEntryCount, 0))
+                        )
+                    )
+                    self.diagnosticRecorder.enqueue(
+                        severity: .warning,
+                        subsystem: "recovery",
+                        operation: "load_recoverable_jobs",
+                        code: "recovery_catalog_entries_rejected",
+                        additionalFields: countField.map { [$0] } ?? []
+                    )
+                }
             } catch {
                 guard !Task.isCancelled,
                       let self,
@@ -70,11 +85,28 @@ extension MirmirViewModel {
                     return
                 }
                 self.recoveryError = self.userFacingJobError(error)
+                self.diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "recovery",
+                    operation: "load_recoverable_jobs",
+                    code: "recovery_catalog_load_failed",
+                    error: error
+                )
             }
         }
     }
 
     func cancelRecoveryProbe() {
+        if recoveryIsProbing {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "recovery",
+                    operation: "resolve_recoverable_job",
+                    code: "recovery_probe_cancel_requested"
+                )
+            }
+        }
         recoveryGeneration &+= 1
         recoveryTask?.cancel()
         recoveryTask = nil
@@ -89,6 +121,8 @@ extension MirmirViewModel {
         recoveryEngine: any R13RecoverableUpscalerEngine,
         reauthorization: R13RecoveryReauthorization?
     ) {
+        let diagnosticCorrelationID =
+            UUID(uuidString: id) ?? UUID()
         let generation = nextRecoveryGeneration()
         let previousState = state
         recoveryTask?.cancel()
@@ -97,6 +131,13 @@ extension MirmirViewModel {
         state = .probing
         recoveryTask = Task { [weak self] in
             guard let self else { return }
+            diagnosticRecorder.enqueue(
+                severity: .info,
+                subsystem: "recovery",
+                operation: "resolve_recoverable_job",
+                code: "recovery_probe_started",
+                correlationID: diagnosticCorrelationID
+            )
             do {
                 let recovered: R13ResolvedRecoverableUpscaleJob
                 if let reauthorization {
@@ -143,6 +184,15 @@ extension MirmirViewModel {
                 }
                 recoveryIsProbing = false
                 recoveryError = nil
+                diagnosticRecorder.enqueue(
+                    severity: .info,
+                    subsystem: "recovery",
+                    operation: "resolve_recoverable_job",
+                    code: "recovery_job_resolved",
+                    correlationID: diagnosticCorrelationID,
+                    job: job,
+                    source: source
+                )
                 observeSubmittedJob(
                     job: job,
                     source: source,
@@ -152,6 +202,13 @@ extension MirmirViewModel {
                 guard recoveryGeneration == generation else { return }
                 recoveryIsProbing = false
                 state = previousState
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "recovery",
+                    operation: "resolve_recoverable_job",
+                    code: "recovery_probe_cancelled",
+                    correlationID: diagnosticCorrelationID
+                )
             } catch {
                 guard recoveryGeneration == generation else { return }
                 recoveryIsProbing = false
@@ -159,6 +216,14 @@ extension MirmirViewModel {
                 state = .failed(
                     "Mirmir could not reopen the interrupted job. "
                         + userFacingJobError(error)
+                )
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "recovery",
+                    operation: "resolve_recoverable_job",
+                    code: "recovery_probe_failed",
+                    correlationID: diagnosticCorrelationID,
+                    error: error
                 )
             }
         }

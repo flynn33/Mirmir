@@ -207,6 +207,68 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .failed(MirmirViewModel.unsupportedFileMessage))
     }
 
+    func test_probeFailureIsPersistedInInjectedDiagnosticStore() async throws {
+        let store = MirmirDiagnosticStore(inMemoryWith: .production)
+        let privateSourceURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/"
+                + "token-sk_test_SENTINEL/source.mov"
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: FailingProbeMediaPipelineService(),
+            upscalerEngine: NoopUpscalerEngineService(),
+            modelAssets: NoopModelAssetsService(),
+            diagnostics: store
+        )
+
+        viewModel.loadSource(url: privateSourceURL)
+
+        var failureRecord: MirmirDiagnosticRecord?
+        for _ in 0..<200 where failureRecord == nil {
+            let snapshot = try await store.snapshot()
+            failureRecord = snapshot.records.first {
+                $0.event.code.rawValue == "source_probe_failed"
+            }
+            if failureRecord == nil {
+                try await Task.sleep(for: .milliseconds(5))
+            }
+        }
+
+        let persistedFailure = try XCTUnwrap(failureRecord)
+        let fields = Dictionary(
+            uniqueKeysWithValues: persistedFailure.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(persistedFailure.event.severity, .error)
+        XCTAssertEqual(
+            persistedFailure.event.operation.rawValue,
+            "source_probe"
+        )
+        XCTAssertNotNil(persistedFailure.event.error)
+        XCTAssertTrue(
+            persistedFailure.event.error?.frames.contains {
+                $0.domain == "NSPOSIXErrorDomain" && $0.code == 5
+            } == true
+        )
+        XCTAssertEqual(fields["failure_category"], "reader_creation_failed")
+        XCTAssertEqual(
+            fields["source_video"],
+            "source_video:"
+                + (persistedFailure.event.correlationID?.rawValue ?? "")
+                + ":mov:user_selected"
+        )
+        guard case .failed = viewModel.state else {
+            return XCTFail("Expected the ViewModel to expose probe failure.")
+        }
+        let json = try await store.exportJSON()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        XCTAssertFalse(jsonText.contains("alice"))
+        XCTAssertFalse(jsonText.contains("Secret Client"))
+        XCTAssertFalse(jsonText.contains("token-sk_test_SENTINEL"))
+        XCTAssertFalse(jsonText.contains("/Users/"))
+    }
+
     func test_mainWorkflowSourceDoesNotExposeArchitectureTerms() throws {
         let mainWorkflowSource = try mainWorkspaceSource()
         let forbiddenTerms = ["Forsetti", "Host Template", "Pattern B", "Model Assets"]
@@ -223,6 +285,60 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertTrue(source.contains("Mirmir module runtime"))
         XCTAssertTrue(source.contains("ASH remains a directly testable reference"))
         XCTAssertFalse(source.contains("Forsetti"))
+    }
+
+    func test_liveSettingsExposePersistentDiagnosticViewerAndBothExports() throws {
+        let appSource = try sourceText(for: ["Mirmir/App/MirmirApp.swift"])
+        let settingsSource = try settingsViewSource()
+        let workspaceSource = try sourceText(
+            for: ["Mirmir/Modules/UI/Views/MirmirWorkspaceScreens.swift"]
+        )
+
+        XCTAssertTrue(appSource.contains("Settings {"))
+        XCTAssertTrue(appSource.contains("MirmirDiagnosticSettingsView("))
+        XCTAssertTrue(
+            appSource.contains("store: MirmirDiagnosticStore.application")
+        )
+        XCTAssertTrue(
+            settingsSource.contains(
+                "struct MirmirDiagnosticSettingsView: View"
+            )
+        )
+        XCTAssertTrue(settingsSource.contains("try await store.snapshot()"))
+        XCTAssertTrue(settingsSource.contains("try await store.exportJSON()"))
+        XCTAssertTrue(
+            settingsSource.contains("try await store.exportMarkdown()")
+        )
+        XCTAssertTrue(settingsSource.contains("Button(\"JSON…\")"))
+        XCTAssertTrue(settingsSource.contains("Button(\"Markdown…\")"))
+        XCTAssertTrue(settingsSource.contains(".fileExporter("))
+        XCTAssertTrue(workspaceSource.contains("SettingsLink {"))
+        XCTAssertTrue(
+            workspaceSource.contains("Open Diagnostic Log Settings…")
+        )
+    }
+
+    func test_diagnosticSettingsSurfacesPersistenceHealthAndRetainsExports()
+        throws {
+        let settingsSource = try settingsViewSource()
+        let requiredSourceFragments = [
+            "persistenceHealth = await store.persistenceHealth()",
+            "persistenceHealth.failedOperationCount > 0",
+            #"\(persistenceHealth.failedOperationCount) failed "#,
+            #"\(persistenceHealth.lastFailedOperation ?? "unknown")."#,
+            "try await store.exportJSON()",
+            "try await store.exportMarkdown()",
+            "Button(\"JSON…\")",
+            "Button(\"Markdown…\")",
+            ".fileExporter("
+        ]
+
+        for fragment in requiredSourceFragments {
+            XCTAssertTrue(
+                settingsSource.contains(fragment),
+                "Missing Diagnostic Settings source wiring: \(fragment)"
+            )
+        }
     }
 
     func test_mainWorkflowContainsDetailedWorkspaceShell() throws {
@@ -398,6 +514,32 @@ private final class CountingMediaPipelineService: MediaPipelineService, @uncheck
             outputProfile: output,
             outputPixelBufferPool: pool
         )
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+private final class FailingProbeMediaPipelineService:
+    MediaPipelineService,
+    @unchecked Sendable {
+    func probe(url: URL) async throws -> SourceProfile {
+        let underlying = NSError(
+            domain: "NSPOSIXErrorDomain",
+            code: 5,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Private source failure at \(url.path)"
+            ]
+        )
+        throw MediaPipelineError.readerCreationFailed(url, underlying)
+    }
+
+    func beginSession(
+        source: SourceProfile,
+        output _: OutputProfile
+    ) async throws -> MediaSession {
+        throw MediaPipelineError.readerCreationFailed(source.url, nil)
     }
 
     func start() {}
