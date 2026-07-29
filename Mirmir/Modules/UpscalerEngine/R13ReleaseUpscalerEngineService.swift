@@ -612,7 +612,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                             height: CVPixelBufferGetHeight(record.pixelBuffer)
                         )
                         let matchesExpectedGeometry =
-                            decodedResolution == source.resolution
+                            decodedResolution == source.codedResolution
                         runtime.diagnosticRecorder.enqueue(
                             severity: matchesExpectedGeometry
                                 ? .info

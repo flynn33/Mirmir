@@ -150,6 +150,75 @@ final class OutputMediaVerifierTests: XCTestCase {
         }
     }
 
+    func testNormalizerConformsAnamorphicSourceToSquarePixelPresentationGeometry()
+        async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let codedResolution = VideoResolution(width: 1_440, height: 1_080)
+        let sourcePixelAspectRatio = try XCTUnwrap(
+            VideoPixelAspectRatio(
+                horizontalSpacing: 4,
+                verticalSpacing: 3
+            )
+        )
+        try await writeOneFrameVideo(
+            to: fixture.source,
+            resolution: codedResolution,
+            duration: CMTime(value: 1, timescale: 30),
+            pixelAspectRatio: sourcePixelAspectRatio
+        )
+        let pipeline = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService()
+        )
+
+        let source = try await pipeline.probe(url: fixture.source)
+
+        XCTAssertEqual(source.resolution, .p1080)
+        XCTAssertEqual(source.codedResolution, codedResolution)
+        XCTAssertEqual(source.pixelAspectRatio, sourcePixelAspectRatio)
+
+        let session = try await pipeline.beginSession(
+            source: source,
+            output: OutputProfile(
+                url: fixture.destination,
+                resolution: .p2160,
+                codec: .h264,
+                preserveAudio: false
+            )
+        )
+        defer { session.cancel() }
+        let nextRecord = try await session.nextSourceFrame()
+        let record = try XCTUnwrap(nextRecord)
+        XCTAssertEqual(
+            CVPixelBufferGetWidth(record.pixelBuffer),
+            codedResolution.width
+        )
+        XCTAssertEqual(
+            CVPixelBufferGetHeight(record.pixelBuffer),
+            codedResolution.height
+        )
+
+        let normalized = try R13NV12FrameNormalizer().normalize(
+            record.pixelBuffer,
+            codedResolution: codedResolution,
+            presentationResolution: .p1080,
+            pixelAspectRatio: sourcePixelAspectRatio
+        )
+        try R03NV12Contract.validate(
+            pixelBuffer: normalized,
+            resolution: .p1080
+        )
+        XCTAssertEqual(
+            try pixelAspectRatio(in: normalized),
+            try XCTUnwrap(
+                VideoPixelAspectRatio(
+                    horizontalSpacing: 1,
+                    verticalSpacing: 1
+                )
+            )
+        )
+    }
+
     func testVerificationFailureRemovesPartialAndDoesNotPublish() async throws {
         let fixture = try MediaOutputFixture()
         defer { fixture.remove() }
@@ -287,4 +356,5 @@ final class OutputMediaVerifierTests: XCTestCase {
         XCTAssertGreaterThan(verification.lumaPayloadBytes, 0)
         XCTAssertGreaterThan(verification.chromaPayloadBytes, 0)
     }
+
 }

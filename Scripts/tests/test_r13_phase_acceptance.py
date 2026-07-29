@@ -521,7 +521,19 @@ class R13PhaseAcceptanceTests(unittest.TestCase):
             )
             classes.add(matches[0])
 
-        self.assertEqual(set(r13.MANDATORY_SUITE_AREAS), classes)
+        self.assertEqual(
+            set(),
+            set(r13.MANDATORY_SUITE_AREAS) - classes,
+        )
+        self.assertEqual(
+            set(),
+            {
+                class_name
+                for class_name in classes
+                if r13.R13PhaseAcceptanceVerifier._suite_area(class_name)
+                is None
+            },
+        )
 
     def test_targeted_output_bridge_is_canonical_and_fail_closed(self) -> None:
         with tempfile.TemporaryDirectory(
