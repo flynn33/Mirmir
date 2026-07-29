@@ -5,14 +5,16 @@ import XCTest
 @MainActor
 final class MirmirAppBootstrapTests: XCTestCase {
     func test_injectedBootstrapBootsExactRuntimeAndRegistersWorkspaceView() throws {
+        let diagnostics = MirmirDiagnosticStore(inMemoryWith: .production)
         let bootstrap = try MirmirAppBootstrap(services: MirmirServices(
             metal: NoopMetalRenderingService(),
             modelAssets: NoopModelAssetsService(),
             media: NoopMediaPipelineService(),
             upscaler: NoopUpscalerEngineService()
-        ))
+        ), diagnostics: diagnostics)
 
         XCTAssertEqual(bootstrap.productionState, .idle)
+        XCTAssertTrue(bootstrap.diagnostics === diagnostics)
         bootstrap.bootForProduction()
         bootstrap.bootForProduction()
 
