@@ -505,7 +505,7 @@ struct R12VerifiedChunk: Hashable, Sendable {
         digest: any R12Digesting = R12CryptoKitDigest(),
         fileSystem: any R12CheckpointFileSystem = R12LocalCheckpointFileSystem()
     ) throws -> R12VerifiedChunk {
-        let standardizedRoot = rootURL.standardizedFileURL
+        let standardizedRoot = rootURL.standardized
         let candidateURL = try R12CheckpointArtifactLocator.containedURL(
             rootURL: standardizedRoot,
             relativePath: relativePath,
@@ -681,7 +681,7 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
         self.directorySynchronizer = directorySynchronizer
         self.operationHook = operationHook
         self.anchorDescriptor = anchorDescriptor
-        self.anchorURL = anchorURL.standardizedFileURL
+        self.anchorURL = anchorURL.standardized
         self.anchorDevice = UInt64(anchorMetadata.st_dev)
         self.anchorInode = UInt64(anchorMetadata.st_ino)
         self.anchorLockName = anchorLockName
@@ -690,7 +690,7 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
     }
 
     func ensureDirectory(_ url: URL) throws {
-        let standardized = url.standardizedFileURL
+        let standardized = url.standardized
         let traversal = try directoryTraversalStart(for: standardized)
         var descriptor = traversal.descriptor
         defer { close(descriptor) }
@@ -1137,7 +1137,7 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
             _ parentURL: URL
         ) throws -> T
     ) throws -> T {
-        let standardized = url.standardizedFileURL
+        let standardized = url.standardized
         let parentURL = standardized.deletingLastPathComponent()
         let name = standardized.lastPathComponent
         guard !name.isEmpty,
@@ -1174,22 +1174,30 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
     private static func openAbsoluteDirectoryDescriptor(
         _ url: URL
     ) throws -> Int32 {
-        let standardized = url.standardizedFileURL
+        let standardized = url.standardized
         guard standardized.path.hasPrefix("/") else {
             throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
         }
         let descriptor = open(
-            "/",
+            standardized.path,
             O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
         guard descriptor >= 0 else {
             throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
         }
-        return try openDirectoryComponents(
-            pathComponents(standardized),
-            startingAt: descriptor,
-            failurePath: url.path
-        )
+        var opened = stat()
+        var pathEntry = stat()
+        guard fstat(descriptor, &opened) == 0,
+              (opened.st_mode & S_IFMT) == S_IFDIR,
+              lstat(standardized.path, &pathEntry) == 0,
+              (pathEntry.st_mode & S_IFMT) == S_IFDIR,
+              opened.st_dev == pathEntry.st_dev,
+              opened.st_ino == pathEntry.st_ino,
+              descriptorPath(descriptor) == standardized.path else {
+            close(descriptor)
+            throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
+        }
+        return descriptor
     }
 
     private static func openDirectoryComponents(
@@ -1241,29 +1249,47 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
                 components: components
             )
         }
-        guard url.path.hasPrefix("/") else {
-            throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
+        var existingURL = url
+        var missingComponents: [String] = []
+        while true {
+            var metadata = stat()
+            if lstat(existingURL.path, &metadata) == 0 {
+                guard (metadata.st_mode & S_IFMT) == S_IFDIR else {
+                    throw R12ChunkCheckpointError.unsafeFilesystemEntry(
+                        url.path
+                    )
+                }
+                let descriptor = try Self.openAbsoluteDirectoryDescriptor(
+                    existingURL
+                )
+                return DirectoryTraversal(
+                    descriptor: descriptor,
+                    currentURL: existingURL,
+                    components: Array(missingComponents.reversed())
+                )
+            }
+            guard errno == ENOENT else {
+                throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
+            }
+            let component = existingURL.lastPathComponent
+            let parent = existingURL.deletingLastPathComponent()
+            guard !component.isEmpty,
+                  component != ".",
+                  component != "..",
+                  parent.path != existingURL.path else {
+                throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
+            }
+            missingComponents.append(component)
+            existingURL = parent
         }
-        let descriptor = open(
-            "/",
-            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
-        )
-        guard descriptor >= 0 else {
-            throw R12ChunkCheckpointError.unsafeFilesystemEntry(url.path)
-        }
-        return DirectoryTraversal(
-            descriptor: descriptor,
-            currentURL: URL(fileURLWithPath: "/", isDirectory: true),
-            components: Self.pathComponents(url)
-        )
     }
 
     private func relativePathComponents(
         _ url: URL,
         anchorURL: URL
     ) throws -> [String] {
-        let standardized = url.standardizedFileURL
-        let standardizedAnchor = anchorURL.standardizedFileURL
+        let standardized = url.standardized
+        let standardizedAnchor = anchorURL.standardized
         if standardized.path == standardizedAnchor.path {
             return []
         }
@@ -1320,8 +1346,28 @@ struct R12LocalCheckpointFileSystem: R12CheckpointFileSystem {
         }
     }
 
-    private static func pathComponents(_ url: URL) -> [String] {
-        url.path.split(separator: "/").map(String.init)
+    private static func descriptorPath(_ descriptor: Int32) -> String? {
+        var buffer = [CChar](
+            repeating: 0,
+            count: Int(MAXPATHLEN)
+        )
+        let result: Int32 = buffer.withUnsafeMutableBufferPointer { pointer in
+            guard let baseAddress = pointer.baseAddress else {
+                return Int32(-1)
+            }
+            return Darwin.fcntl(
+                descriptor,
+                F_GETPATH,
+                UnsafeMutableRawPointer(baseAddress)
+            )
+        }
+        guard result == 0 else {
+            return nil
+        }
+        return URL(
+            fileURLWithPath: String(cString: buffer),
+            isDirectory: true
+        ).standardized.path
     }
 
     private static func pathEntry(
@@ -1583,7 +1629,7 @@ actor R12ChunkCheckpointStore {
         maximumLedgerBytes: Int = R12ChunkCheckpointStore
             .defaultMaximumLedgerBytes
     ) {
-        let standardizedRoot = rootURL.standardizedFileURL
+        let standardizedRoot = rootURL.standardized
         self.rootURL = standardizedRoot
         self.ledgerURL = standardizedRoot
             .appendingPathComponent("checkpoint-ledger-v1.json")
@@ -2064,7 +2110,7 @@ private enum R12CheckpointArtifactLocator {
         fileSystem: any R12CheckpointFileSystem
     ) throws -> URL {
         let relative = try R12CheckpointValidation.relativePath(relativePath)
-        let candidate = rootURL.appendingPathComponent(relative).standardizedFileURL
+        let candidate = rootURL.appendingPathComponent(relative).standardized
         let rootPrefix = rootURL.path.hasSuffix("/")
             ? rootURL.path
             : rootURL.path + "/"

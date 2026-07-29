@@ -2225,6 +2225,44 @@ final class R12ChunkCheckpointLedgerTests: XCTestCase {
         }
     }
 
+    func testConfiguredIntermediateSymlinkIsRejectedWithoutResolution() async throws {
+        try await withRoots(count: 1) { roots in
+            let actual = roots[0].appendingPathComponent("actual")
+            let nested = actual.appendingPathComponent("nested")
+            try FileManager.default.createDirectory(
+                at: nested,
+                withIntermediateDirectories: true
+            )
+            let intermediateLink = roots[0].appendingPathComponent(
+                "configured-intermediate-link"
+            )
+            try FileManager.default.createSymbolicLink(
+                at: intermediateLink,
+                withDestinationURL: actual
+            )
+            let configured = intermediateLink.appendingPathComponent("nested")
+            let store = R12ChunkCheckpointStore(rootURL: configured)
+            await XCTAssertThrowsErrorAsync(
+                try await store.create(header: try makeHeader())
+            ) { error in
+                guard let checkpointError =
+                        error as? R12ChunkCheckpointError,
+                      case .unsafeFilesystemEntry = checkpointError else {
+                    return XCTFail(
+                        "Expected intermediate symlink rejection, received \(error)"
+                    )
+                }
+            }
+            XCTAssertFalse(
+                FileManager.default.fileExists(
+                    atPath: nested
+                        .appendingPathComponent("checkpoint-ledger-v1.json")
+                        .path
+                )
+            )
+        }
+    }
+
     func testVerificationScopeIsDeterministicEnvelopeNotNativeMedia() {
         XCTAssertEqual(
             R12VerifiedChunk.verificationScope,

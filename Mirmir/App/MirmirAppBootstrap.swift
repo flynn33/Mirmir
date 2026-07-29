@@ -13,20 +13,29 @@ final class MirmirAppBootstrap: ObservableObject {
     let moduleHost: MirmirModuleHost
     let viewRegistry: MirmirViewRegistry
     let viewModel: MirmirViewModel
+    let diagnostics: MirmirDiagnosticStore
 
     @Published private(set) var productionState: ProductionState = .idle
 
     convenience init() {
         do {
-            try self.init(services: Self.makeProductionServices())
+            try self.init(
+                services: Self.makeProductionServices(),
+                diagnostics: MirmirDiagnosticStore.productionOrInMemory()
+            )
         } catch {
             preconditionFailure("Failed to compose Mirmir: \(Self.describe(error))")
         }
     }
 
-    init(services: MirmirServices) throws {
+    init(
+        services: MirmirServices,
+        diagnostics: MirmirDiagnosticStore? = nil
+    ) throws {
         let registry = try MirmirModuleRegistry.makeRegistry(services: services)
         let moduleHost = try MirmirModuleHost(registry: registry)
+        let diagnosticStore = diagnostics
+            ?? MirmirDiagnosticStore(inMemoryWith: .production)
         let viewModel = MirmirViewModel(
             mediaPipeline: services.media,
             upscalerEngine: services.upscaler,
@@ -40,6 +49,7 @@ final class MirmirAppBootstrap: ObservableObject {
         self.moduleHost = moduleHost
         self.viewRegistry = viewRegistry
         self.viewModel = viewModel
+        self.diagnostics = diagnosticStore
     }
 
     func bootForProduction() {
