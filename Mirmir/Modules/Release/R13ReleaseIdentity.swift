@@ -8,6 +8,7 @@ enum R13ReleaseIdentityError: Error, Equatable, Sendable {
     case invalidOutputDimensions(width: Int, height: Int)
     case modeBindingMismatch
     case a11BindingMismatch(field: String)
+    case adaptiveBindingMismatch(field: String)
     case outputRouteMismatch
     case modelAssetsMustBeNotRequired
     case fallbackHistoryMustBeEmpty
@@ -187,11 +188,78 @@ struct R13ReleasePolicyResourceBinding: Codable, Equatable, Sendable {
     }
 }
 
+struct R13AdaptiveReleasePolicyDocument: Codable, Equatable, Sendable {
+    static let schemaVersion = 1
+
+    let schemaVersion: Int
+    let allowedRequestedModes: [String]
+    let effectiveMode: String
+    let capabilityID: String
+    let backendID: String
+    let backendRevision: String
+    let routeID: String
+    let configurationIdentity: String
+    let frameworkIdentity: String
+    let processingSourceWidth: Int
+    let processingSourceHeight: Int
+    let targetWidth: Int
+    let targetHeight: Int
+    let policyIdentity: String
+    let materialDecisionIdentity: String
+    let modelStatus: String
+    let fallbackPolicy: String
+
+    init(plan: R13AdaptiveScalePlan) {
+        schemaVersion = Self.schemaVersion
+        allowedRequestedModes = [
+            UpscaleMode.deterministic.rawValue,
+            UpscaleMode.fast.rawValue,
+            UpscaleMode.quality.rawValue
+        ]
+        effectiveMode = UpscaleMode.deterministic.rawValue
+        capabilityID = R13ReleaseIdentity.adaptiveCapabilityID
+        backendID = R13ReleaseIdentity.adaptiveBackendID
+        backendRevision = R13ReleaseIdentity.adaptiveBackendRevision
+        routeID = R13ReleaseIdentity.adaptiveRouteID
+        configurationIdentity = plan.configurationIdentity
+        frameworkIdentity = R03A11ProductAdmission.frameworkIdentity
+        processingSourceWidth = plan.processingSourceResolution.width
+        processingSourceHeight = plan.processingSourceResolution.height
+        targetWidth = plan.targetResolution.width
+        targetHeight = plan.targetResolution.height
+        policyIdentity = R13ReleaseIdentity.adaptivePolicyIdentity
+        materialDecisionIdentity =
+            R13ReleaseIdentity.adaptiveMaterialDecisionIdentity
+        modelStatus = R13ReleaseIdentity.modelStatus
+        fallbackPolicy = "forbidden"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case allowedRequestedModes = "allowed_requested_modes"
+        case effectiveMode = "effective_mode"
+        case capabilityID = "capability_id"
+        case backendID = "backend_id"
+        case backendRevision = "backend_revision"
+        case routeID = "route_id"
+        case configurationIdentity = "configuration_identity"
+        case frameworkIdentity = "framework_identity"
+        case processingSourceWidth = "processing_source_width"
+        case processingSourceHeight = "processing_source_height"
+        case targetWidth = "target_width"
+        case targetHeight = "target_height"
+        case policyIdentity = "policy_identity"
+        case materialDecisionIdentity = "material_decision_identity"
+        case modelStatus = "model_status"
+        case fallbackPolicy = "fallback_policy"
+    }
+}
+
 struct R13ReleaseIdentityInput: Sendable {
     let source: R13ReleaseSourceBinding
     let modeBinding: R13ReleaseModeBinding
     let output: R13ReleaseOutputBinding
-    let scaleRoute: R03ScaleRoute
+    let scalePlan: R13ReleaseScalePlan
     let routeIdentity: AppleUpscaleRouteIdentity
     let application: R13ReleaseApplicationIdentity
     let framework: R13ReleaseFrameworkIdentity
@@ -205,6 +273,14 @@ struct R13ReleaseIdentity: Equatable, Sendable {
     static let modelStatus = "not_required"
     static let emptyFallbackHistory = "[]"
     static let metadataNamespace = "com.mirmir.release."
+    static let adaptiveCapabilityID = "R13_ADAPTIVE"
+    static let adaptiveBackendID = "r13.mps.lanczos.adaptive"
+    static let adaptiveBackendRevision = "1"
+    static let adaptiveRouteID = "adaptive_mps_lanczos"
+    static let adaptivePolicyIdentity =
+        "r13.adaptive-mps-lanczos.no-fallback.v1"
+    static let adaptiveMaterialDecisionIdentity =
+        "r13.mps-lanczos.dimension-bound.v1"
 
     let source: R13ReleaseSourceBinding
     let requestedMode: UpscaleMode
@@ -224,16 +300,7 @@ struct R13ReleaseIdentity: Equatable, Sendable {
     let identitySHA256: String
 
     init(_ input: R13ReleaseIdentityInput) throws {
-        try Self.validateModeBinding(input.modeBinding)
-        try Self.validateA11Route(
-            input.routeIdentity,
-            scaleRoute: input.scaleRoute,
-            framework: input.framework
-        )
-        guard input.output.width == input.scaleRoute.canonicalTargetResolution.width,
-              input.output.height == input.scaleRoute.canonicalTargetResolution.height else {
-            throw R13ReleaseIdentityError.outputRouteMismatch
-        }
+        let routeBinding = try Self.validateAndResolveRouteBinding(input)
         guard input.fallbackHistory.isEmpty else {
             throw R13ReleaseIdentityError.fallbackHistoryMustBeEmpty
         }
@@ -242,10 +309,10 @@ struct R13ReleaseIdentity: Equatable, Sendable {
         requestedMode = input.modeBinding.requestedMode
         effectiveMode = input.modeBinding.effectiveMode
         output = input.output
-        capabilityID = input.modeBinding.capabilityID
+        capabilityID = routeBinding.capabilityID
         backendID = input.routeIdentity.backend.backendID
         backendRevision = input.routeIdentity.backend.backendRevision
-        routeID = input.scaleRoute.rawValue
+        routeID = routeBinding.routeID
         configurationIdentity = input.routeIdentity.configurationIdentity
         policyIdentity = input.routeIdentity.policyIdentity
         materialDecisionIdentity = input.routeIdentity.materialDecisionIdentity
@@ -260,10 +327,10 @@ struct R13ReleaseIdentity: Equatable, Sendable {
             requestedMode: input.modeBinding.requestedMode.rawValue,
             effectiveMode: input.modeBinding.effectiveMode.rawValue,
             output: input.output,
-            capabilityID: input.modeBinding.capabilityID,
+            capabilityID: routeBinding.capabilityID,
             backendID: input.routeIdentity.backend.backendID,
             backendRevision: input.routeIdentity.backend.backendRevision,
-            routeID: input.scaleRoute.rawValue,
+            routeID: routeBinding.routeID,
             configurationIdentity: input.routeIdentity.configurationIdentity,
             modelStatus: Self.modelStatus,
             application: input.application,
@@ -340,9 +407,69 @@ struct R13ReleaseIdentity: Equatable, Sendable {
             materialDecisionIdentity: R03A11ProductAdmission.materialDecisionIdentity
         )
     }
+
+    static func makeAdaptiveRoute(
+        for plan: R13AdaptiveScalePlan
+    ) throws -> AppleUpscaleRouteIdentity {
+        try AppleUpscaleRouteIdentity(
+            backend: AppleUpscaleBackendIdentity(
+                backendID: adaptiveBackendID,
+                backendRevision: adaptiveBackendRevision,
+                modelAssetsIdentity: .notRequired
+            ),
+            configurationIdentity: plan.configurationIdentity,
+            policyIdentity: adaptivePolicyIdentity,
+            materialDecisionIdentity:
+                adaptiveMaterialDecisionIdentity
+        )
+    }
 }
 
 private extension R13ReleaseIdentity {
+    struct ResolvedRouteBinding {
+        let capabilityID: String
+        let routeID: String
+    }
+
+    static func validateAndResolveRouteBinding(
+        _ input: R13ReleaseIdentityInput
+    ) throws -> ResolvedRouteBinding {
+        switch input.scalePlan {
+        case .productQualified(let scaleRoute):
+            try validateModeBinding(input.modeBinding)
+            try validateA11Route(
+                input.routeIdentity,
+                scaleRoute: scaleRoute,
+                framework: input.framework
+            )
+            guard input.output.width
+                    == scaleRoute.canonicalTargetResolution.width,
+                  input.output.height
+                    == scaleRoute.canonicalTargetResolution.height else {
+                throw R13ReleaseIdentityError.outputRouteMismatch
+            }
+            return ResolvedRouteBinding(
+                capabilityID: input.modeBinding.capabilityID,
+                routeID: scaleRoute.rawValue
+            )
+        case .adaptiveMPSLanczos(let plan):
+            try validateAdaptiveModeBinding(input.modeBinding)
+            try validateAdaptiveRoute(
+                input.routeIdentity,
+                plan: plan,
+                framework: input.framework
+            )
+            guard input.output.width == plan.targetResolution.width,
+                  input.output.height == plan.targetResolution.height else {
+                throw R13ReleaseIdentityError.outputRouteMismatch
+            }
+            return ResolvedRouteBinding(
+                capabilityID: adaptiveCapabilityID,
+                routeID: adaptiveRouteID
+            )
+        }
+    }
+
     static func validateModeBinding(
         _ binding: R13ReleaseModeBinding
     ) throws {
@@ -353,6 +480,15 @@ private extension R13ReleaseIdentity {
               binding.policyIdentity == R03A11ProductAdmission.policyIdentity,
               binding.materialDecisionIdentity
                 == R03A11ProductAdmission.materialDecisionIdentity else {
+            throw R13ReleaseIdentityError.modeBindingMismatch
+        }
+    }
+
+    static func validateAdaptiveModeBinding(
+        _ binding: R13ReleaseModeBinding
+    ) throws {
+        guard binding.requestedMode != .auto,
+              binding.effectiveMode == .deterministic else {
             throw R13ReleaseIdentityError.modeBindingMismatch
         }
     }
@@ -396,6 +532,50 @@ private extension R13ReleaseIdentity {
         guard framework.frameworkIdentifier
             == R03A11ProductAdmission.frameworkIdentity else {
             throw R13ReleaseIdentityError.a11BindingMismatch(
+                field: "framework_identifier"
+            )
+        }
+    }
+
+    static func validateAdaptiveRoute(
+        _ route: AppleUpscaleRouteIdentity,
+        plan: R13AdaptiveScalePlan,
+        framework: R13ReleaseFrameworkIdentity
+    ) throws {
+        guard route.backend.backendID == adaptiveBackendID else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
+                field: "backend_id"
+            )
+        }
+        guard route.backend.backendRevision
+            == adaptiveBackendRevision else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
+                field: "backend_revision"
+            )
+        }
+        guard case .notRequired = route.backend.modelAssetsIdentity else {
+            throw R13ReleaseIdentityError.modelAssetsMustBeNotRequired
+        }
+        guard route.configurationIdentity
+            == plan.configurationIdentity else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
+                field: "configuration_identity"
+            )
+        }
+        guard route.policyIdentity == adaptivePolicyIdentity else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
+                field: "policy_identity"
+            )
+        }
+        guard route.materialDecisionIdentity
+            == adaptiveMaterialDecisionIdentity else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
+                field: "material_decision_identity"
+            )
+        }
+        guard framework.frameworkIdentifier
+            == R03A11ProductAdmission.frameworkIdentity else {
+            throw R13ReleaseIdentityError.adaptiveBindingMismatch(
                 field: "framework_identifier"
             )
         }
@@ -488,3 +668,5 @@ enum R13ReleaseIdentityValidation {
         return value
     }
 }
+
+// swiftlint:disable:this file_length

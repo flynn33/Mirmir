@@ -1,4 +1,5 @@
 import Foundation
+import CoreMedia
 import CoreVideo
 
 extension MirmirDiagnosticStore {
@@ -411,6 +412,9 @@ struct MirmirDiagnosticRecorder: Sendable {
             try field("failure_category", .identifier(category))
         ]
         fields.append(contentsOf: try backendFailureFields(error))
+        fields.append(
+            contentsOf: try mpsTextureDimensionLimitFields(error)
+        )
         if case let R03NV12ScalingError.invalidDimensions(
             expectedWidth,
             expectedHeight,
@@ -484,6 +488,44 @@ struct MirmirDiagnosticRecorder: Sendable {
                     )
                 )
             )
+        }
+        fields.append(contentsOf: try sourceTimelineFields(error))
+        if case let MediaPipelineError.unrepresentableVideoTimeline(
+            naturalTimeScale,
+            start,
+            end
+        ) = error {
+            fields.append(contentsOf: [
+                try field(
+                    "natural_video_timescale",
+                    .signedInteger(Int64(naturalTimeScale))
+                ),
+                try field(
+                    "video_timeline_start_value",
+                    .signedInteger(start.value)
+                ),
+                try field(
+                    "video_timeline_start_timescale",
+                    .signedInteger(Int64(start.timescale))
+                ),
+                try field(
+                    "video_timeline_end_value",
+                    .signedInteger(end.value)
+                ),
+                try field(
+                    "video_timeline_end_timescale",
+                    .signedInteger(Int64(end.timescale))
+                )
+            ])
+        }
+        if case let MediaPipelineError.outputVerificationFailed(
+            _,
+            underlying
+        ) = error {
+            fields.append(contentsOf: try outputVerificationFields(underlying))
+        }
+        if case let MediaPipelineError.finalMuxFailed(_, underlying) = error {
+            fields.append(contentsOf: try finalMuxFields(underlying))
         }
         if case let AtomicMediaOutputError.invalidTransition(
             from,
@@ -590,6 +632,428 @@ struct MirmirDiagnosticRecorder: Sendable {
         return fields
     }
 
+    private static func mpsTextureDimensionLimitFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        guard let limitError =
+            error as? R03MPSTextureDimensionLimitError else {
+            return []
+        }
+        return [
+            try field(
+                "maximum_texture_dimension_2d",
+                .unsignedInteger(
+                    UInt64(
+                        max(
+                            limitError.maximumTextureDimension2D,
+                            0
+                        )
+                    )
+                )
+            ),
+            try field(
+                "requested_source_dimensions",
+                .dimensions(
+                    width: limitError.sourceResolution.width,
+                    height: limitError.sourceResolution.height
+                )
+            ),
+            try field(
+                "requested_target_dimensions",
+                .dimensions(
+                    width: limitError.targetResolution.width,
+                    height: limitError.targetResolution.height
+                )
+            )
+        ]
+    }
+
+    private static func finalMuxFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        guard let guardError = error as? FinalMuxGuardError else {
+            return []
+        }
+        let count = guardError.countEvidence
+        var fields = [
+            try field(
+                "final_mux_failure_reason",
+                .identifier(guardError.reason)
+            ),
+            try field(
+                "final_mux_failure_phase",
+                .identifier(guardError.phase.rawValue)
+            ),
+            try field(
+                "final_mux_guard_code",
+                .signedInteger(Int64(guardError.errorCode))
+            ),
+            try field(
+                "final_mux_count_kind",
+                .identifier(count.kind.rawValue)
+            ),
+            try field(
+                "final_mux_expected_count",
+                .unsignedInteger(UInt64(max(count.expected, 0)))
+            ),
+            try field(
+                "final_mux_actual_count",
+                .unsignedInteger(UInt64(max(count.actual, 0)))
+            )
+        ]
+        if let trackKind = guardError.trackKind {
+            fields.append(
+                try field(
+                    "final_mux_track_kind",
+                    .identifier(trackKind.rawValue)
+                )
+            )
+        }
+        return fields
+    }
+
+    private static func sourceTimelineFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        guard case let MediaPipelineError.unsupportedNegativeSourceTimeline(
+            mediaType,
+            start,
+            end
+        ) = error else {
+            return []
+        }
+        return [
+            try field(
+                "source_timeline_media_type",
+                .identifier(mediaType)
+            ),
+            try field(
+                "source_timeline_start_value",
+                .signedInteger(start.value)
+            ),
+            try field(
+                "source_timeline_start_timescale",
+                .signedInteger(Int64(start.timescale))
+            ),
+            try field(
+                "source_timeline_end_value",
+                .signedInteger(end.value)
+            ),
+            try field(
+                "source_timeline_end_timescale",
+                .signedInteger(Int64(end.timescale))
+            )
+        ]
+    }
+
+    // Keep the exhaustive typed failure-to-field schema auditable in one mapping.
+    // swiftlint:disable:next function_body_length
+    private static func outputVerificationFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        guard let verificationError =
+            error as? OutputMediaVerificationError else {
+            return []
+        }
+
+        var fields = [
+            try field(
+                "verification_failure_kind",
+                .identifier(verificationFailureKind(verificationError))
+            )
+        ]
+        switch verificationError {
+        case .videoTrackCount(let expected, let actual):
+            fields.append(contentsOf: try countFields(
+                expected: expected,
+                actual: actual,
+                prefix: "video_track"
+            ))
+        case .codecMismatch(let expected, let actual):
+            if MirmirDiagnosticToken.isValid(expected) {
+                fields.append(
+                    try field(
+                        "verification_expected_codec",
+                        .identifier(expected)
+                    )
+                )
+            }
+            if MirmirDiagnosticToken.isValid(actual) {
+                fields.append(
+                    try field(
+                        "verification_actual_codec",
+                        .identifier(actual)
+                    )
+                )
+            }
+        case .dimensionsMismatch(let expected, let actual):
+            fields.append(contentsOf: [
+                try field(
+                    "verification_expected_dimensions",
+                    .dimensions(
+                        width: max(expected.width, 0),
+                        height: max(expected.height, 0)
+                    )
+                ),
+                try field(
+                    "verification_actual_dimensions",
+                    .dimensions(
+                        width: max(actual.width, 0),
+                        height: max(actual.height, 0)
+                    )
+                )
+            ])
+        case .frameCountMismatch(let expected, let actual):
+            fields.append(contentsOf: try countFields(
+                expected: expected,
+                actual: actual,
+                prefix: "frame"
+            ))
+        case .missingDecodedImage(let frameIndex):
+            fields.append(try frameIndexField(frameIndex))
+        case .pixelFormatMismatch(
+            let frameIndex,
+            let expected,
+            let actual
+        ):
+            fields.append(contentsOf: [
+                try frameIndexField(frameIndex),
+                try field(
+                    "verification_expected_pixel_format",
+                    .unsignedInteger(UInt64(expected))
+                ),
+                try field(
+                    "verification_actual_pixel_format",
+                    .unsignedInteger(UInt64(actual))
+                )
+            ])
+        case .planeCountMismatch(
+            let frameIndex,
+            let expected,
+            let actual
+        ):
+            fields.append(try frameIndexField(frameIndex))
+            fields.append(contentsOf: try countFields(
+                expected: expected,
+                actual: actual,
+                prefix: "plane"
+            ))
+        case .planeLockFailed(let frameIndex, let status):
+            fields.append(contentsOf: [
+                try frameIndexField(frameIndex),
+                try field(
+                    "verification_status_code",
+                    .signedInteger(Int64(status))
+                )
+            ])
+        case .emptyPlanePayload(let frameIndex, let planeIndex):
+            fields.append(contentsOf: [
+                try frameIndexField(frameIndex),
+                try field(
+                    "verification_plane_index",
+                    .signedInteger(Int64(planeIndex))
+                )
+            ])
+        case .presentationTimeMismatch(
+            let frameIndex,
+            let expected,
+            let actual
+        ),
+        .frameDurationMismatch(
+            let frameIndex,
+            let expected,
+            let actual
+        ):
+            fields.append(try frameIndexField(frameIndex))
+            fields.append(contentsOf: try timeMismatchFields(
+                expected: expected,
+                actual: actual
+            ))
+        case .mediaDurationMismatch(let expected, let actual),
+             .trackEndMismatch(let expected, let actual):
+            fields.append(contentsOf: try timeMismatchFields(
+                expected: expected,
+                actual: actual
+            ))
+        case .emptyTimingLedger,
+             .reopenFailed,
+             .missingVideoFormatDescription,
+             .preferredTransformMismatch,
+             .readerCreationFailed,
+             .readerStartFailed,
+             .readerFailed,
+             .metadataMismatch,
+             .videoColorMismatch,
+             .compressedAACMismatch:
+            break
+        }
+        return fields
+    }
+
+    // Keep every typed verification failure bound to one stable exported reason.
+    // swiftlint:disable:next cyclomatic_complexity
+    private static func verificationFailureKind(
+        _ error: OutputMediaVerificationError
+    ) -> String {
+        switch error {
+        case .emptyTimingLedger:
+            return "empty_timing_ledger"
+        case .reopenFailed:
+            return "reopen_failed"
+        case .videoTrackCount:
+            return "video_track_count_mismatch"
+        case .missingVideoFormatDescription:
+            return "missing_video_format_description"
+        case .codecMismatch:
+            return "codec_mismatch"
+        case .dimensionsMismatch:
+            return "dimensions_mismatch"
+        case .preferredTransformMismatch:
+            return "preferred_transform_mismatch"
+        case .readerCreationFailed:
+            return "verification_reader_creation_failed"
+        case .readerStartFailed:
+            return "verification_reader_start_failed"
+        case .readerFailed:
+            return "verification_reader_failed"
+        case .frameCountMismatch:
+            return "frame_count_mismatch"
+        case .missingDecodedImage:
+            return "missing_decoded_image"
+        case .pixelFormatMismatch:
+            return "pixel_format_mismatch"
+        case .planeCountMismatch:
+            return "plane_count_mismatch"
+        case .planeLockFailed:
+            return "plane_lock_failed"
+        case .emptyPlanePayload:
+            return "empty_plane_payload"
+        case .presentationTimeMismatch:
+            return "presentation_time_mismatch"
+        case .frameDurationMismatch:
+            return "frame_duration_mismatch"
+        case .mediaDurationMismatch:
+            return "media_duration_mismatch"
+        case .trackEndMismatch:
+            return "track_end_mismatch"
+        case .metadataMismatch:
+            return "metadata_mismatch"
+        case .videoColorMismatch:
+            return "video_color_mismatch"
+        case .compressedAACMismatch:
+            return "compressed_aac_mismatch"
+        }
+    }
+
+    private static func countFields(
+        expected: Int,
+        actual: Int,
+        prefix: String
+    ) throws -> [MirmirDiagnosticField] {
+        [
+            try field(
+                "verification_expected_\(prefix)_count",
+                .unsignedInteger(UInt64(max(expected, 0)))
+            ),
+            try field(
+                "verification_actual_\(prefix)_count",
+                .unsignedInteger(UInt64(max(actual, 0)))
+            )
+        ]
+    }
+
+    private static func frameIndexField(
+        _ frameIndex: Int
+    ) throws -> MirmirDiagnosticField {
+        try field(
+            "verification_frame_index",
+            .signedInteger(Int64(frameIndex))
+        )
+    }
+
+    private static func timeMismatchFields(
+        expected: CMTime,
+        actual: CMTime
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = try diagnosticTimeFields(
+            expected,
+            prefix: "verification_expected_time"
+        )
+        fields.append(contentsOf: try diagnosticTimeFields(
+            actual,
+            prefix: "verification_actual_time"
+        ))
+        if isRepresentableDiagnosticRational(expected),
+           isRepresentableDiagnosticRational(actual) {
+            let delta = CMTimeSubtract(actual, expected)
+            guard isRepresentableDiagnosticRational(delta) else {
+                return fields
+            }
+            fields.append(
+                try field(
+                    "verification_time_delta",
+                    .rational(
+                        numerator: delta.value,
+                        denominator: Int64(delta.timescale)
+                    )
+                )
+            )
+        }
+        return fields
+    }
+
+    private static func diagnosticTimeFields(
+        _ time: CMTime,
+        prefix: String
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = [
+            try field(
+                "\(prefix)_validity",
+                .identifier(diagnosticTimeValidity(time))
+            )
+        ]
+        if isRepresentableDiagnosticRational(time) {
+            fields.append(
+                try field(
+                    prefix,
+                    .rational(
+                        numerator: time.value,
+                        denominator: Int64(time.timescale)
+                    )
+                )
+            )
+        } else {
+            fields.append(contentsOf: [
+                try field(
+                    "\(prefix)_value",
+                    .signedInteger(time.value)
+                ),
+                try field(
+                    "\(prefix)_timescale",
+                    .signedInteger(Int64(time.timescale))
+                )
+            ])
+        }
+        return fields
+    }
+
+    private static func isRepresentableDiagnosticRational(
+        _ time: CMTime
+    ) -> Bool {
+        time.isNumeric && time.timescale > 0
+    }
+
+    private static func diagnosticTimeValidity(_ time: CMTime) -> String {
+        guard time.isValid else { return "invalid" }
+        if time.isIndefinite { return "indefinite" }
+        if time.isPositiveInfinity { return "positive_infinity" }
+        if time.isNegativeInfinity { return "negative_infinity" }
+        guard time.timescale > 0 else {
+            return "nonpositive_timescale"
+        }
+        return time.isNumeric ? "numeric" : "nonnumeric"
+    }
+
     private static func backendFailureFields(
         _ error: Error
     ) throws -> [MirmirDiagnosticField] {
@@ -650,6 +1114,10 @@ struct MirmirDiagnosticRecorder: Sendable {
             return underlying.map { [$0] } ?? []
         case let MediaPipelineError.outputPreparationFailed(_, underlying):
             return [underlying]
+        case let MediaPipelineError.finalMuxFailed(_, underlying):
+            return [underlying]
+        case let MediaPipelineError.outputVerificationFailed(_, underlying):
+            return [underlying]
         case let MediaPipelineError.audioBridgeFailed(underlying):
             return [underlying]
         case let MediaPipelineError.readerFailed(underlying):
@@ -667,6 +1135,10 @@ struct MirmirDiagnosticRecorder: Sendable {
         switch error {
         case is R13BackendFrameProcessingError:
             return "backend_frame_processing_failed"
+        case is R13PreviewEncodingFailure:
+            return "preview_encoding_failed"
+        case is R03MPSTextureDimensionLimitError:
+            return "mps_texture_dimension_limit_exceeded"
         case R03NV12ScalingError.invalidDimensions:
             return "invalid_dimensions"
         case R03NV12ScalingError.invalidPixelFormat:
@@ -709,8 +1181,14 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "unsupported_output_container"
         case MediaPipelineError.unsupportedColorProfile:
             return "unsupported_color_profile"
+        case MediaPipelineError.unsupportedNegativeSourceTimeline:
+            return "unsupported_negative_source_timeline"
+        case MediaPipelineError.unrepresentableVideoTimeline:
+            return "unrepresentable_video_timeline"
         case MediaPipelineError.outputPreparationFailed:
             return "output_preparation_failed"
+        case MediaPipelineError.finalMuxFailed:
+            return "final_mux_failed"
         case MediaPipelineError.outputVerificationFailed:
             return "output_verification_failed"
         case MediaPipelineError.invalidFrameTiming:

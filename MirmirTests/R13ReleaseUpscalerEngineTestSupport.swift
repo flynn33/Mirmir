@@ -1,3 +1,4 @@
+import CoreGraphics
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -97,7 +98,10 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
     private let frames: [FrameRecord]
     private let eventLog: R13ReleaseTestEventLog
     private let terminalCleanupError: MediaPipelineError?
+    private let presentationTransform: CGAffineTransform
+    private let appendFailureFrameIndex: Int?
     private let finishObserver: @Sendable () -> Void
+    private let cancelObserver: @Sendable () -> Void
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     init(
@@ -105,13 +109,19 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
         frames: [FrameRecord],
         eventLog: R13ReleaseTestEventLog,
         terminalCleanupError: MediaPipelineError? = nil,
-        finishObserver: @escaping @Sendable () -> Void = {}
+        presentationTransform: CGAffineTransform = .identity,
+        appendFailureFrameIndex: Int? = nil,
+        finishObserver: @escaping @Sendable () -> Void = {},
+        cancelObserver: @escaping @Sendable () -> Void = {}
     ) {
         self.resolution = resolution
         self.frames = frames
         self.eventLog = eventLog
         self.terminalCleanupError = terminalCleanupError
+        self.presentationTransform = presentationTransform
+        self.appendFailureFrameIndex = appendFailureFrameIndex
         self.finishObserver = finishObserver
+        self.cancelObserver = cancelObserver
     }
 
     var probeCount: Int {
@@ -156,7 +166,10 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
             frames: frames,
             eventLog: eventLog,
             terminalCleanupError: terminalCleanupError,
-            finishObserver: finishObserver
+            presentationTransform: presentationTransform,
+            appendFailureFrameIndex: appendFailureFrameIndex,
+            finishObserver: finishObserver,
+            cancelObserver: cancelObserver
         )
         state.withLock { current in
             current.beginSessionCount += 1
@@ -182,10 +195,13 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
     let outputProfile: OutputProfile
     let outputPixelBufferPool: CVPixelBufferPool
     let terminalCleanupError: MediaPipelineError?
+    let presentationTransform: CGAffineTransform
 
     private let frames: [FrameRecord]
     private let eventLog: R13ReleaseTestEventLog
+    private let appendFailureFrameIndex: Int?
     private let finishObserver: @Sendable () -> Void
+    private let cancelObserver: @Sendable () -> Void
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     init(
@@ -195,7 +211,10 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         frames: [FrameRecord],
         eventLog: R13ReleaseTestEventLog,
         terminalCleanupError: MediaPipelineError?,
-        finishObserver: @escaping @Sendable () -> Void
+        presentationTransform: CGAffineTransform,
+        appendFailureFrameIndex: Int?,
+        finishObserver: @escaping @Sendable () -> Void,
+        cancelObserver: @escaping @Sendable () -> Void
     ) {
         self.sourceProfile = sourceProfile
         self.outputProfile = outputProfile
@@ -203,7 +222,10 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         self.frames = frames
         self.eventLog = eventLog
         self.terminalCleanupError = terminalCleanupError
+        self.presentationTransform = presentationTransform
+        self.appendFailureFrameIndex = appendFailureFrameIndex
         self.finishObserver = finishObserver
+        self.cancelObserver = cancelObserver
     }
 
     var appendedFrameIndices: [Int] {
@@ -234,6 +256,12 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         pixelBuffer _: CVPixelBuffer,
         timing: FrameTiming
     ) async throws {
+        if timing.frameIndex == appendFailureFrameIndex {
+            eventLog.record("media.append.failed.\(timing.frameIndex)")
+            throw R13ReleaseTestMediaSessionError.appendFailed(
+                frameIndex: timing.frameIndex
+            )
+        }
         state.withLock { $0.appendedFrameIndices.append(timing.frameIndex) }
         eventLog.record("media.append.\(timing.frameIndex)")
     }
@@ -247,7 +275,12 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
     func cancel() {
         state.withLock { $0.cancelCount += 1 }
         eventLog.record("media.cancel")
+        cancelObserver()
     }
+}
+
+enum R13ReleaseTestMediaSessionError: Error, Equatable {
+    case appendFailed(frameIndex: Int)
 }
 
 enum R13ReleaseTestAppleSessionBehavior: Sendable {

@@ -374,8 +374,10 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
             )
         )
         try await cachedAttempt.commit(
-            pixelBuffer: R13ReleaseTestFrames.makeOutput(
-                resolution: .p1080
+            frame: R13NV12Frame.captureTightActivePlanes(
+                from: R13ReleaseTestFrames.makeOutput(
+                    resolution: .p1080
+                )
             ),
             at: 0
         )
@@ -507,8 +509,10 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
             try await attempt.beforeBackendStart()
             try await attempt.recheckResources()
             try await attempt.commit(
-                pixelBuffer: R13ReleaseTestFrames.makeOutput(
-                    resolution: .p1080
+                frame: R13NV12Frame.captureTightActivePlanes(
+                    from: R13ReleaseTestFrames.makeOutput(
+                        resolution: .p1080
+                    )
                 ),
                 at: 0
             )
@@ -602,8 +606,10 @@ extension R13HardeningStorageLifecycleTests {
         try await attempt.beforeBackendStart()
         try await attempt.recheckResources()
         try await attempt.commit(
-            pixelBuffer: R13ReleaseTestFrames.makeOutput(
-                resolution: .p1080
+            frame: R13NV12Frame.captureTightActivePlanes(
+                from: R13ReleaseTestFrames.makeOutput(
+                    resolution: .p1080
+                )
             ),
             at: 0
         )

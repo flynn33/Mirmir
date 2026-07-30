@@ -13,8 +13,19 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case unsupportedAudioFormat(String)
     case unsupportedOutputContainer(String)
     case unsupportedColorProfile(String)
+    case unsupportedNegativeSourceTimeline(
+        mediaType: String,
+        start: CMTime,
+        end: CMTime
+    )
+    case unrepresentableVideoTimeline(
+        naturalTimeScale: CMTimeScale,
+        start: CMTime,
+        end: CMTime
+    )
     case outputPreparationFailed(URL, Error)
-    case outputVerificationFailed(URL, String)
+    case finalMuxFailed(URL, Error)
+    case outputVerificationFailed(URL, Error)
     case invalidFrameTiming(String)
     case partialCleanupFailed(URL, String)
     case readerStartFailed
@@ -48,10 +59,27 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "Unsupported output container extension .\(pathExtension); Mirmir writes MP4 or QuickTime Movie output."
         case .unsupportedColorProfile(let profile):
             return "The source uses unsupported HDR or wide-color metadata (\(profile)); this build supports 8-bit SDR Rec.709."
+        case .unsupportedNegativeSourceTimeline(
+            let mediaType,
+            let start,
+            let end
+        ):
+            return "The source \(mediaType) timeline starts before zero "
+                + "(start \(start), end \(end)); exact negative-timeline "
+                + "preservation is unavailable."
+        case .unrepresentableVideoTimeline(
+            let naturalTimeScale,
+            let start,
+            let end
+        ):
+            return "The source video timeline cannot be represented exactly by AVFoundation (natural timescale \(naturalTimeScale), start \(start), end \(end))."
         case .outputPreparationFailed(let url, let error):
             return "The output file could not be prepared safely at \(url.lastPathComponent): \(error)."
-        case .outputVerificationFailed(let url, let reason):
-            return "The output file failed reopen verification at \(url.lastPathComponent): \(reason)."
+        case .finalMuxFailed(let url, let error):
+            return "The encoded video and source audio could not be assembled at "
+                + "\(url.lastPathComponent): \(error)."
+        case .outputVerificationFailed(let url, let error):
+            return "The output file failed reopen verification at \(url.lastPathComponent): \(error)."
         case .invalidFrameTiming(let reason):
             return "The output frame timing ledger rejected a frame: \(reason)"
         case .partialCleanupFailed(let url, let reason):
@@ -65,7 +93,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
         case .invalidAssetDimensions:
             return "The source reports invalid or unrepresentable video dimensions."
         case .unsupportedAssetDimensions(let res):
-            return "Unsupported source resolution \(res). Mirmir supports 720p and 1080p sources."
+            return "Source geometry \(res) cannot be represented by the selected output route."
         case .audioBridgeFailed(let error):
             return "Audio passthrough mux failed: \(error)"
         case .readerFailed(let error):
@@ -73,6 +101,138 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
         case .writerFailed(let error):
             return "AVAssetWriter terminal error: \(error.map { String(describing: $0) } ?? "unknown")."
         }
+    }
+}
+
+enum FinalMuxGuardError: Error, CustomNSError, CustomStringConvertible {
+    enum Phase: String {
+        case stagingInspection = "staging_inspection"
+        case destinationPreparation = "destination_preparation"
+        case destinationTrackCreation = "destination_track_creation"
+    }
+
+    enum CountKind: String {
+        case videoTrack = "video_track"
+        case metadataTrack = "metadata_track"
+        case temporaryOutput = "temporary_output"
+        case destinationTrack = "destination_track"
+    }
+
+    struct CountEvidence {
+        let kind: CountKind
+        let expected: Int
+        let actual: Int
+    }
+
+    enum TrackKind: String {
+        case video
+        case audio
+        case metadata
+        case unknown
+
+        init(mediaType: AVMediaType) {
+            switch mediaType {
+            case .video:
+                self = .video
+            case .audio:
+                self = .audio
+            case .metadata:
+                self = .metadata
+            default:
+                self = .unknown
+            }
+        }
+    }
+
+    case stagingVideoTrackCount(expected: Int, actual: Int)
+    case stagingMetadataTrackCount(expected: Int, actual: Int)
+    case temporaryOutputAlreadyExists
+    case destinationTrackCreationFailed(trackKind: TrackKind)
+
+    static let errorDomain = "Mirmir.FinalSampleCopyMux"
+
+    var errorCode: Int {
+        switch self {
+        case .stagingVideoTrackCount:
+            return 1_001
+        case .stagingMetadataTrackCount:
+            return 1_002
+        case .temporaryOutputAlreadyExists:
+            return 1_003
+        case .destinationTrackCreationFailed:
+            return 1_004
+        }
+    }
+
+    var errorUserInfo: [String: Any] {
+        [:]
+    }
+
+    var phase: Phase {
+        switch self {
+        case .stagingVideoTrackCount, .stagingMetadataTrackCount:
+            return .stagingInspection
+        case .temporaryOutputAlreadyExists:
+            return .destinationPreparation
+        case .destinationTrackCreationFailed:
+            return .destinationTrackCreation
+        }
+    }
+
+    var reason: String {
+        switch self {
+        case .stagingVideoTrackCount:
+            return "staging_video_track_count_mismatch"
+        case .stagingMetadataTrackCount:
+            return "staging_metadata_track_count_mismatch"
+        case .temporaryOutputAlreadyExists:
+            return "temporary_output_already_exists"
+        case .destinationTrackCreationFailed:
+            return "destination_track_creation_failed"
+        }
+    }
+
+    var countEvidence: CountEvidence {
+        switch self {
+        case .stagingVideoTrackCount(let expected, let actual):
+            return CountEvidence(
+                kind: .videoTrack,
+                expected: expected,
+                actual: actual
+            )
+        case .stagingMetadataTrackCount(let expected, let actual):
+            return CountEvidence(
+                kind: .metadataTrack,
+                expected: expected,
+                actual: actual
+            )
+        case .temporaryOutputAlreadyExists:
+            return CountEvidence(
+                kind: .temporaryOutput,
+                expected: 0,
+                actual: 1
+            )
+        case .destinationTrackCreationFailed:
+            return CountEvidence(
+                kind: .destinationTrack,
+                expected: 1,
+                actual: 0
+            )
+        }
+    }
+
+    var trackKind: TrackKind? {
+        guard case .destinationTrackCreationFailed(let trackKind) = self else {
+            return nil
+        }
+        return trackKind
+    }
+
+    var description: String {
+        let count = countEvidence
+        return "\(reason) during \(phase.rawValue) "
+            + "(expected \(count.expected) \(count.kind.rawValue), "
+            + "actual \(count.actual))."
     }
 }
 
@@ -84,6 +244,7 @@ public protocol MediaSession: AnyObject, Sendable {
     var sourceProfile: SourceProfile { get }
     var outputProfile: OutputProfile { get }
     var outputPixelBufferPool: CVPixelBufferPool { get }
+    var presentationTransform: CGAffineTransform { get }
     var prepublicationOutputURL: URL { get }
     var publishedOutputIdentity: MediaOutputPublicationIdentity? { get }
     var terminalCleanupError: MediaPipelineError? { get }
@@ -122,6 +283,10 @@ public protocol MediaSession: AnyObject, Sendable {
 }
 
 public extension MediaSession {
+    var presentationTransform: CGAffineTransform {
+        .identity
+    }
+
     var prepublicationOutputURL: URL {
         outputProfile.url
     }

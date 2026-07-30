@@ -2,6 +2,9 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+// Persistence scenarios share one descriptor-pinned restart-store fixture.
+// swiftlint:disable file_length
+// swiftlint:disable:next type_body_length
 final class R13RestartJobStoreTests: XCTestCase {
     func testReopenVerifiesCachedPrefixForFreshWriterReplay() async throws {
         let fixture = try R13RestartStoreFixture()
@@ -54,6 +57,193 @@ final class R13RestartJobStoreTests: XCTestCase {
         )
         XCTAssertEqual(replayedFirst, first)
         XCTAssertEqual(replayedSecond, second)
+    }
+
+    func testUnchangedFullValidationReusesDescriptorPinnedSnapshots()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(totalFrameCount: 3)
+        let fileSystem = R13CountingSnapshotFileSystem()
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot,
+            fileSystem: fileSystem
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 10),
+            at: 0,
+            using: plan
+        )
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 20),
+            at: 1,
+            using: plan
+        )
+
+        fileSystem.resetCounts()
+        let firstValidatedCount = try await store.validateRecoverableJob(
+            jobID: core.jobID
+        )
+        XCTAssertEqual(firstValidatedCount, 2)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 2)
+        XCTAssertEqual(fileSystem.counts().snapshotComparisons, 0)
+
+        fileSystem.resetCounts()
+        let reusedValidatedCount = try await store.validateRecoverableJob(
+            jobID: core.jobID
+        )
+        XCTAssertEqual(reusedValidatedCount, 2)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 0)
+        XCTAssertEqual(fileSystem.counts().snapshotComparisons, 6)
+
+        fileSystem.resetCounts()
+        let reopened = try await store.reopen(
+            jobID: core.jobID,
+            expecting: core,
+            observedSource: core.source
+        )
+        XCTAssertEqual(reopened.verifiedCachedPrefixCount, 2)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 0)
+        XCTAssertEqual(fileSystem.counts().snapshotComparisons, 6)
+
+        fileSystem.resetCounts()
+        _ = try await store.loadCachedFrame(at: 0, using: reopened)
+        XCTAssertEqual(
+            fileSystem.counts().artifactContentReads,
+            1,
+            "Replay must continue to validate the selected frame payload."
+        )
+    }
+
+    func testCachedValidationRejectsArtifactTamperBeforeReopen()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(totalFrameCount: 2)
+        let fileSystem = R13CountingSnapshotFileSystem()
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot,
+            fileSystem: fileSystem
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 31),
+            at: 0,
+            using: plan
+        )
+        _ = try await store.validateRecoverableJob(jobID: core.jobID)
+        let artifactURL = try fixture.artifactURL(
+            jobID: core.jobID,
+            frameIndex: 0
+        )
+        var artifact = try Data(contentsOf: artifactURL)
+        artifact[artifact.startIndex] ^= 0x01
+        try artifact.write(to: artifactURL, options: .atomic)
+
+        fileSystem.resetCounts()
+        do {
+            _ = try await store.reopen(
+                jobID: core.jobID,
+                expecting: core,
+                observedSource: core.source
+            )
+            XCTFail("A changed artifact must invalidate cached evidence.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .cachedFrameCorrupt(index: 0)
+            )
+        }
+        XCTAssertGreaterThan(fileSystem.counts().snapshotComparisons, 0)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 1)
+    }
+
+    func testSameContentArtifactReplacementForcesFullRevalidation()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(totalFrameCount: 2)
+        let fileSystem = R13CountingSnapshotFileSystem()
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot,
+            fileSystem: fileSystem
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 44),
+            at: 0,
+            using: plan
+        )
+        _ = try await store.validateRecoverableJob(jobID: core.jobID)
+        let artifactURL = R13RestartPath.resolvingExistingAncestor(
+            of: try fixture.artifactURL(
+                jobID: core.jobID,
+                frameIndex: 0
+            )
+        )
+        let localFileSystem = R13LocalRestartFileSystem()
+        let before = try XCTUnwrap(
+            localFileSystem.readRegularFileWithSnapshot(
+                artifactURL,
+                maximumBytes: Int.max
+            ).snapshot
+        )
+        let replacementURL = artifactURL.deletingLastPathComponent()
+            .appendingPathComponent(UUID().uuidString)
+        try Data(contentsOf: artifactURL).write(to: replacementURL)
+        try FileManager.default.removeItem(at: artifactURL)
+        try FileManager.default.moveItem(
+            at: replacementURL,
+            to: artifactURL
+        )
+        let after = try XCTUnwrap(
+            localFileSystem.readRegularFileWithSnapshot(
+                artifactURL,
+                maximumBytes: Int.max
+            ).snapshot
+        )
+        XCTAssertNotEqual(before.fileID, after.fileID)
+
+        fileSystem.resetCounts()
+        let replacementValidatedCount =
+            try await store.validateRecoverableJob(jobID: core.jobID)
+        XCTAssertEqual(replacementValidatedCount, 1)
+        XCTAssertGreaterThan(fileSystem.counts().snapshotComparisons, 0)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 1)
+
+        fileSystem.resetCounts()
+        let reusedReplacementCount =
+            try await store.validateRecoverableJob(jobID: core.jobID)
+        XCTAssertEqual(reusedReplacementCount, 1)
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 0)
+    }
+
+    func testSequentialCommitDoesNotReadPriorFrameArtifacts()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(totalFrameCount: 2)
+        let fileSystem = R13CountingSnapshotFileSystem()
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot,
+            fileSystem: fileSystem
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 51),
+            at: 0,
+            using: plan
+        )
+
+        fileSystem.resetCounts()
+        _ = try await store.commitProcessedFrame(
+            fixture.frame(value: 52),
+            at: 1,
+            using: plan
+        )
+
+        XCTAssertEqual(fileSystem.counts().artifactContentReads, 0)
     }
 
     func testSourceDriftFailsBeforeWriterOrBackendCreation() async throws {
@@ -362,8 +552,127 @@ private struct R13RestartStoreFixture {
         jobsRoot.appendingPathComponent(jobID, isDirectory: true)
     }
 
+    func artifactURL(
+        jobID: String,
+        frameIndex: Int
+    ) throws -> URL {
+        let jobDirectory = jobDirectory(jobID: jobID)
+        let record = try JSONDecoder().decode(
+            R13RestartCommitRecord.self,
+            from: Data(
+                contentsOf: jobDirectory.appendingPathComponent(
+                    "records/\(frameIndex).json"
+                )
+            )
+        )
+        return jobDirectory.appendingPathComponent(
+            record.artifact.relativePath
+        )
+    }
+
     func cleanup() {
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+private final class R13CountingSnapshotFileSystem:
+    R13RestartFileSystem,
+    @unchecked Sendable {
+    struct Counts {
+        var artifactContentReads = 0
+        var snapshotComparisons = 0
+    }
+
+    private let base = R13LocalRestartFileSystem()
+    private let lock = NSLock()
+    private var observedCounts = Counts()
+
+    func ensureDirectory(_ url: URL) throws {
+        try base.ensureDirectory(url)
+    }
+
+    func createDirectoryExclusively(_ url: URL) throws {
+        try base.createDirectoryExclusively(url)
+    }
+
+    func validateDirectory(_ url: URL) throws {
+        try base.validateDirectory(url)
+    }
+
+    func exists(_ url: URL) -> Bool {
+        base.exists(url)
+    }
+
+    func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        recordContentRead(at: url)
+        return try base.readRegularFile(
+            url,
+            maximumBytes: maximumBytes
+        )
+    }
+
+    func readRegularFileWithSnapshot(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> R13RestartRegularFileRead {
+        recordContentRead(at: url)
+        return try base.readRegularFileWithSnapshot(
+            url,
+            maximumBytes: maximumBytes
+        )
+    }
+
+    func regularFile(
+        _ url: URL,
+        matches snapshot: R13RestartRegularFileSnapshot
+    ) -> Bool {
+        lock.withLock {
+            observedCounts.snapshotComparisons += 1
+        }
+        return base.regularFile(url, matches: snapshot)
+    }
+
+    func writeNewAtomically(_ data: Data, to url: URL) throws {
+        try base.writeNewAtomically(data, to: url)
+    }
+
+    func replaceAtomically(_ data: Data, at url: URL) throws {
+        try base.replaceAtomically(data, at: url)
+    }
+
+    func publishDirectoryAtomically(
+        from sourceURL: URL,
+        to destinationURL: URL
+    ) throws {
+        try base.publishDirectoryAtomically(
+            from: sourceURL,
+            to: destinationURL
+        )
+    }
+
+    func removeFile(_ url: URL) throws {
+        try base.removeFile(url)
+    }
+
+    func removeDirectory(_ url: URL) throws {
+        try base.removeDirectory(url)
+    }
+
+    func resetCounts() {
+        lock.withLock {
+            observedCounts = Counts()
+        }
+    }
+
+    func counts() -> Counts {
+        lock.withLock { observedCounts }
+    }
+
+    private func recordContentRead(at url: URL) {
+        guard url.pathExtension == "r13nv12" else { return }
+        lock.withLock {
+            observedCounts.artifactContentReads += 1
+        }
     }
 }
 
@@ -461,3 +770,5 @@ private final class R13FailingHeadFileSystem:
         }
     }
 }
+
+// swiftlint:enable file_length

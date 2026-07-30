@@ -106,23 +106,26 @@ struct R13ReleaseHardeningDiagnosticRecorder: Sendable {
 
     func recordIdentity(
         _ identity: R13ReleaseIdentity,
-        route: R03ScaleRoute
+        scalePlan: R13ReleaseScalePlan
     ) async throws {
+        var fields: [R13ReleaseDiagnosticField] = [
+            try .releaseIdentitySHA256(identity.identitySHA256),
+            try .jobIdentitySHA256(jobIdentitySHA256),
+            try .policySHA256(policyResources.policySHA256),
+            try .resourceManifestSHA256(
+                policyResources.resourceManifestSHA256
+            ),
+            .mode(identity.requestedMode),
+            .outcome(.accepted)
+        ]
+        if case .productQualified(let route) = scalePlan {
+            fields.append(.a11Backend)
+            fields.append(.route(route))
+        }
         try await record(
             code: .releaseIdentityCreated,
             severity: .info,
-            fields: [
-                .releaseIdentitySHA256(identity.identitySHA256),
-                .jobIdentitySHA256(jobIdentitySHA256),
-                .policySHA256(policyResources.policySHA256),
-                .resourceManifestSHA256(
-                    policyResources.resourceManifestSHA256
-                ),
-                .mode(identity.requestedMode),
-                .a11Backend,
-                .route(route),
-                .outcome(.accepted)
-            ]
+            fields: fields
         )
     }
 

@@ -137,6 +137,36 @@ private struct R13PrepublicationReceiptPayload:
 }
 
 actor R13RestartJobStore {
+    fileprivate struct ValidatedState {
+        let core: R13RestartJobCore
+        let coreSHA256: String
+        let head: R13RestartJobHead
+        let recordReferences: [R13RestartRecordReference]
+    }
+
+    fileprivate struct FileSnapshotEvidence {
+        let url: URL
+        let snapshot: R13RestartRegularFileSnapshot
+    }
+
+    fileprivate struct ValidatedStateCacheEntry {
+        let state: ValidatedState
+        let files: [FileSnapshotEvidence]
+    }
+
+    fileprivate struct ValidatedRecordRead {
+        let record: R13RestartCommitRecord
+        let reference: R13RestartRecordReference
+        let fileSnapshot: R13RestartRegularFileSnapshot?
+        let url: URL
+    }
+
+    fileprivate struct ValidatedFrameRead {
+        let frame: R13NV12Frame
+        let fileSnapshot: R13RestartRegularFileSnapshot?
+        let url: URL
+    }
+
     private static let maximumCoreBytes = 64 * 1_024
     private static let maximumHeadBytes = 64 * 1_024 * 1_024
     private static let maximumRecordBytes = 64 * 1_024
@@ -146,6 +176,8 @@ actor R13RestartJobStore {
     private let fileSystem: any R13RestartFileSystem
     private let digest: any R13RestartDigesting
     private let frameCodec: any R13NV12FrameCacheCoding
+    private var fullyValidatedStateByJobID:
+        [String: ValidatedStateCacheEntry] = [:]
 
     init(
         jobsRootURL: URL,
@@ -196,6 +228,7 @@ actor R13RestartJobStore {
         at frameIndex: Int,
         using plan: R13RestartAttemptPlan
     ) throws -> R13RestartAttemptPlan {
+        fullyValidatedStateByJobID.removeValue(forKey: plan.jobID)
         let state = try loadValidatedState(
             jobID: plan.jobID,
             validateArtifacts: false
@@ -417,12 +450,14 @@ actor R13RestartJobStore {
     }
 
     func discard(jobID: String) throws {
+        fullyValidatedStateByJobID.removeValue(forKey: jobID)
         let urls = try jobURLs(jobID: jobID)
         guard fileSystem.exists(urls.directory) else { return }
         try fileSystem.removeDirectory(urls.directory)
     }
 
     func discardAll() throws {
+        fullyValidatedStateByJobID.removeAll(keepingCapacity: false)
         guard fileSystem.exists(jobsRootURL) else { return }
         try fileSystem.removeDirectory(jobsRootURL)
         try fileSystem.ensureDirectory(jobsRootURL)
@@ -432,6 +467,7 @@ actor R13RestartJobStore {
 extension R13RestartJobStore {
     func create(_ core: R13RestartJobCore) throws -> R13RestartAttemptPlan {
         try core.validate()
+        fullyValidatedStateByJobID.removeValue(forKey: core.jobID)
         try fileSystem.ensureDirectory(jobsRootURL)
         let finalURLs = try jobURLs(jobID: core.jobID)
         guard !fileSystem.exists(finalURLs.directory) else {
@@ -527,13 +563,6 @@ private extension R13RestartJobStore {
         let recordsDirectory: URL
     }
 
-    struct ValidatedState {
-        let core: R13RestartJobCore
-        let coreSHA256: String
-        let head: R13RestartJobHead
-        let recordReferences: [R13RestartRecordReference]
-    }
-
     func jobURLs(jobID: String) throws -> JobURLs {
         let validatedJobID = try R13RestartValidation.jobID(jobID)
         let directory = jobsRootURL.appendingPathComponent(
@@ -558,11 +587,14 @@ private extension R13RestartJobStore {
         )
     }
 
+    // Cache proof and core/head/record/frame validation are one fail-closed audit.
+    // swiftlint:disable:next function_body_length
     func loadValidatedState(
         jobID: String,
         validateArtifacts: Bool
     ) throws -> ValidatedState {
         let urls = try jobURLs(jobID: jobID)
+        let validatedJobID = try R13RestartValidation.jobID(jobID)
         guard fileSystem.exists(urls.directory) else {
             throw R13RestartJobError.jobMissing(jobID)
         }
@@ -570,26 +602,82 @@ private extension R13RestartJobStore {
         try fileSystem.validateDirectory(urls.framesDirectory)
         try fileSystem.validateDirectory(urls.recordsDirectory)
 
-        let coreData = try fileSystem.readRegularFile(
-            urls.core,
-            maximumBytes: Self.maximumCoreBytes
-        )
+        if validateArtifacts,
+           let cached = fullyValidatedStateByJobID[validatedJobID],
+           cached.files.allSatisfy({
+               fileSystem.regularFile(
+                   $0.url,
+                   matches: $0.snapshot
+               )
+           }) {
+            return cached.state
+        }
+        if validateArtifacts {
+            fullyValidatedStateByJobID.removeValue(
+                forKey: validatedJobID
+            )
+        }
+
+        var fileSnapshots: [FileSnapshotEvidence] = []
+        var snapshotsAreComplete = true
+        func collectSnapshot(
+            _ snapshot: R13RestartRegularFileSnapshot?,
+            at url: URL
+        ) {
+            guard let snapshot else {
+                snapshotsAreComplete = false
+                return
+            }
+            fileSnapshots.append(
+                FileSnapshotEvidence(url: url, snapshot: snapshot)
+            )
+        }
+
+        let coreRead: R13RestartRegularFileRead
+        if validateArtifacts {
+            coreRead = try fileSystem.readRegularFileWithSnapshot(
+                urls.core,
+                maximumBytes: Self.maximumCoreBytes
+            )
+            collectSnapshot(coreRead.snapshot, at: urls.core)
+        } else {
+            coreRead = R13RestartRegularFileRead(
+                data: try fileSystem.readRegularFile(
+                    urls.core,
+                    maximumBytes: Self.maximumCoreBytes
+                ),
+                snapshot: nil
+            )
+        }
+        let coreData = coreRead.data
         let core: R13RestartJobCore = try decodeCanonical(
             R13RestartJobCore.self,
             from: coreData,
             document: "job_core"
         )
         try core.validate()
-        let validatedJobID = try R13RestartValidation.jobID(jobID)
         guard core.jobID == validatedJobID else {
             throw R13RestartJobError.immutableCoreMismatch
         }
         let coreSHA256 = digest.sha256(coreData)
 
-        let headData = try fileSystem.readRegularFile(
-            urls.head,
-            maximumBytes: Self.maximumHeadBytes
-        )
+        let headRead: R13RestartRegularFileRead
+        if validateArtifacts {
+            headRead = try fileSystem.readRegularFileWithSnapshot(
+                urls.head,
+                maximumBytes: Self.maximumHeadBytes
+            )
+            collectSnapshot(headRead.snapshot, at: urls.head)
+        } else {
+            headRead = R13RestartRegularFileRead(
+                data: try fileSystem.readRegularFile(
+                    urls.head,
+                    maximumBytes: Self.maximumHeadBytes
+                ),
+                snapshot: nil
+            )
+        }
+        let headData = headRead.data
         let head: R13RestartJobHead = try decodeCanonical(
             R13RestartJobHead.self,
             from: headData,
@@ -613,10 +701,12 @@ private extension R13RestartJobStore {
         var references: [R13RestartRecordReference] = []
         references.reserveCapacity(head.committedFrameCount)
         for sequence in 0..<head.committedFrameCount {
-            let reference = try loadRecordReference(
+            let recordRead = try loadValidatedRecord(
                 sequence: sequence,
+                expectedPreviousSHA256: previousSHA256,
                 jobID: core.jobID
             )
+            let reference = recordRead.reference
             try reference.validate()
             guard reference.sequence == sequence,
                   reference.relativePath == "records/\(sequence).json"
@@ -625,11 +715,11 @@ private extension R13RestartJobStore {
                     sequence: sequence
                 )
             }
-            let record = try loadValidatedRecord(
-                reference,
-                expectedPreviousSHA256: previousSHA256,
-                jobID: core.jobID
+            collectSnapshot(
+                recordRead.fileSnapshot,
+                at: recordRead.url
             )
+            let record = recordRead.record
             guard record.artifact.width == core.output.width,
                   record.artifact.height == core.output.height else {
                 throw R13RestartJobError.cachedFrameGeometryMismatch(
@@ -637,10 +727,14 @@ private extension R13RestartJobStore {
                 )
             }
             if validateArtifacts {
-                _ = try loadAndValidateFrame(
+                let frameRead = try loadAndValidateFrameRead(
                     record.artifact,
                     frameIndex: sequence,
                     jobID: core.jobID
+                )
+                collectSnapshot(
+                    frameRead.fileSnapshot,
+                    at: frameRead.url
                 )
             }
             previousSHA256 = reference.recordSHA256
@@ -649,33 +743,54 @@ private extension R13RestartJobStore {
         guard head.headSHA256 == previousSHA256 else {
             throw R13RestartJobError.headMismatch
         }
-        return ValidatedState(
+        let state = ValidatedState(
             core: core,
             coreSHA256: coreSHA256,
             head: head,
             recordReferences: references
         )
+        if snapshotsAreComplete {
+            fullyValidatedStateByJobID[validatedJobID] =
+                ValidatedStateCacheEntry(
+                    state: state,
+                    files: fileSnapshots
+                )
+        }
+        return state
     }
 
-    func loadRecordReference(
+    func loadValidatedRecord(
         sequence: Int,
+        expectedPreviousSHA256: String,
         jobID: String
-    ) throws -> R13RestartRecordReference {
+    ) throws -> ValidatedRecordRead {
         let urls = try jobURLs(jobID: jobID)
         let relativePath = "records/\(sequence).json"
-        let recordData = try fileSystem.readRegularFile(
-            urls.directory.appendingPathComponent(relativePath),
+        let recordURL = urls.directory.appendingPathComponent(relativePath)
+        let recordRead = try fileSystem.readRegularFileWithSnapshot(
+            recordURL,
             maximumBytes: Self.maximumRecordBytes
         )
         let record: R13RestartCommitRecord = try decodeCanonical(
             R13RestartCommitRecord.self,
-            from: recordData,
+            from: recordRead.data,
             document: "commit_record"
         )
-        return try R13RestartRecordReference(
+        let reference = try R13RestartRecordReference(
             sequence: sequence,
             relativePath: relativePath,
             recordSHA256: record.recordSHA256
+        )
+        try validateRecord(
+            record,
+            reference: reference,
+            expectedPreviousSHA256: expectedPreviousSHA256
+        )
+        return ValidatedRecordRead(
+            record: record,
+            reference: reference,
+            fileSnapshot: recordRead.snapshot,
+            url: recordURL
         )
     }
 
@@ -697,6 +812,19 @@ private extension R13RestartJobStore {
             from: recordData,
             document: "commit_record"
         )
+        try validateRecord(
+            record,
+            reference: reference,
+            expectedPreviousSHA256: expectedPreviousSHA256
+        )
+        return record
+    }
+
+    func validateRecord(
+        _ record: R13RestartCommitRecord,
+        reference: R13RestartRecordReference,
+        expectedPreviousSHA256: String
+    ) throws {
         guard record.schemaVersion
                 == R13RestartCommitRecord.currentSchemaVersion,
               record.sequence == reference.sequence,
@@ -717,7 +845,6 @@ private extension R13RestartJobStore {
                 sequence: reference.sequence
             )
         }
-        return record
     }
 
     func loadAndValidateFrame(
@@ -725,6 +852,18 @@ private extension R13RestartJobStore {
         frameIndex: Int,
         jobID: String
     ) throws -> R13NV12Frame {
+        try loadAndValidateFrameRead(
+            artifact,
+            frameIndex: frameIndex,
+            jobID: jobID
+        ).frame
+    }
+
+    func loadAndValidateFrameRead(
+        _ artifact: R13CachedFrameArtifactIdentity,
+        frameIndex: Int,
+        jobID: String
+    ) throws -> ValidatedFrameRead {
         let maximumArtifactBytes: UInt64
         do {
             maximumArtifactBytes =
@@ -748,15 +887,16 @@ private extension R13RestartJobStore {
         guard fileSystem.exists(artifactURL) else {
             throw R13RestartJobError.cachedFrameMissing(index: frameIndex)
         }
-        let artifactData: Data
+        let artifactRead: R13RestartRegularFileRead
         do {
-            artifactData = try fileSystem.readRegularFile(
+            artifactRead = try fileSystem.readRegularFileWithSnapshot(
                 artifactURL,
                 maximumBytes: maximumReadBytes
             )
         } catch {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
         }
+        let artifactData = artifactRead.data
         guard UInt64(artifactData.count) == artifact.artifactByteCount,
               digest.sha256(artifactData) == artifact.artifactSHA256 else {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
@@ -774,7 +914,11 @@ private extension R13RestartJobStore {
               digest.sha256(frame.tightRawData) == artifact.rawSHA256 else {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
         }
-        return frame
+        return ValidatedFrameRead(
+            frame: frame,
+            fileSnapshot: artifactRead.snapshot,
+            url: artifactURL
+        )
     }
 
     func attemptPlan(

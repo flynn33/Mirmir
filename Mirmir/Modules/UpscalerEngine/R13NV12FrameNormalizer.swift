@@ -10,6 +10,39 @@ protocol R13NV12FrameNormalizing: Sendable {
         presentationResolution: VideoResolution,
         pixelAspectRatio: VideoPixelAspectRatio?
     ) throws -> CVPixelBuffer
+
+    func normalizeForAdaptiveScaling(
+        _ source: CVPixelBuffer,
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        processingResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
+    ) throws -> CVPixelBuffer
+}
+
+extension R13NV12FrameNormalizing {
+    func normalizeForAdaptiveScaling(
+        _ source: CVPixelBuffer,
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        processingResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
+    ) throws -> CVPixelBuffer {
+        guard processingResolution == presentationResolution else {
+            throw R03NV12ScalingError.invalidDimensions(
+                expectedWidth: presentationResolution.width,
+                expectedHeight: presentationResolution.height,
+                actualWidth: processingResolution.width,
+                actualHeight: processingResolution.height
+            )
+        }
+        return try normalize(
+            source,
+            codedResolution: codedResolution,
+            presentationResolution: presentationResolution,
+            pixelAspectRatio: pixelAspectRatio
+        )
+    }
 }
 
 final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable {
@@ -21,6 +54,38 @@ final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable
         _ source: CVPixelBuffer,
         codedResolution: VideoResolution,
         presentationResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
+    ) throws -> CVPixelBuffer {
+        try normalize(
+            source,
+            codedResolution: codedResolution,
+            presentationResolution: presentationResolution,
+            destinationResolution: presentationResolution,
+            pixelAspectRatio: pixelAspectRatio
+        )
+    }
+
+    func normalizeForAdaptiveScaling(
+        _ source: CVPixelBuffer,
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        processingResolution: VideoResolution,
+        pixelAspectRatio: VideoPixelAspectRatio?
+    ) throws -> CVPixelBuffer {
+        try normalize(
+            source,
+            codedResolution: codedResolution,
+            presentationResolution: presentationResolution,
+            destinationResolution: processingResolution,
+            pixelAspectRatio: pixelAspectRatio
+        )
+    }
+
+    private func normalize(
+        _ source: CVPixelBuffer,
+        codedResolution: VideoResolution,
+        presentationResolution: VideoResolution,
+        destinationResolution: VideoResolution,
         pixelAspectRatio: VideoPixelAspectRatio?
     ) throws -> CVPixelBuffer {
         try validateSourceLayout(
@@ -36,12 +101,14 @@ final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable
             expected: presentationResolution
         )
         let destination = try PixelBufferBridge.dequeue(
-            from: try pool(for: presentationResolution)
+            from: try pool(for: destinationResolution)
         )
         let hasNonSquarePixels = pixelAspectRatio.map {
             $0.horizontalSpacing != $0.verticalSpacing
         } ?? false
-        if codedResolution == presentationResolution && !hasNonSquarePixels {
+        if codedResolution == presentationResolution,
+           presentationResolution == destinationResolution,
+           !hasNonSquarePixels {
             try copyActivePlaneBytes(
                 from: source,
                 to: destination,
@@ -51,17 +118,17 @@ final class R13NV12FrameNormalizer: R13NV12FrameNormalizing, @unchecked Sendable
             try geometryTransfer.transfer(
                 from: source,
                 to: destination,
-                resolution: presentationResolution
+                resolution: destinationResolution
             )
         }
         R13NV12GeometryTransfer.installCanonicalAttachments(
             on: destination,
-            resolution: presentationResolution
+            resolution: destinationResolution
         )
         R03NV12Contract.installColorAttachments(on: destination)
         try R03NV12Contract.validate(
             pixelBuffer: destination,
-            resolution: presentationResolution
+            resolution: destinationResolution
         )
         return destination
     }

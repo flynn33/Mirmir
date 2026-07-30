@@ -94,7 +94,10 @@ struct R13IntegrationHardeningHarness {
     static func make(
         jobsRootURL: URL,
         exactFrameCount: Int,
-        faultPoint: R13FaultPoint? = nil
+        faultPoint: R13FaultPoint? = nil,
+        resourceDiskBytes: UInt64 = ampleCapacityBytes,
+        resourceMemoryBytes: UInt64 = ampleCapacityBytes,
+        thermalCondition: R13ThermalCondition = .nominal
     ) throws -> R13IntegrationHardeningHarness {
         let documents = try R13ReleaseHardeningDocuments.production()
         let diagnostics = R13ReleaseDiagnostics(
@@ -106,9 +109,9 @@ struct R13IntegrationHardeningHarness {
         let governor = R13ResourceGovernor(
             policy: documents.resourcePolicy,
             probes: R13ResourceProbes(
-                availableDiskBytes: { ampleCapacityBytes },
-                availableMemoryBytes: { ampleCapacityBytes },
-                thermalCondition: { .nominal }
+                availableDiskBytes: { resourceDiskBytes },
+                availableMemoryBytes: { resourceMemoryBytes },
+                thermalCondition: { thermalCondition }
             )
         )
         let capacityObservation = R13IntegrationCapacityObservation()
@@ -180,13 +183,15 @@ struct R13IntegrationHardeningHarness {
 
 func expectedR13IntegrationCapacityLabels(
     for workspace: R13IntegrationWorkspace,
-    successfulPreflightCount: Int
+    liveRecheckCountsByAttempt: [Int]
 ) throws -> [String] {
     let sharesVolume = try R13FoundationVolumeTopologyProbe().sharesVolume(
         workspace.jobsRootURL,
         workspace.outputURL.deletingLastPathComponent()
     )
-    let labels = sharesVolume ? ["cache"] : ["output", "cache"]
-    return Array(repeating: labels, count: successfulPreflightCount)
-        .flatMap { $0 }
+    let admissionLabels = sharesVolume ? ["cache"] : ["output", "cache"]
+    return liveRecheckCountsByAttempt.flatMap { liveRecheckCount in
+        admissionLabels
+            + Array(repeating: "output", count: liveRecheckCount)
+    }
 }

@@ -81,11 +81,28 @@ extension R13ReleaseHardeningRuntime {
         modeBinding: R13ReleaseModeBinding,
         requiresExistingRestartState: Bool = false
     ) async throws -> R13ReleaseHardeningAttempt {
+        try await prepare(
+            job: job,
+            source: source,
+            scalePlan: .productQualified(route),
+            modeBinding: modeBinding,
+            requiresExistingRestartState:
+                requiresExistingRestartState
+        )
+    }
+
+    func prepare(
+        job: UpscaleJob,
+        source: SourceProfile,
+        scalePlan: R13ReleaseScalePlan,
+        modeBinding: R13ReleaseModeBinding,
+        requiresExistingRestartState: Bool = false
+    ) async throws -> R13ReleaseHardeningAttempt {
         let stagedSource = try await stageSource(for: job)
         return try await prepare(
             job: job,
             source: source,
-            route: route,
+            scalePlan: scalePlan,
             modeBinding: modeBinding,
             stagedSource: stagedSource,
             requiresExistingRestartState:
@@ -134,11 +151,31 @@ extension R13ReleaseHardeningRuntime {
         stagedSource: R13RetainedSourceSnapshot,
         requiresExistingRestartState: Bool = false
     ) async throws -> R13ReleaseHardeningAttempt {
+        try await prepare(
+            job: job,
+            source: source,
+            scalePlan: .productQualified(route),
+            modeBinding: modeBinding,
+            stagedSource: stagedSource,
+            requiresExistingRestartState:
+                requiresExistingRestartState
+        )
+    }
+
+    // swiftlint:disable:next function_body_length
+    func prepare(
+        job: UpscaleJob,
+        source: SourceProfile,
+        scalePlan: R13ReleaseScalePlan,
+        modeBinding: R13ReleaseModeBinding,
+        stagedSource: R13RetainedSourceSnapshot,
+        requiresExistingRestartState: Bool = false
+    ) async throws -> R13ReleaseHardeningAttempt {
         do {
             let prepared = try await prepareJobState(
                 job: job,
                 source: source,
-                route: route,
+                scalePlan: scalePlan,
                 modeBinding: modeBinding,
                 stagedSource: stagedSource,
                 requiresExistingRestartState: requiresExistingRestartState
@@ -150,7 +187,8 @@ extension R13ReleaseHardeningRuntime {
                 let recorder = R13ReleaseHardeningDiagnosticRecorder(
                     diagnostics: diagnostics,
                     jobIdentitySHA256: jobIdentitySHA256,
-                    policyResources: documents.policyResources,
+                    policyResources:
+                        prepared.identity.policyResources,
                     persistentDiagnostics: persistentDiagnostics,
                     correlationID: UUID(uuidString: job.identifier)
                 )
@@ -168,7 +206,9 @@ extension R13ReleaseHardeningRuntime {
                     requiredDiskBytes: prepared.resourceReservationDiskBytes,
                     liveDiskGrowthAllowanceBytes: prepared.liveDiskGrowthAllowanceBytes,
                     requiredMemoryBytes: try Self.requiredWorkingMemoryBytes(
-                        source: source.resolution,
+                        source: Self.processingSourceResolution(
+                            for: scalePlan
+                        ),
                         target: job.targetResolution
                     )
                 )
@@ -192,7 +232,7 @@ extension R13ReleaseHardeningRuntime {
                     try await faultGate.check(.afterResourceAdmission)
                     try await recorder.recordIdentity(
                         prepared.identity,
-                        route: route
+                        scalePlan: scalePlan
                     )
                     try await recoveryStore.save(job: job)
                     return R13ReleaseHardeningAttempt(
@@ -205,8 +245,8 @@ extension R13ReleaseHardeningRuntime {
                         sourceMeasurer: sourceMeasurer,
                         resourceGovernor: resourceGovernor,
                         outputCapacityProbe: outputCapacityProbe,
-                        distinctOutputCapacityPlan:
-                            prepared.distinctOutputCapacityPlan,
+                        outputCapacityPlan:
+                            prepared.outputCapacityPlan,
                         cacheReservationBytesPerFrame:
                             prepared.preflight
                                 .cacheReservationBytesPerFrame,
@@ -265,7 +305,7 @@ extension R13ReleaseHardeningRuntime {
     private func prepareJobState(
         job: UpscaleJob,
         source: SourceProfile,
-        route: R03ScaleRoute,
+        scalePlan: R13ReleaseScalePlan,
         modeBinding: R13ReleaseModeBinding,
         stagedSource: R13RetainedSourceSnapshot,
         requiresExistingRestartState: Bool
@@ -276,7 +316,7 @@ extension R13ReleaseHardeningRuntime {
         )
         let identity = try Self.makeReleaseIdentity(
             job: job,
-            route: route,
+            scalePlan: scalePlan,
             modeBinding: modeBinding,
             source: observedSource,
             environment: environmentCollector.collect(),
@@ -284,7 +324,7 @@ extension R13ReleaseHardeningRuntime {
         )
         let core = try Self.makeRestartCore(
             job: job,
-            route: route,
+            scalePlan: scalePlan,
             identity: identity,
             source: observedSource,
             totalFrameCount: totalFrameCount
@@ -302,25 +342,33 @@ extension R13ReleaseHardeningRuntime {
                 outputDirectoryURL: job.outputURL.deletingLastPathComponent(),
                 resolver: bookmarkResolver
             )
-            let expectedOutputBytes = try Self.expectedOutputBytes(
+            let expectedFinalOutputBytes = try Self.expectedOutputBytes(
                 source: source,
                 sourceByteCount: observedSource.byteCount,
                 job: job
             )
+            let expectedFinalizationPeakBytes =
+                try Self.expectedFinalizationPeakBytes(
+                    source: source,
+                    sourceByteCount: observedSource.byteCount,
+                    job: job
+                )
             let outputDirectoryURL = job.outputURL.deletingLastPathComponent()
             let outputSharesCacheVolume = try storagePreflight
                 .sharesVolume(jobsRootURL, outputDirectoryURL)
-            let distinctOutputCapacityPlan =
-                outputSharesCacheVolume ? nil
-                : try R13DistinctOutputVolumeCapacityPlan(
-                    outputDirectoryURL: outputDirectoryURL,
-                    expectedOutputBytes: expectedOutputBytes,
-                    minimumFreeDiskBytes:
-                        documents.resourcePolicy.minimumFreeDiskBytes
-                )
-            try distinctOutputCapacityPlan?.verifyAdmission(
-                using: outputCapacityProbe
+            let outputCapacityPlan = try R13OutputVolumeCapacityPlan(
+                outputDirectoryURL: outputDirectoryURL,
+                expectedFinalizationPeakBytes:
+                    expectedFinalizationPeakBytes,
+                expectedFinalOutputBytes: expectedFinalOutputBytes,
+                minimumFreeDiskBytes:
+                    documents.resourcePolicy.minimumFreeDiskBytes
             )
+            if !outputSharesCacheVolume {
+                try outputCapacityPlan.verifyAdmission(
+                    using: outputCapacityProbe
+                )
+            }
             let remainingFrameCount = max(
                 totalFrameCount
                     - restart.plan.verifiedCachedPrefixCount,
@@ -332,7 +380,7 @@ extension R13ReleaseHardeningRuntime {
                     outputHeight: job.targetResolution.height,
                     totalFrameCount: max(remainingFrameCount, 1),
                     expectedFinalOutputBytes: outputSharesCacheVolume
-                        ? expectedOutputBytes : 1,
+                        ? expectedFinalizationPeakBytes : 1,
                     additionalReserveBytes: 67_108_864
                 ),
                 at: jobsRootURL
@@ -350,8 +398,9 @@ extension R13ReleaseHardeningRuntime {
                 preflight: preflight,
                 resourceReservationDiskBytes: preflight.requiredBytes,
                 liveDiskGrowthAllowanceBytes:
-                    outputSharesCacheVolume ? preflight.expectedFinalOutputBytes : 0,
-                distinctOutputCapacityPlan: distinctOutputCapacityPlan,
+                    outputSharesCacheVolume
+                        ? expectedFinalizationPeakBytes : 0,
+                outputCapacityPlan: outputCapacityPlan,
                 createdNew: restart.createdNew
             )
         } catch {
@@ -488,3 +537,5 @@ extension R13ReleaseHardeningRuntime {
         )
     }
 }
+
+// swiftlint:disable:this file_length

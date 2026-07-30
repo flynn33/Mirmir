@@ -126,7 +126,12 @@ struct MirmirAboutView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Mirmir")
                 .font(.title2.weight(.semibold))
-            Text("Mirmir upscales supported 720p and 1080p SDR video with its qualified Apple MPS Lanczos path and verifies completed output before publication.")
+            Text(
+                "Mirmir probes local videos supported by AVFoundation, "
+                    + "upscales eligible 8-bit SDR Rec. 709 geometry through "
+                    + "2160p with Apple MPS Lanczos, and verifies completed "
+                    + "output before publication."
+            )
                 .fixedSize(horizontal: false, vertical: true)
 
             if let reason = viewModel.engineAvailabilityReason {

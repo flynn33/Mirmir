@@ -63,8 +63,9 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertEqual(
             Set(releaseModes.map(\.summary)),
             [
-                "Uses the same qualified deterministic Apple MPS "
-                    + "Lanczos A11 path in this release."
+                "Uses Apple MPS Lanczos: the qualified A11 route for "
+                    + "canonical resolution pairs and a dimension-bound "
+                    + "adaptive route for other eligible SDR geometry."
             ]
         )
         XCTAssertEqual(MirmirWorkspaceDestination.modes.title, "Modes")
@@ -136,6 +137,54 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertEqual(submitted.outputURL, outputURL)
         XCTAssertEqual(submitted.targetResolution, .p2160)
         XCTAssertEqual(submitted.mode, .fast)
+        engine.latestHandle?.completeCancellation()
+    }
+
+    func testRecoveryBeginClearsPreviewRetainedFromPreviousFailure()
+        async throws {
+        let recovered = try makeRecoveredJob(
+            identifier: "r13-ui-preview-reset"
+        )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [recovered]
+        )
+        let viewModel = makeReadyViewModel(engine: engine)
+        for _ in 0..<100 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+        viewModel.startUpscale()
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        let preview = try makePreviewFrame()
+        firstHandle.emitPreview(preview)
+        for _ in 0..<100 where viewModel.latestPreviewFrame == nil {
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.latestPreviewFrame, preview)
+        firstHandle.completeFailure(
+            UpscalerEngineError.strategyFailed("injected preview failure")
+        )
+        for _ in 0..<100 {
+            guard case .failed = viewModel.state else {
+                await Task.yield()
+                continue
+            }
+            break
+        }
+        XCTAssertEqual(
+            viewModel.latestPreviewFrame,
+            preview,
+            "Terminal failure intentionally retains the last valid pair."
+        )
+
+        viewModel.resumeRecoverableJob(id: recovered.summary.id)
+
+        XCTAssertNil(
+            viewModel.latestPreviewFrame,
+            "A new recovery attempt must not display a previous job's pair."
+        )
+        for _ in 0..<100 where engine.submittedJobs.count < 2 {
+            await Task.yield()
+        }
         engine.latestHandle?.completeCancellation()
     }
 
@@ -640,6 +689,31 @@ final class R13UIReleaseModeTests: XCTestCase {
             )
         )
     }
+
+    private func makePreviewFrame() throws -> UpscalePreviewFrame {
+        let source = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([16, 16, 16, 255])
+            )
+        )
+        let processed = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([224, 224, 224, 255])
+            )
+        )
+        return try XCTUnwrap(
+            UpscalePreviewFrame(
+                frameIndex: 3,
+                presentationSeconds: 0.125,
+                source: source,
+                processed: processed
+            )
+        )
+    }
 }
 
 private final class R13UIModeEngineService:
@@ -829,11 +903,20 @@ private final class R13UIHoldingJobHandle: UpscalerJobHandle,
     }
 
     let progressStream: AsyncStream<UpscaleProgress>
+    let previewStream: AsyncStream<UpscalePreviewFrame>
+    private let previewContinuation:
+        AsyncStream<UpscalePreviewFrame>.Continuation
     private let lock = NSLock()
     private var state = State()
 
     init() {
         progressStream = AsyncStream { $0.finish() }
+        var continuation:
+            AsyncStream<UpscalePreviewFrame>.Continuation!
+        previewStream = AsyncStream(bufferingPolicy: .bufferingNewest(1)) {
+            continuation = $0
+        }
+        previewContinuation = continuation
     }
 
     func cancel() {}
@@ -859,6 +942,10 @@ private final class R13UIHoldingJobHandle: UpscalerJobHandle,
         complete(.failure(error))
     }
 
+    func emitPreview(_ preview: UpscalePreviewFrame) {
+        previewContinuation.yield(preview)
+    }
+
     private func complete(_ result: Result<URL, Error>) {
         let waiter = lock.withLock { () -> CheckedContinuation<URL, Error>? in
             guard state.result == nil else { return nil }
@@ -866,6 +953,7 @@ private final class R13UIHoldingJobHandle: UpscalerJobHandle,
             defer { state.waiter = nil }
             return state.waiter
         }
+        previewContinuation.finish()
         waiter?.resume(with: result)
     }
 }

@@ -69,8 +69,13 @@ final class R03A11InjectedLifecycleTests: XCTestCase {
         )
         try await assertProcessingOutcome(
             behavior: .failed,
-            expectedReason: "r03_scaling_failed",
-            expectedKind: .failed
+            expectedReason: "r03_scaler_execution_failed",
+            expectedKind: .failed,
+            expectedContext: AppleUpscaleBackendFailureContext(
+                stage: .scalerExecution,
+                statusCode: -1,
+                planeIndex: 0
+            )
         )
     }
 
@@ -107,7 +112,8 @@ final class R03A11InjectedLifecycleTests: XCTestCase {
     private func assertProcessingOutcome(
         behavior: R03A11FixtureInjectedScaler.Behavior,
         expectedReason: String,
-        expectedKind: R03A11InjectedOutcomeKind
+        expectedKind: R03A11InjectedOutcomeKind,
+        expectedContext: AppleUpscaleBackendFailureContext? = nil
     ) async throws {
         let scaler = R03A11FixtureInjectedScaler(behavior: behavior)
         let backend = try makeFixtureBackend(
@@ -123,18 +129,22 @@ final class R03A11InjectedLifecycleTests: XCTestCase {
         let outcome = await session.submit(fixture.frame)
         let observedReason: String
         let observedRoute: AppleUpscaleRouteIdentity
+        let observedContext: AppleUpscaleBackendFailureContext?
         switch (expectedKind, outcome) {
         case (.unavailable, .unavailable(let unavailable)):
             observedReason = unavailable.reason
             observedRoute = unavailable.processingIdentity.route
+            observedContext = nil
         case (.failed, .failed(let failure)):
             observedReason = failure.reason
             observedRoute = failure.processingIdentity.route
+            observedContext = failure.context
         default:
             return XCTFail("Expected injected \(expectedKind.rawValue) outcome")
         }
         XCTAssertEqual(observedReason, expectedReason)
         XCTAssertEqual(observedRoute, backend.routeIdentity)
+        XCTAssertEqual(observedContext, expectedContext)
         XCTAssertEqual(scaler.scaleCallCount, 1)
         XCTAssertEqual(
             fixture.releaseProbe.releaseCount(for: fixture.tokenIdentity),

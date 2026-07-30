@@ -19,7 +19,7 @@ extension SourceProfile {
 
 struct R13PreparedReleaseSource: Sendable {
     let source: SourceProfile
-    let route: R03ScaleRoute
+    let scalePlan: R13ReleaseScalePlan
     let hardeningAttempt: R13ReleaseHardeningAttempt?
 }
 
@@ -38,13 +38,13 @@ enum R13ReleaseSourceStaging {
         let processingSourceURL =
             stagedSource?.processingURL ?? job.inputURL
         let source: SourceProfile
-        let route: R03ScaleRoute
+        let scalePlan: R13ReleaseScalePlan
         do {
             try Task.checkCancellation()
             source = try await media.probe(
                 url: processingSourceURL
             ).bindingSourceURL(processingSourceURL)
-            route = try R13ReleaseJobContracts.route(
+            scalePlan = try R13ReleaseJobContracts.scalePlan(
                 source: source.resolution,
                 target: job.targetResolution
             )
@@ -63,7 +63,7 @@ enum R13ReleaseSourceStaging {
             attempt = try await hardeningRuntime.prepare(
                 job: job,
                 source: source,
-                route: route,
+                scalePlan: scalePlan,
                 modeBinding: modeBinding,
                 stagedSource: stagedSource,
                 requiresExistingRestartState:
@@ -74,7 +74,7 @@ enum R13ReleaseSourceStaging {
         }
         return R13PreparedReleaseSource(
             source: source,
-            route: route,
+            scalePlan: scalePlan,
             hardeningAttempt: attempt
         )
     }
@@ -253,14 +253,12 @@ struct R13LocalSourceSnapshotter: R13SourceSnapshotting {
         guard !pathExtension.isEmpty else {
             return "source"
         }
-        guard pathExtension.count <= 16,
+        guard pathExtension.utf8.count <= 16,
               pathExtension.unicodeScalars.allSatisfy({
                   ($0.value >= 0x30 && $0.value <= 0x39)
                       || ($0.value >= 0x61 && $0.value <= 0x7A)
               }) else {
-            throw R13RestartJobError.unsafeFilesystemEntry(
-                sourceURL.path
-            )
+            return "source"
         }
         return "source.\(pathExtension)"
     }

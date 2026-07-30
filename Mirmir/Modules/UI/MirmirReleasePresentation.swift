@@ -19,12 +19,18 @@ extension UpscaleMode {
         case .auto:
             return "Visible for clarity, but not available in this release."
         case .quality:
-            return "Uses the same qualified deterministic Apple MPS Lanczos A11 path in this release."
+            return Self.releaseScalingSummary
         case .fast:
-            return "Uses the same qualified deterministic Apple MPS Lanczos A11 path in this release."
+            return Self.releaseScalingSummary
         case .deterministic:
-            return "Uses the same qualified deterministic Apple MPS Lanczos A11 path in this release."
+            return Self.releaseScalingSummary
         }
+    }
+
+    private static var releaseScalingSummary: String {
+        "Uses Apple MPS Lanczos: the qualified A11 route for canonical "
+            + "resolution pairs and a dimension-bound adaptive route for "
+            + "other eligible SDR geometry."
     }
 
     var releasePickerTitle: String {
@@ -45,7 +51,7 @@ extension MirmirViewModel {
     var engineSelectionText: String {
         switch selectedModeAvailability {
         case .available:
-            return "Apple MPS Lanczos (A11)"
+            return "Apple MPS Lanczos"
         case .unavailable:
             return "No available release mode"
         }

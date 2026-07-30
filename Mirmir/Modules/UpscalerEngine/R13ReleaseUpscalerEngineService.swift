@@ -22,6 +22,10 @@ typealias R13ReleaseUpscaleSessionFactory = @Sendable (
     _ route: R03ScaleRoute
 ) async throws -> R13ReleaseUpscaleSessionBinding
 
+typealias R13AdaptiveScalerFactory = @Sendable (
+    _ plan: R13AdaptiveScalePlan
+) throws -> any R03NV12Scaling
+
 typealias R13ReleaseResourceReleaseObserver = @Sendable (_ identity: String) -> Void
 typealias R13ReleaseBeforeHandleStart = @Sendable () -> Void
 typealias R13ReleaseHardeningRuntimeProvider = @Sendable () throws
@@ -53,7 +57,9 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
 
     private let media: MediaPipelineService
     private let sessionFactory: R13ReleaseUpscaleSessionFactory
+    private let adaptiveScalerFactory: R13AdaptiveScalerFactory
     private let normalizer: any R13NV12FrameNormalizing
+    private let previewEncoder: any R13PreviewFrameEncoding
     private let inputReleaseObserver: R13ReleaseResourceReleaseObserver
     private let diagnosticRecorder: MirmirDiagnosticRecorder
     let hardeningRuntimeProvider:
@@ -77,7 +83,16 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         sessionFactory: @escaping R13ReleaseUpscaleSessionFactory = {
             try await R13A11ProductSessionFactory.makeSession(route: $0)
         },
+        adaptiveScalerFactory:
+            @escaping R13AdaptiveScalerFactory = {
+                try R03MPSScaler(
+                    mode: .lanczos,
+                    adaptivePlan: $0
+                )
+            },
         normalizer: any R13NV12FrameNormalizing = R13NV12FrameNormalizer(),
+        previewEncoder: any R13PreviewFrameEncoding =
+            R13PreviewFrameEncoder(),
         inputReleaseObserver: @escaping R13ReleaseResourceReleaseObserver = { _ in },
         hardeningRuntime: R13ReleaseHardeningRuntime? = nil,
         cacheLocationStore: R13CacheLocationStore? = nil,
@@ -86,7 +101,9 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
     ) {
         self.media = media
         self.sessionFactory = sessionFactory
+        self.adaptiveScalerFactory = adaptiveScalerFactory
         self.normalizer = normalizer
+        self.previewEncoder = previewEncoder
         self.inputReleaseObserver = inputReleaseObserver
         let diagnosticRecorder = MirmirDiagnosticRecorder(
             store: diagnostics
@@ -187,7 +204,9 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
                 modeBinding: modeBinding,
                 media: media,
                 sessionFactory: sessionFactory,
+                adaptiveScalerFactory: adaptiveScalerFactory,
                 normalizer: normalizer,
+                previewEncoder: previewEncoder,
                 inputReleaseObserver: inputReleaseObserver,
                 hardeningRuntime: hardeningRuntime,
                 securityAccess: securityAccess,
@@ -304,6 +323,7 @@ struct R13ReleaseJobRuntime: Sendable {
     let job: UpscaleJob
     let modeBinding: R13ReleaseModeBinding
     let normalizer: any R13NV12FrameNormalizing
+    let previewEmitter: R13UpscalePreviewEmitter
     let inputReleaseObserver: R13ReleaseResourceReleaseObserver
     let hardeningRuntime: R13ReleaseHardeningRuntime?
     let securityAccess: R13SecurityScopedAccessSet?
@@ -319,12 +339,15 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
     }
 
     let progressStream: AsyncStream<UpscaleProgress>
+    let previewStream: AsyncStream<UpscalePreviewFrame>
 
     private let progressContinuation: AsyncStream<UpscaleProgress>.Continuation
+    private let previewEmitter: R13UpscalePreviewEmitter
     private let job: UpscaleJob
     private let modeBinding: R13ReleaseModeBinding
     private let media: MediaPipelineService
     private let sessionFactory: R13ReleaseUpscaleSessionFactory
+    private let adaptiveScalerFactory: R13AdaptiveScalerFactory
     private let normalizer: any R13NV12FrameNormalizing
     private let inputReleaseObserver: R13ReleaseResourceReleaseObserver
     private let hardeningRuntime: R13ReleaseHardeningRuntime?
@@ -340,7 +363,10 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         modeBinding: R13ReleaseModeBinding,
         media: MediaPipelineService,
         sessionFactory: @escaping R13ReleaseUpscaleSessionFactory,
+        adaptiveScalerFactory:
+            @escaping R13AdaptiveScalerFactory,
         normalizer: any R13NV12FrameNormalizing,
+        previewEncoder: any R13PreviewFrameEncoding,
         inputReleaseObserver: @escaping R13ReleaseResourceReleaseObserver,
         hardeningRuntime: R13ReleaseHardeningRuntime?,
         securityAccess: R13SecurityScopedAccessSet? = nil,
@@ -351,7 +377,24 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         self.modeBinding = modeBinding
         self.media = media
         self.sessionFactory = sessionFactory
+        self.adaptiveScalerFactory = adaptiveScalerFactory
         self.normalizer = normalizer
+        let previewEmitter = R13UpscalePreviewEmitter(
+            encoder: previewEncoder,
+            failureObserver: { [diagnosticRecorder, job] failure in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "release_engine",
+                    operation: "encode_preview_sample",
+                    code: "release_preview_encoding_failed",
+                    job: job,
+                    additionalFields: failure.diagnosticFields,
+                    error: failure
+                )
+            }
+        )
+        self.previewEmitter = previewEmitter
+        previewStream = previewEmitter.stream
         self.inputReleaseObserver = inputReleaseObserver
         self.hardeningRuntime = hardeningRuntime
         securityAccessHolder = R13SecurityScopedAccessHolder(securityAccess)
@@ -364,11 +407,14 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         progressContinuation = continuation
     }
 
+    // Task launch, terminal signaling, and security-scope release form one
+    // lifecycle boundary whose defer ordering must remain visible together.
     func start() {
         let runtime = R13ReleaseJobRuntime(
             job: job,
             modeBinding: modeBinding,
             normalizer: normalizer,
+            previewEmitter: previewEmitter,
             inputReleaseObserver: inputReleaseObserver,
             hardeningRuntime: hardeningRuntime,
             securityAccess: securityAccessHolder.access,
@@ -378,10 +424,11 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         let startGate = R13ReleaseTaskStartGate()
         let launchedTask = Task.detached(
             priority: .userInitiated
-        ) { [runtime, media, sessionFactory, onTerminal, startGate, securityAccessHolder] in
+        ) { [runtime, media, sessionFactory, adaptiveScalerFactory, onTerminal, startGate, securityAccessHolder] in
             defer {
                 securityAccessHolder.release()
                 runtime.progressContinuation.finish()
+                runtime.previewEmitter.finish()
                 onTerminal()
                 runtime.diagnosticRecorder.enqueue(
                     severity: .debug,
@@ -407,7 +454,9 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                     try await Self.runJob(
                         runtime: runtime,
                         media: media,
-                        sessionFactory: sessionFactory
+                        sessionFactory: sessionFactory,
+                        adaptiveScalerFactory:
+                            adaptiveScalerFactory
                     )
                 )
             } catch is CancellationError {
@@ -483,7 +532,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
     private static func runJob(
         runtime: R13ReleaseJobRuntime,
         media: MediaPipelineService,
-        sessionFactory: R13ReleaseUpscaleSessionFactory
+        sessionFactory: R13ReleaseUpscaleSessionFactory,
+        adaptiveScalerFactory: R13AdaptiveScalerFactory
     ) async throws -> URL {
         defer {
             withExtendedLifetime(runtime.securityAccess) {}
@@ -517,7 +567,6 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 runtime.securityAccess != nil
         )
         let source = preparedSource.source
-        let route = preparedSource.route
         let hardeningAttempt = preparedSource.hardeningAttempt
         runtime.diagnosticRecorder.enqueue(
             severity: .info,
@@ -527,6 +576,23 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             job: job,
             source: source
         )
+        if case .adaptiveMPSLanczos(let adaptivePlan) =
+            preparedSource.scalePlan {
+            return try await runAdaptiveJob(
+                runtime: runtime,
+                source: source,
+                plan: adaptivePlan,
+                hardeningAttempt: hardeningAttempt,
+                media: media,
+                scalerFactory: adaptiveScalerFactory
+            )
+        }
+        guard case .productQualified(let route) =
+            preparedSource.scalePlan else {
+            throw UpscalerEngineError.strategyFailed(
+                "Release source preparation returned an invalid scale plan."
+            )
+        }
         do {
             try await hardeningAttempt?.beforeBackendStart()
             runtime.diagnosticRecorder.enqueue(
@@ -602,6 +668,415 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         }
     }
 
+    private static func runAdaptiveJob(
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile,
+        plan: R13AdaptiveScalePlan,
+        hardeningAttempt: R13ReleaseHardeningAttempt?,
+        media: MediaPipelineService,
+        scalerFactory: R13AdaptiveScalerFactory
+    ) async throws -> URL {
+        do {
+            try await hardeningAttempt?.beforeBackendStart()
+            let result = try await runAdaptiveMediaSession(
+                runtime: runtime,
+                source: source,
+                plan: plan,
+                hardeningAttempt: hardeningAttempt,
+                media: media,
+                scalerFactory: scalerFactory
+            )
+            await hardeningAttempt?.releaseResources()
+            return result
+        } catch {
+            await hardeningAttempt?.releaseResources()
+            throw error
+        }
+    }
+
+    private static func runAdaptiveMediaSession(
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile,
+        plan: R13AdaptiveScalePlan,
+        hardeningAttempt: R13ReleaseHardeningAttempt?,
+        media: MediaPipelineService,
+        scalerFactory: R13AdaptiveScalerFactory
+    ) async throws -> URL {
+        try Task.checkCancellation()
+        runtime.diagnosticRecorder.enqueue(
+            severity: .notice,
+            subsystem: "release_engine",
+            operation: "start_adaptive_scaler",
+            code: "release_adaptive_mps_lanczos_starting",
+            job: runtime.job,
+            source: source,
+            additionalFields: adaptiveDiagnosticFields(plan)
+        )
+        let scaler = try scalerFactory(plan)
+        let outputPool = try PixelBufferBridge.makePool(
+            width: plan.targetResolution.width,
+            height: plan.targetResolution.height,
+            format: R03NV12Contract.pixelFormat,
+            capacity: 3
+        )
+        let output = OutputProfile(
+            url: runtime.job.outputURL,
+            resolution: plan.targetResolution,
+            codec: runtime.job.codec,
+            preserveAudio: runtime.job.preserveAudio,
+            timedMetadataTemplate:
+                hardeningAttempt?.identity.timedMetadata
+                ?? adaptiveFallbackTimedMetadata(
+                    runtime: runtime,
+                    plan: plan
+                ),
+            transactionIdentifier: runtime.job.identifier
+        )
+        let mediaSession = try await media.beginSession(
+            source: source,
+            output: output
+        )
+        let cancellation =
+            AppleUpscaleOperationCancellationSignal()
+        return try await withTaskCancellationHandler {
+            do {
+                let result = try await processAdaptiveFrames(
+                    runtime: runtime,
+                    source: source,
+                    plan: plan,
+                    scaler: scaler,
+                    outputPool: outputPool,
+                    cancellation: cancellation,
+                    mediaSession: mediaSession,
+                    hardeningAttempt: hardeningAttempt
+                )
+                return result
+            } catch {
+                mediaSession.cancel()
+                scaler.cancel()
+                if error is CancellationError || Task.isCancelled {
+                    throw UpscalerEngineError.cancelled
+                }
+                throw error
+            }
+        } onCancel: {
+            cancellation.cancel()
+            scaler.cancel()
+            mediaSession.cancel()
+        }
+    }
+
+    // Decode, resource recheck, progress, scaler terminalization, verified
+    // finalization, and publication are one ordered release transaction.
+    // swiftlint:disable:next function_body_length
+    private static func processAdaptiveFrames(
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile,
+        plan: R13AdaptiveScalePlan,
+        scaler: any R03NV12Scaling,
+        outputPool: CVPixelBufferPool,
+        cancellation: AppleUpscaleOperationCancellationSignal,
+        mediaSession: MediaSession,
+        hardeningAttempt: R13ReleaseHardeningAttempt?
+    ) async throws -> URL {
+        let estimatedTotalFrames = max(
+            source.estimatedFrameCount,
+            0
+        )
+        let startedAt = Date()
+        var processedFrameCount = 0
+        var recordedFirstDecodedFrame = false
+        while let record = try await mediaSession.nextSourceFrame() {
+            try Task.checkCancellation()
+            try await hardeningAttempt?.recheckResources()
+            if !recordedFirstDecodedFrame {
+                recordedFirstDecodedFrame = true
+                recordFirstDecodedFrame(
+                    record,
+                    runtime: runtime,
+                    source: source
+                )
+            }
+            do {
+                try await processAdaptiveRecord(
+                    record,
+                    runtime: runtime,
+                    source: source,
+                    plan: plan,
+                    scaler: scaler,
+                    outputPool: outputPool,
+                    cancellation: cancellation,
+                    mediaSession: mediaSession,
+                    hardeningAttempt: hardeningAttempt
+                )
+            } catch {
+                runtime.diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "release_engine",
+                    operation: "process_adaptive_frame",
+                    code: "release_adaptive_frame_processing_failed",
+                    job: runtime.job,
+                    source: source,
+                    frame: record,
+                    expectedFrameResolution: source.resolution,
+                    additionalFields: adaptiveDiagnosticFields(plan),
+                    error: error
+                )
+                throw error
+            }
+            processedFrameCount += 1
+            R13ReleaseJobContracts.yieldProgress(
+                processedFrameCount: processedFrameCount,
+                estimatedTotalFrames: estimatedTotalFrames,
+                startedAt: startedAt,
+                terminal: false,
+                continuation: runtime.progressContinuation
+            )
+        }
+        try Task.checkCancellation()
+        try await hardeningAttempt?.validateFrameCount(
+            processedFrameCount
+        )
+        scaler.finish()
+        try await hardeningAttempt?.beforeOutputFinalize()
+        runtime.diagnosticRecorder.enqueue(
+            severity: .info,
+            subsystem: "release_engine",
+            operation: "finalize_media_session",
+            code: "release_media_finalization_started",
+            job: runtime.job,
+            source: source,
+            additionalFields: adaptiveDiagnosticFields(plan)
+        )
+        let metadata =
+            hardeningAttempt?.identity.timedMetadata
+            ?? mediaSession.outputProfile.timedMetadataTemplate
+        let prepublicationOutputURL =
+            mediaSession.prepublicationOutputURL
+        try await mediaSession.finish(
+            finalMetadata: metadata,
+            beforeReopen: {
+                try await hardeningAttempt?.beforeMetadataReopen()
+            },
+            validatingBeforePublish: {
+                try await hardeningAttempt?.validateBeforePublish(
+                    outputURL: prepublicationOutputURL,
+                    metadata: metadata
+                )
+            }
+        )
+        let cleanupError = mediaSession.terminalCleanupError
+        if let cleanupError {
+            runtime.diagnosticRecorder.enqueue(
+                severity: .warning,
+                subsystem: "release_engine",
+                operation: "cleanup_media_session",
+                code: "release_media_cleanup_deferred",
+                job: runtime.job,
+                source: source,
+                error: cleanupError
+            )
+        }
+        try await hardeningAttempt?.completePublishedOutput(
+            at: runtime.job.outputURL,
+            publicationIdentity: mediaSession.publishedOutputIdentity,
+            mediaCleanupFailed: cleanupError != nil
+        )
+        runtime.diagnosticRecorder.enqueue(
+            severity: .notice,
+            subsystem: "release_engine",
+            operation: "finalize_media_session",
+            code: "release_adaptive_media_output_published",
+            job: runtime.job,
+            source: source,
+            additionalFields: adaptiveDiagnosticFields(plan)
+        )
+        R13ReleaseJobContracts.yieldProgress(
+            processedFrameCount: processedFrameCount,
+            estimatedTotalFrames: estimatedTotalFrames,
+            startedAt: startedAt,
+            terminal: true,
+            continuation: runtime.progressContinuation
+        )
+        return runtime.job.outputURL
+    }
+
+    // The explicit dependencies document every mutable resource whose lifetime
+    // is bounded to one adaptive frame.
+    // swiftlint:disable:next function_parameter_count
+    private static func processAdaptiveRecord(
+        _ record: FrameRecord,
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile,
+        plan: R13AdaptiveScalePlan,
+        scaler: any R03NV12Scaling,
+        outputPool: CVPixelBufferPool,
+        cancellation: AppleUpscaleOperationCancellationSignal,
+        mediaSession: MediaSession,
+        hardeningAttempt: R13ReleaseHardeningAttempt?
+    ) async throws {
+        let disposition = try await hardeningAttempt?
+            .disposition(forFrameAt: record.frameIndex)
+        if disposition == .replayVerifiedCache {
+            let cachedFrame = try await hardeningAttempt?
+                .replayFrame(at: record.frameIndex)
+            guard let cachedFrame else {
+                throw UpscalerEngineError.strategyFailed(
+                    "R13 adaptive cache replay did not return its verified frame."
+                )
+            }
+            let processed = try cachedFrame
+                .makeVideoRangePixelBuffer()
+            try R03NV12Contract.validate(
+                pixelBuffer: processed,
+                resolution: plan.targetResolution
+            )
+            try await mediaSession.appendOutput(
+                pixelBuffer: processed,
+                timing: record.timing
+            )
+            runtime.previewEmitter.offer(
+                source: {
+                    try runtime.normalizer
+                        .normalizeForAdaptiveScaling(
+                            record.pixelBuffer,
+                            codedResolution:
+                                source.codedResolution,
+                            presentationResolution:
+                                source.resolution,
+                            processingResolution:
+                                plan.processingSourceResolution,
+                            pixelAspectRatio:
+                                source.pixelAspectRatio
+                        )
+                },
+                processed: processed,
+                sourcePresentationResolution: source.resolution,
+                frameIndex: record.frameIndex,
+                presentationTime: record.presentationTime,
+                presentationTransform:
+                    mediaSession.presentationTransform
+            )
+            return
+        }
+
+        let normalized = try runtime.normalizer
+            .normalizeForAdaptiveScaling(
+                record.pixelBuffer,
+                codedResolution: source.codedResolution,
+                presentationResolution: source.resolution,
+                processingResolution:
+                    plan.processingSourceResolution,
+                pixelAspectRatio: source.pixelAspectRatio
+            )
+        let processed = try PixelBufferBridge.dequeue(
+            from: outputPool
+        )
+        R13NV12GeometryTransfer.installCanonicalAttachments(
+            on: processed,
+            resolution: plan.targetResolution
+        )
+        R03NV12Contract.installColorAttachments(on: processed)
+        try scaler.scale(
+            source: normalized,
+            destination: processed,
+            cancellation: cancellation
+        )
+        try Task.checkCancellation()
+        let cacheFrame = try R13NV12Frame.captureTightActivePlanes(
+            from: processed
+        )
+        try await hardeningAttempt?.commit(
+            frame: cacheFrame,
+            at: record.frameIndex
+        )
+        try await mediaSession.appendOutput(
+            pixelBuffer: processed,
+            timing: record.timing
+        )
+        runtime.previewEmitter.offer(
+            source: { normalized },
+            processed: processed,
+            sourcePresentationResolution: source.resolution,
+            frameIndex: record.frameIndex,
+            presentationTime: record.presentationTime,
+            presentationTransform:
+                mediaSession.presentationTransform
+        )
+    }
+
+    private static func recordFirstDecodedFrame(
+        _ record: FrameRecord,
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile
+    ) {
+        let decodedResolution = VideoResolution(
+            width: CVPixelBufferGetWidth(record.pixelBuffer),
+            height: CVPixelBufferGetHeight(record.pixelBuffer)
+        )
+        let matchesExpectedGeometry =
+            decodedResolution == source.codedResolution
+        runtime.diagnosticRecorder.enqueue(
+            severity: matchesExpectedGeometry ? .info : .warning,
+            subsystem: "release_engine",
+            operation: "decode_source_frame",
+            code: matchesExpectedGeometry
+                ? "release_first_decoded_frame_observed"
+                : "release_first_decoded_frame_geometry_mismatch",
+            job: runtime.job,
+            source: source,
+            frame: record,
+            expectedFrameResolution: source.codedResolution
+        )
+    }
+
+    private static func adaptiveFallbackTimedMetadata(
+        runtime: R13ReleaseJobRuntime,
+        plan: R13AdaptiveScalePlan
+    ) -> [String: String] {
+        [
+            "com.mirmir.release.backend-id":
+                "r13.mps.lanczos.adaptive",
+            "com.mirmir.release.configuration-id":
+                plan.configurationIdentity,
+            "com.mirmir.release.effective-mode":
+                runtime.modeBinding.effectiveMode.rawValue,
+            "com.mirmir.release.requested-mode":
+                runtime.modeBinding.requestedMode.rawValue,
+            "com.mirmir.release.route-id":
+                "adaptive_mps_lanczos"
+        ]
+    }
+
+    private static func adaptiveDiagnosticFields(
+        _ plan: R13AdaptiveScalePlan
+    ) -> [MirmirDiagnosticField] {
+        [
+            try? MirmirDiagnosticField(
+                key: "adaptive_configuration_identity",
+                value: try .identifier(
+                    plan.configurationIdentity
+                )
+            ),
+            try? MirmirDiagnosticField(
+                key: "adaptive_processing_source_width",
+                value: .unsignedInteger(
+                    UInt64(
+                        plan.processingSourceResolution.width
+                    )
+                )
+            ),
+            try? MirmirDiagnosticField(
+                key: "adaptive_processing_source_height",
+                value: .unsignedInteger(
+                    UInt64(
+                        plan.processingSourceResolution.height
+                    )
+                )
+            )
+        ].compactMap { $0 }
+    }
+
     private static func runActiveSessions(
         runtime: R13ReleaseJobRuntime,
         source: SourceProfile,
@@ -641,7 +1116,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                             job: runtime.job,
                             source: source,
                             frame: record,
-                            expectedFrameResolution: source.resolution
+                            expectedFrameResolution: source.codedResolution
                         )
                     }
                     do {
@@ -721,10 +1196,23 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                         )
                     }
                 )
+                let mediaCleanupError =
+                    mediaSession.terminalCleanupError
+                if let mediaCleanupError {
+                    runtime.diagnosticRecorder.enqueue(
+                        severity: .warning,
+                        subsystem: "release_engine",
+                        operation: "cleanup_media_session",
+                        code: "release_media_cleanup_deferred",
+                        job: runtime.job,
+                        source: source,
+                        error: mediaCleanupError
+                    )
+                }
                 try await hardeningAttempt?.completePublishedOutput(
                     at: runtime.job.outputURL,
                     publicationIdentity: mediaSession.publishedOutputIdentity,
-                    mediaCleanupFailed: mediaSession.terminalCleanupError != nil
+                    mediaCleanupFailed: mediaCleanupError != nil
                 )
                 runtime.diagnosticRecorder.enqueue(
                     severity: .notice,
@@ -743,8 +1231,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 )
                 return runtime.job.outputURL
             } onCancel: {
-                mediaSession.cancel()
-                Task {
+                Task.detached(priority: .userInitiated) {
+                    mediaSession.cancel()
                     await upscaleBinding.session.cancel()
                 }
             }
@@ -752,7 +1240,15 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             mediaSession.cancel()
             await upscaleBinding.session.cancel()
             if let cleanupError = mediaSession.terminalCleanupError {
-                throw cleanupError
+                runtime.diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "release_engine",
+                    operation: "cleanup_media_session",
+                    code: "release_media_cleanup_failed",
+                    job: runtime.job,
+                    source: source,
+                    error: cleanupError
+                )
             }
             if error is CancellationError || Task.isCancelled {
                 throw UpscalerEngineError.cancelled

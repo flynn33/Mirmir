@@ -113,6 +113,90 @@ final class R13StorageTopologyTests: XCTestCase {
         XCTAssertTrue(outputProbe.probedURLs.isEmpty)
     }
 
+    func testSameVolumePreFinalizationRecheckAcceptsExactOutputBoundary()
+        async throws {
+        let fixture = try R13HardeningFixture()
+        defer { fixture.cleanup() }
+        let plan = try capacityPlan(for: fixture)
+        let outputProbe = R13CapacityProbe(capacity: UInt64.max)
+        let runtime = try fixture.makeRuntime(
+            cacheProbe: R13CapacityProbe(
+                capacity: plan.combinedBoundary
+            ),
+            outputProbe: outputProbe,
+            sameVolume: true
+        )
+        let attempt = try await runtime.prepare(
+            job: fixture.makeJob(
+                identifier: "r13-shared-output-recheck-boundary"
+            ),
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+
+        outputProbe.capacity = plan.distinctOutputLiveRecheckBoundary
+        try await attempt.beforeOutputFinalize()
+        await attempt.releaseResources()
+
+        XCTAssertEqual(
+            outputProbe.probedURLs,
+            [fixture.outputDirectory]
+        )
+    }
+
+    func testSameVolumePreFinalizationRecheckRejectsOneByteBelowOutputBoundary()
+        async throws {
+        let fixture = try R13HardeningFixture()
+        defer { fixture.cleanup() }
+        let plan = try capacityPlan(for: fixture)
+        let outputProbe = R13CapacityProbe(capacity: UInt64.max)
+        let runtime = try fixture.makeRuntime(
+            cacheProbe: R13CapacityProbe(
+                capacity: plan.combinedBoundary
+            ),
+            outputProbe: outputProbe,
+            sameVolume: true
+        )
+        let attempt = try await runtime.prepare(
+            job: fixture.makeJob(
+                identifier: "r13-shared-output-recheck-floor"
+            ),
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+        let available =
+            plan.distinctOutputLiveRecheckBoundary - 1
+        outputProbe.capacity = available
+
+        do {
+            try await attempt.beforeOutputFinalize()
+            XCTFail(
+                "Same-volume finalization must retain final-output capacity."
+            )
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .insufficientDiskSpace(
+                    requiredBytes:
+                        plan.distinctOutputLiveRecheckBoundary,
+                    availableBytes: available
+                )
+            )
+        }
+        await attempt.releaseResources()
+
+        XCTAssertEqual(
+            outputProbe.probedURLs,
+            [fixture.outputDirectory]
+        )
+    }
+
     func testDistinctVolumesAcceptIndependentExactBoundaries()
         async throws {
         let fixture = try R13HardeningFixture()
@@ -298,8 +382,14 @@ private extension R13StorageTopologyTests {
         let sourceByteCount = UInt64(
             try Data(contentsOf: fixture.sourceURL).count
         )
-        let expectedOutputBytes =
+        let expectedFinalOutputBytes =
             try R13ReleaseHardeningRuntime.expectedOutputBytes(
+                source: fixture.sourceProfile,
+                sourceByteCount: sourceByteCount,
+                job: job
+            )
+        let expectedFinalizationPeakBytes =
+            try R13ReleaseHardeningRuntime.expectedFinalizationPeakBytes(
                 source: fixture.sourceProfile,
                 sourceByteCount: sourceByteCount,
                 job: job
@@ -309,7 +399,7 @@ private extension R13StorageTopologyTests {
         )
         let combinedReceipt = try preflight.evaluate(
             try request(
-                expectedFinalOutputBytes: expectedOutputBytes
+                expectedFinalOutputBytes: expectedFinalizationPeakBytes
             ),
             at: fixture.jobsRoot
         )
@@ -321,7 +411,7 @@ private extension R13StorageTopologyTests {
             documents.resourcePolicy.minimumFreeDiskBytes
         let outputReserveBytes: UInt64 = 67_108_864
         let distinctOutputReservation = try checkedAdd(
-            expectedOutputBytes,
+            expectedFinalizationPeakBytes,
             outputReserveBytes
         )
         return CapacityPlan(
@@ -338,7 +428,10 @@ private extension R13StorageTopologyTests {
                 minimumFreeDiskBytes
             ),
             distinctOutputLiveRecheckBoundary: try checkedAdd(
-                outputReserveBytes,
+                try checkedAdd(
+                    expectedFinalOutputBytes,
+                    outputReserveBytes
+                ),
                 minimumFreeDiskBytes
             )
         )

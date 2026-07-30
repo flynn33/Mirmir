@@ -39,6 +39,9 @@ struct OutputMediaVideoColorExpectation: Sendable, Equatable {
 }
 
 struct OutputMediaAACSampleIdentity: @unchecked Sendable, Equatable {
+    /// One compressed AAC access unit. The source `CMSampleBuffer` batching is
+    /// intentionally discarded because passthrough remuxing may legally
+    /// regroup access units without changing the compressed audio stream.
     let presentationTime: CMTime
     let decodeTime: CMTime
     let duration: CMTime
@@ -73,8 +76,8 @@ struct OutputMediaAACIdentity: @unchecked Sendable, Equatable {
     let channelLayout: OutputMediaAACChannelLayoutIdentity?
     /// SHA-256 over the reader's versioned, big-endian serialization of the
     /// track identity, codec configuration, semantic channel layout, and every
-    /// data-bearing sample's exact timing and compressed payload bytes in
-    /// reader order.
+    /// compressed AAC access unit's semantic timing and exact payload bytes in
+    /// packet order.
     let canonicalSHA256: String
 
     init(
@@ -220,4 +223,23 @@ protocol OutputMediaVerifying: Sendable {
         url: URL,
         expectation: OutputMediaVerificationExpectation
     ) async throws -> OutputMediaVerificationResult
+
+    func verify(
+        url: URL,
+        expectation: OutputMediaVerificationExpectation,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaVerificationResult
+}
+
+extension OutputMediaVerifying {
+    func verify(
+        url: URL,
+        expectation: OutputMediaVerificationExpectation,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaVerificationResult {
+        try cancellationCheck()
+        let result = try await verify(url: url, expectation: expectation)
+        try cancellationCheck()
+        return result
+    }
 }

@@ -1,7 +1,133 @@
 import AVFoundation
 import CoreMedia
 import CoreVideo
+import Darwin
 import Foundation
+
+enum ExactVideoWriterTimeScale {
+    static func resolve(
+        naturalTimeScale: CMTimeScale,
+        trackTimeRange: CMTimeRange
+    ) throws -> CMTimeScale {
+        let start = trackTimeRange.start
+        let end = CMTimeRangeGetEnd(trackTimeRange)
+        guard naturalTimeScale > 0,
+              trackTimeRange.isValid,
+              start.isNumeric,
+              end.isNumeric,
+              start.timescale > 0,
+              end.timescale > 0 else {
+            throw MediaPipelineError.unrepresentableVideoTimeline(
+                naturalTimeScale: naturalTimeScale,
+                start: start,
+                end: end
+            )
+        }
+
+        var resolved = UInt64(naturalTimeScale)
+        for boundary in [start, end] {
+            let boundaryScale = UInt64(boundary.timescale)
+            let reducedDenominator = boundaryScale
+                / greatestCommonDivisor(
+                    boundary.value.magnitude,
+                    boundaryScale
+                )
+            let commonDivisor = greatestCommonDivisor(
+                resolved,
+                reducedDenominator
+            )
+            let multiplier = reducedDenominator / commonDivisor
+            guard resolved <= UInt64(CMTimeScale.max) / multiplier else {
+                throw MediaPipelineError.unrepresentableVideoTimeline(
+                    naturalTimeScale: naturalTimeScale,
+                    start: start,
+                    end: end
+                )
+            }
+            resolved *= multiplier
+        }
+
+        return CMTimeScale(resolved)
+    }
+
+    static func commonScale(_ scales: [CMTimeScale]) throws -> CMTimeScale {
+        guard !scales.isEmpty, scales.allSatisfy({ $0 > 0 }) else {
+            throw MediaPipelineError.invalidFrameTiming(
+                "final movie track timescales must be positive"
+            )
+        }
+        var resolved = UInt64(1)
+        for scale in scales {
+            let candidate = UInt64(scale)
+            let commonDivisor = greatestCommonDivisor(resolved, candidate)
+            let multiplier = candidate / commonDivisor
+            guard resolved <= UInt64(CMTimeScale.max) / multiplier else {
+                throw MediaPipelineError.invalidFrameTiming(
+                    "final movie track timescales have no representable common scale"
+                )
+            }
+            resolved *= multiplier
+        }
+        return CMTimeScale(resolved)
+    }
+
+    static func commonBoundaryScale(
+        _ timeRanges: [CMTimeRange]
+    ) throws -> CMTimeScale {
+        guard !timeRanges.isEmpty else {
+            throw MediaPipelineError.invalidFrameTiming(
+                "final movie must contain at least one track time range"
+            )
+        }
+        var resolved = UInt64(1)
+        for timeRange in timeRanges {
+            let start = timeRange.start
+            let end = CMTimeRangeGetEnd(timeRange)
+            guard timeRange.isValid,
+                  start.isNumeric,
+                  end.isNumeric,
+                  start.timescale > 0,
+                  end.timescale > 0 else {
+                throw MediaPipelineError.invalidFrameTiming(
+                    "final movie track boundaries must be numeric"
+                )
+            }
+            for boundary in [start, end] {
+                let boundaryScale = UInt64(boundary.timescale)
+                let reducedDenominator = boundaryScale
+                    / greatestCommonDivisor(
+                        boundary.value.magnitude,
+                        boundaryScale
+                    )
+                let commonDivisor = greatestCommonDivisor(
+                    resolved,
+                    reducedDenominator
+                )
+                let multiplier = reducedDenominator / commonDivisor
+                guard resolved
+                    <= UInt64(CMTimeScale.max) / multiplier else {
+                    throw MediaPipelineError.invalidFrameTiming(
+                        "final movie boundaries have no representable common scale"
+                    )
+                }
+                resolved *= multiplier
+            }
+        }
+        return CMTimeScale(resolved)
+    }
+
+    private static func greatestCommonDivisor(
+        _ lhs: UInt64,
+        _ rhs: UInt64
+    ) -> UInt64 {
+        var lhs = lhs
+        var rhs = rhs
+        while rhs != 0 {
+            (lhs, rhs) = (rhs, lhs % rhs)
+        }
+        return lhs
+    }
+}
 
 extension AVFoundationMediaSession {
     static func makeReader(asset: AVURLAsset, sourceURL: URL) throws -> AVAssetReader {
@@ -14,9 +140,7 @@ extension AVFoundationMediaSession {
 
     static func configureReaderOutputs(
         reader: AVAssetReader,
-        videoTrack: AVAssetTrack,
-        audioTrack: AVAssetTrack?,
-        preserveAudio: Bool
+        videoTrack: AVAssetTrack
     ) throws -> ReaderOutputs {
         let videoSettings: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
@@ -29,9 +153,7 @@ extension AVFoundationMediaSession {
             throw MediaPipelineError.cannotAddReaderOutput("video")
         }
         reader.add(videoOutput)
-
-        let audioOutput = try makeAudioOutput(reader: reader, audioTrack: audioTrack, preserveAudio: preserveAudio)
-        return ReaderOutputs(video: videoOutput, audio: audioOutput)
+        return ReaderOutputs(video: videoOutput)
     }
 
     static func makeOutputTransaction(
@@ -48,7 +170,11 @@ extension AVFoundationMediaSession {
         }
     }
 
-    static func makeWriter(outputTransaction: AtomicMediaOutput, outputURL: URL) throws -> AVAssetWriter {
+    static func makeWriter(
+        outputTransaction: AtomicMediaOutput,
+        stagingFile: MediaPipelineStagingFile,
+        outputURL: URL
+    ) throws -> AVAssetWriter {
         let fileType: AVFileType
         do {
             fileType = try writerFileType(for: outputURL)
@@ -64,7 +190,7 @@ extension AVFoundationMediaSession {
         }
         do {
             return try AVAssetWriter(
-                url: outputTransaction.temporaryURL,
+                url: stagingFile.url,
                 fileType: fileType
             )
         } catch {
@@ -76,6 +202,31 @@ extension AVFoundationMediaSession {
                 )
             }
             throw MediaPipelineError.writerCreationFailed(outputURL, error)
+        }
+    }
+
+    static func makeStagingFile(
+        outputTransaction: AtomicMediaOutput,
+        outputURL: URL
+    ) throws -> MediaPipelineStagingFile {
+        do {
+            return try MediaPipelineStagingFile(
+                finalTemporaryURL: outputTransaction.temporaryURL,
+                fileSystem:
+                    outputTransaction.fileSystemForSiblingTemporaryFiles
+            )
+        } catch {
+            let cleanup = outputTransaction.fail()
+            if let cleanupError = cleanup.error {
+                throw MediaPipelineError.partialCleanupFailed(
+                    outputTransaction.temporaryURL,
+                    String(describing: cleanupError)
+                )
+            }
+            throw MediaPipelineError.outputPreparationFailed(
+                outputURL,
+                error
+            )
         }
     }
 
@@ -96,9 +247,7 @@ extension AVFoundationMediaSession {
         output: OutputProfile,
         sourceResolution: VideoResolution,
         videoTimeScale: CMTimeScale,
-        videoTransform: CGAffineTransform,
-        audioOutput: AVAssetReaderTrackOutput?,
-        audioFormatDescription: CMFormatDescription?
+        videoTransform: CGAffineTransform
     ) throws -> WriterInputs {
         let outputTransform = try scaledVideoTransform(
             videoTransform,
@@ -115,12 +264,6 @@ extension AVFoundationMediaSession {
             throw MediaPipelineError.cannotAddWriterInput("video")
         }
         writer.add(videoInput)
-        let audioInput = try makeAudioInput(
-            writer: writer,
-            preserveAudio: output.preserveAudio,
-            audioOutput: audioOutput,
-            audioFormatDescription: audioFormatDescription
-        )
         let timedMetadata = try makeTimedMetadataWriter(
             writer: writer,
             template: output.timedMetadataTemplate,
@@ -128,7 +271,6 @@ extension AVFoundationMediaSession {
         )
         return WriterInputs(
             video: videoInput,
-            audio: audioInput,
             timedMetadata: timedMetadata,
             videoTransform: outputTransform
         )
@@ -151,9 +293,12 @@ extension AVFoundationMediaSession {
             / CGFloat(sourceResolution.height)
         guard horizontalScale.isFinite,
               verticalScale.isFinite,
-              abs(horizontalScale - verticalScale) <= 0.000_001 else {
+              R13AspectRatioContract.preservesWithinOneOutputPixel(
+                  source: sourceResolution,
+                  target: outputResolution
+              ) else {
             throw MediaPipelineError.invalidFrameTiming(
-                "output must scale both encoded axes uniformly to preserve orientation"
+                "output aspect must preserve source geometry within one pixel"
             )
         }
         return CGAffineTransform(
@@ -169,7 +314,8 @@ extension AVFoundationMediaSession {
     static func start(
         reader: AVAssetReader,
         writer: AVAssetWriter,
-        outputTransaction: AtomicMediaOutput
+        outputTransaction: AtomicMediaOutput,
+        stagingFile: MediaPipelineStagingFile
     ) throws {
         guard reader.startReading() else {
             let cleanup = outputTransaction.fail()
@@ -193,11 +339,19 @@ extension AVFoundationMediaSession {
             throw MediaPipelineError.writerStartFailed
         }
         do {
+            try stagingFile.claimCreatedFileIfNeeded()
             try outputTransaction.beginWriting()
         } catch {
             reader.cancelReading()
             writer.cancelWriting()
+            let stagingError = stagingFile.cleanup()
             let cleanup = outputTransaction.fail()
+            if let stagingError {
+                throw MediaPipelineError.partialCleanupFailed(
+                    stagingFile.url,
+                    String(describing: stagingError)
+                )
+            }
             if let cleanupError = cleanup.error {
                 throw MediaPipelineError.partialCleanupFailed(
                     outputTransaction.temporaryURL,
@@ -267,21 +421,6 @@ extension AVFoundationMediaSession {
         )
     }
 
-    private static func makeAudioOutput(
-        reader: AVAssetReader,
-        audioTrack: AVAssetTrack?,
-        preserveAudio: Bool
-    ) throws -> AVAssetReaderTrackOutput? {
-        guard preserveAudio, let audioTrack else { return nil }
-        let audioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
-        audioOutput.alwaysCopiesSampleData = false
-        guard reader.canAdd(audioOutput) else {
-            throw MediaPipelineError.cannotAddReaderOutput("audio")
-        }
-        reader.add(audioOutput)
-        return audioOutput
-    }
-
     private static func makeVideoInput(
         output: OutputProfile,
         videoTimeScale: CMTimeScale,
@@ -345,36 +484,14 @@ extension AVFoundationMediaSession {
         return sampleBuffer
     }
 
-    private static func makeAudioInput(
-        writer: AVAssetWriter,
-        preserveAudio: Bool,
-        audioOutput: AVAssetReaderTrackOutput?,
-        audioFormatDescription: CMFormatDescription?
-    ) throws -> AVAssetWriterInput? {
-        guard preserveAudio, audioOutput != nil else { return nil }
-        let audioInput = AVAssetWriterInput(
-            mediaType: .audio,
-            outputSettings: nil,
-            sourceFormatHint: audioFormatDescription
-        )
-        audioInput.expectsMediaDataInRealTime = false
-        guard writer.canAdd(audioInput) else {
-            throw MediaPipelineError.cannotAddWriterInput("audio")
-        }
-        writer.add(audioInput)
-        return audioInput
-    }
-
 }
 
 struct ReaderOutputs {
     let video: AVAssetReaderTrackOutput
-    let audio: AVAssetReaderTrackOutput?
 }
 
 struct WriterInputs {
     let video: AVAssetWriterInput
-    let audio: AVAssetWriterInput?
     let timedMetadata: TimedMetadataWriter?
     let videoTransform: CGAffineTransform
 }
@@ -384,3 +501,120 @@ struct TimedMetadataWriter {
     let adaptor: AVAssetWriterInputMetadataAdaptor
     let expectedKeys: Set<String>
 }
+
+final class MediaPipelineStagingFile: @unchecked Sendable {
+    private enum StagingFileError: Error, CustomStringConvertible {
+        case createdFileMissing
+        case unownedPathPreserved
+        case cleanupFailed(attempts: Int, underlying: Error?)
+
+        var description: String {
+            switch self {
+            case .createdFileMissing:
+                return "The transaction staging file was not created."
+            case .unownedPathPreserved:
+                return "A staging path not owned by this attempt was preserved."
+            case .cleanupFailed(let attempts, let underlying):
+                return "The transaction staging file could not be removed after "
+                    + "\(attempts) attempts: "
+                    + "\(underlying.map(String.init(describing:)) ?? "file remained")."
+            }
+        }
+    }
+
+    let url: URL
+
+    private static let cleanupAttemptLimit = 3
+    private let fileSystem: any AtomicMediaFileSystem
+    private let lock = NSLock()
+    private var ownedFile: AtomicMediaVerifiedTemporaryFile?
+    private var wasRemoved = false
+
+    init(
+        finalTemporaryURL: URL,
+        fileSystem: any AtomicMediaFileSystem =
+            LocalAtomicMediaFileSystem()
+    ) throws {
+        let directory = finalTemporaryURL.deletingLastPathComponent()
+        let pathExtension = finalTemporaryURL.pathExtension
+        let extensionSuffix = pathExtension.isEmpty
+            ? ""
+            : ".\(pathExtension)"
+        let baseName = finalTemporaryURL
+            .deletingPathExtension()
+            .lastPathComponent
+        url = directory.appendingPathComponent(
+            "\(baseName).video-stage\(extensionSuffix)",
+            isDirectory: false
+        )
+        self.fileSystem = fileSystem
+        try fileSystem.reclaimTransactionTemporaryFile(at: url)
+    }
+
+    func claimCreatedFileIfNeeded() throws {
+        lock.lock()
+        defer { lock.unlock() }
+        if ownedFile != nil {
+            return
+        }
+        guard fileSystem.pathEntryExists(at: url) else {
+            throw StagingFileError.createdFileMissing
+        }
+        ownedFile = try AtomicMediaVerifiedTemporaryFile(
+            url: url,
+            requirePopulatedFile: false
+        )
+    }
+
+    func cleanup() -> Error? {
+        lock.lock()
+        defer { lock.unlock() }
+        if wasRemoved {
+            return nil
+        }
+        guard fileSystem.pathEntryExists(at: url) else {
+            wasRemoved = true
+            return nil
+        }
+        guard let ownedFile else {
+            return StagingFileError.unownedPathPreserved
+        }
+        let identity: AtomicMediaPinnedFileIdentity
+        do {
+            identity = try ownedFile.makePinnedFileIdentity()
+        } catch {
+            return error
+        }
+        var lastError: Error?
+        for _ in 0..<Self.cleanupAttemptLimit {
+            do {
+                guard fileSystem.pathEntryExists(at: url) else {
+                    wasRemoved = true
+                    return nil
+                }
+                try fileSystem.removeItem(
+                    at: url,
+                    ifMatchingFile: identity
+                )
+                guard !fileSystem.pathEntryExists(at: url) else {
+                    continue
+                }
+                wasRemoved = true
+                return nil
+            } catch {
+                lastError = error
+            }
+        }
+        return StagingFileError.cleanupFailed(
+            attempts: Self.cleanupAttemptLimit,
+            underlying: lastError
+        )
+    }
+
+    deinit {
+        _ = cleanup()
+    }
+}
+
+// Exact writer setup and its owned staging-file lifecycle form one transaction.
+// swiftlint:disable:this file_length

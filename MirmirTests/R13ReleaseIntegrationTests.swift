@@ -92,7 +92,7 @@ final class R13ReleaseIntegrationTests: XCTestCase {
             harness.capacityObservation.labels,
             try expectedR13IntegrationCapacityLabels(
                 for: workspace,
-                successfulPreflightCount: 1
+                liveRecheckCountsByAttempt: [2]
             )
         )
         try await assertR13SuccessfulResourceClosure(
@@ -171,7 +171,7 @@ final class R13ReleaseIntegrationTests: XCTestCase {
             harness.capacityObservation.labels,
             try expectedR13IntegrationCapacityLabels(
                 for: workspace,
-                successfulPreflightCount: 2
+                liveRecheckCountsByAttempt: [2, 4]
             )
         )
         XCTAssertTrue(

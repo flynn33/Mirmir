@@ -4,7 +4,24 @@ import CoreMedia
 import CryptoKit
 import Foundation
 
+private final class OutputMediaAACReaderCancellation: @unchecked Sendable {
+    private let reader: AVAssetReader
+
+    init(reader: AVAssetReader) {
+        self.reader = reader
+    }
+
+    func cancel() {
+        reader.cancelReading()
+    }
+}
+
 struct OutputMediaAACIdentityReader: Sendable {
+    struct AccessUnit {
+        let identity: OutputMediaAACSampleIdentity
+        let payload: Data
+    }
+
     private struct HeaderIdentity {
         let codec: AudioFormatID
         let sampleRate: Double
@@ -15,18 +32,51 @@ struct OutputMediaAACIdentityReader: Sendable {
     }
 
     func read(url: URL) async throws -> OutputMediaAACIdentity {
+        try await read(
+            url: url,
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
+        )
+    }
+
+    func read(
+        url: URL,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaAACIdentity {
+        try cancellationCheck()
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
-        return try await Self.read(asset: asset)
+        return try await Self.read(
+            asset: asset,
+            cancellationCheck: cancellationCheck
+        )
     }
 
     static func read(asset: AVURLAsset) async throws -> OutputMediaAACIdentity {
+        try await read(
+            asset: asset,
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
+        )
+    }
+
+    static func read(
+        asset: AVURLAsset,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaAACIdentity {
         let tracks: [AVAssetTrack]
         do {
+            try cancellationCheck()
             tracks = try await asset.loadTracks(withMediaType: .audio)
+            try cancellationCheck()
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            try cancellationCheck()
             throw OutputMediaVerificationError.compressedAACMismatch(
                 reason: "audio track loading failed: \(error)"
             )
@@ -40,9 +90,15 @@ struct OutputMediaAACIdentityReader: Sendable {
         let formatDescriptions: [CMFormatDescription]
         let trackTimeRange: CMTimeRange
         do {
+            try cancellationCheck()
             formatDescriptions = try await track.load(.formatDescriptions)
+            try cancellationCheck()
             trackTimeRange = try await track.load(.timeRange)
+            try cancellationCheck()
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            try cancellationCheck()
             throw OutputMediaVerificationError.compressedAACMismatch(
                 reason: "audio format loading failed: \(error)"
             )
@@ -76,22 +132,28 @@ struct OutputMediaAACIdentityReader: Sendable {
             ),
             channelLayout: try readChannelLayoutIdentity(from: formatDescription)
         )
-        return try readCompressedSamples(
+        return try await readCompressedSamples(
             asset: asset,
             track: track,
-            header: header
+            header: header,
+            cancellationCheck: cancellationCheck
         )
     }
 
     private static func readCompressedSamples(
         asset: AVURLAsset,
         track: AVAssetTrack,
-        header: HeaderIdentity
-    ) throws -> OutputMediaAACIdentity {
+        header: HeaderIdentity,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaAACIdentity {
         let reader: AVAssetReader
         do {
+            try cancellationCheck()
             reader = try AVAssetReader(asset: asset)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            try cancellationCheck()
             throw OutputMediaVerificationError.compressedAACMismatch(
                 reason: "compressed audio reader creation failed: \(error)"
             )
@@ -111,59 +173,81 @@ struct OutputMediaAACIdentityReader: Sendable {
             )
         }
 
-        var canonicalHasher = CanonicalAACIdentityHasher(
-            codec: header.codec,
-            sampleRate: header.sampleRate,
-            channelCount: header.channelCount,
-            codecConfigurationMagicCookie: header.codecConfigurationMagicCookie,
-            channelLayout: header.channelLayout,
-            trackTimeRange: header.trackTimeRange
-        )
-        var samples: [OutputMediaAACSampleIdentity] = []
-        while let sample = output.copyNextSampleBuffer() {
-            // AVFoundation can emit a terminal marker with no media samples or
-            // payload. It is not part of the ordered compressed AAC sequence.
-            guard CMSampleBufferGetNumSamples(sample) > 0 else {
-                continue
-            }
-            let payload = try copyPayload(from: sample, sampleIndex: samples.count)
-            let sampleIdentity = OutputMediaAACSampleIdentity(
-                presentationTime: CMSampleBufferGetPresentationTimeStamp(sample),
-                decodeTime: CMSampleBufferGetDecodeTimeStamp(sample),
-                duration: CMSampleBufferGetDuration(sample),
-                sampleCount: CMSampleBufferGetNumSamples(sample),
-                payloadByteCount: payload.count,
-                payloadSHA256: sha256(payload)
-            )
-            canonicalHasher.append(
-                sample: sampleIdentity,
-                payload: payload,
-                index: samples.count
-            )
-            samples.append(sampleIdentity)
-        }
-        guard reader.status == .completed else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: reader.error.map { "compressed audio reader failed: \($0)" }
-                    ?? "compressed audio reader status \(reader.status.rawValue)"
-            )
-        }
-        guard !samples.isEmpty else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "audio track contains no compressed AAC samples"
-            )
-        }
+        let cancellation = OutputMediaAACReaderCancellation(reader: reader)
+        return try await withTaskCancellationHandler {
+            do {
+                var canonicalHasher = CanonicalAACIdentityHasher(
+                    codec: header.codec,
+                    sampleRate: header.sampleRate,
+                    channelCount: header.channelCount,
+                    codecConfigurationMagicCookie: header.codecConfigurationMagicCookie,
+                    channelLayout: header.channelLayout,
+                    trackTimeRange: header.trackTimeRange
+                )
+                var samples: [OutputMediaAACSampleIdentity] = []
+                while true {
+                    try cancellationCheck()
+                    guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                        break
+                    }
+                    try cancellationCheck()
+                    // AVFoundation can emit a terminal marker with no media
+                    // samples or payload. It is not part of the compressed
+                    // AAC access-unit sequence.
+                    guard CMSampleBufferGetNumSamples(sampleBuffer) > 0 else {
+                        continue
+                    }
+                    let accessUnits = try accessUnits(
+                        from: sampleBuffer,
+                        startingAt: samples.count
+                    )
+                    for accessUnit in accessUnits {
+                        try cancellationCheck()
+                        canonicalHasher.append(
+                            sample: accessUnit.identity,
+                            payload: accessUnit.payload,
+                            index: samples.count
+                        )
+                        samples.append(accessUnit.identity)
+                    }
+                }
+                try cancellationCheck()
+                guard reader.status == .completed else {
+                    throw OutputMediaVerificationError.compressedAACMismatch(
+                        reason: reader.error.map {
+                            "compressed audio reader failed: \($0)"
+                        } ?? "compressed audio reader status \(reader.status.rawValue)"
+                    )
+                }
+                guard !samples.isEmpty else {
+                    throw OutputMediaVerificationError.compressedAACMismatch(
+                        reason: "audio track contains no compressed AAC samples"
+                    )
+                }
 
-        return OutputMediaAACIdentity(
-            codec: header.codec,
-            sampleRate: header.sampleRate,
-            channelCount: header.channelCount,
-            trackTimeRange: header.trackTimeRange,
-            samples: samples,
-            canonicalSHA256: canonicalHasher.finalize(sampleCount: samples.count),
-            codecConfigurationMagicCookie: header.codecConfigurationMagicCookie,
-            channelLayout: header.channelLayout
-        )
+                return OutputMediaAACIdentity(
+                    codec: header.codec,
+                    sampleRate: header.sampleRate,
+                    channelCount: header.channelCount,
+                    trackTimeRange: header.trackTimeRange,
+                    samples: samples,
+                    canonicalSHA256: canonicalHasher.finalize(
+                        sampleCount: samples.count
+                    ),
+                    codecConfigurationMagicCookie:
+                        header.codecConfigurationMagicCookie,
+                    channelLayout: header.channelLayout
+                )
+            } catch is CancellationError {
+                cancellation.cancel()
+                throw CancellationError()
+            } catch {
+                try cancellationCheck()
+                throw error
+            }
+        } onCancel: {
+            cancellation.cancel()
+        }
     }
 }
 
@@ -179,7 +263,7 @@ extension OutputMediaAACIdentityReader {
             channelLayout: OutputMediaAACChannelLayoutIdentity?,
             trackTimeRange: CMTimeRange
         ) {
-            append(Data("mirmir-output-aac-identity-v2\0".utf8))
+            append(Data("mirmir-output-aac-identity-v3\0".utf8))
             append(codec)
             append(sampleRate.bitPattern)
             append(channelCount)
@@ -231,9 +315,30 @@ extension OutputMediaAACIdentityReader {
         }
 
         private mutating func append(_ time: CMTime) {
-            append(UInt64(bitPattern: time.value))
-            append(UInt32(bitPattern: time.timescale))
-            append(time.flags.rawValue)
+            guard time.isValid else {
+                append(UInt8(0))
+                return
+            }
+            if time.isPositiveInfinity {
+                append(UInt8(1))
+            } else if time.isNegativeInfinity {
+                append(UInt8(2))
+            } else if time.isIndefinite {
+                append(UInt8(3))
+            } else if time.isNumeric, time.timescale > 0 {
+                append(UInt8(4))
+                let divisor = semanticTimeDivisor(
+                    value: time.value,
+                    timescale: time.timescale
+                )
+                append(time.value / divisor)
+                append(UInt32(Int64(time.timescale) / divisor))
+            } else {
+                append(UInt8(5))
+                append(UInt64(bitPattern: time.value))
+                append(UInt32(bitPattern: time.timescale))
+                append(time.flags.rawValue)
+            }
             append(UInt64(bitPattern: time.epoch))
         }
 
@@ -247,6 +352,140 @@ extension OutputMediaAACIdentityReader {
         private mutating func append(_ data: Data) {
             hasher.update(data: data)
         }
+
+        private func semanticTimeDivisor(
+            value: Int64,
+            timescale: CMTimeScale
+        ) -> Int64 {
+            let denominator = Int64(timescale)
+            var lhs = denominator
+            var rhs = value % denominator
+            if rhs < 0 {
+                rhs = -rhs
+            }
+            while rhs != 0 {
+                let remainder = lhs % rhs
+                lhs = rhs
+                rhs = remainder
+            }
+            return lhs
+        }
+    }
+}
+
+extension OutputMediaAACIdentityReader {
+    // Bounds, partition, timing, and payload checks form one fail-closed parse.
+    // swiftlint:disable:next function_body_length
+    static func accessUnits(
+        from sampleBuffer: CMSampleBuffer,
+        startingAt firstAccessUnitIndex: Int
+    ) throws -> [AccessUnit] {
+        let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+        guard sampleCount > 0 else {
+            return []
+        }
+        guard firstAccessUnitIndex >= 0 else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "compressed access-unit index cannot be negative"
+            )
+        }
+        guard let blockBuffer = CMSampleBufferGetDataBuffer(sampleBuffer) else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "compressed sample buffer beginning at access unit "
+                    + "\(firstAccessUnitIndex) has no block buffer"
+            )
+        }
+        let payloadLength = CMBlockBufferGetDataLength(blockBuffer)
+        guard payloadLength > 0 else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "compressed sample buffer beginning at access unit "
+                    + "\(firstAccessUnitIndex) has an empty payload"
+            )
+        }
+
+        var sampleSizes: [Int] = []
+        sampleSizes.reserveCapacity(sampleCount)
+        var partitionLength = 0
+        for sampleIndex in 0..<sampleCount {
+            let sampleSize = CMSampleBufferGetSampleSize(
+                sampleBuffer,
+                at: sampleIndex
+            )
+            guard sampleSize > 0 else {
+                throw OutputMediaVerificationError.compressedAACMismatch(
+                    reason: "compressed access unit "
+                        + "\(firstAccessUnitIndex + sampleIndex) has an empty payload"
+                )
+            }
+            let (nextLength, overflowed) = partitionLength.addingReportingOverflow(
+                sampleSize
+            )
+            guard !overflowed else {
+                throw OutputMediaVerificationError.compressedAACMismatch(
+                    reason: "compressed sample payload partition length overflowed"
+                )
+            }
+            partitionLength = nextLength
+            sampleSizes.append(sampleSize)
+        }
+        guard partitionLength == payloadLength else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "compressed sample payload partition is \(partitionLength) bytes; "
+                    + "block buffer contains \(payloadLength) bytes"
+            )
+        }
+
+        var accessUnits: [AccessUnit] = []
+        accessUnits.reserveCapacity(sampleCount)
+        var payloadOffset = 0
+        for sampleIndex in 0..<sampleCount {
+            var timing = CMSampleTimingInfo()
+            let timingStatus = CMSampleBufferGetSampleTimingInfo(
+                sampleBuffer,
+                at: sampleIndex,
+                timingInfoOut: &timing
+            )
+            guard timingStatus == noErr else {
+                throw OutputMediaVerificationError.compressedAACMismatch(
+                    reason: "compressed access unit "
+                        + "\(firstAccessUnitIndex + sampleIndex) timing read failed: "
+                        + "\(timingStatus)"
+                )
+            }
+
+            let sampleSize = sampleSizes[sampleIndex]
+            var payload = Data(count: sampleSize)
+            let payloadStatus: OSStatus = payload.withUnsafeMutableBytes { bytes in
+                guard let destination = bytes.baseAddress else {
+                    return kCMBlockBufferBadPointerParameterErr
+                }
+                return CMBlockBufferCopyDataBytes(
+                    blockBuffer,
+                    atOffset: payloadOffset,
+                    dataLength: sampleSize,
+                    destination: destination
+                )
+            }
+            guard payloadStatus == kCMBlockBufferNoErr else {
+                throw OutputMediaVerificationError.compressedAACMismatch(
+                    reason: "compressed access unit "
+                        + "\(firstAccessUnitIndex + sampleIndex) payload copy failed: "
+                        + "\(payloadStatus)"
+                )
+            }
+
+            let identity = OutputMediaAACSampleIdentity(
+                presentationTime: timing.presentationTimeStamp,
+                decodeTime: timing.decodeTimeStamp,
+                duration: timing.duration,
+                sampleCount: 1,
+                payloadByteCount: payload.count,
+                payloadSHA256: sha256(payload)
+            )
+            accessUnits.append(AccessUnit(identity: identity, payload: payload))
+            payloadOffset += sampleSize
+        }
+        return accessUnits
     }
 }
 
@@ -316,41 +555,6 @@ private extension OutputMediaAACIdentityReader {
         )
     }
 
-    static func copyPayload(
-        from sample: CMSampleBuffer,
-        sampleIndex: Int
-    ) throws -> Data {
-        guard let blockBuffer = CMSampleBufferGetDataBuffer(sample) else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "compressed sample \(sampleIndex) has no block buffer"
-            )
-        }
-        let length = CMBlockBufferGetDataLength(blockBuffer)
-        guard length > 0 else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "compressed sample \(sampleIndex) has an empty payload"
-            )
-        }
-        var payload = Data(count: length)
-        let status: OSStatus = payload.withUnsafeMutableBytes { bytes in
-            guard let destination = bytes.baseAddress else {
-                return kCMBlockBufferBadPointerParameterErr
-            }
-            return CMBlockBufferCopyDataBytes(
-                blockBuffer,
-                atOffset: 0,
-                dataLength: length,
-                destination: destination
-            )
-        }
-        guard status == kCMBlockBufferNoErr else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "compressed sample \(sampleIndex) payload copy failed: \(status)"
-            )
-        }
-        return payload
-    }
-
     static func sha256(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
@@ -365,3 +569,6 @@ private extension OutputMediaAACIdentityReader {
         return String(bytes: bytes, encoding: .ascii) ?? "????"
     }
 }
+
+// AAC header parsing, access-unit parsing, and canonical hashing are one contract.
+// swiftlint:disable:this file_length

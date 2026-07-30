@@ -41,7 +41,7 @@ final class MirmirAppBootstrapTests: XCTestCase {
         XCTAssertEqual(bootstrap.viewModel.selectedModeAvailability, .available)
         XCTAssertEqual(
             bootstrap.viewModel.engineSelectionText,
-            "Apple MPS Lanczos (A11)"
+            "Apple MPS Lanczos"
         )
 
         bootstrap.viewModel.selectedMode = .auto

@@ -18,12 +18,37 @@ struct R13CryptoKitRestartDigest: R13RestartDigesting {
     }
 }
 
+struct R13RestartRegularFileSnapshot: Equatable, Sendable {
+    let deviceID: UInt64
+    let fileID: UInt64
+    let mode: UInt32
+    let linkCount: UInt64
+    let byteCount: Int64
+    let modificationTimeSeconds: Int64
+    let modificationTimeNanoseconds: Int64
+    let statusChangeTimeSeconds: Int64
+    let statusChangeTimeNanoseconds: Int64
+}
+
+struct R13RestartRegularFileRead: Sendable {
+    let data: Data
+    let snapshot: R13RestartRegularFileSnapshot?
+}
+
 protocol R13RestartFileSystem: Sendable {
     func ensureDirectory(_ url: URL) throws
     func createDirectoryExclusively(_ url: URL) throws
     func validateDirectory(_ url: URL) throws
     func exists(_ url: URL) -> Bool
     func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data
+    func readRegularFileWithSnapshot(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> R13RestartRegularFileRead
+    func regularFile(
+        _ url: URL,
+        matches snapshot: R13RestartRegularFileSnapshot
+    ) -> Bool
     func writeNewAtomically(_ data: Data, to url: URL) throws
     func replaceAtomically(_ data: Data, at url: URL) throws
     func publishDirectoryAtomically(from sourceURL: URL, to destinationURL: URL)
@@ -32,18 +57,45 @@ protocol R13RestartFileSystem: Sendable {
     func removeDirectory(_ url: URL) throws
 }
 
+extension R13RestartFileSystem {
+    func readRegularFileWithSnapshot(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> R13RestartRegularFileRead {
+        R13RestartRegularFileRead(
+            data: try readRegularFile(url, maximumBytes: maximumBytes),
+            snapshot: nil
+        )
+    }
+
+    func regularFile(
+        _: URL,
+        matches _: R13RestartRegularFileSnapshot
+    ) -> Bool {
+        false
+    }
+}
+
 struct R13LocalRestartFileSystem: R13RestartFileSystem {
-    private let trustedRootURL: URL?
+    private struct TrustedRoot {
+        let canonicalURL: URL
+        let presentedURL: URL
+    }
+
+    private let trustedRoot: TrustedRoot?
 
     init() {
-        trustedRootURL = nil
+        trustedRoot = nil
     }
 
     init(trustedRootURL: URL) throws {
+        let presentedRoot = trustedRootURL.standardizedFileURL
         let resolvedRoot = R13RestartPath.resolvingExistingAncestor(
             of: trustedRootURL
         )
-        guard resolvedRoot.isFileURL,
+        guard presentedRoot.isFileURL,
+              presentedRoot.path.hasPrefix("/"),
+              resolvedRoot.isFileURL,
               resolvedRoot.path.hasPrefix("/") else {
             throw R13RestartJobError.unsafeFilesystemEntry(
                 trustedRootURL.path
@@ -59,7 +111,10 @@ struct R13LocalRestartFileSystem: R13RestartFileSystem {
             )
         }
         close(descriptor)
-        self.trustedRootURL = resolvedRoot
+        trustedRoot = TrustedRoot(
+            canonicalURL: resolvedRoot,
+            presentedURL: presentedRoot
+        )
     }
 
     func ensureDirectory(_ url: URL) throws {
@@ -118,6 +173,16 @@ struct R13LocalRestartFileSystem: R13RestartFileSystem {
     }
 
     func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        try readRegularFileWithSnapshot(
+            url,
+            maximumBytes: maximumBytes
+        ).data
+    }
+
+    func readRegularFileWithSnapshot(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> R13RestartRegularFileRead {
         guard maximumBytes > 0 else {
             throw R13RestartJobError.fileTooLarge(
                 path: url.path,
@@ -164,7 +229,57 @@ struct R13LocalRestartFileSystem: R13RestartFileSystem {
                   sameSnapshot(after, pathAfter) else {
                 throw R13RestartJobError.unsafeFilesystemEntry(url.path)
             }
-            return data
+            return R13RestartRegularFileRead(
+                data: data,
+                snapshot: regularFileSnapshot(after)
+            )
+        }
+    }
+
+    func regularFile(
+        _ url: URL,
+        matches snapshot: R13RestartRegularFileSnapshot
+    ) -> Bool {
+        do {
+            return try withParentDirectory(of: url) { parent, name in
+                var before = stat()
+                guard fstatat(
+                    parent,
+                    name,
+                    &before,
+                    AT_SYMLINK_NOFOLLOW
+                ) == 0,
+                isSingleLinkRegularFile(before) else {
+                    return false
+                }
+                let descriptor = openat(
+                    parent,
+                    name,
+                    O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+                )
+                guard descriptor >= 0 else { return false }
+                defer { close(descriptor) }
+
+                var opened = stat()
+                var after = stat()
+                var pathAfter = stat()
+                guard fstat(descriptor, &opened) == 0,
+                      sameSnapshot(before, opened),
+                      fstat(descriptor, &after) == 0,
+                      sameSnapshot(opened, after),
+                      fstatat(
+                          parent,
+                          name,
+                          &pathAfter,
+                          AT_SYMLINK_NOFOLLOW
+                      ) == 0,
+                      sameSnapshot(after, pathAfter) else {
+                    return false
+                }
+                return regularFileSnapshot(after) == snapshot
+            }
+        } catch {
+            return false
         }
     }
 
@@ -319,20 +434,28 @@ private extension R13LocalRestartFileSystem {
         for url: URL
     ) throws -> DirectoryTraversal {
         let components = try pathComponents(url)
-        guard let trustedRootURL else {
+        guard let trustedRoot else {
             return DirectoryTraversal(
                 startingPath: "/",
                 components: components
             )
         }
-        let trustedComponents = try pathComponents(trustedRootURL)
-        guard components.starts(with: trustedComponents) else {
+        let trustedComponents = try pathComponents(trustedRoot.canonicalURL)
+        let presentedComponents = try pathComponents(
+            trustedRoot.presentedURL
+        )
+        let trustedComponentCount: Int
+        if components.starts(with: trustedComponents) {
+            trustedComponentCount = trustedComponents.count
+        } else if components.starts(with: presentedComponents) {
+            trustedComponentCount = presentedComponents.count
+        } else {
             throw R13RestartJobError.unsafeFilesystemEntry(url.path)
         }
         return DirectoryTraversal(
-            startingPath: trustedRootURL.path,
+            startingPath: trustedRoot.canonicalURL.path,
             components: Array(
-                components.dropFirst(trustedComponents.count)
+                components.dropFirst(trustedComponentCount)
             )
         )
     }
@@ -612,6 +735,26 @@ private extension R13LocalRestartFileSystem {
             && lhs.st_mtimespec.tv_nsec == rhs.st_mtimespec.tv_nsec
             && lhs.st_ctimespec.tv_sec == rhs.st_ctimespec.tv_sec
             && lhs.st_ctimespec.tv_nsec == rhs.st_ctimespec.tv_nsec
+    }
+
+    private func regularFileSnapshot(
+        _ metadata: stat
+    ) -> R13RestartRegularFileSnapshot {
+        R13RestartRegularFileSnapshot(
+            deviceID: UInt64(bitPattern: Int64(metadata.st_dev)),
+            fileID: UInt64(metadata.st_ino),
+            mode: UInt32(metadata.st_mode),
+            linkCount: UInt64(metadata.st_nlink),
+            byteCount: Int64(metadata.st_size),
+            modificationTimeSeconds:
+                Int64(metadata.st_mtimespec.tv_sec),
+            modificationTimeNanoseconds:
+                Int64(metadata.st_mtimespec.tv_nsec),
+            statusChangeTimeSeconds:
+                Int64(metadata.st_ctimespec.tv_sec),
+            statusChangeTimeNanoseconds:
+                Int64(metadata.st_ctimespec.tv_nsec)
+        )
     }
 
     private static func sameDirectoryObject(

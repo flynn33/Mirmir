@@ -3,6 +3,8 @@ import os.lock
 import XCTest
 @testable import Mirmir
 
+// Transaction state, ownership, and adversarial path cases share one fixture.
+// swiftlint:disable:next type_body_length
 final class AtomicMediaOutputTests: XCTestCase {
     func testPublicationIdentityExposesItsValueContract() {
         let sha256 = String(repeating: "a", count: 64)
@@ -23,17 +25,449 @@ final class AtomicMediaOutputTests: XCTestCase {
             destinationURL: fixture.destination,
             temporaryIdentifier: "r13-job-001"
         )
+        let firstTemporaryURL = first.temporaryURL
+        _ = first.fail()
         let reconstructed = try AtomicMediaOutput(
             destinationURL: fixture.destination,
             temporaryIdentifier: "r13-job-001"
         )
+        let reconstructedTemporaryURL = reconstructed.temporaryURL
+        _ = reconstructed.fail()
         let other = try AtomicMediaOutput(
             destinationURL: fixture.destination,
             temporaryIdentifier: "r13-job-002"
         )
 
-        XCTAssertEqual(first.temporaryURL, reconstructed.temporaryURL)
-        XCTAssertNotEqual(first.temporaryURL, other.temporaryURL)
+        XCTAssertEqual(firstTemporaryURL, reconstructedTemporaryURL)
+        XCTAssertNotEqual(firstTemporaryURL, other.temporaryURL)
+    }
+
+    func testOwnedCrashRemnantIsReclaimedBeforeWritingBegins()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "stable-retry"
+        let temporaryURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-\(identifier).partial.mp4"
+        )
+        let fileSystem = LocalAtomicMediaFileSystem()
+        XCTAssertFalse(
+            try fileSystem.reclaimTransactionTemporaryFile(
+                at: temporaryURL
+            )
+        )
+        try Data("stale-partial".utf8).write(to: temporaryURL)
+
+        let retry = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: identifier
+        )
+
+        XCTAssertTrue(retry.reclaimedStaleTemporaryFile)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: temporaryURL.path
+            )
+        )
+        XCTAssertEqual(retry.snapshot.state, .created)
+    }
+
+    func testUnmarkedRegularCollisionIsPreserved()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "unmarked-collision"
+        let temporaryURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-\(identifier).partial.mp4"
+        )
+        let unrelatedBytes = Data("operator-owned".utf8)
+        try unrelatedBytes.write(
+            to: temporaryURL,
+            options: .withoutOverwriting
+        )
+
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: identifier
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unownedTemporaryFilePreserved(temporaryURL)
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: temporaryURL),
+            unrelatedBytes
+        )
+    }
+
+    func testInvalidOwnershipMarkerPreservesRegularCollision()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "invalid-marker"
+        let temporaryURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-\(identifier).partial.mp4"
+        )
+        let fileSystem = LocalAtomicMediaFileSystem()
+        _ = try fileSystem.reclaimTransactionTemporaryFile(
+            at: temporaryURL
+        )
+        let markerURL = try XCTUnwrap(
+            FileManager.default.contentsOfDirectory(
+                at: fixture.directory,
+                includingPropertiesForKeys: nil
+            ).first {
+                $0.lastPathComponent.hasPrefix(
+                    ".mirmir-temporary-owner-"
+                )
+            }
+        )
+        try FileManager.default.removeItem(at: markerURL)
+        let invalidMarker = Data("not-mirmir-evidence".utf8)
+        try invalidMarker.write(
+            to: markerURL,
+            options: .withoutOverwriting
+        )
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o600)],
+            ofItemAtPath: markerURL.path
+        )
+        let unrelatedBytes = Data("operator-owned".utf8)
+        try unrelatedBytes.write(
+            to: temporaryURL,
+            options: .withoutOverwriting
+        )
+
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: identifier
+            )
+        ) { error in
+            guard case .unsafeTemporaryFile(let actualURL) =
+                error as? AtomicMediaOutputError else {
+                return XCTFail(
+                    "Expected unsafe ownership marker; received \(error)"
+                )
+            }
+            XCTAssertEqual(
+                actualURL.standardizedFileURL.path,
+                markerURL.standardizedFileURL.path
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: temporaryURL),
+            unrelatedBytes
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: markerURL),
+            invalidMarker
+        )
+    }
+
+    func testActiveTransactionLeaseRejectsSecondLiveWriter()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let first = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "first-live-writer"
+        )
+
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: "second-live-writer"
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .transactionDirectoryBusy(
+                    fixture.destination.deletingLastPathComponent()
+                )
+            )
+        }
+        _ = first.fail()
+    }
+
+    func testCancellationRemovesTransactionLeaseSidecar() throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "lease-cleanup"
+        )
+        let leaseURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-output.lock"
+        )
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: leaseURL.path)
+        )
+        XCTAssertEqual(
+            fixture.transactionOwnershipMarkers().count,
+            1
+        )
+        _ = transaction.cancel()
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: leaseURL.path)
+        )
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
+    }
+
+    func testCancellationPreservesPreExistingTransactionLeaseSidecar()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let leaseURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-output.lock"
+        )
+        try Data().write(to: leaseURL, options: .withoutOverwriting)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o600)],
+            ofItemAtPath: leaseURL.path
+        )
+        let attributesBefore = try FileManager.default
+            .attributesOfItem(atPath: leaseURL.path)
+
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "pre-existing-lease"
+        )
+        _ = transaction.cancel()
+
+        let attributesAfter = try FileManager.default
+            .attributesOfItem(atPath: leaseURL.path)
+        XCTAssertEqual(
+            attributesAfter[.systemNumber] as? NSNumber,
+            attributesBefore[.systemNumber] as? NSNumber
+        )
+        XCTAssertEqual(
+            attributesAfter[.systemFileNumber] as? NSNumber,
+            attributesBefore[.systemFileNumber] as? NSNumber
+        )
+    }
+
+    func testLeasePathReplacementFailsClosedAndPreservesReplacement()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "replaced-lease"
+        )
+        let leaseURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-output.lock"
+        )
+        try FileManager.default.removeItem(at: leaseURL)
+        try Data().write(to: leaseURL, options: .withoutOverwriting)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o600)],
+            ofItemAtPath: leaseURL.path
+        )
+        let replacementAttributes = try FileManager.default
+            .attributesOfItem(atPath: leaseURL.path)
+
+        XCTAssertThrowsError(try transaction.beginWriting()) { error in
+            guard case .transactionDirectoryUnavailable =
+                error as? AtomicMediaOutputError else {
+                return XCTFail(
+                    "Expected a failed-closed lease validation, got \(error)."
+                )
+            }
+        }
+        _ = transaction.cancel()
+
+        let attributesAfter = try FileManager.default
+            .attributesOfItem(atPath: leaseURL.path)
+        XCTAssertEqual(
+            attributesAfter[.systemNumber] as? NSNumber,
+            replacementAttributes[.systemNumber] as? NSNumber
+        )
+        XCTAssertEqual(
+            attributesAfter[.systemFileNumber] as? NSNumber,
+            replacementAttributes[.systemFileNumber] as? NSNumber
+        )
+    }
+
+    func testUnsafeCrashRemnantsAreRejectedAndPreserved()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "unsafe-remnant"
+        let seed = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: identifier
+        )
+        let temporaryURL = seed.temporaryURL
+        _ = seed.fail()
+
+        try FileManager.default.createDirectory(
+            at: temporaryURL,
+            withIntermediateDirectories: false
+        )
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: identifier
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unsafeTemporaryFile(temporaryURL)
+            )
+        }
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: temporaryURL.path,
+                isDirectory: &isDirectory
+            )
+        )
+        XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    func testSymlinkCrashRemnantDoesNotMutateItsTarget()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "symlink-remnant"
+        let seed = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: identifier
+        )
+        let temporaryURL = seed.temporaryURL
+        _ = seed.fail()
+        let targetURL = fixture.destination
+            .deletingLastPathComponent()
+            .appendingPathComponent("symlink-target")
+        let targetBytes = Data("target-must-survive".utf8)
+        try targetBytes.write(to: targetURL)
+        try FileManager.default.createSymbolicLink(
+            at: temporaryURL,
+            withDestinationURL: targetURL
+        )
+
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: identifier
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unsafeTemporaryFile(temporaryURL)
+            )
+        }
+        XCTAssertEqual(try Data(contentsOf: targetURL), targetBytes)
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: temporaryURL.path
+            ),
+            targetURL.path
+        )
+    }
+
+    func testHardLinkedCrashRemnantIsRejectedAndPreserved()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "hardlink-remnant"
+        let seed = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: identifier
+        )
+        let temporaryURL = seed.temporaryURL
+        _ = seed.fail()
+        let originalURL = fixture.destination
+            .deletingLastPathComponent()
+            .appendingPathComponent("hardlink-original")
+        let originalBytes = Data("linked-data".utf8)
+        try originalBytes.write(to: originalURL)
+        try FileManager.default.linkItem(
+            at: originalURL,
+            to: temporaryURL
+        )
+
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: identifier
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unsafeTemporaryFile(temporaryURL)
+            )
+        }
+        XCTAssertEqual(try Data(contentsOf: originalURL), originalBytes)
+        XCTAssertEqual(try Data(contentsOf: temporaryURL), originalBytes)
+    }
+
+    func testUnownedCollisionIsPreservedWithoutRecursiveCleanup()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "unowned-collision"
+        )
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try FileManager.default.createDirectory(
+            at: transaction.temporaryURL,
+            withIntermediateDirectories: false
+        )
+        let nestedURL = transaction.temporaryURL
+            .appendingPathComponent("operator-data")
+        let nestedBytes = Data("preserve-me".utf8)
+        try nestedBytes.write(to: nestedURL)
+
+        let cleanup = transaction.fail()
+
+        XCTAssertFalse(cleanup.temporaryFileRemoved)
+        XCTAssertEqual(
+            cleanup.error,
+            .unownedTemporaryFilePreserved(
+                transaction.temporaryURL
+            )
+        )
+        XCTAssertEqual(try Data(contentsOf: nestedURL), nestedBytes)
+    }
+
+    func testCleanupPreservesReplacementAtClaimedPath()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "claimed-replacement"
+        )
+        try Data("owned".utf8).write(
+            to: transaction.temporaryURL
+        )
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.claimTemporaryFileForVerification()
+        try FileManager.default.removeItem(
+            at: transaction.temporaryURL
+        )
+        let replacement = Data("replacement".utf8)
+        try replacement.write(to: transaction.temporaryURL)
+
+        let cleanup = transaction.cancel()
+
+        XCTAssertFalse(cleanup.temporaryFileRemoved)
+        XCTAssertNotNil(cleanup.error)
+        XCTAssertEqual(
+            try Data(contentsOf: transaction.temporaryURL),
+            replacement
+        )
     }
 
     func testInvalidStableIdentifiersAreRejectedBeforePathConstruction() throws {
@@ -74,14 +508,21 @@ final class AtomicMediaOutputTests: XCTestCase {
             destinationURL: fixture.destination,
             temporaryIdentifier: "r13-job-first"
         )
+        let secondDestination = fixture.destination
+            .deletingLastPathComponent()
+            .appendingPathComponent("second.mp4")
         let second = try AtomicMediaOutput(
-            destinationURL: fixture.destination,
+            destinationURL: secondDestination,
             temporaryIdentifier: "r13-job-second"
         )
         try Data("first".utf8).write(to: first.temporaryURL)
         try Data("second".utf8).write(to: second.temporaryURL)
         try first.beginWriting()
         try second.beginWriting()
+        try first.beginFinishing()
+        try second.beginFinishing()
+        try first.claimTemporaryFileForVerification()
+        try second.claimTemporaryFileForVerification()
 
         let cleanup = first.cancel()
 
@@ -160,6 +601,8 @@ final class AtomicMediaOutputTests: XCTestCase {
         )
         try Data("partial".utf8).write(to: transaction.temporaryURL)
         try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.claimTemporaryFileForVerification()
 
         let cleanup = transaction.fail()
 
@@ -183,6 +626,8 @@ final class AtomicMediaOutputTests: XCTestCase {
         )
         try Data("partial".utf8).write(to: transaction.temporaryURL)
         try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.claimTemporaryFileForVerification()
 
         let cleanup = transaction.cancel()
 
@@ -369,6 +814,51 @@ final class AtomicMediaOutputTests: XCTestCase {
         XCTAssertNil(transaction.publishedOutputIdentity)
     }
 
+    func testBrokenSymlinkAtPublishIsPreservedAndReported()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "broken-symlink-at-publish"
+        )
+        try Data("candidate".utf8).write(
+            to: transaction.temporaryURL
+        )
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.beginVerifying()
+        try FileManager.default.removeItem(
+            at: transaction.temporaryURL
+        )
+        let missingTarget = fixture.directory
+            .appendingPathComponent("missing-target")
+        try FileManager.default.createSymbolicLink(
+            at: transaction.temporaryURL,
+            withDestinationURL: missingTarget
+        )
+
+        XCTAssertThrowsError(try transaction.publish()) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .temporaryFileMissing(transaction.temporaryURL)
+            )
+        }
+        XCTAssertEqual(transaction.snapshot.state, .failed)
+        XCTAssertEqual(
+            transaction.snapshot.cleanup?.error,
+            .unownedTemporaryFilePreserved(
+                transaction.temporaryURL
+            )
+        )
+        XCTAssertEqual(
+            try FileManager.default.destinationOfSymbolicLink(
+                atPath: transaction.temporaryURL.path
+            ),
+            missingTarget.path
+        )
+    }
+
 }
 
 struct TemporaryOutputFixture {
@@ -393,6 +883,18 @@ struct TemporaryOutputFixture {
         return contents.filter {
             $0.lastPathComponent.hasPrefix(".output.mirmir-")
                 && $0.lastPathComponent.contains(".partial")
+        }
+    }
+
+    func transactionOwnershipMarkers() -> [URL] {
+        let contents = (try? FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        )) ?? []
+        return contents.filter {
+            $0.lastPathComponent.hasPrefix(
+                ".mirmir-temporary-owner-"
+            )
         }
     }
 
@@ -450,17 +952,52 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
         local.fileExists(at: url)
     }
 
-    func removeItem(at url: URL) throws {
-        let fails = state.withLock { state in
-            state.removalCallCount += 1
-            if state.removalFailuresRemaining > 0 {
-                state.removalFailuresRemaining -= 1
-                return true
-            }
-            return false
+    func pathEntryExists(at url: URL) -> Bool {
+        local.pathEntryExists(at: url)
+    }
+
+    func acquireTransactionLease(
+        for destinationURL: URL
+    ) throws -> AtomicMediaTransactionLease {
+        try local.acquireTransactionLease(
+            for: destinationURL
+        )
+    }
+
+    func reclaimTransactionTemporaryFile(
+        at url: URL
+    ) throws -> Bool {
+        if local.pathEntryExists(at: url) {
+            let fails = recordRemovalAttempt()
+            if fails { throw InjectedFailure() }
         }
+        return try local.reclaimTransactionTemporaryFile(at: url)
+    }
+
+    func discardTransactionTemporaryFileReservation(
+        at url: URL
+    ) throws {
+        try local.discardTransactionTemporaryFileReservation(
+            at: url
+        )
+    }
+
+    func removeItem(at url: URL) throws {
+        let fails = recordRemovalAttempt()
         if fails { throw InjectedFailure() }
         try local.removeItem(at: url)
+    }
+
+    func removeItem(
+        at url: URL,
+        ifMatchingFile identity: AtomicMediaPinnedFileIdentity
+    ) throws {
+        let fails = recordRemovalAttempt()
+        if fails { throw InjectedFailure() }
+        try local.removeItem(
+            at: url,
+            ifMatchingFile: identity
+        )
     }
 
     func removeItem(
@@ -488,4 +1025,18 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
         }
         try local.publishAtomically(from: temporaryURL, to: destinationURL)
     }
+
+    private func recordRemovalAttempt() -> Bool {
+        state.withLock { state in
+            state.removalCallCount += 1
+            if state.removalFailuresRemaining > 0 {
+                state.removalFailuresRemaining -= 1
+                return true
+            }
+            return false
+        }
+    }
 }
+
+// Atomic output fixtures intentionally remain adjacent to the state-machine tests.
+// swiftlint:disable:this file_length

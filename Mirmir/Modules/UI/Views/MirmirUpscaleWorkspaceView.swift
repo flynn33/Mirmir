@@ -85,7 +85,6 @@ private struct MirmirViewerPanel: View {
     let theme: MirmirThemeTokens
 
     @State private var splitPosition = 0.5
-    @State private var scrubPosition = 0.0
 
     var body: some View {
         MirmirPanel(theme: theme) {
@@ -93,11 +92,10 @@ private struct MirmirViewerPanel: View {
                 comparisonSurface
                     .frame(minHeight: 360)
 
-                MirmirPlaybackControls(
+                MirmirSampledPreviewControls(
                     viewModel: viewModel,
                     theme: theme,
-                    splitPosition: $splitPosition,
-                    scrubPosition: $scrubPosition
+                    splitPosition: $splitPosition
                 )
             }
         }
@@ -128,11 +126,19 @@ private struct MirmirViewerPanel: View {
         let splitX = max(0, min(size.width, size.width * splitPosition))
 
         return ZStack(alignment: .leading) {
-            HStack(spacing: 0) {
-                previewHalf(title: "Before", subtitle: sourceResolutionText)
-                    .frame(width: splitX)
-                previewHalf(title: "After", subtitle: targetResolutionText)
-                    .frame(width: max(0, size.width - splitX))
+            if let frame = viewModel.latestPreviewFrame {
+                MirmirPreviewRaster(image: frame.processed)
+                    .frame(width: size.width, height: size.height)
+
+                MirmirPreviewRaster(image: frame.source)
+                    .frame(width: size.width, height: size.height)
+                    .mask(alignment: .leading) {
+                        Rectangle()
+                            .frame(width: splitX)
+                    }
+            } else {
+                previewPlaceholder
+                    .frame(width: size.width, height: size.height)
             }
 
             Rectangle()
@@ -153,41 +159,79 @@ private struct MirmirViewerPanel: View {
                         .stroke(theme.accentSecondary, lineWidth: 1)
                 }
                 .offset(x: splitX - 17)
-                .accessibilityLabel("Before after split handle")
+                .accessibilityHidden(true)
+
+            previewLabels
+                .frame(width: size.width, height: size.height)
+
+            if viewModel.latestPreviewFrame != nil,
+               case .failed(let reason) = viewModel.state {
+                previewFailure(reason)
+                    .frame(width: size.width, height: size.height)
+            }
         }
+        .clipped()
     }
 
-    private func previewHalf(title: String, subtitle: String) -> some View {
-        ZStack(alignment: .topLeading) {
+    private var previewPlaceholder: some View {
+        ZStack {
             Rectangle()
                 .fill(theme.surfaceInset)
-
             VStack(spacing: theme.spacing.space2) {
-                Image(systemName: title == "Before" ? "film" : "rectangle.inset.filled")
+                Image(systemName: "rectangle.split.2x1")
                     .font(.system(size: 36, weight: .light))
                     .foregroundStyle(theme.textTertiary)
-                Text(previewMessage)
+                Text(MirmirPreviewPresentation.message(for: viewModel.state))
                     .font(theme.typography.body)
                     .foregroundStyle(theme.textSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, theme.spacing.space6)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+    }
 
-            VStack(alignment: .leading, spacing: theme.spacing.space1) {
-                Text(title)
-                    .font(theme.typography.captionEmphasis)
-                Text(subtitle)
-                    .font(theme.typography.micro.monospacedDigit())
-            }
-            .foregroundStyle(theme.viewerOverlayText)
-            .padding(.horizontal, theme.spacing.space2)
-            .padding(.vertical, theme.spacing.space1)
-            .background(
-                RoundedRectangle(cornerRadius: theme.radius.small)
-                    .fill(theme.viewerOverlay)
-            )
-            .padding(theme.spacing.space3)
+    private var previewLabels: some View {
+        HStack(alignment: .top) {
+            previewLabel("Before", subtitle: sourceResolutionText)
+            Spacer()
+            previewLabel("After", subtitle: targetResolutionText)
+        }
+        .padding(theme.spacing.space3)
+    }
+
+    private func previewLabel(
+        _ title: String,
+        subtitle: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space1) {
+            Text(title)
+                .font(theme.typography.captionEmphasis)
+            Text(subtitle)
+                .font(theme.typography.micro.monospacedDigit())
+        }
+        .foregroundStyle(theme.viewerOverlayText)
+        .padding(.horizontal, theme.spacing.space2)
+        .padding(.vertical, theme.spacing.space1)
+        .background(
+            RoundedRectangle(cornerRadius: theme.radius.small)
+                .fill(theme.viewerOverlay)
+        )
+    }
+
+    private func previewFailure(_ reason: String) -> some View {
+        VStack {
+            Spacer()
+            Text("Upscale failed: \(reason)")
+                .font(theme.typography.captionEmphasis)
+                .foregroundStyle(theme.viewerOverlayText)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, theme.spacing.space3)
+                .padding(.vertical, theme.spacing.space2)
+                .background(
+                    RoundedRectangle(cornerRadius: theme.radius.medium)
+                        .fill(theme.viewerOverlay)
+                )
+                .padding(theme.spacing.space3)
         }
     }
 
@@ -200,20 +244,60 @@ private struct MirmirViewerPanel: View {
         MirmirViewModel.fileLabel(for: viewModel.targetResolution)
     }
 
-    private var previewMessage: String {
-        switch viewModel.state {
+}
+
+struct MirmirPreviewPresentation {
+    static func message(for state: MirmirViewModel.JobState) -> String {
+        switch state {
         case .idle:
             return "Drop a video here or choose a source file."
         case .probing:
             return "Analyzing source metadata."
         case .ready:
-            return "Live preview is unavailable; choose an output to upscale."
+            return "Start upscaling to see sampled production frames."
         case .running:
-            return "Processing is active. Output is verified before publication."
+            return "Waiting for the first processed preview sample."
         case .finished:
-            return "Output is complete. Use Reveal Output to inspect the file."
-        case .failed:
-            return "The current source cannot be prepared."
+            return "No processed preview sample was produced."
+        case .failed(let reason):
+            return "Upscale failed: \(reason)"
+        }
+    }
+
+    static func timestamp(seconds: Double) -> String {
+        guard seconds.isFinite else { return "00:00:00" }
+        let maximumSafeSeconds = Double(Int.max / 2)
+        let totalSeconds = Int(
+            min(max(seconds, 0).rounded(.down), maximumSafeSeconds)
+        )
+        let hours = totalSeconds / 3600
+        let minutes = (totalSeconds % 3600) / 60
+        let remainingSeconds = totalSeconds % 60
+        return String(
+            format: "%02d:%02d:%02d",
+            hours,
+            minutes,
+            remainingSeconds
+        )
+    }
+}
+
+private struct MirmirPreviewRaster: View {
+    let image: UpscalePreviewImage
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let cgImage = image.makeCGImage() {
+                Image(
+                    decorative: cgImage,
+                    scale: 1,
+                    orientation: .up
+                )
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+            }
         }
     }
 }
@@ -249,7 +333,10 @@ private struct MirmirSourceDropTarget: View {
                     }
                     .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
                     .accessibilityLabel("Choose Source")
-                    Text("Quality, Fast, and Deterministic use the qualified Apple MPS Lanczos route.")
+                    Text(
+                        "Quality, Fast, and Deterministic use Apple MPS "
+                            + "Lanczos with a geometry-qualified route."
+                    )
                         .font(theme.typography.caption)
                         .foregroundStyle(theme.textTertiary)
                 }
@@ -268,28 +355,27 @@ private struct MirmirSourceDropTarget: View {
     }
 }
 
-private struct MirmirPlaybackControls: View {
+private struct MirmirSampledPreviewControls: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
     @Binding var splitPosition: Double
-    @Binding var scrubPosition: Double
 
     var body: some View {
         VStack(alignment: .leading, spacing: theme.spacing.space2) {
             HStack(spacing: theme.spacing.space2) {
-                playbackButton("play.fill", label: "Play or pause preview")
-                playbackButton("backward.frame.fill", label: "Step backward")
-                playbackButton("forward.frame.fill", label: "Step forward")
-
-                Slider(value: $scrubPosition, in: 0...1)
-                    .disabled(true)
-                    .help("Live frame playback is not available in this build.")
-                    .accessibilityLabel("Timeline scrubber")
-
-                Text(timecodeText)
+                Label(
+                    "Live sampled preview",
+                    systemImage: "rectangle.split.2x1"
+                )
+                .font(theme.typography.captionEmphasis)
+                .foregroundStyle(theme.textSecondary)
+                Text(sampleText)
                     .font(theme.typography.caption.monospacedDigit())
                     .foregroundStyle(theme.textSecondary)
-                    .frame(width: 150, alignment: .trailing)
+                Spacer()
+                Text("Continuous playback and scrubbing are not included.")
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
             }
 
             HStack(spacing: theme.spacing.space2) {
@@ -297,46 +383,23 @@ private struct MirmirPlaybackControls: View {
                     .font(theme.typography.captionEmphasis)
                     .foregroundStyle(theme.textSecondary)
                 Slider(value: $splitPosition, in: 0.2...0.8)
-                    .disabled(viewModel.sourceProfile == nil)
+                    .disabled(viewModel.latestPreviewFrame == nil)
                     .accessibilityLabel("Before after split")
-                Text(previewAvailabilityText)
+                Text("Both sides show the same sampled production frame.")
                     .font(theme.typography.caption)
                     .foregroundStyle(theme.textTertiary)
             }
         }
     }
 
-    private func playbackButton(_ symbol: String, label: String) -> some View {
-        Button {} label: {
-            Image(systemName: symbol)
-                .frame(width: 28, height: 28)
+    private var sampleText: String {
+        guard let frame = viewModel.latestPreviewFrame else {
+            return "No processed sample yet"
         }
-        .buttonStyle(MirmirIconButtonStyle(theme: theme))
-        .disabled(true)
-        .help("\(label) is unavailable because live preview is not included.")
-        .accessibilityLabel(label)
-    }
-
-    private var timecodeText: String {
-        guard let profile = viewModel.sourceProfile else {
-            return "00:00:00:00 / 00:00:00:00"
-        }
-        let duration = format(seconds: profile.durationSeconds)
-        return "00:00:00:00 / \(duration)"
-    }
-
-    private var previewAvailabilityText: String {
-        viewModel.sourceProfile == nil
-            ? "Choose a source to inspect its duration."
-            : "Live frame playback is not available."
-    }
-
-    private func format(seconds: Double) -> String {
-        let totalSeconds = max(0, Int(seconds.rounded()))
-        let hours = totalSeconds / 3600
-        let minutes = (totalSeconds % 3600) / 60
-        let remainingSeconds = totalSeconds % 60
-        return String(format: "%02d:%02d:%02d:00", hours, minutes, remainingSeconds)
+        return "Frame \(frame.frameIndex + 1) · "
+            + MirmirPreviewPresentation.timestamp(
+                seconds: frame.presentationSeconds
+            )
     }
 }
 
@@ -363,7 +426,11 @@ private struct MirmirUpscaleInspector: View {
                         }
                         .pickerStyle(.menu)
                         .disabled(true)
-                        .help("Strategy selection is fixed for the supported resolution pair.")
+                        .help(
+                            "Mirmir selects the qualified A11 route for "
+                                + "canonical pairs or a dimension-bound "
+                                + "adaptive route for other eligible geometry."
+                        )
                     }
 
                     MirmirFieldRow("Mode", theme: theme) {
@@ -435,11 +502,22 @@ private struct MirmirUpscaleInspector: View {
             return "Not available"
         }
         guard let profile = viewModel.sourceProfile else {
-            return "Qualified A11 route"
+            return "MPS Lanczos route"
         }
         let source = MirmirViewModel.fileLabel(for: profile.resolution)
         let target = MirmirViewModel.fileLabel(for: viewModel.targetResolution)
-        return "A11 MPS Lanczos (\(source) to \(target))"
+        guard let plan = try? R13ReleaseJobContracts.scalePlan(
+            source: profile.resolution,
+            target: viewModel.targetResolution
+        ) else {
+            return "No compatible MPS route"
+        }
+        switch plan {
+        case .productQualified:
+            return "Qualified A11 MPS Lanczos (\(source) to \(target))"
+        case .adaptiveMPSLanczos:
+            return "Adaptive MPS Lanczos (\(source) to \(target))"
+        }
     }
 
     private var destinationLabel: String {
@@ -479,3 +557,6 @@ private struct MirmirUpscaleInspector: View {
         }
     }
 }
+
+// The workspace and its private, screen-specific subviews remain co-located.
+// swiftlint:disable:this file_length

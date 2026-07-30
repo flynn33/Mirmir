@@ -19,6 +19,10 @@ final class R13ReleaseIdentityTests: XCTestCase {
         XCTAssertEqual(first.backendRevision, "1")
         XCTAssertEqual(first.routeID, "scale_2x")
         XCTAssertEqual(first.framework.frameworkIdentifier, "MetalPerformanceShaders")
+        XCTAssertEqual(
+            first.identitySHA256,
+            "75a76c3abf989885c4397d965d9bd862ff3948d9cd6e1dacd1b233e55defb9c3"
+        )
 
         let metadata = first.timedMetadata
         XCTAssertEqual(metadata.count, 22)
@@ -40,6 +44,139 @@ final class R13ReleaseIdentityTests: XCTestCase {
             first.identitySHA256
         )
         XCTAssertNoThrow(try first.validateTimedMetadata(metadata))
+    }
+
+    func testAdaptiveIdentityAndPolicyBindTheExactDynamicMPSPlan()
+        throws {
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: VideoResolution(width: 728, height: 410),
+            targetResolution: VideoResolution(width: 1_278, height: 720)
+        )
+        let scalePlan = R13ReleaseScalePlan.adaptiveMPSLanczos(plan)
+        let basePolicy = try R13ReleasePolicyResourceBinding(
+            policySHA256: hash("2"),
+            resourceManifestSHA256: hash("3")
+        )
+        let boundPolicy = try R13ReleaseHardeningRuntime.policyResources(
+            for: scalePlan,
+            base: basePolicy
+        )
+        let policyDocument = R13AdaptiveReleasePolicyDocument(plan: plan)
+        let policyData = try R13RestartCanonical.data(policyDocument)
+        let decodedPolicy = try JSONDecoder().decode(
+            R13AdaptiveReleasePolicyDocument.self,
+            from: policyData
+        )
+
+        XCTAssertEqual(decodedPolicy, policyDocument)
+        XCTAssertEqual(
+            boundPolicy.policySHA256,
+            R13CryptoKitRestartDigest().sha256(policyData)
+        )
+        XCTAssertNotEqual(
+            boundPolicy.policySHA256,
+            basePolicy.policySHA256
+        )
+        XCTAssertEqual(
+            boundPolicy.resourceManifestSHA256,
+            basePolicy.resourceManifestSHA256
+        )
+        XCTAssertEqual(
+            try R13ReleaseHardeningRuntime.policyResources(
+                for: .productQualified(.scale2x),
+                base: basePolicy
+            ),
+            basePolicy
+        )
+
+        let identity = try R13ReleaseIdentity(
+            try makeAdaptiveInput(
+                plan: plan,
+                policyResources: boundPolicy
+            )
+        )
+
+        XCTAssertEqual(
+            identity.capabilityID,
+            R13ReleaseIdentity.adaptiveCapabilityID
+        )
+        XCTAssertEqual(
+            identity.backendID,
+            R13ReleaseIdentity.adaptiveBackendID
+        )
+        XCTAssertEqual(
+            identity.routeID,
+            R13ReleaseIdentity.adaptiveRouteID
+        )
+        XCTAssertEqual(
+            identity.configurationIdentity,
+            plan.configurationIdentity
+        )
+        XCTAssertEqual(
+            identity.policyIdentity,
+            R13ReleaseIdentity.adaptivePolicyIdentity
+        )
+        XCTAssertEqual(
+            identity.materialDecisionIdentity,
+            R13ReleaseIdentity.adaptiveMaterialDecisionIdentity
+        )
+        XCTAssertEqual(identity.policyResources, boundPolicy)
+        XCTAssertNotEqual(identity.identitySHA256, try makeIdentity().identitySHA256)
+
+        let job = UpscaleJob(
+            identifier: "r13-adaptive-identity",
+            inputURL: URL(fileURLWithPath: "/tmp/adaptive-input"),
+            outputURL: URL(fileURLWithPath: "/tmp/adaptive-output.mp4"),
+            targetResolution: plan.targetResolution,
+            codec: .hevc,
+            preserveAudio: true,
+            mode: .quality
+        )
+        let source = try R13RestartSourceIdentity(
+            sha256: hash("1"),
+            byteCount: 9_876_543
+        )
+        let core = try R13ReleaseHardeningRuntime.makeRestartCore(
+            job: job,
+            scalePlan: scalePlan,
+            identity: identity,
+            source: source,
+            totalFrameCount: 17
+        )
+        XCTAssertEqual(
+            core.processing.routeIdentity,
+            "\(R13ReleaseIdentity.adaptiveRouteID):"
+                + plan.configurationIdentity
+        )
+        XCTAssertEqual(
+            core.processing.backendIdentity,
+            R13ReleaseIdentity.adaptiveBackendID
+        )
+    }
+
+    func testAdaptiveIdentityRejectsAnA11RouteClaim() throws {
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: VideoResolution(width: 728, height: 410),
+            targetResolution: VideoResolution(width: 1_278, height: 720)
+        )
+        let input = try makeAdaptiveInput(
+            plan: plan,
+            policyResources: R13ReleasePolicyResourceBinding(
+                policySHA256: hash("2"),
+                resourceManifestSHA256: hash("3")
+            )
+        )
+        let invalid = replacingRoute(
+            input,
+            with: try R13ReleaseIdentity.makeA11Route(for: .scale2x)
+        )
+
+        XCTAssertThrowsError(try R13ReleaseIdentity(invalid)) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .adaptiveBindingMismatch(field: "backend_id")
+            )
+        }
     }
 
     func testChangingBoundBytesOrPolicyChangesTheIdentityHash() throws {
@@ -90,7 +227,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
                 codec: .hevc,
                 preserveAudio: true
             ),
-            scaleRoute: input.scaleRoute,
+            scalePlan: input.scalePlan,
             routeIdentity: input.routeIdentity,
             application: input.application,
             framework: input.framework,
@@ -214,7 +351,7 @@ private extension R13ReleaseIdentityTests {
                 codec: .hevc,
                 preserveAudio: true
             ),
-            scaleRoute: scaleRoute,
+            scalePlan: .productQualified(scaleRoute),
             routeIdentity: try R13ReleaseIdentity.makeA11Route(for: scaleRoute),
             application: try application(),
             framework: try R13ReleaseFrameworkIdentity(
@@ -248,6 +385,42 @@ private extension R13ReleaseIdentityTests {
         )
     }
 
+    func makeAdaptiveInput(
+        plan: R13AdaptiveScalePlan,
+        policyResources: R13ReleasePolicyResourceBinding
+    ) throws -> R13ReleaseIdentityInput {
+        R13ReleaseIdentityInput(
+            source: try R13ReleaseSourceBinding(
+                sha256: hash("1"),
+                byteCount: 9_876_543
+            ),
+            modeBinding: try R13ReleaseModePolicy.binding(for: .quality),
+            output: try R13ReleaseOutputBinding(
+                resolution: plan.targetResolution,
+                codec: .hevc,
+                preserveAudio: true
+            ),
+            scalePlan: .adaptiveMPSLanczos(plan),
+            routeIdentity: try R13ReleaseIdentity.makeAdaptiveRoute(
+                for: plan
+            ),
+            application: try application(),
+            framework: try R13ReleaseFrameworkIdentity(
+                frameworkIdentifier: "MetalPerformanceShaders",
+                version: "15.4",
+                buildIdentity: "24F74"
+            ),
+            runtime: try R13ReleaseRuntimeIdentity(
+                runtimeIdentifier: "macOS",
+                version: "15.4",
+                buildIdentity: "24F74",
+                architecture: "arm64"
+            ),
+            policyResources: policyResources,
+            fallbackHistory: []
+        )
+    }
+
     func replacingRoute(
         _ input: R13ReleaseIdentityInput,
         with route: AppleUpscaleRouteIdentity
@@ -256,7 +429,7 @@ private extension R13ReleaseIdentityTests {
             source: input.source,
             modeBinding: input.modeBinding,
             output: input.output,
-            scaleRoute: input.scaleRoute,
+            scalePlan: input.scalePlan,
             routeIdentity: route,
             application: input.application,
             framework: input.framework,
@@ -274,7 +447,7 @@ private extension R13ReleaseIdentityTests {
             source: input.source,
             modeBinding: input.modeBinding,
             output: input.output,
-            scaleRoute: input.scaleRoute,
+            scalePlan: input.scalePlan,
             routeIdentity: input.routeIdentity,
             application: input.application,
             framework: input.framework,

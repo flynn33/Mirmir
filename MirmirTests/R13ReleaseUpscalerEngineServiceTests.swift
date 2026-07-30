@@ -1,4 +1,6 @@
 import Darwin
+import CoreGraphics
+import CoreMedia
 import CoreVideo
 import Foundation
 import os.lock
@@ -151,15 +153,110 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         }
     }
 
-    func testFrameLoopPreservesFIFOAndReleasesInputAndOutputLifetimes() async throws {
+    func testScalePlanPreservesQualifiedRoutesAndBindsAdaptiveGeometry()
+        throws {
+        XCTAssertEqual(
+            try R13ReleaseJobContracts.scalePlan(
+                source: .p720,
+                target: .p1080
+            ),
+            .productQualified(.scale3Over2)
+        )
+        XCTAssertEqual(
+            try R13ReleaseJobContracts.scalePlan(
+                source: .p1080,
+                target: .p2160
+            ),
+            .productQualified(.scale2x)
+        )
+
+        let source = VideoResolution(width: 729, height: 411)
+        let target = VideoResolution(width: 1_278, height: 720)
+        guard case .adaptiveMPSLanczos(let plan) =
+            try R13ReleaseJobContracts.scalePlan(
+                source: source,
+                target: target
+            ) else {
+            return XCTFail("Expected adaptive MPS plan.")
+        }
+        XCTAssertEqual(plan.sourceResolution, source)
+        XCTAssertEqual(
+            plan.processingSourceResolution,
+            VideoResolution(width: 730, height: 412)
+        )
+        XCTAssertEqual(plan.targetResolution, target)
+        XCTAssertTrue(
+            plan.configurationIdentity.contains(
+                "730x412-to-1278x720"
+            )
+        )
+    }
+
+    func testAdaptiveScalePlanRejectsDownscaleOddTargetAndAspectChange() {
+        for target in [
+            VideoResolution(width: 640, height: 360),
+            VideoResolution(width: 1_279, height: 720),
+            VideoResolution(width: 1_000, height: 720)
+        ] {
+            XCTAssertThrowsError(
+                try R13AdaptiveScalePlan(
+                    sourceResolution: VideoResolution(
+                        width: 640,
+                        height: 360
+                    ),
+                    targetResolution: target
+                )
+            )
+        }
+    }
+
+    func testAspectContractUsesExactOnePixelBoundaryWithoutOverflow() {
+        let maximum = Int.max
+        let source = VideoResolution(
+            width: maximum,
+            height: maximum
+        )
+        XCTAssertTrue(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: source,
+                target: VideoResolution(
+                    width: maximum,
+                    height: maximum - 1
+                )
+            ),
+            "A one-output-pixel width difference is admissible."
+        )
+        XCTAssertFalse(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: source,
+                target: VideoResolution(
+                    width: maximum,
+                    height: maximum - 2
+                )
+            ),
+            "A two-output-pixel width difference is not admissible."
+        )
+        XCTAssertFalse(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: VideoResolution(width: 0, height: 1),
+                target: VideoResolution(width: 2, height: 2)
+            )
+        )
+    }
+
+    func testAdaptiveGeometryUsesDistinctMPSPathAndMetadata()
+        async throws {
         let eventLog = R13ReleaseTestEventLog()
-        let frames = try [
-            R13ReleaseTestFrames.make(resolution: .p720, index: 0),
-            R13ReleaseTestFrames.make(resolution: .p720, index: 1)
-        ]
+        let source = VideoResolution(width: 640, height: 360)
+        let target = VideoResolution(width: 1_280, height: 720)
         let media = R13ReleaseTestMediaPipeline(
-            resolution: .p720,
-            frames: frames,
+            resolution: source,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: source,
+                    index: 0
+                )
+            ],
             eventLog: eventLog
         )
         let factory = R13ReleaseTestSessionFactory(
@@ -171,6 +268,147 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             sessionFactory: { [factory] route in
                 try await factory.make(route: route)
             },
+            adaptiveScalerFactory: { [eventLog] plan in
+                R13ReleaseTestAdaptiveScaler(
+                    plan: plan,
+                    eventLog: eventLog
+                )
+            }
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-adaptive-geometry",
+                target: target,
+                mode: .deterministic
+            )
+        )
+
+        let result = try await handle.waitForCompletion()
+
+        XCTAssertEqual(
+            result.lastPathComponent,
+            "r13-adaptive-geometry.mp4"
+        )
+        XCTAssertTrue(factory.routes.isEmpty)
+        XCTAssertTrue(eventLog.contains("adaptive.scale"))
+        let mediaSession = try XCTUnwrap(media.lastSession)
+        XCTAssertEqual(mediaSession.appendedFrameIndices, [0])
+        XCTAssertEqual(mediaSession.finishCount, 1)
+        XCTAssertEqual(mediaSession.cancelCount, 0)
+        XCTAssertEqual(
+            mediaSession.outputProfile.timedMetadataTemplate[
+                "com.mirmir.release.backend-id"
+            ],
+            "r13.mps.lanczos.adaptive"
+        )
+        XCTAssertEqual(
+            mediaSession.outputProfile.timedMetadataTemplate[
+                "com.mirmir.release.route-id"
+            ],
+            "adaptive_mps_lanczos"
+        )
+    }
+
+    func testOnePixelAdaptiveAspectRoundingIsAcceptedByOutputAndPreview()
+        throws {
+        let source = VideoResolution(width: 729, height: 411)
+        let normalizedSource = VideoResolution(width: 730, height: 412)
+        let target = VideoResolution(width: 1_278, height: 720)
+        XCTAssertNoThrow(
+            try AVFoundationMediaSession.scaledVideoTransform(
+                .identity,
+                sourceResolution: source,
+                outputResolution: target
+            )
+        )
+        let sourceBuffer = try R13ReleaseTestFrames.makeOutput(
+            resolution: normalizedSource
+        )
+        let targetBuffer = try R13ReleaseTestFrames.makeOutput(
+            resolution: target
+        )
+
+        let preview = try R13PreviewFrameEncoder().encode(
+            source: sourceBuffer,
+            processed: targetBuffer,
+            sourcePresentationResolution: source,
+            frameIndex: 0,
+            presentationSeconds: 0,
+            presentationTransform: .identity
+        )
+
+        XCTAssertEqual(preview.source.width, source.width)
+        XCTAssertEqual(preview.source.height, source.height)
+        XCTAssertEqual(preview.processed.width, source.width)
+        XCTAssertEqual(preview.processed.height, source.height)
+    }
+
+    func testOutputAndPreviewRejectAspectChangesLargerThanOnePixel()
+        throws {
+        let source = VideoResolution(width: 728, height: 410)
+        let invalidTarget = VideoResolution(width: 1_260, height: 720)
+        XCTAssertThrowsError(
+            try AVFoundationMediaSession.scaledVideoTransform(
+                .identity,
+                sourceResolution: source,
+                outputResolution: invalidTarget
+            )
+        )
+        let sourceBuffer = try R13ReleaseTestFrames.makeOutput(
+            resolution: source
+        )
+        let targetBuffer = try R13ReleaseTestFrames.makeOutput(
+            resolution: invalidTarget
+        )
+
+        XCTAssertThrowsError(
+            try R13PreviewFrameEncoder().encode(
+                source: sourceBuffer,
+                processed: targetBuffer,
+                sourcePresentationResolution: source,
+                frameIndex: 0,
+                presentationSeconds: 0,
+                presentationTransform: .identity
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13PreviewFrameEncodingError,
+                .aspectRatioMismatch
+            )
+        }
+    }
+
+    func testFrameLoopPreservesFIFOAndReleasesInputAndOutputLifetimes() async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let previewEncoder = R13RecordingPreviewEncoder(eventLog: eventLog)
+        let presentationTransform = CGAffineTransform(
+            a: 0,
+            b: 1,
+            c: -1,
+            d: 0,
+            tx: 1_080,
+            ty: 0
+        )
+        let frames = try [
+            R13ReleaseTestFrames.make(resolution: .p720, index: 0),
+            R13ReleaseTestFrames.make(resolution: .p720, index: 1)
+        ]
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: frames,
+            eventLog: eventLog,
+            presentationTransform: presentationTransform
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            previewEncoder: previewEncoder,
             inputReleaseObserver: { [eventLog] identity in
                 eventLog.record("input.release.\(identity)")
             }
@@ -194,18 +432,589 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         XCTAssertEqual(snapshot.finishCount, 1)
 
         let events = eventLog.events
-        for index in 0...1 {
-            assertOrdered(
-                [
-                    "apple.submit.\(index)",
-                    "input.release.r13.a11.input.fast.\(index)",
-                    "media.append.\(index)",
-                    "output.release.\(index)"
-                ],
-                in: events
+        assertOrdered(
+            [
+                "apple.submit.0",
+                "input.release.r13.a11.input.fast.0",
+                "media.append.0",
+                "preview.encode.0",
+                "output.release.0"
+            ],
+            in: events
+        )
+        assertOrdered(
+            [
+                "apple.submit.1",
+                "input.release.r13.a11.input.fast.1",
+                "media.append.1",
+                "output.release.1"
+            ],
+            in: events
+        )
+        XCTAssertEqual(previewEncoder.encodedFrameIndices, [0])
+        XCTAssertEqual(
+            previewEncoder.presentationTransforms,
+            [presentationTransform]
+        )
+        XCTAssertFalse(events.contains("media.cancel"))
+    }
+
+    func testPreviewEncoderCopiesBoundedImmutableSourceAndProcessedImages()
+        throws {
+        let sourceRecord = try R13ReleaseTestFrames.make(
+            resolution: VideoResolution(width: 16, height: 8),
+            index: 7
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+        try fillNV12(
+            sourceRecord.pixelBuffer,
+            luma: 32,
+            chroma: 128
+        )
+        try fillNV12(
+            processed,
+            luma: 224,
+            chroma: 128
+        )
+        let encoder = R13PreviewFrameEncoder()
+        let uhdPreviewDimensions = R13PreviewFrameEncoder.previewDimensions(
+            width: 3_840,
+            height: 2_160
+        )
+
+        let preview = try encoder.encode(
+            source: sourceRecord.pixelBuffer,
+            processed: processed,
+            sourcePresentationResolution:
+                VideoResolution(width: 16, height: 8),
+            frameIndex: 7,
+            presentationSeconds: 1.25,
+            presentationTransform: .identity
+        )
+        let copiedSource = preview.source.rgba8
+        let copiedProcessed = preview.processed.rgba8
+
+        XCTAssertEqual(preview.frameIndex, 7)
+        XCTAssertEqual(preview.presentationSeconds, 1.25)
+        XCTAssertEqual(preview.source.width, 16)
+        XCTAssertEqual(preview.source.height, 8)
+        XCTAssertEqual(preview.processed.width, 16)
+        XCTAssertEqual(preview.processed.height, 8)
+        XCTAssertEqual(uhdPreviewDimensions.width, 960)
+        XCTAssertEqual(uhdPreviewDimensions.height, 540)
+        XCTAssertEqual(
+            uhdPreviewDimensions.width
+                * uhdPreviewDimensions.height
+                * UpscalePreviewImage.bytesPerPixel,
+            2_073_600
+        )
+        XCTAssertNil(
+            UpscalePreviewImage(
+                width: UpscalePreviewImage.maximumWidth + 1,
+                height: 1,
+                rgba8: Data()
+            )
+        )
+        XCTAssertEqual(
+            preview.source.rgba8.count,
+            16 * 8 * UpscalePreviewImage.bytesPerPixel
+        )
+        XCTAssertEqual(
+            preview.processed.rgba8.count,
+            16 * 8 * UpscalePreviewImage.bytesPerPixel
+        )
+        XCTAssertLessThanOrEqual(
+            preview.source.width,
+            UpscalePreviewImage.maximumWidth
+        )
+        XCTAssertLessThanOrEqual(
+            preview.source.height,
+            UpscalePreviewImage.maximumHeight
+        )
+        XCTAssertNotEqual(copiedSource, copiedProcessed)
+        XCTAssertNotNil(preview.source.makeCGImage())
+        XCTAssertNotNil(preview.processed.makeCGImage())
+
+        try fillNV12(
+            sourceRecord.pixelBuffer,
+            luma: 224,
+            chroma: 128
+        )
+        try fillNV12(
+            processed,
+            luma: 32,
+            chroma: 128
+        )
+
+        XCTAssertEqual(preview.source.rgba8, copiedSource)
+        XCTAssertEqual(preview.processed.rgba8, copiedProcessed)
+    }
+
+    func testPreviewEncoderAppliesAsymmetricPresentationTransformToBothImages()
+        throws {
+        let source = try makeHorizontalGrayscalePair(dark: 24, light: 224)
+        let processed = try makeHorizontalGrayscalePair(
+            dark: 48,
+            light: 200
+        )
+        let transform = CGAffineTransform(
+            a: 0,
+            b: 1,
+            c: -1,
+            d: 0,
+            tx: 19,
+            ty: -7
+        )
+
+        let preview = try R13PreviewFrameEncoder().encode(
+            source: source,
+            processed: processed,
+            sourcePresentationResolution:
+                VideoResolution(width: 2, height: 1),
+            frameIndex: 4,
+            presentationSeconds: 0.25,
+            presentationTransform: transform
+        )
+
+        XCTAssertEqual(preview.source.width, 1)
+        XCTAssertEqual(preview.source.height, 2)
+        XCTAssertEqual(preview.processed.width, 1)
+        XCTAssertEqual(preview.processed.height, 2)
+        let sourceFirst = Int(preview.source.rgba8[0])
+        let sourceSecond = Int(preview.source.rgba8[4])
+        let processedFirst = Int(preview.processed.rgba8[0])
+        let processedSecond = Int(preview.processed.rgba8[4])
+        XCTAssertGreaterThan(abs(sourceFirst - sourceSecond), 100)
+        XCTAssertGreaterThan(abs(processedFirst - processedSecond), 100)
+        XCTAssertGreaterThan(
+            (sourceFirst - sourceSecond)
+                * (processedFirst - processedSecond),
+            0,
+            "Both sides must apply the same presentation orientation."
+        )
+    }
+
+    func testPreviewEmitterLazilyCopiesSamplesAtBoundedRateAndKeepsNewest()
+        async throws {
+        let encoder = R13RecordingPreviewEncoder()
+        let emitter = R13UpscalePreviewEmitter(
+            encoder: encoder,
+            minimumSampleInterval: 0.5,
+            minimumWallClockIntervalNanoseconds: 0
+        )
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 16, height: 8)
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+        let samples: [(index: Int, time: CMTime)] = [
+            (0, CMTime(value: 0, timescale: 100)),
+            (1, CMTime(value: 10, timescale: 100)),
+            (2, CMTime(value: 49, timescale: 100)),
+            (3, CMTime(value: 50, timescale: 100)),
+            (4, CMTime(value: 75, timescale: 100)),
+            (5, CMTime(value: 100, timescale: 100))
+        ]
+        var requestedSourceFrameIndices: [Int] = []
+
+        for sample in samples {
+            emitter.offer(
+                source: {
+                    requestedSourceFrameIndices.append(sample.index)
+                    return source
+                },
+                processed: processed,
+                sourcePresentationResolution:
+                    VideoResolution(width: 16, height: 8),
+                frameIndex: sample.index,
+                presentationTime: sample.time,
+                presentationTransform: .identity
             )
         }
-        XCTAssertFalse(events.contains("media.cancel"))
+
+        XCTAssertEqual(
+            encoder.encodedFrameIndices,
+            [0, 3, 5],
+            "Encoding must be complete when offer returns; no pixel buffer "
+                + "may escape into deferred preview work."
+        )
+        XCTAssertEqual(
+            requestedSourceFrameIndices,
+            [0, 3, 5],
+            "Source normalization must run only for frames selected by the "
+                + "preview sampling gate."
+        )
+
+        emitter.finish()
+        var iterator = emitter.stream.makeAsyncIterator()
+        let delivered = await iterator.next()
+        let afterFinish = await iterator.next()
+
+        XCTAssertEqual(delivered?.frameIndex, 5)
+        XCTAssertNil(afterFinish)
+    }
+
+    func testPreviewEmitterAlsoBoundsWorkByInjectedMonotonicWallClock()
+        throws {
+        let encoder = R13RecordingPreviewEncoder()
+        let clock = OSAllocatedUnfairLock<UInt64>(initialState: 0)
+        let emitter = R13UpscalePreviewEmitter(
+            encoder: encoder,
+            minimumSampleInterval: 0,
+            minimumWallClockIntervalNanoseconds: 500,
+            monotonicTimeNanoseconds: {
+                clock.withLock { $0 }
+            }
+        )
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 16, height: 8)
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+        struct PreviewTimingSample {
+            let index: Int
+            let mediaValue: Int64
+            let wallValue: UInt64
+        }
+        let samples = [
+            PreviewTimingSample(index: 0, mediaValue: 0, wallValue: 0),
+            PreviewTimingSample(index: 1, mediaValue: 1, wallValue: 100),
+            PreviewTimingSample(index: 2, mediaValue: 2, wallValue: 499),
+            PreviewTimingSample(index: 3, mediaValue: 3, wallValue: 500),
+            PreviewTimingSample(index: 4, mediaValue: 4, wallValue: 1_000)
+        ]
+
+        for sample in samples {
+            clock.withLock { $0 = sample.wallValue }
+            emitter.offer(
+                source: { source },
+                processed: processed,
+                sourcePresentationResolution:
+                    VideoResolution(width: 16, height: 8),
+                frameIndex: sample.index,
+                presentationTime: CMTime(
+                    value: sample.mediaValue,
+                    timescale: 1
+                ),
+                presentationTransform: .identity
+            )
+        }
+
+        XCTAssertEqual(encoder.encodedFrameIndices, [0, 3, 4])
+    }
+
+    func testPreviewEmitterReleasesAnamorphicCacheReplaySourceEachSample()
+        throws {
+        let failures = OSAllocatedUnfairLock<
+            [R13PreviewEncodingFailure]
+        >(initialState: [])
+        let emitter = R13UpscalePreviewEmitter(
+            minimumSampleInterval: 0,
+            minimumWallClockIntervalNanoseconds: 0,
+            failureObserver: { failure in
+                failures.withLock { $0.append(failure) }
+            }
+        )
+        let codedResolution = VideoResolution(width: 12, height: 8)
+        let presentationResolution = VideoResolution(width: 16, height: 8)
+        let pixelAspectRatio = try XCTUnwrap(
+            VideoPixelAspectRatio(
+                horizontalSpacing: 4,
+                verticalSpacing: 3
+            )
+        )
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: codedResolution
+        )
+        let pixelAspectAttachment = [
+            kCVImageBufferPixelAspectRatioHorizontalSpacingKey as String:
+                NSNumber(value: pixelAspectRatio.horizontalSpacing),
+            kCVImageBufferPixelAspectRatioVerticalSpacingKey as String:
+                NSNumber(value: pixelAspectRatio.verticalSpacing)
+        ] as CFDictionary
+        CVBufferSetAttachment(
+            source,
+            kCVImageBufferPixelAspectRatioKey,
+            pixelAspectAttachment,
+            .shouldPropagate
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+        let normalizer = R13NV12FrameNormalizer()
+
+        for frameIndex in 0..<128 {
+            emitter.offer(
+                source: {
+                    try normalizer.normalize(
+                        source,
+                        codedResolution: codedResolution,
+                        presentationResolution: presentationResolution,
+                        pixelAspectRatio: pixelAspectRatio
+                    )
+                },
+                processed: processed,
+                sourcePresentationResolution:
+                    presentationResolution,
+                frameIndex: frameIndex,
+                presentationTime: CMTime(
+                    value: Int64(frameIndex),
+                    timescale: 1
+                ),
+                presentationTransform: .identity
+            )
+        }
+
+        XCTAssertTrue(
+            failures.withLock { $0 }.isEmpty,
+            "All 128 cache-replay preview samples must release their "
+                + "anamorphic normalized source before the next sample."
+        )
+    }
+
+    func testAppendFailureCannotPublishUnwrittenBackendPreview() async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let previewEncoder = R13RecordingPreviewEncoder(eventLog: eventLog)
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: .p720,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog,
+            appendFailureFrameIndex: 0
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            previewEncoder: previewEncoder
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-preview-after-append",
+                target: .p1080,
+                mode: .deterministic
+            )
+        )
+
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("The injected append failure must terminate the job.")
+        } catch let error as R13ReleaseTestMediaSessionError {
+            XCTAssertEqual(error, .appendFailed(frameIndex: 0))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        XCTAssertTrue(previewEncoder.encodedFrameIndices.isEmpty)
+        XCTAssertTrue(eventLog.contains("media.append.failed.0"))
+        XCTAssertFalse(eventLog.contains("preview.encode.0"))
+    }
+
+    func testPreviewSourcePreparationFailureIsNonfatalStructuredAndRetried()
+        throws {
+        let encoder = R13RecordingPreviewEncoder()
+        let failures = OSAllocatedUnfairLock<
+            [R13PreviewEncodingFailure]
+        >(initialState: [])
+        let emitter = R13UpscalePreviewEmitter(
+            encoder: encoder,
+            failureObserver: { failure in
+                failures.withLock { $0.append(failure) }
+            }
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 16, height: 8)
+        )
+
+        emitter.offer(
+            source: {
+                throw R13PreviewTestError.sourcePreparationFailed
+            },
+            processed: processed,
+            sourcePresentationResolution:
+                VideoResolution(width: 16, height: 8),
+            frameIndex: 11,
+            presentationTime: .zero,
+            presentationTransform: .identity
+        )
+        emitter.offer(
+            source: { source },
+            processed: processed,
+            sourcePresentationResolution:
+                VideoResolution(width: 16, height: 8),
+            frameIndex: 12,
+            presentationTime: CMTime(value: 1, timescale: 100),
+            presentationTransform: .identity
+        )
+
+        XCTAssertEqual(
+            encoder.encodedFrameIndices,
+            [12],
+            "A failed attempt must not consume the next sampling window."
+        )
+        XCTAssertEqual(
+            failures.withLock { $0 },
+            [
+                R13PreviewEncodingFailure(
+                    frameIndex: 11,
+                    stage: .sourcePreparation,
+                    underlyingError:
+                        R13PreviewTestError.sourcePreparationFailed
+                )
+            ]
+        )
+    }
+
+    func testPreviewSourcePoolExhaustionPreservesTypedDiagnosticDetails()
+        throws {
+        let failures = OSAllocatedUnfairLock<
+            [R13PreviewEncodingFailure]
+        >(initialState: [])
+        let emitter = R13UpscalePreviewEmitter(
+            encoder: R13RecordingPreviewEncoder(),
+            failureObserver: { failure in
+                failures.withLock { $0.append(failure) }
+            }
+        )
+        let processed = try R13ReleaseTestFrames.makeOutput(
+            resolution: VideoResolution(width: 32, height: 16)
+        )
+
+        emitter.offer(
+            source: {
+                throw PixelBufferBridgeError.poolDequeueFailed(
+                    kCVReturnWouldExceedAllocationThreshold
+                )
+            },
+            processed: processed,
+            sourcePresentationResolution:
+                VideoResolution(width: 16, height: 8),
+            frameIndex: 17,
+            presentationTime: .zero,
+            presentationTransform: .identity
+        )
+
+        let failure = try XCTUnwrap(failures.withLock { $0.first })
+        let fields = Dictionary(
+            uniqueKeysWithValues: failure.diagnosticFields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        let identity = MirmirDiagnosticErrorIdentity(failure)
+
+        XCTAssertEqual(failure.stage, .sourcePreparation)
+        XCTAssertEqual(
+            failure.reasonCode,
+            "source_pool_allocation_threshold_exceeded"
+        )
+        XCTAssertEqual(fields["frame_index"], "17")
+        XCTAssertEqual(
+            fields["preview_failure_stage"],
+            "source_preparation"
+        )
+        XCTAssertEqual(
+            fields["preview_failure_reason"],
+            "source_pool_allocation_threshold_exceeded"
+        )
+        XCTAssertEqual(
+            fields["preview_underlying_error_type"],
+            "pixel_buffer_bridge_error"
+        )
+        XCTAssertEqual(fields["preview_status_code"], "-6689")
+        XCTAssertTrue(
+            identity.frames.contains {
+                $0.domain
+                    == (PixelBufferBridgeError.poolDequeueFailed(
+                        kCVReturnWouldExceedAllocationThreshold
+                    ) as NSError).domain
+            }
+        )
+    }
+
+    func testPreviewEncodingFailureIsDiagnosticWarningWithoutFailingJob()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: .p720,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            previewEncoder: R13FailingPreviewEncoder(),
+            diagnostics: diagnostics
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-preview-diagnostic",
+                target: .p1080,
+                mode: .deterministic
+            )
+        )
+
+        let output = try await handle.waitForCompletion()
+        let diagnostic = try await waitForDiagnostic(
+            code: "release_preview_encoding_failed",
+            in: diagnostics
+        )
+        let fields = Dictionary(
+            uniqueKeysWithValues: diagnostic.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+
+        XCTAssertEqual(
+            output.lastPathComponent,
+            "r13-preview-diagnostic.mp4"
+        )
+        XCTAssertEqual(diagnostic.event.severity, .warning)
+        XCTAssertEqual(
+            fields["failure_category"],
+            "preview_encoding_failed"
+        )
+        XCTAssertEqual(fields["frame_index"], "0")
+        XCTAssertEqual(
+            fields["preview_failure_reason"],
+            "bitmap_allocation_failed"
+        )
+        XCTAssertEqual(
+            fields["preview_failure_stage"],
+            "frame_encoding"
+        )
+        XCTAssertEqual(
+            fields["preview_underlying_error_type"],
+            "preview_frame_encoding_error"
+        )
+        XCTAssertNotNil(diagnostic.event.error)
     }
 
     func testGeometryFailureDiagnosticCapturesActualAndExpectedDimensions()
@@ -775,6 +1584,78 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         }
     }
 
+    private func fillNV12(
+        _ pixelBuffer: CVPixelBuffer,
+        luma: UInt8,
+        chroma: UInt8
+    ) throws {
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard status == kCVReturnSuccess else {
+            throw R13PreviewTestError.pixelBufferLockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+
+        guard CVPixelBufferGetPlaneCount(pixelBuffer) == 2,
+              let lumaBase = CVPixelBufferGetBaseAddressOfPlane(
+                  pixelBuffer,
+                  0
+              ),
+              let chromaBase = CVPixelBufferGetBaseAddressOfPlane(
+                  pixelBuffer,
+                  1
+              ) else {
+            throw R13PreviewTestError.invalidNV12Planes
+        }
+        memset(
+            lumaBase,
+            Int32(luma),
+            CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+                * CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        )
+        memset(
+            chromaBase,
+            Int32(chroma),
+            CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1)
+                * CVPixelBufferGetHeightOfPlane(pixelBuffer, 1)
+        )
+    }
+
+    private func makeHorizontalGrayscalePair(
+        dark: UInt8,
+        light: UInt8
+    ) throws -> CVPixelBuffer {
+        var pixelBuffer: CVPixelBuffer?
+        let createStatus = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            2,
+            1,
+            kCVPixelFormatType_32BGRA,
+            nil,
+            &pixelBuffer
+        )
+        guard createStatus == kCVReturnSuccess,
+              let pixelBuffer else {
+            throw R13PreviewTestError.pixelBufferCreationFailed(createStatus)
+        }
+        let lockStatus = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard lockStatus == kCVReturnSuccess else {
+            throw R13PreviewTestError.pixelBufferLockFailed(lockStatus)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let baseAddress = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw R13PreviewTestError.invalidPackedPixelBuffer
+        }
+        let bytes = baseAddress.assumingMemoryBound(to: UInt8.self)
+        for (pixelIndex, value) in [dark, light].enumerated() {
+            let offset = pixelIndex * 4
+            bytes[offset] = value
+            bytes[offset + 1] = value
+            bytes[offset + 2] = value
+            bytes[offset + 3] = 255
+        }
+        return pixelBuffer
+    }
+
     private func waitForEvent(
         _ event: String,
         in eventLog: R13ReleaseTestEventLog
@@ -815,6 +1696,88 @@ private enum R13BoundedJobCompletion: Sendable {
     case pending
     case success(URL)
     case failure(domain: String, code: Int)
+}
+
+private enum R13PreviewTestError: Error {
+    case pixelBufferCreationFailed(CVReturn)
+    case pixelBufferLockFailed(CVReturn)
+    case invalidNV12Planes
+    case invalidPackedPixelBuffer
+    case sourcePreparationFailed
+}
+
+private final class R13RecordingPreviewEncoder:
+    R13PreviewFrameEncoding,
+    @unchecked Sendable {
+    private struct State {
+        var frameIndices: [Int] = []
+        var presentationTransforms: [CGAffineTransform] = []
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
+    private let eventLog: R13ReleaseTestEventLog?
+
+    init(eventLog: R13ReleaseTestEventLog? = nil) {
+        self.eventLog = eventLog
+    }
+
+    var encodedFrameIndices: [Int] {
+        state.withLock { $0.frameIndices }
+    }
+
+    var presentationTransforms: [CGAffineTransform] {
+        state.withLock { $0.presentationTransforms }
+    }
+
+    func encode(
+        source _: CVPixelBuffer,
+        processed _: CVPixelBuffer,
+        sourcePresentationResolution _: VideoResolution,
+        frameIndex: Int,
+        presentationSeconds: Double,
+        presentationTransform: CGAffineTransform
+    ) throws -> UpscalePreviewFrame {
+        state.withLock {
+            $0.frameIndices.append(frameIndex)
+            $0.presentationTransforms.append(presentationTransform)
+        }
+        eventLog?.record("preview.encode.\(frameIndex)")
+        let source = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([UInt8(clamping: frameIndex), 0, 0, 255])
+            )
+        )
+        let processed = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([0, UInt8(clamping: frameIndex), 0, 255])
+            )
+        )
+        return try XCTUnwrap(
+            UpscalePreviewFrame(
+                frameIndex: frameIndex,
+                presentationSeconds: presentationSeconds,
+                source: source,
+                processed: processed
+            )
+        )
+    }
+}
+
+private struct R13FailingPreviewEncoder: R13PreviewFrameEncoding {
+    func encode(
+        source _: CVPixelBuffer,
+        processed _: CVPixelBuffer,
+        sourcePresentationResolution _: VideoResolution,
+        frameIndex _: Int,
+        presentationSeconds _: Double,
+        presentationTransform _: CGAffineTransform
+    ) throws -> UpscalePreviewFrame {
+        throw R13PreviewFrameEncodingError.bitmapAllocationFailed
+    }
 }
 
 // swiftlint:enable file_length type_body_length

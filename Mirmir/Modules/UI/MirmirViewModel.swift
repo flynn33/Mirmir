@@ -2,7 +2,6 @@ import Foundation
 import SwiftUI
 import Combine
 import AppKit
-import UniformTypeIdentifiers
 
 enum MirmirAdjustmentLevel: String, CaseIterable, Identifiable {
     case low
@@ -81,6 +80,7 @@ final class MirmirViewModel: ObservableObject {
     @Published var modelStatus: ModelAssetsStatus = .unknown
     @Published private(set) var engineAvailability: UpscalerEngineAvailability
     @Published var progress: UpscaleProgress?
+    @Published private(set) var latestPreviewFrame: UpscalePreviewFrame?
     @Published var state: JobState = .idle
     @Published var outputURL: URL?
     @Published var outputSelectionError: String?
@@ -109,6 +109,8 @@ final class MirmirViewModel: ObservableObject {
 
     private var modelStatusTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
+    private var previewTask: Task<Void, Never>?
+    private var previewGeneration = 0
     var recoveryTask: Task<Void, Never>?
     var recoveryMutationTask: Task<Void, Never>?
     var recoveryGeneration = 0
@@ -120,8 +122,6 @@ final class MirmirViewModel: ObservableObject {
         if case .running = state { return true }
         return false
     }
-
-    static let supportedVideoExtensions = ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"]
 
     init(
         mediaPipeline: MediaPipelineService,
@@ -148,6 +148,7 @@ final class MirmirViewModel: ObservableObject {
     deinit {
         modelStatusTask?.cancel()
         progressTask?.cancel()
+        previewTask?.cancel()
         recoveryTask?.cancel()
         recoveryMutationTask?.cancel()
         releaseDiagnosticsTask?.cancel()
@@ -240,12 +241,34 @@ final class MirmirViewModel: ObservableObject {
         switch resolution {
         case .p720: return [.p1080]
         case .p1080: return [.p2160]
-        default: return []
+        default:
+            break
         }
+        guard resolution.width > 0,
+              resolution.height > 0,
+              let targetHeight = [720, 1_080, 1_440, 2_160]
+                .first(where: { $0 > resolution.height }) else {
+            return []
+        }
+        let halfWidth =
+            Double(resolution.width) * Double(targetHeight)
+                / Double(resolution.height) / 2
+        guard halfWidth.isFinite,
+              halfWidth >= 1,
+              halfWidth <= Double(Int.max / 2) else {
+            return []
+        }
+        let targetWidth = Int(halfWidth.rounded()) * 2
+        return [
+            VideoResolution(
+                width: targetWidth,
+                height: targetHeight
+            )
+        ]
     }
 
     static func supportsVideoFile(_ url: URL) -> Bool {
-        supportedVideoExtensions.contains(url.pathExtension.lowercased())
+        url.isFileURL && !url.lastPathComponent.isEmpty
     }
 
     func chooseSourceFile() {
@@ -253,7 +276,6 @@ final class MirmirViewModel: ObservableObject {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
-        panel.allowedContentTypes = Self.supportedContentTypes()
         panel.title = "Select a video to upscale"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         loadSource(url: url)
@@ -280,6 +302,7 @@ final class MirmirViewModel: ObservableObject {
             return
         }
         cancelRecoveryProbe()
+        resetPreview()
         retryableFailedJob = nil
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
@@ -478,6 +501,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func submit(job: UpscaleJob, source: SourceProfile) {
+        resetPreview()
         retryableFailedJob = nil
         Task { [diagnosticRecorder] in
             diagnosticRecorder.enqueue(
@@ -536,6 +560,7 @@ final class MirmirViewModel: ObservableObject {
             throughputFPS: 0,
             etaSeconds: nil
         )
+        observePreviewFrames(from: handle)
         Task { [diagnosticRecorder] in
             diagnosticRecorder.enqueue(
                 severity: .info,
@@ -556,6 +581,34 @@ final class MirmirViewModel: ObservableObject {
                 handle: handle
             )
         }
+    }
+
+    private func observePreviewFrames(from handle: UpscalerJobHandle) {
+        resetPreview()
+        let generation = previewGeneration
+        previewTask = Task { [weak self] in
+            for await frame in handle.previewStream {
+                guard let self,
+                      !Task.isCancelled,
+                      previewGeneration == generation else {
+                    return
+                }
+                latestPreviewFrame = frame
+            }
+            guard let self,
+                  !Task.isCancelled,
+                  previewGeneration == generation else {
+                return
+            }
+            previewTask = nil
+        }
+    }
+
+    func resetPreview() {
+        previewGeneration &+= 1
+        previewTask?.cancel()
+        previewTask = nil
+        latestPreviewFrame = nil
     }
 
     private func observeJobCompletion(
@@ -750,6 +803,7 @@ final class MirmirViewModel: ObservableObject {
         jobHandle = nil
         progressTask?.cancel()
         progressTask = nil
+        resetPreview()
         retryableFailedJob = nil
         sourceProfile = nil
         clearOutputSelection()
