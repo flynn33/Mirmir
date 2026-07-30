@@ -49,6 +49,15 @@ final class R13CacheLocationTests: XCTestCase {
             jobsRoot(in: firstRoot)
         )
 
+        _ = try reopenedStore.selectCacheLocation(secondRoot)
+        let retainedRuntime = try XCTUnwrap(
+            try service.resolveHardeningRuntime()
+        )
+        XCTAssertEqual(
+            retainedRuntime.jobsRootURL,
+            jobsRoot(in: firstRoot)
+        )
+
         let switched = try service.selectCacheLocation(secondRoot)
         XCTAssertTrue(switched.isAvailable)
         XCTAssertEqual(switched.selection.displayPath, secondRoot.path)
@@ -59,6 +68,46 @@ final class R13CacheLocationTests: XCTestCase {
         XCTAssertEqual(
             secondRuntime.jobsRootURL,
             jobsRoot(in: secondRoot)
+        )
+    }
+
+    func testRuntimeResolutionRetriesAfterConcurrentCacheLocationChange()
+        async throws {
+        let fixture = try R13CacheLocationFixture()
+        defer { fixture.cleanup() }
+        let firstRoot = try fixture.makeDirectory(named: "First")
+        let secondRoot = try fixture.makeDirectory(named: "Second")
+        let bookmarkResolver = R13BlockingCacheLocationBookmarkResolver()
+        let store = fixture.makeStore(bookmarkResolver: bookmarkResolver)
+        _ = try store.selectCacheLocation(firstRoot)
+        bookmarkResolver.blockNextResolution(of: firstRoot)
+        let service = R13ReleaseUpscalerEngineService(
+            media: NoopMediaPipelineService(),
+            cacheLocationStore: store
+        )
+
+        let resolution = Task.detached {
+            try service.resolveHardeningRuntime()
+        }
+        defer {
+            bookmarkResolver.releaseBlockedResolution()
+            resolution.cancel()
+        }
+        try await bookmarkResolver.waitUntilResolutionIsBlocked()
+
+        let switched = try service.selectCacheLocation(secondRoot)
+        XCTAssertTrue(switched.isAvailable)
+        bookmarkResolver.releaseBlockedResolution()
+        let resolvedRuntime = try await resolution.value
+        let runtime = try XCTUnwrap(resolvedRuntime)
+
+        XCTAssertEqual(
+            runtime.jobsRootURL,
+            jobsRoot(in: secondRoot)
+        )
+        XCTAssertEqual(
+            service.hardeningRuntime?.jobsRootURL,
+            runtime.jobsRootURL
         )
     }
 
@@ -217,11 +266,14 @@ private final class R13CacheLocationFixture {
         )
     }
 
-    func makeStore() -> R13CacheLocationStore {
+    func makeStore(
+        bookmarkResolver: any R13CacheLocationBookmarkResolving =
+            R13TestCacheLocationBookmarkResolver()
+    ) -> R13CacheLocationStore {
         R13CacheLocationStore(
             defaults: defaults,
             preferenceKey: preferenceKey,
-            bookmarkResolver: R13TestCacheLocationBookmarkResolver(),
+            bookmarkResolver: bookmarkResolver,
             defaultRootProvider: { [defaultRoot] in defaultRoot }
         )
     }
@@ -264,4 +316,72 @@ private struct R13TestCacheLocationBookmarkResolver:
             stopAccessing: {}
         )
     }
+}
+
+private final class R13BlockingCacheLocationBookmarkResolver:
+    R13CacheLocationBookmarkResolving,
+    @unchecked Sendable {
+    private let condition = NSCondition()
+    private var blockedURL: URL?
+    private var resolutionIsBlocked = false
+    private var releaseResolution = false
+
+    func makeBookmark(for url: URL) throws -> Data {
+        Data(url.standardizedFileURL.absoluteString.utf8)
+    }
+
+    func resolveBookmark(_ data: Data) throws
+        -> R13ResolvedCacheLocationBookmark {
+        guard let value = String(data: data, encoding: .utf8),
+              let url = URL(string: value),
+              url.isFileURL else {
+            throw R13CacheLocationError.bookmarkResolutionFailed
+        }
+        let standardizedURL = url.standardizedFileURL
+        condition.lock()
+        if blockedURL == standardizedURL && !resolutionIsBlocked {
+            resolutionIsBlocked = true
+            condition.broadcast()
+            while !releaseResolution {
+                condition.wait()
+            }
+        }
+        condition.unlock()
+        return R13ResolvedCacheLocationBookmark(
+            url: standardizedURL,
+            isStale: false,
+            startAccessing: { true },
+            stopAccessing: {}
+        )
+    }
+
+    func blockNextResolution(of url: URL) {
+        condition.withLock {
+            blockedURL = url.standardizedFileURL
+            resolutionIsBlocked = false
+            releaseResolution = false
+        }
+    }
+
+    func releaseBlockedResolution() {
+        condition.withLock {
+            releaseResolution = true
+            condition.broadcast()
+        }
+    }
+
+    func waitUntilResolutionIsBlocked() async throws {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while !condition.withLock({ resolutionIsBlocked }) {
+            guard clock.now < deadline else {
+                throw R13BlockingCacheLocationTestError.resolutionDidNotBlock
+            }
+            await Task.yield()
+        }
+    }
+}
+
+private enum R13BlockingCacheLocationTestError: Error {
+    case resolutionDidNotBlock
 }

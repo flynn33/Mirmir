@@ -156,9 +156,6 @@ final class R13SecurityScopeLease: @unchecked Sendable {
         role: R13BookmarkRole,
         resolved: R13ResolvedSecurityScopedBookmark
     ) throws {
-        guard !resolved.isStale else {
-            throw R13RestartJobError.reauthorizationRequired(role: role)
-        }
         guard resolved.startAccessing() else {
             throw R13RestartJobError.securityScopeDenied(role: role)
         }
@@ -261,6 +258,12 @@ actor R13SecurityScopedBookmarkStore {
     ) throws -> R13SecurityScopedAccessSet {
         let document = try loadDocument(jobID: jobID)
         var leases: [R13SecurityScopeLease] = []
+        var resolutions: [
+            (
+                entry: R13SecurityScopedBookmarkEntry,
+                resolved: R13ResolvedSecurityScopedBookmark
+            )
+        ] = []
         for entry in document.entries {
             let resolved = try resolver.resolveBookmark(
                 entry.bookmarkData,
@@ -270,6 +273,30 @@ actor R13SecurityScopedBookmarkStore {
                 try R13SecurityScopeLease(
                     role: entry.role,
                     resolved: resolved
+                )
+            )
+            resolutions.append((entry: entry, resolved: resolved))
+        }
+
+        var didRefreshBookmark = false
+        let refreshedEntries = try resolutions.map { resolution in
+            guard resolution.resolved.isStale else {
+                return resolution.entry
+            }
+            didRefreshBookmark = true
+            return try R13SecurityScopedBookmarkEntry(
+                role: resolution.entry.role,
+                bookmarkData: resolver.makeBookmark(
+                    for: resolution.resolved.url,
+                    role: resolution.entry.role
+                )
+            )
+        }
+        if didRefreshBookmark {
+            try save(
+                R13SecurityScopedAccessDocument(
+                    jobID: document.jobID,
+                    entries: refreshedEntries
                 )
             )
         }

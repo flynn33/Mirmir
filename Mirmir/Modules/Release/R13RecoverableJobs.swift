@@ -7,9 +7,16 @@ struct R13RecoverableUpscaleJob: Equatable, Identifiable, Sendable {
     let codec: OutputCodec
     let preserveAudio: Bool
     let mode: UpscaleMode
+    let cachedFrameCount: Int
 
-    init(descriptor: R13RecoveryDescriptor) throws {
+    init(
+        descriptor: R13RecoveryDescriptor,
+        cachedFrameCount: Int = 0
+    ) throws {
         try descriptor.validate()
+        guard cachedFrameCount >= 0 else {
+            throw R13RestartJobError.invalidFrameCount(cachedFrameCount)
+        }
         guard let outputCodec = OutputCodec(rawValue: descriptor.codec),
               let upscaleMode = UpscaleMode(rawValue: descriptor.mode) else {
             throw R13RestartJobError.nonCanonicalDocument(
@@ -25,6 +32,7 @@ struct R13RecoverableUpscaleJob: Equatable, Identifiable, Sendable {
         codec = outputCodec
         preserveAudio = descriptor.preserveAudio
         mode = upscaleMode
+        self.cachedFrameCount = cachedFrameCount
     }
 
     init(job: UpscaleJob) throws {
@@ -78,6 +86,8 @@ final class R13SecurityScopedAccessHolder: @unchecked Sendable {
 
 protocol R13RecoverableUpscalerEngine: Sendable {
     func recoverableJobs() async throws -> R13RecoverableJobCatalog
+    func discardRecoverableJob(id: String) async throws
+    func discardAllRecoverableJobs() async throws
     func resolveRecoverableJob(
         id: String
     ) async throws -> R13ResolvedRecoverableUpscaleJob
@@ -103,6 +113,47 @@ extension R13ReleaseUpscalerEngineService {
 
     func recoverableJobs() async throws -> R13RecoverableJobCatalog {
         try await resolveHardeningRuntime()?.recoverableJobs() ?? .empty
+    }
+
+    func discardRecoverableJob(id: String) async throws {
+        try await performRecoveryDiscard {
+            guard let hardeningRuntime =
+                    try resolveHardeningRuntime() else {
+                throw R13RestartJobError.jobMissing(id)
+            }
+            try await hardeningRuntime.discardRecoverableJob(id: id)
+        }
+    }
+
+    func discardAllRecoverableJobs() async throws {
+        try await performRecoveryDiscard {
+            try await resolveHardeningRuntime()?
+                .discardAllRecoverableJobs()
+        }
+    }
+
+    private func performRecoveryDiscard(
+        _ operation: () async throws -> Void
+    ) async throws {
+        let reserved = activeJobState.withLock { state in
+            guard case .idle = state else { return false }
+            state = .discardingRecovery
+            return true
+        }
+        guard reserved else {
+            throw UpscalerEngineError.jobAlreadyRunning
+        }
+        defer {
+            activeJobState.withLock { state in
+                guard case .discardingRecovery = state else {
+                    preconditionFailure(
+                        "R13 recovery-discard reservation changed unexpectedly."
+                    )
+                }
+                state = .idle
+            }
+        }
+        try await operation()
     }
 
     func resolveRecoverableJob(
@@ -242,7 +293,9 @@ actor R13RecoveryDescriptorStore {
         fileSystem: any R13RestartFileSystem = R13LocalRestartFileSystem(),
         fileManager: FileManager = .default
     ) {
-        self.jobsRootURL = jobsRootURL.standardizedFileURL
+        self.jobsRootURL = R13RestartPath.resolvingExistingAncestor(
+            of: jobsRootURL
+        )
         self.fileSystem = fileSystem
         self.fileManager = fileManager
     }

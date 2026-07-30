@@ -421,6 +421,12 @@ actor R13RestartJobStore {
         guard fileSystem.exists(urls.directory) else { return }
         try fileSystem.removeDirectory(urls.directory)
     }
+
+    func discardAll() throws {
+        guard fileSystem.exists(jobsRootURL) else { return }
+        try fileSystem.removeDirectory(jobsRootURL)
+        try fileSystem.ensureDirectory(jobsRootURL)
+    }
 }
 
 extension R13RestartJobStore {

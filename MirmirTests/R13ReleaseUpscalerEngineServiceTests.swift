@@ -1,8 +1,12 @@
 import Darwin
+import CoreVideo
 import Foundation
 import os.lock
 import XCTest
 @testable import Mirmir
+
+// Release service scenarios share one test fixture and helper set.
+// swiftlint:disable file_length type_body_length
 
 final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
     func testModeAvailabilityKeepsAutoVisibleButUnavailable() {
@@ -322,6 +326,111 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
     }
 
+    func testBackendFailureDiagnosticPreservesTypedRootCause()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p1080,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: .p1080,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog
+        )
+        let failureContext = AppleUpscaleBackendFailureContext(
+            stage: .outputBufferAllocation,
+            statusCode: Int(kCVReturnWouldExceedAllocationThreshold)
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .failed(
+                reason:
+                    "r03_output_pool_allocation_threshold_exceeded",
+                context: failureContext
+            ),
+            eventLog: eventLog
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            sessionFactory: { [factory] route in
+                try await factory.make(route: route)
+            },
+            diagnostics: diagnostics
+        )
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-typed-backend-failure",
+                target: .p2160,
+                mode: .deterministic
+            )
+        )
+
+        do {
+            _ = try await handle.waitForCompletion()
+            XCTFail("The injected backend failure must terminate the job.")
+        } catch let error as R13BackendFrameProcessingError {
+            XCTAssertEqual(error.frameIndex, 0)
+            XCTAssertEqual(
+                error.failure.reason,
+                "r03_output_pool_allocation_threshold_exceeded"
+            )
+            XCTAssertEqual(error.failure.context, failureContext)
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+
+        let record = try await waitForDiagnostic(
+            code: "release_frame_processing_failed",
+            in: diagnostics
+        )
+        assertBackendFailureDiagnostic(record)
+    }
+
+    private func assertBackendFailureDiagnostic(
+        _ record: MirmirDiagnosticRecord,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "backend_frame_processing_failed",
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            fields["backend_failure_reason"],
+            "r03_output_pool_allocation_threshold_exceeded",
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            fields["backend_failure_stage"],
+            "output_buffer_allocation",
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            fields["backend_status_code"],
+            String(kCVReturnWouldExceedAllocationThreshold),
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(fields["frame_index"], "0", file: file, line: line)
+        XCTAssertEqual(
+            record.event.error?.frames.count,
+            2,
+            file: file,
+            line: line
+        )
+    }
+
     func testCancellationCancelsBothSessionsAndReleasesPendingInput() async throws {
         let eventLog = R13ReleaseTestEventLog()
         let media = R13ReleaseTestMediaPipeline(
@@ -420,6 +529,17 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             }
         }
 
+        do {
+            try await service.discardRecoverableJob(
+                id: "r13-active-diagnostic"
+            )
+            XCTFail("An active job must prevent recovery-cache deletion.")
+        } catch let error as UpscalerEngineError {
+            guard case .jobAlreadyRunning = error else {
+                return XCTFail("Unexpected discard error: \(error)")
+            }
+        }
+
         let rejected = try await waitForDiagnostic(
             code: "release_job_submit_rejected_already_running",
             in: diagnostics
@@ -449,6 +569,42 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             ].contains($0)
         }
         XCTAssertEqual(terminalCodes, ["release_job_cancelled"])
+    }
+
+    func testFailedRecoveryDiscardReleasesMaintenanceReservation()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [],
+            eventLog: eventLog
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = makeService(media: media, factory: factory)
+
+        do {
+            try await service.discardRecoverableJob(
+                id: "r13-missing-recovery"
+            )
+            XCTFail("A missing hardening runtime must reject deletion.")
+        } catch let error as R13RestartJobError {
+            guard case .jobMissing(let identifier) = error else {
+                return XCTFail("Unexpected discard error: \(error)")
+            }
+            XCTAssertEqual(identifier, "r13-missing-recovery")
+        }
+
+        let handle = try service.submit(
+            makeJob(
+                identifier: "r13-after-failed-discard",
+                target: .p1080,
+                mode: .deterministic
+            )
+        )
+        _ = try await handle.waitForCompletion()
     }
 
     func testHeldDiagnosticJournalLockDoesNotStallJobOrRetainActiveState()
@@ -660,3 +816,5 @@ private enum R13BoundedJobCompletion: Sendable {
     case success(URL)
     case failure(domain: String, code: Int)
 }
+
+// swiftlint:enable file_length type_body_length

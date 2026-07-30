@@ -28,7 +28,8 @@ enum R13ReleaseSourceStaging {
         job: UpscaleJob,
         modeBinding: R13ReleaseModeBinding,
         hardeningRuntime: R13ReleaseHardeningRuntime?,
-        media: MediaPipelineService
+        media: MediaPipelineService,
+        requiresExistingRestartState: Bool = false
     ) async throws -> R13PreparedReleaseSource {
         try Task.checkCancellation()
         let stagedSource = try await hardeningRuntime?.stageSource(
@@ -64,7 +65,9 @@ enum R13ReleaseSourceStaging {
                 source: source,
                 route: route,
                 modeBinding: modeBinding,
-                stagedSource: stagedSource
+                stagedSource: stagedSource,
+                requiresExistingRestartState:
+                    requiresExistingRestartState
             )
         } else {
             attempt = nil

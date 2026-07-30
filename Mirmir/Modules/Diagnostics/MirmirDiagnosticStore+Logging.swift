@@ -410,6 +410,7 @@ struct MirmirDiagnosticRecorder: Sendable {
         var fields = [
             try field("failure_category", .identifier(category))
         ]
+        fields.append(contentsOf: try backendFailureFields(error))
         if case let R03NV12ScalingError.invalidDimensions(
             expectedWidth,
             expectedHeight,
@@ -589,6 +590,50 @@ struct MirmirDiagnosticRecorder: Sendable {
         return fields
     }
 
+    private static func backendFailureFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        guard let backendError =
+            error as? R13BackendFrameProcessingError else {
+            return []
+        }
+        var fields: [MirmirDiagnosticField] = []
+        if MirmirDiagnosticToken.isValid(backendError.failure.reason) {
+            fields.append(
+                try field(
+                    "backend_failure_reason",
+                    .identifier(backendError.failure.reason)
+                )
+            )
+        }
+        guard let context = backendError.failure.context else {
+            return fields
+        }
+        fields.append(
+            try field(
+                "backend_failure_stage",
+                .identifier(context.stage.rawValue)
+            )
+        )
+        if let statusCode = context.statusCode {
+            fields.append(
+                try field(
+                    "backend_status_code",
+                    .signedInteger(Int64(statusCode))
+                )
+            )
+        }
+        if let planeIndex = context.planeIndex {
+            fields.append(
+                try field(
+                    "backend_plane_index",
+                    .signedInteger(Int64(planeIndex))
+                )
+            )
+        }
+        return fields
+    }
+
     private static func errorIdentity(
         _ error: Error
     ) -> MirmirDiagnosticErrorIdentity {
@@ -611,6 +656,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return underlying.map { [$0] } ?? []
         case let MediaPipelineError.writerFailed(underlying):
             return underlying.map { [$0] } ?? []
+        case let backendError as R13BackendFrameProcessingError:
+            return [backendError.failure]
         default:
             return []
         }
@@ -618,6 +665,8 @@ struct MirmirDiagnosticRecorder: Sendable {
 
     private static func errorCategory(_ error: Error) -> String {
         switch error {
+        case is R13BackendFrameProcessingError:
+            return "backend_frame_processing_failed"
         case R03NV12ScalingError.invalidDimensions:
             return "invalid_dimensions"
         case R03NV12ScalingError.invalidPixelFormat:

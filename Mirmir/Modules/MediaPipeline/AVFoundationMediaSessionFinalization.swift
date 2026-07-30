@@ -36,9 +36,8 @@ extension AVFoundationMediaSession {
         do {
             try checkCancellation()
             try outputTransaction.beginFinishing()
-            try await finishAudioIfPresent()
-
             videoInput.markAsFinished()
+            try await finishAudioIfPresent()
             let timing = timingLedgerSnapshot()
             guard let sessionEndTime = timing.sessionEndTime else {
                 throw MediaPipelineError.invalidFrameTiming(
@@ -140,22 +139,68 @@ extension AVFoundationMediaSession {
     }
 
     private func finishAudioIfPresent() async throws {
-        guard let audioOutput, let audioInput else { return }
+        guard audioOutput != nil, let audioInput else { return }
         let audioStage = telemetry.beginStage(.audioProcess)
         defer { telemetry.endStage(audioStage) }
-        while let sample = audioOutput.copyNextSampleBuffer() {
-            while !audioInput.isReadyForMoreMediaData {
-                try await Task.sleep(nanoseconds: 1_000_000)
-                try checkCancellation()
-            }
+        while !audioInputIsFinished {
             try checkCancellation()
-            if !audioInput.append(sample) {
+            guard writer.status == .writing else {
+                if writer.status == .cancelled {
+                    throw CancellationError()
+                }
+                throw MediaPipelineError.writerFailed(writer.error)
+            }
+            if audioInput.isReadyForMoreMediaData {
+                try pumpAudio(through: nil)
+            } else {
+                try await Task.sleep(nanoseconds: 1_000_000)
+            }
+        }
+    }
+
+    func pumpAudio(through maximumPresentationTime: CMTime?) throws {
+        guard let audioOutput,
+              let audioInput,
+              !audioInputIsFinished else {
+            return
+        }
+        while audioInput.isReadyForMoreMediaData {
+            let sample: CMSampleBuffer
+            if let pendingAudioSample {
+                sample = pendingAudioSample
+            } else if let nextSample = audioOutput.copyNextSampleBuffer() {
+                sample = nextSample
+                pendingAudioSample = nextSample
+            } else {
+                if let error = reader.error {
+                    throw MediaPipelineError.readerFailed(error)
+                }
+                audioInput.markAsFinished()
+                audioInputIsFinished = true
+                return
+            }
+
+            let presentationTime =
+                CMSampleBufferGetPresentationTimeStamp(sample)
+            if let maximumPresentationTime,
+               presentationTime.isValid,
+               presentationTime.isNumeric,
+               maximumPresentationTime.isValid,
+               maximumPresentationTime.isNumeric,
+               CMTimeCompare(
+                   presentationTime,
+                   maximumPresentationTime
+               ) > 0 {
+                return
+            }
+
+            guard audioInput.append(sample) else {
                 throw MediaPipelineError.audioBridgeFailed(
                     writer.error ?? NSError(domain: "Audio", code: -1)
                 )
             }
+            pendingAudioSample = nil
         }
-        audioInput.markAsFinished()
     }
 
     private func finishTimedMetadata(
@@ -177,8 +222,14 @@ extension AVFoundationMediaSession {
             )
         }
         while !timedMetadataWriter.input.isReadyForMoreMediaData {
-            try await Task.sleep(nanoseconds: 1_000_000)
             try checkCancellation()
+            guard writer.status == .writing else {
+                if writer.status == .cancelled {
+                    throw CancellationError()
+                }
+                throw MediaPipelineError.writerFailed(writer.error)
+            }
+            try await Task.sleep(nanoseconds: 1_000_000)
         }
         let group = Self.makeASHMetadataGroup(
             finalMetadata,

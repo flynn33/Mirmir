@@ -6,6 +6,7 @@ extension MirmirViewModel {
     func resumeRecoverableJob(id: String) {
         guard !jobIsRunning,
               !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
               recoverableJobs.contains(where: { $0.id == id }),
               let recoveryEngine =
                 upscalerEngine as? any R13RecoverableUpscalerEngine else {
@@ -21,6 +22,8 @@ extension MirmirViewModel {
     func reauthorizeRecoverableJob(id: String) {
         guard !jobIsRunning,
               !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
+              recoveryRequiresReauthorization(id: id),
               let summary = recoverableJobs.first(
                 where: { $0.id == id }
               ),
@@ -45,6 +48,7 @@ extension MirmirViewModel {
     func loadRecoverableJobs() {
         guard !jobIsRunning,
               !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
               let recoveryEngine =
                 upscalerEngine as? any R13RecoverableUpscalerEngine else {
             return
@@ -60,6 +64,9 @@ extension MirmirViewModel {
                     return
                 }
                 self.recoverableJobs = catalog.jobs
+                self.recoveryReauthorizationRequiredIDs.formIntersection(
+                    Set(catalog.jobs.map(\.id))
+                )
                 self.recoveryRejectedEntryCount =
                     catalog.rejectedEntryCount
                 self.recoveryError = nil
@@ -116,6 +123,151 @@ extension MirmirViewModel {
         }
     }
 
+    func discardRecoverableJob(id: String) {
+        beginDiscardingRecoverableJobs(ids: [id])
+    }
+
+    func discardAllRecoverableJobs() {
+        if recoveryRejectedEntryCount > 0 {
+            beginDiscardingAllRecoveryData()
+        } else {
+            beginDiscardingRecoverableJobs(
+                ids: recoverableJobs.map(\.id)
+            )
+        }
+    }
+
+    private func beginDiscardingAllRecoveryData() {
+        guard !recoverableJobs.isEmpty
+                || recoveryRejectedEntryCount > 0,
+              !jobIsRunning,
+              !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
+              let recoveryEngine =
+                upscalerEngine as? any R13RecoverableUpscalerEngine else {
+            return
+        }
+
+        cancelRecoveryProbe()
+        recoveryMutationTask?.cancel()
+        recoveryMutationIsInProgress = true
+        recoveryError = nil
+        let correlationID = UUID()
+        recoveryMutationTask = Task { [weak self] in
+            guard let self else { return }
+            diagnosticRecorder.enqueue(
+                severity: .notice,
+                subsystem: "recovery",
+                operation: "discard_all_recoverable_jobs",
+                code: "recovery_all_jobs_discard_requested",
+                correlationID: correlationID
+            )
+            do {
+                try await recoveryEngine.discardAllRecoverableJobs()
+                try Task.checkCancellation()
+                recoverableJobs = []
+                recoveryReauthorizationRequiredIDs = []
+                recoveryRejectedEntryCount = 0
+                recoveryError = nil
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "recovery",
+                    operation: "discard_all_recoverable_jobs",
+                    code: "recovery_all_jobs_discarded",
+                    correlationID: correlationID
+                )
+            } catch is CancellationError {
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "recovery",
+                    operation: "discard_all_recoverable_jobs",
+                    code: "recovery_all_jobs_discard_cancelled",
+                    correlationID: correlationID
+                )
+            } catch {
+                recoveryError =
+                    "Mirmir could not discard all interrupted jobs. "
+                    + userFacingJobError(error)
+                diagnosticRecorder.enqueue(
+                    severity: .error,
+                    subsystem: "recovery",
+                    operation: "discard_all_recoverable_jobs",
+                    code: "recovery_all_jobs_discard_failed",
+                    correlationID: correlationID,
+                    error: error
+                )
+            }
+            recoveryMutationIsInProgress = false
+            recoveryMutationTask = nil
+        }
+    }
+
+    private func beginDiscardingRecoverableJobs(ids: [String]) {
+        let orderedIDs = Array(Set(ids)).sorted()
+        guard !orderedIDs.isEmpty,
+              !jobIsRunning,
+              !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
+              let recoveryEngine =
+                upscalerEngine as? any R13RecoverableUpscalerEngine else {
+            return
+        }
+
+        cancelRecoveryProbe()
+        recoveryMutationTask?.cancel()
+        recoveryMutationIsInProgress = true
+        recoveryError = nil
+        recoveryMutationTask = Task { [weak self] in
+            guard let self else { return }
+            var failures: [(id: String, error: Error)] = []
+            for id in orderedIDs {
+                if Task.isCancelled { break }
+                let correlationID = UUID(uuidString: id) ?? UUID()
+                diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "recovery",
+                    operation: "discard_recoverable_job",
+                    code: "recovery_job_discard_requested",
+                    correlationID: correlationID
+                )
+                do {
+                    try await recoveryEngine.discardRecoverableJob(id: id)
+                    recoverableJobs.removeAll { $0.id == id }
+                    recoveryReauthorizationRequiredIDs.remove(id)
+                    diagnosticRecorder.enqueue(
+                        severity: .notice,
+                        subsystem: "recovery",
+                        operation: "discard_recoverable_job",
+                        code: "recovery_job_discarded",
+                        correlationID: correlationID
+                    )
+                } catch {
+                    failures.append((id, error))
+                    diagnosticRecorder.enqueue(
+                        severity: .error,
+                        subsystem: "recovery",
+                        operation: "discard_recoverable_job",
+                        code: "recovery_job_discard_failed",
+                        correlationID: correlationID,
+                        error: error
+                    )
+                }
+            }
+
+            recoveryMutationIsInProgress = false
+            recoveryMutationTask = nil
+            if failures.isEmpty {
+                recoveryError = nil
+            } else {
+                let count = failures.count
+                recoveryError =
+                    "Mirmir could not discard \(count) interrupted "
+                    + "job\(count == 1 ? "" : "s"). "
+                    + userFacingJobError(failures[0].error)
+            }
+        }
+    }
+
     private func beginRecovery(
         id: String,
         recoveryEngine: any R13RecoverableUpscalerEngine,
@@ -126,6 +278,7 @@ extension MirmirViewModel {
         let generation = nextRecoveryGeneration()
         let previousState = state
         recoveryTask?.cancel()
+        retryableFailedJob = nil
         recoveryIsProbing = true
         recoveryError = nil
         state = .probing
@@ -139,21 +292,14 @@ extension MirmirViewModel {
                 correlationID: diagnosticCorrelationID
             )
             do {
-                let recovered: R13ResolvedRecoverableUpscaleJob
-                if let reauthorization {
-                    recovered = try await recoveryEngine
-                        .reauthorizeRecoverableJob(
-                            id: id,
-                            sourceURL: reauthorization.sourceURL,
-                            outputDirectoryURL:
-                                reauthorization.outputDirectoryURL
-                        )
-                } else {
-                    recovered = try await recoveryEngine
-                        .resolveRecoverableJob(id: id)
-                }
+                let recovered = try await resolveRecoverableJob(
+                    id: id,
+                    recoveryEngine: recoveryEngine,
+                    reauthorization: reauthorization
+                )
                 try Task.checkCancellation()
                 guard recoveryGeneration == generation else { return }
+                recoveryReauthorizationRequiredIDs.remove(id)
 
                 let job = recovered.job
                 let source = try await mediaPipeline.probe(
@@ -212,6 +358,7 @@ extension MirmirViewModel {
             } catch {
                 guard recoveryGeneration == generation else { return }
                 recoveryIsProbing = false
+                recordRecoveryAuthorizationFailure(error, id: id)
                 recoveryError = userFacingJobError(error)
                 state = .failed(
                     "Mirmir could not reopen the interrupted job. "
@@ -232,6 +379,44 @@ extension MirmirViewModel {
     private func nextRecoveryGeneration() -> Int {
         recoveryGeneration &+= 1
         return recoveryGeneration
+    }
+
+    private func resolveRecoverableJob(
+        id: String,
+        recoveryEngine: any R13RecoverableUpscalerEngine,
+        reauthorization: R13RecoveryReauthorization?
+    ) async throws -> R13ResolvedRecoverableUpscaleJob {
+        guard let reauthorization else {
+            return try await recoveryEngine.resolveRecoverableJob(id: id)
+        }
+        return try await recoveryEngine.reauthorizeRecoverableJob(
+            id: id,
+            sourceURL: reauthorization.sourceURL,
+            outputDirectoryURL: reauthorization.outputDirectoryURL
+        )
+    }
+
+    private static func isRecoveryAuthorizationError(
+        _ error: Error
+    ) -> Bool {
+        guard let restartError = error as? R13RestartJobError else {
+            return false
+        }
+        switch restartError {
+        case .reauthorizationRequired, .bookmarkResolutionFailed,
+             .securityScopeDenied:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func recordRecoveryAuthorizationFailure(
+        _ error: Error,
+        id: String
+    ) {
+        guard Self.isRecoveryAuthorizationError(error) else { return }
+        recoveryReauthorizationRequiredIDs.insert(id)
     }
 
     private func chooseRecoverySource() -> URL? {

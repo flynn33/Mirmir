@@ -21,6 +21,8 @@ typealias R03HistoryGenerationObserver = @Sendable (
 ) -> Void
 
 final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
+    static let outputPoolCapacity = 16
+
     let identity: AppleUpscaleBackendIdentity
     let capabilityID: AppleUpscaleCapabilityID
     let routeIdentity: AppleUpscaleRouteIdentity
@@ -157,7 +159,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
                 width: route.canonicalTargetResolution.width,
                 height: route.canonicalTargetResolution.height,
                 format: R03NV12Contract.pixelFormat,
-                capacity: 3
+                capacity: Self.outputPoolCapacity
             )
             let driver = try R03DeterministicSessionDriver(
                 route: routeIdentity,
@@ -202,7 +204,7 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
     private let cancellationRejection: AppleUpscaleBackendRejected
     private let frameContractRejection: AppleUpscaleBackendRejected
     private let runtimeUnavailable: AppleUpscaleBackendUnavailable
-    private let scalingFailure: AppleUpscaleBackendFailed
+    private let unclassifiedFailure: AppleUpscaleBackendFailed
     private let sourceResolution: VideoResolution
     private let targetResolution: VideoResolution
     private let outputPool: CVPixelBufferPool
@@ -236,9 +238,9 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
             processingIdentity: processingIdentity,
             reason: "r03_scaler_runtime_unavailable"
         )
-        scalingFailure = try AppleUpscaleBackendFailed(
+        unclassifiedFailure = try AppleUpscaleBackendFailed(
             processingIdentity: processingIdentity,
-            reason: "r03_scaling_failed"
+            reason: "r03_unclassified_processing_failure"
         )
         self.sourceResolution = sourceResolution
         self.targetResolution = targetResolution
@@ -262,9 +264,20 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
             return .rejected(frameContractRejection)
         }
 
+        let output: CVPixelBuffer
         do {
-            let output = try PixelBufferBridge.dequeue(from: outputPool)
-            R03NV12Contract.installColorAttachments(on: output)
+            output = try PixelBufferBridge.dequeue(from: outputPool)
+        } catch {
+            return failedOutcome(
+                details: Self.failureDetails(
+                    for: error,
+                    stage: .outputBufferAllocation
+                )
+            )
+        }
+
+        R03NV12Contract.installColorAttachments(on: output)
+        do {
             try scaler.scale(
                 source: frame.pixelBuffer,
                 destination: output,
@@ -273,10 +286,34 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
             guard !cancellation.isCancelled else {
                 return .rejected(cancellationRejection)
             }
+        } catch R03NV12ScalingError.operationCancelled {
+            return .rejected(cancellationRejection)
+        } catch R03NV12ScalingError.runtimeUnavailable {
+            return .unavailable(runtimeUnavailable)
+        } catch {
+            return failedOutcome(
+                details: Self.failureDetails(
+                    for: error,
+                    stage: .scalerExecution
+                )
+            )
+        }
+
+        do {
             try R03NV12Contract.validate(
                 pixelBuffer: output,
                 resolution: targetResolution
             )
+        } catch {
+            return failedOutcome(
+                details: Self.failureDetails(
+                    for: error,
+                    stage: .outputValidation
+                )
+            )
+        }
+
+        do {
             historyGenerationObserver(
                 .process(historyGeneration: historyGeneration)
             )
@@ -299,12 +336,125 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
                     processingIdentity: processingIdentity
                 )
             )
-        } catch R03NV12ScalingError.operationCancelled {
-            return .rejected(cancellationRejection)
-        } catch R03NV12ScalingError.runtimeUnavailable {
-            return .unavailable(runtimeUnavailable)
         } catch {
-            return .failed(scalingFailure)
+            return failedOutcome(
+                details: Self.failureDetails(
+                    for: error,
+                    stage: .resultConstruction
+                )
+            )
+        }
+    }
+
+    private func failedOutcome(
+        details: R03BackendFailureDetails
+    ) -> AppleUpscaleBackendOutcome<AppleUpscaleProcessedFrame> {
+        let context = AppleUpscaleBackendFailureContext(
+            stage: details.stage,
+            statusCode: details.statusCode,
+            planeIndex: details.planeIndex
+        )
+        guard let failure = try? AppleUpscaleBackendFailed(
+            processingIdentity: processingIdentity,
+            reason: details.reason,
+            context: context
+        ) else {
+            return .failed(unclassifiedFailure)
+        }
+        return .failed(failure)
+    }
+
+    private static func failureDetails(
+        for error: Error,
+        stage: AppleUpscaleBackendFailureStage
+    ) -> R03BackendFailureDetails {
+        switch error {
+        case PixelBufferBridgeError.missingPoolCapacity:
+            return R03BackendFailureDetails(
+                reason: "r03_output_pool_capacity_missing",
+                stage: stage
+            )
+        case PixelBufferBridgeError.poolCreationFailed(let status):
+            return R03BackendFailureDetails(
+                reason: "r03_output_pool_creation_failed",
+                stage: stage,
+                statusCode: Int(status)
+            )
+        case PixelBufferBridgeError.poolDequeueFailed(let status):
+            return R03BackendFailureDetails(
+                reason: status == kCVReturnWouldExceedAllocationThreshold
+                    ? "r03_output_pool_allocation_threshold_exceeded"
+                    : "r03_output_pool_dequeue_failed",
+                stage: stage,
+                statusCode: Int(status)
+            )
+        case R03NV12ScalingError.pixelBufferLockFailed(
+            _,
+            let status
+        ):
+            return R03BackendFailureDetails(
+                reason: "r03_pixel_buffer_lock_failed",
+                stage: stage,
+                statusCode: Int(status)
+            )
+        case R03NV12ScalingError.scalingFailed(
+            let plane,
+            let status
+        ):
+            return R03BackendFailureDetails(
+                reason: "r03_scaler_execution_failed",
+                stage: stage,
+                statusCode: status,
+                planeIndex: plane
+            )
+        case R03NV12ScalingError.invalidPixelFormat:
+            return R03BackendFailureDetails(
+                reason: "r03_invalid_pixel_format",
+                stage: stage
+            )
+        case R03NV12ScalingError.invalidDimensions:
+            return R03BackendFailureDetails(
+                reason: "r03_invalid_dimensions",
+                stage: stage
+            )
+        case R03NV12ScalingError.invalidPlaneCount:
+            return R03BackendFailureDetails(
+                reason: "r03_invalid_plane_count",
+                stage: stage
+            )
+        case R03NV12ScalingError.invalidPlaneDimensions(
+            let plane,
+            _,
+            _,
+            _,
+            _
+        ):
+            return R03BackendFailureDetails(
+                reason: "r03_invalid_plane_dimensions",
+                stage: stage,
+                planeIndex: plane
+            )
+        case R03NV12ScalingError.colorDescriptionMismatch:
+            return R03BackendFailureDetails(
+                reason: "r03_color_description_mismatch",
+                stage: stage
+            )
+        case R03NV12ScalingError.colorAttachmentMismatch:
+            return R03BackendFailureDetails(
+                reason: "r03_color_attachment_mismatch",
+                stage: stage
+            )
+        case R03NV12ScalingError.missingPlaneBaseAddress(let plane):
+            return R03BackendFailureDetails(
+                reason: "r03_missing_plane_base_address",
+                stage: stage,
+                planeIndex: plane
+            )
+        default:
+            return R03BackendFailureDetails(
+                reason: "r03_unclassified_processing_failure",
+                stage: stage
+            )
         }
     }
 
@@ -327,5 +477,24 @@ private final class R03DeterministicSessionDriver: AppleUpscaleSessionDriver,
 
     func cancel() async {
         scaler.cancel()
+    }
+}
+
+private struct R03BackendFailureDetails {
+    let reason: String
+    let stage: AppleUpscaleBackendFailureStage
+    let statusCode: Int?
+    let planeIndex: Int?
+
+    init(
+        reason: String,
+        stage: AppleUpscaleBackendFailureStage,
+        statusCode: Int? = nil,
+        planeIndex: Int? = nil
+    ) {
+        self.reason = reason
+        self.stage = stage
+        self.statusCode = statusCode
+        self.planeIndex = planeIndex
     }
 }

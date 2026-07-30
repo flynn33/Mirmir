@@ -1,5 +1,8 @@
 import SwiftUI
 
+// Screen implementations remain co-located with their shared private helpers.
+// swiftlint:disable file_length
+
 struct MirmirDashboardScreen: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
@@ -120,46 +123,140 @@ struct MirmirQueueScreen: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
 
+    @State private var confirmsDiscardAll = false
+
     var body: some View {
         MirmirScreenScaffold(theme: theme) {
             MirmirPanel(theme: theme) {
                 VStack(alignment: .leading, spacing: theme.spacing.space4) {
                     HStack {
-                        screenHeader("Queue", "Active, pending, completed, and failed upscale work.", theme: theme)
+                        screenHeader(
+                            "Queue",
+                            "Current and interrupted upscale work.",
+                            theme: theme
+                        )
                         Spacer()
-                        Button("Clear Completed") {}
+
+                        if !viewModel.recoverableJobs.isEmpty
+                            || viewModel.recoveryRejectedEntryCount > 0 {
+                            Button(
+                                "Discard All Interrupted",
+                                role: .destructive
+                            ) {
+                                confirmsDiscardAll = true
+                            }
+                            .buttonStyle(
+                                MirmirSecondaryButtonStyle(theme: theme)
+                            )
+                            .disabled(recoveryActionsAreDisabled)
+                        }
+
+                        Button("Dismiss Completed") {
+                            viewModel.dismissTerminalJob()
+                        }
                             .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                            .disabled(true)
+                            .disabled(!jobIsFinished)
                     }
 
                     queueContent
                 }
             }
         }
+        .confirmationDialog(
+            "Discard all interrupted upscales?",
+            isPresented: $confirmsDiscardAll,
+            titleVisibility: .visible
+        ) {
+            Button("Discard All", role: .destructive) {
+                viewModel.discardAllRecoverableJobs()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text(
+                "All cached interrupted-job data and recovery "
+                    + "permissions will be permanently removed."
+            )
+        }
     }
 
     @ViewBuilder
     private var queueContent: some View {
+        ForEach(viewModel.recoverableJobs) { interrupted in
+            queueRow(
+                "Interrupted",
+                detail: recoveryDetail(interrupted),
+                tone: .warning
+            )
+        }
+        if viewModel.recoveryRejectedEntryCount > 0 {
+            queueRow(
+                "Unreadable interrupted data",
+                detail:
+                    "\(viewModel.recoveryRejectedEntryCount) record(s) "
+                    + "could not be verified. Discard All removes them.",
+                tone: .warning
+            )
+        }
+
         switch viewModel.state {
         case .running:
             queueRow("Active", detail: sourceDetail, tone: .active)
+            Button("Cancel Processing") {
+                viewModel.cancelUpscale()
+            }
+            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
         case .finished:
             queueRow("Completed", detail: sourceDetail, tone: .success)
         case .failed(let reason):
             queueRow("Failed", detail: reason, tone: .danger)
-            Button("Retry") {}
+            HStack(spacing: theme.spacing.space2) {
+                Button("Retry") {
+                    viewModel.retryFailedUpscale()
+                }
                 .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                .disabled(true)
+                .disabled(!viewModel.canRetryFailedUpscale)
+
+                Button("Dismiss") {
+                    viewModel.dismissTerminalJob()
+                }
+                .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+                .disabled(viewModel.recoveryMutationIsInProgress)
+            }
         default:
-            emptyMessage("No queued work. Start an upscale from the Upscale workspace.", theme: theme)
-            queueRow("Pending", detail: "No pending items", tone: .neutral)
-            queueRow("Completed", detail: "No completed items", tone: .neutral)
-            queueRow("Failed", detail: "No failed items", tone: .neutral)
+            if viewModel.recoverableJobs.isEmpty
+                && viewModel.recoveryRejectedEntryCount == 0 {
+                emptyMessage(
+                    "No queued work. Start an upscale from the Upscale "
+                        + "workspace.",
+                    theme: theme
+                )
+            }
         }
     }
 
     private var sourceDetail: String {
         viewModel.sourceProfile?.url.lastPathComponent ?? "Current source"
+    }
+
+    private var jobIsFinished: Bool {
+        if case .finished = viewModel.state { return true }
+        return false
+    }
+
+    private var recoveryActionsAreDisabled: Bool {
+        viewModel.jobIsRunning
+            || viewModel.recoveryIsProbing
+            || viewModel.recoveryMutationIsInProgress
+    }
+
+    private func recoveryDetail(
+        _ interrupted: R13RecoverableUpscaleJob
+    ) -> String {
+        let frames = interrupted.cachedFrameCount
+        let identifier = String(interrupted.id.prefix(8)).uppercased()
+        return interrupted.outputFilename
+            + " · \(frames) cached frame\(frames == 1 ? "" : "s")"
+            + " · Job \(identifier)"
     }
 
     private func queueRow(_ title: String, detail: String, tone: MirmirStatusTone) -> some View {
@@ -443,3 +540,5 @@ func emptyMessage(_ message: String, theme: MirmirThemeTokens) -> some View {
         .foregroundStyle(theme.textSecondary)
         .padding(.vertical, theme.spacing.space2)
 }
+
+// swiftlint:enable file_length

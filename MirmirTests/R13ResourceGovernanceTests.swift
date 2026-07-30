@@ -466,4 +466,35 @@ private extension R13ResourceGovernanceTests {
     }
 }
 
+extension R13ResourceGovernanceTests {
+    func testWorkingMemoryReservationTracksBackendOutputPoolCapacity()
+        throws {
+        XCTAssertEqual(
+            R03DeterministicBackend.outputPoolCapacity,
+            16
+        )
+        let source = VideoResolution.p1080
+        let target = VideoResolution.p2160
+        let sourceBytes = try R13NV12Frame.expectedPlaneByteCounts(
+            width: source.width,
+            height: source.height
+        ).total
+        let targetBytes = try R13NV12Frame.expectedPlaneByteCounts(
+            width: target.width,
+            height: target.height
+        ).total
+        let expected = UInt64(sourceBytes + targetBytes)
+            * UInt64(R03DeterministicBackend.outputPoolCapacity)
+            + 67_108_864
+
+        XCTAssertEqual(
+            try R13ReleaseHardeningRuntime.requiredWorkingMemoryBytes(
+                source: source,
+                target: target
+            ),
+            expected
+        )
+    }
+}
+
 private struct UnexpectedOutcome: Error {}

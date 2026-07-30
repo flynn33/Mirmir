@@ -3,9 +3,47 @@ import Foundation
 extension R13ReleaseUpscalerEngineService {
     func resolveHardeningRuntime() throws
         -> R13ReleaseHardeningRuntime? {
-        let runtime = try hardeningRuntimeProvider()
-        hardeningRuntimeState.withLock { $0 = runtime }
-        return runtime
+        while true {
+            let snapshot = hardeningRuntimeState.withLock {
+                (runtime: $0.runtime, epoch: $0.epoch)
+            }
+            if let runtime = snapshot.runtime {
+                return runtime
+            }
+
+            let resolvedRuntime: R13ReleaseHardeningRuntime?
+            do {
+                resolvedRuntime = try hardeningRuntimeProvider()
+            } catch {
+                let current = hardeningRuntimeState.withLock {
+                    (runtime: $0.runtime, epoch: $0.epoch)
+                }
+                if let runtime = current.runtime {
+                    return runtime
+                }
+                if current.epoch !== snapshot.epoch {
+                    continue
+                }
+                throw error
+            }
+
+            let publication: (
+                accepted: Bool,
+                runtime: R13ReleaseHardeningRuntime?
+            ) = hardeningRuntimeState.withLock { state in
+                if let runtime = state.runtime {
+                    return (accepted: true, runtime: runtime)
+                }
+                guard state.epoch === snapshot.epoch else {
+                    return (accepted: false, runtime: resolvedRuntime)
+                }
+                state.runtime = resolvedRuntime
+                return (accepted: true, runtime: resolvedRuntime)
+            }
+            if publication.accepted {
+                return publication.runtime
+            }
+        }
     }
 
     func performCacheLocationChange(
@@ -30,7 +68,10 @@ extension R13ReleaseUpscalerEngineService {
             }
         }
         let status = try operation()
-        hardeningRuntimeState.withLock { $0 = nil }
+        hardeningRuntimeState.withLock { state in
+            state.runtime = nil
+            state.epoch = HardeningRuntimeEpoch()
+        }
         return status
     }
 
@@ -40,7 +81,7 @@ extension R13ReleaseUpscalerEngineService {
         let activeHandle: R13ReleaseUpscalerJobHandle? =
             activeJobState.withLock { state in
             switch state {
-            case .idle, .changingCacheLocation:
+            case .idle, .changingCacheLocation, .discardingRecovery:
                 return nil
             case .reserved:
                 state = .stoppingReserved

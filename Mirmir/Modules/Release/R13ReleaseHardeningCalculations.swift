@@ -240,7 +240,9 @@ extension R13ReleaseHardeningRuntime {
         let (combined, addOverflow) = UInt64(sourceCounts.total)
             .addingReportingOverflow(UInt64(targetCounts.total))
         let (buffered, multiplyOverflow) = combined
-            .multipliedReportingOverflow(by: 8)
+            .multipliedReportingOverflow(
+                by: UInt64(R03DeterministicBackend.outputPoolCapacity)
+            )
         let (required, reserveOverflow) = buffered
             .addingReportingOverflow(67_108_864)
         guard !addOverflow,

@@ -7,7 +7,10 @@ struct R13IntegrationWorkspace {
     let outputURL: URL
     let jobsRootURL: URL
 
-    init(outputOverride: URL? = nil) throws {
+    init(
+        outputFileName: String = "output.mov",
+        outputOverride: URL? = nil
+    ) throws {
         directory = FileManager.default.temporaryDirectory
             .appendingPathComponent(
                 "mirmir-r13-integration-\(UUID().uuidString)",
@@ -19,7 +22,7 @@ struct R13IntegrationWorkspace {
             isDirectory: true
         )
         outputURL = outputOverride
-            ?? directory.appendingPathComponent("output.mov")
+            ?? directory.appendingPathComponent(outputFileName)
         try FileManager.default.createDirectory(
             at: jobsRootURL,
             withIntermediateDirectories: true
