@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import CoreMedia
 import CoreVideo
@@ -5,6 +6,643 @@ import XCTest
 @testable import Mirmir
 
 final class MirmirDiagnosticExportTests: XCTestCase {
+    func testMPSTextureLimitExportsRequestedGeometryAndHardwareLimit()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let error = R03MPSTextureDimensionLimitError(
+            maximumTextureDimension2D: 8_192,
+            sourceResolution: VideoResolution(
+                width: 8_192,
+                height: 4_608
+            ),
+            targetResolution: VideoResolution(
+                width: 10_240,
+                height: 5_760
+            )
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_engine",
+            operation: "adaptive_scaler_preflight",
+            code: "release_adaptive_scaler_preflight_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "mps_texture_dimension_limit_exceeded"
+        )
+        XCTAssertEqual(
+            fields["maximum_texture_dimension_2d"],
+            "8192"
+        )
+        XCTAssertEqual(
+            fields["requested_source_dimensions"],
+            "8192x4608"
+        )
+        XCTAssertEqual(
+            fields["requested_target_dimensions"],
+            "10240x5760"
+        )
+    }
+
+    func testNegativeSourceTimelineExportsStructuredTimingEvidence()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let error = MediaPipelineError.unsupportedNegativeSourceTimeline(
+            mediaType: "video",
+            start: CMTime(value: -1, timescale: 30),
+            end: CMTime(value: 29, timescale: 30)
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "media",
+            operation: "media_session_start",
+            code: "media_session_start_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "unsupported_negative_source_timeline"
+        )
+        XCTAssertEqual(
+            fields["source_timeline_media_type"],
+            "video"
+        )
+        XCTAssertEqual(fields["source_timeline_start_value"], "-1")
+        XCTAssertEqual(fields["source_timeline_start_timescale"], "30")
+        XCTAssertEqual(fields["source_timeline_end_value"], "29")
+        XCTAssertEqual(fields["source_timeline_end_timescale"], "30")
+    }
+
+    func testFinalMuxFailureExportsUnderlyingIdentityWithoutPath()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let underlying = NSError(
+            domain: AVFoundationErrorDomain,
+            code: AVError.operationNotSupportedForAsset.rawValue
+        )
+        let error = MediaPipelineError.finalMuxFailed(
+            privateOutputURL,
+            underlying
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "media_pipeline",
+            operation: "final_sample_copy_mux",
+            code: "final_mux_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(fields["failure_category"], "final_mux_failed")
+        XCTAssertEqual(record.event.error?.frames.count, 2)
+        XCTAssertEqual(
+            record.event.error?.frames.last?.domain,
+            AVFoundationErrorDomain
+        )
+        XCTAssertEqual(
+            record.event.error?.frames.last?.code,
+            AVError.operationNotSupportedForAsset.rawValue
+        )
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            XCTAssertFalse(exportedText.contains(privateOutputURL.path))
+            XCTAssertFalse(exportedText.contains("Secret Client"))
+            XCTAssertFalse(exportedText.contains("person@example.com"))
+            XCTAssertFalse(exportedText.contains("token-sk_test_SENTINEL"))
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    // This privacy contract is intentionally verified end to end.
+    // swiftlint:disable:next function_body_length
+    func testFinalMuxGuardsExportDistinctStructuredPrivateSafeMetadata()
+        async throws {
+        struct GuardCase {
+            let error: FinalMuxGuardError
+            let reason: String
+            let phase: String
+            let code: Int
+            let countKind: String
+            let expectedCount: String
+            let actualCount: String
+            let trackKind: String?
+        }
+
+        let cases = [
+            GuardCase(
+                error: .stagingVideoTrackCount(expected: 1, actual: 0),
+                reason: "staging_video_track_count_mismatch",
+                phase: "staging_inspection",
+                code: 1_001,
+                countKind: "video_track",
+                expectedCount: "1",
+                actualCount: "0",
+                trackKind: nil
+            ),
+            GuardCase(
+                error: .stagingMetadataTrackCount(expected: 1, actual: 2),
+                reason: "staging_metadata_track_count_mismatch",
+                phase: "staging_inspection",
+                code: 1_002,
+                countKind: "metadata_track",
+                expectedCount: "1",
+                actualCount: "2",
+                trackKind: nil
+            ),
+            GuardCase(
+                error: .temporaryOutputAlreadyExists,
+                reason: "temporary_output_already_exists",
+                phase: "destination_preparation",
+                code: 1_003,
+                countKind: "temporary_output",
+                expectedCount: "0",
+                actualCount: "1",
+                trackKind: nil
+            ),
+            GuardCase(
+                error: .destinationTrackCreationFailed(trackKind: .audio),
+                reason: "destination_track_creation_failed",
+                phase: "destination_track_creation",
+                code: 1_004,
+                countKind: "destination_track",
+                expectedCount: "1",
+                actualCount: "0",
+                trackKind: "audio"
+            )
+        ]
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let store = MirmirDiagnosticStore()
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        for testCase in cases {
+            await recorder.record(
+                severity: .error,
+                subsystem: "media_pipeline",
+                operation: "final_sample_copy_mux",
+                code: "final_mux_failed",
+                error: MediaPipelineError.finalMuxFailed(
+                    privateOutputURL,
+                    testCase.error
+                )
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.records.count, cases.count)
+        for (record, testCase) in zip(snapshot.records, cases) {
+            let fields = Dictionary(
+                uniqueKeysWithValues: record.event.fields.map {
+                    ($0.key.rawValue, $0.value.displayValue)
+                }
+            )
+            XCTAssertEqual(fields["failure_category"], "final_mux_failed")
+            XCTAssertEqual(
+                fields["final_mux_failure_reason"],
+                testCase.reason
+            )
+            XCTAssertEqual(
+                fields["final_mux_failure_phase"],
+                testCase.phase
+            )
+            XCTAssertEqual(
+                fields["final_mux_guard_code"],
+                String(testCase.code)
+            )
+            XCTAssertEqual(
+                fields["final_mux_count_kind"],
+                testCase.countKind
+            )
+            XCTAssertEqual(
+                fields["final_mux_expected_count"],
+                testCase.expectedCount
+            )
+            XCTAssertEqual(
+                fields["final_mux_actual_count"],
+                testCase.actualCount
+            )
+            XCTAssertEqual(
+                fields["final_mux_track_kind"],
+                testCase.trackKind
+            )
+            XCTAssertEqual(
+                record.event.error?.frames.last?.domain,
+                FinalMuxGuardError.errorDomain
+            )
+            XCTAssertEqual(
+                record.event.error?.frames.last?.code,
+                testCase.code
+            )
+        }
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            assertPrivateFixtureIsAbsent(from: exportedText)
+        }
+        for testCase in cases {
+            XCTAssertTrue(jsonText.contains(testCase.reason))
+            XCTAssertTrue(
+                markdownText.contains(markdownIdentifier(testCase.reason))
+            )
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    // This privacy contract is intentionally verified end to end.
+    // swiftlint:disable:next function_body_length
+    func testPrimaryMuxAndCleanupFailuresRemainSeparatePrivateSafeRecords()
+        async throws {
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let privateStagingURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/.private-stage.mp4"
+        )
+        let store = MirmirDiagnosticStore()
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        await recorder.record(
+            severity: .error,
+            subsystem: "release_engine",
+            operation: "execute_job",
+            code: "release_job_failed",
+            error: MediaPipelineError.finalMuxFailed(
+                privateOutputURL,
+                FinalMuxGuardError.stagingVideoTrackCount(
+                    expected: 1,
+                    actual: 0
+                )
+            )
+        )
+        await recorder.record(
+            severity: .error,
+            subsystem: "release_engine",
+            operation: "cleanup_media_session",
+            code: "release_media_cleanup_failed",
+            error: MediaPipelineError.partialCleanupFailed(
+                privateStagingURL,
+                "person@example.com token-sk_test_SENTINEL"
+            )
+        )
+
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.records.count, 2)
+        let primary = try XCTUnwrap(
+            snapshot.records.first {
+                $0.event.code.rawValue == "release_job_failed"
+            }
+        )
+        let cleanup = try XCTUnwrap(
+            snapshot.records.first {
+                $0.event.code.rawValue == "release_media_cleanup_failed"
+            }
+        )
+        let primaryFields = Dictionary(
+            uniqueKeysWithValues: primary.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        let cleanupFields = Dictionary(
+            uniqueKeysWithValues: cleanup.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            primaryFields["failure_category"],
+            "final_mux_failed"
+        )
+        XCTAssertEqual(
+            primaryFields["final_mux_failure_reason"],
+            "staging_video_track_count_mismatch"
+        )
+        XCTAssertEqual(
+            cleanupFields["failure_category"],
+            "partial_cleanup_failed"
+        )
+        XCTAssertEqual(primary.event.error?.frames.count, 2)
+        XCTAssertEqual(cleanup.event.error?.frames.count, 1)
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            assertPrivateFixtureIsAbsent(from: exportedText)
+        }
+        XCTAssertTrue(
+            jsonText.contains("staging_video_track_count_mismatch")
+        )
+        XCTAssertTrue(jsonText.contains("partial_cleanup_failed"))
+        XCTAssertTrue(
+            markdownText.contains(
+                markdownIdentifier("staging_video_track_count_mismatch")
+            )
+        )
+        XCTAssertTrue(
+            markdownText.contains(
+                markdownIdentifier("partial_cleanup_failed")
+            )
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    func testOutputVerificationFailureExportsExactTimingEvidenceWithoutPath()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let expected = CMTime(value: 15_017, timescale: 360_000)
+        let actual = CMTime(value: 1_001, timescale: 24_000)
+        let error = MediaPipelineError.outputVerificationFailed(
+            privateOutputURL,
+            OutputMediaVerificationError.frameDurationMismatch(
+                frameIndex: 8_493,
+                expected: expected,
+                actual: actual
+            )
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_upscaler",
+            operation: "finish_job",
+            code: "release_job_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "output_verification_failed"
+        )
+        XCTAssertEqual(
+            fields["verification_failure_kind"],
+            "frame_duration_mismatch"
+        )
+        XCTAssertEqual(fields["verification_frame_index"], "8493")
+        XCTAssertEqual(
+            fields["verification_expected_time"],
+            "15017/360000"
+        )
+        XCTAssertEqual(fields["verification_actual_time"], "1001/24000")
+        XCTAssertEqual(
+            fields["verification_time_delta"],
+            "-2/360000"
+        )
+        XCTAssertEqual(record.event.error?.frames.count, 2)
+        XCTAssertTrue(
+            record.event.error?.frames.last?.type.contains(
+                "OutputMediaVerificationError"
+            ) == true
+        )
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            XCTAssertFalse(exportedText.contains(privateOutputURL.path))
+            XCTAssertFalse(exportedText.contains("Secret Client"))
+            XCTAssertFalse(exportedText.contains("person@example.com"))
+            XCTAssertFalse(exportedText.contains("token-sk_test_SENTINEL"))
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    // This privacy contract is intentionally verified end to end.
+    // swiftlint:disable:next function_body_length
+    func testInvalidOutputVerificationTimesRemainInPrivateSafeExports()
+        async throws {
+        struct InvalidTimeCase {
+            let expected: CMTime
+            let actual: CMTime
+            let expectedValidity: String
+            let actualValidity: String
+        }
+
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let cases = [
+            InvalidTimeCase(
+                expected: .invalid,
+                actual: CMTime(value: 1, timescale: 30),
+                expectedValidity: "invalid",
+                actualValidity: "numeric"
+            ),
+            InvalidTimeCase(
+                expected: CMTime(value: 1, timescale: 30),
+                actual: .indefinite,
+                expectedValidity: "numeric",
+                actualValidity: "indefinite"
+            ),
+            InvalidTimeCase(
+                expected: CMTime(
+                    value: 7,
+                    timescale: 0,
+                    flags: [.valid],
+                    epoch: 0
+                ),
+                actual: CMTime(value: 1, timescale: 30),
+                expectedValidity: "nonpositive_timescale",
+                actualValidity: "numeric"
+            ),
+            InvalidTimeCase(
+                expected: CMTime(value: 1, timescale: 30),
+                actual: CMTime(
+                    value: 7,
+                    timescale: -30,
+                    flags: [.valid],
+                    epoch: 0
+                ),
+                expectedValidity: "numeric",
+                actualValidity: "nonpositive_timescale"
+            )
+        ]
+        let store = MirmirDiagnosticStore()
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        for testCase in cases {
+            await recorder.record(
+                severity: .error,
+                subsystem: "release_upscaler",
+                operation: "finish_job",
+                code: "release_job_failed",
+                error: MediaPipelineError.outputVerificationFailed(
+                    privateOutputURL,
+                    OutputMediaVerificationError.trackEndMismatch(
+                        expected: testCase.expected,
+                        actual: testCase.actual
+                    )
+                )
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.records.count, cases.count)
+        for (record, testCase) in zip(snapshot.records, cases) {
+            let fields = Dictionary(
+                uniqueKeysWithValues: record.event.fields.map {
+                    ($0.key.rawValue, $0.value.displayValue)
+                }
+            )
+            XCTAssertEqual(
+                fields["failure_category"],
+                "output_verification_failed"
+            )
+            XCTAssertEqual(
+                fields["verification_failure_kind"],
+                "track_end_mismatch"
+            )
+            XCTAssertEqual(
+                fields["verification_expected_time_validity"],
+                testCase.expectedValidity
+            )
+            XCTAssertEqual(
+                fields["verification_actual_time_validity"],
+                testCase.actualValidity
+            )
+            if testCase.expectedValidity == "numeric" {
+                XCTAssertNotNil(fields["verification_expected_time"])
+            } else {
+                XCTAssertNil(fields["verification_expected_time"])
+                XCTAssertNotNil(fields["verification_expected_time_value"])
+                XCTAssertNotNil(
+                    fields["verification_expected_time_timescale"]
+                )
+            }
+            if testCase.actualValidity == "numeric" {
+                XCTAssertNotNil(fields["verification_actual_time"])
+            } else {
+                XCTAssertNil(fields["verification_actual_time"])
+                XCTAssertNotNil(fields["verification_actual_time_value"])
+                XCTAssertNotNil(
+                    fields["verification_actual_time_timescale"]
+                )
+            }
+        }
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            assertPrivateFixtureIsAbsent(from: exportedText)
+        }
+        XCTAssertTrue(jsonText.contains("invalid"))
+        XCTAssertTrue(jsonText.contains("indefinite"))
+        XCTAssertTrue(jsonText.contains("nonpositive_timescale"))
+        XCTAssertTrue(markdownText.contains("invalid"))
+        XCTAssertTrue(markdownText.contains("indefinite"))
+        XCTAssertTrue(
+            markdownText.contains(
+                markdownIdentifier("nonpositive_timescale")
+            )
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
     func testBackendFrameFailureExportsStructuredRootCause() async throws {
         let store = MirmirDiagnosticStore()
         let backend = try R03DeterministicBackend.makeVImage(
@@ -505,6 +1143,10 @@ final class MirmirDiagnosticExportTests: XCTestCase {
 }
 
 private extension MirmirDiagnosticExportTests {
+    func markdownIdentifier(_ value: String) -> String {
+        value.replacingOccurrences(of: "_", with: "\\_")
+    }
+
     func diagnosticFrame(resolution: VideoResolution) throws -> FrameRecord {
         let pool = try PixelBufferBridge.makePool(
             width: resolution.width,

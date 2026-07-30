@@ -5,6 +5,18 @@ import CoreVideo
 import CryptoKit
 import Foundation
 
+private final class OutputMediaReaderCancellation: @unchecked Sendable {
+    private let reader: AVAssetReader
+
+    init(reader: AVAssetReader) {
+        self.reader = reader
+    }
+
+    func cancel() {
+        reader.cancelReading()
+    }
+}
+
 struct OutputMediaVerifier: OutputMediaVerifying {
     private struct ReopenedOutput {
         let asset: AVURLAsset
@@ -55,6 +67,21 @@ struct OutputMediaVerifier: OutputMediaVerifying {
         url: URL,
         expectation: OutputMediaVerificationExpectation
     ) async throws -> OutputMediaVerificationResult {
+        try await verify(
+            url: url,
+            expectation: expectation,
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
+        )
+    }
+
+    func verify(
+        url: URL,
+        expectation: OutputMediaVerificationExpectation,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaVerificationResult {
+        try cancellationCheck()
         guard expectation.timing.frameCount > 0,
               let expectedVideoEndTime = expectation.timing.sessionEndTime else {
             throw OutputMediaVerificationError.emptyTimingLedger
@@ -66,11 +93,17 @@ struct OutputMediaVerifier: OutputMediaVerifying {
                 expectedMediaEndTime = audioEndTime
             }
         }
-        let reopened = try await Self.reopen(url: url, expectation: expectation)
-        let decoded = try Self.decodeFrames(
-            reopened: reopened,
-            expectation: expectation
+        let reopened = try await Self.reopen(
+            url: url,
+            expectation: expectation,
+            cancellationCheck: cancellationCheck
         )
+        let decoded = try await Self.decodeFrames(
+            reopened: reopened,
+            expectation: expectation,
+            cancellationCheck: cancellationCheck
+        )
+        try cancellationCheck()
         try Self.verifyDurations(
             reopened: reopened,
             expectedVideoEndTime: expectedVideoEndTime,
@@ -79,14 +112,19 @@ struct OutputMediaVerifier: OutputMediaVerifying {
         try await Self.verifyTimedMetadata(
             asset: reopened.asset,
             expected: expectation.timedMetadata,
-            expectedEndTime: expectedVideoEndTime
+            expectedEndTime: expectedVideoEndTime,
+            cancellationCheck: cancellationCheck
         )
         if let expectedAAC = expectation.compressedAACIdentity {
+            try cancellationCheck()
             let actualAAC = try await OutputMediaAACIdentityReader.read(
-                asset: reopened.asset
+                asset: reopened.asset,
+                cancellationCheck: cancellationCheck
             )
+            try cancellationCheck()
             try Self.verifyCompressedAAC(actualAAC, expected: expectedAAC)
         }
+        try cancellationCheck()
 
         return OutputMediaVerificationResult(
             codec: reopened.codec,
@@ -102,14 +140,17 @@ struct OutputMediaVerifier: OutputMediaVerifying {
 private extension OutputMediaVerifier {
     private static func reopen(
         url: URL,
-        expectation: OutputMediaVerificationExpectation
+        expectation: OutputMediaVerificationExpectation,
+        cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws -> ReopenedOutput {
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
         do {
+            try cancellationCheck()
             let videoTracks = try await asset.loadTracks(withMediaType: .video)
+            try cancellationCheck()
             guard videoTracks.count == 1, let videoTrack = videoTracks.first else {
                 throw OutputMediaVerificationError.videoTrackCount(
                     expected: 1,
@@ -117,6 +158,7 @@ private extension OutputMediaVerifier {
                 )
             }
             let trackFormats = try await videoTrack.load(.formatDescriptions)
+            try cancellationCheck()
             guard let videoFormat = trackFormats.first else {
                 throw OutputMediaVerificationError.missingVideoFormatDescription
             }
@@ -143,6 +185,7 @@ private extension OutputMediaVerifier {
                 let actualTransform = try await videoTrack.load(
                     .preferredTransform
                 )
+                try cancellationCheck()
                 guard transformsMatch(
                     expectedTransform,
                     actualTransform
@@ -160,14 +203,20 @@ private extension OutputMediaVerifier {
                     expected: expectedColor
                 )
             }
+            let duration = try await asset.load(.duration)
+            try cancellationCheck()
+            let trackTimeRange = try await videoTrack.load(.timeRange)
+            try cancellationCheck()
             return ReopenedOutput(
                 asset: asset,
                 videoTrack: videoTrack,
-                duration: try await asset.load(.duration),
-                trackTimeRange: try await videoTrack.load(.timeRange),
+                duration: duration,
+                trackTimeRange: trackTimeRange,
                 codec: codec,
                 resolution: resolution
             )
+        } catch is CancellationError {
+            throw CancellationError()
         } catch let error as OutputMediaVerificationError {
             throw error
         } catch {
@@ -177,8 +226,9 @@ private extension OutputMediaVerifier {
 
     private static func decodeFrames(
         reopened: ReopenedOutput,
-        expectation: OutputMediaVerificationExpectation
-    ) throws -> DecodedOutput {
+        expectation: OutputMediaVerificationExpectation,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> DecodedOutput {
         let reader: AVAssetReader
         do {
             reader = try AVAssetReader(asset: reopened.asset)
@@ -205,38 +255,58 @@ private extension OutputMediaVerifier {
             )
         }
 
-        var result = DecodedOutput()
-        var currentSample = output.copyNextSampleBuffer()
-        let trackEnd = CMTimeRangeGetEnd(reopened.trackTimeRange)
-        while let sample = currentSample {
-            let nextSample = output.copyNextSampleBuffer()
-            let actualDuration = FrameTiming.resolveDuration(
-                sampleDuration: CMSampleBufferGetDuration(sample),
-                presentationTime: CMSampleBufferGetPresentationTimeStamp(sample),
-                nextPresentationTime: nextSample.map {
-                    CMSampleBufferGetPresentationTimeStamp($0)
-                },
-                timelineEnd: trackEnd
-            )
-            try result.record(
-                sample: sample,
-                actualDuration: actualDuration,
-                expectation: expectation
-            )
-            currentSample = nextSample
+        let cancellation = OutputMediaReaderCancellation(reader: reader)
+        return try await withTaskCancellationHandler {
+            do {
+                try cancellationCheck()
+                var result = DecodedOutput()
+                var currentSample = output.copyNextSampleBuffer()
+                try cancellationCheck()
+                let trackEnd = CMTimeRangeGetEnd(reopened.trackTimeRange)
+                while let sample = currentSample {
+                    try cancellationCheck()
+                    currentSample = try autoreleasepool {
+                        let nextSample = output.copyNextSampleBuffer()
+                        try cancellationCheck()
+                        let actualDuration = FrameTiming.resolveDuration(
+                            sampleDuration: CMSampleBufferGetDuration(sample),
+                            presentationTime: CMSampleBufferGetPresentationTimeStamp(
+                                sample
+                            ),
+                            nextPresentationTime: nextSample.map {
+                                CMSampleBufferGetPresentationTimeStamp($0)
+                            },
+                            timelineEnd: trackEnd
+                        )
+                        try result.record(
+                            sample: sample,
+                            actualDuration: actualDuration,
+                            expectation: expectation
+                        )
+                        return nextSample
+                    }
+                }
+                try cancellationCheck()
+                guard reader.status == .completed else {
+                    throw OutputMediaVerificationError.readerFailed(
+                        reader.error.map(String.init(describing:))
+                            ?? "status \(reader.status.rawValue)"
+                    )
+                }
+                guard result.frameCount == expectation.timing.frameCount else {
+                    throw OutputMediaVerificationError.frameCountMismatch(
+                        expected: expectation.timing.frameCount,
+                        actual: result.frameCount
+                    )
+                }
+                return result
+            } catch is CancellationError {
+                cancellation.cancel()
+                throw CancellationError()
+            }
+        } onCancel: {
+            cancellation.cancel()
         }
-        guard reader.status == .completed else {
-            throw OutputMediaVerificationError.readerFailed(
-                reader.error.map(String.init(describing:)) ?? "status \(reader.status.rawValue)"
-            )
-        }
-        guard result.frameCount == expectation.timing.frameCount else {
-            throw OutputMediaVerificationError.frameCountMismatch(
-                expected: expectation.timing.frameCount,
-                actual: result.frameCount
-            )
-        }
-        return result
     }
 
     private static func verifyDurations(
@@ -265,10 +335,13 @@ private extension OutputMediaVerifier {
     private static func verifyTimedMetadata(
         asset: AVURLAsset,
         expected: [String: String],
-        expectedEndTime: CMTime
+        expectedEndTime: CMTime,
+        cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws {
         guard !expected.isEmpty else { return }
+        try cancellationCheck()
         let tracks = try await asset.loadTracks(withMediaType: .metadata)
+        try cancellationCheck()
         guard tracks.count == 1, let track = tracks.first else {
             throw OutputMediaVerificationError.metadataMismatch(
                 scope: "timed ASH identity",
@@ -302,45 +375,70 @@ private extension OutputMediaVerifier {
                     ?? "reader did not start"
             )
         }
-        var groups: [AVTimedMetadataGroup] = []
-        while let group = adaptor.nextTimedMetadataGroup() {
-            groups.append(group)
+        let cancellation = OutputMediaReaderCancellation(reader: reader)
+        try await withTaskCancellationHandler {
+            do {
+                var groupCount = 0
+                var firstGroup: AVTimedMetadataGroup?
+                while true {
+                    try cancellationCheck()
+                    guard let group = adaptor.nextTimedMetadataGroup() else {
+                        break
+                    }
+                    groupCount += 1
+                    if firstGroup == nil {
+                        firstGroup = group
+                    }
+                }
+                try cancellationCheck()
+                guard reader.status == .completed else {
+                    throw OutputMediaVerificationError.metadataMismatch(
+                        scope: "timed Mirmir identity",
+                        reason: reader.error.map(String.init(describing:))
+                            ?? "reader status \(reader.status.rawValue)"
+                    )
+                }
+                guard groupCount == 1, let group = firstGroup else {
+                    throw OutputMediaVerificationError.metadataMismatch(
+                        scope: "timed Mirmir identity",
+                        reason: "expected one group, observed \(groupCount)"
+                    )
+                }
+                guard CMTimeCompare(group.timeRange.start, .zero) == 0,
+                      CMTimeCompare(
+                        CMTimeRangeGetEnd(group.timeRange),
+                        expectedEndTime
+                      ) == 0 else {
+                    throw OutputMediaVerificationError.metadataMismatch(
+                        scope: "timed Mirmir identity",
+                        reason: "group time range does not span the completed video"
+                    )
+                }
+                try await verifyMetadataItems(
+                    group.items,
+                    expected: expected,
+                    scope: "timed Mirmir identity",
+                    cancellationCheck: cancellationCheck
+                )
+            } catch is CancellationError {
+                cancellation.cancel()
+                throw CancellationError()
+            }
+        } onCancel: {
+            cancellation.cancel()
         }
-        guard reader.status == .completed else {
-            throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed Mirmir identity",
-                reason: reader.error.map(String.init(describing:))
-                    ?? "reader status \(reader.status.rawValue)"
-            )
-        }
-        guard groups.count == 1, let group = groups.first else {
-            throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed Mirmir identity",
-                reason: "expected one group, observed \(groups.count)"
-            )
-        }
-        guard CMTimeCompare(group.timeRange.start, .zero) == 0,
-              CMTimeCompare(CMTimeRangeGetEnd(group.timeRange), expectedEndTime) == 0 else {
-            throw OutputMediaVerificationError.metadataMismatch(
-                scope: "timed Mirmir identity",
-                reason: "group time range does not span the completed video"
-            )
-        }
-        try await verifyMetadataItems(
-            group.items,
-            expected: expected,
-            scope: "timed Mirmir identity"
-        )
     }
 
     private static func verifyMetadataItems(
         _ items: [AVMetadataItem],
         expected: [String: String],
-        scope: String
+        scope: String,
+        cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws {
         guard !expected.isEmpty else { return }
         var observed: [String: String] = [:]
         for item in items {
+            try cancellationCheck()
             guard let key = metadataKey(item),
                   MirmirTimedMetadataPolicy.isValidKey(key) else {
                 throw OutputMediaVerificationError.metadataMismatch(
@@ -360,6 +458,7 @@ private extension OutputMediaVerifier {
                     reason: "key \(key) has no UTF-8 string value"
                 )
             }
+            try cancellationCheck()
             observed[key] = value
         }
         guard observed == expected else {
@@ -498,3 +597,6 @@ private extension OutputMediaVerifier {
         return String(bytes: bytes, encoding: .ascii) ?? "????"
     }
 }
+
+// Reopen verification is reviewed as one ordered fail-closed transaction.
+// swiftlint:disable:this file_length

@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AD1300010000000000000002 /* R13AdaptiveHardeningIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1300010000000000000001 /* R13AdaptiveHardeningIntegrationTests.swift */; };
+		EB46DCC4F026405E9943DE6A /* AVMutableMovieSampleCopyIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 994F019A6751445C8A139677 /* AVMutableMovieSampleCopyIdentityTests.swift */; };
 		00CFE43610567F8A3EBAFF18 /* R09CoreAIResidualContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F467339424553F1EA48873D /* R09CoreAIResidualContracts.swift */; };
 		00D967DA0D17C94EF593FF58 /* ASHLockedRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB7D62D8C7DD0E558E2C9A4 /* ASHLockedRuntimeV3.swift */; };
 		0126335234DA5A26FBDFCBD0 /* R06ASHDecisionContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F46C67CDF4C2B235AFA4423 /* R06ASHDecisionContext.swift */; };
@@ -244,7 +246,6 @@
 		870989D9970DA1ACE094F862 /* ASHLockedNonASHOutputCacheV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CF6C028E41DDFD20D482E3 /* ASHLockedNonASHOutputCacheV2.swift */; };
 		87317B509FEB190A2F02FC83 /* ASHImmutableLUTValidationV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F545DFA734A6565A169DFE /* ASHImmutableLUTValidationV3.swift */; };
 		87B0558519D5568FCE8E0D0D /* R13RestartJobContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8ACACE9ECC6BD1818A191CE /* R13RestartJobContracts.swift */; };
-		87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1132D09C41665FFDB89F81CE /* PreviewView.swift */; };
 		88EC2EF60AF11898481F916B /* AppleUpscaleCapabilityReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B890FF40EAAE7560AC093BA6 /* AppleUpscaleCapabilityReportModels.swift */; };
 		8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E391EBE193D62E60BF842DC1 /* Assets.xcassets */; };
 		892CE61AD070C0F7651F2B86 /* MirmirModuleFactoryRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CD5193BFC08B5B8EB2DD5 /* MirmirModuleFactoryRegistryTests.swift */; };
@@ -470,6 +471,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AD1300010000000000000001 /* R13AdaptiveHardeningIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13AdaptiveHardeningIntegrationTests.swift; sourceTree = "<group>"; };
+		994F019A6751445C8A139677 /* AVMutableMovieSampleCopyIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVMutableMovieSampleCopyIdentityTests.swift; sourceTree = "<group>"; };
 		0094B29F70CD99DA3D843C3C /* ASHAnalysisGridV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAnalysisGridV2Tests.swift; sourceTree = "<group>"; };
 		014304381B202E6F353CF642 /* R13CacheLocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13CacheLocation.swift; sourceTree = "<group>"; };
 		0158FCB56F360A4A3ACDDBA9 /* ASHP08NativeSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08NativeSupport.swift; sourceTree = "<group>"; };
@@ -503,7 +506,6 @@
 		0EF1D2E09E33E571AE38E65C /* R07FunctionalCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07FunctionalCoordinatorTests.swift; sourceTree = "<group>"; };
 		0FD33793C33FDD6545F97DC5 /* ASHSpatialRuntimeConfigurationV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialRuntimeConfigurationV2.swift; sourceTree = "<group>"; };
 		1095F73BBA5EFBF0F47F8993 /* ASHLockedReferenceTypesV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReferenceTypesV2.swift; sourceTree = "<group>"; };
-		1132D09C41665FFDB89F81CE /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		1184C807B9D111C7F9AD4748 /* MirmirDiagnosticStore+Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirmirDiagnosticStore+Persistence.swift"; sourceTree = "<group>"; };
 		11F576E697178D89FA9926B9 /* R13UIReleaseModeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13UIReleaseModeTests.swift; sourceTree = "<group>"; };
 		14465357CF20EEEC2CF92B5A /* R07FunctionalCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07FunctionalCoordinator.swift; sourceTree = "<group>"; };
@@ -1150,7 +1152,6 @@
 				F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */,
 				D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */,
 				1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */,
-				1132D09C41665FFDB89F81CE /* PreviewView.swift */,
 				C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */,
 				1670F66A1AB02A3C99D9CBF3 /* R13UpscaleActionPanel.swift */,
 				EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */,
@@ -1451,6 +1452,7 @@
 		FD80DC4B97DD178A7E605C3A /* MirmirTests */ = {
 			isa = PBXGroup;
 			children = (
+				994F019A6751445C8A139677 /* AVMutableMovieSampleCopyIdentityTests.swift */,
 				71A1099CC8EDD6E01524476D /* AppleUpscaleCapabilityLiveProbeTests.swift */,
 				AA9CB6C15BF88B28C3AFEB5C /* AppleUpscaleCapabilityProbeTests.swift */,
 				C62FAEE9CA2981B0B1A73182 /* AppleUpscaleContractsTests.swift */,
@@ -1550,6 +1552,7 @@
 				C85D82848BCD8102B08CB9FC /* R12MediaFormatContractV2Tests.swift */,
 				AC2D430A656071EA8D864EF1 /* R12RouteAndHardwareResolverTests.swift */,
 				D274FF6BAA4E796485D5FEFD /* R13A11ProductBackendTests.swift */,
+				AD1300010000000000000001 /* R13AdaptiveHardeningIntegrationTests.swift */,
 				C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */,
 				B98908B5F02AAE802BF8352A /* R13EngineRecoveryScopeTests.swift */,
 				D93E239AEC453C9440CF12CB /* R13FaultInjectionTests.swift */,
@@ -1723,6 +1726,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EB46DCC4F026405E9943DE6A /* AVMutableMovieSampleCopyIdentityTests.swift in Sources */,
 				F8AA1287D112837A92BA7DE6 /* ASHAnalysisGridV2Tests.swift in Sources */,
 				4DE4402E7413344ADD2AE7B7 /* ASHAssetConformanceTests.swift in Sources */,
 				04801E3D5762CFE7972C7501 /* ASHBackendInputValidationTests.swift in Sources */,
@@ -1854,6 +1858,7 @@
 				314B5895FAC5B24C86324FF4 /* R12MediaFormatContractV2Tests.swift in Sources */,
 				A90450EF453DD1BC6FD8AEB5 /* R12RouteAndHardwareResolverTests.swift in Sources */,
 				756238363E4E4719A6B3B580 /* R13A11ProductBackendTests.swift in Sources */,
+				AD1300010000000000000002 /* R13AdaptiveHardeningIntegrationTests.swift in Sources */,
 				546F517E2832B4050EED1057 /* R13CacheLocationTests.swift in Sources */,
 				E0CFC989FAF81373CB6D85B2 /* R13EngineRecoveryScopeTests.swift in Sources */,
 				A417DE48BF7026C4EAE3AD1E /* R13FaultInjectionTests.swift in Sources */,
@@ -2071,7 +2076,6 @@
 				1D2332F485C69D043BDAB7C7 /* OutputMediaVerificationTypes.swift in Sources */,
 				BAEE6B910E1C5FC760AF04D8 /* OutputMediaVerifier.swift in Sources */,
 				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
-				87B5CA8AD584D4945A4B4964 /* PreviewView.swift in Sources */,
 				3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */,
 				5AD0E29864237AB8C7A8AC25 /* R03A11ProductAdmission.swift in Sources */,
 				8ED5EF31CA1E3E95B0466965 /* R03ASHComparatorScaling.swift in Sources */,

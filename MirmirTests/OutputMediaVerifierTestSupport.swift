@@ -5,6 +5,9 @@ import Foundation
 import os.lock
 @testable import Mirmir
 
+// Media writer fixtures remain together to preserve one timing contract.
+// swiftlint:disable file_length
+
 struct RejectingOutputMediaVerifier: OutputMediaVerifying {
     struct InjectedFailure: Error {}
 
@@ -72,6 +75,30 @@ final class SuspendingOutputMediaVerifier: OutputMediaVerifying, @unchecked Send
     }
 }
 
+final class VerificationCancellationProbe: @unchecked Sendable {
+    private let cancellationCheckNumber: Int
+    private let state = OSAllocatedUnfairLock(initialState: 0)
+
+    init(cancellationCheckNumber: Int) {
+        precondition(cancellationCheckNumber > 0)
+        self.cancellationCheckNumber = cancellationCheckNumber
+    }
+
+    var checkCount: Int {
+        state.withLock { $0 }
+    }
+
+    func check() throws {
+        let shouldCancel = state.withLock { count in
+            count += 1
+            return count >= cancellationCheckNumber
+        }
+        if shouldCancel {
+            throw CancellationError()
+        }
+    }
+}
+
 struct MediaOutputFixture {
     let directory: URL
     let source: URL
@@ -94,8 +121,16 @@ struct MediaOutputFixture {
             includingPropertiesForKeys: nil
         )) ?? []
         return contents.filter {
-            $0.lastPathComponent.hasPrefix(".destination.mirmir-")
-                && $0.lastPathComponent.contains(".partial")
+            let name = $0.lastPathComponent
+            return (name.hasPrefix(".destination.mirmir-")
+                && name.contains(".partial"))
+                || name.hasPrefix(".mirmir-video-stage-")
+        }
+    }
+
+    func recognizedStagingFiles() -> [URL] {
+        recognizedTemporaryFiles().filter {
+            $0.lastPathComponent.hasPrefix(".mirmir-video-stage-")
         }
     }
 
@@ -154,6 +189,8 @@ func writeOneFrameVideo(
     )
 }
 
+// Writer setup and completion form one end-to-end fixture operation.
+// swiftlint:disable:next cyclomatic_complexity function_body_length
 func writeVideoFrames(
     to url: URL,
     resolution: VideoResolution,
@@ -161,7 +198,12 @@ func writeVideoFrames(
     frameDuration: CMTime,
     pixelFormat: OSType = PixelBufferBridge.preferredFormat,
     preferredTransform: CGAffineTransform = .identity,
-    pixelAspectRatio: VideoPixelAspectRatio? = nil
+    pixelAspectRatio: VideoPixelAspectRatio? = nil,
+    inputMediaTimeScale: CMTimeScale = 600,
+    movieTimeScale: CMTimeScale? = nil,
+    sessionEndTime: CMTime? = nil,
+    useEndDurationMarker: Bool = false,
+    endWriterSession: Bool = true
 ) async throws {
     guard frameCount > 0, frameCount <= Int(Int32.max) else {
         throw MediaTestFailure.invalidFrameCount
@@ -171,6 +213,9 @@ func writeVideoFrames(
         writer = try AVAssetWriter(url: url, fileType: .mp4)
     } catch {
         throw MediaTestFailure.cannotCreateWriter
+    }
+    if let movieTimeScale {
+        writer.movieTimeScale = movieTimeScale
     }
     var videoSettings: [String: Any] = [
         AVVideoCodecKey: AVVideoCodecType.h264,
@@ -194,7 +239,7 @@ func writeVideoFrames(
         mediaType: .video,
         outputSettings: videoSettings
     )
-    input.mediaTimeScale = 600
+    input.mediaTimeScale = inputMediaTimeScale
     input.transform = preferredTransform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
         assetWriterInput: input,
@@ -246,23 +291,97 @@ func writeVideoFrames(
             throw MediaTestFailure.appendFailed
         }
     }
-    input.markAsFinished()
-    writer.endSession(
-        atSourceTime: CMTimeMultiply(
+    let resolvedSessionEndTime = sessionEndTime
+        ?? CMTimeMultiply(
             frameDuration,
             multiplier: Int32(frameCount)
         )
-    )
+    if useEndDurationMarker {
+        while !input.isReadyForMoreMediaData {
+            try Task.checkCancellation()
+            guard clock.now < deadline else {
+                writer.cancelWriting()
+                throw MediaTestFailure.timeout
+            }
+            guard writer.status == .writing else {
+                throw MediaTestFailure.writerFailed
+            }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        let marker = try makeEndDurationMarker(
+            at: resolvedSessionEndTime
+        )
+        guard input.append(marker) else {
+            throw MediaTestFailure.appendFailed
+        }
+    }
+    input.markAsFinished()
+    if endWriterSession {
+        writer.endSession(atSourceTime: resolvedSessionEndTime)
+    }
     try await finishWriting(
         writer,
         deadline: deadline
     )
 }
 
+private func makeEndDurationMarker(
+    at presentationTime: CMTime
+) throws -> CMSampleBuffer {
+    var timing = CMSampleTimingInfo(
+        duration: .invalid,
+        presentationTimeStamp: presentationTime,
+        decodeTimeStamp: presentationTime
+    )
+    var marker: CMSampleBuffer?
+    let status = CMSampleBufferCreate(
+        allocator: kCFAllocatorDefault,
+        dataBuffer: nil,
+        dataReady: true,
+        makeDataReadyCallback: nil,
+        refcon: nil,
+        formatDescription: nil,
+        sampleCount: 0,
+        sampleTimingEntryCount: 1,
+        sampleTimingArray: &timing,
+        sampleSizeEntryCount: 0,
+        sampleSizeArray: nil,
+        sampleBufferOut: &marker
+    )
+    guard status == noErr, let marker else {
+        throw MediaTestFailure.appendFailed
+    }
+    CMSetAttachment(
+        marker,
+        key: kCMSampleBufferAttachmentKey_EndsPreviousSampleDuration,
+        value: kCFBooleanTrue,
+        attachmentMode: kCMAttachmentMode_ShouldNotPropagate
+    )
+    return marker
+}
+
+func writeMixedTimeScaleEditBoundaryVideo(
+    to url: URL,
+    resolution: VideoResolution
+) async throws {
+    try await writeVideoFrames(
+        to: url,
+        resolution: resolution,
+        frameCount: 3,
+        frameDuration: CMTime(value: 1_001, timescale: 24_000),
+        inputMediaTimeScale: 24_000,
+        movieTimeScale: 90_000,
+        sessionEndTime: CMTime(value: 11_262, timescale: 90_000),
+        useEndDurationMarker: true,
+        endWriterSession: false
+    )
+}
+
 func muxVideoAndAAC(
     videoURL: URL,
     audioURL: URL,
-    destinationURL: URL
+    destinationURL: URL,
+    preserveExactVideoEndWithMarker: Bool = false
 ) async throws {
     let videoAsset = AVURLAsset(url: videoURL)
     let audioAsset = AVURLAsset(url: audioURL)
@@ -275,6 +394,20 @@ func muxVideoAndAAC(
           let audioFormat = try await audioTrack
             .load(.formatDescriptions).first else {
         throw MediaTestFailure.cannotCreateReader
+    }
+    let videoTimeRange = try await videoTrack.load(.timeRange)
+    let videoEnd = CMTimeRangeGetEnd(videoTimeRange)
+    let audioEnd = CMTimeRangeGetEnd(
+        try await audioTrack.load(.timeRange)
+    )
+    let exactVideoTimeScale: CMTimeScale?
+    if preserveExactVideoEndWithMarker {
+        exactVideoTimeScale = try ExactVideoWriterTimeScale.resolve(
+            naturalTimeScale: try await videoTrack.load(.naturalTimeScale),
+            trackTimeRange: videoTimeRange
+        )
+    } else {
+        exactVideoTimeScale = nil
     }
     let videoReader = try AVAssetReader(asset: videoAsset)
     let audioReader = try AVAssetReader(asset: audioAsset)
@@ -294,11 +427,17 @@ func muxVideoAndAAC(
     audioReader.add(audioOutput)
 
     let writer = try AVAssetWriter(url: destinationURL, fileType: .mp4)
+    if let exactVideoTimeScale {
+        writer.movieTimeScale = exactVideoTimeScale
+    }
     let videoInput = AVAssetWriterInput(
         mediaType: .video,
         outputSettings: nil,
         sourceFormatHint: videoFormat
     )
+    if let exactVideoTimeScale {
+        videoInput.mediaTimeScale = exactVideoTimeScale
+    }
     videoInput.transform = try await videoTrack.load(.preferredTransform)
     let audioInput = AVAssetWriterInput(
         mediaType: .audio,
@@ -321,22 +460,21 @@ func muxVideoAndAAC(
         videoOutput: videoOutput,
         videoReader: videoReader,
         videoInput: videoInput,
+        videoEndMarkerTime: preserveExactVideoEndWithMarker
+            ? videoEnd
+            : nil,
         audioOutput: audioOutput,
         audioReader: audioReader,
         audioInput: audioInput,
         writer: writer
     )
-    let videoEnd = CMTimeRangeGetEnd(
-        try await videoTrack.load(.timeRange)
-    )
-    let audioEnd = CMTimeRangeGetEnd(
-        try await audioTrack.load(.timeRange)
-    )
-    writer.endSession(
-        atSourceTime: CMTimeCompare(audioEnd, videoEnd) > 0
-            ? audioEnd
-            : videoEnd
-    )
+    if !preserveExactVideoEndWithMarker {
+        writer.endSession(
+            atSourceTime: CMTimeCompare(audioEnd, videoEnd) > 0
+                ? audioEnd
+                : videoEnd
+        )
+    }
     let clock = ContinuousClock()
     try await finishWriting(
         writer,
@@ -371,6 +509,7 @@ private func appendCompressedSamplesInterleaved(
     videoOutput: AVAssetReaderTrackOutput,
     videoReader: AVAssetReader,
     videoInput: AVAssetWriterInput,
+    videoEndMarkerTime: CMTime?,
     audioOutput: AVAssetReaderTrackOutput,
     audioReader: AVAssetReader,
     audioInput: AVAssetWriterInput,
@@ -401,6 +540,14 @@ private func appendCompressedSamplesInterleaved(
             } else {
                 guard videoReader.status == .completed else {
                     throw MediaTestFailure.readerFailed
+                }
+                if let videoEndMarkerTime {
+                    let marker = try makeEndDurationMarker(
+                        at: videoEndMarkerTime
+                    )
+                    guard videoInput.append(marker) else {
+                        throw MediaTestFailure.appendFailed
+                    }
                 }
                 videoInput.markAsFinished()
                 videoFinished = true
@@ -468,3 +615,5 @@ func pixelAspectRatio(
     }
     return ratio
 }
+
+// swiftlint:enable file_length

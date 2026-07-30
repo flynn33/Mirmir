@@ -1,4 +1,3 @@
-import CoreVideo
 import Foundation
 
 actor R13ReleaseHardeningAttempt {
@@ -13,8 +12,7 @@ actor R13ReleaseHardeningAttempt {
     private let sourceMeasurer: any R13RestartSourceMeasuring
     private let resourceGovernor: R13ResourceGovernor
     private let outputCapacityProbe: any R13AvailableCapacityProbing
-    private let distinctOutputCapacityPlan:
-        R13DistinctOutputVolumeCapacityPlan?
+    private let outputCapacityPlan: R13OutputVolumeCapacityPlan
     private let cacheReservationBytesPerFrame: UInt64
     private var resourceLease: R13ResourceLease?
     private var prepublicationReceipt: R13PrepublicationReceipt?
@@ -31,7 +29,7 @@ actor R13ReleaseHardeningAttempt {
         sourceMeasurer: any R13RestartSourceMeasuring,
         resourceGovernor: R13ResourceGovernor,
         outputCapacityProbe: any R13AvailableCapacityProbing,
-        distinctOutputCapacityPlan: R13DistinctOutputVolumeCapacityPlan?,
+        outputCapacityPlan: R13OutputVolumeCapacityPlan,
         cacheReservationBytesPerFrame: UInt64,
         resourceLease: R13ResourceLease,
         faultGate: R13ReleaseFaultGate,
@@ -47,7 +45,7 @@ actor R13ReleaseHardeningAttempt {
         self.sourceMeasurer = sourceMeasurer
         self.resourceGovernor = resourceGovernor
         self.outputCapacityProbe = outputCapacityProbe
-        self.distinctOutputCapacityPlan = distinctOutputCapacityPlan
+        self.outputCapacityPlan = outputCapacityPlan
         self.cacheReservationBytesPerFrame = cacheReservationBytesPerFrame
         self.resourceLease = resourceLease
         self.faultGate = faultGate
@@ -73,7 +71,7 @@ actor R13ReleaseHardeningAttempt {
         let outcome = await resourceGovernor.recheck(lease)
         switch outcome {
         case .accepted:
-            try distinctOutputCapacityPlan?.verifyLiveRecheck(
+            try outputCapacityPlan.verifyLiveRecheck(
                 using: outputCapacityProbe
             )
             return
@@ -102,12 +100,9 @@ actor R13ReleaseHardeningAttempt {
     }
 
     func commit(
-        pixelBuffer: CVPixelBuffer,
+        frame: R13NV12Frame,
         at frameIndex: Int
     ) async throws {
-        let frame = try R13NV12Frame.captureTightActivePlanes(
-            from: pixelBuffer
-        )
         plan = try await store.commitProcessedFrame(
             frame,
             at: frameIndex,
@@ -149,7 +144,7 @@ actor R13ReleaseHardeningAttempt {
 
     func beforeOutputFinalize() async throws {
         try await faultGate.check(.beforeOutputFinalize)
-        try distinctOutputCapacityPlan?.verifyLiveRecheck(
+        try outputCapacityPlan.verifyLiveRecheck(
             using: outputCapacityProbe
         )
     }

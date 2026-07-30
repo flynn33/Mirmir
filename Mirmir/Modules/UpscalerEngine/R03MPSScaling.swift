@@ -3,6 +3,60 @@ import Foundation
 import Metal
 import MetalPerformanceShaders
 
+struct R03MPSTextureDimensionLimitError:
+    Error,
+    CustomNSError,
+    CustomStringConvertible,
+    Equatable,
+    Sendable {
+    let maximumTextureDimension2D: Int
+    let sourceResolution: VideoResolution
+    let targetResolution: VideoResolution
+
+    static var errorDomain: String {
+        "com.mirmir.upscaler.mps-texture-dimension-limit"
+    }
+
+    var errorCode: Int { 1 }
+
+    var errorUserInfo: [String: Any] {
+        [
+            NSLocalizedDescriptionKey: description,
+            "maximum_texture_dimension_2d": maximumTextureDimension2D,
+            "source_width": sourceResolution.width,
+            "source_height": sourceResolution.height,
+            "target_width": targetResolution.width,
+            "target_height": targetResolution.height
+        ]
+    }
+
+    var description: String {
+        "Metal maxTextureDimension2D "
+            + "\(maximumTextureDimension2D) cannot represent adaptive "
+            + "source \(sourceResolution) and target \(targetResolution)."
+    }
+}
+
+enum R03MPSHardwareLimits {
+    static func maximumTextureDimension2D(
+        for device: any MTLDevice
+    ) -> Int {
+        // Metal exposes GPU-family membership, while the 2D texture limit is
+        // published in Apple's Metal Feature Set Tables rather than as an
+        // MTLDevice property. Apple10 raises the limit to 32768; Apple3 and
+        // later, Mac2, and Metal3 use 16384; Apple1/Apple2 use 8192.
+        if device.supportsFamily(.apple10) {
+            return 32_768
+        }
+        if device.supportsFamily(.apple3)
+            || device.supportsFamily(.mac2)
+            || device.supportsFamily(.metal3) {
+            return 16_384
+        }
+        return 8_192
+    }
+}
+
 enum R03MPSScalingMode: String, CaseIterable, Hashable, Sendable {
     case lanczos = "r03.mps.lanczos"
     case bilinear = "r03.mps.bilinear"
@@ -73,7 +127,7 @@ extension R03DeterministicBackend {
 
 final class R03MPSScaler: R03NV12Scaling, @unchecked Sendable {
     let mode: R03MPSScalingMode
-    let route: R03ScaleRoute
+    let route: R03ScaleRoute?
 
     private enum FailureCode: Int {
         case textureUnavailable = -1
@@ -96,10 +150,48 @@ final class R03MPSScaler: R03NV12Scaling, @unchecked Sendable {
     private let kernel: MPSImageScale
     private let executionLock = NSLock()
 
-    init(mode: R03MPSScalingMode, route: R03ScaleRoute) throws {
+    convenience init(
+        mode: R03MPSScalingMode,
+        route: R03ScaleRoute
+    ) throws {
+        try self.init(
+            mode: mode,
+            route: route,
+            sourceResolution: route.canonicalSourceResolution,
+            targetResolution: route.canonicalTargetResolution
+        )
+    }
+
+    convenience init(
+        mode: R03MPSScalingMode,
+        adaptivePlan: R13AdaptiveScalePlan
+    ) throws {
+        try self.init(
+            mode: mode,
+            route: nil,
+            sourceResolution:
+                adaptivePlan.processingSourceResolution,
+            targetResolution: adaptivePlan.targetResolution
+        )
+    }
+
+    private init(
+        mode: R03MPSScalingMode,
+        route: R03ScaleRoute?,
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution
+    ) throws {
         guard let device = MTLCreateSystemDefaultDevice(), MPSSupportsMTLDevice(device) else {
             throw R03NV12ScalingError.runtimeUnavailable("r03_mps_device_unavailable")
         }
+        try Self.validateTextureDimensions(
+            sourceResolution: sourceResolution,
+            targetResolution: targetResolution,
+            maximumTextureDimension2D:
+                R03MPSHardwareLimits.maximumTextureDimension2D(
+                    for: device
+                )
+        )
         guard let commandQueue = device.makeCommandQueue() else {
             throw R03NV12ScalingError.runtimeUnavailable("r03_mps_queue_unavailable")
         }
@@ -119,11 +211,30 @@ final class R03MPSScaler: R03NV12Scaling, @unchecked Sendable {
 
         self.mode = mode
         self.route = route
-        sourceResolution = route.canonicalSourceResolution
-        targetResolution = route.canonicalTargetResolution
+        self.sourceResolution = sourceResolution
+        self.targetResolution = targetResolution
         self.commandQueue = commandQueue
         self.textureCache = textureCache
         kernel = mode.makeKernel(device: device)
+    }
+
+    static func validateTextureDimensions(
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution,
+        maximumTextureDimension2D: Int
+    ) throws {
+        guard maximumTextureDimension2D > 0,
+              sourceResolution.width <= maximumTextureDimension2D,
+              sourceResolution.height <= maximumTextureDimension2D,
+              targetResolution.width <= maximumTextureDimension2D,
+              targetResolution.height <= maximumTextureDimension2D else {
+            throw R03MPSTextureDimensionLimitError(
+                maximumTextureDimension2D:
+                    maximumTextureDimension2D,
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution
+            )
+        }
     }
 
     func scale(

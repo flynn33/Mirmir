@@ -5,6 +5,7 @@ import Foundation
 struct AtomicMediaPinnedFileIdentity: Equatable, Sendable {
     let device: UInt64
     let inode: UInt64
+    let ownerUserID: UInt32
     let mode: UInt32
     let linkCount: UInt64
     let byteCount: UInt64
@@ -16,12 +17,14 @@ struct AtomicMediaPinnedFileIdentity: Equatable, Sendable {
         requirePopulatedFile: Bool = true
     ) {
         guard (metadata.st_mode & S_IFMT) == S_IFREG,
+              metadata.st_uid == geteuid(),
               metadata.st_nlink == 1,
               !requirePopulatedFile || metadata.st_size > 0 else {
             return nil
         }
         device = UInt64(metadata.st_dev)
         inode = UInt64(metadata.st_ino)
+        ownerUserID = UInt32(metadata.st_uid)
         mode = UInt32(metadata.st_mode)
         linkCount = UInt64(metadata.st_nlink)
         byteCount = UInt64(metadata.st_size)
@@ -34,6 +37,7 @@ struct AtomicMediaPinnedFileIdentity: Equatable, Sendable {
     ) -> Bool {
         device == other.device
             && inode == other.inode
+            && ownerUserID == other.ownerUserID
             && (mode & UInt32(S_IFMT)) == (other.mode & UInt32(S_IFMT))
             && linkCount == 1
             && other.linkCount == 1
@@ -52,7 +56,10 @@ final class AtomicMediaVerifiedTemporaryFile {
     private let descriptor: Int32
     private let pinnedIdentity: AtomicMediaPinnedFileIdentity
 
-    init(url: URL) throws {
+    init(
+        url: URL,
+        requirePopulatedFile: Bool = true
+    ) throws {
         let descriptor = open(
             url.path,
             O_RDONLY | O_NOFOLLOW | O_CLOEXEC
@@ -63,9 +70,13 @@ final class AtomicMediaVerifiedTemporaryFile {
         do {
             let descriptorIdentity = try Self.identity(
                 descriptor: descriptor,
-                url: url
+                url: url,
+                requirePopulatedFile: requirePopulatedFile
             )
-            guard descriptorIdentity == (try Self.identity(path: url)) else {
+            guard descriptorIdentity == (try Self.identity(
+                path: url,
+                requirePopulatedFile: requirePopulatedFile
+            )) else {
                 throw AtomicMediaOutputError.verifiedTemporaryFileChanged(url)
             }
             sourceURL = url
@@ -118,6 +129,27 @@ final class AtomicMediaVerifiedTemporaryFile {
         )
     }
 
+    func makePinnedFileIdentity() throws
+        -> AtomicMediaPinnedFileIdentity {
+        let descriptorIdentity = try Self.identity(
+            descriptor: descriptor,
+            url: sourceURL,
+            requirePopulatedFile: false
+        )
+        let pathIdentity = try Self.identity(
+            path: sourceURL,
+            requirePopulatedFile: false
+        )
+        guard descriptorIdentity == pathIdentity,
+              descriptorIdentity.refersToSameFileObject(
+                as: pinnedIdentity
+              ) else {
+            throw AtomicMediaOutputError
+                .verifiedTemporaryFileChanged(sourceURL)
+        }
+        return descriptorIdentity
+    }
+
     func validatePathAndContents(at path: URL) throws {
         let descriptorIdentityBeforeHash = try Self.identity(
             descriptor: descriptor,
@@ -160,11 +192,15 @@ final class AtomicMediaVerifiedTemporaryFile {
     }
 
     private static func identity(
-        path: URL
+        path: URL,
+        requirePopulatedFile: Bool = true
     ) throws -> AtomicMediaPinnedFileIdentity {
         var metadata = stat()
         guard lstat(path.path, &metadata) == 0,
-              let identity = AtomicMediaPinnedFileIdentity(metadata) else {
+              let identity = AtomicMediaPinnedFileIdentity(
+                metadata,
+                requirePopulatedFile: requirePopulatedFile
+              ) else {
             throw AtomicMediaOutputError.verifiedTemporaryFileChanged(path)
         }
         return identity

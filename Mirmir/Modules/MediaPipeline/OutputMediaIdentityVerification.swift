@@ -147,14 +147,14 @@ extension OutputMediaVerifier {
                 actual: String(describing: actual.channelLayout)
             )
         }
-        try verifyExactTimeRange(
+        try verifySemanticTimeRange(
             actual.trackTimeRange,
             expected: expected.trackTimeRange,
             field: "track time range"
         )
         guard actual.samples.count == expected.samples.count else {
             throw compressedAACMismatch(
-                field: "compressed sample count",
+                field: "compressed AAC access-unit count",
                 expected: String(expected.samples.count),
                 actual: String(actual.samples.count)
             )
@@ -162,38 +162,38 @@ extension OutputMediaVerifier {
         for index in expected.samples.indices {
             let actualSample = actual.samples[index]
             let expectedSample = expected.samples[index]
-            try verifyExactTime(
+            try verifySemanticTime(
                 actualSample.presentationTime,
                 expected: expectedSample.presentationTime,
-                field: "sample \(index) presentation time"
+                field: "access unit \(index) presentation time"
             )
-            try verifyExactTime(
+            try verifySemanticTime(
                 actualSample.decodeTime,
                 expected: expectedSample.decodeTime,
-                field: "sample \(index) decode time"
+                field: "access unit \(index) decode time"
             )
-            try verifyExactTime(
+            try verifySemanticTime(
                 actualSample.duration,
                 expected: expectedSample.duration,
-                field: "sample \(index) duration"
+                field: "access unit \(index) duration"
             )
             guard actualSample.sampleCount == expectedSample.sampleCount else {
                 throw compressedAACMismatch(
-                    field: "sample \(index) contained sample count",
+                    field: "access unit \(index) contained sample count",
                     expected: String(expectedSample.sampleCount),
                     actual: String(actualSample.sampleCount)
                 )
             }
             guard actualSample.payloadByteCount == expectedSample.payloadByteCount else {
                 throw compressedAACMismatch(
-                    field: "sample \(index) payload byte count",
+                    field: "access unit \(index) payload byte count",
                     expected: String(expectedSample.payloadByteCount),
                     actual: String(actualSample.payloadByteCount)
                 )
             }
             guard actualSample.payloadSHA256 == expectedSample.payloadSHA256 else {
                 throw compressedAACMismatch(
-                    field: "sample \(index) payload SHA-256",
+                    field: "access unit \(index) payload SHA-256",
                     expected: expectedSample.payloadSHA256,
                     actual: actualSample.payloadSHA256
                 )
@@ -208,34 +208,65 @@ extension OutputMediaVerifier {
         }
     }
 
-    private static func verifyExactTimeRange(
+    private static func verifySemanticTimeRange(
         _ actual: CMTimeRange,
         expected: CMTimeRange,
         field: String
     ) throws {
-        try verifyExactTime(actual.start, expected: expected.start, field: "\(field) start")
-        try verifyExactTime(
+        try verifySemanticTime(
+            actual.start,
+            expected: expected.start,
+            field: "\(field) start"
+        )
+        try verifySemanticTime(
             actual.duration,
             expected: expected.duration,
             field: "\(field) duration"
         )
     }
 
-    private static func verifyExactTime(
+    private static func verifySemanticTime(
         _ actual: CMTime,
         expected: CMTime,
         field: String
     ) throws {
-        guard actual.value == expected.value,
-              actual.timescale == expected.timescale,
-              actual.flags == expected.flags,
-              actual.epoch == expected.epoch else {
+        guard semanticTimesAreEqual(actual, expected) else {
             throw compressedAACMismatch(
                 field: field,
                 expected: exactTimeDescription(expected),
                 actual: exactTimeDescription(actual)
             )
         }
+    }
+
+    private static func semanticTimesAreEqual(
+        _ actual: CMTime,
+        _ expected: CMTime
+    ) -> Bool {
+        guard actual.isValid == expected.isValid else {
+            return false
+        }
+        guard actual.isValid else {
+            return true
+        }
+        guard actual.epoch == expected.epoch else {
+            return false
+        }
+        if actual.isNumeric, expected.isNumeric {
+            return CMTimeCompare(actual, expected) == 0
+        }
+        if actual.isPositiveInfinity || expected.isPositiveInfinity {
+            return actual.isPositiveInfinity && expected.isPositiveInfinity
+        }
+        if actual.isNegativeInfinity || expected.isNegativeInfinity {
+            return actual.isNegativeInfinity && expected.isNegativeInfinity
+        }
+        if actual.isIndefinite || expected.isIndefinite {
+            return actual.isIndefinite && expected.isIndefinite
+        }
+        return actual.value == expected.value
+            && actual.timescale == expected.timescale
+            && actual.flags == expected.flags
     }
 
     private static func compressedAACMismatch(

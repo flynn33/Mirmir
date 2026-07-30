@@ -246,6 +246,19 @@ struct FrameTimingLedger: @unchecked Sendable {
     }
 
     mutating func append(_ timing: FrameTiming) throws {
+        try append(timing, afterValidation: {})
+    }
+
+    mutating func append(
+        _ timing: FrameTiming,
+        afterValidation operation: () throws -> Void
+    ) throws {
+        try validateAppend(timing)
+        try operation()
+        frames.append(timing)
+    }
+
+    private func validateAppend(_ timing: FrameTiming) throws {
         let expectedIndex = frames.count
         guard timing.frameIndex == expectedIndex else {
             throw FrameTimingLedgerError.unexpectedFrameIndex(
@@ -269,7 +282,6 @@ struct FrameTimingLedger: @unchecked Sendable {
                 frameIndex: timing.frameIndex
             )
         }
-        frames.append(timing)
     }
 }
 

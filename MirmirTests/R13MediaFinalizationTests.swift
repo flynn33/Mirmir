@@ -4,7 +4,156 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+// Finalization scenarios share transaction-bound media fixtures.
+// swiftlint:disable file_length
+// swiftlint:disable:next type_body_length
 final class R13MediaFinalizationTests: XCTestCase {
+    func testTransactionBoundStagingPathReclaimsOwnedCrashRemnant()
+        throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        let finalTemporaryURL = root.appendingPathComponent(
+            ".output.mirmir-job.partial.mp4"
+        )
+        let first = try MediaPipelineStagingFile(
+            finalTemporaryURL: finalTemporaryURL
+        )
+        try Data("stale-stage".utf8).write(to: first.url)
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: first.url.path)
+        )
+
+        let recovered = try MediaPipelineStagingFile(
+            finalTemporaryURL: finalTemporaryURL
+        )
+
+        XCTAssertEqual(recovered.url, first.url)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: recovered.url.path)
+        )
+        XCTAssertTrue(
+            recovered.url.lastPathComponent.hasSuffix(
+                ".partial.video-stage.mp4"
+            )
+        )
+    }
+
+    func testTransactionBoundStagingRecoveryRejectsUnsafeExistingPath()
+        throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        let finalTemporaryURL = root.appendingPathComponent(
+            ".output.mirmir-job.partial.mp4"
+        )
+        let stagingURL = try MediaPipelineStagingFile(
+            finalTemporaryURL: finalTemporaryURL
+        ).url
+        try FileManager.default.createDirectory(
+            at: stagingURL,
+            withIntermediateDirectories: false
+        )
+
+        XCTAssertThrowsError(
+            try MediaPipelineStagingFile(
+                finalTemporaryURL: finalTemporaryURL
+            )
+        )
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: stagingURL.path,
+                isDirectory: &isDirectory
+            )
+        )
+        XCTAssertTrue(isDirectory.boolValue)
+    }
+
+    func testTransactionBoundStagingRecoveryPreservesUnmarkedFile()
+        throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        let finalTemporaryURL = root.appendingPathComponent(
+            ".output.mirmir-job.partial.mp4"
+        )
+        let stagingURL = root.appendingPathComponent(
+            ".output.mirmir-job.partial.video-stage.mp4"
+        )
+        let unrelatedBytes = Data("operator-stage".utf8)
+        try unrelatedBytes.write(
+            to: stagingURL,
+            options: .withoutOverwriting
+        )
+
+        XCTAssertThrowsError(
+            try MediaPipelineStagingFile(
+                finalTemporaryURL: finalTemporaryURL
+            )
+        ) { error in
+            XCTAssertTrue(
+                String(describing: error).contains(
+                    "not owned"
+                )
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: stagingURL),
+            unrelatedBytes
+        )
+    }
+
+    func testClaimedEmptyStagingFileIsRemovedBeforeFirstAppend()
+        throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(
+            at: root,
+            withIntermediateDirectories: true
+        )
+        let finalTemporaryURL = root.appendingPathComponent(
+            ".output.mirmir-job.partial.mp4"
+        )
+        let stagingFile = try MediaPipelineStagingFile(
+            finalTemporaryURL: finalTemporaryURL
+        )
+        try Data().write(to: stagingFile.url)
+
+        try stagingFile.claimCreatedFileIfNeeded()
+        let cleanupError = stagingFile.cleanup()
+
+        XCTAssertNil(cleanupError)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: stagingFile.url.path
+            )
+        )
+        XCTAssertTrue(
+            try FileManager.default.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: nil
+            ).allSatisfy {
+                !$0.lastPathComponent.hasPrefix(
+                    ".mirmir-temporary-owner-"
+                )
+            }
+        )
+    }
+
     func testPreservedAudioCapacityAddsSourceBytesToEncodedVideo()
         throws {
         let sourceURL = URL(fileURLWithPath: "/source.mp4")
@@ -135,6 +284,99 @@ final class R13MediaFinalizationTests: XCTestCase {
             ),
             sourceByteCount * 2
         )
+    }
+
+    func testFinalizationPeakCapacityIncludesStagingAndFinalOutput()
+        throws {
+        let sourceURL = URL(fileURLWithPath: "/source.mp4")
+        let source = SourceProfile(
+            url: sourceURL,
+            resolution: .p720,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: nil,
+            hasAudio: true
+        )
+        let sourceByteCount: UInt64 = 4_096
+        let omittedAudioJob = UpscaleJob(
+            inputURL: sourceURL,
+            outputURL: URL(fileURLWithPath: "/output.mp4"),
+            targetResolution: .p720,
+            codec: .h264,
+            preserveAudio: false
+        )
+        let preservedAudioJob = UpscaleJob(
+            inputURL: sourceURL,
+            outputURL: URL(fileURLWithPath: "/output-audio.mp4"),
+            targetResolution: .p720,
+            codec: .h264,
+            preserveAudio: true
+        )
+        let encodedVideoBytes =
+            try R13ReleaseHardeningRuntime.expectedOutputBytes(
+                source: source,
+                sourceByteCount: sourceByteCount,
+                job: omittedAudioJob
+            )
+        let preservedFinalOutputBytes =
+            try R13ReleaseHardeningRuntime.expectedOutputBytes(
+                source: source,
+                sourceByteCount: sourceByteCount,
+                job: preservedAudioJob
+            )
+
+        XCTAssertEqual(
+            try R13ReleaseHardeningRuntime.expectedFinalizationPeakBytes(
+                source: source,
+                sourceByteCount: sourceByteCount,
+                job: omittedAudioJob
+            ),
+            encodedVideoBytes * 2
+        )
+        XCTAssertEqual(
+            try R13ReleaseHardeningRuntime.expectedFinalizationPeakBytes(
+                source: source,
+                sourceByteCount: sourceByteCount,
+                job: preservedAudioJob
+            ),
+            encodedVideoBytes + preservedFinalOutputBytes
+        )
+    }
+
+    func testFinalizationPeakCapacityRejectsOverflow() {
+        let sourceURL = URL(fileURLWithPath: "/source.mp4")
+        let source = SourceProfile(
+            url: sourceURL,
+            resolution: .p720,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: nil,
+            hasAudio: false
+        )
+        let job = UpscaleJob(
+            inputURL: sourceURL,
+            outputURL: URL(fileURLWithPath: "/output.mp4"),
+            targetResolution: .p720,
+            codec: .h264,
+            preserveAudio: false
+        )
+
+        XCTAssertThrowsError(
+            try R13ReleaseHardeningRuntime.expectedFinalizationPeakBytes(
+                source: source,
+                sourceByteCount: UInt64.max,
+                job: job
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseHardeningError,
+                .arithmeticOverflow(
+                    field: "expected_finalization_peak_bytes"
+                )
+            )
+        }
     }
 
     func testBeforeReopenAndPrepublicationHooksRunInExactOrder() async throws {
@@ -282,6 +524,7 @@ final class R13MediaFinalizationTests: XCTestCase {
         XCTAssertEqual(actual.d, 0, accuracy: 0.000_001)
         XCTAssertEqual(actual.tx, 64, accuracy: 0.000_001)
         XCTAssertEqual(actual.ty, 0, accuracy: 0.000_001)
+        XCTAssertTrue(fixture.recognizedStagingFiles().isEmpty)
     }
 
     func testAACBeyondVideoEndpointIsPreservedWithoutExtendingVideo() async throws {
@@ -429,3 +672,5 @@ private actor R13PrepublicationGate {
         continuation = nil
     }
 }
+
+// swiftlint:enable file_length

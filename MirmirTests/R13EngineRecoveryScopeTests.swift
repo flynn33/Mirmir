@@ -116,8 +116,10 @@ final class R13EngineRecoveryScopeTests: XCTestCase {
                 )
             )
             try await attempt.commit(
-                pixelBuffer: R13ReleaseTestFrames.makeOutput(
-                    resolution: .p1080
+                frame: R13NV12Frame.captureTightActivePlanes(
+                    from: R13ReleaseTestFrames.makeOutput(
+                        resolution: .p1080
+                    )
                 ),
                 at: 0
             )

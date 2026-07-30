@@ -278,6 +278,7 @@ extension MirmirViewModel {
         let generation = nextRecoveryGeneration()
         let previousState = state
         recoveryTask?.cancel()
+        resetPreview()
         retryableFailedJob = nil
         recoveryIsProbing = true
         recoveryError = nil
@@ -424,7 +425,6 @@ extension MirmirViewModel {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.canChooseFiles = true
-        panel.allowedContentTypes = [.movie]
         panel.title = "Reauthorize interrupted upscale source"
         panel.prompt = "Select Source"
         guard panel.runModal() == .OK,

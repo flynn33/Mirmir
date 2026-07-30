@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import UniformTypeIdentifiers
 
 extension MirmirViewModel {
     var cacheLocationIsConfigurable: Bool {
@@ -171,7 +170,7 @@ extension MirmirViewModel {
     }
 
     static var unsupportedFileMessage: String {
-        "Unsupported video format. Choose an MP4, MOV, M4V, QT, AVI, MPG, or MPEG file."
+        "Choose a local video file."
     }
 
     static func fileLabel(for resolution: VideoResolution) -> String {
@@ -195,18 +194,6 @@ extension MirmirViewModel {
 
     static func urlsReferToSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
         FileURLIdentity.refersToSameFile(lhs, rhs)
-    }
-
-    static func supportedContentTypes() -> [UTType] {
-        let extensionTypes = supportedVideoExtensions.compactMap {
-            UTType(filenameExtension: $0)
-        }
-        return Array(
-            Set(
-                extensionTypes
-                    + [.movie, .video, .quickTimeMovie, .mpeg4Movie]
-            )
-        )
     }
 
     private func applyCacheLocationStatus(
@@ -251,7 +238,7 @@ extension MirmirViewModel {
     func unsupportedResolutionMessage(
         _ resolution: VideoResolution
     ) -> String {
-        "Mirmir supports 720p to 1080p and 1080p to 4K upscaling. "
-            + "This source is \(resolution)."
+        "Mirmir cannot derive a larger output through 2160p "
+            + "for source geometry \(resolution)."
     }
 }

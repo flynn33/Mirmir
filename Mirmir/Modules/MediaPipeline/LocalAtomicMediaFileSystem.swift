@@ -17,6 +17,9 @@ struct NoOpAtomicMediaQuarantineCleanupObserver:
     ) throws {}
 }
 
+// Descriptor ownership and path mutation remain in one fail-closed syscall
+// boundary so no higher-level caller can bypass the identity checks.
+// swiftlint:disable:next type_body_length
 struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
     private static let quarantineAttemptLimit = 3
     private static let digestReadSize = 1_048_576
@@ -44,8 +47,257 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
         FileManager.default.fileExists(atPath: url.path)
     }
 
+    func pathEntryExists(at url: URL) -> Bool {
+        var metadata = stat()
+        return lstat(url.path, &metadata) == 0
+    }
+
+    // Lease creation is one descriptor transaction: every failure path closes
+    // or unlinks only the exact object created by this invocation.
+    // swiftlint:disable:next function_body_length
+    func acquireTransactionLease(
+        for destinationURL: URL
+    ) throws -> AtomicMediaTransactionLease {
+        let directoryURL = destinationURL.deletingLastPathComponent()
+        let directoryDescriptor = open(
+            directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard directoryDescriptor >= 0 else {
+            throw AtomicMediaOutputError.transactionDirectoryUnavailable(
+                directoryURL,
+                reason: String(cString: strerror(errno))
+            )
+        }
+        var leaseOwnsDirectoryDescriptor = false
+        defer {
+            if !leaseOwnsDirectoryDescriptor {
+                close(directoryDescriptor)
+            }
+        }
+
+        let baseName = destinationURL
+            .deletingPathExtension()
+            .lastPathComponent
+        let leaseName = ".\(baseName).mirmir-output.lock"
+        guard Self.isSafeLeafName(leaseName) else {
+            throw AtomicMediaOutputError.transactionDirectoryUnavailable(
+                directoryURL,
+                reason: "transaction lease name is unsafe"
+            )
+        }
+        let createdDescriptor = leaseName.withCString {
+            openat(
+                directoryDescriptor,
+                $0,
+                O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                S_IRUSR | S_IWUSR
+            )
+        }
+        let descriptor: Int32
+        let leaseCreatedByAcquisition: Bool
+        if createdDescriptor >= 0 {
+            descriptor = createdDescriptor
+            leaseCreatedByAcquisition = true
+        } else {
+            let creationError = errno
+            guard creationError == EEXIST else {
+                throw AtomicMediaOutputError
+                    .transactionDirectoryUnavailable(
+                        directoryURL,
+                        reason: "transaction lease creation failed: "
+                            + String(cString: strerror(creationError))
+                    )
+            }
+            let existingDescriptor = leaseName.withCString {
+                openat(
+                    directoryDescriptor,
+                    $0,
+                    O_RDWR | O_NOFOLLOW | O_CLOEXEC
+                )
+            }
+            guard existingDescriptor >= 0 else {
+                let openError = errno
+                throw AtomicMediaOutputError
+                    .transactionDirectoryUnavailable(
+                        directoryURL,
+                        reason: "existing transaction lease open failed: "
+                            + String(cString: strerror(openError))
+                    )
+            }
+            descriptor = existingDescriptor
+            leaseCreatedByAcquisition = false
+        }
+        do {
+            try Self.validateLease(
+                descriptor: descriptor,
+                name: leaseName,
+                directoryDescriptor: directoryDescriptor,
+                directoryURL: directoryURL
+            )
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                let code = errno
+                if code == EWOULDBLOCK || code == EAGAIN {
+                    throw AtomicMediaOutputError
+                        .transactionDirectoryBusy(directoryURL)
+                }
+                throw AtomicMediaOutputError
+                    .transactionDirectoryUnavailable(
+                        directoryURL,
+                        reason: "transaction lease lock failed: "
+                            + String(cString: strerror(code))
+                    )
+            }
+            do {
+                try Self.validateLease(
+                    descriptor: descriptor,
+                    name: leaseName,
+                    directoryDescriptor: directoryDescriptor,
+                    directoryURL: directoryURL
+                )
+            } catch {
+                _ = flock(descriptor, LOCK_UN)
+                throw error
+            }
+            leaseOwnsDirectoryDescriptor = true
+            return AtomicMediaTransactionLease(
+                directoryURL: directoryURL,
+                descriptor: descriptor,
+                validationAction: { lockedDescriptor in
+                    try Self.validateLease(
+                        descriptor: lockedDescriptor,
+                        name: leaseName,
+                        directoryDescriptor: directoryDescriptor,
+                        directoryURL: directoryURL
+                    )
+                },
+                releaseAction: { lockedDescriptor in
+                    Self.releaseTransactionLease(
+                        descriptor: lockedDescriptor,
+                        name: leaseName,
+                        directoryDescriptor: directoryDescriptor,
+                        directoryURL: directoryURL,
+                        removePathOnRelease:
+                            leaseCreatedByAcquisition
+                    )
+                }
+            )
+        } catch {
+            close(descriptor)
+            throw error
+        }
+    }
+
+    @discardableResult
+    func reclaimTransactionTemporaryFile(at url: URL) throws -> Bool {
+        try reclaimReservedTransactionTemporaryFile(at: url)
+    }
+
+    func discardTransactionTemporaryFileReservation(
+        at url: URL
+    ) throws {
+        try discardReservedTransactionTemporaryFileMarker(
+            at: url
+        )
+    }
+
     func removeItem(at url: URL) throws {
         try FileManager.default.removeItem(at: url)
+    }
+
+    func removeItem(
+        at url: URL,
+        ifMatchingFile identity: AtomicMediaPinnedFileIdentity
+    ) throws {
+        let directoryURL = url.deletingLastPathComponent()
+        let directoryDescriptor = open(
+            directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard directoryDescriptor >= 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 1,
+                reason: String(cString: strerror(errno))
+            )
+        }
+        defer { close(directoryDescriptor) }
+
+        let destinationName = url.lastPathComponent
+        guard Self.isSafeLeafName(destinationName) else {
+            throw AtomicMediaOutputError.unsafeTemporaryFile(url)
+        }
+
+        let quarantineName: String
+        do {
+            guard let isolatedName = try Self.quarantineDestination(
+                destinationName: destinationName,
+                directoryDescriptor: directoryDescriptor,
+                directoryURL: directoryURL
+            ) else {
+                return
+            }
+            quarantineName = isolatedName
+        } catch {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 1,
+                reason: "temporary quarantine failed: \(error)"
+            )
+        }
+
+        let quarantineURL = directoryURL.appendingPathComponent(
+            quarantineName,
+            isDirectory: false
+        )
+        let quarantineDescriptor: Int32
+        do {
+            try Self.synchronizeDirectory(
+                directoryDescriptor,
+                url: directoryURL
+            )
+            quarantineDescriptor =
+                try Self.openValidatedFileQuarantine(
+                    named: quarantineName,
+                    directoryDescriptor: directoryDescriptor,
+                    quarantineURL: quarantineURL,
+                    expecting: identity
+                )
+        } catch {
+            let restoration = Self.restoreQuarantine(
+                named: quarantineName,
+                to: destinationName,
+                directoryDescriptor: directoryDescriptor,
+                directoryURL: directoryURL
+            )
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 1,
+                reason: "quarantined file identity mismatch: \(error); "
+                    + restoration
+            )
+        }
+        defer { close(quarantineDescriptor) }
+
+        do {
+            try Self.unlinkValidatedFileQuarantine(
+                named: quarantineName,
+                directoryDescriptor: directoryDescriptor,
+                directoryURL: directoryURL,
+                quarantineURL: quarantineURL,
+                descriptor: quarantineDescriptor,
+                expecting: identity
+            )
+            try discardTransactionTemporaryFileReservation(
+                at: url
+            )
+        } catch {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 1,
+                reason: "matching temporary cleanup failed: \(error)"
+            )
+        }
     }
 
     func removeItem(
@@ -170,10 +422,614 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
                 ]
             )
         }
+        try? discardTransactionTemporaryFileReservation(
+            at: temporaryURL
+        )
     }
 }
 
 private extension LocalAtomicMediaFileSystem {
+    func reclaimReservedTransactionTemporaryFile(
+        at url: URL
+    ) throws -> Bool {
+        let markerURL = Self.transactionOwnershipMarkerURL(
+            for: url
+        )
+        let temporaryIdentity = try Self.ownedRegularFileIdentity(
+            at: url
+        )
+        let markerIdentity = try Self
+            .validatedTransactionOwnershipMarkerIdentity(
+                at: markerURL,
+                temporaryURL: url
+            )
+
+        guard let temporaryIdentity else {
+            if let markerIdentity {
+                try removeItem(
+                    at: markerURL,
+                    ifMatchingFile: markerIdentity
+                )
+            }
+            try Self.createTransactionOwnershipMarker(
+                at: markerURL,
+                temporaryURL: url
+            )
+            return false
+        }
+        guard markerIdentity != nil else {
+            throw AtomicMediaOutputError
+                .unownedTemporaryFilePreserved(url)
+        }
+
+        try removeItem(
+            at: url,
+            ifMatchingFile: temporaryIdentity
+        )
+        guard !pathEntryExists(at: url) else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 1,
+                reason: "owned temporary path remained after reclamation"
+            )
+        }
+        try Self.createTransactionOwnershipMarker(
+            at: markerURL,
+            temporaryURL: url
+        )
+        return true
+    }
+
+    func discardReservedTransactionTemporaryFileMarker(
+        at url: URL
+    ) throws {
+        let markerURL = Self.transactionOwnershipMarkerURL(
+            for: url
+        )
+        guard let identity = try Self
+            .validatedTransactionOwnershipMarkerIdentity(
+                at: markerURL,
+                temporaryURL: url
+            ) else {
+            return
+        }
+        try removeItem(
+            at: markerURL,
+            ifMatchingFile: identity
+        )
+    }
+    static func releaseTransactionLease(
+        descriptor: Int32,
+        name: String,
+        directoryDescriptor: Int32,
+        directoryURL: URL,
+        removePathOnRelease: Bool
+    ) {
+        defer {
+            _ = flock(descriptor, LOCK_UN)
+            close(descriptor)
+            close(directoryDescriptor)
+        }
+
+        guard removePathOnRelease else { return }
+        guard (try? validateLease(
+            descriptor: descriptor,
+            name: name,
+            directoryDescriptor: directoryDescriptor,
+            directoryURL: directoryURL
+        )) != nil else {
+            return
+        }
+        let unlinkStatus = name.withCString {
+            unlinkat(directoryDescriptor, $0, 0)
+        }
+        guard unlinkStatus == 0 else { return }
+        try? synchronizeDirectory(
+            directoryDescriptor,
+            url: directoryURL
+        )
+    }
+
+    static func validateLease(
+        descriptor: Int32,
+        name: String,
+        directoryDescriptor: Int32,
+        directoryURL: URL
+    ) throws {
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        let pathStatus = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              pathStatus == 0,
+              let descriptorIdentity = AtomicMediaPinnedFileIdentity(
+                descriptorMetadata,
+                requirePopulatedFile: false
+              ),
+              let pathIdentity = AtomicMediaPinnedFileIdentity(
+                pathMetadata,
+                requirePopulatedFile: false
+              ),
+              descriptorIdentity == pathIdentity,
+              descriptorMetadata.st_size == 0,
+              descriptorMetadata.st_mode & mode_t(0o077) == 0 else {
+            throw AtomicMediaOutputError.transactionDirectoryUnavailable(
+                directoryURL,
+                reason: "transaction lease identity is unsafe"
+            )
+        }
+    }
+
+    static func ownedRegularFileIdentity(
+        at url: URL
+    ) throws -> AtomicMediaPinnedFileIdentity? {
+        let directoryURL = url.deletingLastPathComponent()
+        let directoryDescriptor = open(
+            directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard directoryDescriptor >= 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 0,
+                reason: String(cString: strerror(errno))
+            )
+        }
+        defer { close(directoryDescriptor) }
+
+        let name = url.lastPathComponent
+        guard isSafeLeafName(name) else {
+            throw AtomicMediaOutputError.unsafeTemporaryFile(url)
+        }
+        let descriptor = name.withCString {
+            openat(
+                directoryDescriptor,
+                $0,
+                O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC
+            )
+        }
+        guard descriptor >= 0 else {
+            let code = errno
+            if code == ENOENT {
+                return nil
+            }
+            if code == ELOOP || code == EISDIR {
+                throw AtomicMediaOutputError.unsafeTemporaryFile(url)
+            }
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: url,
+                attempts: 0,
+                reason: String(cString: strerror(code))
+            )
+        }
+        defer { close(descriptor) }
+
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        let pathStatus = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              pathStatus == 0,
+              let descriptorIdentity = AtomicMediaPinnedFileIdentity(
+                descriptorMetadata,
+                requirePopulatedFile: false
+              ),
+              let pathIdentity = AtomicMediaPinnedFileIdentity(
+                pathMetadata,
+                requirePopulatedFile: false
+              ),
+              descriptorIdentity == pathIdentity else {
+            throw AtomicMediaOutputError.unsafeTemporaryFile(url)
+        }
+        return descriptorIdentity
+    }
+
+    static func transactionOwnershipMarkerURL(
+        for temporaryURL: URL
+    ) -> URL {
+        let leafDigest = SHA256.hash(
+            data: Data(temporaryURL.lastPathComponent.utf8)
+        ).map {
+            String(format: "%02x", $0)
+        }.joined()
+        return temporaryURL.deletingLastPathComponent()
+            .appendingPathComponent(
+                ".mirmir-temporary-owner-\(leafDigest).marker",
+                isDirectory: false
+            )
+    }
+
+    static func transactionOwnershipMarkerPayload(
+        for temporaryURL: URL
+    ) -> Data {
+        let pathDigest = SHA256.hash(
+            data: Data(
+                temporaryURL.standardizedFileURL.path.utf8
+            )
+        ).map {
+            String(format: "%02x", $0)
+        }.joined()
+        return Data(
+            (
+                "mirmir-temporary-ownership-v1\n"
+                    + pathDigest
+                    + "\n"
+            ).utf8
+        )
+    }
+
+    static func validatedTransactionOwnershipMarkerIdentity(
+        at markerURL: URL,
+        temporaryURL: URL
+    ) throws -> AtomicMediaPinnedFileIdentity? {
+        guard pathEntryExistsWithoutFollowingSymlinks(
+            at: markerURL
+        ) else {
+            return nil
+        }
+        let expectedPayload = transactionOwnershipMarkerPayload(
+            for: temporaryURL
+        )
+        do {
+            let marker = try AtomicMediaVerifiedTemporaryFile(
+                url: markerURL
+            )
+            try marker.validatePathAndContents(at: markerURL)
+            let identity = try marker.makePinnedFileIdentity()
+            let expectedDigest = SHA256.hash(
+                data: expectedPayload
+            ).map {
+                String(format: "%02x", $0)
+            }.joined()
+            guard identity.byteCount
+                    == UInt64(expectedPayload.count),
+                  identity.mode & UInt32(0o077) == 0,
+                  marker.publicationIdentity.byteCount
+                    == UInt64(expectedPayload.count),
+                  marker.publicationIdentity.sha256
+                    == expectedDigest else {
+                throw AtomicMediaOutputError
+                    .unsafeTemporaryFile(markerURL)
+            }
+            return identity
+        } catch {
+            throw AtomicMediaOutputError
+                .unsafeTemporaryFile(markerURL)
+        }
+    }
+
+    static func createTransactionOwnershipMarker(
+        at markerURL: URL,
+        temporaryURL: URL
+    ) throws {
+        let directoryURL = markerURL.deletingLastPathComponent()
+        let directoryDescriptor = open(
+            directoryURL.path,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard directoryDescriptor >= 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: temporaryURL,
+                attempts: 0,
+                reason: "ownership marker directory unavailable: "
+                    + String(cString: strerror(errno))
+            )
+        }
+        defer { close(directoryDescriptor) }
+
+        let markerName = markerURL.lastPathComponent
+        guard isSafeLeafName(markerName) else {
+            throw AtomicMediaOutputError.unsafeTemporaryFile(
+                markerURL
+            )
+        }
+        let descriptor = markerName.withCString {
+            openat(
+                directoryDescriptor,
+                $0,
+                O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW
+                    | O_CLOEXEC,
+                S_IRUSR | S_IWUSR
+            )
+        }
+        guard descriptor >= 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: temporaryURL,
+                attempts: 0,
+                reason: "ownership marker creation failed: "
+                    + String(cString: strerror(errno))
+            )
+        }
+
+        var completed = false
+        defer {
+            if !completed {
+                unlinkCreatedMarkerIfUnchanged(
+                    descriptor: descriptor,
+                    name: markerName,
+                    directoryDescriptor: directoryDescriptor
+                )
+            }
+            close(descriptor)
+        }
+
+        let payload = transactionOwnershipMarkerPayload(
+            for: temporaryURL
+        )
+        try writeAll(
+            payload,
+            descriptor: descriptor,
+            markerURL: markerURL,
+            temporaryURL: temporaryURL
+        )
+        guard fsync(descriptor) == 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: temporaryURL,
+                attempts: 0,
+                reason: "ownership marker synchronization failed: "
+                    + String(cString: strerror(errno))
+            )
+        }
+        try validateCreatedMarker(
+            descriptor: descriptor,
+            name: markerName,
+            directoryDescriptor: directoryDescriptor,
+            markerURL: markerURL,
+            temporaryURL: temporaryURL,
+            expectedByteCount: payload.count
+        )
+        try synchronizeDirectory(
+            directoryDescriptor,
+            url: directoryURL
+        )
+        completed = true
+    }
+
+    static func validateCreatedMarker(
+        descriptor: Int32,
+        name: String,
+        directoryDescriptor: Int32,
+        markerURL: URL,
+        temporaryURL: URL,
+        expectedByteCount: Int
+    ) throws {
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        let pathStatus = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              pathStatus == 0,
+              let descriptorIdentity = AtomicMediaPinnedFileIdentity(
+                descriptorMetadata,
+                requirePopulatedFile: true
+              ),
+              let pathIdentity = AtomicMediaPinnedFileIdentity(
+                pathMetadata,
+                requirePopulatedFile: true
+              ),
+              descriptorIdentity == pathIdentity,
+              descriptorIdentity.byteCount
+                == UInt64(expectedByteCount),
+              descriptorIdentity.mode & UInt32(0o077) == 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: temporaryURL,
+                attempts: 0,
+                reason: "ownership marker identity is unsafe at "
+                    + markerURL.lastPathComponent
+            )
+        }
+    }
+
+    static func writeAll(
+        _ data: Data,
+        descriptor: Int32,
+        markerURL: URL,
+        temporaryURL: URL
+    ) throws {
+        let bytes = [UInt8](data)
+        var written = 0
+        while written < bytes.count {
+            let result = bytes.withUnsafeBytes { buffer in
+                Darwin.write(
+                    descriptor,
+                    buffer.baseAddress?.advanced(by: written),
+                    bytes.count - written
+                )
+            }
+            if result < 0, errno == EINTR {
+                continue
+            }
+            guard result > 0 else {
+                throw AtomicMediaOutputError.cleanupFailed(
+                    temporary: temporaryURL,
+                    attempts: 0,
+                    reason: "ownership marker write failed at "
+                        + "\(markerURL.lastPathComponent): "
+                        + String(cString: strerror(errno))
+                )
+            }
+            written += result
+        }
+    }
+
+    static func unlinkCreatedMarkerIfUnchanged(
+        descriptor: Int32,
+        name: String,
+        directoryDescriptor: Int32
+    ) {
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        let pathStatus = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              pathStatus == 0,
+              descriptorMetadata.st_dev == pathMetadata.st_dev,
+              descriptorMetadata.st_ino == pathMetadata.st_ino,
+              descriptorMetadata.st_uid == geteuid(),
+              descriptorMetadata.st_nlink == 1,
+              (descriptorMetadata.st_mode & S_IFMT) == S_IFREG else {
+            return
+        }
+        _ = name.withCString {
+            unlinkat(directoryDescriptor, $0, 0)
+        }
+    }
+
+    static func pathEntryExistsWithoutFollowingSymlinks(
+        at url: URL
+    ) -> Bool {
+        var metadata = stat()
+        return lstat(url.path, &metadata) == 0
+    }
+
+    static func openValidatedFileQuarantine(
+        named name: String,
+        directoryDescriptor: Int32,
+        quarantineURL: URL,
+        expecting expected: AtomicMediaPinnedFileIdentity
+    ) throws -> Int32 {
+        let descriptor = name.withCString {
+            openat(
+                directoryDescriptor,
+                $0,
+                O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC
+            )
+        }
+        guard descriptor >= 0 else {
+            throw posixError(path: quarantineURL, code: errno)
+        }
+        do {
+            var descriptorMetadata = stat()
+            var pathMetadata = stat()
+            let pathStatus = name.withCString {
+                fstatat(
+                    directoryDescriptor,
+                    $0,
+                    &pathMetadata,
+                    AT_SYMLINK_NOFOLLOW
+                )
+            }
+            guard fstat(descriptor, &descriptorMetadata) == 0,
+                  pathStatus == 0,
+                  let descriptorIdentity =
+                    AtomicMediaPinnedFileIdentity(
+                        descriptorMetadata,
+                        requirePopulatedFile: false
+                    ),
+                  let pathIdentity = AtomicMediaPinnedFileIdentity(
+                    pathMetadata,
+                    requirePopulatedFile: false
+                  ),
+                  descriptorIdentity == expected,
+                  pathIdentity == expected else {
+                throw AtomicMediaOutputError.cleanupFailed(
+                    temporary: quarantineURL,
+                    attempts: 1,
+                    reason: "isolated temporary inode differs"
+                )
+            }
+            return descriptor
+        } catch {
+            close(descriptor)
+            throw error
+        }
+    }
+
+    static func unlinkValidatedFileQuarantine(
+        named name: String,
+        directoryDescriptor: Int32,
+        directoryURL: URL,
+        quarantineURL: URL,
+        descriptor: Int32,
+        expecting expected: AtomicMediaPinnedFileIdentity
+    ) throws {
+        var descriptorMetadata = stat()
+        var pathMetadata = stat()
+        let pathStatus = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              pathStatus == 0,
+              let descriptorIdentity = AtomicMediaPinnedFileIdentity(
+                descriptorMetadata,
+                requirePopulatedFile: false
+              ),
+              let pathIdentity = AtomicMediaPinnedFileIdentity(
+                pathMetadata,
+                requirePopulatedFile: false
+              ),
+              descriptorIdentity == expected,
+              pathIdentity == expected else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: quarantineURL,
+                attempts: 1,
+                reason: "temporary changed before unlink"
+            )
+        }
+
+        let unlinkResult = name.withCString {
+            unlinkat(directoryDescriptor, $0, 0)
+        }
+        guard unlinkResult == 0 else {
+            throw posixError(path: quarantineURL, code: errno)
+        }
+        try synchronizeDirectory(
+            directoryDescriptor,
+            url: directoryURL
+        )
+
+        var pathAfter = stat()
+        let pathResult = name.withCString {
+            fstatat(
+                directoryDescriptor,
+                $0,
+                &pathAfter,
+                AT_SYMLINK_NOFOLLOW
+            )
+        }
+        let pathError = errno
+        var descriptorAfter = stat()
+        guard pathResult != 0,
+              pathError == ENOENT,
+              fstat(descriptor, &descriptorAfter) == 0,
+              descriptorAfter.st_nlink == 0 else {
+            throw AtomicMediaOutputError.cleanupFailed(
+                temporary: quarantineURL,
+                attempts: 1,
+                reason: "temporary unlink postcondition failed"
+            )
+        }
+    }
+
     static func quarantineDestination(
         destinationName: String,
         directoryDescriptor: Int32,
@@ -471,3 +1327,6 @@ private extension LocalAtomicMediaFileSystem {
         )
     }
 }
+
+// Secure path validation and quarantine operations share one syscall boundary.
+// swiftlint:disable:this file_length

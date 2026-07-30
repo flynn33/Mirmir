@@ -3,6 +3,51 @@ import XCTest
 @testable import Mirmir
 
 final class R13ReleaseEngineTerminalBoundaryTests: XCTestCase {
+    func testHandleCancellationReturnsWhileMediaCleanupIsBlocked()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let finishBarrier = R13ReleaseSynchronousStartBarrier()
+        let cleanupBarrier = R13ReleaseSynchronousStartBarrier()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [],
+            eventLog: eventLog,
+            finishObserver: {
+                finishBarrier.enterAndWait()
+            },
+            cancelObserver: {
+                cleanupBarrier.enterAndWait()
+            }
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = makeService(media: media, factory: factory)
+        let handle = try service.submit(
+            makeJob(identifier: "r13-nonblocking-cancel")
+        )
+        defer {
+            cleanupBarrier.release()
+            finishBarrier.release()
+        }
+        try await waitForBarrier(finishBarrier)
+
+        let cancelReturned = expectation(
+            description: "The job handle returns before cleanup completes."
+        )
+        Task.detached {
+            handle.cancel()
+            cancelReturned.fulfill()
+        }
+        await fulfillment(of: [cancelReturned], timeout: 0.5)
+        try await waitForBarrier(cleanupBarrier)
+
+        cleanupBarrier.release()
+        finishBarrier.release()
+        _ = try? await handle.waitForCompletion()
+    }
+
     func testCancellationAndCleanupErrorAfterPublishDoNotReportJobFailure()
         async throws {
         let eventLog = R13ReleaseTestEventLog()

@@ -261,14 +261,33 @@ final class AVFoundationMediaPipeline:
     }
 
     func beginSession(source: SourceProfile, output: OutputProfile) async throws -> MediaSession {
-        try await telemetry.measure(.readerSetup) {
-            try await AVFoundationMediaSession.make(
-                metal: metal,
-                telemetry: telemetry,
-                outputVerifier: outputVerifier,
+        do {
+            return try await telemetry.measure(.readerSetup) {
+                try await AVFoundationMediaSession.make(
+                    metal: metal,
+                    telemetry: telemetry,
+                    outputVerifier: outputVerifier,
+                    source: source,
+                    output: output
+                )
+            }
+        } catch {
+            diagnosticRecorder.enqueue(
+                severity: .error,
+                subsystem: "media",
+                operation: "media_session_start",
+                code: "media_session_start_failed",
                 source: source,
-                output: output
+                resources: [
+                    MirmirDiagnosticResourceInput(
+                        role: "source_video",
+                        url: source.url,
+                        location: .userSelected
+                    )
+                ],
+                error: error
             )
+            throw error
         }
     }
 
@@ -319,6 +338,47 @@ private struct ExpectedColorMetadata: Sendable {
     let label: String
 }
 
+enum AVFoundationSourceAssetFactory {
+    static var options: [String: Any] {
+        [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+    }
+
+    static func make(url: URL) -> AVURLAsset {
+        AVURLAsset(url: url, options: options)
+    }
+}
+
+enum AVFoundationSourceTimelinePreflight {
+    static func validate(
+        _ timeRange: CMTimeRange,
+        mediaType: AVMediaType
+    ) throws {
+        let start = timeRange.start
+        let end = CMTimeRangeGetEnd(timeRange)
+        guard timeRange.isValid,
+              start.isNumeric,
+              end.isNumeric else {
+            return
+        }
+        guard CMTimeCompare(start, .zero) >= 0 else {
+            let mediaTypeIdentifier: String
+            switch mediaType {
+            case .video:
+                mediaTypeIdentifier = "video"
+            case .audio:
+                mediaTypeIdentifier = "audio"
+            default:
+                mediaTypeIdentifier = mediaType.rawValue
+            }
+            throw MediaPipelineError.unsupportedNegativeSourceTimeline(
+                mediaType: mediaTypeIdentifier,
+                start: start,
+                end: end
+            )
+        }
+    }
+}
+
 final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     enum LifecycleState {
         case active
@@ -335,17 +395,21 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     private let sourceVideoEndTime: CMTime
     let reader: AVAssetReader
     private let videoOutput: AVAssetReaderTrackOutput
-    let audioOutput: AVAssetReaderTrackOutput?
+    let sourceAudioTrack: AVAssetTrack?
 
     let writer: AVAssetWriter
     let videoInput: AVAssetWriterInput
-    let audioInput: AVAssetWriterInput?
     let timedMetadataWriter: TimedMetadataWriter?
     let outputTransaction: AtomicMediaOutput
+    let stagingFile: MediaPipelineStagingFile
     let outputVerifier: any OutputMediaVerifying
     let telemetry: any ASHTelemetryRecording
     let expectedCompressedAACIdentity: OutputMediaAACIdentity?
     let expectedVideoTransform: CGAffineTransform
+
+    var presentationTransform: CGAffineTransform {
+        expectedVideoTransform
+    }
 
     var prepublicationOutputURL: URL {
         outputTransaction.temporaryURL
@@ -357,11 +421,10 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     let lifecycleLock = NSLock()
     let timingLock = NSLock()
+    let finalizationResourceLock = NSLock()
 
     private var frameIndex = 0
     private var pendingVideoSample: CMSampleBuffer?
-    var pendingAudioSample: CMSampleBuffer?
-    var audioInputIsFinished = false
     var lifecycleState = LifecycleState.active
     var timingLedger = FrameTimingLedger()
     var storedTerminalCleanupError: MediaPipelineError?
@@ -379,7 +442,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         source: SourceProfile,
         output: OutputProfile
     ) async throws -> AVFoundationMediaSession {
-        let asset = AVURLAsset(url: source.url)
+        let asset = AVFoundationSourceAssetFactory.make(url: source.url)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
             throw MediaPipelineError.noVideoTrack(source.url)
@@ -387,7 +450,15 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
         let videoTimeRange = try await videoTrack.load(.timeRange)
-        let videoTimeScale = try await videoTrack.load(.naturalTimeScale)
+        try AVFoundationSourceTimelinePreflight.validate(
+            videoTimeRange,
+            mediaType: .video
+        )
+        let naturalVideoTimeScale = try await videoTrack.load(.naturalTimeScale)
+        let videoTimeScale = try ExactVideoWriterTimeScale.resolve(
+            naturalTimeScale: naturalVideoTimeScale,
+            trackTimeRange: videoTimeRange
+        )
         try await AVFoundationMediaPipeline.validateSupportedColorProfile(
             track: videoTrack,
             formats: videoFormats
@@ -401,6 +472,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let audioTrack = audioTracks.first
         let audioFormatDescription: CMFormatDescription?
         if let audioTrack {
+            let audioTimeRange = try await audioTrack.load(.timeRange)
+            try AVFoundationSourceTimelinePreflight.validate(
+                audioTimeRange,
+                mediaType: .audio
+            )
             audioFormatDescription = try await audioTrack.load(.formatDescriptions).first
             if let audioFormatDescription {
                 let subtype = CMFormatDescriptionGetMediaSubType(audioFormatDescription)
@@ -432,7 +508,6 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             videoTimeScale: videoTimeScale,
             videoTransform: videoTransform,
             audioTrack: audioTrack,
-            audioFormatDescription: audioFormatDescription,
             expectedCompressedAACIdentity: expectedCompressedAACIdentity
         )
     }
@@ -449,7 +524,6 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform,
         audioTrack: AVAssetTrack?,
-        audioFormatDescription: CMFormatDescription?,
         expectedCompressedAACIdentity: OutputMediaAACIdentity?
     ) throws {
         guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
@@ -459,31 +533,40 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let reader = try Self.makeReader(asset: asset, sourceURL: source.url)
         let readerOutputs = try Self.configureReaderOutputs(
             reader: reader,
-            videoTrack: videoTrack,
-            audioTrack: audioTrack,
-            preserveAudio: output.preserveAudio
+            videoTrack: videoTrack
         )
         let outputTransaction = try Self.makeOutputTransaction(
             outputURL: output.url,
             transactionIdentifier: output.transactionIdentifier
         )
         outputTransaction.attachTelemetry(telemetry)
-        let writer = try Self.makeWriter(outputTransaction: outputTransaction, outputURL: output.url)
+        let stagingFile = try Self.makeStagingFile(
+            outputTransaction: outputTransaction,
+            outputURL: output.url
+        )
+        let writer = try Self.makeWriter(
+            outputTransaction: outputTransaction,
+            stagingFile: stagingFile,
+            outputURL: output.url
+        )
         let writerInputs = try Self.configureWriterInputs(
             writer: writer,
             output: output,
             sourceResolution: source.resolution,
             videoTimeScale: videoTimeScale,
-            videoTransform: videoTransform,
-            audioOutput: readerOutputs.audio,
-            audioFormatDescription: audioFormatDescription
+            videoTransform: videoTransform
         )
         let outputPixelBufferPool = try PixelBufferBridge.makePool(
             width: output.resolution.width,
             height: output.resolution.height,
             capacity: 8
         )
-        try Self.start(reader: reader, writer: writer, outputTransaction: outputTransaction)
+        try Self.start(
+            reader: reader,
+            writer: writer,
+            outputTransaction: outputTransaction,
+            stagingFile: stagingFile
+        )
         writer.startSession(atSourceTime: .zero)
 
         self.sourceProfile = source
@@ -493,12 +576,12 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.sourceVideoEndTime = sourceVideoEndTime
         self.reader = reader
         self.videoOutput = readerOutputs.video
-        self.audioOutput = readerOutputs.audio
+        self.sourceAudioTrack = audioTrack
         self.writer = writer
         self.videoInput = writerInputs.video
-        self.audioInput = writerInputs.audio
         self.timedMetadataWriter = writerInputs.timedMetadata
         self.outputTransaction = outputTransaction
+        self.stagingFile = stagingFile
         self.outputVerifier = outputVerifier
         self.telemetry = telemetry
         self.expectedCompressedAACIdentity = expectedCompressedAACIdentity
@@ -575,14 +658,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     }
 
     func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws {
-        let audioWatermark = CMTimeAdd(
-            timing.presentationTime,
-            timing.duration
-        )
         let backpressure = telemetry.beginStage(.writerBackpressure)
         do {
             while !videoInput.isReadyForMoreMediaData {
-                try pumpAudio(through: nil)
                 try Task.checkCancellation()
                 if sessionIsCancelled() { throw CancellationError() }
                 guard writer.status == .writing else {
@@ -604,26 +682,20 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         if sessionIsCancelled() { throw CancellationError() }
         do {
             try timingLock.withLock {
-                var candidateLedger = timingLedger
-                try candidateLedger.append(timing)
-                let sampleBuffer = try Self.makeVideoSampleBuffer(
-                    pixelBuffer: pixelBuffer,
-                    timing: timing
-                )
-                guard videoInput.append(sampleBuffer) else {
-                    throw MediaPipelineError.writerFailed(writer.error)
+                try timingLedger.append(timing) {
+                    let sampleBuffer = try Self.makeVideoSampleBuffer(
+                        pixelBuffer: pixelBuffer,
+                        timing: timing
+                    )
+                    guard videoInput.append(sampleBuffer) else {
+                        throw MediaPipelineError.writerFailed(writer.error)
+                    }
                 }
-                timingLedger = candidateLedger
             }
         } catch let error as FrameTimingLedgerError {
             throw failureAfterCleanup(
                 MediaPipelineError.invalidFrameTiming(String(describing: error))
             )
-        } catch {
-            throw failureAfterCleanup(error)
-        }
-        do {
-            try pumpAudio(through: audioWatermark)
         } catch {
             throw failureAfterCleanup(error)
         }
@@ -640,6 +712,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     }
 
     deinit {
+        if let error = stagingFile.cleanup() {
+            retainStagingCleanupError(error)
+        }
         let cleanup = outputTransaction.fail()
         retainCleanupError(cleanup)
     }

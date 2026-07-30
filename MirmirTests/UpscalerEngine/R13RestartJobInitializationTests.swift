@@ -2,7 +2,135 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+// Trust-boundary scenarios share one descriptor-pinned filesystem fixture.
+// swiftlint:disable file_length
+// swiftlint:disable:next type_body_length
 final class R13RestartJobInitializationTests: XCTestCase {
+    func testTrustedRootTraversalAcceptsRegisteredAlias() throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let alias = try fixture.makeTrustedRootAlias()
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: alias.presented
+        )
+        let nested = alias.presented.appendingPathComponent(
+            "nested",
+            isDirectory: true
+        )
+
+        try fileSystem.ensureDirectory(nested)
+
+        XCTAssertNoThrow(try fileSystem.validateDirectory(nested))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: alias.canonical.appendingPathComponent("nested").path
+            )
+        )
+    }
+
+    func testTrustedRootTraversalAcceptsCanonicalPathForRegisteredAlias()
+        throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let alias = try fixture.makeTrustedRootAlias()
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: alias.presented
+        )
+        let resolvedRoot = R13RestartPath.resolvingExistingAncestor(
+            of: alias.presented
+        )
+        let nested = resolvedRoot.appendingPathComponent(
+            "canonical-nested",
+            isDirectory: true
+        )
+
+        try fileSystem.ensureDirectory(nested)
+
+        XCTAssertNoThrow(try fileSystem.validateDirectory(nested))
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: alias.canonical
+                    .appendingPathComponent("canonical-nested")
+                    .path
+            )
+        )
+    }
+
+    func testTrustedRootTraversalRejectsUnregisteredAlias() throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let alias = try fixture.makeTrustedRootAlias()
+        let unregisteredAlias = fixture.root.appendingPathComponent(
+            "unregistered-alias",
+            isDirectory: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: unregisteredAlias,
+            withDestinationURL: alias.canonical
+        )
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: alias.presented
+        )
+        let nested = unregisteredAlias.appendingPathComponent(
+            "nested",
+            isDirectory: true
+        )
+
+        XCTAssertThrowsError(try fileSystem.ensureDirectory(nested)) {
+            XCTAssertEqual(
+                $0 as? R13RestartJobError,
+                .unsafeFilesystemEntry(nested.path)
+            )
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: alias.canonical.appendingPathComponent("nested").path
+            )
+        )
+    }
+
+    func testTrustedRootTraversalStaysPinnedWhenRegisteredAliasIsRetargeted()
+        throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let alias = try fixture.makeTrustedRootAlias()
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: alias.presented
+        )
+        let retargetedDirectory = fixture.root.appendingPathComponent(
+            "retargeted-root",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: retargetedDirectory,
+            withIntermediateDirectories: false
+        )
+        try FileManager.default.removeItem(at: alias.presented)
+        try FileManager.default.createSymbolicLink(
+            at: alias.presented,
+            withDestinationURL: retargetedDirectory
+        )
+        let nested = alias.presented.appendingPathComponent(
+            "nested",
+            isDirectory: true
+        )
+
+        try fileSystem.ensureDirectory(nested)
+
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: alias.canonical.appendingPathComponent("nested").path
+            )
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: retargetedDirectory
+                    .appendingPathComponent("nested")
+                    .path
+            )
+        )
+    }
+
     func testTrustedRootTraversalCreatesNestedDirectory() throws {
         let fixture = try R13RestartInitializationFixture()
         defer { fixture.cleanup() }
@@ -58,6 +186,47 @@ final class R13RestartJobInitializationTests: XCTestCase {
                 .unsafeFilesystemEntry(nested.path)
             )
         }
+    }
+
+    func testTrustedRootTraversalRejectsSymlinkedDescendantInsideRoot()
+        throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: fixture.root
+        )
+        let targetDirectory = fixture.root.appendingPathComponent(
+            "inside-target",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: targetDirectory,
+            withIntermediateDirectories: false
+        )
+        let linkedDirectory = fixture.root.appendingPathComponent(
+            "inside-link",
+            isDirectory: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: linkedDirectory,
+            withDestinationURL: targetDirectory
+        )
+        let nested = linkedDirectory.appendingPathComponent(
+            "nested",
+            isDirectory: true
+        )
+
+        XCTAssertThrowsError(try fileSystem.ensureDirectory(nested)) {
+            XCTAssertEqual(
+                $0 as? R13RestartJobError,
+                .unsafeFilesystemEntry(nested.path)
+            )
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: targetDirectory.appendingPathComponent("nested").path
+            )
+        )
     }
 
     func testDirectoryRemovalStaysPinnedWhenParentPathIsReplaced()
@@ -297,6 +466,11 @@ final class R13RestartJobInitializationTests: XCTestCase {
 }
 
 private struct R13RestartInitializationFixture {
+    struct TrustedRootAlias {
+        let presented: URL
+        let canonical: URL
+    }
+
     let root: URL
     let jobsRoot: URL
 
@@ -310,6 +484,29 @@ private struct R13RestartInitializationFixture {
         try FileManager.default.createDirectory(
             at: root,
             withIntermediateDirectories: true
+        )
+    }
+
+    func makeTrustedRootAlias() throws -> TrustedRootAlias {
+        let canonical = root.appendingPathComponent(
+            "canonical-root",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: canonical,
+            withIntermediateDirectories: false
+        )
+        let presented = root.appendingPathComponent(
+            "registered-alias",
+            isDirectory: true
+        )
+        try FileManager.default.createSymbolicLink(
+            at: presented,
+            withDestinationURL: canonical
+        )
+        return TrustedRootAlias(
+            presented: presented,
+            canonical: canonical
         )
     }
 
@@ -454,3 +651,5 @@ private final class R13InitializationFaultFileSystem:
         try base.removeDirectory(url)
     }
 }
+
+// swiftlint:enable file_length

@@ -38,7 +38,7 @@ struct R13PreparedHardeningJob: Sendable {
     let preflight: R13StoragePreflightReceipt
     let resourceReservationDiskBytes: UInt64
     let liveDiskGrowthAllowanceBytes: UInt64
-    let distinctOutputCapacityPlan: R13DistinctOutputVolumeCapacityPlan?
+    let outputCapacityPlan: R13OutputVolumeCapacityPlan
     let createdNew: Bool
 }
 
@@ -47,21 +47,22 @@ struct R13RestartPreparation: Sendable {
     let createdNew: Bool
 }
 
-struct R13DistinctOutputVolumeCapacityPlan: Equatable, Sendable {
+struct R13OutputVolumeCapacityPlan: Equatable, Sendable {
     let outputDirectoryURL: URL
     let admissionRequiredBytes: UInt64
     let liveRecheckRequiredBytes: UInt64
 
     init(
         outputDirectoryURL: URL,
-        expectedOutputBytes: UInt64,
+        expectedFinalizationPeakBytes: UInt64,
+        expectedFinalOutputBytes: UInt64,
         minimumFreeDiskBytes: UInt64
     ) throws {
         let reservedOutputBytes =
             try R13ReleaseHardeningRuntime.requiredOutputVolumeBytes(
-                expectedOutputBytes: expectedOutputBytes
+                expectedOutputBytes: expectedFinalizationPeakBytes
             )
-        guard reservedOutputBytes >= expectedOutputBytes else {
+        guard reservedOutputBytes >= expectedFinalizationPeakBytes else {
             throw R13ReleaseHardeningError.arithmeticOverflow(
                 field: "distinct_output_reserved_bytes"
             )
@@ -72,7 +73,11 @@ struct R13DistinctOutputVolumeCapacityPlan: Equatable, Sendable {
             field: "distinct_output_admission_required_bytes"
         )
         liveRecheckRequiredBytes = try Self.checkedAdd(
-            reservedOutputBytes - expectedOutputBytes,
+            try Self.checkedAdd(
+                expectedFinalOutputBytes,
+                reservedOutputBytes - expectedFinalizationPeakBytes,
+                field: "distinct_output_live_recheck_required_bytes"
+            ),
             minimumFreeDiskBytes,
             field: "distinct_output_recheck_required_bytes"
         )
@@ -122,13 +127,28 @@ struct R13DistinctOutputVolumeCapacityPlan: Equatable, Sendable {
 extension R13ReleaseHardeningRuntime {
     static func makeReleaseIdentity(
         job: UpscaleJob,
-        route: R03ScaleRoute,
+        scalePlan: R13ReleaseScalePlan,
         modeBinding: R13ReleaseModeBinding,
         source: R13RestartSourceIdentity,
         environment: R13ReleaseEnvironment,
         policyResources: R13ReleasePolicyResourceBinding
     ) throws -> R13ReleaseIdentity {
-        try R13ReleaseIdentity(
+        let routeIdentity: AppleUpscaleRouteIdentity
+        switch scalePlan {
+        case .productQualified(let route):
+            routeIdentity = try R13ReleaseIdentity.makeA11Route(
+                for: route
+            )
+        case .adaptiveMPSLanczos(let plan):
+            routeIdentity = try R13ReleaseIdentity.makeAdaptiveRoute(
+                for: plan
+            )
+        }
+        let boundPolicyResources = try Self.policyResources(
+            for: scalePlan,
+            base: policyResources
+        )
+        return try R13ReleaseIdentity(
             R13ReleaseIdentityInput(
                 source: R13ReleaseSourceBinding(
                     sha256: source.sha256,
@@ -140,34 +160,82 @@ extension R13ReleaseHardeningRuntime {
                     codec: job.codec,
                     preserveAudio: job.preserveAudio
                 ),
-                scaleRoute: route,
-                routeIdentity: R13ReleaseIdentity.makeA11Route(
-                    for: route
-                ),
+                scalePlan: scalePlan,
+                routeIdentity: routeIdentity,
                 application: environment.application,
                 framework: environment.framework,
                 runtime: environment.runtime,
-                policyResources: policyResources,
+                policyResources: boundPolicyResources,
                 fallbackHistory: []
             )
         )
     }
 
-    static func makeRestartCore(
+    static func policyResources(
+        for scalePlan: R13ReleaseScalePlan,
+        base: R13ReleasePolicyResourceBinding
+    ) throws -> R13ReleasePolicyResourceBinding {
+        switch scalePlan {
+        case .productQualified:
+            return base
+        case .adaptiveMPSLanczos(let plan):
+            let policy = R13AdaptiveReleasePolicyDocument(plan: plan)
+            let policySHA256 = R13CryptoKitRestartDigest().sha256(
+                try R13RestartCanonical.data(policy)
+            )
+            return try R13ReleasePolicyResourceBinding(
+                policySHA256: policySHA256,
+                resourceManifestSHA256:
+                    base.resourceManifestSHA256
+            )
+        }
+    }
+
+    static func makeReleaseIdentity(
         job: UpscaleJob,
         route: R03ScaleRoute,
+        modeBinding: R13ReleaseModeBinding,
+        source: R13RestartSourceIdentity,
+        environment: R13ReleaseEnvironment,
+        policyResources: R13ReleasePolicyResourceBinding
+    ) throws -> R13ReleaseIdentity {
+        try makeReleaseIdentity(
+            job: job,
+            scalePlan: .productQualified(route),
+            modeBinding: modeBinding,
+            source: source,
+            environment: environment,
+            policyResources: policyResources
+        )
+    }
+
+    static func makeRestartCore(
+        job: UpscaleJob,
+        scalePlan: R13ReleaseScalePlan,
         identity: R13ReleaseIdentity,
         source: R13RestartSourceIdentity,
         totalFrameCount: Int
     ) throws -> R13RestartJobCore {
-        try R13RestartJobCore(
+        let expectedRouteID: String
+        switch scalePlan {
+        case .productQualified(let route):
+            expectedRouteID = route.rawValue
+        case .adaptiveMPSLanczos:
+            expectedRouteID = R13ReleaseIdentity.adaptiveRouteID
+        }
+        guard identity.routeID == expectedRouteID else {
+            throw R13RestartJobError.invalidIdentity(
+                field: "processing_route_identity"
+            )
+        }
+        return try R13RestartJobCore(
             jobID: job.identifier,
             source: source,
             processing: R13RestartProcessingIdentity(
                 requestedMode: identity.requestedMode.rawValue,
                 effectiveMode: identity.effectiveMode.rawValue,
                 routeIdentity:
-                    "\(route.rawValue):\(identity.configurationIdentity)",
+                    "\(expectedRouteID):\(identity.configurationIdentity)",
                 backendIdentity: identity.backendID,
                 backendRevision: identity.backendRevision
             ),
@@ -181,7 +249,82 @@ extension R13ReleaseHardeningRuntime {
         )
     }
 
+    static func makeRestartCore(
+        job: UpscaleJob,
+        route: R03ScaleRoute,
+        identity: R13ReleaseIdentity,
+        source: R13RestartSourceIdentity,
+        totalFrameCount: Int
+    ) throws -> R13RestartJobCore {
+        try makeRestartCore(
+            job: job,
+            scalePlan: .productQualified(route),
+            identity: identity,
+            source: source,
+            totalFrameCount: totalFrameCount
+        )
+    }
+
+    static func processingSourceResolution(
+        for scalePlan: R13ReleaseScalePlan
+    ) -> VideoResolution {
+        switch scalePlan {
+        case .productQualified(let route):
+            return route.canonicalSourceResolution
+        case .adaptiveMPSLanczos(let plan):
+            return plan.processingSourceResolution
+        }
+    }
+
     static func expectedOutputBytes(
+        source: SourceProfile,
+        sourceByteCount: UInt64,
+        job: UpscaleJob
+    ) throws -> UInt64 {
+        let conservativeVideoBytes = try expectedEncodedVideoBytes(
+            source: source,
+            sourceByteCount: sourceByteCount,
+            job: job
+        )
+        guard job.preserveAudio, source.hasAudio else {
+            return conservativeVideoBytes
+        }
+        let (expectedOutputBytes, overflow) = conservativeVideoBytes
+            .addingReportingOverflow(sourceByteCount)
+        guard !overflow else {
+            throw R13ReleaseHardeningError.arithmeticOverflow(
+                field: "expected_output_bytes"
+            )
+        }
+        return expectedOutputBytes
+    }
+
+    static func expectedFinalizationPeakBytes(
+        source: SourceProfile,
+        sourceByteCount: UInt64,
+        job: UpscaleJob
+    ) throws -> UInt64 {
+        let conservativeVideoBytes = try expectedEncodedVideoBytes(
+            source: source,
+            sourceByteCount: sourceByteCount,
+            job: job
+        )
+        let expectedFinalOutputBytes = try expectedOutputBytes(
+            source: source,
+            sourceByteCount: sourceByteCount,
+            job: job
+        )
+        let (peakBytes, overflow) = conservativeVideoBytes
+            .addingReportingOverflow(expectedFinalOutputBytes)
+        guard !overflow else {
+            throw R13ReleaseHardeningError.arithmeticOverflow(
+                field: "expected_finalization_peak_bytes"
+            )
+        }
+        return peakBytes
+    }
+
+    static func expectedEncodedVideoBytes(
         source: SourceProfile,
         sourceByteCount: UInt64,
         job: UpscaleJob
@@ -212,17 +355,7 @@ extension R13ReleaseHardeningRuntime {
             sourceByteCount,
             expectedVideoBytes
         )
-        guard job.preserveAudio, source.hasAudio else {
-            return conservativeVideoBytes
-        }
-        let (expectedOutputBytes, overflow) = conservativeVideoBytes
-            .addingReportingOverflow(sourceByteCount)
-        guard !overflow else {
-            throw R13ReleaseHardeningError.arithmeticOverflow(
-                field: "expected_output_bytes"
-            )
-        }
-        return expectedOutputBytes
+        return conservativeVideoBytes
     }
 
     static func requiredWorkingMemoryBytes(

@@ -60,6 +60,7 @@ final class OutputMediaMetadataVerificationTests: XCTestCase {
                 timedMetadata: finalMetadata
             )
         )
+        XCTAssertTrue(fixture.recognizedStagingFiles().isEmpty)
     }
 
     func testControlledMetadataPolicyRejectsForeignBareAndWhitespaceKeys() throws {

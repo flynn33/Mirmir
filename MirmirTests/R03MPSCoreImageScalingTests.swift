@@ -48,6 +48,73 @@ final class R03MPSCoreImageScalingTests: XCTestCase {
         }
     }
 
+    func testAdaptiveMPSLanczosExecutesDimensionBoundGeometryOrReportsTypedRuntimeUnavailability()
+        throws {
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: VideoResolution(width: 64, height: 36),
+            targetResolution: VideoResolution(width: 128, height: 72)
+        )
+        let scaler: R03MPSScaler
+        do {
+            scaler = try R03MPSScaler(
+                mode: .lanczos,
+                adaptivePlan: plan
+            )
+        } catch R03NV12ScalingError.runtimeUnavailable {
+            return
+        }
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.processingSourceResolution
+        )
+        let destination = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.targetResolution
+        )
+
+        try scaler.scale(
+            source: source,
+            destination: destination,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        XCTAssertNil(scaler.route)
+        XCTAssertNoThrow(
+            try R03NV12Contract.validate(
+                pixelBuffer: destination,
+                resolution: plan.targetResolution
+            )
+        )
+    }
+
+    func testAdaptiveMPSPreflightReportsHardwareTextureLimitAndGeometry()
+        throws {
+        let source = VideoResolution(width: 4_096, height: 2_304)
+        let target = VideoResolution(width: 8_192, height: 4_608)
+
+        XCTAssertThrowsError(
+            try R03MPSScaler.validateTextureDimensions(
+                sourceResolution: source,
+                targetResolution: target,
+                maximumTextureDimension2D: 4_096
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R03MPSTextureDimensionLimitError,
+                R03MPSTextureDimensionLimitError(
+                    maximumTextureDimension2D: 4_096,
+                    sourceResolution: source,
+                    targetResolution: target
+                )
+            )
+        }
+        XCTAssertNoThrow(
+            try R03MPSScaler.validateTextureDimensions(
+                sourceResolution: source,
+                targetResolution: target,
+                maximumTextureDimension2D: 8_192
+            )
+        )
+    }
+
     func testCoreImageModesExecuteOneFrameRepeatably() async throws {
         for mode in R03CoreImageScalingMode.allCases {
             let first = try await runCoreImageOnce(mode: mode, run: 1)

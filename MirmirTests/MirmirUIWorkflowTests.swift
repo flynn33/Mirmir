@@ -229,23 +229,66 @@ final class MirmirUIWorkflowTests: XCTestCase {
         }
     }
 
-    func test_supportedVideoExtensionsCoverCommonAVFoundationReadableFormats() {
-        XCTAssertEqual(MirmirViewModel.supportedVideoExtensions, ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"])
-
-        for fileExtension in MirmirViewModel.supportedVideoExtensions {
-            let url = URL(fileURLWithPath: "/tmp/source.\(fileExtension)")
-            XCTAssertTrue(MirmirViewModel.supportsVideoFile(url), fileExtension)
+    func test_inputAdmissionDefersFormatSupportToMediaProbe() {
+        for fileExtension in [
+            "mp4", "mov", "mkv", "webm", "mxf", "unknown"
+        ] {
+            let url = URL(
+                fileURLWithPath: "/tmp/source.\(fileExtension)"
+            )
+            XCTAssertTrue(
+                MirmirViewModel.supportsVideoFile(url),
+                fileExtension
+            )
         }
-
-        XCTAssertFalse(MirmirViewModel.supportsVideoFile(URL(fileURLWithPath: "/tmp/source.txt")))
+        XCTAssertFalse(
+            MirmirViewModel.supportsVideoFile(
+                URL(string: "https://example.com/source.mp4")!
+            )
+        )
     }
 
-    func test_unsupportedFileReportsVisibleError() {
+    func test_targetPolicyPreservesQualifiedRoutesAndAdaptsOddGeometry() {
+        XCTAssertEqual(
+            MirmirViewModel.targets(for: .p720),
+            [.p1080]
+        )
+        XCTAssertEqual(
+            MirmirViewModel.targets(for: .p1080),
+            [.p2160]
+        )
+        XCTAssertEqual(
+            MirmirViewModel.targets(
+                for: VideoResolution(width: 728, height: 410)
+            ),
+            [VideoResolution(width: 1_278, height: 720)]
+        )
+        XCTAssertEqual(
+            MirmirViewModel.targets(
+                for: VideoResolution(width: 854, height: 480)
+            ),
+            [VideoResolution(width: 1_282, height: 720)]
+        )
+        XCTAssertEqual(
+            MirmirViewModel.targets(for: .p1440),
+            [.p2160]
+        )
+        XCTAssertTrue(
+            MirmirViewModel.targets(for: .p2160).isEmpty
+        )
+    }
+
+    func test_nonFileSourceReportsVisibleError() {
         let viewModel = makeViewModel()
 
-        viewModel.loadSource(url: URL(fileURLWithPath: "/tmp/source.txt"))
+        viewModel.loadSource(
+            url: URL(string: "https://example.com/source.mp4")!
+        )
 
-        XCTAssertEqual(viewModel.state, .failed(MirmirViewModel.unsupportedFileMessage))
+        XCTAssertEqual(
+            viewModel.state,
+            .failed(MirmirViewModel.unsupportedFileMessage)
+        )
     }
 
     func test_probeFailureIsPersistedInInjectedDiagnosticStore() async throws {
@@ -425,6 +468,153 @@ final class MirmirUIWorkflowTests: XCTestCase {
         }
     }
 
+    func test_sampledPreviewUsesProductionPairOnOneCommonCanvas() throws {
+        let source = try sourceText(
+            for: [
+                "Mirmir/Modules/UI/Views/"
+                    + "MirmirUpscaleWorkspaceView.swift"
+            ]
+        )
+        let requiredWiring = [
+            "MirmirPreviewRaster(image: frame.processed)",
+            "MirmirPreviewRaster(image: frame.source)",
+            ".mask(alignment: .leading)",
+            ".frame(width: size.width, height: size.height)",
+            "Live sampled preview",
+            "Both sides show the same sampled production frame.",
+            "Continuous playback and scrubbing are not included.",
+            ".accessibilityHidden(true)",
+            "Upscale failed: \\(reason)"
+        ]
+
+        for fragment in requiredWiring {
+            XCTAssertTrue(
+                source.contains(fragment),
+                "Missing truthful sampled-preview wiring: \(fragment)"
+            )
+        }
+        XCTAssertFalse(source.contains("previewHalf("))
+        XCTAssertFalse(
+            source.contains("Live frame playback is not available.")
+        )
+        XCTAssertFalse(
+            source.contains("The current source cannot be prepared.")
+        )
+        XCTAssertFalse(
+            source.contains(
+                ".accessibilityLabel(\"Before after split handle\")"
+            )
+        )
+    }
+
+    func test_previewTimestampFloorsWithoutSyntheticFrameComponent() {
+        XCTAssertEqual(
+            MirmirPreviewPresentation.timestamp(seconds: 0),
+            "00:00:00"
+        )
+        XCTAssertEqual(
+            MirmirPreviewPresentation.timestamp(seconds: 59.999),
+            "00:00:59"
+        )
+        XCTAssertEqual(
+            MirmirPreviewPresentation.timestamp(seconds: 3_661.999),
+            "01:01:01"
+        )
+        XCTAssertEqual(
+            MirmirPreviewPresentation.timestamp(seconds: -1),
+            "00:00:00"
+        )
+        XCTAssertEqual(
+            MirmirPreviewPresentation.timestamp(seconds: .nan),
+            "00:00:00"
+        )
+    }
+
+    func test_lastPreviewPairSurvivesTerminalFailureAndExposesReason()
+        async throws {
+        let preview = try makePreviewFrame()
+        let engine = PreviewFailingEngineService(preview: preview)
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService()
+        )
+        let source = makeSourceProfile()
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        XCTAssertTrue(
+            viewModel.acceptOutputURLSelectedByUser(
+                viewModel.defaultOutputURL(for: source, target: .p2160)
+            )
+        )
+
+        viewModel.startUpscale()
+
+        for _ in 0..<200 {
+            if case .failed = viewModel.state,
+               viewModel.latestPreviewFrame != nil {
+                break
+            }
+            await Task.yield()
+        }
+
+        let retained = try XCTUnwrap(viewModel.latestPreviewFrame)
+        XCTAssertEqual(retained, preview)
+        guard case .failed(let reason) = viewModel.state else {
+            return XCTFail("Expected the injected terminal failure.")
+        }
+        XCTAssertEqual(
+            reason,
+            "Upscale strategy failed: writer finalization rejected the output"
+        )
+        XCTAssertEqual(
+            MirmirPreviewPresentation.message(for: viewModel.state),
+            "Upscale failed: \(reason)"
+        )
+
+        viewModel.upscaleAnotherVideo()
+        XCTAssertNil(viewModel.latestPreviewFrame)
+    }
+
+    func test_retryRejectionClearsPreviewFromPriorAttempt()
+        async throws {
+        let preview = try makePreviewFrame()
+        let engine = PreviewFailingEngineService(preview: preview)
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService()
+        )
+        let source = makeSourceProfile()
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        XCTAssertTrue(
+            viewModel.acceptOutputURLSelectedByUser(
+                viewModel.defaultOutputURL(for: source, target: .p2160)
+            )
+        )
+
+        viewModel.startUpscale()
+        for _ in 0..<200 {
+            if case .failed = viewModel.state,
+               viewModel.latestPreviewFrame != nil {
+                break
+            }
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.latestPreviewFrame, preview)
+
+        viewModel.retryFailedUpscale()
+
+        XCTAssertNil(viewModel.latestPreviewFrame)
+        XCTAssertEqual(
+            viewModel.state,
+            .failed("An upscale job is already running.")
+        )
+    }
+
     func test_queueAndRecoveryControlsAreWiredToFunctionalActions()
         throws {
         let source = try detailedWorkspaceSource()
@@ -487,6 +677,31 @@ final class MirmirUIWorkflowTests: XCTestCase {
             estimatedFrameCount: 30,
             codecHint: nil,
             hasAudio: false
+        )
+    }
+
+    private func makePreviewFrame() throws -> UpscalePreviewFrame {
+        let source = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([16, 16, 16, 255])
+            )
+        )
+        let processed = try XCTUnwrap(
+            UpscalePreviewImage(
+                width: 1,
+                height: 1,
+                rgba8: Data([224, 224, 224, 255])
+            )
+        )
+        return try XCTUnwrap(
+            UpscalePreviewFrame(
+                frameIndex: 17,
+                presentationSeconds: 0.5,
+                source: source,
+                processed: processed
+            )
         )
     }
 
@@ -699,5 +914,60 @@ private final class DelayedCancellationJobHandle: UpscalerJobHandle, @unchecked 
             return storedState.waiter
         }
         waiter?.resume(throwing: CancellationError())
+    }
+}
+
+private final class PreviewFailingEngineService:
+    UpscalerEngineService,
+    @unchecked Sendable {
+    let availability: UpscalerEngineAvailability = .available
+    private let preview: UpscalePreviewFrame
+    private let lock = NSLock()
+    private var submissionCount = 0
+
+    init(preview: UpscalePreviewFrame) {
+        self.preview = preview
+    }
+
+    func submit(_: UpscaleJob) throws -> UpscalerJobHandle {
+        let isRetry = lock.withLock {
+            submissionCount += 1
+            return submissionCount > 1
+        }
+        if isRetry {
+            throw UpscalerEngineError.jobAlreadyRunning
+        }
+        return PreviewFailingJobHandle(preview: preview)
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+private final class PreviewFailingJobHandle:
+    UpscalerJobHandle,
+    @unchecked Sendable {
+    let progressStream: AsyncStream<UpscaleProgress>
+    let previewStream: AsyncStream<UpscalePreviewFrame>
+
+    init(preview: UpscalePreviewFrame) {
+        progressStream = AsyncStream { continuation in
+            continuation.finish()
+        }
+        previewStream = AsyncStream(
+            bufferingPolicy: .bufferingNewest(1)
+        ) { continuation in
+            continuation.yield(preview)
+            continuation.finish()
+        }
+    }
+
+    func cancel() {}
+
+    func waitForCompletion() async throws -> URL {
+        await Task.yield()
+        throw UpscalerEngineError.strategyFailed(
+            "writer finalization rejected the output"
+        )
     }
 }

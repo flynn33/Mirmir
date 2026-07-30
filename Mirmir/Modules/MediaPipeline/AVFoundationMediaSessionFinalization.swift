@@ -2,6 +2,12 @@ import AVFoundation
 import CoreMedia
 import Foundation
 
+private struct FinalMuxSourceTrack {
+    let track: AVAssetTrack
+    let timeRange: CMTimeRange
+    let exactTimeScale: CMTimeScale
+}
+
 extension AVFoundationMediaSession {
     func finish() async throws {
         try await finish(
@@ -37,7 +43,6 @@ extension AVFoundationMediaSession {
             try checkCancellation()
             try outputTransaction.beginFinishing()
             videoInput.markAsFinished()
-            try await finishAudioIfPresent()
             let timing = timingLedgerSnapshot()
             guard let sessionEndTime = timing.sessionEndTime else {
                 throw MediaPipelineError.invalidFrameTiming(
@@ -48,22 +53,15 @@ extension AVFoundationMediaSession {
                 finalMetadata,
                 sessionEndTime: sessionEndTime
             )
-            var mediaEndTime = sessionEndTime
-            if let audioIdentity = expectedCompressedAACIdentity {
-                let audioEndTime = CMTimeRangeGetEnd(
-                    audioIdentity.trackTimeRange
-                )
-                if CMTimeCompare(audioEndTime, mediaEndTime) > 0 {
-                    mediaEndTime = audioEndTime
-                }
-            }
-            await finishWriter(at: mediaEndTime)
+            await finishWriter(at: sessionEndTime)
 
             try checkCancellation()
             guard writer.status == .completed else {
                 if writer.status == .cancelled { throw CancellationError() }
                 throw MediaPipelineError.writerFailed(writer.error)
             }
+            try await assembleFinalOutput()
+            removeStagingFileAfterAssembly()
 
             try await beforeReopen()
             try checkCancellation()
@@ -79,6 +77,7 @@ extension AVFoundationMediaSession {
             try publishOutput()
         } catch {
             if error is CancellationError || sessionIsCancelled() {
+                cancel()
                 throw CancellationError()
             }
             throw failureAfterCleanup(error)
@@ -107,7 +106,18 @@ extension AVFoundationMediaSession {
             if writer.status == .writing { writer.cancelWriting() }
         }
         if shouldDiscardOutput {
-            retainCleanupError(outputTransaction.cancel())
+            var stagingError: Error?
+            var outputCleanup: AtomicMediaOutputCleanupResult?
+            finalizationResourceLock.withLock {
+                stagingError = stagingFile.cleanup()
+                outputCleanup = outputTransaction.cancel()
+            }
+            if let stagingError {
+                retainStagingCleanupError(stagingError)
+            }
+            if let outputCleanup {
+                retainCleanupError(outputCleanup)
+            }
         }
     }
 
@@ -122,8 +132,19 @@ extension AVFoundationMediaSession {
 
         if reader.status == .reading { reader.cancelReading() }
         if writer.status == .writing { writer.cancelWriting() }
-        retainCleanupError(outputTransaction.fail())
-        return terminalCleanupError ?? error
+        var stagingError: Error?
+        var outputCleanup: AtomicMediaOutputCleanupResult?
+        finalizationResourceLock.withLock {
+            stagingError = stagingFile.cleanup()
+            outputCleanup = outputTransaction.fail()
+        }
+        if let stagingError {
+            retainStagingCleanupError(stagingError)
+        }
+        if let outputCleanup {
+            retainCleanupError(outputCleanup)
+        }
+        return error
     }
 
     func retainCleanupError(_ cleanup: AtomicMediaOutputCleanupResult) {
@@ -138,69 +159,227 @@ extension AVFoundationMediaSession {
         lifecycleLock.unlock()
     }
 
-    private func finishAudioIfPresent() async throws {
-        guard audioOutput != nil, let audioInput else { return }
-        let audioStage = telemetry.beginStage(.audioProcess)
-        defer { telemetry.endStage(audioStage) }
-        while !audioInputIsFinished {
-            try checkCancellation()
-            guard writer.status == .writing else {
-                if writer.status == .cancelled {
-                    throw CancellationError()
-                }
-                throw MediaPipelineError.writerFailed(writer.error)
-            }
-            if audioInput.isReadyForMoreMediaData {
-                try pumpAudio(through: nil)
-            } else {
-                try await Task.sleep(nanoseconds: 1_000_000)
-            }
+    func retainStagingCleanupError(_ error: Error) {
+        lifecycleLock.lock()
+        if storedTerminalCleanupError == nil {
+            storedTerminalCleanupError = MediaPipelineError.partialCleanupFailed(
+                stagingFile.url,
+                String(describing: error)
+            )
+        }
+        lifecycleLock.unlock()
+    }
+
+    private func removeStagingFileAfterAssembly() {
+        if let error = finalizationResourceLock.withLock({
+            stagingFile.cleanup()
+        }) {
+            retainStagingCleanupError(error)
+            telemetry.recordMedia(ASHMediaObservation(
+                kind: "staging_cleanup_deferred",
+                details: [
+                    "reason": "owned_stage_removal_failed"
+                ]
+            ))
+        } else {
+            telemetry.recordMedia(ASHMediaObservation(
+                kind: "staging_cleanup_completed",
+                details: [:]
+            ))
         }
     }
 
-    func pumpAudio(through maximumPresentationTime: CMTime?) throws {
-        guard let audioOutput,
-              let audioInput,
-              !audioInputIsFinished else {
-            return
+    private func assembleFinalOutput() async throws {
+        do {
+            try await assembleFinalOutputContents()
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as MediaPipelineError {
+            if case .finalMuxFailed = error {
+                throw error
+            }
+            throw MediaPipelineError.finalMuxFailed(
+                outputProfile.url,
+                error
+            )
+        } catch {
+            throw MediaPipelineError.finalMuxFailed(
+                outputProfile.url,
+                error
+            )
         }
-        while audioInput.isReadyForMoreMediaData {
-            let sample: CMSampleBuffer
-            if let pendingAudioSample {
-                sample = pendingAudioSample
-            } else if let nextSample = audioOutput.copyNextSampleBuffer() {
-                sample = nextSample
-                pendingAudioSample = nextSample
-            } else {
-                if let error = reader.error {
-                    throw MediaPipelineError.readerFailed(error)
-                }
-                audioInput.markAsFinished()
-                audioInputIsFinished = true
-                return
-            }
+    }
 
-            let presentationTime =
-                CMSampleBufferGetPresentationTimeStamp(sample)
-            if let maximumPresentationTime,
-               presentationTime.isValid,
-               presentationTime.isNumeric,
-               maximumPresentationTime.isValid,
-               maximumPresentationTime.isNumeric,
-               CMTimeCompare(
-                   presentationTime,
-                   maximumPresentationTime
-               ) > 0 {
-                return
-            }
-
-            guard audioInput.append(sample) else {
-                throw MediaPipelineError.audioBridgeFailed(
-                    writer.error ?? NSError(domain: "Audio", code: -1)
+    // Preserve the ordered inspection, cancellation, sample-copy, and header gates.
+    // swiftlint:disable:next function_body_length
+    private func assembleFinalOutputContents() async throws {
+        let stagingAsset = AVURLAsset(
+            url: stagingFile.url,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let stagingVideoTracks = try await stagingAsset.loadTracks(
+            withMediaType: .video
+        )
+        guard stagingVideoTracks.count == 1,
+              let stagingVideoTrack = stagingVideoTracks.first else {
+            throw finalMuxError(
+                .stagingVideoTrackCount(
+                    expected: 1,
+                    actual: stagingVideoTracks.count
                 )
-            }
-            pendingAudioSample = nil
+            )
         }
+        let stagingMetadataTracks = try await stagingAsset.loadTracks(
+            withMediaType: .metadata
+        )
+        let expectedMetadataTrackCount = outputProfile
+            .timedMetadataTemplate
+            .isEmpty ? 0 : 1
+        guard stagingMetadataTracks.count == expectedMetadataTrackCount else {
+            throw finalMuxError(
+                .stagingMetadataTrackCount(
+                    expected: expectedMetadataTrackCount,
+                    actual: stagingMetadataTracks.count
+                )
+            )
+        }
+
+        var sourceTracks = try await makeFinalMuxSourceTracks(
+            [stagingVideoTrack] + stagingMetadataTracks
+        )
+        if let sourceAudioTrack {
+            let audioStage = telemetry.beginStage(.audioProcess)
+            do {
+                sourceTracks.append(
+                    try await makeFinalMuxSourceTrack(sourceAudioTrack)
+                )
+                telemetry.endStage(audioStage)
+            } catch {
+                telemetry.endStage(audioStage)
+                throw error
+            }
+        }
+        let movieTimeScale = try ExactVideoWriterTimeScale
+            .commonBoundaryScale(
+                sourceTracks.map(\.timeRange)
+            )
+        let fileType = try Self.writerFileType(for: outputProfile.url)
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "final_sample_copy_mux_started",
+            details: [
+                "track_count": String(sourceTracks.count),
+                "movie_timescale": String(movieTimeScale),
+                "preserved_audio": String(sourceAudioTrack != nil)
+            ]
+        ))
+
+        do {
+            try finalizationResourceLock.withLock {
+                try checkCancellation()
+                try outputTransaction
+                    .validateActiveTransactionLease()
+                guard !FileManager.default.fileExists(
+                    atPath: outputTransaction.temporaryURL.path
+                ) else {
+                    throw finalMuxError(
+                        .temporaryOutputAlreadyExists
+                    )
+                }
+
+                let movie = AVMutableMovie()
+                movie.timescale = movieTimeScale
+                movie.defaultMediaDataStorage = AVMediaDataStorage(
+                    url: outputTransaction.temporaryURL,
+                    options: nil
+                )
+                for sourceTrack in sourceTracks {
+                    try checkCancellation()
+                    guard let destinationTrack = movie.addMutableTrack(
+                        withMediaType: sourceTrack.track.mediaType,
+                        copySettingsFrom: sourceTrack.track,
+                        options: nil
+                    ) else {
+                        throw finalMuxError(
+                            .destinationTrackCreationFailed(
+                                trackKind: FinalMuxGuardError.TrackKind(
+                                    mediaType: sourceTrack.track.mediaType
+                                )
+                            )
+                        )
+                    }
+                    destinationTrack.timescale = sourceTrack.exactTimeScale
+                    try destinationTrack.insertTimeRange(
+                        sourceTrack.timeRange,
+                        of: sourceTrack.track,
+                        at: sourceTrack.timeRange.start,
+                        copySampleData: true
+                    )
+                }
+                try checkCancellation()
+                try movie.writeHeader(
+                    to: outputTransaction.temporaryURL,
+                    fileType: fileType,
+                    options: .addMovieHeaderToDestination
+                )
+                try outputTransaction
+                    .claimTemporaryFileForVerification()
+                try checkCancellation()
+            }
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as MediaPipelineError {
+            throw error
+        } catch {
+            throw MediaPipelineError.finalMuxFailed(
+                outputProfile.url,
+                error
+            )
+        }
+        telemetry.recordMedia(ASHMediaObservation(
+            kind: "final_sample_copy_mux_completed",
+            details: [
+                "track_count": String(sourceTracks.count),
+                "movie_timescale": String(movieTimeScale),
+                "preserved_audio": String(sourceAudioTrack != nil)
+            ]
+        ))
+    }
+
+    private func makeFinalMuxSourceTracks(
+        _ tracks: [AVAssetTrack]
+    ) async throws -> [FinalMuxSourceTrack] {
+        var result: [FinalMuxSourceTrack] = []
+        result.reserveCapacity(tracks.count)
+        for track in tracks {
+            try checkCancellation()
+            result.append(try await makeFinalMuxSourceTrack(track))
+        }
+        return result
+    }
+
+    private func makeFinalMuxSourceTrack(
+        _ track: AVAssetTrack
+    ) async throws -> FinalMuxSourceTrack {
+        let timeRange = try await track.load(.timeRange)
+        let naturalTimeScale = try await track.load(.naturalTimeScale)
+        let exactTimeScale = try ExactVideoWriterTimeScale.resolve(
+            naturalTimeScale: naturalTimeScale,
+            trackTimeRange: timeRange
+        )
+        return FinalMuxSourceTrack(
+            track: track,
+            timeRange: timeRange,
+            exactTimeScale: exactTimeScale
+        )
+    }
+
+    private func finalMuxError(
+        _ guardError: FinalMuxGuardError
+    ) -> MediaPipelineError {
+        MediaPipelineError.finalMuxFailed(
+            outputProfile.url,
+            guardError
+        )
     }
 
     private func finishTimedMetadata(
@@ -252,6 +431,7 @@ extension AVFoundationMediaSession {
 
     private func finishWriter(at sessionEndTime: CMTime) async {
         let finishStage = telemetry.beginStage(.writerFinish)
+        writer.endSession(atSourceTime: sessionEndTime)
         await writer.finishWriting()
         telemetry.endStage(finishStage)
         telemetry.recordMedia(ASHMediaObservation(
@@ -280,15 +460,21 @@ extension AVFoundationMediaSession {
                     videoColor: .sdrBT709VideoRangeLeft,
                     compressedAACIdentity: expectedCompressedAACIdentity,
                     preferredTransform: expectedVideoTransform
-                )
+                ),
+                cancellationCheck: {
+                    try self.checkCancellation()
+                }
             )
             telemetry.endStage(verificationStage)
             return result
+        } catch is CancellationError {
+            telemetry.endStage(verificationStage)
+            throw CancellationError()
         } catch {
             telemetry.endStage(verificationStage)
             throw MediaPipelineError.outputVerificationFailed(
                 outputProfile.url,
-                String(describing: error)
+                error
             )
         }
     }
@@ -351,3 +537,6 @@ extension AVFoundationMediaSession {
         return true
     }
 }
+
+// Finalization and the final sample-copy mux are reviewed as one lifecycle.
+// swiftlint:disable:this file_length

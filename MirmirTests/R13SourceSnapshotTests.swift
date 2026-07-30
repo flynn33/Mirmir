@@ -46,6 +46,62 @@ final class R13SourceSnapshotTests: XCTestCase {
         )
     }
 
+    func testLocalSnapshotUsesDeterministicNameForExtensionlessInput()
+        throws {
+        let fixture = try R13SourceSnapshotFixture()
+        defer { fixture.cleanup() }
+        let sourceURL = fixture.rootURL.appendingPathComponent(
+            "extensionless-input"
+        )
+        let original = Data("extensionless-video-container".utf8)
+        try original.write(to: sourceURL)
+        let snapshotter = R13LocalSourceSnapshotter(
+            sourceMeasurer: R13LocalRestartSourceMeasurer()
+        )
+
+        let snapshot = try snapshotter.createSnapshot(
+            sourceURL: sourceURL,
+            jobID: "r13-extensionless-snapshot",
+            jobsRootURL: fixture.jobsRootURL
+        )
+        defer { try? snapshotter.discard(snapshot) }
+
+        XCTAssertEqual(snapshot.processingURL.lastPathComponent, "source")
+        XCTAssertEqual(try Data(contentsOf: snapshot.processingURL), original)
+    }
+
+    func testLocalSnapshotFallsBackForUnusualExtensions()
+        throws {
+        let fixture = try R13SourceSnapshotFixture()
+        defer { fixture.cleanup() }
+        let snapshotter = R13LocalSourceSnapshotter(
+            sourceMeasurer: R13LocalRestartSourceMeasurer()
+        )
+        let fileNames = [
+            "video.this-extension-exceeds-sixteen-characters",
+            "video.映像"
+        ]
+
+        for (index, fileName) in fileNames.enumerated() {
+            let sourceURL = fixture.rootURL.appendingPathComponent(fileName)
+            let original = Data("unusual-video-\(index)".utf8)
+            try original.write(to: sourceURL)
+
+            let snapshot = try snapshotter.createSnapshot(
+                sourceURL: sourceURL,
+                jobID: "r13-unusual-extension-\(index)",
+                jobsRootURL: fixture.jobsRootURL
+            )
+
+            XCTAssertEqual(snapshot.processingURL.lastPathComponent, "source")
+            XCTAssertEqual(
+                try Data(contentsOf: snapshot.processingURL),
+                original
+            )
+            try snapshotter.discard(snapshot)
+        }
+    }
+
     func testLocalSnapshotRejectsMutateAndRestoreDuringCopy()
         throws {
         let fixture = try R13SourceSnapshotFixture()
@@ -477,3 +533,5 @@ private final class R13SourceBindingMediaPipeline:
         base.stop()
     }
 }
+
+// swiftlint:disable:this file_length
