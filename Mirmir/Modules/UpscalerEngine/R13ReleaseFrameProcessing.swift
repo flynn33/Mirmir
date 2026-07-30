@@ -1,5 +1,17 @@
 import Foundation
 
+struct R13BackendFrameProcessingError:
+    Error,
+    CustomStringConvertible,
+    Sendable {
+    let frameIndex: Int
+    let failure: AppleUpscaleBackendFailed
+
+    var description: String {
+        "A11 failed frame \(frameIndex): \(failure.reason)"
+    }
+}
+
 extension R13ReleaseUpscalerJobHandle {
     static func processRecord(
         _ record: FrameRecord,
@@ -129,8 +141,9 @@ extension R13ReleaseUpscalerJobHandle {
                 "A11 rejected frame \(source.frameIndex): \(rejected.reason)"
             )
         case .failed(let failure):
-            throw UpscalerEngineError.strategyFailed(
-                "A11 failed frame \(source.frameIndex): \(failure.reason)"
+            throw R13BackendFrameProcessingError(
+                frameIndex: source.frameIndex,
+                failure: failure
             )
         }
     }

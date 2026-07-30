@@ -66,6 +66,11 @@ final class MirmirViewModel: ObservableObject {
         case failed(String)
     }
 
+    struct RetryableFailedJob {
+        let job: UpscaleJob
+        let source: SourceProfile
+    }
+
     @Published var sourceProfile: SourceProfile?
     @Published var targetResolution: VideoResolution = .p1080
     @Published var codec: OutputCodec = .hevc
@@ -88,6 +93,9 @@ final class MirmirViewModel: ObservableObject {
         [R13RecoverableUpscaleJob] = []
     @Published var recoveryRejectedEntryCount = 0
     @Published var recoveryIsProbing = false
+    @Published var recoveryMutationIsInProgress = false
+    @Published var recoveryReauthorizationRequiredIDs:
+        Set<String> = []
     @Published var recoveryError: String?
     @Published var releaseDiagnosticsText =
         "No release events recorded."
@@ -102,9 +110,11 @@ final class MirmirViewModel: ObservableObject {
     private var modelStatusTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
     var recoveryTask: Task<Void, Never>?
+    var recoveryMutationTask: Task<Void, Never>?
     var recoveryGeneration = 0
     var releaseDiagnosticsTask: Task<Void, Never>?
     private var jobHandle: UpscalerJobHandle?
+    var retryableFailedJob: RetryableFailedJob?
 
     var jobIsRunning: Bool {
         if case .running = state { return true }
@@ -139,6 +149,7 @@ final class MirmirViewModel: ObservableObject {
         modelStatusTask?.cancel()
         progressTask?.cancel()
         recoveryTask?.cancel()
+        recoveryMutationTask?.cancel()
         releaseDiagnosticsTask?.cancel()
     }
 
@@ -161,6 +172,9 @@ final class MirmirViewModel: ObservableObject {
         }
         if let cacheLocationError {
             return cacheLocationError
+        }
+        if recoveryMutationIsInProgress {
+            return "Mirmir is updating interrupted jobs."
         }
 
         switch state {
@@ -202,6 +216,24 @@ final class MirmirViewModel: ObservableObject {
 
     var canStart: Bool {
         canStartFailureReason == nil
+    }
+
+    var canRetryFailedUpscale: Bool {
+        guard case .failed = state,
+              let retryableFailedJob,
+              !recoveryIsProbing,
+              !recoveryMutationIsInProgress,
+              cacheLocationError == nil,
+              upscalerEngine.availability(
+                  for: retryableFailedJob.job.mode
+              ) == .available else {
+            return false
+        }
+        return true
+    }
+
+    func recoveryRequiresReauthorization(id: String) -> Bool {
+        recoveryReauthorizationRequiredIDs.contains(id)
     }
 
     static func targets(for resolution: VideoResolution) -> [VideoResolution] {
@@ -248,6 +280,7 @@ final class MirmirViewModel: ObservableObject {
             return
         }
         cancelRecoveryProbe()
+        retryableFailedJob = nil
         guard Self.supportsVideoFile(url) else {
             sourceProfile = nil
             clearOutputSelection()
@@ -445,6 +478,7 @@ final class MirmirViewModel: ObservableObject {
     }
 
     func submit(job: UpscaleJob, source: SourceProfile) {
+        retryableFailedJob = nil
         Task { [diagnosticRecorder] in
             diagnosticRecorder.enqueue(
                 severity: .info,
@@ -469,6 +503,10 @@ final class MirmirViewModel: ObservableObject {
             }
             observeSubmittedJob(job: job, source: source, handle: handle)
         } catch {
+            retryableFailedJob = RetryableFailedJob(
+                job: job,
+                source: source
+            )
             state = .failed(userFacingJobError(error))
             Task { [diagnosticRecorder] in
                 diagnosticRecorder.enqueue(
@@ -490,6 +528,7 @@ final class MirmirViewModel: ObservableObject {
         handle: UpscalerJobHandle
     ) {
         jobHandle = handle
+        retryableFailedJob = nil
         state = .running
         progress = UpscaleProgress(
             framesProcessed: 0,
@@ -511,112 +550,127 @@ final class MirmirViewModel: ObservableObject {
         progressTask?.cancel()
         progressTask = Task { [weak self] in
             guard let self else { return }
-            for await update in handle.progressStream {
-                await MainActor.run { self.progress = update }
-            }
-            do {
-                let url = try await handle.waitForCompletion()
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.jobHandle = nil
-                    self.progressTask = nil
-                    self.state = .finished(url)
-                    self.recoverableJobs.removeAll {
-                        $0.id == job.identifier
-                    }
-                    self.refreshReleaseDiagnostics()
-                }
-                self.diagnosticRecorder.enqueue(
-                    severity: .notice,
-                    subsystem: "workflow",
-                    operation: "job_terminal",
-                    code: "job_completed",
-                    job: job,
-                    source: source,
-                    progress: self.progress
-                )
-            } catch is CancellationError {
-                await MainActor.run {
-                    self.jobHandle = nil
-                    self.progressTask = nil
-                    if self.jobIsRunning {
-                        self.state = .ready
-                    }
-                    self.refreshReleaseDiagnostics()
-                }
-                self.diagnosticRecorder.enqueue(
+            await self.observeJobCompletion(
+                job: job,
+                source: source,
+                handle: handle
+            )
+        }
+    }
+
+    private func observeJobCompletion(
+        job: UpscaleJob,
+        source: SourceProfile,
+        handle: UpscalerJobHandle
+    ) async {
+        for await update in handle.progressStream {
+            progress = update
+        }
+        do {
+            let url = try await handle.waitForCompletion()
+            guard !Task.isCancelled else { return }
+            jobHandle = nil
+            progressTask = nil
+            retryableFailedJob = nil
+            state = .finished(url)
+            recoverableJobs.removeAll { $0.id == job.identifier }
+            recoveryReauthorizationRequiredIDs.remove(job.identifier)
+            refreshReleaseDiagnostics()
+            diagnosticRecorder.enqueue(
+                severity: .notice,
+                subsystem: "workflow",
+                operation: "job_terminal",
+                code: "job_completed",
+                job: job,
+                source: source,
+                progress: progress
+            )
+        } catch is CancellationError {
+            applyCancelledJobTerminalState()
+            diagnosticRecorder.enqueue(
+                severity: .notice,
+                subsystem: "workflow",
+                operation: "job_terminal",
+                code: "job_cancelled",
+                job: job,
+                source: source,
+                progress: progress
+            )
+        } catch let engineError as UpscalerEngineError {
+            if case .cancelled = engineError {
+                applyCancelledJobTerminalState()
+                diagnosticRecorder.enqueue(
                     severity: .notice,
                     subsystem: "workflow",
                     operation: "job_terminal",
                     code: "job_cancelled",
                     job: job,
                     source: source,
-                    progress: self.progress
-                )
-                return
-            } catch let engineError as UpscalerEngineError {
-                if case .cancelled = engineError {
-                    await MainActor.run {
-                        self.jobHandle = nil
-                        self.progressTask = nil
-                        if self.jobIsRunning {
-                            self.state = .ready
-                        }
-                        self.refreshReleaseDiagnostics()
-                    }
-                    self.diagnosticRecorder.enqueue(
-                        severity: .notice,
-                        subsystem: "workflow",
-                        operation: "job_terminal",
-                        code: "job_cancelled",
-                        job: job,
-                        source: source,
-                        progress: self.progress,
-                        error: engineError
-                    )
-                    return
-                }
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.jobHandle = nil
-                    self.progressTask = nil
-                    self.state = .failed(
-                        self.userFacingJobError(engineError)
-                    )
-                    self.refreshReleaseDiagnostics()
-                }
-                self.diagnosticRecorder.enqueue(
-                    severity: .error,
-                    subsystem: "workflow",
-                    operation: "job_terminal",
-                    code: "job_failed",
-                    job: job,
-                    source: source,
-                    progress: self.progress,
+                    progress: progress,
                     error: engineError
                 )
-            } catch {
-                await MainActor.run {
-                    guard !Task.isCancelled else { return }
-                    self.jobHandle = nil
-                    self.progressTask = nil
-                    self.state = .failed(
-                        self.userFacingJobError(error)
-                    )
-                    self.refreshReleaseDiagnostics()
-                }
-                self.diagnosticRecorder.enqueue(
-                    severity: .error,
-                    subsystem: "workflow",
-                    operation: "job_terminal",
-                    code: "job_failed",
-                    job: job,
-                    source: source,
-                    progress: self.progress,
-                    error: error
-                )
+                return
             }
+            applyFailedJobTerminalState(
+                job: job,
+                source: source,
+                error: engineError
+            )
+            diagnosticRecorder.enqueue(
+                severity: .error,
+                subsystem: "workflow",
+                operation: "job_terminal",
+                code: "job_failed",
+                job: job,
+                source: source,
+                progress: progress,
+                error: engineError
+            )
+        } catch {
+            applyFailedJobTerminalState(
+                job: job,
+                source: source,
+                error: error
+            )
+            diagnosticRecorder.enqueue(
+                severity: .error,
+                subsystem: "workflow",
+                operation: "job_terminal",
+                code: "job_failed",
+                job: job,
+                source: source,
+                progress: progress,
+                error: error
+            )
         }
+    }
+
+    private func applyCancelledJobTerminalState() {
+        jobHandle = nil
+        progressTask = nil
+        retryableFailedJob = nil
+        if jobIsRunning {
+            state = .ready
+        }
+        loadRecoverableJobs()
+        refreshReleaseDiagnostics()
+    }
+
+    private func applyFailedJobTerminalState(
+        job: UpscaleJob,
+        source: SourceProfile,
+        error: Error
+    ) {
+        guard !Task.isCancelled else { return }
+        jobHandle = nil
+        progressTask = nil
+        retryableFailedJob = RetryableFailedJob(
+            job: job,
+            source: source
+        )
+        state = .failed(userFacingJobError(error))
+        loadRecoverableJobs()
+        refreshReleaseDiagnostics()
     }
 
     func cancelUpscale() {
@@ -633,6 +687,35 @@ final class MirmirViewModel: ObservableObject {
             }
         }
         jobHandle?.cancel()
+    }
+
+    func retryFailedUpscale() {
+        guard canRetryFailedUpscale,
+              let retryableFailedJob else {
+            return
+        }
+        sourceProfile = retryableFailedJob.source
+        targetResolution = retryableFailedJob.job.targetResolution
+        codec = retryableFailedJob.job.codec
+        selectedMode = retryableFailedJob.job.mode
+        outputURL = retryableFailedJob.job.outputURL
+        outputSelectionError = nil
+        progress = nil
+        state = .ready
+        submit(
+            job: retryableFailedJob.job,
+            source: retryableFailedJob.source
+        )
+    }
+
+    func dismissTerminalJob() {
+        switch state {
+        case .finished, .failed:
+            upscaleAnotherVideo()
+            loadRecoverableJobs()
+        case .idle, .probing, .ready, .running:
+            return
+        }
     }
 
     private var diagnosticBlockedStartCode: String {
@@ -667,6 +750,7 @@ final class MirmirViewModel: ObservableObject {
         jobHandle = nil
         progressTask?.cancel()
         progressTask = nil
+        retryableFailedJob = nil
         sourceProfile = nil
         clearOutputSelection()
         progress = nil

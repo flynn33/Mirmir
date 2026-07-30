@@ -8,7 +8,9 @@ extension MirmirViewModel {
     }
 
     var canChangeCacheLocation: Bool {
-        !jobIsRunning && !recoveryIsProbing
+        !jobIsRunning
+            && !recoveryIsProbing
+            && !recoveryMutationIsInProgress
     }
 
     var cacheLocationStatusMessage: String? {
@@ -217,7 +219,9 @@ extension MirmirViewModel {
 
     private func reloadRecoverableJobsForCacheLocationChange() {
         cancelRecoveryProbe()
+        retryableFailedJob = nil
         recoverableJobs = []
+        recoveryReauthorizationRequiredIDs = []
         recoveryRejectedEntryCount = 0
         recoveryError = nil
         loadRecoverableJobs()

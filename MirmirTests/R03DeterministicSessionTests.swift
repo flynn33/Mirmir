@@ -186,7 +186,15 @@ final class R03DeterministicSessionTests: XCTestCase {
         guard case .failed(let failure) = outcome else {
             return XCTFail("Expected a typed scaling failure")
         }
-        XCTAssertEqual(failure.reason, "r03_scaling_failed")
+        XCTAssertEqual(failure.reason, "r03_scaler_execution_failed")
+        XCTAssertEqual(
+            failure.context,
+            AppleUpscaleBackendFailureContext(
+                stage: .scalerExecution,
+                statusCode: -1,
+                planeIndex: 0
+            )
+        )
         XCTAssertEqual(failure.processingIdentity.route, backend.routeIdentity)
         XCTAssertTrue(failure.processingIdentity.fallbackHistory.isEmpty)
         XCTAssertEqual(
@@ -194,6 +202,46 @@ final class R03DeterministicSessionTests: XCTestCase {
             1
         )
         _ = await session.finish()
+    }
+
+    func testProductMPSOutputPoolSupportsConfiguredRetainedFrames()
+        async throws {
+        let backend = try R03DeterministicBackend
+            .makeProductQualifiedMPSLanczos(route: .scale2x)
+        let capability = try R03A11ProductAdmission
+            .makeProductQualifiedCapability()
+        let context = try R03DeterministicBackendTestSupport.makeContext(
+            subjectID: backend.subject.id,
+            admissionScope: .product,
+            capability: capability,
+            policyIdentity: backend.routeIdentity.policyIdentity
+        )
+        let session = try await R03DeterministicBackendTestSupport.makeSession(
+            backend: backend,
+            context: context
+        )
+        var retainedOutputs: [AppleUpscaleProcessedFrame] = []
+
+        for sequenceNumber in 0..<R03DeterministicBackend.outputPoolCapacity {
+            let fixture = try R03DeterministicBackendTestSupport.makeInputFrame(
+                route: .scale2x,
+                sequenceNumber: sequenceNumber
+            )
+            let outcome = await session.submit(fixture.frame)
+            guard case .processed(let processed) = outcome else {
+                return XCTFail("Expected output \(sequenceNumber) to process")
+            }
+            retainedOutputs.append(processed)
+        }
+
+        retainedOutputs.forEach {
+            $0.resourceLifetimeToken.release()
+        }
+        let summary = await session.finish()
+        XCTAssertEqual(
+            summary.processedFrameCount,
+            R03DeterministicBackend.outputPoolCapacity
+        )
     }
 
     private func assertCreationRejected(

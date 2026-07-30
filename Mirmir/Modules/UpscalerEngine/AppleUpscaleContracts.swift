@@ -475,9 +475,33 @@ struct AppleUpscaleBackendRejected: Error, Hashable, Sendable {
     }
 }
 
+enum AppleUpscaleBackendFailureStage: String, Hashable, Sendable {
+    case outputBufferAllocation = "output_buffer_allocation"
+    case scalerExecution = "scaler_execution"
+    case outputValidation = "output_validation"
+    case resultConstruction = "result_construction"
+}
+
+struct AppleUpscaleBackendFailureContext: Hashable, Sendable {
+    let stage: AppleUpscaleBackendFailureStage
+    let statusCode: Int?
+    let planeIndex: Int?
+
+    init(
+        stage: AppleUpscaleBackendFailureStage,
+        statusCode: Int? = nil,
+        planeIndex: Int? = nil
+    ) {
+        self.stage = stage
+        self.statusCode = statusCode
+        self.planeIndex = planeIndex
+    }
+}
+
 struct AppleUpscaleBackendFailed: Error, Hashable, Sendable {
     let processingIdentity: AppleUpscaleProcessingIdentity
     let reason: String
+    let context: AppleUpscaleBackendFailureContext?
 
     var route: AppleUpscaleRouteIdentity {
         processingIdentity.route
@@ -485,10 +509,12 @@ struct AppleUpscaleBackendFailed: Error, Hashable, Sendable {
 
     init(
         processingIdentity: AppleUpscaleProcessingIdentity,
-        reason: String
+        reason: String,
+        context: AppleUpscaleBackendFailureContext? = nil
     ) throws {
         self.processingIdentity = processingIdentity
         self.reason = try requireAppleUpscaleIdentity(reason, field: "failure_reason")
+        self.context = context
     }
 }
 

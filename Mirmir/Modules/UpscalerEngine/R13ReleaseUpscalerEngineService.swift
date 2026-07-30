@@ -30,9 +30,17 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
     R13RecoverableUpscalerEngine,
     R13ReleaseDiagnosticsProviding,
     @unchecked Sendable {
+    final class HardeningRuntimeEpoch: @unchecked Sendable {}
+
+    struct HardeningRuntimeCacheState {
+        var runtime: R13ReleaseHardeningRuntime?
+        var epoch = HardeningRuntimeEpoch()
+    }
+
     enum ActiveJobState {
         case idle
         case changingCacheLocation
+        case discardingRecovery
         case reserved
         case stoppingReserved
         case active(R13ReleaseUpscalerJobHandle)
@@ -56,10 +64,10 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         initialState: ActiveJobState.idle
     )
     let hardeningRuntimeState:
-        OSAllocatedUnfairLock<R13ReleaseHardeningRuntime?>
+        OSAllocatedUnfairLock<HardeningRuntimeCacheState>
 
     var hardeningRuntime: R13ReleaseHardeningRuntime? {
-        hardeningRuntimeState.withLock { $0 }
+        hardeningRuntimeState.withLock { $0.runtime }
     }
 
     var availability: UpscalerEngineAvailability { .available }
@@ -96,7 +104,9 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
             hardeningRuntimeProvider = { hardeningRuntime }
         }
         hardeningRuntimeState = OSAllocatedUnfairLock(
-            initialState: hardeningRuntime
+            initialState: HardeningRuntimeCacheState(
+                runtime: hardeningRuntime
+            )
         )
         self.beforeHandleStart = beforeHandleStart
     }
@@ -155,7 +165,8 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
                     switch state {
                     case .reserved, .stoppingReserved:
                         state = .idle
-                    case .idle, .changingCacheLocation, .active:
+                    case .idle, .changingCacheLocation,
+                         .discardingRecovery, .active:
                         preconditionFailure(
                             "R13 active-job reservation changed unexpectedly."
                         )
@@ -193,7 +204,8 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
                 case .stoppingReserved:
                     state = .active(handle)
                     return true
-                case .idle, .changingCacheLocation, .active:
+                case .idle, .changingCacheLocation,
+                     .discardingRecovery, .active:
                     preconditionFailure(
                         "R13 active-job reservation changed unexpectedly."
                     )
@@ -231,6 +243,8 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
             return "idle"
         case .changingCacheLocation:
             return "changing_cache_location"
+        case .discardingRecovery:
+            return "discarding_recovery"
         case .reserved:
             return "reserved"
         case .stoppingReserved:
@@ -498,7 +512,9 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             job: job,
             modeBinding: runtime.modeBinding,
             hardeningRuntime: runtime.hardeningRuntime,
-            media: media
+            media: media,
+            requiresExistingRestartState:
+                runtime.securityAccess != nil
         )
         let source = preparedSource.source
         let route = preparedSource.route

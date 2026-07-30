@@ -6,6 +6,9 @@ import os.lock
 import XCTest
 @testable import Mirmir
 
+// The media readers, fixtures, and release-path regressions are co-located.
+// swiftlint:disable file_length
+
 enum R13IntegrationMediaError: Error, Equatable {
     case interrupted
     case metadataReaderRejected
@@ -324,6 +327,100 @@ func readR13ReleaseMetadata(at url: URL) async throws -> [String: String] {
 }
 
 extension R13ReleaseIntegrationTests {
+    func testShippingServiceCompletesFortyFrameHEVCMP4WithAAC()
+        async throws {
+        let workspace = try R13IntegrationWorkspace(
+            outputFileName: "output.mp4"
+        )
+        defer { workspace.remove() }
+        let videoOnlyURL = workspace.directory.appendingPathComponent(
+            "video-only.mp4"
+        )
+        let audioOnlyURL = workspace.directory.appendingPathComponent(
+            "audio-only.m4a"
+        )
+        let frameCount = 40
+        let frameDuration = CMTime(value: 1_001, timescale: 30_000)
+        try await writeVideoFrames(
+            to: videoOnlyURL,
+            resolution: .p1080,
+            frameCount: frameCount,
+            frameDuration: frameDuration
+        )
+        try writeAACFixture(
+            to: audioOnlyURL,
+            seed: 13,
+            frameCount: 64_064
+        )
+        try await muxVideoAndAAC(
+            videoURL: videoOnlyURL,
+            audioURL: audioOnlyURL,
+            destinationURL: workspace.sourceURL
+        )
+
+        let diagnostics = MirmirDiagnosticStore()
+        let media = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService(),
+            diagnostics: diagnostics
+        )
+        let source = try await media.probe(url: workspace.sourceURL)
+        XCTAssertEqual(source.resolution, .p1080)
+        XCTAssertTrue(source.hasAudio)
+        let hardening = try R13IntegrationHardeningHarness.make(
+            jobsRootURL: workspace.jobsRootURL,
+            exactFrameCount: frameCount
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            hardeningRuntime: hardening.runtime,
+            diagnostics: diagnostics
+        )
+        let job = UpscaleJob(
+            identifier: "r13-hevc-pool-regression",
+            inputURL: workspace.sourceURL,
+            outputURL: workspace.outputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: true,
+            mode: .deterministic
+        )
+
+        let handle = try service.submit(job)
+        let result: URL
+        do {
+            result = try await waitForR13Completion(
+                handle,
+                timeout: .seconds(120)
+            )
+        } catch {
+            let snapshot = try await diagnostics.snapshot()
+            XCTFail(
+                "HEVC regression failed with \(type(of: error)): "
+                    + "\(String(describing: error)); events="
+                    + snapshot.records.suffix(8).map {
+                        $0.event.code.rawValue
+                    }.joined(separator: ",")
+            )
+            return
+        }
+
+        XCTAssertEqual(result, workspace.outputURL)
+        try await assertR13ReopenedOutput(
+            at: result,
+            resolution: .p2160
+        )
+        let reopened = try await media.probe(url: result)
+        XCTAssertTrue(reopened.hasAudio)
+        XCTAssertTrue(["hvc1", "hev1"].contains(reopened.codecHint))
+        let metadata = try await readR13ReleaseMetadata(at: result)
+        XCTAssertFalse(metadata.isEmpty)
+        XCTAssertTrue(
+            metadata.keys.allSatisfy {
+                $0.hasPrefix(R13ReleaseIdentity.metadataNamespace)
+            }
+        )
+    }
+
     func testShippingServiceUpscalesAnamorphic1080pAtPresentationGeometry()
         async throws {
         let workspace = try R13IntegrationWorkspace()
@@ -396,3 +493,27 @@ extension R13ReleaseIntegrationTests {
         })
     }
 }
+
+private func waitForR13Completion(
+    _ handle: UpscalerJobHandle,
+    timeout: Duration
+) async throws -> URL {
+    try await withThrowingTaskGroup(of: URL.self) { group in
+        group.addTask {
+            try await handle.waitForCompletion()
+        }
+        group.addTask {
+            try await Task.sleep(for: timeout)
+            handle.cancel()
+            throw MediaTestFailure.timeout
+        }
+        defer { group.cancelAll() }
+        guard let result = try await group.next() else {
+            handle.cancel()
+            throw MediaTestFailure.timeout
+        }
+        return result
+    }
+}
+
+// swiftlint:enable file_length

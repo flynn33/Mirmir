@@ -2,7 +2,84 @@ import Foundation
 import XCTest
 @testable import Mirmir
 
+// Storage lifecycle scenarios share one fixture and exercise it end to end.
+// swiftlint:disable file_length type_body_length
+
 final class R13HardeningStorageLifecycleTests: XCTestCase {
+    func testRecoveryDescriptorStoreCanonicalizesSymlinkedRootBeforeTraversal()
+        async throws {
+        let fileManager = FileManager.default
+        let sandbox = fileManager.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString,
+            isDirectory: true
+        )
+        defer { try? fileManager.removeItem(at: sandbox) }
+        let canonicalRoot = sandbox.appendingPathComponent(
+            "Canonical",
+            isDirectory: true
+        )
+        let jobsRoot = canonicalRoot.appendingPathComponent(
+            "Jobs",
+            isDirectory: true
+        )
+        let jobID = "r13-canonical-recovery-root"
+        let jobDirectory = jobsRoot.appendingPathComponent(
+            jobID,
+            isDirectory: true
+        )
+        let outputDirectory = canonicalRoot.appendingPathComponent(
+            "Output",
+            isDirectory: true
+        )
+        try fileManager.createDirectory(
+            at: jobDirectory,
+            withIntermediateDirectories: true
+        )
+        try fileManager.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: false
+        )
+        let sourceURL = canonicalRoot.appendingPathComponent("source.mov")
+        try Data("recovery-root-source".utf8).write(to: sourceURL)
+        let aliasRoot = sandbox.appendingPathComponent(
+            "Alias",
+            isDirectory: true
+        )
+        try fileManager.createSymbolicLink(
+            at: aliasRoot,
+            withDestinationURL: canonicalRoot
+        )
+        let aliasedJobsRoot = aliasRoot.appendingPathComponent(
+            "Jobs",
+            isDirectory: true
+        )
+        let store = R13RecoveryDescriptorStore(
+            jobsRootURL: aliasedJobsRoot
+        )
+        let job = UpscaleJob(
+            identifier: jobID,
+            inputURL: sourceURL,
+            outputURL: outputDirectory.appendingPathComponent("output.mp4"),
+            targetResolution: .p1080,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+
+        try await store.save(job: job)
+        let listing = try await store.list()
+
+        XCTAssertEqual(listing.descriptors.map(\.jobID), [jobID])
+        XCTAssertEqual(listing.rejectedEntryCount, 0)
+        XCTAssertTrue(
+            fileManager.fileExists(
+                atPath: jobDirectory.appendingPathComponent(
+                    "recovery-v1.json"
+                ).path
+            )
+        )
+    }
+
     func testCacheRootAndOutputDirectoryCapacityRejectIndependently()
         async throws {
         let fixture = try R13HardeningFixture()
@@ -259,6 +336,148 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
             }.count,
             2
         )
+
+        try await runtime.discardAllRecoverableJobs()
+
+        let clearedCatalog = try await runtime.recoverableJobs()
+        XCTAssertTrue(clearedCatalog.jobs.isEmpty)
+        XCTAssertEqual(clearedCatalog.rejectedEntryCount, 0)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: malformedDirectory.path)
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: orphanDirectory.path)
+        )
+    }
+
+    func testDiscardRecoverableJobRemovesSelectedCacheAndPreservesOthers()
+        async throws {
+        let fixture = try R13HardeningFixture()
+        defer { fixture.cleanup() }
+        let runtime = try fixture.makeRuntime(
+            cacheProbe: R13CapacityProbe(capacity: UInt64.max),
+            outputProbe: R13CapacityProbe(capacity: UInt64.max)
+        )
+        let cachedJob = fixture.makeJob(
+            identifier: "r13-discard-cached"
+        )
+        let retainedJob = fixture.makeJob(
+            identifier: "r13-discard-retained"
+        )
+
+        let cachedAttempt = try await runtime.prepare(
+            job: cachedJob,
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+        try await cachedAttempt.commit(
+            pixelBuffer: R13ReleaseTestFrames.makeOutput(
+                resolution: .p1080
+            ),
+            at: 0
+        )
+        await cachedAttempt.releaseResources()
+
+        let retainedAttempt = try await runtime.prepare(
+            job: retainedJob,
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+        await retainedAttempt.releaseResources()
+
+        let initialCatalog = try await runtime.recoverableJobs()
+        XCTAssertEqual(
+            initialCatalog.jobs.map(\.id),
+            [cachedJob.identifier, retainedJob.identifier]
+        )
+        XCTAssertEqual(
+            initialCatalog.jobs.map(\.cachedFrameCount),
+            [1, 0]
+        )
+
+        try await runtime.discardRecoverableJob(
+            id: cachedJob.identifier
+        )
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: fixture.jobDirectory(
+                    identifier: cachedJob.identifier
+                ).path
+            )
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: fixture.jobDirectory(
+                    identifier: retainedJob.identifier
+                ).path
+            )
+        )
+        let remainingCatalog = try await runtime.recoverableJobs()
+        XCTAssertEqual(
+            remainingCatalog.jobs.map(\.id),
+            [retainedJob.identifier]
+        )
+    }
+
+    func testDiscardedResolvedJobCannotRecreateRecoveryOnSubmission()
+        async throws {
+        let fixture = try R13HardeningFixture()
+        defer { fixture.cleanup() }
+        let runtime = try fixture.makeRuntime(
+            cacheProbe: R13CapacityProbe(capacity: UInt64.max),
+            outputProbe: R13CapacityProbe(capacity: UInt64.max)
+        )
+        let job = fixture.makeJob(
+            identifier: "r13-discarded-resolved-job"
+        )
+        let attempt = try await runtime.prepare(
+            job: job,
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+        await attempt.releaseResources()
+        let resolved = try await runtime.resolveRecoverableJob(
+            id: job.identifier
+        )
+
+        try await runtime.discardRecoverableJob(id: job.identifier)
+
+        do {
+            _ = try await runtime.prepare(
+                job: resolved.job,
+                source: fixture.sourceProfile,
+                route: .scale3Over2,
+                modeBinding: R13ReleaseModePolicy.binding(
+                    for: .deterministic
+                ),
+                requiresExistingRestartState: true
+            )
+            XCTFail("Discarded recovery state must not be recreated.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .jobMissing(job.identifier)
+            )
+        }
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: fixture.jobDirectory(
+                    identifier: job.identifier
+                ).path
+            )
+        )
+        let catalog = try await runtime.recoverableJobs()
+        XCTAssertTrue(catalog.jobs.isEmpty)
     }
 
     func testSuccessfulCompletionRemovesMultiGigabyteCacheJobDirectory()
@@ -428,3 +647,5 @@ extension R13HardeningStorageLifecycleTests {
         await attempt.releaseResources()
     }
 }
+
+// swiftlint:enable file_length type_body_length

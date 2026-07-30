@@ -252,6 +252,10 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
 
 enum R13ReleaseTestAppleSessionBehavior: Sendable {
     case processed
+    case failed(
+        reason: String,
+        context: AppleUpscaleBackendFailureContext?
+    )
     case suspendUntilCancelled
 }
 
@@ -318,6 +322,14 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
         switch behavior {
         case .processed:
             return makeProcessedOutcome(frame)
+        case .failed(let reason, let context):
+            frame.resourceLifetimeToken.release()
+            let failure = try? AppleUpscaleBackendFailed(
+                processingIdentity: processingIdentity,
+                reason: reason,
+                context: context
+            )
+            return .failed(failure ?? processingFailure)
         case .suspendUntilCancelled:
             return await withCheckedContinuation { continuation in
                 pendingSubmit = (frame, continuation)

@@ -117,7 +117,10 @@ enum MediaTestFailure: Error {
     case writerFailed
     case readerFailed
     case timeout
+    case invalidFrameCount
 }
+
+private let mediaFixtureTimeout: Duration = .seconds(120)
 
 func makeTimingSnapshot(
     presentationTime: CMTime,
@@ -140,6 +143,29 @@ func writeOneFrameVideo(
     preferredTransform: CGAffineTransform = .identity,
     pixelAspectRatio: VideoPixelAspectRatio? = nil
 ) async throws {
+    try await writeVideoFrames(
+        to: url,
+        resolution: resolution,
+        frameCount: 1,
+        frameDuration: duration,
+        pixelFormat: pixelFormat,
+        preferredTransform: preferredTransform,
+        pixelAspectRatio: pixelAspectRatio
+    )
+}
+
+func writeVideoFrames(
+    to url: URL,
+    resolution: VideoResolution,
+    frameCount: Int,
+    frameDuration: CMTime,
+    pixelFormat: OSType = PixelBufferBridge.preferredFormat,
+    preferredTransform: CGAffineTransform = .identity,
+    pixelAspectRatio: VideoPixelAspectRatio? = nil
+) async throws {
+    guard frameCount > 0, frameCount <= Int(Int32.max) else {
+        throw MediaTestFailure.invalidFrameCount
+    }
     let writer: AVAssetWriter
     do {
         writer = try AVAssetWriter(url: url, fileType: .mp4)
@@ -184,23 +210,53 @@ func writeOneFrameVideo(
     guard writer.startWriting() else { throw MediaTestFailure.cannotStartWriter }
     writer.startSession(atSourceTime: .zero)
     guard let pool = adaptor.pixelBufferPool else { throw MediaTestFailure.missingPixelBufferPool }
-    var optionalPixelBuffer: CVPixelBuffer?
-    let createStatus = CVPixelBufferPoolCreatePixelBuffer(
-        kCFAllocatorDefault,
-        pool,
-        &optionalPixelBuffer
-    )
-    guard createStatus == kCVReturnSuccess, let pixelBuffer = optionalPixelBuffer else {
-        throw MediaTestFailure.cannotCreatePixelBuffer(createStatus)
-    }
-    try fillNV12(pixelBuffer)
-    guard adaptor.append(pixelBuffer, withPresentationTime: .zero) else {
-        throw MediaTestFailure.appendFailed
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: mediaFixtureTimeout)
+    for frameIndex in 0..<frameCount {
+        while !input.isReadyForMoreMediaData {
+            try Task.checkCancellation()
+            guard clock.now < deadline else {
+                writer.cancelWriting()
+                throw MediaTestFailure.timeout
+            }
+            guard writer.status == .writing else {
+                throw MediaTestFailure.writerFailed
+            }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+        var optionalPixelBuffer: CVPixelBuffer?
+        let createStatus = CVPixelBufferPoolCreatePixelBuffer(
+            kCFAllocatorDefault,
+            pool,
+            &optionalPixelBuffer
+        )
+        guard createStatus == kCVReturnSuccess,
+              let pixelBuffer = optionalPixelBuffer else {
+            throw MediaTestFailure.cannotCreatePixelBuffer(createStatus)
+        }
+        try fillNV12(pixelBuffer)
+        let presentationTime = CMTimeMultiply(
+            frameDuration,
+            multiplier: Int32(frameIndex)
+        )
+        guard adaptor.append(
+            pixelBuffer,
+            withPresentationTime: presentationTime
+        ) else {
+            throw MediaTestFailure.appendFailed
+        }
     }
     input.markAsFinished()
-    writer.endSession(atSourceTime: duration)
-    await writer.finishWriting()
-    guard writer.status == .completed else { throw MediaTestFailure.writerFailed }
+    writer.endSession(
+        atSourceTime: CMTimeMultiply(
+            frameDuration,
+            multiplier: Int32(frameCount)
+        )
+    )
+    try await finishWriting(
+        writer,
+        deadline: deadline
+    )
 }
 
 func muxVideoAndAAC(
@@ -261,16 +317,13 @@ func muxVideoAndAAC(
         throw MediaTestFailure.cannotStartWriter
     }
     writer.startSession(atSourceTime: .zero)
-    try await appendCompressedSamples(
-        from: videoOutput,
-        reader: videoReader,
-        to: videoInput,
-        writer: writer
-    )
-    try await appendCompressedSamples(
-        from: audioOutput,
-        reader: audioReader,
-        to: audioInput,
+    try await appendCompressedSamplesInterleaved(
+        videoOutput: videoOutput,
+        videoReader: videoReader,
+        videoInput: videoInput,
+        audioOutput: audioOutput,
+        audioReader: audioReader,
+        audioInput: audioInput,
         writer: writer
     )
     let videoEnd = CMTimeRangeGetEnd(
@@ -284,33 +337,96 @@ func muxVideoAndAAC(
             ? audioEnd
             : videoEnd
     )
-    await writer.finishWriting()
+    let clock = ContinuousClock()
+    try await finishWriting(
+        writer,
+        deadline: clock.now.advanced(by: mediaFixtureTimeout)
+    )
+}
+
+private func finishWriting(
+    _ writer: AVAssetWriter,
+    deadline: ContinuousClock.Instant
+) async throws {
+    writer.finishWriting(completionHandler: {})
+    let clock = ContinuousClock()
+    do {
+        while writer.status == .writing {
+            try Task.checkCancellation()
+            guard clock.now < deadline else {
+                throw MediaTestFailure.timeout
+            }
+            try await Task.sleep(for: .milliseconds(1))
+        }
+    } catch {
+        writer.cancelWriting()
+        throw error
+    }
     guard writer.status == .completed else {
         throw MediaTestFailure.writerFailed
     }
 }
 
-private func appendCompressedSamples(
-    from output: AVAssetReaderTrackOutput,
-    reader: AVAssetReader,
-    to input: AVAssetWriterInput,
+private func appendCompressedSamplesInterleaved(
+    videoOutput: AVAssetReaderTrackOutput,
+    videoReader: AVAssetReader,
+    videoInput: AVAssetWriterInput,
+    audioOutput: AVAssetReaderTrackOutput,
+    audioReader: AVAssetReader,
+    audioInput: AVAssetWriterInput,
     writer: AVAssetWriter
 ) async throws {
-    while let sample = output.copyNextSampleBuffer() {
-        while !input.isReadyForMoreMediaData {
-            guard writer.status == .writing else {
-                throw MediaTestFailure.writerFailed
+    var videoFinished = false
+    var audioFinished = false
+    let clock = ContinuousClock()
+    let deadline = clock.now.advanced(by: mediaFixtureTimeout)
+    while !videoFinished || !audioFinished {
+        try Task.checkCancellation()
+        guard clock.now < deadline else {
+            videoReader.cancelReading()
+            audioReader.cancelReading()
+            writer.cancelWriting()
+            throw MediaTestFailure.timeout
+        }
+        guard writer.status == .writing else {
+            throw MediaTestFailure.writerFailed
+        }
+        var madeProgress = false
+
+        if !videoFinished, videoInput.isReadyForMoreMediaData {
+            if let sample = videoOutput.copyNextSampleBuffer() {
+                guard videoInput.append(sample) else {
+                    throw MediaTestFailure.appendFailed
+                }
+            } else {
+                guard videoReader.status == .completed else {
+                    throw MediaTestFailure.readerFailed
+                }
+                videoInput.markAsFinished()
+                videoFinished = true
             }
+            madeProgress = true
+        }
+
+        if !audioFinished, audioInput.isReadyForMoreMediaData {
+            if let sample = audioOutput.copyNextSampleBuffer() {
+                guard audioInput.append(sample) else {
+                    throw MediaTestFailure.appendFailed
+                }
+            } else {
+                guard audioReader.status == .completed else {
+                    throw MediaTestFailure.readerFailed
+                }
+                audioInput.markAsFinished()
+                audioFinished = true
+            }
+            madeProgress = true
+        }
+
+        if !madeProgress {
             try await Task.sleep(for: .milliseconds(1))
         }
-        guard input.append(sample) else {
-            throw MediaTestFailure.appendFailed
-        }
     }
-    guard reader.status == .completed else {
-        throw MediaTestFailure.readerFailed
-    }
-    input.markAsFinished()
 }
 
 func fillNV12(_ pixelBuffer: CVPixelBuffer) throws {

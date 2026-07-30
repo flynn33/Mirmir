@@ -78,7 +78,8 @@ extension R13ReleaseHardeningRuntime {
         job: UpscaleJob,
         source: SourceProfile,
         route: R03ScaleRoute,
-        modeBinding: R13ReleaseModeBinding
+        modeBinding: R13ReleaseModeBinding,
+        requiresExistingRestartState: Bool = false
     ) async throws -> R13ReleaseHardeningAttempt {
         let stagedSource = try await stageSource(for: job)
         return try await prepare(
@@ -86,7 +87,9 @@ extension R13ReleaseHardeningRuntime {
             source: source,
             route: route,
             modeBinding: modeBinding,
-            stagedSource: stagedSource
+            stagedSource: stagedSource,
+            requiresExistingRestartState:
+                requiresExistingRestartState
         )
     }
 
@@ -128,7 +131,8 @@ extension R13ReleaseHardeningRuntime {
         source: SourceProfile,
         route: R03ScaleRoute,
         modeBinding: R13ReleaseModeBinding,
-        stagedSource: R13RetainedSourceSnapshot
+        stagedSource: R13RetainedSourceSnapshot,
+        requiresExistingRestartState: Bool = false
     ) async throws -> R13ReleaseHardeningAttempt {
         do {
             let prepared = try await prepareJobState(
@@ -136,13 +140,13 @@ extension R13ReleaseHardeningRuntime {
                 source: source,
                 route: route,
                 modeBinding: modeBinding,
-                stagedSource: stagedSource
+                stagedSource: stagedSource,
+                requiresExistingRestartState: requiresExistingRestartState
             )
             do {
-                let jobIdentitySHA256 =
-                    R13CryptoKitRestartDigest().sha256(
-                        Data(job.identifier.utf8)
-                    )
+                let jobIdentitySHA256 = R13CryptoKitRestartDigest().sha256(
+                    Data(job.identifier.utf8)
+                )
                 let recorder = R13ReleaseHardeningDiagnosticRecorder(
                     diagnostics: diagnostics,
                     jobIdentitySHA256: jobIdentitySHA256,
@@ -234,7 +238,8 @@ extension R13ReleaseHardeningRuntime {
 
     private func createOrReopen(
         core: R13RestartJobCore,
-        observedSource: R13RestartSourceIdentity
+        observedSource: R13RestartSourceIdentity,
+        requiresExistingRestartState: Bool
     ) async throws -> R13RestartPreparation {
         do {
             return R13RestartPreparation(
@@ -247,6 +252,9 @@ extension R13ReleaseHardeningRuntime {
             )
         } catch R13RestartJobError.jobMissing(let jobID)
             where jobID == core.jobID {
+            guard !requiresExistingRestartState else {
+                throw R13RestartJobError.jobMissing(jobID)
+            }
             return R13RestartPreparation(
                 plan: try await restartStore.create(core),
                 createdNew: true
@@ -259,7 +267,8 @@ extension R13ReleaseHardeningRuntime {
         source: SourceProfile,
         route: R03ScaleRoute,
         modeBinding: R13ReleaseModeBinding,
-        stagedSource: R13RetainedSourceSnapshot
+        stagedSource: R13RetainedSourceSnapshot,
+        requiresExistingRestartState: Bool
     ) async throws -> R13PreparedHardeningJob {
         let observedSource = stagedSource.identity
         let totalFrameCount = try await frameCounter.exactVideoFrameCount(
@@ -282,7 +291,9 @@ extension R13ReleaseHardeningRuntime {
         )
         let restart = try await createOrReopen(
             core: core,
-            observedSource: observedSource
+            observedSource: observedSource,
+            requiresExistingRestartState:
+                requiresExistingRestartState
         )
         do {
             try await bookmarkStore.save(
@@ -369,7 +380,8 @@ extension R13ReleaseHardeningRuntime {
                     jobID: descriptor.jobID
                 )
                 let job = try R13RecoverableUpscaleJob(
-                    descriptor: descriptor
+                    descriptor: descriptor,
+                    cachedFrameCount: cachedPrefixCount
                 )
                 let recorder = recoveryRecorder(
                     jobID: descriptor.jobID
@@ -389,9 +401,22 @@ extension R13ReleaseHardeningRuntime {
             try? await rejectedRecorder.recordRecoveryRejected()
         }
         return R13RecoverableJobCatalog(
-            jobs: jobs,
+            jobs: jobs.sorted {
+                if $0.cachedFrameCount != $1.cachedFrameCount {
+                    return $0.cachedFrameCount > $1.cachedFrameCount
+                }
+                return $0.id < $1.id
+            },
             rejectedEntryCount: rejectedEntryCount
         )
+    }
+
+    func discardRecoverableJob(id: String) async throws {
+        try await restartStore.discard(jobID: id)
+    }
+
+    func discardAllRecoverableJobs() async throws {
+        try await restartStore.discardAll()
     }
 
     func resolveRecoverableJob(
@@ -431,7 +456,7 @@ extension R13ReleaseHardeningRuntime {
     private func resolveRecoverableJob(
         descriptor: R13RecoveryDescriptor
     ) async throws -> R13ResolvedRecoverableUpscaleJob {
-        _ = try await restartStore.validateRecoverableJob(
+        let cachedPrefixCount = try await restartStore.validateRecoverableJob(
             jobID: descriptor.jobID
         )
         let access = try await bookmarkStore.resolveAccess(
@@ -442,7 +467,8 @@ extension R13ReleaseHardeningRuntime {
         try? await recorder.recordBookmarkReopened()
         return R13ResolvedRecoverableUpscaleJob(
             summary: try R13RecoverableUpscaleJob(
-                descriptor: descriptor
+                descriptor: descriptor,
+                cachedFrameCount: cachedPrefixCount
             ),
             job: try descriptor.makeJob(access: access),
             securityAccess: access

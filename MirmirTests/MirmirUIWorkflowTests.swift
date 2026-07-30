@@ -200,6 +200,35 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertEqual(viewModel.state, .ready)
     }
 
+    func test_dismissTerminalJobClearsFailedAndFinishedWorkflowState() {
+        for terminalState in [
+            MirmirViewModel.JobState.failed("injected failure"),
+            .finished(URL(fileURLWithPath: "/tmp/finished.mp4"))
+        ] {
+            let viewModel = makeViewModel()
+            let source = makeSourceProfile()
+            viewModel.sourceProfile = source
+            viewModel.outputURL = viewModel.defaultOutputURL(
+                for: source,
+                target: .p2160
+            )
+            viewModel.progress = UpscaleProgress(
+                framesProcessed: 1,
+                totalFrames: 2,
+                throughputFPS: 1,
+                etaSeconds: 1
+            )
+            viewModel.state = terminalState
+
+            viewModel.dismissTerminalJob()
+
+            XCTAssertEqual(viewModel.state, .idle)
+            XCTAssertNil(viewModel.sourceProfile)
+            XCTAssertNil(viewModel.outputURL)
+            XCTAssertNil(viewModel.progress)
+        }
+    }
+
     func test_supportedVideoExtensionsCoverCommonAVFoundationReadableFormats() {
         XCTAssertEqual(MirmirViewModel.supportedVideoExtensions, ["mp4", "mov", "m4v", "qt", "avi", "mpg", "mpeg"])
 
@@ -394,6 +423,30 @@ final class MirmirUIWorkflowTests: XCTestCase {
         for control in requiredControls {
             XCTAssertTrue(source.contains(control), "\(control) is missing from the upscale inspector")
         }
+    }
+
+    func test_queueAndRecoveryControlsAreWiredToFunctionalActions()
+        throws {
+        let source = try detailedWorkspaceSource()
+        let requiredWiring = [
+            "viewModel.discardRecoverableJob(",
+            "viewModel.discardAllRecoverableJobs()",
+            "viewModel.retryFailedUpscale()",
+            "viewModel.dismissTerminalJob()",
+            "if viewModel.recoveryRequiresReauthorization(",
+            "confirmationDialog(",
+            "cachedFrameCount",
+            "Discard All Interrupted"
+        ]
+
+        for fragment in requiredWiring {
+            XCTAssertTrue(
+                source.contains(fragment),
+                "Missing queue/recovery wiring: \(fragment)"
+            )
+        }
+        XCTAssertFalse(source.contains("Button(\"Clear Completed\") {}"))
+        XCTAssertFalse(source.contains("Button(\"Retry\") {}"))
     }
 
     func test_themeTokensAreCentralizedForDetailedSpec() throws {

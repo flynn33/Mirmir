@@ -60,6 +60,82 @@ final class R13RestartJobInitializationTests: XCTestCase {
         }
     }
 
+    func testDirectoryRemovalStaysPinnedWhenParentPathIsReplaced()
+        throws {
+        let fixture = try R13RestartInitializationFixture()
+        defer { fixture.cleanup() }
+        let fileManager = FileManager.default
+        let fileSystem = try R13LocalRestartFileSystem(
+            trustedRootURL: fixture.root
+        )
+        let originalParent = fixture.root.appendingPathComponent(
+            "Original",
+            isDirectory: true
+        )
+        let parkedParent = fixture.root.appendingPathComponent(
+            "Parked",
+            isDirectory: true
+        )
+        let outsideParent = fixture.root.deletingLastPathComponent()
+            .appendingPathComponent(
+                "mirmir-r13-removal-outside-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer { try? fileManager.removeItem(at: outsideParent) }
+        let directoryToRemove = originalParent.appendingPathComponent(
+            "Jobs",
+            isDirectory: true
+        )
+        let nestedDirectory = directoryToRemove.appendingPathComponent(
+            "Nested",
+            isDirectory: true
+        )
+        let outsideJobs = outsideParent.appendingPathComponent(
+            "Jobs",
+            isDirectory: true
+        )
+        let outsideMarker = outsideJobs.appendingPathComponent("keep.txt")
+        try fileManager.createDirectory(
+            at: nestedDirectory,
+            withIntermediateDirectories: true
+        )
+        try Data("remove-me".utf8).write(
+            to: nestedDirectory.appendingPathComponent("payload.bin")
+        )
+        try fileManager.createDirectory(
+            at: outsideJobs,
+            withIntermediateDirectories: true
+        )
+        try Data("keep-me".utf8).write(to: outsideMarker)
+
+        try fileSystem.removeDirectory(
+            directoryToRemove,
+            afterPinningParent: {
+                try fileManager.moveItem(
+                    at: originalParent,
+                    to: parkedParent
+                )
+                try fileManager.createSymbolicLink(
+                    at: originalParent,
+                    withDestinationURL: outsideParent
+                )
+            }
+        )
+
+        XCTAssertFalse(
+            fileManager.fileExists(
+                atPath: parkedParent.appendingPathComponent("Jobs").path
+            )
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: outsideMarker),
+            Data("keep-me".utf8)
+        )
+        XCTAssertTrue(
+            fileManager.fileExists(atPath: directoryToRemove.path)
+        )
+    }
+
     func testInitializationFailureLeavesFinalIDRetryable()
         async throws {
         let fixture = try R13RestartInitializationFixture()

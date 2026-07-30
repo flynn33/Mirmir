@@ -243,13 +243,25 @@ struct R13LocalRestartFileSystem: R13RestartFileSystem {
     }
 
     func removeDirectory(_ url: URL) throws {
-        do {
-            try validateDirectory(url)
-            try FileManager.default.removeItem(at: url)
-        } catch let error as R13RestartJobError {
-            throw error
-        } catch {
-            throw R13RestartJobError.ioFailure(operation: "remove_directory")
+        try removeDirectory(url, afterPinningParent: {})
+    }
+
+    func removeDirectory(
+        _ url: URL,
+        afterPinningParent operation: () throws -> Void
+    ) throws {
+        try withParentDirectory(of: url) { parent, name in
+            try operation()
+            try removeDirectoryEntry(
+                named: name,
+                from: parent,
+                displayURL: url
+            )
+            guard fsync(parent) == 0 else {
+                throw R13RestartJobError.ioFailure(
+                    operation: "remove_directory"
+                )
+            }
         }
     }
 
@@ -338,6 +350,151 @@ private extension R13LocalRestartFileSystem {
         )
         defer { close(descriptor) }
         return try operation(descriptor, name)
+    }
+
+    private func removeDirectoryEntry(
+        named name: String,
+        from parent: Int32,
+        displayURL: URL
+    ) throws {
+        var pathMetadata = stat()
+        guard fstatat(
+            parent,
+            name,
+            &pathMetadata,
+            AT_SYMLINK_NOFOLLOW
+        ) == 0,
+        (pathMetadata.st_mode & S_IFMT) == S_IFDIR else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                displayURL.path
+            )
+        }
+        let descriptor = openat(
+            parent,
+            name,
+            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                displayURL.path
+            )
+        }
+        defer { close(descriptor) }
+
+        var descriptorMetadata = stat()
+        guard fstat(descriptor, &descriptorMetadata) == 0,
+              Self.sameDirectoryObject(
+                pathMetadata,
+                descriptorMetadata
+              ) else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                displayURL.path
+            )
+        }
+
+        for childName in try directoryEntryNames(
+            in: descriptor,
+            displayURL: displayURL
+        ) {
+            let childURL = displayURL.appendingPathComponent(childName)
+            var childMetadata = stat()
+            let status = fstatat(
+                descriptor,
+                childName,
+                &childMetadata,
+                AT_SYMLINK_NOFOLLOW
+            )
+            if status != 0, errno == ENOENT {
+                continue
+            }
+            guard status == 0 else {
+                throw R13RestartJobError.unsafeFilesystemEntry(
+                    childURL.path
+                )
+            }
+            if (childMetadata.st_mode & S_IFMT) == S_IFDIR {
+                try removeDirectoryEntry(
+                    named: childName,
+                    from: descriptor,
+                    displayURL: childURL
+                )
+            } else {
+                guard unlinkat(descriptor, childName, 0) == 0 else {
+                    throw R13RestartJobError.unsafeFilesystemEntry(
+                        childURL.path
+                    )
+                }
+            }
+        }
+
+        var pathAfterRemoval = stat()
+        guard fsync(descriptor) == 0,
+              fstatat(
+                parent,
+                name,
+                &pathAfterRemoval,
+                AT_SYMLINK_NOFOLLOW
+              ) == 0,
+              Self.sameDirectoryObject(
+                descriptorMetadata,
+                pathAfterRemoval
+              ),
+              unlinkat(parent, name, AT_REMOVEDIR) == 0 else {
+            throw R13RestartJobError.unsafeFilesystemEntry(
+                displayURL.path
+            )
+        }
+    }
+
+    private func directoryEntryNames(
+        in descriptor: Int32,
+        displayURL: URL
+    ) throws -> [String] {
+        let duplicate = fcntl(descriptor, F_DUPFD_CLOEXEC, 0)
+        guard duplicate >= 0 else {
+            throw R13RestartJobError.ioFailure(
+                operation: "remove_directory"
+            )
+        }
+        guard let stream = fdopendir(duplicate) else {
+            close(duplicate)
+            throw R13RestartJobError.ioFailure(
+                operation: "remove_directory"
+            )
+        }
+        defer { closedir(stream) }
+
+        var names: [String] = []
+        while true {
+            errno = 0
+            guard let entry = readdir(stream) else {
+                guard errno == 0 else {
+                    throw R13RestartJobError.ioFailure(
+                        operation: "remove_directory"
+                    )
+                }
+                break
+            }
+            var nameBuffer = entry.pointee.d_name
+            let capacity = MemoryLayout.size(ofValue: nameBuffer)
+            let name = withUnsafePointer(to: &nameBuffer) { pointer in
+                pointer.withMemoryRebound(
+                    to: CChar.self,
+                    capacity: capacity
+                ) {
+                    String(cString: $0)
+                }
+            }
+            guard !name.isEmpty else {
+                throw R13RestartJobError.unsafeFilesystemEntry(
+                    displayURL.path
+                )
+            }
+            if name != ".", name != ".." {
+                names.append(name)
+            }
+        }
+        return names
     }
 
     private func pathComponents(_ url: URL) throws -> [String] {

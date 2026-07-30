@@ -360,6 +360,8 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     private var frameIndex = 0
     private var pendingVideoSample: CMSampleBuffer?
+    var pendingAudioSample: CMSampleBuffer?
+    var audioInputIsFinished = false
     var lifecycleState = LifecycleState.active
     var timingLedger = FrameTimingLedger()
     var storedTerminalCleanupError: MediaPipelineError?
@@ -573,15 +575,27 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     }
 
     func appendOutput(pixelBuffer: CVPixelBuffer, timing: FrameTiming) async throws {
+        let audioWatermark = CMTimeAdd(
+            timing.presentationTime,
+            timing.duration
+        )
         let backpressure = telemetry.beginStage(.writerBackpressure)
         do {
             while !videoInput.isReadyForMoreMediaData {
-                try await Task.sleep(nanoseconds: 1_000_000)
+                try pumpAudio(through: nil)
+                try Task.checkCancellation()
                 if sessionIsCancelled() { throw CancellationError() }
+                guard writer.status == .writing else {
+                    throw MediaPipelineError.writerFailed(writer.error)
+                }
+                if !videoInput.isReadyForMoreMediaData {
+                    try await Task.sleep(nanoseconds: 1_000_000)
+                }
             }
         } catch {
             telemetry.endStage(backpressure)
-            throw error
+            if error is CancellationError { throw error }
+            throw failureAfterCleanup(error)
         }
         telemetry.endStage(backpressure)
         let append = telemetry.beginStage(.writerAppend)
@@ -605,6 +619,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             throw failureAfterCleanup(
                 MediaPipelineError.invalidFrameTiming(String(describing: error))
             )
+        } catch {
+            throw failureAfterCleanup(error)
+        }
+        do {
+            try pumpAudio(through: audioWatermark)
         } catch {
             throw failureAfterCleanup(error)
         }

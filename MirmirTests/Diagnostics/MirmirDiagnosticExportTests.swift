@@ -1,9 +1,85 @@
 import Foundation
 import CoreMedia
+import CoreVideo
 import XCTest
 @testable import Mirmir
 
 final class MirmirDiagnosticExportTests: XCTestCase {
+    func testBackendFrameFailureExportsStructuredRootCause() async throws {
+        let store = MirmirDiagnosticStore()
+        let backend = try R03DeterministicBackend.makeVImage(
+            mode: .lanczos3,
+            route: .scale2x
+        )
+        let processingIdentity = try AppleUpscaleProcessingIdentity(
+            route: backend.routeIdentity,
+            fallbackHistory: []
+        )
+        let failure = try AppleUpscaleBackendFailed(
+            processingIdentity: processingIdentity,
+            reason: "r03_output_pool_allocation_threshold_exceeded",
+            context: AppleUpscaleBackendFailureContext(
+                stage: .outputBufferAllocation,
+                statusCode: Int(kCVReturnWouldExceedAllocationThreshold)
+            )
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_upscaler",
+            operation: "process_frame",
+            code: "release_frame_processing_failed",
+            error: R13BackendFrameProcessingError(
+                frameIndex: 4,
+                failure: failure
+            )
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "backend_frame_processing_failed"
+        )
+        XCTAssertEqual(
+            fields["backend_failure_reason"],
+            "r03_output_pool_allocation_threshold_exceeded"
+        )
+        XCTAssertEqual(
+            fields["backend_failure_stage"],
+            "output_buffer_allocation"
+        )
+        XCTAssertEqual(
+            fields["backend_status_code"],
+            String(kCVReturnWouldExceedAllocationThreshold)
+        )
+        XCTAssertEqual(record.event.error?.frames.count, 2)
+        XCTAssertTrue(
+            record.event.error?.frames.last?.type.contains(
+                "AppleUpscaleBackendFailed"
+            ) == true
+        )
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
     func testQueuedRecorderEventsFlushBeforeImmediateSnapshotAndExports()
         async throws {
         let store = MirmirDiagnosticStore()
