@@ -82,11 +82,40 @@ final class R13ReleaseIntegrationTests: XCTestCase {
         let metadata = try await readR13ReleaseMetadata(
             at: workspace.outputURL
         )
-        XCTAssertEqual(metadata, expectedIdentity.timedMetadata)
         try expectedIdentity.validateTimedMetadata(metadata)
+        for (key, expectedValue) in expectedIdentity.timedMetadata
+        where R13ProductASHDecisionMetadata.pendingValues[key] == nil {
+            XCTAssertEqual(metadata[key], expectedValue, key)
+        }
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.statusKey],
+            "complete"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.decisionCountKey],
+            "1"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.transitionCountKey],
+            "0"
+        )
+        XCTAssertNotEqual(
+            metadata[R13ProductASHDecisionMetadata.selectedBackendsKey],
+            "pending"
+        )
+        XCTAssertNotEqual(
+            metadata[R13ProductASHDecisionMetadata.journalSHA256Key],
+            String(repeating: "0", count: 64)
+        )
         try await assertR13ReopenedOutput(
             at: workspace.outputURL,
             resolution: .p1080
+        )
+        try await assertR13ReopenedCodecAndContainer(
+            at: workspace.outputURL,
+            codec: .h264,
+            pathExtension: "mov",
+            majorBrand: "qt  "
         )
         XCTAssertEqual(
             harness.capacityObservation.labels,
@@ -104,6 +133,169 @@ final class R13ReleaseIntegrationTests: XCTestCase {
                 .base64EncodedString()
             print("R13_ACCEPTANCE_OUTPUT_BASE64=\(payload)")
         }
+    }
+
+    func testShippingServiceExecutesRealAutoAndFastModes()
+        async throws {
+        for mode in [UpscaleMode.auto, .fast] {
+            let workspace = try R13IntegrationWorkspace(
+                outputFileName: "\(mode.rawValue)-output.mov"
+            )
+            defer { workspace.remove() }
+            try await writeOneFrameVideo(
+                to: workspace.sourceURL,
+                resolution: .p720,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+            let harness = try R13IntegrationHardeningHarness.make(
+                jobsRootURL: workspace.jobsRootURL,
+                exactFrameCount: 1
+            )
+            let diagnostics = MirmirDiagnosticStore()
+            let media = AVFoundationMediaPipeline(
+                metal: NoopMetalRenderingService(),
+                diagnostics: diagnostics
+            )
+            let service = R13ReleaseUpscalerEngineService(
+                media: media,
+                hardeningRuntime: harness.runtime,
+                diagnostics: diagnostics
+            )
+            let job = makeR13IntegrationJob(
+                identifier: "r13-real-\(mode.rawValue)",
+                workspace: workspace,
+                mode: mode
+            )
+
+            let result = try await service.submit(job)
+                .waitForCompletion()
+
+            XCTAssertEqual(result, workspace.outputURL, mode.rawValue)
+            XCTAssertTrue(
+                FileManager.default.fileExists(
+                    atPath: workspace.outputURL.path
+                ),
+                mode.rawValue
+            )
+            try await assertR13ReopenedOutput(
+                at: result,
+                resolution: .p1080
+            )
+            let metadata = try await readR13ReleaseMetadata(at: result)
+            let expectedIdentity = try makeR13ExpectedIntegrationIdentity(
+                job: job,
+                workspace: workspace,
+                harness: harness
+            )
+            try expectedIdentity.validateTimedMetadata(metadata)
+            XCTAssertEqual(
+                metadata["com.mirmir.release.requested-mode"],
+                mode.rawValue
+            )
+            XCTAssertEqual(
+                metadata["com.mirmir.release.effective-mode"],
+                mode.rawValue
+            )
+            XCTAssertNotEqual(
+                metadata[
+                    R13ProductASHDecisionMetadata.selectedBackendsKey
+                ],
+                "pending"
+            )
+            XCTAssertEqual(
+                metadata[R13ProductASHDecisionMetadata.statusKey],
+                "complete"
+            )
+            try await assertR13SuccessfulResourceClosure(
+                service: service,
+                harness: harness
+            )
+        }
+    }
+
+    @MainActor
+    func testShippingViewModelCompletesRealSelectedFileWorkflow()
+        async throws {
+        let workspace = try R13IntegrationWorkspace(
+            outputFileName: "selected-workflow.mov"
+        )
+        defer { workspace.remove() }
+        try await writeOneFrameVideo(
+            to: workspace.sourceURL,
+            resolution: .p720,
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        let harness = try R13IntegrationHardeningHarness.make(
+            jobsRootURL: workspace.jobsRootURL,
+            exactFrameCount: 1
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let media = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService(),
+            diagnostics: diagnostics
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            hardeningRuntime: harness.runtime,
+            diagnostics: diagnostics
+        )
+        var revealedURL: URL?
+        let viewModel = MirmirViewModel(
+            mediaPipeline: media,
+            upscalerEngine: service,
+            modelAssets: NotRequiredModelAssetsService(),
+            diagnostics: diagnostics,
+            revealFileInFinder: { revealedURL = $0 }
+        )
+
+        viewModel.loadSource(url: workspace.sourceURL)
+        for _ in 0..<1_000 where viewModel.state == .probing {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertEqual(viewModel.sourceProfile?.resolution, .p720)
+        XCTAssertTrue(viewModel.selectTargetForPendingJob(.p1080))
+        XCTAssertTrue(viewModel.selectModeForPendingJob(.quality))
+        XCTAssertTrue(viewModel.selectCodecForPendingJob(.h264))
+        XCTAssertTrue(
+            viewModel.acceptOutputURLSelectedByUser(
+                workspace.outputURL
+            )
+        )
+        XCTAssertNil(viewModel.canStartFailureReason)
+
+        viewModel.startUpscale()
+        for _ in 0..<2_000 {
+            if viewModel.state == .finished(workspace.outputURL) {
+                break
+            }
+            if case .failed(let reason) = viewModel.state {
+                XCTFail("Real selected-file workflow failed: \(reason)")
+                break
+            }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertEqual(
+            viewModel.state,
+            .finished(workspace.outputURL)
+        )
+        XCTAssertEqual(
+            viewModel.completedOutputURL,
+            workspace.outputURL
+        )
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: workspace.outputURL.path
+            )
+        )
+        try await assertR13ReopenedOutput(
+            at: workspace.outputURL,
+            resolution: .p1080
+        )
+        viewModel.revealOutputInFinder()
+        XCTAssertEqual(revealedURL, workspace.outputURL)
+        XCTAssertNil(viewModel.completedOutputRevealError)
     }
 
     func testShippingServiceResumesInterruptedJobWithStableIDAndExactCachedPrefixReplay() async throws {
@@ -328,14 +520,30 @@ private func makeR13ExpectedIntegrationIdentity(
     workspace: R13IntegrationWorkspace,
     harness: R13IntegrationHardeningHarness
 ) throws -> R13ReleaseIdentity {
-    try R13ReleaseHardeningRuntime.makeReleaseIdentity(
+    let modeBinding = R13ReleaseModePolicy.binding(
+        for: job.mode,
+        enginePreference:
+            job.processingConfiguration.enginePreference
+    )
+    let environment = try R13ReleaseEnvironment(
+        application: harness.environment.application,
+        framework: R13ReleaseFrameworkIdentity(
+            frameworkIdentifier:
+                modeBinding.frameworkIdentity,
+            version: harness.environment.framework.version,
+            buildIdentity:
+                harness.environment.framework.buildIdentity
+        ),
+        runtime: harness.environment.runtime
+    )
+    return try R13ReleaseHardeningRuntime.makeReleaseIdentity(
         job: job,
         route: .scale3Over2,
-        modeBinding: R13ReleaseModePolicy.binding(for: job.mode),
+        modeBinding: modeBinding,
         source: R13LocalRestartSourceMeasurer().measureSource(
             at: workspace.sourceURL
         ),
-        environment: harness.environment,
+        environment: environment,
         policyResources: harness.documents.policyResources
     )
 }
@@ -445,9 +653,13 @@ private func assertR13FrameResources(
     let reachedFrameLoop = faultPoint == .beforeOutputFinalize
         || faultPoint == .beforeMetadataReopen
     let expectedCount = reachedFrameLoop ? 1 : 0
+    let modeBinding = R13ReleaseModePolicy.binding(
+        for: .deterministic
+    )
     XCTAssertEqual(
         countR13IntegrationEvents(
-            "input.release.r13.a11.input.deterministic.0",
+            "input.release.r13.release.input."
+                + "\(modeBinding.backendID).deterministic.0",
             in: eventLog
         ),
         expectedCount

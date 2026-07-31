@@ -12,7 +12,43 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case unsupportedAudioTrackCount(Int)
     case unsupportedAudioFormat(String)
     case unsupportedOutputContainer(String)
+    case outputContainerCannotPreserveVideoFormat(
+        pathExtension: String,
+        format: MediaVideoFormat
+    )
+    case outputContainerCannotPreserveCodec(
+        pathExtension: String,
+        codec: OutputCodec
+    )
+    case outputContainerCannotPreserveLinearPCM(
+        pathExtension: String
+    )
+    case outputContainerCannotPreserveTrackAssociations(
+        pathExtension: String
+    )
     case unsupportedColorProfile(String)
+    case unsupportedVideoFormat(String)
+    case unsupportedVideoFormatConversion(
+        source: MediaVideoFormat,
+        requested: MediaVideoFormat
+    )
+    case outputCodecCannotPreserveVideoFormat(
+        codec: OutputCodec,
+        format: MediaVideoFormat
+    )
+    case outputEncoderUnavailable(
+        codec: OutputCodec,
+        format: MediaVideoFormat
+    )
+    case outputPixelFormatMismatch(expected: OSType, actual: OSType)
+    case unsupportedTrackAssociation(
+        associationType: String,
+        sourceMediaType: String,
+        targetMediaType: String
+    )
+    case mediaPreservationPreflightFailed(String)
+    case mediaPreservationCapabilityChanged
+    case metadataPreservationFailed(String)
     case unsupportedNegativeSourceTimeline(
         mediaType: String,
         start: CMTime,
@@ -27,6 +63,7 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case finalMuxFailed(URL, Error)
     case outputVerificationFailed(URL, Error)
     case invalidFrameTiming(String)
+    case deinterlacingFailed(String)
     case partialCleanupFailed(URL, String)
     case readerStartFailed
     case writerStartFailed
@@ -52,13 +89,77 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
         case .cannotAddWriterInput(let mediaType):
             return "AVAssetWriter rejected the \(mediaType) input."
         case .unsupportedAudioTrackCount(let count):
-            return "Audio preservation currently supports exactly one audio track; the source contains \(count)."
+            return "The source reports an invalid audio-track count of \(count); the count must be zero or greater."
         case .unsupportedAudioFormat(let format):
-            return "Audio preservation does not support source format \(format); AAC is required for passthrough."
+            return "Audio preservation does not support source format "
+                + "\(format); exact passthrough accepts AAC, Apple Lossless, "
+                + "and supported interleaved Linear PCM."
         case .unsupportedOutputContainer(let pathExtension):
             return "Unsupported output container extension .\(pathExtension); Mirmir writes MP4 or QuickTime Movie output."
+        case .outputContainerCannotPreserveVideoFormat(
+            let pathExtension,
+            let format
+        ):
+            return "The .\(pathExtension) output container cannot preserve "
+                + "\(format). Select a .mov destination."
+        case .outputContainerCannotPreserveCodec(
+            let pathExtension,
+            let codec
+        ):
+            return "The .\(pathExtension) output container cannot carry "
+                + "\(codec.displayName). Select a QuickTime Movie (.mov) "
+                + "destination."
+        case .outputContainerCannotPreserveLinearPCM(
+            let pathExtension
+        ):
+            return "The .\(pathExtension) output container cannot "
+                + "preserve Linear PCM audio. Select a QuickTime Movie "
+                + "(.mov) destination, or turn off Preserve Source Audio "
+                + "Tracks."
+        case .outputContainerCannotPreserveTrackAssociations(
+            let pathExtension
+        ):
+            return "The .\(pathExtension) output container cannot "
+                + "preserve the source auxiliary-video track association. "
+                + "Select a QuickTime Movie (.mov) destination."
         case .unsupportedColorProfile(let profile):
-            return "The source uses unsupported HDR or wide-color metadata (\(profile)); this build supports 8-bit SDR Rec.709."
+            return "The source color metadata is incomplete or inconsistent (\(profile)). Mirmir preserves Rec.709 SDR and 10-bit BT.2020 PQ/HLG without silent color conversion."
+        case .unsupportedVideoFormat(let reason):
+            return "The source video format cannot be preserved: \(reason)"
+        case .unsupportedVideoFormatConversion(let source, let requested):
+            return "The requested output format \(requested) differs from source "
+                + "\(source). Explicit tone or gamut conversion is not enabled."
+        case .outputCodecCannotPreserveVideoFormat(let codec, let format):
+            return "The selected \(codec.rawValue.uppercased()) codec cannot "
+                + "preserve \(format). Select "
+                + format.supportedOutputCodecs
+                    .map(\.displayName)
+                    .joined(separator: " or ")
+                + "."
+        case .outputEncoderUnavailable(let codec, let format):
+            return "AVFoundation cannot encode \(format) with "
+                + "\(codec.rawValue.uppercased()) on this Mac or in the "
+                + "selected output container."
+        case .outputPixelFormatMismatch(let expected, let actual):
+            return "The processed frame uses Core Video pixel format \(actual); "
+                + "the source-preserving output requires \(expected)."
+        case .unsupportedTrackAssociation(
+            let associationType,
+            let sourceMediaType,
+            let targetMediaType
+        ):
+            return "The source \(sourceMediaType) track association "
+                + "\(associationType) targets an unpreserved "
+                + "\(targetMediaType) track."
+        case .mediaPreservationPreflightFailed(let reason):
+            return reason
+        case .mediaPreservationCapabilityChanged:
+            return "The source audio, auxiliary tracks, metadata, or "
+                + "association graph changed after probing. Reload the "
+                + "source before starting so Mirmir can verify the "
+                + "current preservation requirements."
+        case .metadataPreservationFailed(let reason):
+            return "Source metadata could not be preserved and verified: \(reason)"
         case .unsupportedNegativeSourceTimeline(
             let mediaType,
             let start,
@@ -82,6 +183,9 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "The output file failed reopen verification at \(url.lastPathComponent): \(error)."
         case .invalidFrameTiming(let reason):
             return "The output frame timing ledger rejected a frame: \(reason)"
+        case .deinterlacingFailed(let reason):
+            return "The source frame could not be converted from interlaced "
+                + "to progressive scan: \(reason)"
         case .partialCleanupFailed(let url, let reason):
             return "Temporary output cleanup failed for \(url.lastPathComponent): \(reason)"
         case .readerStartFailed:
@@ -128,6 +232,10 @@ enum FinalMuxGuardError: Error, CustomNSError, CustomStringConvertible {
         case video
         case audio
         case metadata
+        case subtitle
+        case text
+        case closedCaption = "closed_caption"
+        case timecode
         case unknown
 
         init(mediaType: AVMediaType) {
@@ -138,6 +246,14 @@ enum FinalMuxGuardError: Error, CustomNSError, CustomStringConvertible {
                 self = .audio
             case .metadata:
                 self = .metadata
+            case .subtitle:
+                self = .subtitle
+            case .text:
+                self = .text
+            case .closedCaption:
+                self = .closedCaption
+            case .timecode:
+                self = .timecode
             default:
                 self = .unknown
             }
@@ -243,6 +359,7 @@ enum FinalMuxGuardError: Error, CustomNSError, CustomStringConvertible {
 public protocol MediaSession: AnyObject, Sendable {
     var sourceProfile: SourceProfile { get }
     var outputProfile: OutputProfile { get }
+    var videoFormat: MediaVideoFormat { get }
     var outputPixelBufferPool: CVPixelBufferPool { get }
     var presentationTransform: CGAffineTransform { get }
     var prepublicationOutputURL: URL { get }
@@ -283,6 +400,10 @@ public protocol MediaSession: AnyObject, Sendable {
 }
 
 public extension MediaSession {
+    var videoFormat: MediaVideoFormat {
+        sourceProfile.videoFormat
+    }
+
     var presentationTransform: CGAffineTransform {
         .identity
     }

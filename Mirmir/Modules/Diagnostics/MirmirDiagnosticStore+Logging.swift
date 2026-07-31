@@ -286,6 +286,10 @@ struct MirmirDiagnosticRecorder: Sendable {
                 ),
                 try field("has_audio", .boolean(source.hasAudio)),
                 try field(
+                    "audio_track_count",
+                    .unsignedInteger(UInt64(source.audioTrackCount))
+                ),
+                try field(
                     "frame_rate",
                     .rational(
                         numerator: boundedRationalNumerator(
@@ -294,6 +298,10 @@ struct MirmirDiagnosticRecorder: Sendable {
                         ),
                         denominator: 1_000
                     )
+                ),
+                try field(
+                    "source_scan_structure",
+                    .identifier(source.scanStructure.rawValue)
                 ),
                 try field(
                     "duration",
@@ -803,6 +811,17 @@ struct MirmirDiagnosticRecorder: Sendable {
                     )
                 )
             ])
+        case .scanStructureMismatch(let expected, let actual):
+            fields.append(contentsOf: [
+                try field(
+                    "verification_expected_scan_structure",
+                    .identifier(expected.rawValue)
+                ),
+                try field(
+                    "verification_actual_scan_structure",
+                    .identifier(actual.rawValue)
+                )
+            ])
         case .frameCountMismatch(let expected, let actual):
             fields.append(contentsOf: try countFields(
                 expected: expected,
@@ -838,6 +857,33 @@ struct MirmirDiagnosticRecorder: Sendable {
                 actual: actual,
                 prefix: "plane"
             ))
+        case .planeDimensionsMismatch(
+            let frameIndex,
+            let planeIndex,
+            let expected,
+            let actual
+        ):
+            fields.append(contentsOf: [
+                try frameIndexField(frameIndex),
+                try field(
+                    "verification_plane_index",
+                    .signedInteger(Int64(planeIndex))
+                ),
+                try field(
+                    "verification_expected_plane_dimensions",
+                    .dimensions(
+                        width: max(expected.width, 0),
+                        height: max(expected.height, 0)
+                    )
+                ),
+                try field(
+                    "verification_actual_plane_dimensions",
+                    .dimensions(
+                        width: max(actual.width, 0),
+                        height: max(actual.height, 0)
+                    )
+                )
+            ])
         case .planeLockFailed(let frameIndex, let status):
             fields.append(contentsOf: [
                 try frameIndexField(frameIndex),
@@ -884,7 +930,8 @@ struct MirmirDiagnosticRecorder: Sendable {
              .readerFailed,
              .metadataMismatch,
              .videoColorMismatch,
-             .compressedAACMismatch:
+             .compressedAACMismatch,
+             .mediaPreservationMismatch:
             break
         }
         return fields
@@ -908,6 +955,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "codec_mismatch"
         case .dimensionsMismatch:
             return "dimensions_mismatch"
+        case .scanStructureMismatch:
+            return "scan_structure_mismatch"
         case .preferredTransformMismatch:
             return "preferred_transform_mismatch"
         case .readerCreationFailed:
@@ -924,6 +973,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "pixel_format_mismatch"
         case .planeCountMismatch:
             return "plane_count_mismatch"
+        case .planeDimensionsMismatch:
+            return "plane_dimensions_mismatch"
         case .planeLockFailed:
             return "plane_lock_failed"
         case .emptyPlanePayload:
@@ -942,6 +993,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "video_color_mismatch"
         case .compressedAACMismatch:
             return "compressed_aac_mismatch"
+        case .mediaPreservationMismatch:
+            return "media_preservation_mismatch"
         }
     }
 
@@ -1193,6 +1246,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "output_verification_failed"
         case MediaPipelineError.invalidFrameTiming:
             return "invalid_frame_timing"
+        case MediaPipelineError.deinterlacingFailed:
+            return "deinterlacing_failed"
         case MediaPipelineError.partialCleanupFailed:
             return "partial_cleanup_failed"
         case MediaPipelineError.readerStartFailed:
@@ -1217,6 +1272,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "job_cancelled"
         case UpscalerEngineError.inputOutputCollision:
             return "input_output_collision"
+        case UpscalerEngineError.outputAlreadyExists:
+            return "output_destination_exists"
         case UpscalerEngineError.invalidJobIdentifier:
             return "invalid_job_identifier"
         case UpscalerEngineError.backendUnavailable:

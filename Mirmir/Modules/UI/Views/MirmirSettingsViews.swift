@@ -15,6 +15,11 @@ struct MirmirSettingsView: View {
 
             technicalDetails
                 .tabItem { Text("Technical Details") }
+
+            MirmirDiagnosticSettingsView(
+                store: viewModel.diagnosticStore
+            )
+            .tabItem { Text("Diagnostics") }
         }
         .padding(20)
     }
@@ -24,20 +29,123 @@ struct MirmirSettingsView: View {
             Text("General")
                 .font(.title3.weight(.semibold))
 
-            Picker("Default Mode", selection: $viewModel.selectedMode) {
+            Picker("Appearance", selection: appearanceSelection) {
+                ForEach(MirmirAppearanceMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker("Default Mode", selection: defaultModeSelection) {
                 ForEach(UpscaleMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
-            .help(viewModel.selectedModeSummary)
+            .help(viewModel.persistedDefaults.mode.summary)
             .pickerStyle(.segmented)
 
-            Picker("Default Codec", selection: $viewModel.codec) {
+            if viewModel.persistedDefaults.mode == .smoothMotion {
+                Picker(
+                    "Default Smooth Motion Cadence",
+                    selection: defaultSmoothMotionCadenceSelection
+                ) {
+                    ForEach(SmoothMotionCadence.allCases) { cadence in
+                        Text(cadence.title).tag(cadence)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Picker(
+                    "Default Scene Cut Protection",
+                    selection: defaultSmoothMotionSceneCutSelection
+                ) {
+                    ForEach(
+                        SmoothMotionSceneCutSensitivity.allCases
+                    ) { sensitivity in
+                        Text(sensitivity.title).tag(sensitivity)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+
+            Picker("Default Codec", selection: defaultCodecSelection) {
                 ForEach(OutputCodec.allCases) { codec in
-                    Text(codec.rawValue.uppercased()).tag(codec)
+                    Text(codec.displayName).tag(codec)
                 }
             }
             .pickerStyle(.segmented)
+
+            Picker("Default Engine", selection: defaultEngineSelection) {
+                ForEach(
+                    UpscaleEnginePreference.allCases
+                ) { preference in
+                    Text(preference.title).tag(preference)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Picker(
+                "Default Strategy",
+                selection: defaultStrategySelection
+            ) {
+                ForEach(
+                    UpscaleStrategyPreference.allCases
+                ) { preference in
+                    Text(preference.title).tag(preference)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Toggle(
+                "Default Temporal Consistency",
+                isOn: defaultTemporalConsistencySelection
+            )
+
+            Picker(
+                "Default Edge Fidelity",
+                selection: defaultEdgeFidelitySelection
+            ) {
+                ForEach(MirmirAdjustmentLevel.allCases) { level in
+                    Text(level.title).tag(level)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Picker(
+                "Default Detail Recovery",
+                selection: defaultDetailRecoverySelection
+            ) {
+                ForEach(MirmirAdjustmentLevel.allCases) { level in
+                    Text(level.title).tag(level)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Group {
+                Toggle(
+                    "Default Edge Preservation",
+                    isOn: defaultEdgePreservationSelection
+                )
+                Toggle(
+                    "Default Compression Cleanup",
+                    isOn: defaultCompressionCleanupSelection
+                )
+                Toggle(
+                    "Default Texture / Grain Protection",
+                    isOn: defaultTextureGrainProtectionSelection
+                )
+                Toggle(
+                    "Default Temporal Stability",
+                    isOn: defaultTemporalStabilitySelection
+                )
+            }
+
+            Text(
+                "Defaults apply to newly selected sources. Current and "
+                    + "interrupted jobs retain their exact configuration."
+            )
+            .font(.caption)
+            .foregroundStyle(.secondary)
 
             MirmirCacheLocationSettings(viewModel: viewModel)
 
@@ -47,6 +155,136 @@ struct MirmirSettingsView: View {
 
             Spacer()
         }
+    }
+
+    private var appearanceSelection: Binding<MirmirAppearanceMode> {
+        Binding(
+            get: { viewModel.appearanceMode },
+            set: { viewModel.selectAppearanceMode($0) }
+        )
+    }
+
+    private var defaultModeSelection: Binding<UpscaleMode> {
+        Binding(
+            get: { viewModel.persistedDefaults.mode },
+            set: { viewModel.selectDefaultMode($0) }
+        )
+    }
+
+    private var defaultCodecSelection: Binding<OutputCodec> {
+        Binding(
+            get: { viewModel.persistedDefaults.outputCodec },
+            set: { viewModel.selectDefaultOutputCodec($0) }
+        )
+    }
+
+    private var defaultSmoothMotionCadenceSelection:
+        Binding<SmoothMotionCadence> {
+        Binding(
+            get: { viewModel.persistedDefaults.smoothMotion.cadence },
+            set: {
+                viewModel.selectDefaultSmoothMotionCadence($0)
+            }
+        )
+    }
+
+    private var defaultSmoothMotionSceneCutSelection:
+        Binding<SmoothMotionSceneCutSensitivity> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults.smoothMotion
+                    .sceneCutSensitivity
+            },
+            set: {
+                viewModel
+                    .selectDefaultSmoothMotionSceneCutSensitivity($0)
+            }
+        )
+    }
+
+    private var defaultEngineSelection:
+        Binding<UpscaleEnginePreference> {
+        Binding(
+            get: { viewModel.persistedDefaults.enginePreference },
+            set: { viewModel.selectDefaultEngine($0) }
+        )
+    }
+
+    private var defaultStrategySelection:
+        Binding<UpscaleStrategyPreference> {
+        Binding(
+            get: { viewModel.persistedDefaults.strategyPreference },
+            set: { viewModel.selectDefaultStrategy($0) }
+        )
+    }
+
+    private var defaultTemporalConsistencySelection: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults
+                    .temporalConsistencyEnabled
+            },
+            set: { viewModel.setDefaultTemporalConsistency($0) }
+        )
+    }
+
+    private var defaultEdgeFidelitySelection:
+        Binding<MirmirAdjustmentLevel> {
+        Binding(
+            get: { viewModel.persistedDefaults.edgeFidelityLevel },
+            set: { viewModel.selectDefaultEdgeFidelity($0) }
+        )
+    }
+
+    private var defaultDetailRecoverySelection:
+        Binding<MirmirAdjustmentLevel> {
+        Binding(
+            get: { viewModel.persistedDefaults.detailRecoveryLevel },
+            set: { viewModel.selectDefaultDetailRecovery($0) }
+        )
+    }
+
+    private var defaultEdgePreservationSelection: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults.effects
+                    .edgePreservationEnabled
+            },
+            set: { viewModel.setDefaultEdgePreservation($0) }
+        )
+    }
+
+    private var defaultCompressionCleanupSelection: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults.effects
+                    .compressionCleanupEnabled
+            },
+            set: { viewModel.setDefaultCompressionCleanup($0) }
+        )
+    }
+
+    private var defaultTextureGrainProtectionSelection:
+        Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults.effects
+                    .textureGrainProtectionEnabled
+            },
+            set: {
+                viewModel.setDefaultTextureGrainProtection($0)
+            }
+        )
+    }
+
+    private var defaultTemporalStabilitySelection: Binding<Bool> {
+        Binding(
+            get: {
+                viewModel.persistedDefaults.effects
+                    .temporalStabilityEnabled
+            },
+            set: { viewModel.setDefaultTemporalStability($0) }
+        )
     }
 
     private var technicalDetails: some View {
@@ -118,7 +356,86 @@ struct MirmirCacheLocationSettings: View {
     }
 }
 
+struct MirmirASHPinnedNoticeIdentity: Equatable, Sendable {
+    static let current = MirmirASHPinnedNoticeIdentity(
+        sourceRevision: "8782886a8cca9fa63f7d44b529add6eac80a50f8",
+        licenseSHA256:
+            "213910e1405c0866a1200da12f1dcd5a"
+            + "4f41ed3d4a82c9c78acf85e6f5f304a6",
+        licenseResourceName: "ASH-Model-LICENSE",
+        licenseResourceExtension: "txt",
+        citation:
+            "Daley, J. (2026). \"Adinkra-Stabilized Hypercube Model "
+            + "(ASH Model): Canonical Computational Specification and "
+            + "Reference Implementation,\" version 1.1.0."
+    )
+
+    let sourceRevision: String
+    let licenseSHA256: String
+    let licenseResourceName: String
+    let licenseResourceExtension: String
+    let citation: String
+}
+
 struct MirmirAboutView: View {
+    static let productSummary =
+        "Mirmir upscales local videos supported by AVFoundation "
+        + "through 2160p with Auto, Quality, Fast, Deterministic, "
+        + "or Smooth Motion processing. It preserves supported "
+        + "8- and 10-bit SDR, BT.2020 PQ and HLG HDR, and HEVC "
+        + "alpha video; applies the selected fidelity and cleanup "
+        + "effects; preserves compatible AAC, Apple Lossless, and "
+        + "Linear PCM audio, "
+        + "subtitles, closed captions, timecode, and metadata; and "
+        + "reopens every completed file for verification before "
+        + "atomic publication."
+
+    static let routingTechnicalSummary =
+        "With Automatic engine selection, Auto, Quality, and Fast "
+        + "use ASH content and resource analysis to select among "
+        + "available Apple-native routes for each frame. "
+        + "Deterministic locks the processing route to MPS Lanczos."
+
+    static let identityTechnicalSummary =
+        "Completed output records the routes and fallbacks actually "
+        + "used, model readiness, source format, and effect configuration."
+
+    static let ashNoticeIdentity = MirmirASHPinnedNoticeIdentity.current
+
+    static let ashAcknowledgement =
+        "Mirmir incorporates computational assets from ASH Model "
+        + "version 1.1.0 by James Daley. The exact pinned license is "
+        + "bundled with Mirmir as ASH-Model-LICENSE.txt."
+
+    static let ashCitation = ashNoticeIdentity.citation
+    static let ashSourceRevision = ashNoticeIdentity.sourceRevision
+
+    static let ashLicenseURL = URL(
+        string: "https://github.com/flynn33/ASH-Model/blob/"
+            + ashSourceRevision
+            + "/LICENSE"
+    )
+
+    static let ashSourceURL = URL(
+        string: "https://github.com/flynn33/ASH-Model/tree/"
+            + ashSourceRevision
+    )
+
+    static let bundledASHLicenseText: String = {
+        guard let licenseURL = Bundle.main.url(
+            forResource: ashNoticeIdentity.licenseResourceName,
+            withExtension: ashNoticeIdentity.licenseResourceExtension
+        ),
+        let text = try? String(
+            contentsOf: licenseURL,
+            encoding: .utf8
+        ) else {
+            return "The bundled ASH Model license could not be read. "
+                + "Reinstall Mirmir to restore the required legal notice."
+        }
+        return text
+    }()
+
     @ObservedObject var viewModel: MirmirViewModel
     let showsTechnicalDetails: Bool
 
@@ -126,12 +443,7 @@ struct MirmirAboutView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Mirmir")
                 .font(.title2.weight(.semibold))
-            Text(
-                "Mirmir probes local videos supported by AVFoundation, "
-                    + "upscales eligible 8-bit SDR Rec. 709 geometry through "
-                    + "2160p with Apple MPS Lanczos, and verifies completed "
-                    + "output before publication."
-            )
+            Text(Self.productSummary)
                 .fixedSize(horizontal: false, vertical: true)
 
             if let reason = viewModel.engineAvailabilityReason {
@@ -144,14 +456,98 @@ struct MirmirAboutView: View {
                 Divider()
                 Text("Technical Details")
                     .font(.headline)
-                Text("The Mirmir module runtime owns application composition.")
-                Text("ASH remains a directly testable reference and research implementation.")
+                Text(Self.routingTechnicalSummary)
+                Text(Self.identityTechnicalSummary)
                 Text(viewModel.engineReadinessText)
+            }
+
+            Divider()
+            Text("Acknowledgements & Licenses")
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("Acknowledgements & Licenses")
+            Text(Self.ashAcknowledgement)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(Self.ashCitation)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("ASH Model source revision: \(Self.ashSourceRevision)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+
+            DisclosureGroup("Bundled ASH Model License") {
+                ScrollView {
+                    Text(Self.bundledASHLicenseText)
+                        .font(.system(.caption, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(
+                            maxWidth: .infinity,
+                            alignment: .leading
+                        )
+                }
+                .frame(minHeight: 120, maxHeight: 240)
+            }
+            .accessibilityLabel("Bundled ASH Model License")
+
+            if let ashLicenseURL = Self.ashLicenseURL {
+                Link(
+                    "View pinned ASH Model license online",
+                    destination: ashLicenseURL
+                )
+                .accessibilityLabel(
+                    "View pinned ASH Model license online"
+                )
+            }
+
+            if let ashSourceURL = Self.ashSourceURL {
+                Link(
+                    "View pinned ASH Model source",
+                    destination: ashSourceURL
+                )
+                .accessibilityLabel("View pinned ASH Model source")
             }
 
             Spacer()
         }
         .padding(20)
+    }
+}
+
+struct MirmirStartupDiagnosticSettingsView: View {
+    let store: MirmirDiagnosticStore
+    let reason: String
+
+    var body: some View {
+        VStack(spacing: 0) {
+            startupFailureContext
+                .padding([.horizontal, .top], 20)
+
+            MirmirDiagnosticSettingsView(store: store)
+        }
+    }
+
+    private var startupFailureContext: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(
+                    "Mirmir could not finish starting. "
+                        + "Diagnostic logging remains available.",
+                    systemImage: "exclamationmark.octagon.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(.red)
+
+                Text(reason)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

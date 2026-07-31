@@ -4,10 +4,7 @@ import UniformTypeIdentifiers
 
 extension MirmirViewModel {
     func resumeRecoverableJob(id: String) {
-        guard !jobIsRunning,
-              !recoveryIsProbing,
-              !recoveryMutationIsInProgress,
-              recoverableJobs.contains(where: { $0.id == id }),
+        guard recoverableJobResumeFailureReason(id: id) == nil,
               let recoveryEngine =
                 upscalerEngine as? any R13RecoverableUpscalerEngine else {
             return
@@ -316,11 +313,7 @@ extension MirmirViewModel {
                 }
 
                 sourceProfile = source
-                targetResolution = job.targetResolution
-                codec = job.codec
-                selectedMode = job.mode
-                outputURL = job.outputURL
-                outputSelectionError = nil
+                restoreCurrentConfiguration(from: job)
                 let handle = try recoveryEngine.submitRecoveredJob(
                     recovered
                 )

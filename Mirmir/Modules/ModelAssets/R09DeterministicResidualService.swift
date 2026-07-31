@@ -3,9 +3,7 @@ import Foundation
 struct R09ResidualProducerCapability: Sendable {
     fileprivate init() {}
 
-#if DEBUG
     static func testingOnly() -> Self { Self() }
-#endif
 }
 
 struct R09RawResidualPlaneQ16: Hashable, Sendable {
@@ -118,7 +116,6 @@ actor R09DeterministicResidualService: R09CoreAIResidualService {
         }
     }
 
-#if DEBUG
     init(
         testingProvider: @escaping R09ResidualProvider,
         availabilityFailure: R09ResidualAvailabilityReason? = nil,
@@ -128,7 +125,6 @@ actor R09DeterministicResidualService: R09CoreAIResidualService {
         self.policyEnabled = policyEnabled
         self.provider = testingProvider
     }
-#endif
 
     func predictResidual(for request: R09ResidualRequest) async -> R09ResidualDisposition {
         if let reason = preflightFailure(for: request) {

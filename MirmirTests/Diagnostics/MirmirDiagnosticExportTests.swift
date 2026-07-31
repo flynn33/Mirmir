@@ -499,6 +499,51 @@ final class MirmirDiagnosticExportTests: XCTestCase {
         )
     }
 
+    func testOutputVerificationFailureExportsExactScanStructureEvidence()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let error = MediaPipelineError.outputVerificationFailed(
+            URL(fileURLWithPath: "/private/output.mov"),
+            OutputMediaVerificationError.scanStructureMismatch(
+                expected: .progressive,
+                actual: .interlacedBottomFieldFirst
+            )
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_upscaler",
+            operation: "finish_job",
+            code: "release_job_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "output_verification_failed"
+        )
+        XCTAssertEqual(
+            fields["verification_failure_kind"],
+            "scan_structure_mismatch"
+        )
+        XCTAssertEqual(
+            fields["verification_expected_scan_structure"],
+            "progressive"
+        )
+        XCTAssertEqual(
+            fields["verification_actual_scan_structure"],
+            "interlaced_bottom_field_first"
+        )
+        XCTAssertEqual(record.event.error?.frames.count, 2)
+    }
+
     // This privacy contract is intentionally verified end to end.
     // swiftlint:disable:next function_body_length
     func testInvalidOutputVerificationTimesRemainInPrivateSafeExports()
@@ -780,7 +825,7 @@ final class MirmirDiagnosticExportTests: XCTestCase {
                 "/Users/alice/Secret Client/person@example.com/"
                 + "token-sk_test_SENTINEL/input.MOV"
         )
-        let source = SourceProfile(
+        let source = try SourceProfile(
             url: privateSourceURL,
             resolution: .p1080,
             codedResolution: VideoResolution(width: 1_440, height: 1_080),
@@ -792,7 +837,8 @@ final class MirmirDiagnosticExportTests: XCTestCase {
             durationSeconds: 1,
             estimatedFrameCount: 30,
             codecHint: "avc1",
-            hasAudio: true
+            audioTrackCount: 2,
+            scanStructure: .interlacedTopFieldFirst
         )
         let frame = try diagnosticFrame(
             resolution: VideoResolution(width: 1_440, height: 1_080)
@@ -871,6 +917,12 @@ final class MirmirDiagnosticExportTests: XCTestCase {
         XCTAssertEqual(fields["actual_decoded_dimensions"], "1440x1080")
         XCTAssertEqual(fields["expected_normalized_dimensions"], "1920x1080")
         XCTAssertEqual(fields["pixel_aspect_ratio"], "4/3")
+        XCTAssertEqual(fields["has_audio"], "true")
+        XCTAssertEqual(fields["audio_track_count"], "2")
+        XCTAssertEqual(
+            fields["source_scan_structure"],
+            "interlaced_top_field_first"
+        )
         XCTAssertEqual(fields["failure_category"], "unclassified_error")
         XCTAssertEqual(
             fields["source_video"],

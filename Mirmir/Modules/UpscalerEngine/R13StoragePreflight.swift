@@ -1,3 +1,4 @@
+import CoreVideo
 import Foundation
 
 struct R13CanonicalCacheDisclosure: Equatable, Sendable {
@@ -59,6 +60,7 @@ enum R13StorageDisclosures {
 struct R13StoragePreflightRequest: Equatable, Sendable {
     let outputWidth: Int
     let outputHeight: Int
+    let pixelFormat: OSType
     let totalFrameCount: Int
     let expectedFinalOutputBytes: UInt64
     let additionalReserveBytes: UInt64
@@ -66,13 +68,16 @@ struct R13StoragePreflightRequest: Equatable, Sendable {
     init(
         outputWidth: Int,
         outputHeight: Int,
+        pixelFormat: OSType =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
         totalFrameCount: Int,
         expectedFinalOutputBytes: UInt64,
         additionalReserveBytes: UInt64
     ) throws {
         _ = try R13NV12Frame.expectedPlaneByteCounts(
             width: outputWidth,
-            height: outputHeight
+            height: outputHeight,
+            pixelFormat: pixelFormat
         )
         guard totalFrameCount > 0 else {
             throw R13RestartJobError.invalidFrameCount(totalFrameCount)
@@ -84,6 +89,7 @@ struct R13StoragePreflightRequest: Equatable, Sendable {
         }
         self.outputWidth = outputWidth
         self.outputHeight = outputHeight
+        self.pixelFormat = pixelFormat
         self.totalFrameCount = totalFrameCount
         self.expectedFinalOutputBytes = expectedFinalOutputBytes
         self.additionalReserveBytes = additionalReserveBytes
@@ -187,7 +193,8 @@ struct R13StoragePreflight: Sendable {
     ) throws -> R13StoragePreflightReceipt {
         let counts = try R13NV12Frame.expectedPlaneByteCounts(
             width: request.outputWidth,
-            height: request.outputHeight
+            height: request.outputHeight,
+            pixelFormat: request.pixelFormat
         )
         let frameCount = UInt64(request.totalFrameCount)
         let rawCacheBytes = try checkedMultiply(
@@ -198,7 +205,8 @@ struct R13StoragePreflight: Sendable {
         let maximumArtifactBytes =
             try R13LZFSEFrameCacheCodec.maximumArtifactByteCount(
                 width: request.outputWidth,
-                height: request.outputHeight
+                height: request.outputHeight,
+                pixelFormat: request.pixelFormat
             )
         let cacheReservationBytesPerFrame = try checkedAdd(
             maximumArtifactBytes,

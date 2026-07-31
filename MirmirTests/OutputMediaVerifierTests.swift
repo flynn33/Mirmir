@@ -11,6 +11,15 @@ import XCTest
 // swiftlint:disable file_length
 // swiftlint:disable:next type_body_length
 final class OutputMediaVerifierTests: XCTestCase {
+    func testUnsupportedAudioFormatGuidanceNamesShippingExactCodecs() {
+        XCTAssertEqual(
+            MediaPipelineError.unsupportedAudioFormat("Opus").description,
+            "Audio preservation does not support source format Opus; "
+                + "exact passthrough accepts AAC, Apple Lossless, and "
+                + "supported interleaved Linear PCM."
+        )
+    }
+
     func testVerifierReopensDecodesAndChecksOneFrameNV12Output() async throws {
         let fixture = try MediaOutputFixture()
         defer { fixture.remove() }
@@ -40,6 +49,48 @@ final class OutputMediaVerifierTests: XCTestCase {
         XCTAssertGreaterThan(result.lumaPayloadBytes, 0)
         XCTAssertGreaterThan(result.chromaPayloadBytes, 0)
         XCTAssertEqual(CMTimeCompare(result.duration, duration), 0)
+    }
+
+    func testVerifierRejectsNonProgressiveScanExpectation()
+        async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let duration = CMTime(value: 1, timescale: 30)
+        try await writeOneFrameVideo(
+            to: fixture.source,
+            resolution: VideoResolution(width: 64, height: 64),
+            duration: duration
+        )
+
+        do {
+            _ = try await OutputMediaVerifier().verify(
+                url: fixture.source,
+                expectation: OutputMediaVerificationExpectation(
+                    resolution: VideoResolution(
+                        width: 64,
+                        height: 64
+                    ),
+                    codec: .h264,
+                    timing: try makeTimingSnapshot(
+                        presentationTime: .zero,
+                        duration: duration
+                    ),
+                    scanStructure: .interlacedTopFieldFirst
+                )
+            )
+            XCTFail("Expected scan-structure verification failure.")
+        } catch let error as OutputMediaVerificationError {
+            guard case .scanStructureMismatch(
+                let expected,
+                let actual
+            ) = error else {
+                return XCTFail(
+                    "Unexpected verification error: \(error)"
+                )
+            }
+            XCTAssertEqual(expected, .interlacedTopFieldFirst)
+            XCTAssertEqual(actual, .progressive)
+        }
     }
 
     func testVerifierRejectsVideoColorIdentityMismatch() async throws {

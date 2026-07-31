@@ -179,9 +179,13 @@ final class R13ReleaseEngineTerminalBoundaryTests: XCTestCase {
         )
         let snapshot = await appleSession.snapshot()
         XCTAssertGreaterThanOrEqual(snapshot.cancelCount, 1)
+        let modeBinding = R13ReleaseModePolicy.binding(
+            for: .deterministic
+        )
         XCTAssertTrue(
             eventLog.contains(
-                "input.release.r13.a11.input.deterministic.0"
+                "input.release.r13.release.input."
+                    + "\(modeBinding.backendID).deterministic.0"
             )
         )
     }

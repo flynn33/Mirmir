@@ -12,7 +12,10 @@ struct MirmirProductionRootView: View {
             case .ready:
                 readyView
             case .failed(let reason):
-                failureView(reason)
+                MirmirStartupFailureView(
+                    reason: reason,
+                    retry: { bootstrap.retryProductionBoot() }
+                )
             }
         }
     }
@@ -27,7 +30,27 @@ struct MirmirProductionRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private func failureView(_ reason: String) -> some View {
+    private var readyView: some View {
+        Group {
+            if let view = bootstrap.viewRegistry.resolve(viewID: MirmirUIConstants.primaryViewID) {
+                view
+            } else {
+                MirmirStartupFailureView(
+                    reason:
+                        "UI view \(MirmirUIConstants.primaryViewID) "
+                        + "is not registered",
+                    retry: { bootstrap.retryProductionBoot() }
+                )
+            }
+        }
+    }
+}
+
+struct MirmirStartupFailureView: View {
+    let reason: String
+    let retry: () -> Void
+
+    var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.octagon.fill")
                 .font(.system(size: 48))
@@ -39,17 +62,22 @@ struct MirmirProductionRootView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 24)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
 
-    private var readyView: some View {
-        Group {
-            if let view = bootstrap.viewRegistry.resolve(viewID: MirmirUIConstants.primaryViewID) {
-                view
-            } else {
-                failureView("UI view \(MirmirUIConstants.primaryViewID) is not registered")
+            HStack(spacing: 12) {
+                Button(action: retry) {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+
+                SettingsLink {
+                    Label(
+                        "Open Diagnostic Log Settings",
+                        systemImage: "doc.text.magnifyingglass"
+                    )
+                }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

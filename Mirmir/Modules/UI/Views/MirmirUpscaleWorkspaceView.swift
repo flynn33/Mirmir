@@ -5,13 +5,18 @@ struct MirmirUpscaleWorkspaceView: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
     let isCompact: Bool
+    let showLibrary: () -> Void
     var body: some View {
         ScrollView {
             VStack(spacing: theme.spacing.space4) {
                 HStack(alignment: .top, spacing: theme.spacing.space4) {
                     VStack(spacing: theme.spacing.space4) {
                         MirmirSourceStrip(viewModel: viewModel, theme: theme)
-                        MirmirViewerPanel(viewModel: viewModel, theme: theme)
+                        MirmirViewerPanel(
+                            viewModel: viewModel,
+                            theme: theme,
+                            showLibrary: showLibrary
+                        )
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
 
@@ -46,7 +51,7 @@ private struct MirmirSourceStrip: View {
                     Text(sourceSummary)
                         .font(theme.typography.body)
                         .foregroundStyle(theme.textSecondary)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
 
                 Spacer()
@@ -57,6 +62,7 @@ private struct MirmirSourceStrip: View {
                     Label("Choose Source", systemImage: "film.stack")
                 }
                 .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+                .disabled(!viewModel.jobConfigurationIsEditable)
                 .accessibilityLabel("Choose Source")
 
                 Button {
@@ -65,7 +71,10 @@ private struct MirmirSourceStrip: View {
                     Label("Select Destination", systemImage: "folder")
                 }
                 .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                .disabled(viewModel.sourceProfile == nil)
+                .disabled(
+                    viewModel.sourceProfile == nil
+                        || !viewModel.jobConfigurationIsEditable
+                )
                 .help(viewModel.sourceProfile == nil ? "Choose a source video before selecting a destination." : "Select Destination")
                 .accessibilityLabel("Select Destination")
             }
@@ -76,21 +85,182 @@ private struct MirmirSourceStrip: View {
         guard let profile = viewModel.sourceProfile else {
             return "Drop a video here or choose a source file."
         }
-        return profile.url.lastPathComponent + " - " + MirmirViewModel.fileLabel(for: profile.resolution)
+        let codec = profile.codecHint.flatMap {
+            $0.isEmpty ? nil : $0
+        } ?? "Codec unavailable"
+        let audio = profile.audioTrackDescription
+        return profile.url.lastPathComponent
+            + " · \(MirmirViewModel.fileLabel(for: profile.resolution))"
+            + " · \(Self.frameRate(profile.frameRate)) fps"
+            + " · \(Self.duration(profile.durationSeconds))"
+            + " · \(profile.scanStructure.displayName)"
+            + " · \(codec) · \(audio)"
+    }
+
+    private static func frameRate(_ value: Double) -> String {
+        value.formatted(
+            .number.precision(.fractionLength(0...3))
+        )
+    }
+
+    private static func duration(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else {
+            return "Duration unavailable"
+        }
+        let wholeSeconds = Int(seconds.rounded())
+        let hours = wholeSeconds / 3_600
+        let minutes = (wholeSeconds % 3_600) / 60
+        let remainingSeconds = wholeSeconds % 60
+        if hours > 0 {
+            return String(
+                format: "%d:%02d:%02d",
+                hours,
+                minutes,
+                remainingSeconds
+            )
+        }
+        return String(
+            format: "%d:%02d",
+            minutes,
+            remainingSeconds
+        )
+    }
+}
+
+private struct MirmirPreservationInventoryView: View {
+    let capability: SourceMediaPreservationCapability
+    let preserveAudio: Bool
+    let theme: MirmirThemeTokens
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+            Text("Source Media Inventory")
+                .font(theme.typography.captionEmphasis)
+                .foregroundStyle(theme.textPrimary)
+            Text(capability.inventorySummary)
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.textSecondary)
+
+            ForEach(capability.tracks) { track in
+                inventoryRow(
+                    title: track.displayName,
+                    detail: track.displaySummary,
+                    isCompatible: track.support.isCompatible
+                )
+            }
+            ForEach(capability.associations) { association in
+                inventoryRow(
+                    title: "Track association",
+                    detail: association.displaySummary,
+                    isCompatible:
+                        association.support.isCompatible
+                )
+            }
+            inventoryRow(
+                title: "Container metadata",
+                detail: capability.hasContainerMetadata
+                    ? "Present · \(capability.support.displayName)"
+                    : "None · \(capability.support.displayName)",
+                isCompatible: capability.support.isCompatible
+            )
+
+            if let failureReason {
+                Label(failureReason, systemImage: "exclamationmark.triangle")
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.warning)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(
+                        "Media preservation unavailable. "
+                            + failureReason
+                    )
+            } else {
+                Label(
+                    "Selected source media can be preserved exactly.",
+                    systemImage: "checkmark.circle"
+                )
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.success)
+            }
+        }
+        .padding(theme.spacing.space2)
+        .background(theme.surfaceInset)
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: theme.radius.radiusSmall,
+                style: .continuous
+            )
+        )
+        .overlay {
+            RoundedRectangle(
+                cornerRadius: theme.radius.radiusSmall,
+                style: .continuous
+            )
+            .stroke(theme.borderSubtle, lineWidth: 1)
+        }
+    }
+
+    private var failureReason: String? {
+        capability.failureReason(
+            preserveAudio: preserveAudio,
+            preserveSubtitles: true,
+            preserveMetadata: true
+        )
+    }
+
+    private func inventoryRow(
+        title: String,
+        detail: String,
+        isCompatible: Bool
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: theme.spacing.space2) {
+            Image(
+                systemName: isCompatible
+                    ? "checkmark.circle.fill"
+                    : "exclamationmark.triangle.fill"
+            )
+            .foregroundStyle(
+                isCompatible ? theme.success : theme.warning
+            )
+            .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                Text(title)
+                    .font(theme.typography.captionEmphasis)
+                    .foregroundStyle(theme.textPrimary)
+                Text(detail)
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
 private struct MirmirViewerPanel: View {
     @ObservedObject var viewModel: MirmirViewModel
     let theme: MirmirThemeTokens
+    let showLibrary: () -> Void
 
     @State private var splitPosition = 0.5
 
     var body: some View {
         MirmirPanel(theme: theme) {
             VStack(spacing: theme.spacing.space3) {
-                comparisonSurface
-                    .frame(minHeight: 360)
+                if let sourceURL = viewModel.sourceProfile?.url,
+                   let completedOutputURL =
+                    viewModel.completedOutputURL {
+                    MirmirCompletedComparisonPlaybackView(
+                        sourceURL: sourceURL,
+                        completedOutputURL: completedOutputURL,
+                        sourceResolutionText: sourceResolutionText,
+                        outputResolutionText: targetResolutionText,
+                        theme: theme,
+                        splitPosition: $splitPosition,
+                        showLibrary: showLibrary
+                    )
+                } else {
+                    comparisonSurface
+                        .frame(minHeight: 360)
+                }
 
                 MirmirSampledPreviewControls(
                     viewModel: viewModel,
@@ -258,7 +428,7 @@ struct MirmirPreviewPresentation {
         case .running:
             return "Waiting for the first processed preview sample."
         case .finished:
-            return "No processed preview sample was produced."
+            return "The verified completed output is ready for comparison playback."
         case .failed(let reason):
             return "Upscale failed: \(reason)"
         }
@@ -332,10 +502,12 @@ private struct MirmirSourceDropTarget: View {
                         Label("Choose Source", systemImage: "film.stack")
                     }
                     .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+                    .disabled(!viewModel.jobConfigurationIsEditable)
                     .accessibilityLabel("Choose Source")
                     Text(
-                        "Quality, Fast, and Deterministic use Apple MPS "
-                            + "Lanczos with a geometry-qualified route."
+                        "Choose Auto, Quality, Fast, Deterministic, or "
+                            + "Smooth Motion; "
+                            + "the resolved scaler is recorded with the output."
                     )
                         .font(theme.typography.caption)
                         .foregroundStyle(theme.textTertiary)
@@ -343,10 +515,19 @@ private struct MirmirSourceDropTarget: View {
                 .padding(theme.spacing.space6)
             }
             .onDrop(of: [UTType.fileURL], isTargeted: $isTargeted) { providers in
+                guard viewModel.jobConfigurationIsEditable else {
+                    return false
+                }
                 guard let provider = providers.first else { return false }
-                _ = provider.loadObject(ofClass: URL.self) { url, _ in
-                    if let url {
-                        Task { @MainActor in viewModel.loadSource(url: url) }
+                _ = provider.loadObject(
+                    ofClass: URL.self
+                ) { url, error in
+                    let errorDescription = error?.localizedDescription
+                    Task { @MainActor in
+                        viewModel.handleSourceDropProviderResult(
+                            url: url,
+                            errorDescription: errorDescription
+                        )
                     }
                 }
                 return true
@@ -364,7 +545,7 @@ private struct MirmirSampledPreviewControls: View {
         VStack(alignment: .leading, spacing: theme.spacing.space2) {
             HStack(spacing: theme.spacing.space2) {
                 Label(
-                    "Live sampled preview",
+                    comparisonHeading,
                     systemImage: "rectangle.split.2x1"
                 )
                 .font(theme.typography.captionEmphasis)
@@ -373,7 +554,7 @@ private struct MirmirSampledPreviewControls: View {
                     .font(theme.typography.caption.monospacedDigit())
                     .foregroundStyle(theme.textSecondary)
                 Spacer()
-                Text("Continuous playback and scrubbing are not included.")
+                Text(comparisonHelp)
                     .font(theme.typography.caption)
                     .foregroundStyle(theme.textTertiary)
             }
@@ -383,16 +564,50 @@ private struct MirmirSampledPreviewControls: View {
                     .font(theme.typography.captionEmphasis)
                     .foregroundStyle(theme.textSecondary)
                 Slider(value: $splitPosition, in: 0.2...0.8)
-                    .disabled(viewModel.latestPreviewFrame == nil)
+                    .disabled(!splitIsAvailable)
                     .accessibilityLabel("Before after split")
-                Text("Both sides show the same sampled production frame.")
+                Text(splitHelp)
                     .font(theme.typography.caption)
                     .foregroundStyle(theme.textTertiary)
             }
         }
     }
 
+    private var comparisonHeading: String {
+        viewModel.completedOutputURL == nil
+            ? "Live sampled preview"
+            : "Completed comparison"
+    }
+
+    private var comparisonHelp: String {
+        switch viewModel.state {
+        case .idle, .probing, .ready:
+            return "Continuous comparison becomes available after a verified output completes."
+        case .running:
+            return "Sampled frames update during processing; continuous playback follows completion."
+        case .finished:
+            return "Play, pause, or scrub the verified output in sync with the source."
+        case .failed:
+            return "The retained sample remains available; continuous playback requires a completed output."
+        }
+    }
+
+    private var splitHelp: String {
+        if viewModel.completedOutputURL != nil {
+            return "Both videos stay synchronized while you adjust the split."
+        }
+        return "Both sides show the same sampled production frame."
+    }
+
+    private var splitIsAvailable: Bool {
+        viewModel.completedOutputURL != nil
+            || viewModel.latestPreviewFrame != nil
+    }
+
     private var sampleText: String {
+        if let completedOutputURL = viewModel.completedOutputURL {
+            return completedOutputURL.lastPathComponent
+        }
         guard let frame = viewModel.latestPreviewFrame else {
             return "No processed sample yet"
         }
@@ -412,34 +627,44 @@ private struct MirmirUpscaleInspector: View {
             VStack(alignment: .leading, spacing: theme.spacing.space5) {
                 inspectorSection("Upscale Settings") {
                     MirmirFieldRow("Engine", theme: theme) {
-                        Picker("Engine", selection: Binding.constant(viewModel.engineSelectionText)) {
-                            Text(viewModel.engineSelectionText).tag(viewModel.engineSelectionText)
+                        Picker("Engine", selection: engineSelection) {
+                            ForEach(
+                                UpscaleEnginePreference.allCases
+                            ) { preference in
+                                Text(preference.title).tag(preference)
+                            }
                         }
                         .pickerStyle(.menu)
-                        .disabled(true)
-                        .help(viewModel.engineAvailabilityReason ?? "Direct reference processing is available.")
+                        .disabled(!viewModel.jobConfigurationIsEditable)
+                        .help(
+                            "Resolved engine: "
+                                + viewModel.engineSelectionText
+                        )
                     }
 
                     MirmirFieldRow("Strategy", theme: theme) {
-                        Picker("Strategy", selection: Binding.constant(strategyText)) {
-                            Text(strategyText).tag(strategyText)
+                        Picker("Strategy", selection: strategySelection) {
+                            ForEach(
+                                UpscaleStrategyPreference.allCases
+                            ) { preference in
+                                Text(preference.title).tag(preference)
+                            }
                         }
                         .pickerStyle(.menu)
-                        .disabled(true)
+                        .disabled(!viewModel.jobConfigurationIsEditable)
                         .help(
-                            "Mirmir selects the qualified A11 route for "
-                                + "canonical pairs or a dimension-bound "
-                                + "adaptive route for other eligible geometry."
+                            "Resolved strategy: \(strategyText)"
                         )
                     }
 
                     MirmirFieldRow("Mode", theme: theme) {
-                        Picker("Mode", selection: $viewModel.selectedMode) {
+                        Picker("Mode", selection: modeSelection) {
                             ForEach(UpscaleMode.allCases) { mode in
                                 Text(mode.title).tag(mode)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .disabled(!viewModel.jobConfigurationIsEditable)
                         .help(viewModel.selectedModeSummary)
                     }
                     Text(viewModel.selectedModeSummary)
@@ -449,29 +674,179 @@ private struct MirmirUpscaleInspector: View {
                                 ? theme.textTertiary
                                 : theme.warning
                         )
+
+                    if viewModel.selectedMode == .smoothMotion {
+                        MirmirFieldRow(
+                            "Output Cadence",
+                            theme: theme
+                        ) {
+                            Picker(
+                                "Output Cadence",
+                                selection: smoothMotionCadenceSelection
+                            ) {
+                                ForEach(
+                                    SmoothMotionCadence.allCases
+                                ) { cadence in
+                                    Text(cadence.title).tag(cadence)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(
+                                !viewModel.jobConfigurationIsEditable
+                            )
+                            .help(
+                                viewModel.smoothMotionCadence.summary
+                            )
+                        }
+
+                        MirmirFieldRow(
+                            "Scene Cut Protection",
+                            theme: theme
+                        ) {
+                            Picker(
+                                "Scene Cut Protection",
+                                selection:
+                                    smoothMotionSceneCutSelection
+                            ) {
+                                ForEach(
+                                    SmoothMotionSceneCutSensitivity
+                                        .allCases
+                                ) { sensitivity in
+                                    Text(sensitivity.title)
+                                        .tag(sensitivity)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .disabled(
+                                !viewModel.jobConfigurationIsEditable
+                            )
+                            .help(
+                                viewModel
+                                    .smoothMotionSceneCutSensitivity
+                                    .summary
+                            )
+                        }
+
+                        Text(
+                            "Mirmir preserves the source duration and "
+                                + "audio timing. It prefers Apple "
+                                + "VideoToolbox interpolation and uses "
+                                + "deterministic motion blending when "
+                                + "the native route is unavailable."
+                        )
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textTertiary)
+                    }
+
+                    MirmirFieldRow("Target", theme: theme) {
+                        Picker(
+                            "Target Resolution",
+                            selection: targetSelection
+                        ) {
+                            ForEach(
+                                viewModel.availableTargets,
+                                id: \.self
+                            ) { resolution in
+                                Text(
+                                    MirmirViewModel.fileLabel(
+                                        for: resolution
+                                    )
+                                )
+                                .tag(resolution)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .disabled(
+                            viewModel.availableTargets.isEmpty
+                                || !viewModel
+                                    .jobConfigurationIsEditable
+                        )
+                    }
                 }
 
                 inspectorSection("Quality Controls") {
                     Toggle(
                         "Temporal Consistency",
-                        isOn: Binding.constant(viewModel.engineAvailabilityReason == nil)
+                        isOn: temporalConsistencySelection
                     )
                         .font(theme.typography.body)
-                        .disabled(true)
-                        .help("This control is fixed and does not change the selected A11 release mode.")
+                        .disabled(!viewModel.jobConfigurationIsEditable)
+                        .help(
+                            "Motion-gated stabilization uses the previous "
+                                + "verified output frame."
+                        )
 
-                    segmentedLevel("Edge Fidelity", selection: .constant(.medium))
-                    segmentedLevel("Detail Recovery", selection: .constant(.medium))
+                    segmentedLevel(
+                        "Edge Fidelity",
+                        selection: edgeFidelitySelection
+                    )
+                    segmentedLevel(
+                        "Detail Recovery",
+                        selection: detailRecoverySelection
+                    )
+
+                    Toggle(
+                        "Edge Preservation",
+                        isOn: edgePreservationSelection
+                    )
+                    .font(theme.typography.body)
+                    .disabled(!viewModel.jobConfigurationIsEditable)
+                    .help(MirmirEffectOption.allOptions[0].summary)
+
+                    Toggle(
+                        "Compression Cleanup",
+                        isOn: compressionCleanupSelection
+                    )
+                    .font(theme.typography.body)
+                    .disabled(!viewModel.jobConfigurationIsEditable)
+                    .help(MirmirEffectOption.allOptions[1].summary)
+
+                    Toggle(
+                        "Texture / Grain Protection",
+                        isOn: textureGrainProtectionSelection
+                    )
+                    .font(theme.typography.body)
+                    .disabled(!viewModel.jobConfigurationIsEditable)
+                    .help(MirmirEffectOption.allOptions[2].summary)
+
+                    Toggle(
+                        "Temporal Stability",
+                        isOn: temporalStabilitySelection
+                    )
+                    .font(theme.typography.body)
+                    .disabled(!viewModel.jobConfigurationIsEditable)
+                    .help(MirmirEffectOption.allOptions[3].summary)
                 }
 
                 inspectorSection("Output") {
                     MirmirFieldRow("Output Format", theme: theme) {
-                        Picker("Output Format", selection: $viewModel.codec) {
+                        Picker("Output Format", selection: codecSelection) {
                             ForEach(OutputCodec.allCases) { codec in
                                 Text(codec.inspectorTitle).tag(codec)
                             }
                         }
                         .pickerStyle(.segmented)
+                        .disabled(!viewModel.jobConfigurationIsEditable)
+                    }
+
+                    Toggle(
+                        "Preserve Source Audio Tracks",
+                        isOn: preserveAudioSelection
+                    )
+                    .font(theme.typography.body)
+                    .disabled(
+                        viewModel.sourceProfile?.hasAudio != true
+                            || !viewModel.jobConfigurationIsEditable
+                    )
+                    .help(preserveAudioHelp)
+
+                    if let capability = viewModel.sourceProfile?
+                        .mediaPreservationCapability {
+                        MirmirPreservationInventoryView(
+                            capability: capability,
+                            preserveAudio: viewModel.preserveAudio,
+                            theme: theme
+                        )
                     }
 
                     MirmirFieldRow("Destination", theme: theme) {
@@ -482,7 +857,10 @@ private struct MirmirUpscaleInspector: View {
                                 .lineLimit(1)
                         }
                         .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
-                        .disabled(viewModel.sourceProfile == nil)
+                        .disabled(
+                            viewModel.sourceProfile == nil
+                                || !viewModel.jobConfigurationIsEditable
+                        )
                         .help(viewModel.sourceProfile == nil ? "Choose a source video before selecting a destination." : destinationHelp)
                     }
                 }
@@ -497,26 +875,172 @@ private struct MirmirUpscaleInspector: View {
         }
     }
 
+    private var modeSelection: Binding<UpscaleMode> {
+        Binding(
+            get: { viewModel.selectedMode },
+            set: { viewModel.selectModeForPendingJob($0) }
+        )
+    }
+
+    private var targetSelection: Binding<VideoResolution> {
+        Binding(
+            get: { viewModel.targetResolution },
+            set: { viewModel.selectTargetForPendingJob($0) }
+        )
+    }
+
+    private var smoothMotionCadenceSelection:
+        Binding<SmoothMotionCadence> {
+        Binding(
+            get: { viewModel.smoothMotionCadence },
+            set: {
+                viewModel.selectSmoothMotionCadenceForPendingJob($0)
+            }
+        )
+    }
+
+    private var smoothMotionSceneCutSelection:
+        Binding<SmoothMotionSceneCutSensitivity> {
+        Binding(
+            get: { viewModel.smoothMotionSceneCutSensitivity },
+            set: {
+                viewModel
+                    .selectSmoothMotionSceneCutSensitivityForPendingJob(
+                        $0
+                    )
+            }
+        )
+    }
+
+    private var codecSelection: Binding<OutputCodec> {
+        Binding(
+            get: { viewModel.codec },
+            set: { viewModel.selectCodecForPendingJob($0) }
+        )
+    }
+
+    private var engineSelection:
+        Binding<UpscaleEnginePreference> {
+        Binding(
+            get: { viewModel.enginePreference },
+            set: { viewModel.selectEngineForPendingJob($0) }
+        )
+    }
+
+    private var strategySelection:
+        Binding<UpscaleStrategyPreference> {
+        Binding(
+            get: { viewModel.strategyPreference },
+            set: { viewModel.selectStrategyForPendingJob($0) }
+        )
+    }
+
+    private var temporalConsistencySelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.temporalConsistencyEnabled },
+            set: {
+                viewModel.setTemporalConsistencyForPendingJob($0)
+            }
+        )
+    }
+
+    private var preserveAudioSelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.preserveAudio },
+            set: { viewModel.setPreserveAudioForPendingJob($0) }
+        )
+    }
+
+    private var preserveAudioHelp: String {
+        guard let profile = viewModel.sourceProfile,
+              profile.audioTrackCount > 0 else {
+            return "The selected source has no audio tracks."
+        }
+        if profile.audioTrackCount == 1 {
+            return "Copy the source audio track into the completed video."
+        }
+        return "Copy all \(profile.audioTrackCount) source audio tracks "
+            + "into the completed video in their original order."
+    }
+
+    private var edgeFidelitySelection:
+        Binding<MirmirAdjustmentLevel> {
+        Binding(
+            get: { viewModel.edgeFidelityLevel },
+            set: {
+                viewModel.selectEdgeFidelityForPendingJob($0)
+            }
+        )
+    }
+
+    private var detailRecoverySelection:
+        Binding<MirmirAdjustmentLevel> {
+        Binding(
+            get: { viewModel.detailRecoveryLevel },
+            set: {
+                viewModel.selectDetailRecoveryForPendingJob($0)
+            }
+        )
+    }
+
+    private var edgePreservationSelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.edgePreservationEnabled },
+            set: {
+                viewModel.setEdgePreservationForPendingJob($0)
+            }
+        )
+    }
+
+    private var compressionCleanupSelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.compressionCleanupEnabled },
+            set: {
+                viewModel.setCompressionCleanupForPendingJob($0)
+            }
+        )
+    }
+
+    private var textureGrainProtectionSelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.textureGrainProtectionEnabled },
+            set: {
+                viewModel.setTextureGrainProtectionForPendingJob($0)
+            }
+        )
+    }
+
+    private var temporalStabilitySelection: Binding<Bool> {
+        Binding(
+            get: { viewModel.temporalStabilityEnabled },
+            set: {
+                viewModel.setTemporalStabilityForPendingJob($0)
+            }
+        )
+    }
+
     private var strategyText: String {
         if viewModel.engineAvailabilityReason != nil {
             return "Not available"
         }
+        let engine = viewModel.engineSelectionText
         guard let profile = viewModel.sourceProfile else {
-            return "MPS Lanczos route"
+            return "\(engine) route"
         }
         let source = MirmirViewModel.fileLabel(for: profile.resolution)
         let target = MirmirViewModel.fileLabel(for: viewModel.targetResolution)
         guard let plan = try? R13ReleaseJobContracts.scalePlan(
             source: profile.resolution,
-            target: viewModel.targetResolution
+            target: viewModel.targetResolution,
+            strategyPreference: viewModel.strategyPreference
         ) else {
-            return "No compatible MPS route"
+            return "No compatible scaling route"
         }
         switch plan {
         case .productQualified:
-            return "Qualified A11 MPS Lanczos (\(source) to \(target))"
+            return "Direct \(engine) (\(source) to \(target))"
         case .adaptiveMPSLanczos:
-            return "Adaptive MPS Lanczos (\(source) to \(target))"
+            return "Adaptive \(engine) (\(source) to \(target))"
         }
     }
 
@@ -552,8 +1076,7 @@ private struct MirmirUpscaleInspector: View {
                 }
             }
             .pickerStyle(.segmented)
-            .disabled(true)
-            .help("This adjustment is not implemented yet.")
+            .disabled(!viewModel.jobConfigurationIsEditable)
         }
     }
 }

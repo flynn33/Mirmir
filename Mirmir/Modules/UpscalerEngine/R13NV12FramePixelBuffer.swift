@@ -7,88 +7,108 @@ extension R13NV12Frame {
     static func captureTightActivePlanes(
         from pixelBuffer: CVPixelBuffer
     ) throws -> R13NV12Frame {
-        let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
-        guard pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
-            throw R13NV12FrameCacheError.unsupportedPixelFormat(pixelFormat)
+        let tight: R13TightPixelFrame
+        do {
+            tight = try R13TightPixelFrame(capturing: pixelBuffer)
+        } catch let error as R13PixelLayoutError {
+            switch error {
+            case .unsupportedPixelFormat(let pixelFormat):
+                throw R13NV12FrameCacheError
+                    .unsupportedPixelFormat(pixelFormat)
+            default:
+                throw R13NV12FrameCacheError
+                    .inaccessiblePlane(String(describing: error))
+            }
         }
-        let width = CVPixelBufferGetWidth(pixelBuffer)
-        let height = CVPixelBufferGetHeight(pixelBuffer)
-        let counts = try expectedPlaneByteCounts(width: width, height: height)
-        guard CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
-            throw R13NV12FrameCacheError.inaccessiblePlane("plane_count")
-        }
-
-        let lockStatus = CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
-        guard lockStatus == kCVReturnSuccess else {
-            throw R13NV12FrameCacheError.inaccessiblePlane("lock")
-        }
-        defer {
-            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
-        }
-
-        let luma = try copyActivePlane(
-            pixelBuffer,
-            plane: 0,
-            activeBytesPerRow: width,
-            activeRowCount: height,
-            outputByteCount: counts.luma,
-            role: "luma"
-        )
-        let chroma = try copyActivePlane(
-            pixelBuffer,
-            plane: 1,
-            activeBytesPerRow: width,
-            activeRowCount: height / 2,
-            outputByteCount: counts.chroma,
-            role: "chroma"
-        )
+        let chroma =
+            tight.planes.count > 1 ? tight.planes[1] : Data()
+        let auxiliary =
+            tight.planes.count > 2
+            ? Array(tight.planes.dropFirst(2))
+            : []
         return try R13NV12Frame(
-            width: width,
-            height: height,
-            luma: luma,
-            chroma: chroma
+            width: tight.width,
+            height: tight.height,
+            pixelFormat: tight.pixelFormat,
+            luma: tight.planes[0],
+            chroma: chroma,
+            auxiliaryPlanes: auxiliary
         )
     }
 
     func makeVideoRangePixelBuffer() throws -> CVPixelBuffer {
-        var optionalPixelBuffer: CVPixelBuffer?
-        let status = CVPixelBufferCreate(
-            kCFAllocatorDefault,
-            width,
-            height,
-            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
-            nil,
-            &optionalPixelBuffer
-        )
-        guard status == kCVReturnSuccess,
-              let pixelBuffer = optionalPixelBuffer else {
-            throw R13NV12FrameCacheError.pixelBufferCreationFailed(status)
+        guard pixelFormat
+                == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange else {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
         }
-        let lockStatus = CVPixelBufferLockBaseAddress(pixelBuffer, [])
-        guard lockStatus == kCVReturnSuccess else {
-            throw R13NV12FrameCacheError.inaccessiblePlane("lock")
-        }
-        defer {
-            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
-        }
-        try Self.copyTightPlane(
-            luma,
-            to: pixelBuffer,
-            plane: 0,
-            activeBytesPerRow: width,
-            activeRowCount: height,
-            role: "luma"
-        )
-        try Self.copyTightPlane(
-            chroma,
-            to: pixelBuffer,
-            plane: 1,
-            activeBytesPerRow: width,
-            activeRowCount: height / 2,
-            role: "chroma"
-        )
+        let pixelBuffer = try makePixelBuffer()
         Self.attachCanonicalColorMetadata(to: pixelBuffer)
         return pixelBuffer
+    }
+
+    func makePixelBuffer(
+        videoFormat: MediaVideoFormat
+    ) throws -> CVPixelBuffer {
+        guard videoFormat.pixelStorage.pixelFormat == pixelFormat else {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
+        }
+        let pixelBuffer = try makePixelBuffer()
+        videoFormat.installAttachments(on: pixelBuffer)
+        try videoFormat.validate(pixelBuffer: pixelBuffer)
+        return pixelBuffer
+    }
+
+    private func makePixelBuffer() throws -> CVPixelBuffer {
+        let planes =
+            [luma]
+            + (chroma.isEmpty ? [] : [chroma])
+            + auxiliaryPlanes
+        do {
+            return try R13TightPixelFrame(
+                width: width,
+                height: height,
+                pixelFormat: pixelFormat,
+                planes: planes
+            ).makePixelBuffer()
+        } catch let error as R13PixelLayoutError {
+            switch error {
+            case .pixelBufferCreationFailed(let status):
+                throw R13NV12FrameCacheError
+                    .pixelBufferCreationFailed(status)
+            case .unsupportedPixelFormat(let format):
+                throw R13NV12FrameCacheError
+                    .unsupportedPixelFormat(format)
+            default:
+                throw R13NV12FrameCacheError
+                    .inaccessiblePlane(String(describing: error))
+            }
+        }
+    }
+
+    private static func copyActivePackedBuffer(
+        _ pixelBuffer: CVPixelBuffer,
+        activeBytesPerRow: Int,
+        activeRowCount: Int,
+        outputByteCount: Int
+    ) throws -> Data {
+        guard let baseAddress =
+                CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw R13NV12FrameCacheError.inaccessiblePlane("packed")
+        }
+        return try copyRows(
+            baseAddress,
+            storedBytesPerRow:
+                CVPixelBufferGetBytesPerRow(pixelBuffer),
+            storedHeight: CVPixelBufferGetHeight(pixelBuffer),
+            activeBytesPerRow: activeBytesPerRow,
+            activeRowCount: activeRowCount,
+            outputByteCount: outputByteCount,
+            role: "packed"
+        )
     }
 
     private static func copyActivePlane(
@@ -105,11 +125,31 @@ extension R13NV12Frame {
         ) else {
             throw R13NV12FrameCacheError.inaccessiblePlane(role)
         }
-        let storedBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(
-            pixelBuffer,
-            plane
+        return try copyRows(
+            baseAddress,
+            storedBytesPerRow:
+                CVPixelBufferGetBytesPerRowOfPlane(
+                    pixelBuffer,
+                    plane
+                ),
+            storedHeight:
+                CVPixelBufferGetHeightOfPlane(pixelBuffer, plane),
+            activeBytesPerRow: activeBytesPerRow,
+            activeRowCount: activeRowCount,
+            outputByteCount: outputByteCount,
+            role: role
         )
-        let storedHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+    }
+
+    private static func copyRows(
+        _ baseAddress: UnsafeMutableRawPointer,
+        storedBytesPerRow: Int,
+        storedHeight: Int,
+        activeBytesPerRow: Int,
+        activeRowCount: Int,
+        outputByteCount: Int,
+        role: String
+    ) throws -> Data {
         guard storedBytesPerRow >= activeBytesPerRow,
               storedHeight >= activeRowCount else {
             throw R13NV12FrameCacheError.inaccessiblePlane(role)
@@ -133,6 +173,28 @@ extension R13NV12Frame {
         return output
     }
 
+    private static func copyTightPackedBuffer(
+        _ source: Data,
+        to pixelBuffer: CVPixelBuffer,
+        activeBytesPerRow: Int,
+        activeRowCount: Int
+    ) throws {
+        guard let destination =
+                CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw R13NV12FrameCacheError.inaccessiblePlane("packed")
+        }
+        try copyTightRows(
+            source,
+            to: destination,
+            destinationBytesPerRow:
+                CVPixelBufferGetBytesPerRow(pixelBuffer),
+            destinationHeight: CVPixelBufferGetHeight(pixelBuffer),
+            activeBytesPerRow: activeBytesPerRow,
+            activeRowCount: activeRowCount,
+            role: "packed"
+        )
+    }
+
     private static func copyTightPlane(
         _ source: Data,
         to pixelBuffer: CVPixelBuffer,
@@ -147,14 +209,31 @@ extension R13NV12Frame {
         ) else {
             throw R13NV12FrameCacheError.inaccessiblePlane(role)
         }
-        let destinationBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(
-            pixelBuffer,
-            plane
+        try copyTightRows(
+            source,
+            to: destination,
+            destinationBytesPerRow:
+                CVPixelBufferGetBytesPerRowOfPlane(
+                    pixelBuffer,
+                    plane
+                ),
+            destinationHeight:
+                CVPixelBufferGetHeightOfPlane(pixelBuffer, plane),
+            activeBytesPerRow: activeBytesPerRow,
+            activeRowCount: activeRowCount,
+            role: role
         )
-        let destinationHeight = CVPixelBufferGetHeightOfPlane(
-            pixelBuffer,
-            plane
-        )
+    }
+
+    private static func copyTightRows(
+        _ source: Data,
+        to destination: UnsafeMutableRawPointer,
+        destinationBytesPerRow: Int,
+        destinationHeight: Int,
+        activeBytesPerRow: Int,
+        activeRowCount: Int,
+        role: String
+    ) throws {
         guard destinationBytesPerRow >= activeBytesPerRow,
               destinationHeight >= activeRowCount else {
             throw R13NV12FrameCacheError.inaccessiblePlane(role)

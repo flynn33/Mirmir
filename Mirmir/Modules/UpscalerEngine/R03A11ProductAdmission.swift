@@ -1,18 +1,19 @@
 import Foundation
 
 struct R03A11ProductAdmissionAuthorization: Sendable {
-    fileprivate init() {}
+    init() {}
 }
 
 enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
     case fixtureOnly
     case productQualifiedA11
+    case productQualifiedReleaseScaler(R13ReleaseScalerKind)
 
     var admissionScope: AppleUpscaleAdmissionScope {
         switch self {
         case .fixtureOnly:
             return .fixtureOnly
-        case .productQualifiedA11:
+        case .productQualifiedA11, .productQualifiedReleaseScaler:
             return .product
         }
     }
@@ -23,6 +24,8 @@ enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
             return R03DeterministicBackendCatalog.policyIdentity
         case .productQualifiedA11:
             return R03A11ProductAdmission.policyIdentity
+        case .productQualifiedReleaseScaler(let kind):
+            return kind.policyIdentity
         }
     }
 
@@ -32,6 +35,17 @@ enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
             return R03DeterministicBackendCatalog.materialDecisionIdentity
         case .productQualifiedA11:
             return R03A11ProductAdmission.materialDecisionIdentity
+        case .productQualifiedReleaseScaler(let kind):
+            return kind.materialDecisionIdentity
+        }
+    }
+
+    var requiresProductAuthorization: Bool {
+        switch self {
+        case .fixtureOnly:
+            return false
+        case .productQualifiedA11, .productQualifiedReleaseScaler:
+            return true
         }
     }
 
@@ -46,6 +60,12 @@ enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
                 && subject.frameworkIdentity == R03A11ProductAdmission.frameworkIdentity
                 && subject.qualificationRole == .deterministicGPUQualityBaseline
                 && subject.productDefaultEligibility == .candidateAfterObservedQualification
+                && subject.routeIDs == [.scale3Over2, .scale2x]
+        case .productQualifiedReleaseScaler(let kind):
+            return subject.id == kind.subjectID
+                && subject.kind == .wholeFrameBackend
+                && subject.capabilityID == kind.capabilityID
+                && subject.frameworkIdentity == kind.frameworkIdentity
                 && subject.routeIDs == [.scale3Over2, .scale2x]
         }
     }
@@ -64,7 +84,37 @@ enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
             return capability.id.rawValue == R03A11ProductAdmission.capabilityID
                 && capability.backendEligibility == .productQualified
                 && capability.isEligible(for: .product)
+        case .productQualifiedReleaseScaler(let kind):
+            return capability.id.rawValue == kind.capabilityID
+                && capability.frameworkIdentity == kind.frameworkIdentity
+                && capability.backendEligibility == .productQualified
+                && capability.isEligible(for: .product)
         }
+    }
+}
+
+enum R13ReleaseScalerAdmission {
+    static func makeProductSessionContext(
+        for kind: R13ReleaseScalerKind
+    ) throws -> AppleUpscaleSessionContext {
+        if kind == .deterministicMPSLanczos {
+            return try R03A11ProductAdmission.makeProductSessionContext()
+        }
+        let capability = try AppleUpscaleCapability(
+            id: AppleUpscaleCapabilityID(kind.capabilityID),
+            role: .primaryScaler,
+            frameworkIdentity: kind.frameworkIdentity,
+            observationStatus: .observed,
+            runtimeDisposition: .runnable,
+            backendEligibility: .productQualified
+        )
+        return try AppleUpscaleSessionContext(
+            capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                capabilities: [capability]
+            ),
+            admissionScope: .product,
+            policyIdentity: kind.policyIdentity
+        )
     }
 }
 

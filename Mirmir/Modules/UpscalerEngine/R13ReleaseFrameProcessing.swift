@@ -681,7 +681,7 @@ struct R13BackendFrameProcessingError:
     let failure: AppleUpscaleBackendFailed
 
     var description: String {
-        "A11 failed frame \(frameIndex): \(failure.reason)"
+        "The release scaler failed frame \(frameIndex): \(failure.reason)"
     }
 }
 
@@ -693,36 +693,97 @@ extension R13ReleaseUpscalerJobHandle {
         route: R03ScaleRoute,
         mediaSession: MediaSession,
         upscaleBinding: R13ReleaseUpscaleSessionBinding,
+        enhancementProcessor: R13ReleaseFormatEnhancementProcessor,
         hardeningAttempt: R13ReleaseHardeningAttempt?
     ) async throws -> Bool {
         let disposition = try await hardeningAttempt?
             .disposition(forFrameAt: record.frameIndex)
         if disposition == .replayVerifiedCache {
-            let cachedFrame = try await hardeningAttempt?
-                .replayFrame(at: record.frameIndex)
-            guard let cachedFrame else {
+            let replay = try await hardeningAttempt?
+                .replayFrameWithRoutingDecision(
+                    at: record.frameIndex
+                )
+            guard let replay else {
                 throw UpscalerEngineError.strategyFailed(
                     "R13 cache replay did not return its verified frame."
                 )
             }
-            let pixelBuffer = try cachedFrame.makeVideoRangePixelBuffer()
+            let normalizedSource = try runtime.normalizer.normalize(
+                record.pixelBuffer,
+                codedResolution: source.codedResolution,
+                presentationResolution: source.resolution,
+                pixelAspectRatio: source.pixelAspectRatio
+            )
+            if let routingDecision = replay.routingDecision {
+                guard let replayer =
+                    upscaleBinding.session
+                        as? any R13ProductASHDecisionReplaying else {
+                    throw UpscalerEngineError.strategyFailed(
+                        "R13 routed cache replay requires a decision-aware session."
+                    )
+                }
+                let tokenIdentity =
+                    "r13.release.replay.input."
+                    + "\(runtime.modeBinding.backendID)."
+                    + "\(record.frameIndex)"
+                let inputToken =
+                    try AppleUpscaleResourceLifetimeToken(
+                        identity: tokenIdentity,
+                        releaseAction: {
+                            runtime.inputReleaseObserver(
+                                tokenIdentity
+                            )
+                        }
+                    )
+                let replayFrame: AppleUpscaleFrame
+                do {
+                    replayFrame = try AppleUpscaleFrame(
+                        sequenceNumber: record.frameIndex,
+                        pixelBuffer: normalizedSource,
+                        presentationTimestamp:
+                            record.presentationTime,
+                        duration: record.duration,
+                        colorDescription:
+                            R03NV12Contract
+                                .makeColorDescription(),
+                        metadataIdentity:
+                            AppleUpscaleMetadataIdentity(
+                                "r13.release.replay.frame."
+                                    + "\(runtime.modeBinding.backendID)."
+                                    + "\(record.frameIndex)"
+                            ),
+                        resourceLifetimeToken: inputToken
+                    )
+                } catch {
+                    inputToken.release()
+                    throw error
+                }
+                try await replayer.replayCachedDecision(
+                    replayFrame,
+                    decision: routingDecision,
+                    isFinalCachedPrefixFrame:
+                        replay.isFinalCachedPrefixFrame,
+                    requiresBackendWarmup:
+                        replay.requiresBackendWarmup
+                )
+            }
+            let pixelBuffer =
+                try replay.frame.makeVideoRangePixelBuffer()
             try R03NV12Contract.validate(
                 pixelBuffer: pixelBuffer,
                 resolution: route.canonicalTargetResolution
             )
+            if enhancementProcessor.temporalConsistencyEnabled {
+                try enhancementProcessor.restoreTemporalHistory(
+                    from: pixelBuffer
+                )
+            }
             try await mediaSession.appendOutput(
                 pixelBuffer: pixelBuffer,
                 timing: record.timing
             )
             runtime.previewEmitter.offer(
-                source: {
-                    try runtime.normalizer.normalize(
-                        record.pixelBuffer,
-                        codedResolution: source.codedResolution,
-                        presentationResolution: source.resolution,
-                        pixelAspectRatio: source.pixelAspectRatio
-                    )
-                },
+                source: { normalizedSource },
                 processed: pixelBuffer,
                 sourcePresentationResolution: source.resolution,
                 frameIndex: record.frameIndex,
@@ -737,7 +798,9 @@ extension R13ReleaseUpscalerJobHandle {
             route: route,
             runtime: runtime,
             session: upscaleBinding.session,
+            upscaleBinding: upscaleBinding,
             mediaSession: mediaSession,
+            enhancementProcessor: enhancementProcessor,
             hardeningAttempt: hardeningAttempt
         )
         return true
@@ -749,7 +812,9 @@ extension R13ReleaseUpscalerJobHandle {
         route: R03ScaleRoute,
         runtime: R13ReleaseJobRuntime,
         session: any AppleUpscaleSession,
+        upscaleBinding: R13ReleaseUpscaleSessionBinding,
         mediaSession: MediaSession,
+        enhancementProcessor: R13ReleaseFormatEnhancementProcessor,
         hardeningAttempt: R13ReleaseHardeningAttempt?
     ) async throws {
         let normalized = try runtime.normalizer.normalize(
@@ -759,7 +824,10 @@ extension R13ReleaseUpscalerJobHandle {
             pixelAspectRatio: source.pixelAspectRatio
         )
         let inputTokenIdentity =
-            "r13.a11.input.\(runtime.modeBinding.requestedMode.rawValue).\(record.frameIndex)"
+            "r13.release.input."
+            + "\(runtime.modeBinding.backendID)."
+            + "\(runtime.modeBinding.requestedMode.rawValue)."
+            + "\(record.frameIndex)"
         let inputToken = try AppleUpscaleResourceLifetimeToken(
             identity: inputTokenIdentity,
             releaseAction: {
@@ -773,7 +841,9 @@ extension R13ReleaseUpscalerJobHandle {
             duration: record.duration,
             colorDescription: R03NV12Contract.makeColorDescription(),
             metadataIdentity: AppleUpscaleMetadataIdentity(
-                "r13.a11.frame.\(record.frameIndex)"
+                "r13.release.frame."
+                    + "\(runtime.modeBinding.backendID)."
+                    + "\(record.frameIndex)"
             ),
             resourceLifetimeToken: inputToken
         )
@@ -785,7 +855,9 @@ extension R13ReleaseUpscalerJobHandle {
             route: route,
             runtime: runtime,
             session: session,
+            upscaleBinding: upscaleBinding,
             mediaSession: mediaSession,
+            enhancementProcessor: enhancementProcessor,
             hardeningAttempt: hardeningAttempt
         )
     }
@@ -797,7 +869,9 @@ extension R13ReleaseUpscalerJobHandle {
         route: R03ScaleRoute,
         runtime: R13ReleaseJobRuntime,
         session: any AppleUpscaleSession,
+        upscaleBinding: R13ReleaseUpscaleSessionBinding,
         mediaSession: MediaSession,
+        enhancementProcessor: R13ReleaseFormatEnhancementProcessor,
         hardeningAttempt: R13ReleaseHardeningAttempt?
     ) async throws {
         switch outcome {
@@ -810,23 +884,34 @@ extension R13ReleaseUpscalerJobHandle {
                 expectedProcessingIdentity: try AppleUpscaleProcessingIdentity(
                     route: await session.identity,
                     fallbackHistory: []
-                )
+                ),
+                admittedFrameRouteIdentities:
+                    upscaleBinding.admittedFrameRouteIdentities
             )
             try Task.checkCancellation()
-            let cacheFrame = try R13NV12Frame.captureTightActivePlanes(
-                from: processed.pixelBuffer
+            let enhanced = try enhancementProcessor.process(
+                processed.pixelBuffer
             )
+            let cacheFrame = try R13NV12Frame.captureTightActivePlanes(
+                from: enhanced
+            )
+            let routingDecision =
+                try await routingDecisionEvent(
+                    forFrameAt: source.frameIndex,
+                    session: session
+                )
             try await hardeningAttempt?.commit(
                 frame: cacheFrame,
+                routingDecision: routingDecision,
                 at: source.frameIndex
             )
             try await mediaSession.appendOutput(
-                pixelBuffer: processed.pixelBuffer,
+                pixelBuffer: enhanced,
                 timing: source.timing
             )
             runtime.previewEmitter.offer(
                 source: { normalizedSource },
-                processed: processed.pixelBuffer,
+                processed: enhanced,
                 sourcePresentationResolution:
                     route.canonicalSourceResolution,
                 frameIndex: source.frameIndex,
@@ -842,7 +927,8 @@ extension R13ReleaseUpscalerJobHandle {
                 throw UpscalerEngineError.cancelled
             }
             throw UpscalerEngineError.strategyFailed(
-                "A11 rejected frame \(source.frameIndex): \(rejected.reason)"
+                "The release scaler rejected frame "
+                    + "\(source.frameIndex): \(rejected.reason)"
             )
         case .failed(let failure):
             throw R13BackendFrameProcessingError(
@@ -850,6 +936,26 @@ extension R13ReleaseUpscalerJobHandle {
                 failure: failure
             )
         }
+    }
+
+    private static func routingDecisionEvent(
+        forFrameAt frameIndex: Int,
+        session: any AppleUpscaleSession
+    ) async throws -> R13ProductASHDecisionEvent? {
+        guard let reporter =
+            session as? any R13ProductASHDecisionReporting else {
+            return nil
+        }
+        let matches = await reporter.decisionSummary()
+            .events.filter {
+                $0.sequenceNumber == frameIndex
+            }
+        guard matches.count == 1 else {
+            throw UpscalerEngineError.strategyFailed(
+                "R13 routed frame did not publish one exact decision event."
+            )
+        }
+        return matches[0]
     }
 }
 

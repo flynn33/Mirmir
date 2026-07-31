@@ -209,7 +209,9 @@ extension R13ReleaseHardeningRuntime {
                         source: Self.processingSourceResolution(
                             for: scalePlan
                         ),
-                        target: job.targetResolution
+                        target: job.targetResolution,
+                        pixelFormat:
+                            modeBinding.executionFormat.pixelFormat
                     )
                 )
                 let admission = await resourceGovernor.admit(request)
@@ -319,13 +321,17 @@ extension R13ReleaseHardeningRuntime {
             scalePlan: scalePlan,
             modeBinding: modeBinding,
             source: observedSource,
-            environment: environmentCollector.collect(),
-            policyResources: documents.policyResources
+            environment: environmentCollector.collect(
+                frameworkIdentity: modeBinding.frameworkIdentity
+            ),
+            policyResources: documents.policyResources,
+            sourceScanStructure: source.scanStructure
         )
         let core = try Self.makeRestartCore(
             job: job,
             scalePlan: scalePlan,
             identity: identity,
+            modeBinding: modeBinding,
             source: observedSource,
             totalFrameCount: totalFrameCount
         )
@@ -378,6 +384,8 @@ extension R13ReleaseHardeningRuntime {
                 R13StoragePreflightRequest(
                     outputWidth: job.targetResolution.width,
                     outputHeight: job.targetResolution.height,
+                    pixelFormat:
+                        modeBinding.executionFormat.pixelFormat,
                     totalFrameCount: max(remainingFrameCount, 1),
                     expectedFinalOutputBytes: outputSharesCacheVolume
                         ? expectedFinalizationPeakBytes : 1,
@@ -421,10 +429,12 @@ extension R13ReleaseHardeningRuntime {
         jobs.reserveCapacity(listing.descriptors.count)
         for descriptor in listing.descriptors {
             do {
-                let cachedPrefixCount = try await restartStore
-                    .validateRecoverableJob(
+                let persisted = try await restartStore
+                    .validatedRecoverableJob(
                     jobID: descriptor.jobID
                 )
+                try descriptor.validate(against: persisted)
+                let cachedPrefixCount = persisted.cachedFrameCount
                 try await bookmarkStore.validateAccessDocument(
                     jobID: descriptor.jobID
                 )
@@ -481,6 +491,10 @@ extension R13ReleaseHardeningRuntime {
         outputDirectoryURL: URL
     ) async throws -> R13ResolvedRecoverableUpscaleJob {
         let descriptor = try await recoveryStore.load(jobID: id)
+        let persisted = try await restartStore.validatedRecoverableJob(
+            jobID: descriptor.jobID
+        )
+        try descriptor.validate(against: persisted)
         let observedSource = try sourceMeasurer.measureSource(at: sourceURL)
         try await restartStore.validateRecoverableSource(
             jobID: descriptor.jobID,
@@ -505,9 +519,11 @@ extension R13ReleaseHardeningRuntime {
     private func resolveRecoverableJob(
         descriptor: R13RecoveryDescriptor
     ) async throws -> R13ResolvedRecoverableUpscaleJob {
-        let cachedPrefixCount = try await restartStore.validateRecoverableJob(
+        let persisted = try await restartStore.validatedRecoverableJob(
             jobID: descriptor.jobID
         )
+        try descriptor.validate(against: persisted)
+        let cachedPrefixCount = persisted.cachedFrameCount
         let access = try await bookmarkStore.resolveAccess(
             jobID: descriptor.jobID,
             resolver: bookmarkResolver

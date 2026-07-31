@@ -455,6 +455,181 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         XCTAssertEqual(factoryCount.value, 0)
     }
 
+    func testNativeProductAdmissionCreatesExactRouteSession() async throws {
+        let runtime = R04RecordingVideoToolboxRuntime(
+            lowLatencySupport: .observed([.two])
+        )
+        let backend = try R04VideoToolboxBackend(
+            subjectID: .lowLatency2x,
+            modelAssetsIdentity: .notRequired,
+            runtimeFactory: { runtime },
+            admissionPolicy: .nativeProduct
+        )
+        let capability = try AppleUpscaleCapability(
+            id: backend.capabilityID,
+            role: .primaryScaler,
+            frameworkIdentity: "VideoToolbox",
+            observationStatus: .observed,
+            runtimeDisposition: .runnable,
+            backendEligibility: .productQualified
+        )
+        let context = try AppleUpscaleSessionContext(
+            capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                capabilities: [capability]
+            ),
+            admissionScope: .product,
+            policyIdentity: backend.routeIdentity.policyIdentity
+        )
+
+        let outcome = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: context
+        )
+
+        guard case .created(let session) = outcome else {
+            return XCTFail("Expected native-product VideoToolbox session")
+        }
+        let identity = await session.identity
+        XCTAssertEqual(
+            identity.policyIdentity,
+            R04VideoToolboxBackendAdmissionPolicy.nativeProduct.policyIdentity
+        )
+        XCTAssertTrue(identity.configurationIdentity.contains("observed"))
+        _ = await session.finish()
+        let snapshot = await runtime.snapshot()
+        XCTAssertEqual(snapshot.lowLatencyQueries, [.p1080])
+        XCTAssertEqual(snapshot.configurationQueries, [.lowLatency2x])
+    }
+
+    func testNativeCapabilityObserverQualifiesOnlyValidatedRunnableRoute() async throws {
+        let runtime = R04RecordingVideoToolboxRuntime(
+            lowLatencySupport: .observed([.two])
+        )
+
+        let observation = try await R04VideoToolboxNativeCapabilityObserver.observe(
+            subjectID: .lowLatency2x,
+            runtimeFactory: { runtime }
+        )
+
+        XCTAssertEqual(observation.status, .runnable)
+        XCTAssertNotNil(observation.diagnostics)
+        XCTAssertEqual(observation.capability.observationStatus, .observed)
+        XCTAssertEqual(observation.capability.runtimeDisposition, .runnable)
+        XCTAssertEqual(
+            observation.capability.backendEligibility,
+            .productQualified
+        )
+        XCTAssertTrue(observation.capability.isEligible(for: .product))
+        XCTAssertFalse(observation.capability.isEligible(for: .fixtureOnly))
+        let snapshot = await runtime.snapshot()
+        XCTAssertEqual(snapshot.finishCount, 1)
+    }
+
+    func testNativeCapabilityObserverDoesNotQualifyUnreadyQualityModel() async throws {
+        let runtime = R04RecordingVideoToolboxRuntime(
+            qualitySupport: .observed(true),
+            diagnosticsBehavior: .observed(
+                R04VideoToolboxTestDiagnostics.quality(
+                    usesPrecomputedFlow: false,
+                    modelStatus: .downloadRequired
+                )
+            )
+        )
+
+        let observation = try await R04VideoToolboxNativeCapabilityObserver.observe(
+            subjectID: .quality2x,
+            runtimeFactory: { runtime }
+        )
+
+        XCTAssertEqual(observation.status, .unavailable(.modelNotReady))
+        XCTAssertEqual(observation.capability.observationStatus, .observed)
+        XCTAssertEqual(observation.capability.runtimeDisposition, .unavailable)
+        XCTAssertEqual(observation.capability.backendEligibility, .notEvaluated)
+        XCTAssertFalse(observation.capability.isEligible(for: .product))
+        let snapshot = await runtime.snapshot()
+        XCTAssertEqual(snapshot.finishCount, 1)
+    }
+
+    func testLiveNativeCapabilityObservationIsInternallyConsistent() async throws {
+        let observation = try await R04VideoToolboxBackend.observeNativeCapability(
+            subjectID: .lowLatency2x
+        )
+
+        XCTAssertEqual(observation.route.subjectID, .lowLatency2x)
+        switch observation.status {
+        case .runnable:
+            XCTAssertNotNil(observation.diagnostics)
+            XCTAssertEqual(observation.capability.observationStatus, .observed)
+            XCTAssertEqual(observation.capability.runtimeDisposition, .runnable)
+            XCTAssertEqual(
+                observation.capability.backendEligibility,
+                .productQualified
+            )
+            XCTAssertTrue(observation.capability.isEligible(for: .product))
+        case .rejected, .unavailable:
+            XCTAssertNotEqual(observation.capability.runtimeDisposition, .runnable)
+            XCTAssertEqual(
+                observation.capability.backendEligibility,
+                .notEvaluated
+            )
+            XCTAssertFalse(observation.capability.isEligible(for: .product))
+        case .optionalSupported:
+            XCTFail("A primary low-latency route cannot report optional support")
+        }
+    }
+
+    func testLiveNativeLowLatencyProductSessionProcessesWhenRunnable() async throws {
+        let observation = try await R04VideoToolboxBackend.observeNativeCapability(
+            subjectID: .lowLatency1p5x
+        )
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose the exact native "
+                    + "VideoToolbox 720p-to-1080p route."
+            )
+        }
+
+        let backend = try R04VideoToolboxBackend.makeNative(
+            subjectID: .lowLatency1p5x
+        )
+        let creation = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: try AppleUpscaleSessionContext(
+                capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                    capabilities: [observation.capability]
+                ),
+                admissionScope: .product,
+                policyIdentity: backend.routeIdentity.policyIdentity
+            )
+        )
+        guard case .created(let session) = creation else {
+            return XCTFail("A runnable native route must create its product session")
+        }
+        let fixture = try makeFrame(
+            resolution: .p720,
+            sequence: 0,
+            tokenPrefix: "r04.live-native"
+        )
+
+        let outcome = await session.submit(fixture.frame)
+        guard case .processed(let processed) = outcome else {
+            _ = await session.finish()
+            return XCTFail("A runnable native route must process its exact NV12 frame")
+        }
+        XCTAssertEqual(CVPixelBufferGetWidth(processed.pixelBuffer), 1920)
+        XCTAssertEqual(CVPixelBufferGetHeight(processed.pixelBuffer), 1080)
+        let sessionIdentity = await session.identity
+        XCTAssertEqual(
+            processed.processingIdentity.route,
+            sessionIdentity
+        )
+        XCTAssertEqual(fixture.releaseProbe.value, 1)
+        processed.resourceLifetimeToken.release()
+        let summary = await session.finish()
+        XCTAssertEqual(summary.submittedFrameCount, 1)
+        XCTAssertEqual(summary.processedFrameCount, 1)
+    }
+
     func testA05CanResolveOptionalSupportButCannotCreatePrimarySession() async throws {
         let runtime = R04RecordingVideoToolboxRuntime(opticalFlowSupport: .observed(true))
         let route = try XCTUnwrap(

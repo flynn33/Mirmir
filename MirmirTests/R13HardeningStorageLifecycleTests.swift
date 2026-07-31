@@ -74,7 +74,7 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
         XCTAssertTrue(
             fileManager.fileExists(
                 atPath: jobDirectory.appendingPathComponent(
-                    "recovery-v1.json"
+                    "recovery-v2.json"
                 ).path
             )
         )
@@ -171,7 +171,7 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
         await firstAttempt.releaseResources()
         let descriptorURL = fixture.jobDirectory(
             identifier: job.identifier
-        ).appendingPathComponent("recovery-v1.json")
+        ).appendingPathComponent("recovery-v2.json")
         XCTAssertTrue(
             FileManager.default.fileExists(atPath: descriptorURL.path)
         )
@@ -320,7 +320,7 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
         )
         try Data("{\"invalid\":true}".utf8).write(
             to: malformedDirectory.appendingPathComponent(
-                "recovery-v1.json"
+                "recovery-v2.json"
             )
         )
 
@@ -348,6 +348,65 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
         XCTAssertFalse(
             FileManager.default.fileExists(atPath: orphanDirectory.path)
         )
+    }
+
+    func testCatalogRejectsDescriptorWhoseProcessingConfigurationDiffersFromCore()
+        async throws {
+        let fixture = try R13HardeningFixture()
+        defer { fixture.cleanup() }
+        let runtime = try fixture.makeRuntime(
+            cacheProbe: R13CapacityProbe(capacity: UInt64.max),
+            outputProbe: R13CapacityProbe(capacity: UInt64.max)
+        )
+        let job = fixture.makeJob(
+            identifier: "r13-mismatched-processing-configuration"
+        )
+        let attempt = try await runtime.prepare(
+            job: job,
+            source: fixture.sourceProfile,
+            route: .scale3Over2,
+            modeBinding: R13ReleaseModePolicy.binding(
+                for: .deterministic
+            )
+        )
+        await attempt.releaseResources()
+
+        let changedConfiguration = UpscaleProcessingConfiguration(
+            enginePreference:
+                job.processingConfiguration.enginePreference,
+            strategyPreference:
+                job.processingConfiguration.strategyPreference,
+            temporalConsistencyEnabled:
+                job.processingConfiguration.temporalConsistencyEnabled,
+            edgeFidelityLevel: .high,
+            detailRecoveryLevel:
+                job.processingConfiguration.detailRecoveryLevel,
+            effects: job.processingConfiguration.effects,
+            smoothMotion: job.processingConfiguration.smoothMotion
+        )
+        let changedDescriptor = try R13RecoveryDescriptor(
+            job: UpscaleJob(
+                identifier: job.identifier,
+                inputURL: job.inputURL,
+                outputURL: job.outputURL,
+                targetResolution: job.targetResolution,
+                codec: job.codec,
+                preserveAudio: job.preserveAudio,
+                mode: job.mode,
+                processingConfiguration: changedConfiguration
+            )
+        )
+        try R13RestartCanonical.data(changedDescriptor).write(
+            to: fixture.jobDirectory(
+                identifier: job.identifier
+            ).appendingPathComponent("recovery-v2.json"),
+            options: .atomic
+        )
+
+        let catalog = try await runtime.recoverableJobs()
+
+        XCTAssertTrue(catalog.jobs.isEmpty)
+        XCTAssertEqual(catalog.rejectedEntryCount, 1)
     }
 
     func testDiscardRecoverableJobRemovesSelectedCacheAndPreservesOthers()
@@ -501,7 +560,7 @@ final class R13HardeningStorageLifecycleTests: XCTestCase {
             FileManager.default.fileExists(
                 atPath: fixture.jobDirectory(
                     identifier: job.identifier
-                ).appendingPathComponent("recovery-v1.json").path
+                ).appendingPathComponent("recovery-v2.json").path
             )
         )
 

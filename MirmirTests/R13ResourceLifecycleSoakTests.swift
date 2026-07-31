@@ -22,8 +22,12 @@ final class R13ResourceLifecycleSoakTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: {
+                [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             inputReleaseObserver: { [eventLog] identity in
                 eventLog.record("input.release.\(identity)")
@@ -62,8 +66,30 @@ final class R13ResourceLifecycleSoakTests: XCTestCase {
         eventLog: R13ReleaseTestEventLog
     ) async throws {
         let identifier = "r13-lifecycle-soak-\(jobIndex)"
-        let inputURL = URL(
-            fileURLWithPath: "/tmp/\(identifier)-input.mp4"
+        let sourceFixtureDirectory =
+            FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-r13-lifecycle-source-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: sourceFixtureDirectory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(
+                at: sourceFixtureDirectory
+            )
+        }
+        let inputURL = sourceFixtureDirectory.appendingPathComponent(
+            "source.mp4",
+            isDirectory: false
+        )
+        try Data(
+            "mirmir-r13-lifecycle-source:\(identifier)".utf8
+        ).write(
+            to: inputURL,
+            options: .atomic
         )
         let outputURL = URL(
             fileURLWithPath: "/tmp/\(identifier)-output.mp4"
@@ -230,10 +256,14 @@ final class R13ResourceLifecycleSoakTests: XCTestCase {
             "media.begin"
         ]
         for frameIndex in 0..<scenario.frameCount {
+            let modeBinding = R13ReleaseModePolicy.binding(
+                for: scenario.mode
+            )
             events.append(contentsOf: [
                 "media.next.\(frameIndex)",
                 "apple.submit.\(frameIndex)",
-                "input.release.r13.a11.input."
+                "input.release.r13.release.input."
+                    + "\(modeBinding.backendID)."
                     + "\(scenario.mode.rawValue).\(frameIndex)",
                 "media.append.\(frameIndex)",
                 "output.release.\(frameIndex)"

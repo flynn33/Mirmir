@@ -28,8 +28,13 @@ final class ASHAssetConformanceTests: XCTestCase {
         let manifestURL = repoRootURL().appendingPathComponent("Mirmir/Resources/ASH/ash-asset-manifest.json")
         let data = try Data(contentsOf: manifestURL)
         let manifest = try JSONDecoder().decode(ASHAssetManifest.self, from: data)
+        let noticeIdentity = MirmirASHPinnedNoticeIdentity.current
 
         XCTAssertEqual(manifest.schemaVersion, "1.1")
+        XCTAssertEqual(
+            manifest.sourceRevision,
+            noticeIdentity.sourceRevision
+        )
         XCTAssertEqual(Set(manifest.assets.map(\.path)), [
             "ash_mapping_v1.json",
             "ash_video_mapping_v2.seed.json",
@@ -40,6 +45,22 @@ final class ASHAssetConformanceTests: XCTestCase {
             "computational-certificate.json"
         ])
         XCTAssertTrue(manifest.assets.allSatisfy { !$0.sha256.isEmpty && !$0.sourcePath.isEmpty })
+
+        let certificateURL = repoRootURL().appendingPathComponent(
+            "Mirmir/Resources/ASH/computational-certificate.json"
+        )
+        let certificateData = try Data(contentsOf: certificateURL)
+        let certificate = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: certificateData)
+                as? [String: Any]
+        )
+        let sourceHashes = try XCTUnwrap(
+            certificate["source_sha256"] as? [String: String]
+        )
+        XCTAssertEqual(
+            sourceHashes["LICENSE"],
+            noticeIdentity.licenseSHA256
+        )
     }
 
     func test_runtimeAssetResolverAcceptsFlattenedResourceLayout() throws {
@@ -49,6 +70,46 @@ final class ASHAssetConformanceTests: XCTestCase {
 
         XCTAssertEqual(resolved.standardizedFileURL, flattenedRoot.standardizedFileURL)
         XCTAssertTrue(try ASHAssetCatalog.load(from: resolved).validateRuntime().isValid)
+    }
+
+    @MainActor
+    func test_bundledASHLicenseMatchesPinnedSource() throws {
+        let noticeIdentity = MirmirASHPinnedNoticeIdentity.current
+        let sourceURL = repoRootURL()
+            .appendingPathComponent("Mirmir/Resources/Legal/ASH-Model-LICENSE.txt")
+        let bundleURL = try XCTUnwrap(
+            Bundle.main.url(
+                forResource: noticeIdentity.licenseResourceName,
+                withExtension: noticeIdentity.licenseResourceExtension
+            )
+        )
+        let sourceData = try Data(contentsOf: sourceURL)
+        let bundleData = try Data(contentsOf: bundleURL)
+
+        XCTAssertEqual(
+            sha256Hex(sourceData),
+            noticeIdentity.licenseSHA256
+        )
+        XCTAssertEqual(bundleData, sourceData)
+
+        let license = try XCTUnwrap(
+            String(data: bundleData, encoding: .utf8)
+        )
+        XCTAssertEqual(
+            MirmirAboutView.bundledASHLicenseText,
+            license
+        )
+        XCTAssertTrue(
+            license.contains(
+                "Copyright (c) 2025-2026 James Daley. All rights reserved."
+            )
+        )
+        XCTAssertTrue(
+            license.contains(
+                "Canonical Computational Specification and "
+                    + "Reference Implementation,\" version 1.1.0."
+            )
+        )
     }
 
     private func sha256Hex(_ data: Data) -> String {
@@ -65,6 +126,7 @@ final class ASHAssetConformanceTests: XCTestCase {
 private struct ASHAssetManifest: Decodable {
     let schemaVersion: String
     let sourcePackage: String
+    let sourceRevision: String
     let assets: [ASHAsset]
 }
 

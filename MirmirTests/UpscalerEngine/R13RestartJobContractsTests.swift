@@ -23,7 +23,7 @@ final class R13RestartJobContractsTests: XCTestCase {
         XCTAssertNoThrow(try core.validate())
     }
 
-    func testCoreRejectsPathTraversalAndNonNV12Output() throws {
+    func testCoreRejectsPathTraversalAndUnsupportedOutputFormat() throws {
         XCTAssertThrowsError(try makeCore(jobID: "../other-job")) { error in
             XCTAssertEqual(
                 error as? R13RestartJobError,
@@ -35,15 +35,35 @@ final class R13RestartJobContractsTests: XCTestCase {
             try R13RestartOutputIdentity(
                 width: 4,
                 height: 2,
-                pixelFormat: "BGRA",
+                pixelFormat: "2vuy",
                 codec: "hevc",
                 audioPolicy: "preserve"
             )
         ) { error in
             XCTAssertEqual(
                 error as? R13RestartJobError,
-                .invalidPixelFormat("BGRA")
+                .invalidPixelFormat("2vuy")
             )
+        }
+    }
+
+    func testOutputIdentityAcceptsEveryCheckpointPixelFormat() throws {
+        let supportedFormats = try R13PixelLayoutRegistry
+            .supportedPixelFormats
+            .map(R13CachedPixelFormat.fourCC)
+            .sorted()
+
+        for pixelFormat in supportedFormats {
+            let output = try R13RestartOutputIdentity(
+                width: 4,
+                height: 2,
+                pixelFormat: pixelFormat,
+                codec: "hevc",
+                audioPolicy: "preserve"
+            )
+
+            XCTAssertEqual(output.pixelFormat, pixelFormat)
+            XCTAssertNoThrow(try output.validate())
         }
     }
 

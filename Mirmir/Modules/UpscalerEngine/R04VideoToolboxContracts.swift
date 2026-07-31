@@ -20,6 +20,46 @@ enum R04VideoToolboxSubjectID: String, CaseIterable, Hashable, Sendable {
     case opticalFlowSupport = "r04.videotoolbox.optical-flow-support"
 }
 
+enum R04VideoToolboxNativeRouteIntent: String, Hashable, Sendable {
+    case quality
+    case lowLatency = "low_latency"
+}
+
+struct R04VideoToolboxNativeRouteBinding: Hashable, Sendable {
+    let intent: R04VideoToolboxNativeRouteIntent
+    let route: R04VideoToolboxRouteDescriptor
+
+    var subjectID: R04VideoToolboxSubjectID { route.subjectID }
+    var requiresConfigurationModel: Bool { intent == .quality }
+}
+
+enum R04VideoToolboxNativeRouteSelector {
+    static func exactBinding(
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution,
+        intent: R04VideoToolboxNativeRouteIntent
+    ) -> R04VideoToolboxNativeRouteBinding? {
+        let subjectID: R04VideoToolboxSubjectID?
+        switch (sourceResolution, targetResolution, intent) {
+        case (.p1080, .p2160, .quality):
+            subjectID = .quality2x
+        case (.p720, .p1080, .lowLatency):
+            subjectID = .lowLatency1p5x
+        case (.p1080, .p2160, .lowLatency):
+            subjectID = .lowLatency2x
+        default:
+            subjectID = nil
+        }
+        guard let subjectID,
+              let route = R04VideoToolboxRouteCatalog.route(subjectID),
+              route.sourceResolution == sourceResolution,
+              route.targetResolution == targetResolution else {
+            return nil
+        }
+        return R04VideoToolboxNativeRouteBinding(intent: intent, route: route)
+    }
+}
+
 enum R04VideoToolboxRouteID: String, CaseIterable, Hashable, Sendable {
     case quality2x = "quality_2x"
     case quality1p5xContract = "quality_1p5x_contract"
@@ -388,6 +428,7 @@ enum R04VideoToolboxRouteRejectionReason: String, Hashable, Sendable {
     case exactDimensionQueryRejected = "exact_dimension_query_rejected"
     case sessionContractMismatch = "r04_session_contract_mismatch"
     case productScopeForbidden = "r04_product_scope_forbidden"
+    case productQualificationRequired = "r04_product_qualification_required"
     case optionalSupportOnly = "r04_optional_support_only"
     case frameContractMismatch = "r04_frame_contract_mismatch"
     case operationCancelled = "operation_cancelled"
@@ -398,6 +439,7 @@ enum R04VideoToolboxRouteRejectionReason: String, Hashable, Sendable {
 
 enum R04VideoToolboxRouteUnavailableReason: String, Hashable, Sendable {
     case capabilityNotObserved = "r04_capability_not_observed"
+    case capabilityUnavailable = "r04_capability_unavailable"
     case runtimeSupportNotObserved = "r04_runtime_support_not_observed"
     case runtimeSupportUnavailable = "r04_runtime_support_unavailable"
     case optionalSupportUnavailable = "r04_optional_support_unavailable"

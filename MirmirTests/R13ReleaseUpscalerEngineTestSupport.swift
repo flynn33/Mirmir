@@ -96,10 +96,13 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
 
     private let resolution: VideoResolution
     private let frames: [FrameRecord]
+    private let videoFormat: MediaVideoFormat
+    private let hasAudio: Bool
     private let eventLog: R13ReleaseTestEventLog
     private let terminalCleanupError: MediaPipelineError?
     private let presentationTransform: CGAffineTransform
     private let appendFailureFrameIndex: Int?
+    private let captureAppendedFrames: Bool
     private let finishObserver: @Sendable () -> Void
     private let cancelObserver: @Sendable () -> Void
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -108,18 +111,24 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
         resolution: VideoResolution,
         frames: [FrameRecord],
         eventLog: R13ReleaseTestEventLog,
+        videoFormat: MediaVideoFormat = .sdrBT709,
+        hasAudio: Bool = false,
         terminalCleanupError: MediaPipelineError? = nil,
         presentationTransform: CGAffineTransform = .identity,
         appendFailureFrameIndex: Int? = nil,
+        captureAppendedFrames: Bool = false,
         finishObserver: @escaping @Sendable () -> Void = {},
         cancelObserver: @escaping @Sendable () -> Void = {}
     ) {
         self.resolution = resolution
         self.frames = frames
+        self.videoFormat = videoFormat
+        self.hasAudio = hasAudio
         self.eventLog = eventLog
         self.terminalCleanupError = terminalCleanupError
         self.presentationTransform = presentationTransform
         self.appendFailureFrameIndex = appendFailureFrameIndex
+        self.captureAppendedFrames = captureAppendedFrames
         self.finishObserver = finishObserver
         self.cancelObserver = cancelObserver
     }
@@ -146,7 +155,8 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
             durationSeconds: Double(frames.count) / 30,
             estimatedFrameCount: frames.count,
             codecHint: "r13-test",
-            hasAudio: false
+            hasAudio: hasAudio,
+            videoFormat: videoFormat
         )
     }
 
@@ -157,6 +167,9 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
         let pool = try PixelBufferBridge.makePool(
             width: output.resolution.width,
             height: output.resolution.height,
+            format:
+                output.videoFormat?.pixelStorage.pixelFormat
+                ?? PixelBufferBridge.preferredFormat,
             capacity: 1
         )
         let session = R13ReleaseTestMediaSession(
@@ -168,6 +181,7 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
             terminalCleanupError: terminalCleanupError,
             presentationTransform: presentationTransform,
             appendFailureFrameIndex: appendFailureFrameIndex,
+            captureAppendedFrames: captureAppendedFrames,
             finishObserver: finishObserver,
             cancelObserver: cancelObserver
         )
@@ -187,6 +201,9 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
     private struct State {
         var nextFrameIndex = 0
         var appendedFrameIndices: [Int] = []
+        var appendedTimings: [FrameTiming] = []
+        var appendedFrames: [R13NV12Frame] = []
+        var finalMetadata: [String: String] = [:]
         var finishCount = 0
         var cancelCount = 0
     }
@@ -200,6 +217,7 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
     private let frames: [FrameRecord]
     private let eventLog: R13ReleaseTestEventLog
     private let appendFailureFrameIndex: Int?
+    private let captureAppendedFrames: Bool
     private let finishObserver: @Sendable () -> Void
     private let cancelObserver: @Sendable () -> Void
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -213,6 +231,7 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         terminalCleanupError: MediaPipelineError?,
         presentationTransform: CGAffineTransform,
         appendFailureFrameIndex: Int?,
+        captureAppendedFrames: Bool,
         finishObserver: @escaping @Sendable () -> Void,
         cancelObserver: @escaping @Sendable () -> Void
     ) {
@@ -224,12 +243,25 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         self.terminalCleanupError = terminalCleanupError
         self.presentationTransform = presentationTransform
         self.appendFailureFrameIndex = appendFailureFrameIndex
+        self.captureAppendedFrames = captureAppendedFrames
         self.finishObserver = finishObserver
         self.cancelObserver = cancelObserver
     }
 
     var appendedFrameIndices: [Int] {
         state.withLock { $0.appendedFrameIndices }
+    }
+
+    var appendedFrames: [R13NV12Frame] {
+        state.withLock { $0.appendedFrames }
+    }
+
+    var appendedTimings: [FrameTiming] {
+        state.withLock { $0.appendedTimings }
+    }
+
+    var finalMetadata: [String: String] {
+        state.withLock { $0.finalMetadata }
     }
 
     var finishCount: Int {
@@ -253,7 +285,7 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
     }
 
     func appendOutput(
-        pixelBuffer _: CVPixelBuffer,
+        pixelBuffer: CVPixelBuffer,
         timing: FrameTiming
     ) async throws {
         if timing.frameIndex == appendFailureFrameIndex {
@@ -262,7 +294,21 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
                 frameIndex: timing.frameIndex
             )
         }
-        state.withLock { $0.appendedFrameIndices.append(timing.frameIndex) }
+        if captureAppendedFrames {
+            let captured = try R13NV12Frame.captureTightActivePlanes(
+                from: pixelBuffer
+            )
+            state.withLock {
+                $0.appendedFrameIndices.append(timing.frameIndex)
+                $0.appendedTimings.append(timing)
+                $0.appendedFrames.append(captured)
+            }
+        } else {
+            state.withLock {
+                $0.appendedFrameIndices.append(timing.frameIndex)
+                $0.appendedTimings.append(timing)
+            }
+        }
         eventLog.record("media.append.\(timing.frameIndex)")
     }
 
@@ -270,6 +316,15 @@ final class R13ReleaseTestMediaSession: MediaSession, @unchecked Sendable {
         state.withLock { $0.finishCount += 1 }
         eventLog.record("media.finish")
         finishObserver()
+    }
+
+    func finish(
+        finalMetadata: [String: String]
+    ) async throws {
+        state.withLock {
+            $0.finalMetadata = finalMetadata
+        }
+        try await finish()
     }
 
     func cancel() {
@@ -300,6 +355,9 @@ struct R13ReleaseTestAppleSessionSnapshot: Equatable, Sendable {
 }
 
 actor R13ReleaseTestAppleSession: AppleUpscaleSession {
+    typealias OutputFiller =
+        @Sendable (CVPixelBuffer, Int) throws -> Void
+
     nonisolated let identity: AppleUpscaleRouteIdentity
 
     private typealias PendingSubmit = (
@@ -316,6 +374,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
     private let processingFailure: AppleUpscaleBackendFailed
     private let behavior: R13ReleaseTestAppleSessionBehavior
     private let eventLog: R13ReleaseTestEventLog
+    private let outputFiller: OutputFiller
     private var submittedSequenceNumbers: [Int] = []
     private var processedFrameCount = 0
     private var finishCount = 0
@@ -327,7 +386,8 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
         identity: AppleUpscaleRouteIdentity,
         outputResolution: VideoResolution,
         behavior: R13ReleaseTestAppleSessionBehavior,
-        eventLog: R13ReleaseTestEventLog
+        eventLog: R13ReleaseTestEventLog,
+        outputFiller: @escaping OutputFiller
     ) throws {
         self.identity = identity
         self.outputResolution = outputResolution
@@ -345,6 +405,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
         )
         self.behavior = behavior
         self.eventLog = eventLog
+        self.outputFiller = outputFiller
     }
 
     func submit(
@@ -421,6 +482,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
                 resolution: outputResolution
             )
             let sequenceNumber = frame.sequenceNumber
+            try outputFiller(output, sequenceNumber)
             let outputToken = try AppleUpscaleResourceLifetimeToken(
                 identity: "r13.test.output.\(sequenceNumber)",
                 releaseAction: { [eventLog] in
@@ -450,23 +512,35 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
 final class R13ReleaseTestSessionFactory: @unchecked Sendable {
     private struct State {
         var routes: [R03ScaleRoute] = []
+        var modeBindings: [R13ReleaseModeBinding] = []
         var sessions: [R03ScaleRoute: R13ReleaseTestAppleSession] = [:]
     }
 
     private let behavior: R13ReleaseTestAppleSessionBehavior
     private let eventLog: R13ReleaseTestEventLog
+    private let outputFiller:
+        R13ReleaseTestAppleSession.OutputFiller
     private let state = OSAllocatedUnfairLock(initialState: State())
 
     init(
         behavior: R13ReleaseTestAppleSessionBehavior,
-        eventLog: R13ReleaseTestEventLog
+        eventLog: R13ReleaseTestEventLog,
+        outputFiller:
+            @escaping R13ReleaseTestAppleSession.OutputFiller = {
+                _, _ in
+            }
     ) {
         self.behavior = behavior
         self.eventLog = eventLog
+        self.outputFiller = outputFiller
     }
 
     var routes: [R03ScaleRoute] {
         state.withLock { $0.routes }
+    }
+
+    var modeBindings: [R13ReleaseModeBinding] {
+        state.withLock { $0.modeBindings }
     }
 
     func session(
@@ -478,23 +552,39 @@ final class R13ReleaseTestSessionFactory: @unchecked Sendable {
     func make(
         route: R03ScaleRoute
     ) async throws -> R13ReleaseUpscaleSessionBinding {
+        try await make(
+            route: route,
+            modeBinding: R13ReleaseModeBinding(
+                requestedMode: .deterministic
+            )
+        )
+    }
+
+    func make(
+        route: R03ScaleRoute,
+        modeBinding: R13ReleaseModeBinding
+    ) async throws -> R13ReleaseUpscaleSessionBinding {
         eventLog.record("factory.\(route.rawValue)")
-        let backend = try R03DeterministicBackend
-            .makeProductQualifiedMPSLanczos(route: route)
+        let routeIdentity = try R13ReleaseIdentity.makeProductRoute(
+            for: route,
+            modeBinding: modeBinding
+        )
         let session = try R13ReleaseTestAppleSession(
-            identity: backend.routeIdentity,
+            identity: routeIdentity,
             outputResolution: route.canonicalTargetResolution,
             behavior: behavior,
-            eventLog: eventLog
+            eventLog: eventLog,
+            outputFiller: outputFiller
         )
         state.withLock { current in
             current.routes.append(route)
+            current.modeBindings.append(modeBinding)
             current.sessions[route] = session
         }
         return R13ReleaseUpscaleSessionBinding(
             session: session,
             route: route,
-            routeIdentity: backend.routeIdentity
+            routeIdentity: routeIdentity
         )
     }
 }

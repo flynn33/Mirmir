@@ -192,6 +192,256 @@ enum R04VideoToolboxRouteResolver {
     }
 }
 
+enum R04VideoToolboxBackendAdmissionPolicy: Hashable, Sendable {
+    case fixtureContract
+    case nativeProduct
+
+    var admissionScope: AppleUpscaleAdmissionScope {
+        switch self {
+        case .fixtureContract:
+            return .fixtureOnly
+        case .nativeProduct:
+            return .product
+        }
+    }
+
+    var policyIdentity: String {
+        switch self {
+        case .fixtureContract:
+            return R04VideoToolboxRouteCatalog.policyIdentity
+        case .nativeProduct:
+            return "r04.native-runtime-qualified.product.v1"
+        }
+    }
+}
+
+enum R04VideoToolboxNativeCapabilityStatus: Hashable, Sendable {
+    case runnable
+    case optionalSupported
+    case rejected(R04VideoToolboxRouteRejectionReason)
+    case unavailable(R04VideoToolboxRouteUnavailableReason)
+}
+
+struct R04VTNativeCapabilityObservation: Hashable, Sendable {
+    let route: R04VideoToolboxRouteDescriptor
+    let capability: AppleUpscaleCapability
+    let status: R04VideoToolboxNativeCapabilityStatus
+    let diagnostics: R04VideoToolboxConfigurationDiagnostics?
+}
+
+enum R04VTNativeRuntimeProviderError: Error, Equatable, Sendable {
+    case unavailableOnCurrentPlatform
+}
+
+enum R04VideoToolboxNativeRuntimeProvider {
+    static var isCompiledForNativeRuntime: Bool {
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+        true
+#else
+        false
+#endif
+    }
+
+    static func makeRuntime(
+        qualityFlowConfiguration: VTNativeQualityFlowConfiguration = .appleComputed
+    ) async throws -> any R04VideoToolboxRuntime {
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+        guard #available(macOS 26.0, *) else {
+            throw R04VTNativeRuntimeProviderError
+                .unavailableOnCurrentPlatform
+        }
+        return VTSuperResolutionDriver(
+            qualityFlowConfiguration: qualityFlowConfiguration
+        )
+#else
+        throw R04VTNativeRuntimeProviderError
+            .unavailableOnCurrentPlatform
+#endif
+    }
+}
+
+enum R04VideoToolboxNativeCapabilityObserver {
+    static func observe(
+        subjectID: R04VideoToolboxSubjectID,
+        runtimeFactory: @escaping R04VideoToolboxRuntimeFactory
+    ) async throws -> R04VTNativeCapabilityObservation {
+        guard let route = R04VideoToolboxRouteCatalog.route(subjectID) else {
+            throw R04VideoToolboxContractError.catalogIdentityMismatch(subjectID)
+        }
+        let runtime: any R04VideoToolboxRuntime
+        do {
+            runtime = try await runtimeFactory()
+        } catch {
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.runtimeUnavailable),
+                diagnostics: nil,
+                supportWasObserved: true
+            )
+        }
+
+        let decision = await R04VideoToolboxRouteResolver.resolve(
+            route,
+            using: runtime
+        )
+        switch decision {
+        case .runnable:
+            let diagnosticsObservation = await runtime.configurationDiagnostics(
+                for: route
+            )
+            await runtime.finish()
+            switch diagnosticsObservation {
+            case .notObserved:
+                return try makeObservation(
+                    route: route,
+                    status: .unavailable(.configurationDiagnosticsNotObserved),
+                    diagnostics: nil,
+                    supportWasObserved: false
+                )
+            case .observed(let diagnostics):
+                switch R04VideoToolboxDiagnosticsValidator.validate(
+                    route: route,
+                    diagnostics: diagnostics
+                ) {
+                case .accepted:
+                    return try makeObservation(
+                        route: route,
+                        status: .runnable,
+                        diagnostics: diagnostics,
+                        supportWasObserved: true
+                    )
+                case .rejected(let reason):
+                    return try makeObservation(
+                        route: route,
+                        status: .rejected(reason),
+                        diagnostics: diagnostics,
+                        supportWasObserved: true
+                    )
+                case .unavailable(let reason):
+                    return try makeObservation(
+                        route: route,
+                        status: .unavailable(reason),
+                        diagnostics: diagnostics,
+                        supportWasObserved: true
+                    )
+                }
+            }
+        case .optionalSupported:
+            await runtime.finish()
+            return try makeObservation(
+                route: route,
+                status: .optionalSupported,
+                diagnostics: nil,
+                supportWasObserved: true
+            )
+        case .rejected(let rejection):
+            await runtime.finish()
+            return try makeObservation(
+                route: route,
+                status: .rejected(rejection.reason),
+                diagnostics: nil,
+                supportWasObserved: true
+            )
+        case .unavailable(let unavailable):
+            await runtime.finish()
+            let supportWasObserved = unavailable.reason
+                != .runtimeSupportNotObserved
+            return try makeObservation(
+                route: route,
+                status: .unavailable(unavailable.reason),
+                diagnostics: nil,
+                supportWasObserved: supportWasObserved
+            )
+        }
+    }
+
+    private static func makeObservation(
+        route: R04VideoToolboxRouteDescriptor,
+        status: R04VideoToolboxNativeCapabilityStatus,
+        diagnostics: R04VideoToolboxConfigurationDiagnostics?,
+        supportWasObserved: Bool
+    ) throws -> R04VTNativeCapabilityObservation {
+        let role: AppleUpscaleCapabilityRole = route.backendKind
+            == .optionalFlowSupport ? .temporalAnalyzer : .primaryScaler
+        let isRunnable: Bool
+        switch status {
+        case .runnable, .optionalSupported:
+            isRunnable = true
+        case .rejected, .unavailable:
+            isRunnable = false
+        }
+        let capability = try AppleUpscaleCapability(
+            id: AppleUpscaleCapabilityID(route.capabilityID),
+            role: role,
+            frameworkIdentity: "VideoToolbox",
+            observationStatus: supportWasObserved ? .observed : .notObserved,
+            runtimeDisposition: isRunnable
+                ? .runnable
+                : (supportWasObserved ? .unavailable : .diagnosticOnly),
+            backendEligibility: isRunnable
+                ? .productQualified
+                : .notEvaluated
+        )
+        return R04VTNativeCapabilityObservation(
+            route: route,
+            capability: capability,
+            status: status,
+            diagnostics: diagnostics
+        )
+    }
+}
+
+enum R04VideoToolboxDiagnosticsValidation: Hashable, Sendable {
+    case accepted
+    case rejected(R04VideoToolboxRouteRejectionReason)
+    case unavailable(R04VideoToolboxRouteUnavailableReason)
+}
+
+enum R04VideoToolboxDiagnosticsValidator {
+    static func validate(
+        route: R04VideoToolboxRouteDescriptor,
+        diagnostics: R04VideoToolboxConfigurationDiagnostics
+    ) -> R04VideoToolboxDiagnosticsValidation {
+        guard diagnostics.supportedPixelFormats.contains(
+            R04VideoToolboxRouteCatalog.pixelFormat
+        ) else {
+            return .rejected(.supportedPixelFormatRejected)
+        }
+        switch (route.backendKind, diagnostics.nativeIdentity) {
+        case (.quality, .quality(let configuration)):
+            guard configuration.frameWidth == route.sourceResolution.width,
+                  configuration.frameHeight == route.sourceResolution.height,
+                  route.scaleFactor.denominator == 1,
+                  configuration.integerScaleFactor == route.scaleFactor.numerator,
+                  configuration.inputType == .video,
+                  configuration.qualityPriority == .normal,
+                  configuration.revision >= 0,
+                  diagnostics.processingMode == .quality else {
+                return .rejected(.configurationIdentityMismatch)
+            }
+            guard diagnostics.modelStatus == .ready else {
+                return .unavailable(.modelNotReady)
+            }
+            return .accepted
+        case (.lowLatency, .lowLatency(let configuration)):
+            let expectedScale = Float(route.scaleFactor.numerator)
+                / Float(route.scaleFactor.denominator)
+            guard configuration.frameWidth == route.sourceResolution.width,
+                  configuration.frameHeight == route.sourceResolution.height,
+                  configuration.scaleFactor == expectedScale,
+                  diagnostics.processingMode == .lowLatency,
+                  diagnostics.modelStatus == .notRequired else {
+                return .rejected(.configurationIdentityMismatch)
+            }
+            return .accepted
+        case (.optionalFlowSupport, _):
+            return .rejected(.optionalSupportOnly)
+        default:
+            return .rejected(.configurationIdentityMismatch)
+        }
+    }
+}
+
 final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
     let identity: AppleUpscaleBackendIdentity
     let capabilityID: AppleUpscaleCapabilityID
@@ -201,6 +451,7 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
     private let runtimeFactory: R04VideoToolboxRuntimeFactory
     private let opticalFlowProvider: R04VideoToolboxOpticalFlowProvider
     private let historyBufferCopier: any R04VideoToolboxHistoryBufferCopying
+    private let admissionPolicy: R04VideoToolboxBackendAdmissionPolicy
     private let rejections: [
         R04VideoToolboxRouteRejectionReason: AppleUpscaleBackendRejected
     ]
@@ -219,14 +470,21 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
             .disabled
         },
         historyBufferCopier: any R04VideoToolboxHistoryBufferCopying =
-            R04VideoToolboxNV12HistoryBufferCopier()
+            R04VideoToolboxNV12HistoryBufferCopier(),
+        admissionPolicy: R04VideoToolboxBackendAdmissionPolicy = .fixtureContract
     ) throws {
         guard let route = R04VideoToolboxRouteCatalog.route(subjectID) else {
             throw R04VideoToolboxContractError.catalogIdentityMismatch(subjectID)
         }
-        let routeIdentity = try R04VideoToolboxRouteCatalog.makeRouteIdentity(
+        let catalogRouteIdentity = try R04VideoToolboxRouteCatalog.makeRouteIdentity(
             for: route,
             modelAssetsIdentity: modelAssetsIdentity
+        )
+        let routeIdentity = try AppleUpscaleRouteIdentity(
+            backend: catalogRouteIdentity.backend,
+            configurationIdentity: catalogRouteIdentity.configurationIdentity,
+            policyIdentity: admissionPolicy.policyIdentity,
+            materialDecisionIdentity: catalogRouteIdentity.materialDecisionIdentity
         )
         let processingIdentity = try AppleUpscaleProcessingIdentity(
             route: routeIdentity,
@@ -239,6 +497,7 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
         self.runtimeFactory = runtimeFactory
         self.opticalFlowProvider = opticalFlowProvider
         self.historyBufferCopier = historyBufferCopier
+        self.admissionPolicy = admissionPolicy
         rejections = try Dictionary(
             uniqueKeysWithValues: R04VideoToolboxRouteRejectionReason.allCases.map { reason in
                 (
@@ -274,6 +533,41 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
         )
     }
 
+    static func makeNative(
+        subjectID: R04VideoToolboxSubjectID,
+        modelAssetsIdentity: AppleUpscaleModelAssetsIdentity = .notRequired,
+        qualityFlowConfiguration: VTNativeQualityFlowConfiguration = .appleComputed,
+        opticalFlowProvider: @escaping R04VideoToolboxOpticalFlowProvider = { _, _ in
+            .disabled
+        }
+    ) throws -> R04VideoToolboxBackend {
+        try R04VideoToolboxBackend(
+            subjectID: subjectID,
+            modelAssetsIdentity: modelAssetsIdentity,
+            runtimeFactory: {
+                try await R04VideoToolboxNativeRuntimeProvider.makeRuntime(
+                    qualityFlowConfiguration: qualityFlowConfiguration
+                )
+            },
+            opticalFlowProvider: opticalFlowProvider,
+            admissionPolicy: .nativeProduct
+        )
+    }
+
+    static func observeNativeCapability(
+        subjectID: R04VideoToolboxSubjectID,
+        qualityFlowConfiguration: VTNativeQualityFlowConfiguration = .appleComputed
+    ) async throws -> R04VTNativeCapabilityObservation {
+        try await R04VideoToolboxNativeCapabilityObserver.observe(
+            subjectID: subjectID,
+            runtimeFactory: {
+                try await R04VideoToolboxNativeRuntimeProvider.makeRuntime(
+                    qualityFlowConfiguration: qualityFlowConfiguration
+                )
+            }
+        )
+    }
+
     func makeConfiguration() throws -> AppleUpscaleSessionConfiguration {
         try AppleUpscaleSessionConfiguration(
             capabilityID: capabilityID,
@@ -285,17 +579,21 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
     }
 
     // The frozen admission matrix maps each gate to a distinct typed outcome.
-    // swiftlint:disable:next cyclomatic_complexity
+    // swiftlint:disable:next cyclomatic_complexity function_body_length
     func makeSession(
         configuration: AppleUpscaleSessionConfiguration,
         context: AppleUpscaleSessionContext
     ) async -> AppleUpscaleSessionCreationOutcome {
         guard configurationMatches(configuration),
-              context.policyIdentity == R04VideoToolboxRouteCatalog.policyIdentity else {
+              context.policyIdentity == routeIdentity.policyIdentity else {
             return rejected(.sessionContractMismatch)
         }
-        guard context.admissionScope == .fixtureOnly else {
-            return rejected(.productScopeForbidden)
+        guard context.admissionScope == admissionPolicy.admissionScope else {
+            return rejected(
+                admissionPolicy == .fixtureContract
+                    ? .productScopeForbidden
+                    : .productQualificationRequired
+            )
         }
         if route.gate == .publicContractUnrepresentable {
             return rejected(.publicContractUnrepresentable)
@@ -308,14 +606,18 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
               capability.frameworkIdentity == "VideoToolbox" else {
             return rejected(.sessionContractMismatch)
         }
-        guard capability.observationStatus == .observed,
-              capability.runtimeDisposition == .runnable else {
+        guard capability.observationStatus == .observed else {
             return unavailableOutcome(.capabilityNotObserved)
         }
-        guard capability.backendEligibility == .fixtureOnly,
-              capability.isEligible(for: .fixtureOnly),
-              !capability.isEligible(for: .product) else {
-            return rejected(.productScopeForbidden)
+        guard capability.runtimeDisposition == .runnable else {
+            return unavailableOutcome(.capabilityUnavailable)
+        }
+        guard capability.isEligible(for: context.admissionScope) else {
+            return rejected(
+                admissionPolicy == .fixtureContract
+                    ? .productScopeForbidden
+                    : .productQualificationRequired
+            )
         }
 
         let runtime: any R04VideoToolboxRuntime
@@ -335,7 +637,10 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
             case .observed(let observed):
                 diagnostics = observed
             }
-            switch validate(diagnostics: diagnostics) {
+            switch R04VideoToolboxDiagnosticsValidator.validate(
+                route: route,
+                diagnostics: diagnostics
+            ) {
             case .rejected(let reason):
                 await runtime.finish()
                 return rejected(reason)
@@ -353,7 +658,7 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
                         "observed",
                         diagnostics.stableIdentity
                     ].joined(separator: "."),
-                    policyIdentity: R04VideoToolboxRouteCatalog.policyIdentity,
+                    policyIdentity: routeIdentity.policyIdentity,
                     materialDecisionIdentity: R04VideoToolboxRouteCatalog
                         .materialDecisionIdentity
                 )
@@ -395,54 +700,6 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
             && configuration.targetResolution == route.targetResolution
             && configuration.pixelFormat == R04VideoToolboxRouteCatalog.pixelFormat
             && configuration.configurationIdentity == route.configurationIdentity
-    }
-
-    private enum DiagnosticsValidation {
-        case accepted
-        case rejected(R04VideoToolboxRouteRejectionReason)
-        case unavailable(R04VideoToolboxRouteUnavailableReason)
-    }
-
-    private func validate(
-        diagnostics: R04VideoToolboxConfigurationDiagnostics
-    ) -> DiagnosticsValidation {
-        guard diagnostics.supportedPixelFormats.contains(
-            R04VideoToolboxRouteCatalog.pixelFormat
-        ) else {
-            return .rejected(.supportedPixelFormatRejected)
-        }
-        switch (route.backendKind, diagnostics.nativeIdentity) {
-        case (.quality, .quality(let configuration)):
-            guard configuration.frameWidth == route.sourceResolution.width,
-                  configuration.frameHeight == route.sourceResolution.height,
-                  route.scaleFactor.denominator == 1,
-                  configuration.integerScaleFactor == route.scaleFactor.numerator,
-                  configuration.inputType == .video,
-                  configuration.qualityPriority == .normal,
-                  configuration.revision >= 0,
-                  diagnostics.processingMode == .quality else {
-                return .rejected(.configurationIdentityMismatch)
-            }
-            guard diagnostics.modelStatus == .ready else {
-                return .unavailable(.modelNotReady)
-            }
-            return .accepted
-        case (.lowLatency, .lowLatency(let configuration)):
-            let expectedScale = Float(route.scaleFactor.numerator)
-                / Float(route.scaleFactor.denominator)
-            guard configuration.frameWidth == route.sourceResolution.width,
-                  configuration.frameHeight == route.sourceResolution.height,
-                  configuration.scaleFactor == expectedScale,
-                  diagnostics.processingMode == .lowLatency,
-                  diagnostics.modelStatus == .notRequired else {
-                return .rejected(.configurationIdentityMismatch)
-            }
-            return .accepted
-        case (.optionalFlowSupport, _):
-            return .rejected(.optionalSupportOnly)
-        default:
-            return .rejected(.configurationIdentityMismatch)
-        }
     }
 
     private func rejected(
@@ -1012,6 +1269,7 @@ private extension R04VideoToolboxRouteRejectionReason {
             .exactDimensionQueryRejected,
             .sessionContractMismatch,
             .productScopeForbidden,
+            .productQualificationRequired,
             .optionalSupportOnly,
             .frameContractMismatch,
             .operationCancelled,
@@ -1026,6 +1284,7 @@ private extension R04VideoToolboxRouteUnavailableReason {
     static var allCases: [R04VideoToolboxRouteUnavailableReason] {
         [
             .capabilityNotObserved,
+            .capabilityUnavailable,
             .runtimeSupportNotObserved,
             .runtimeSupportUnavailable,
             .optionalSupportUnavailable,

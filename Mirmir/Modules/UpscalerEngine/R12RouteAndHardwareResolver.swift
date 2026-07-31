@@ -2,13 +2,6 @@ import CryptoKit
 import Darwin
 import Foundation
 
-@_silgen_name("fcntl")
-private func r12FcntlPointer(
-    _ descriptor: Int32,
-    _ command: Int32,
-    _ pointer: UnsafeMutableRawPointer
-) -> Int32
-
 // swiftlint:disable file_length
 
 enum R12RouteResolverErrorV2: Error, Equatable, Sendable {
@@ -601,7 +594,6 @@ struct R12NativeRouteObservationV2: Hashable, Sendable {
         )
     }
 
-    #if DEBUG
     static func loadCanonicalReceiptForTesting(
         at url: URL,
         expectedSHA256: String,
@@ -613,7 +605,6 @@ struct R12NativeRouteObservationV2: Hashable, Sendable {
             afterOpen: afterOpen
         )
     }
-    #endif
 
     private static func loadCanonicalReceipt(
         at url: URL,
@@ -747,7 +738,7 @@ struct R12NativeRouteObservationV2: Hashable, Sendable {
             guard let baseAddress = pointer.baseAddress else {
                 return Int32(-1)
             }
-            return r12FcntlPointer(
+            return Darwin.fcntl(
                 descriptor,
                 F_GETPATH,
                 UnsafeMutableRawPointer(baseAddress)

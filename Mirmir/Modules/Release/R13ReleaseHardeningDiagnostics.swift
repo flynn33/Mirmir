@@ -119,7 +119,7 @@ struct R13ReleaseHardeningDiagnosticRecorder: Sendable {
             .outcome(.accepted)
         ]
         if case .productQualified(let route) = scalePlan {
-            fields.append(.a11Backend)
+            fields.append(.backend(identity.backendID))
             fields.append(.route(route))
         }
         try await record(

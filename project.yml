@@ -28,6 +28,8 @@ targets:
       - path: Mirmir/Assets.xcassets
       - path: Mirmir/Resources/ASH
         type: folder
+      - path: Mirmir/Resources/Legal
+        type: folder
     info:
       path: Mirmir/Info.plist
       properties:
@@ -76,6 +78,8 @@ targets:
         R03QualificationSourceTree: "$(R03_QUALIFICATION_BUILD_SOURCE_TREE)"
     sources:
       - path: MirmirTests
+        excludes:
+          - PerformanceTools
       - path: validation/calibration_v2/native_adapter/ASHCalibrationCLISupport.swift
       - path: validation/calibration_v2/native_adapter/ASHCalibrationCLIProtocol.swift
     dependencies:

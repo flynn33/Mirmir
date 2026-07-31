@@ -1027,13 +1027,15 @@ enum R13RestartPath {
 }
 
 enum R13RestartValidation {
+    private static let maximumIdentityCharacters = 1_024
+
     static func jobID(_ value: String) throws -> String {
         try identity(value, field: "job_id")
     }
 
     static func identity(_ value: String, field: String) throws -> String {
         guard !value.isEmpty,
-              value.count <= 192,
+              value.count <= maximumIdentityCharacters,
               value.unicodeScalars.allSatisfy({
                   ($0.value >= 0x30 && $0.value <= 0x39)
                       || ($0.value >= 0x41 && $0.value <= 0x5A)

@@ -149,23 +149,86 @@ extension MirmirViewModel {
 
     func defaultOutputURL(
         for source: SourceProfile,
-        target: VideoResolution
+        target: VideoResolution,
+        codec outputCodec: OutputCodec? = nil
     ) -> URL {
         defaultOutputURL(
             for: source,
             target: target,
-            in: source.url.deletingLastPathComponent()
+            in: source.url.deletingLastPathComponent(),
+            codec: outputCodec
         )
     }
 
     func defaultOutputURL(
         for source: SourceProfile,
         target: VideoResolution,
-        in directoryURL: URL
+        in directoryURL: URL,
+        codec outputCodec: OutputCodec? = nil
     ) -> URL {
         let base = source.url.deletingPathExtension().lastPathComponent
+        let resolvedCodec = outputCodec ?? codec
+        let pathExtension =
+            MediaOutputContainerPolicy.preferredPathExtension(
+                codec: resolvedCodec,
+                videoFormat: source.videoFormat,
+                preservationCapability:
+                    source.mediaPreservationCapability,
+                preserveAudio:
+                    source.hasAudio && preserveAudio
+            )
         return directoryURL.appendingPathComponent(
-            "\(base)_mirmir_\(Self.fileLabel(for: target)).mp4"
+            "\(base)_mirmir_\(Self.fileLabel(for: target))."
+                + pathExtension
+        )
+    }
+
+    func availableDefaultOutputURL(
+        for source: SourceProfile,
+        target: VideoResolution,
+        in directoryURL: URL,
+        codec outputCodec: OutputCodec? = nil,
+        fileManager: FileManager = .default
+    ) -> URL {
+        let preferred = defaultOutputURL(
+            for: source,
+            target: target,
+            in: directoryURL,
+            codec: outputCodec
+        )
+        return availableOutputURL(
+            preferred,
+            fileManager: fileManager
+        )
+    }
+
+    func availableOutputURL(
+        _ preferred: URL,
+        fileManager: FileManager = .default
+    ) -> URL {
+        guard fileManager.fileExists(atPath: preferred.path) else {
+            return preferred
+        }
+        let stem = preferred.deletingPathExtension().lastPathComponent
+        let pathExtension = preferred.pathExtension
+        let directoryURL = preferred.deletingLastPathComponent()
+        var suffix = 2
+        while suffix < Int.max {
+            let filename = pathExtension.isEmpty
+                ? "\(stem)_\(suffix)"
+                : "\(stem)_\(suffix).\(pathExtension)"
+            let candidate = directoryURL.appendingPathComponent(
+                filename,
+                isDirectory: false
+            )
+            if !fileManager.fileExists(atPath: candidate.path) {
+                return candidate
+            }
+            suffix += 1
+        }
+        return directoryURL.appendingPathComponent(
+            "\(stem)_\(UUID().uuidString.lowercased()).\(pathExtension)",
+            isDirectory: false
         )
     }
 
@@ -190,6 +253,11 @@ extension MirmirViewModel {
 
     static var sourceOutputConflictMessage: String {
         "The output file must be different from the source video."
+    }
+
+    static var existingOutputConflictMessage: String {
+        "A file already exists at this destination. Choose a new output "
+            + "filename so the existing video remains unchanged."
     }
 
     static func urlsReferToSameFile(_ lhs: URL, _ rhs: URL) -> Bool {
