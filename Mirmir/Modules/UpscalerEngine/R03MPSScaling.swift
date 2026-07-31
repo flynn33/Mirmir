@@ -70,7 +70,7 @@ enum R03MPSScalingMode: String, CaseIterable, Hashable, Sendable {
         }
     }
 
-    fileprivate func makeKernel(device: any MTLDevice) -> MPSImageScale {
+    func makeKernel(device: any MTLDevice) -> MPSImageScale {
         switch self {
         case .lanczos:
             return MPSImageLanczosScale(device: device)
@@ -96,6 +96,32 @@ extension R03DeterministicBackend {
                     targetResolution: targetResolution
                 )
                 return try R03MPSScaler(mode: mode, route: route)
+            },
+            outputReleaseObserver: outputReleaseObserver
+        )
+    }
+
+    static func makeProductQualifiedMPSBilinear(
+        route: R03ScaleRoute,
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+    ) throws -> R03DeterministicBackend {
+        let kind = R13ReleaseScalerKind.fastMPSBilinear
+        return try R03DeterministicBackend(
+            subjectID: kind.subjectID,
+            route: route,
+            admissionProfile: .productQualifiedReleaseScaler(kind),
+            productAdmissionAuthorization:
+                R03A11ProductAdmissionAuthorization(),
+            scalerFactory: { sourceResolution, targetResolution in
+                try requireExactMPSRoute(
+                    route,
+                    sourceResolution: sourceResolution,
+                    targetResolution: targetResolution
+                )
+                return try R03MPSScaler(
+                    mode: .bilinear,
+                    route: route
+                )
             },
             outputReleaseObserver: outputReleaseObserver
         )

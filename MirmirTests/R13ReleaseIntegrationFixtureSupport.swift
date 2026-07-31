@@ -69,8 +69,12 @@ func makeR13IntegrationService(
 ) -> R13ReleaseUpscalerEngineService {
     R13ReleaseUpscalerEngineService(
         media: media,
-        sessionFactory: { [factory] route in
-            try await factory.make(route: route)
+        modeAwareSessionFactory: {
+            [factory] route, modeBinding in
+            try await factory.make(
+                route: route,
+                modeBinding: modeBinding
+            )
         },
         inputReleaseObserver: { identity in
             eventLog?.record("input.release.\(identity)")

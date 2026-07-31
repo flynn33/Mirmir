@@ -71,6 +71,157 @@ final class R05MetalFXSpatialBackendTests: XCTestCase {
         }
     }
 
+    func testNativeProductAdmissionCreatesExactSpatialSession() async throws {
+        let driver = R05BackendDriver(behavior: .processed)
+        let backend = try R05MetalFXSpatialBackend(
+            subjectID: .spatial2x,
+            driverFactory: { _ in driver },
+            admissionPolicy: .nativeProduct
+        )
+        let capability = try AppleUpscaleCapability(
+            id: backend.capabilityID,
+            role: .primaryScaler,
+            frameworkIdentity: "MetalFX",
+            observationStatus: .observed,
+            runtimeDisposition: .runnable,
+            backendEligibility: .productQualified
+        )
+        let context = try AppleUpscaleSessionContext(
+            capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                capabilities: [capability]
+            ),
+            admissionScope: .product,
+            policyIdentity: backend.routeIdentity.policyIdentity
+        )
+
+        let outcome = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: context
+        )
+
+        guard case .created(let session) = outcome else {
+            return XCTFail("Expected native-product MetalFX spatial session")
+        }
+        let identity = await session.identity
+        XCTAssertEqual(
+            identity.policyIdentity,
+            R05MetalFXBackendAdmissionPolicy.nativeProduct.policyIdentity
+        )
+        _ = await session.finish()
+    }
+
+    func testNativeCapabilityObserverQualifiesOnlyConstructedDescriptor() throws {
+        let runnable = try R05MetalFXNativeCapabilityObserver.observe(
+            subjectID: .spatial1p5x,
+            runtime: R05NativeCapabilityProbe(
+                support: .observed(true),
+                construction: .constructed
+            )
+        )
+
+        XCTAssertEqual(runnable.status, .runnable)
+        XCTAssertEqual(runnable.capability.observationStatus, .observed)
+        XCTAssertEqual(runnable.capability.runtimeDisposition, .runnable)
+        XCTAssertEqual(
+            runnable.capability.backendEligibility,
+            .productQualified
+        )
+        XCTAssertTrue(runnable.capability.isEligible(for: .product))
+        XCTAssertFalse(runnable.capability.isEligible(for: .fixtureOnly))
+
+        let unavailable = try R05MetalFXNativeCapabilityObserver.observe(
+            subjectID: .spatial1p5x,
+            runtime: R05NativeCapabilityProbe(
+                support: .observed(true),
+                construction: .returnedNil
+            )
+        )
+        XCTAssertEqual(
+            unavailable.status,
+            .unavailable(.descriptorConstructionReturnedNil)
+        )
+        XCTAssertEqual(unavailable.capability.runtimeDisposition, .unavailable)
+        XCTAssertEqual(
+            unavailable.capability.backendEligibility,
+            .notEvaluated
+        )
+        XCTAssertFalse(unavailable.capability.isEligible(for: .product))
+    }
+
+    func testLiveNativeCapabilityObservationIsInternallyConsistent() throws {
+        let observation = try R05MetalFXSpatialBackend.observeNativeCapability(
+            subjectID: .spatial2x
+        )
+
+        switch observation.status {
+        case .runnable:
+            XCTAssertEqual(observation.capability.runtimeDisposition, .runnable)
+            XCTAssertEqual(
+                observation.capability.backendEligibility,
+                .productQualified
+            )
+            XCTAssertTrue(observation.capability.isEligible(for: .product))
+        case .unavailable:
+            XCTAssertNotEqual(observation.capability.runtimeDisposition, .runnable)
+            XCTAssertEqual(
+                observation.capability.backendEligibility,
+                .notEvaluated
+            )
+            XCTAssertFalse(observation.capability.isEligible(for: .product))
+        case .rejected:
+            XCTFail("The exact spatial route must not be contract-rejected")
+        }
+    }
+
+    func testLiveNativeSpatialProductSessionProcessesWhenRunnable() async throws {
+        let observation = try R05MetalFXSpatialBackend.observeNativeCapability(
+            subjectID: .spatial1p5x
+        )
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose the exact native "
+                    + "MetalFX spatial 720p-to-1080p route."
+            )
+        }
+
+        let backend = try R05MetalFXSpatialBackend.makeNative(
+            subjectID: .spatial1p5x
+        )
+        let creation = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: try AppleUpscaleSessionContext(
+                capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                    capabilities: [observation.capability]
+                ),
+                admissionScope: .product,
+                policyIdentity: backend.routeIdentity.policyIdentity
+            )
+        )
+        guard case .created(let session) = creation else {
+            return XCTFail("A runnable native route must create its product session")
+        }
+        let inputReleases = R05BackendCounter()
+        let frame = try makeFrame(
+            resolution: .p720,
+            tokenPrefix: "r05.live-native",
+            releaseCounter: inputReleases
+        )
+
+        let outcome = await session.submit(frame)
+        guard case .processed(let processed) = outcome else {
+            _ = await session.finish()
+            return XCTFail("A runnable native route must process its exact NV12 frame")
+        }
+        XCTAssertEqual(CVPixelBufferGetWidth(processed.pixelBuffer), 1920)
+        XCTAssertEqual(CVPixelBufferGetHeight(processed.pixelBuffer), 1080)
+        XCTAssertEqual(processed.processingIdentity.route, backend.routeIdentity)
+        XCTAssertEqual(inputReleases.value, 1)
+        processed.resourceLifetimeToken.release()
+        let summary = await session.finish()
+        XCTAssertEqual(summary.submittedFrameCount, 1)
+        XCTAssertEqual(summary.processedFrameCount, 1)
+    }
+
     func testWrongConfigurationPolicyAndCapabilityRejectBeforeFactory() async throws {
         let counter = R05BackendCounter()
         let backend = try makeBackend(.spatial1p5x, counter: counter)
@@ -471,6 +622,33 @@ final class R05MetalFXSpatialBackendTests: XCTestCase {
 
 private enum R05BackendTestError: Error {
     case sessionNotCreated
+}
+
+private final class R05NativeCapabilityProbe:
+    R05MetalFXSpatialRuntimeProbing,
+    @unchecked Sendable {
+    private let support: R05MetalFXSupportObservation
+    private let construction: R05MetalFXSpatialConstructionObservation
+
+    init(
+        support: R05MetalFXSupportObservation,
+        construction: R05MetalFXSpatialConstructionObservation
+    ) {
+        self.support = support
+        self.construction = construction
+    }
+
+    func supportsSpatialDevice(
+        for _: R05MetalFXRouteDescriptor
+    ) -> R05MetalFXSupportObservation {
+        support
+    }
+
+    func constructSpatialScaler(
+        for _: R05MetalFXRouteDescriptor
+    ) -> R05MetalFXSpatialConstructionObservation {
+        construction
+    }
 }
 
 private final class R05BackendCounter: @unchecked Sendable {

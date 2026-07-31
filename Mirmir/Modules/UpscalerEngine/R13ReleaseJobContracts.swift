@@ -106,7 +106,7 @@ struct R13AdaptiveScalePlan: Equatable, Sendable {
             processingSourceResolution
         self.targetResolution = targetResolution
         configurationIdentity =
-            "r13.mps.lanczos.adaptive."
+            "r13.adaptive.geometry."
             + "\(processingSourceResolution.width)x"
             + "\(processingSourceResolution.height)-to-"
             + "\(targetResolution.width)x"
@@ -137,12 +137,34 @@ enum R13ReleaseScalePlan: Equatable, Sendable {
 }
 
 enum R13ReleaseJobContracts {
+    static func validateOutputCodec(
+        _ codec: OutputCodec,
+        for videoFormat: MediaVideoFormat
+    ) throws {
+        guard videoFormat.supports(outputCodec: codec) else {
+            throw MediaPipelineError.outputCodecCannotPreserveVideoFormat(
+                codec: codec,
+                format: videoFormat
+            )
+        }
+    }
+
     static func scalePlan(
         source: VideoResolution,
-        target: VideoResolution
+        target: VideoResolution,
+        strategyPreference: UpscaleStrategyPreference = .automatic
     ) throws -> R13ReleaseScalePlan {
-        if let route = try? route(source: source, target: target) {
-            return .productQualified(route)
+        switch strategyPreference {
+        case .automatic:
+            if let route = try? route(source: source, target: target) {
+                return .productQualified(route)
+            }
+        case .direct:
+            return .productQualified(
+                try route(source: source, target: target)
+            )
+        case .adaptive:
+            break
         }
         return .adaptiveMPSLanczos(
             try R13AdaptiveScalePlan(
@@ -166,11 +188,9 @@ enum R13ReleaseJobContracts {
                 == modeBinding.materialDecisionIdentity,
               binding.routeIdentity.backend.modelAssetsIdentity == .notRequired,
               binding.routeIdentity.configurationIdentity
-                == R03DeterministicBackendCatalog
-                    .subject(R03A11ProductAdmission.subjectID)?
-                    .configurationIdentity(for: route) else {
+                == modeBinding.configurationIdentity(for: route) else {
             throw UpscalerEngineError.strategyFailed(
-                "Release mode did not resolve to the exact product-qualified A11 route."
+                "Release mode did not resolve to its exact product-qualified scaler route."
             )
         }
     }
@@ -179,18 +199,38 @@ enum R13ReleaseJobContracts {
         _ processed: AppleUpscaleProcessedFrame,
         source: FrameRecord,
         route: R03ScaleRoute,
-        expectedProcessingIdentity: AppleUpscaleProcessingIdentity
+        expectedProcessingIdentity: AppleUpscaleProcessingIdentity,
+        admittedFrameRouteIdentities:
+            Set<AppleUpscaleRouteIdentity> = []
     ) throws {
+        let hasDirectIdentity =
+            processed.processingIdentity
+                == expectedProcessingIdentity
+            && processed.processingIdentity
+                .fallbackHistory.isEmpty
+        let hasAdmittedDynamicIdentity =
+            !admittedFrameRouteIdentities.isEmpty
+            && admittedFrameRouteIdentities.contains(
+                processed.processingIdentity.route
+            )
+            && processed.processingIdentity.fallbackHistory
+                .allSatisfy { link in
+                    admittedFrameRouteIdentities.contains(
+                        link.failedRoute
+                    )
+                    && admittedFrameRouteIdentities.contains(
+                        link.selectedRoute
+                    )
+                }
         guard processed.sequenceNumber == source.frameIndex,
               CMTimeCompare(
                   processed.presentationTimestamp,
                   source.presentationTime
               ) == 0,
               CMTimeCompare(processed.duration, source.duration) == 0,
-              processed.processingIdentity == expectedProcessingIdentity,
-              processed.processingIdentity.fallbackHistory.isEmpty else {
+              hasDirectIdentity || hasAdmittedDynamicIdentity else {
             throw UpscalerEngineError.strategyFailed(
-                "A11 returned a frame outside the admitted FIFO identity contract."
+                "The release scaler returned a frame outside the admitted FIFO identity contract."
             )
         }
         try R03NV12Contract.validate(

@@ -13,11 +13,13 @@ enum R05MetalFXBackendConstructionError: Error, Equatable, Sendable {
 enum R05MetalFXBackendRejectionReason: String, CaseIterable, Sendable {
     case sessionContractMismatch = "r05_metalfx_session_contract_mismatch"
     case productScopeForbidden = "product_scope_forbidden"
+    case productQualificationRequired = "r05_metalfx_product_qualification_required"
     case frameContractMismatch = "r05_metalfx_frame_contract_mismatch"
 }
 
 enum R05MetalFXBackendUnavailableReason: String, CaseIterable, Sendable {
     case capabilityNotObserved = "r05_metalfx_capability_not_observed"
+    case capabilityUnavailable = "r05_metalfx_capability_unavailable"
     case nativeRuntimeUnavailable = "r05_metalfx_native_runtime_unavailable"
 }
 
@@ -41,6 +43,240 @@ typealias R05MetalFXSpatialDriverFactory = @Sendable (
 
 typealias R05MetalFXOutputReleaseObserver = @Sendable (_ identity: String) -> Void
 
+enum R05MetalFXBackendAdmissionPolicy: Hashable, Sendable {
+    case fixtureContract
+    case nativeProduct
+
+    var admissionScope: AppleUpscaleAdmissionScope {
+        switch self {
+        case .fixtureContract:
+            return .fixtureOnly
+        case .nativeProduct:
+            return .product
+        }
+    }
+
+    var policyIdentity: String {
+        switch self {
+        case .fixtureContract:
+            return R05MetalFXRouteCatalog.policyIdentity
+        case .nativeProduct:
+            return "r05.native-spatial.runtime-qualified.product.v1"
+        }
+    }
+}
+
+enum R05MetalFXCapabilityUnavailableReason: String, Hashable, Sendable {
+    case deviceUnavailable = "r05_metalfx_native_device_unavailable"
+    case commandQueueCreationFailed =
+        "r05_metalfx_native_command_queue_creation_failed"
+    case deviceSupportNotObserved =
+        "r05_metalfx_native_device_support_not_observed"
+    case deviceUnsupported = "r05_metalfx_native_device_unsupported"
+    case descriptorConstructionReturnedNil =
+        "r05_metalfx_native_descriptor_construction_returned_nil"
+}
+
+enum R05MetalFXNativeCapabilityStatus: Hashable, Sendable {
+    case runnable
+    case rejected(R05MetalFXRouteRejectionReason)
+    case unavailable(R05MetalFXCapabilityUnavailableReason)
+}
+
+struct R05MetalFXNativeCapabilityObservation: Hashable, Sendable {
+    let route: R05MetalFXRouteDescriptor
+    let capability: AppleUpscaleCapability
+    let status: R05MetalFXNativeCapabilityStatus
+}
+
+enum R05MetalFXNativeCapabilityObserver {
+    static func observeNative(
+        subjectID: R05MetalFXSubjectID
+    ) throws -> R05MetalFXNativeCapabilityObservation {
+        guard let route = R05MetalFXRouteCatalog.route(subjectID) else {
+            throw R05MetalFXContractError.catalogIdentityMismatch(subjectID)
+        }
+        if let rejection = route.decodedVideoRejectionReason {
+            return try makeObservation(
+                route: route,
+                status: .rejected(.decodedVideo(rejection)),
+                supportWasObserved: true
+            )
+        }
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.deviceUnavailable),
+                supportWasObserved: true
+            )
+        }
+        guard device.makeCommandQueue() != nil else {
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.commandQueueCreationFailed),
+                supportWasObserved: true
+            )
+        }
+        return try observe(
+            subjectID: subjectID,
+            runtime: R05MetalFXNativeSpatialRuntimeProbe(device: device)
+        )
+    }
+
+    static func observe(
+        subjectID: R05MetalFXSubjectID,
+        runtime: any R05MetalFXSpatialRuntimeProbing
+    ) throws -> R05MetalFXNativeCapabilityObservation {
+        guard let route = R05MetalFXRouteCatalog.route(subjectID) else {
+            throw R05MetalFXContractError.catalogIdentityMismatch(subjectID)
+        }
+        if let rejection = route.decodedVideoRejectionReason {
+            return try makeObservation(
+                route: route,
+                status: .rejected(.decodedVideo(rejection)),
+                supportWasObserved: true
+            )
+        }
+        switch runtime.supportsSpatialDevice(for: route) {
+        case .notObserved:
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.deviceSupportNotObserved),
+                supportWasObserved: false
+            )
+        case .observed(false):
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.deviceUnsupported),
+                supportWasObserved: true
+            )
+        case .observed(true):
+            break
+        }
+        switch runtime.constructSpatialScaler(for: route) {
+        case .constructed:
+            return try makeObservation(
+                route: route,
+                status: .runnable,
+                supportWasObserved: true
+            )
+        case .returnedNil:
+            return try makeObservation(
+                route: route,
+                status: .unavailable(.descriptorConstructionReturnedNil),
+                supportWasObserved: true
+            )
+        }
+    }
+
+    private static func makeObservation(
+        route: R05MetalFXRouteDescriptor,
+        status: R05MetalFXNativeCapabilityStatus,
+        supportWasObserved: Bool
+    ) throws -> R05MetalFXNativeCapabilityObservation {
+        let isRunnable: Bool
+        switch status {
+        case .runnable:
+            isRunnable = true
+        case .rejected, .unavailable:
+            isRunnable = false
+        }
+        let capability = try AppleUpscaleCapability(
+            id: route.capabilityID,
+            role: route.backendIdentity.capabilityRole,
+            frameworkIdentity: "MetalFX",
+            observationStatus: supportWasObserved ? .observed : .notObserved,
+            runtimeDisposition: isRunnable
+                ? .runnable
+                : (supportWasObserved ? .unavailable : .diagnosticOnly),
+            backendEligibility: isRunnable
+                ? .productQualified
+                : .notEvaluated
+        )
+        return R05MetalFXNativeCapabilityObservation(
+            route: route,
+            capability: capability,
+            status: status
+        )
+    }
+}
+
+private final class R05MetalFXNativeSpatialRuntimeProbe:
+    R05MetalFXSpatialRuntimeProbing,
+    @unchecked Sendable {
+    private let scalerFactory: R05DefaultMetalFXSpatialScalerFactory
+
+    init(device: any MTLDevice) {
+        scalerFactory = R05DefaultMetalFXSpatialScalerFactory(device: device)
+    }
+
+    func supportsSpatialDevice(
+        for route: R05MetalFXRouteDescriptor
+    ) -> R05MetalFXSupportObservation {
+        guard R05MetalFXSpatialRouteMapping.driverRoute(for: route) != nil else {
+            return .observed(false)
+        }
+        return .observed(scalerFactory.supportsDevice())
+    }
+
+    func constructSpatialScaler(
+        for route: R05MetalFXRouteDescriptor
+    ) -> R05MetalFXSpatialConstructionObservation {
+        guard let driverRoute = R05MetalFXSpatialRouteMapping.driverRoute(
+            for: route
+        ) else {
+            return .returnedNil
+        }
+        let configuration = R05MetalFXSpatialScalerConfiguration(
+            inputDimensions: driverRoute.sourceDimensions,
+            outputDimensions: driverRoute.targetDimensions,
+            colorTextureFormat: .rgba16Float,
+            outputTextureFormat: .rgba16Float,
+            colorMode: .linear
+        )
+        return scalerFactory.makeScaler(configuration: configuration) == nil
+            ? .returnedNil
+            : .constructed
+    }
+}
+
+enum R05MetalFXSpatialRouteMapping {
+    static func driverRoute(
+        for route: R05MetalFXRouteDescriptor
+    ) -> R05MetalFXSpatialDriverRoute? {
+        guard route.capabilityID.rawValue == "A07",
+              route.backendIdentity == .spatial,
+              route.gate == .runtimeObservationRequired,
+              route.decodedVideoRejectionReason == nil else {
+            return nil
+        }
+        switch route.subjectID {
+        case .spatial1p5x:
+            guard route.routeID == .spatial1p5x,
+                  route.sourceResolution == .p720,
+                  route.targetResolution == .p1080,
+                  route.scaleFactor == .oneAndOneHalf else {
+                return nil
+            }
+            return .oneAndOneHalf
+        case .spatial2x:
+            guard route.routeID == .spatial2x,
+                  route.sourceResolution == .p1080,
+                  route.targetResolution == .p2160,
+                  route.scaleFactor == .two else {
+                return nil
+            }
+            return .two
+        case .temporal1p5x,
+             .temporal2x,
+             .denoisedTemporal1p5x,
+             .denoisedTemporal2x,
+             .frameInterpolation1080p:
+            return nil
+        }
+    }
+}
+
 final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
     let identity: AppleUpscaleBackendIdentity
     let capabilityID: AppleUpscaleCapabilityID
@@ -50,17 +286,27 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
     private let driverFactory: R05MetalFXSpatialDriverFactory
     private let outputReleaseObserver: R05MetalFXOutputReleaseObserver
     private let outcomes: R05MetalFXAppleOutcomes
+    private let admissionPolicy: R05MetalFXBackendAdmissionPolicy
 
     init(
         subjectID: R05MetalFXSubjectID,
         driverFactory: @escaping R05MetalFXSpatialDriverFactory,
-        outputReleaseObserver: @escaping R05MetalFXOutputReleaseObserver = { _ in }
+        outputReleaseObserver: @escaping R05MetalFXOutputReleaseObserver = { _ in },
+        admissionPolicy: R05MetalFXBackendAdmissionPolicy = .fixtureContract
     ) throws {
         guard let route = R05MetalFXRouteCatalog.route(subjectID) else {
             throw R05MetalFXBackendConstructionError
                 .subjectMissingFromFrozenCatalog(subjectID)
         }
-        let routeIdentity = try R05MetalFXRouteCatalog.makeRouteIdentity(for: route)
+        let catalogRouteIdentity = try R05MetalFXRouteCatalog.makeRouteIdentity(
+            for: route
+        )
+        let routeIdentity = try AppleUpscaleRouteIdentity(
+            backend: catalogRouteIdentity.backend,
+            configurationIdentity: catalogRouteIdentity.configurationIdentity,
+            policyIdentity: admissionPolicy.policyIdentity,
+            materialDecisionIdentity: catalogRouteIdentity.materialDecisionIdentity
+        )
         let processingIdentity = try AppleUpscaleProcessingIdentity(
             route: routeIdentity,
             fallbackHistory: []
@@ -71,6 +317,7 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
         self.route = route
         self.driverFactory = driverFactory
         self.outputReleaseObserver = outputReleaseObserver
+        self.admissionPolicy = admissionPolicy
         self.outcomes = try R05MetalFXAppleOutcomes(
             processingIdentity: processingIdentity
         )
@@ -90,8 +337,15 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
                 }
                 return R05MetalFXSpatialDriver(device: device, commandQueue: queue)
             },
-            outputReleaseObserver: outputReleaseObserver
+            outputReleaseObserver: outputReleaseObserver,
+            admissionPolicy: .nativeProduct
         )
+    }
+
+    static func observeNativeCapability(
+        subjectID: R05MetalFXSubjectID
+    ) throws -> R05MetalFXNativeCapabilityObservation {
+        try R05MetalFXNativeCapabilityObserver.observeNative(subjectID: subjectID)
     }
 
     func makeConfiguration() throws -> AppleUpscaleSessionConfiguration {
@@ -104,12 +358,14 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
         )
     }
 
+    // The admission, live-runtime, and allocation gates form one closed outcome map.
+    // swiftlint:disable:next function_body_length
     func makeSession(
         configuration: AppleUpscaleSessionConfiguration,
         context: AppleUpscaleSessionContext
     ) async -> AppleUpscaleSessionCreationOutcome {
         guard configurationMatches(configuration),
-              context.policyIdentity == R05MetalFXRouteCatalog.policyIdentity else {
+              context.policyIdentity == routeIdentity.policyIdentity else {
             return .rejected(
                 outcomes.rejection(
                     R05MetalFXBackendRejectionReason.sessionContractMismatch.rawValue
@@ -119,14 +375,20 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
         if let rejection = route.decodedVideoRejectionReason {
             return .rejected(outcomes.rejection(rejection.rawValue))
         }
-        guard context.admissionScope == .fixtureOnly else {
+        guard context.admissionScope == admissionPolicy.admissionScope else {
             return .rejected(
                 outcomes.rejection(
-                    R05MetalFXBackendRejectionReason.productScopeForbidden.rawValue
+                    (
+                        admissionPolicy == .fixtureContract
+                            ? R05MetalFXBackendRejectionReason.productScopeForbidden
+                            : .productQualificationRequired
+                    ).rawValue
                 )
             )
         }
-        guard let driverRoute = Self.driverRoute(for: route) else {
+        guard let driverRoute = R05MetalFXSpatialRouteMapping.driverRoute(
+            for: route
+        ) else {
             return .rejected(
                 outcomes.rejection(
                     R05MetalFXBackendRejectionReason.sessionContractMismatch.rawValue
@@ -149,20 +411,28 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
                 )
             )
         }
-        guard capability.observationStatus == .observed,
-              capability.runtimeDisposition == .runnable else {
+        guard capability.observationStatus == .observed else {
             return .unavailable(
                 outcomes.unavailable(
                     R05MetalFXBackendUnavailableReason.capabilityNotObserved.rawValue
                 )
             )
         }
-        guard capability.backendEligibility == .fixtureOnly,
-              capability.isEligible(for: .fixtureOnly),
-              !capability.isEligible(for: .product) else {
+        guard capability.runtimeDisposition == .runnable else {
+            return .unavailable(
+                outcomes.unavailable(
+                    R05MetalFXBackendUnavailableReason.capabilityUnavailable.rawValue
+                )
+            )
+        }
+        guard capability.isEligible(for: context.admissionScope) else {
             return .rejected(
                 outcomes.rejection(
-                    R05MetalFXBackendRejectionReason.productScopeForbidden.rawValue
+                    (
+                        admissionPolicy == .fixtureContract
+                            ? R05MetalFXBackendRejectionReason.productScopeForbidden
+                            : .productQualificationRequired
+                    ).rawValue
                 )
             )
         }
@@ -215,40 +485,6 @@ final class R05MetalFXSpatialBackend: AppleUpscaleBackend, @unchecked Sendable {
             && configuration.configurationIdentity == route.configurationIdentity
     }
 
-    private static func driverRoute(
-        for route: R05MetalFXRouteDescriptor
-    ) -> R05MetalFXSpatialDriverRoute? {
-        guard route.capabilityID.rawValue == "A07",
-              route.backendIdentity == .spatial,
-              route.gate == .runtimeObservationRequired,
-              route.decodedVideoRejectionReason == nil else {
-            return nil
-        }
-        switch route.subjectID {
-        case .spatial1p5x:
-            guard route.routeID == .spatial1p5x,
-                  route.sourceResolution == .p720,
-                  route.targetResolution == .p1080,
-                  route.scaleFactor == .oneAndOneHalf else {
-                return nil
-            }
-            return .oneAndOneHalf
-        case .spatial2x:
-            guard route.routeID == .spatial2x,
-                  route.sourceResolution == .p1080,
-                  route.targetResolution == .p2160,
-                  route.scaleFactor == .two else {
-                return nil
-            }
-            return .two
-        case .temporal1p5x,
-             .temporal2x,
-             .denoisedTemporal1p5x,
-             .denoisedTemporal2x,
-             .frameInterpolation1080p:
-            return nil
-        }
-    }
 }
 
 private struct R05MetalFXAppleOutcomes: Sendable {

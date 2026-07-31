@@ -11,21 +11,42 @@ final class R13ReleaseIdentityTests: XCTestCase {
         XCTAssertEqual(first.source.sha256, hash("1"))
         XCTAssertEqual(first.source.byteCount, 9_876_543)
         XCTAssertEqual(first.requestedMode, .quality)
-        XCTAssertEqual(first.effectiveMode, .deterministic)
+        XCTAssertEqual(first.enginePreference, .automatic)
+        XCTAssertEqual(first.effectiveMode, .quality)
         XCTAssertEqual(first.output.width, 3_840)
         XCTAssertEqual(first.output.height, 2_160)
-        XCTAssertEqual(first.capabilityID, "A11")
-        XCTAssertEqual(first.backendID, "r03.mps.lanczos")
-        XCTAssertEqual(first.backendRevision, "1")
-        XCTAssertEqual(first.routeID, "scale_2x")
-        XCTAssertEqual(first.framework.frameworkIdentifier, "MetalPerformanceShaders")
+        XCTAssertEqual(first.capabilityID, "R13-QUALITY-ROUTER")
+        XCTAssertEqual(first.backendID, "r13.quality.router")
         XCTAssertEqual(
-            first.identitySHA256,
-            "75a76c3abf989885c4397d965d9bd862ff3948d9cd6e1dacd1b233e55defb9c3"
+            first.backendRevision,
+            "r13.product-router.v1"
+        )
+        XCTAssertEqual(first.routeID, "scale_2x")
+        XCTAssertEqual(
+            first.framework.frameworkIdentifier,
+            "AppleNativeMultiEngine"
         )
 
-        let metadata = first.timedMetadata
-        XCTAssertEqual(metadata.count, 22)
+        XCTAssertEqual(first.timedMetadata.count, 38)
+        let routingMetadata = try R13ProductASHDecisionSummary(
+            events: [
+                R13ProductASHDecisionEvent(
+                    sequenceNumber: 0,
+                    selectedRouteIdentity:
+                        try releaseDecisionRoute(
+                            backendID:
+                                "r03.vimage.lanczos-5",
+                            configurationIdentity:
+                                "r03.vimage.lanczos5.scale-2x"
+                        ),
+                    reason: .initialSelection,
+                    failedBackendIDs: []
+                )
+            ]
+        ).outputMetadata()
+        let metadata = try first.finalizedTimedMetadata(
+            routingDecisionMetadata: routingMetadata
+        )
         XCTAssertTrue(
             metadata.keys.allSatisfy {
                 $0.hasPrefix(R13ReleaseIdentity.metadataNamespace)
@@ -40,13 +61,471 @@ final class R13ReleaseIdentityTests: XCTestCase {
             "[]"
         )
         XCTAssertEqual(
+            metadata[
+                "com.mirmir.release.source-scan-structure"
+            ],
+            "progressive"
+        )
+        XCTAssertEqual(
+            metadata[
+                "com.mirmir.release.deinterlacing-algorithm"
+            ],
+            "not_required"
+        )
+        XCTAssertEqual(
+            metadata[
+                "com.mirmir.release.output-scan-structure"
+            ],
+            "progressive"
+        )
+        XCTAssertEqual(
             metadata["com.mirmir.release.identity-sha256"],
             first.identitySHA256
         )
+        XCTAssertEqual(
+            metadata[
+                R13ProductASHDecisionMetadata.statusKey
+            ],
+            "complete"
+        )
         XCTAssertNoThrow(try first.validateTimedMetadata(metadata))
+        XCTAssertThrowsError(
+            try first.finalizedTimedMetadata(
+                routingDecisionMetadata: nil
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataMissing
+            )
+        }
     }
 
-    func testAdaptiveIdentityAndPolicyBindTheExactDynamicMPSPlan()
+    func testInterlacedSourceBindsDeinterlacingIntoIdentityAndMetadata()
+        throws {
+        let progressive = try makeIdentity()
+        let interlaced = try makeIdentity(
+            sourceScanStructure: .interlacedTopFieldFirst
+        )
+
+        XCTAssertNotEqual(
+            progressive.identitySHA256,
+            interlaced.identitySHA256
+        )
+        XCTAssertEqual(
+            interlaced.sourceScanStructure,
+            .interlacedTopFieldFirst
+        )
+        XCTAssertEqual(
+            interlaced.deinterlacingAlgorithmIdentity,
+            R13FormatPreservingDeinterlacer.algorithmIdentity
+        )
+        XCTAssertEqual(
+            interlaced.timedMetadata[
+                "com.mirmir.release.source-scan-structure"
+            ],
+            "interlaced_top_field_first"
+        )
+        XCTAssertEqual(
+            interlaced.timedMetadata[
+                "com.mirmir.release.deinterlacing-algorithm"
+            ],
+            R13FormatPreservingDeinterlacer.algorithmIdentity
+        )
+    }
+
+    func testRoutingExclusionsAndResumeBoundariesAreTypedCanonicalEvidence()
+        throws {
+        let identity = try makeIdentity()
+        let exclusion =
+            R13ProductASHScalingCandidateExclusion(
+                declaredCandidateKind:
+                    .videoToolboxQuality,
+                expectedBackendID:
+                    R04VideoToolboxSubjectID
+                        .quality2x.rawValue,
+                phase: .sessionConstruction,
+                failure:
+                    R13ProductASHScalingCandidateFailureEvidence(
+                        error: NSError(
+                            domain: "test.release.identity",
+                            code: 17
+                        )
+                    )
+            )
+        let routingMetadata =
+            try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity:
+                            try releaseDecisionRoute(
+                                backendID:
+                                    "r03.vimage.lanczos-5",
+                                configurationIdentity:
+                                    "r03.vimage.lanczos5.scale-2x"
+                            ),
+                        reason: .initialSelection,
+                        failedBackendIDs: [],
+                        processingPressureQ16: 1_024
+                    )
+                ],
+                candidateExclusions: [exclusion],
+                resumeBoundaries: [
+                    R13ProductASHResumeBoundary(
+                        sequenceNumber: 0,
+                        kind: .fullCacheNoBackendWarmup
+                    )
+                ]
+            ).outputMetadata()
+        let metadata = try identity.finalizedTimedMetadata(
+            routingDecisionMetadata: routingMetadata
+        )
+
+        XCTAssertNoThrow(
+            try identity.validateTimedMetadata(metadata)
+        )
+        XCTAssertEqual(
+            metadata[
+                R13ProductASHDecisionMetadata
+                    .candidateExclusionCountKey
+            ],
+            "1"
+        )
+        XCTAssertEqual(
+            metadata[
+                R13ProductASHDecisionMetadata
+                    .resumeBoundaryCountKey
+            ],
+            "1"
+        )
+
+        var mismatchedExclusionCount = metadata
+        mismatchedExclusionCount[
+            R13ProductASHDecisionMetadata
+                .candidateExclusionCountKey
+        ] = "2"
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: mismatchedExclusionCount,
+            field: "routing_candidate_exclusions"
+        )
+
+        var noncanonicalExclusions = metadata
+        noncanonicalExclusions[
+            R13ProductASHDecisionMetadata
+                .candidateExclusionsKey
+        ] = " "
+            + routingMetadata.candidateExclusionsJSON
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: noncanonicalExclusions,
+            field: "routing_candidate_exclusions"
+        )
+
+        var invalidTypedExclusion = metadata
+        invalidTypedExclusion[
+            R13ProductASHDecisionMetadata
+                .candidateExclusionsKey
+        ] = routingMetadata.candidateExclusionsJSON
+            .replacingOccurrences(
+                of: R04VideoToolboxSubjectID
+                    .quality2x.rawValue,
+                with: ""
+            )
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: invalidTypedExclusion,
+            field: "routing_candidate_exclusions"
+        )
+
+        var mismatchedBoundaryCount = metadata
+        mismatchedBoundaryCount[
+            R13ProductASHDecisionMetadata
+                .resumeBoundaryCountKey
+        ] = "2"
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: mismatchedBoundaryCount,
+            field: "routing_resume_boundaries"
+        )
+
+        var invalidBoundary = metadata
+        invalidBoundary[
+            R13ProductASHDecisionMetadata.resumeBoundariesKey
+        ] = routingMetadata.resumeBoundariesJSON.replacingOccurrences(
+            of: "\"restoredHistoryFrameCount\":0",
+            with: "\"restoredHistoryFrameCount\":1"
+        )
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: invalidBoundary,
+            field: "routing_resume_boundaries"
+        )
+    }
+
+    func testFinalizedRoutingModelStatusTracksActualRoutesAndRejectsMismatch()
+        throws {
+        let identity = try makeIdentity()
+        let appleManagedRoute = try releaseDecisionRoute(
+            backendID: "r04.videotoolbox.quality",
+            configurationIdentity:
+                "r04.quality.scale-2x.observed.model-ready",
+            modelAssetsIdentity:
+                .appleConfigurationManaged(
+                    configurationIdentity:
+                        "r04.quality.scale-2x",
+                    readiness: .ready
+                )
+        )
+        let fallbackRoute = try releaseDecisionRoute(
+            backendID: "r03.vimage.lanczos-5",
+            configurationIdentity:
+                "r03.vimage.lanczos5.scale-2x"
+        )
+        let appleManagedRoutingMetadata =
+            try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity:
+                            appleManagedRoute,
+                        reason: .initialSelection,
+                        failedBackendIDs: []
+                    )
+                ]
+            ).outputMetadata()
+
+        XCTAssertEqual(
+            appleManagedRoutingMetadata
+                .selectedModelStatuses,
+            [.appleConfigurationManagedReady]
+        )
+        XCTAssertEqual(
+            appleManagedRoutingMetadata.modelStatus,
+            "apple_configuration_managed_ready"
+        )
+        let appleManagedOutput =
+            try identity.finalizedTimedMetadata(
+                routingDecisionMetadata:
+                    appleManagedRoutingMetadata
+            )
+        XCTAssertEqual(
+            appleManagedOutput[
+                R13ProductASHDecisionMetadata.modelStatusKey
+            ],
+            "apple_configuration_managed_ready"
+        )
+        XCTAssertNoThrow(
+            try identity.validateTimedMetadata(
+                appleManagedOutput
+            )
+        )
+
+        var mismatched = appleManagedOutput
+        mismatched[
+            R13ProductASHDecisionMetadata.modelStatusKey
+        ] = "not_required"
+        XCTAssertThrowsError(
+            try identity.validateTimedMetadata(mismatched)
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataInvalid(
+                    field: "routing_model_status"
+                )
+            )
+        }
+
+        let mixedRoutingMetadata =
+            try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity:
+                            appleManagedRoute,
+                        reason: .initialSelection,
+                        failedBackendIDs: []
+                    ),
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 1,
+                        selectedRouteIdentity:
+                            fallbackRoute,
+                        reason: .fatalBackendFailover,
+                        failedBackendIDs: [
+                            appleManagedRoute.backend.backendID
+                        ]
+                    )
+                ]
+            ).outputMetadata()
+        let mixedOutput =
+            try identity.finalizedTimedMetadata(
+                routingDecisionMetadata:
+                    mixedRoutingMetadata
+            )
+        XCTAssertEqual(
+            mixedOutput[
+                R13ProductASHDecisionMetadata.modelStatusKey
+            ],
+            "mixed"
+        )
+        XCTAssertEqual(
+            mixedOutput[
+                R13ProductASHDecisionMetadata
+                    .selectedModelStatusesKey
+            ],
+            "apple_configuration_managed_ready,not_required"
+        )
+        XCTAssertNoThrow(
+            try identity.validateTimedMetadata(mixedOutput)
+        )
+
+        var duplicatedStatus = mixedOutput
+        duplicatedStatus[
+            R13ProductASHDecisionMetadata
+                .selectedModelStatusesKey
+        ] =
+            "apple_configuration_managed_ready,"
+            + "apple_configuration_managed_ready"
+        XCTAssertThrowsError(
+            try identity.validateTimedMetadata(
+                duplicatedStatus
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataInvalid(
+                    field:
+                        "routing_selected_model_statuses"
+                )
+            )
+        }
+    }
+
+    func testPolicyClaimsBindRouteClassAndRejectCrossedDirectRouterSemantics()
+        throws {
+        let direct = R13ReleaseModePolicy.binding(
+            for: .deterministic
+        )
+        let router = R13ReleaseModePolicy.binding(
+            for: .quality
+        )
+        let directProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: direct
+            )
+        let routerProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: router
+            )
+        let directAdaptive =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass:
+                    .adaptiveFormatGeometry,
+                binding: direct
+            )
+        let routerAdaptive =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass:
+                    .adaptiveFormatGeometry,
+                binding: router
+            )
+
+        XCTAssertEqual(
+            directProduct.modelStatus,
+            .notRequired
+        )
+        XCTAssertEqual(
+            directProduct.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            routerProduct.modelStatus,
+            .runtimeSelected
+        )
+        XCTAssertEqual(
+            routerProduct.fallbackSemantics,
+            .runtimeSelectedOrderedFailover
+        )
+        XCTAssertEqual(
+            directAdaptive.modelStatus,
+            .notRequired
+        )
+        XCTAssertEqual(
+            directAdaptive.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            routerAdaptive.modelStatus,
+            .notRequired
+        )
+        XCTAssertEqual(
+            routerAdaptive.fallbackSemantics,
+            .runtimeSelectedOrderedFailover
+        )
+
+        XCTAssertThrowsError(
+            try R13ReleaseRoutePolicyClaim(
+                routeClass: .canonicalProduct,
+                binding: router,
+                modelStatus: .notRequired,
+                fallbackSemantics:
+                    .runtimeSelectedOrderedFailover
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as?
+                    R13ReleaseRoutePolicyClaimError,
+                .modelStatusMismatch(
+                    routeClass: .canonicalProduct,
+                    expected: .runtimeSelected,
+                    actual: .notRequired
+                )
+            )
+        }
+        XCTAssertThrowsError(
+            try R13ReleaseRoutePolicyClaim(
+                routeClass:
+                    .adaptiveFormatGeometry,
+                binding: direct,
+                modelStatus: .notRequired,
+                fallbackSemantics:
+                    .runtimeSelectedOrderedFailover
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as?
+                    R13ReleaseRoutePolicyClaimError,
+                .fallbackSemanticsMismatch(
+                    routeClass:
+                        .adaptiveFormatGeometry,
+                    expected: .forbidden,
+                    actual:
+                        .runtimeSelectedOrderedFailover
+                )
+            )
+        }
+
+        let document = R13ReleasePolicyDocument(
+            bindings: [direct, router]
+        )
+        XCTAssertEqual(
+            document.modes.map(
+                \.canonicalProductRoutePolicy
+            ),
+            [directProduct, routerProduct]
+        )
+        XCTAssertEqual(
+            document.modes.map(
+                \.adaptiveFormatGeometryRoutePolicy
+            ),
+            [directAdaptive, routerAdaptive]
+        )
+    }
+
+    func testAdaptiveIdentityAndPolicyBindTheExactDynamicQualityPlan()
         throws {
         let plan = try R13AdaptiveScalePlan(
             sourceResolution: VideoResolution(width: 728, height: 410),
@@ -69,6 +548,35 @@ final class R13ReleaseIdentityTests: XCTestCase {
         )
 
         XCTAssertEqual(decodedPolicy, policyDocument)
+        XCTAssertEqual(
+            policyDocument.modelStatus,
+            R13ReleasePolicyModelStatus
+                .notRequired.rawValue
+        )
+        XCTAssertEqual(
+            policyDocument.fallbackPolicy,
+            R13ReleasePolicyFallbackSemantics
+                .forbidden.rawValue
+        )
+        let routedPolicy =
+            R13AdaptiveReleasePolicyDocument(
+                plan: plan,
+                modeBinding:
+                    R13ReleaseModePolicy.binding(
+                        for: .quality
+                    )
+            )
+        XCTAssertEqual(
+            routedPolicy.modelStatus,
+            R13ReleasePolicyModelStatus
+                .notRequired.rawValue
+        )
+        XCTAssertEqual(
+            routedPolicy.fallbackPolicy,
+            R13ReleasePolicyFallbackSemantics
+                .runtimeSelectedOrderedFailover
+                .rawValue
+        )
         XCTAssertEqual(
             boundPolicy.policySHA256,
             R13CryptoKitRestartDigest().sha256(policyData)
@@ -96,32 +604,87 @@ final class R13ReleaseIdentityTests: XCTestCase {
             )
         )
 
+        let modeBinding = R13ReleaseModePolicy.binding(for: .quality)
         XCTAssertEqual(
             identity.capabilityID,
-            R13ReleaseIdentity.adaptiveCapabilityID
+            modeBinding.capabilityID
         )
         XCTAssertEqual(
             identity.backendID,
-            R13ReleaseIdentity.adaptiveBackendID
+            modeBinding.backendID
         )
         XCTAssertEqual(
             identity.routeID,
-            R13ReleaseIdentity.adaptiveRouteID
+            modeBinding.adaptiveRouteID
         )
         XCTAssertEqual(
             identity.configurationIdentity,
-            plan.configurationIdentity
+            modeBinding
+                .adaptiveConfigurationIdentity(for: plan)
         )
         XCTAssertEqual(
             identity.policyIdentity,
-            R13ReleaseIdentity.adaptivePolicyIdentity
+            modeBinding.policyIdentity
         )
         XCTAssertEqual(
             identity.materialDecisionIdentity,
-            R13ReleaseIdentity.adaptiveMaterialDecisionIdentity
+            modeBinding.materialDecisionIdentity
         )
         XCTAssertEqual(identity.policyResources, boundPolicy)
         XCTAssertNotEqual(identity.identitySHA256, try makeIdentity().identitySHA256)
+        XCTAssertEqual(
+            identity.timedMetadata[
+                R13ProductASHDecisionMetadata.statusKey
+            ],
+            "pending"
+        )
+        XCTAssertThrowsError(
+            try identity.finalizedTimedMetadata(
+                routingDecisionMetadata: nil
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataMissing
+            )
+        }
+        let invalidAdaptiveModelMetadata =
+            try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity:
+                            try releaseDecisionRoute(
+                                backendID:
+                                    "r04.videotoolbox.quality",
+                                configurationIdentity:
+                                    "r04.quality.observed",
+                                modelAssetsIdentity:
+                                    .appleConfigurationManaged(
+                                        configurationIdentity:
+                                            "r04.quality",
+                                        readiness: .ready
+                                    )
+                            ),
+                        reason: .initialSelection,
+                        failedBackendIDs: []
+                    )
+                ]
+            ).outputMetadata()
+        XCTAssertThrowsError(
+            try identity.finalizedTimedMetadata(
+                routingDecisionMetadata:
+                    invalidAdaptiveModelMetadata
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataInvalid(
+                    field:
+                        "routing_model_status_policy"
+                )
+            )
+        }
 
         let job = UpscaleJob(
             identifier: "r13-adaptive-identity",
@@ -140,17 +703,21 @@ final class R13ReleaseIdentityTests: XCTestCase {
             job: job,
             scalePlan: scalePlan,
             identity: identity,
+            modeBinding: modeBinding,
             source: source,
             totalFrameCount: 17
         )
         XCTAssertEqual(
             core.processing.routeIdentity,
-            "\(R13ReleaseIdentity.adaptiveRouteID):"
-                + plan.configurationIdentity
+            "\(modeBinding.adaptiveRouteID):"
+                + modeBinding
+                    .adaptiveConfigurationIdentity(for: plan)
+                + ":\(job.processingConfiguration.identity)"
+                + ":progressive:not_required"
         )
         XCTAssertEqual(
             core.processing.backendIdentity,
-            R13ReleaseIdentity.adaptiveBackendID
+            modeBinding.backendID
         )
     }
 
@@ -246,8 +813,9 @@ final class R13ReleaseIdentityTests: XCTestCase {
 
         let boundModelRoute = try AppleUpscaleRouteIdentity(
             backend: AppleUpscaleBackendIdentity(
-                backendID: "r03.mps.lanczos",
-                backendRevision: "1",
+                backendID: input.modeBinding.backendID,
+                backendRevision:
+                    input.modeBinding.backendRevision,
                 modelAssetsIdentity: .bound([
                     AppleUpscaleArtifactIdentity(
                         identifier: "unexpected.model",
@@ -325,19 +893,45 @@ final class R13ReleaseIdentityTests: XCTestCase {
 private extension R13ReleaseIdentityTests {
     func makeIdentity(
         sourceByteCount: UInt64 = 9_876_543,
-        policySHA256: String? = nil
+        policySHA256: String? = nil,
+        sourceScanStructure:
+            MediaVideoScanStructure = .progressive
     ) throws -> R13ReleaseIdentity {
         try R13ReleaseIdentity(
             makeInput(
                 sourceByteCount: sourceByteCount,
-                policySHA256: policySHA256
+                policySHA256: policySHA256,
+                sourceScanStructure: sourceScanStructure
             )
         )
     }
 
+    private func assertRoutingMetadataError(
+        identity: R13ReleaseIdentity,
+        metadata: [String: String],
+        field: String,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(
+            try identity.validateTimedMetadata(metadata),
+            file: file,
+            line: line
+        ) { error in
+            XCTAssertEqual(
+                error as? R13ReleaseIdentityError,
+                .routingDecisionMetadataInvalid(field: field),
+                file: file,
+                line: line
+            )
+        }
+    }
+
     func makeInput(
         sourceByteCount: UInt64 = 9_876_543,
-        policySHA256: String? = nil
+        policySHA256: String? = nil,
+        sourceScanStructure:
+            MediaVideoScanStructure = .progressive
     ) throws -> R13ReleaseIdentityInput {
         let scaleRoute = R03ScaleRoute.scale2x
         return R13ReleaseIdentityInput(
@@ -345,17 +939,22 @@ private extension R13ReleaseIdentityTests {
                 sha256: hash("1"),
                 byteCount: sourceByteCount
             ),
-            modeBinding: try R13ReleaseModePolicy.binding(for: .quality),
+            modeBinding: R13ReleaseModePolicy.binding(for: .quality),
             output: try R13ReleaseOutputBinding(
                 resolution: .p2160,
                 codec: .hevc,
                 preserveAudio: true
             ),
             scalePlan: .productQualified(scaleRoute),
-            routeIdentity: try R13ReleaseIdentity.makeA11Route(for: scaleRoute),
+            routeIdentity: try R13ReleaseIdentity.makeProductRoute(
+                for: scaleRoute,
+                modeBinding: R13ReleaseModePolicy.binding(
+                    for: .quality
+                )
+            ),
             application: try application(),
             framework: try R13ReleaseFrameworkIdentity(
-                frameworkIdentifier: "MetalPerformanceShaders",
+                frameworkIdentifier: "AppleNativeMultiEngine",
                 version: "15.4",
                 buildIdentity: "24F74"
             ),
@@ -369,7 +968,13 @@ private extension R13ReleaseIdentityTests {
                 policySHA256: policySHA256 ?? hash("2"),
                 resourceManifestSHA256: hash("3")
             ),
-            fallbackHistory: []
+            fallbackHistory: [],
+            sourceScanStructure: sourceScanStructure,
+            deinterlacingAlgorithmIdentity:
+                sourceScanStructure.requiresDeinterlacing
+                ? R13FormatPreservingDeinterlacer
+                    .algorithmIdentity
+                : "not_required"
         )
     }
 
@@ -385,6 +990,27 @@ private extension R13ReleaseIdentityTests {
         )
     }
 
+    func releaseDecisionRoute(
+        backendID: String,
+        configurationIdentity: String,
+        modelAssetsIdentity:
+            AppleUpscaleModelAssetsIdentity = .notRequired
+    ) throws -> AppleUpscaleRouteIdentity {
+        try AppleUpscaleRouteIdentity(
+            backend: AppleUpscaleBackendIdentity(
+                backendID: backendID,
+                backendRevision:
+                    "r13.release.decision.test.v1",
+                modelAssetsIdentity: modelAssetsIdentity
+            ),
+            configurationIdentity: configurationIdentity,
+            policyIdentity:
+                "r13.release.decision.test.policy",
+            materialDecisionIdentity:
+                "r13.release.decision.test.material"
+        )
+    }
+
     func makeAdaptiveInput(
         plan: R13AdaptiveScalePlan,
         policyResources: R13ReleasePolicyResourceBinding
@@ -394,7 +1020,7 @@ private extension R13ReleaseIdentityTests {
                 sha256: hash("1"),
                 byteCount: 9_876_543
             ),
-            modeBinding: try R13ReleaseModePolicy.binding(for: .quality),
+            modeBinding: R13ReleaseModePolicy.binding(for: .quality),
             output: try R13ReleaseOutputBinding(
                 resolution: plan.targetResolution,
                 codec: .hevc,
@@ -402,11 +1028,14 @@ private extension R13ReleaseIdentityTests {
             ),
             scalePlan: .adaptiveMPSLanczos(plan),
             routeIdentity: try R13ReleaseIdentity.makeAdaptiveRoute(
-                for: plan
+                for: plan,
+                modeBinding: R13ReleaseModePolicy.binding(
+                    for: .quality
+                )
             ),
             application: try application(),
             framework: try R13ReleaseFrameworkIdentity(
-                frameworkIdentifier: "MetalPerformanceShaders",
+                frameworkIdentifier: "AppleNativeMultiEngine",
                 version: "15.4",
                 buildIdentity: "24F74"
             ),

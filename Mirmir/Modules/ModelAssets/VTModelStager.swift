@@ -52,18 +52,25 @@ final class VTModelStager: @unchecked Sendable {
     let acquisitionAuthority: VTModelAcquisitionAuthority
 
     private let configurationProvider: any VTModelConfigurationProviding
+    private let pollingIntervalNanoseconds: UInt64
 
     init() {
         acquisitionAuthority = .statusOnly
         configurationProvider = VTUnboundModelConfigurationProvider()
+        pollingIntervalNanoseconds = 100_000_000
     }
 
     init(
         configurationProvider: any VTModelConfigurationProviding,
-        acquisitionAuthority: VTModelAcquisitionAuthority
+        acquisitionAuthority: VTModelAcquisitionAuthority,
+        pollingIntervalNanoseconds: UInt64 = 100_000_000
     ) {
         self.configurationProvider = configurationProvider
         self.acquisitionAuthority = acquisitionAuthority
+        self.pollingIntervalNanoseconds = max(
+            pollingIntervalNanoseconds,
+            1
+        )
     }
 
     func currentStatus() -> NativeStatus {
@@ -80,21 +87,84 @@ final class VTModelStager: @unchecked Sendable {
             guard acquisitionAuthority == .systemDownloadAuthorized else {
                 throw VTModelStagerError.acquisitionNotAuthorized
             }
-            try await configurationProvider.downloadConfigurationModel()
+            let progressTask = makeProgressTask(
+                progressHandler: progressHandler
+            )
+            do {
+                try await configurationProvider
+                    .downloadConfigurationModel()
+            } catch {
+                progressTask.cancel()
+                await progressTask.value
+                throw error
+            }
+            progressTask.cancel()
+            await progressTask.value
+            try Task.checkCancellation()
             let completedStatus = currentStatus()
             guard completedStatus == .ready else {
                 if case .downloading(let progress) = completedStatus {
-                    progressHandler(progress)
+                    progressHandler(Self.normalized(progress))
                 }
                 throw VTModelStagerError.downloadCompletedWithoutReady(completedStatus)
             }
             progressHandler(1.0)
         case .downloading(let progress):
-            progressHandler(progress)
-            throw VTModelStagerError.downloadAlreadyInProgress(progress: progress)
+            progressHandler(Self.normalized(progress))
+            try await waitForExistingDownload(
+                progressHandler: progressHandler
+            )
         case .unavailable(let reason):
             throw VTModelStagerError.unavailable(reason: reason)
         }
+    }
+
+    private func makeProgressTask(
+        progressHandler: @Sendable @escaping (Double) -> Void
+    ) -> Task<Void, Never> {
+        Task { [configurationProvider, pollingIntervalNanoseconds] in
+            while !Task.isCancelled {
+                if case .downloading(let progress) =
+                    configurationProvider.currentStatus() {
+                    progressHandler(Self.normalized(progress))
+                }
+                do {
+                    try await Task.sleep(
+                        nanoseconds: pollingIntervalNanoseconds
+                    )
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private func waitForExistingDownload(
+        progressHandler: @Sendable @escaping (Double) -> Void
+    ) async throws {
+        while true {
+            try Task.checkCancellation()
+            switch currentStatus() {
+            case .ready:
+                progressHandler(1.0)
+                return
+            case .downloading(let progress):
+                progressHandler(Self.normalized(progress))
+            case .downloadRequired:
+                throw VTModelStagerError.downloadCompletedWithoutReady(
+                    .downloadRequired
+                )
+            case .unavailable(let reason):
+                throw VTModelStagerError.unavailable(reason: reason)
+            }
+            try await Task.sleep(
+                nanoseconds: pollingIntervalNanoseconds
+            )
+        }
+    }
+
+    private static func normalized(_ progress: Double) -> Double {
+        min(max(progress, 0), 1)
     }
 }
 
@@ -135,13 +205,15 @@ private final class VTNativeQualityModelProvider:
 extension VTModelStager {
     convenience init(
         configuration: VTSuperResolutionScalerConfiguration,
-        acquisitionAuthority: VTModelAcquisitionAuthority
+        acquisitionAuthority: VTModelAcquisitionAuthority,
+        pollingIntervalNanoseconds: UInt64 = 100_000_000
     ) {
         self.init(
             configurationProvider: VTNativeQualityModelProvider(
                 configuration: configuration
             ),
-            acquisitionAuthority: acquisitionAuthority
+            acquisitionAuthority: acquisitionAuthority,
+            pollingIntervalNanoseconds: pollingIntervalNanoseconds
         )
     }
 }

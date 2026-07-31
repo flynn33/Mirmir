@@ -2,6 +2,81 @@ import Combine
 import Foundation
 
 @MainActor
+final class MirmirAppComposition: ObservableObject {
+    enum State {
+        case ready(MirmirAppBootstrap)
+        case failed(String)
+    }
+
+    @Published private(set) var state: State
+
+    let diagnosticStore: MirmirDiagnosticStore
+    private let bootstrapFactory:
+        (MirmirDiagnosticStore) throws -> MirmirAppBootstrap
+
+    init(
+        diagnostics: MirmirDiagnosticStore = .application,
+        bootstrapFactory:
+            @escaping (MirmirDiagnosticStore) throws
+                -> MirmirAppBootstrap = {
+                try MirmirAppBootstrap.makeProduction(
+                    diagnostics: $0
+                )
+            }
+    ) {
+        self.diagnosticStore = diagnostics
+        self.bootstrapFactory = bootstrapFactory
+        do {
+            state = .ready(try bootstrapFactory(diagnosticStore))
+        } catch {
+            state = .failed(MirmirAppBootstrap.describe(error))
+            recordCompositionFailure(error)
+        }
+    }
+
+    func retry() {
+        guard case .failed = state else { return }
+        recordCompositionEvent(
+            severity: .info,
+            code: "app_composition_retry_started"
+        )
+
+        do {
+            state = .ready(try bootstrapFactory(diagnosticStore))
+            recordCompositionEvent(
+                severity: .info,
+                code: "app_composition_retry_succeeded"
+            )
+        } catch {
+            state = .failed(MirmirAppBootstrap.describe(error))
+            recordCompositionFailure(error)
+        }
+    }
+
+    private func recordCompositionFailure(_ error: Error) {
+        recordCompositionEvent(
+            severity: .critical,
+            code: "app_composition_failed",
+            error: error
+        )
+    }
+
+    private func recordCompositionEvent(
+        severity: MirmirDiagnosticSeverity,
+        code: String,
+        error: Error? = nil
+    ) {
+        MirmirDiagnosticRecorder(store: diagnosticStore).enqueue(
+            severity: severity,
+            subsystem: "application",
+            operation: "composition",
+            code: code,
+            error: error
+        )
+    }
+}
+
+@MainActor
 final class MirmirAppBootstrap: ObservableObject {
     enum ProductionState: Equatable {
         case idle
@@ -17,23 +92,29 @@ final class MirmirAppBootstrap: ObservableObject {
 
     @Published private(set) var productionState: ProductionState = .idle
 
-    convenience init() {
-        let diagnostics = MirmirDiagnosticStore.application
-        do {
-            try self.init(
-                services: Self.makeProductionServices(
-                    diagnostics: diagnostics
-                ),
+    static func makeProduction(
+        diagnostics: MirmirDiagnosticStore = .application
+    ) throws -> MirmirAppBootstrap {
+        try MirmirAppBootstrap(
+            services: makeProductionServices(
                 diagnostics: diagnostics
-            )
-        } catch {
-            preconditionFailure("Failed to compose Mirmir: \(Self.describe(error))")
-        }
+            ),
+            diagnostics: diagnostics,
+            preferencesStore: MirmirPreferencesStore(),
+            workHistoryStore: try MirmirWorkHistoryStore.production(),
+            pendingWorkQueue: try MirmirPendingWorkQueue.production()
+        )
     }
 
     init(
         services: MirmirServices,
-        diagnostics: MirmirDiagnosticStore? = nil
+        diagnostics: MirmirDiagnosticStore? = nil,
+        preferencesStore: MirmirPreferencesStore? = nil,
+        workHistoryStore: MirmirWorkHistoryStore? = nil,
+        pendingWorkQueue: MirmirPendingWorkQueue? = nil,
+        workHistoryBookmarkResolver:
+            any MirmirWorkHistoryBookmarkResolving =
+                MirmirFoundationWorkBookmarkResolver()
     ) throws {
         let registry = try MirmirModuleRegistry.makeRegistry(services: services)
         let moduleHost = try MirmirModuleHost(registry: registry)
@@ -43,7 +124,12 @@ final class MirmirAppBootstrap: ObservableObject {
             mediaPipeline: services.media,
             upscalerEngine: services.upscaler,
             modelAssets: services.modelAssets,
-            diagnostics: diagnosticStore
+            diagnostics: diagnosticStore,
+            preferencesStore: preferencesStore,
+            workHistoryStore: workHistoryStore,
+            pendingWorkQueue: pendingWorkQueue,
+            workHistoryBookmarkResolver:
+                workHistoryBookmarkResolver
         )
         let viewRegistry = MirmirViewRegistry()
         try viewRegistry.register(viewID: MirmirUIConstants.primaryViewID) {
@@ -101,6 +187,24 @@ final class MirmirAppBootstrap: ObservableObject {
         }
     }
 
+    func retryProductionBoot() {
+        switch productionState {
+        case .failed:
+            break
+        case .ready:
+            moduleHost.stop()
+        case .idle, .booting:
+            return
+        }
+
+        recordBootstrapEvent(
+            severity: .info,
+            code: "app_boot_retry_started"
+        )
+        productionState = .idle
+        bootForProduction()
+    }
+
     private func recordBootstrapEvent(
         severity: MirmirDiagnosticSeverity,
         code: String,
@@ -119,12 +223,8 @@ final class MirmirAppBootstrap: ObservableObject {
     private static func makeProductionServices(
         diagnostics: MirmirDiagnosticStore
     ) throws -> MirmirServices {
-        guard #available(macOS 15.4, *) else {
-            preconditionFailure("Mirmir requires macOS 15.4 or later.")
-        }
-
         let metalService = try DefaultMetalRenderingService()
-        let modelAssetsService = NotRequiredModelAssetsService()
+        let modelAssetsService = DefaultModelAssetsService()
         let mediaPipelineService = AVFoundationMediaPipeline(
             metal: metalService,
             diagnostics: diagnostics
@@ -143,7 +243,7 @@ final class MirmirAppBootstrap: ObservableObject {
         )
     }
 
-    private static func describe(_ error: Error) -> String {
+    static func describe(_ error: Error) -> String {
         if let localizedError = error as? LocalizedError,
            let description = localizedError.errorDescription {
             return description

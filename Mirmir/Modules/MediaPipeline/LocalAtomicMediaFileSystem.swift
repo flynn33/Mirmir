@@ -53,7 +53,7 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
     }
 
     // Lease creation is one descriptor transaction: every failure path closes
-    // or unlinks only the exact object created by this invocation.
+    // or unlinks only the exact lease path established during this invocation.
     // swiftlint:disable:next function_body_length
     func acquireTransactionLease(
         for destinationURL: URL

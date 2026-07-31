@@ -119,67 +119,28 @@ final class UpscalerEngineAvailabilityTests: XCTestCase {
         XCTAssertEqual(progress.values, [1.0])
     }
 
-    func test_modelStagerReportsExistingDownloadWithoutStartingAnother() async {
+    func test_modelStagerObservesExistingDownloadWithoutStartingAnother()
+        async throws {
         let provider = VTModelConfigurationProbe(status: .downloading(progress: 0.375))
         let stager = VTModelStager(
             configurationProvider: provider,
-            acquisitionAuthority: .systemDownloadAuthorized
+            acquisitionAuthority: .systemDownloadAuthorized,
+            pollingIntervalNanoseconds: 1_000_000
         )
         let progress = VTModelProgressProbe()
 
-        do {
-            try await stager.ensureReady { progress.record($0) }
-            XCTFail("An existing model download must remain externally owned.")
-        } catch let error as VTModelStagerError {
-            XCTAssertEqual(error, .downloadAlreadyInProgress(progress: 0.375))
-        } catch {
-            XCTFail("Unexpected error: \(error)")
+        Task {
+            try await Task.sleep(nanoseconds: 3_000_000)
+            provider.setStatus(.downloading(progress: 0.75))
+            try await Task.sleep(nanoseconds: 3_000_000)
+            provider.setStatus(.ready)
         }
+        try await stager.ensureReady { progress.record($0) }
 
         XCTAssertEqual(provider.downloadCount, 0)
-        XCTAssertEqual(progress.values, [0.375])
-    }
-
-    @available(macOS 26.0, *)
-    func test_modelAssetsWaiterTerminatesForStatusOnlyDownloadRequirement() {
-        XCTAssertEqual(
-            DefaultModelAssetsService.terminalWaiterError(
-                for: .downloadRequired,
-                acquisitionAuthority: .statusOnly,
-                acquisitionOwned: false
-            ),
-            .acquisitionNotAuthorized
-        )
-    }
-
-    @available(macOS 26.0, *)
-    func test_modelAssetsWaiterTerminatesForExternallyOwnedDownload() {
-        XCTAssertEqual(
-            DefaultModelAssetsService.terminalWaiterError(
-                for: .downloading(progress: 0.625),
-                acquisitionAuthority: .systemDownloadAuthorized,
-                acquisitionOwned: false
-            ),
-            .downloadAlreadyInProgress(progress: 0.625)
-        )
-    }
-
-    @available(macOS 26.0, *)
-    func test_modelAssetsWaiterPreservesOwnedDownloadWaiting() {
-        XCTAssertNil(
-            DefaultModelAssetsService.terminalWaiterError(
-                for: .downloadRequired,
-                acquisitionAuthority: .systemDownloadAuthorized,
-                acquisitionOwned: true
-            )
-        )
-        XCTAssertNil(
-            DefaultModelAssetsService.terminalWaiterError(
-                for: .downloading(progress: 0.625),
-                acquisitionAuthority: .systemDownloadAuthorized,
-                acquisitionOwned: true
-            )
-        )
+        XCTAssertEqual(progress.values.first, 0.375)
+        XCTAssertTrue(progress.values.contains(0.75))
+        XCTAssertEqual(progress.values.last, 1.0)
     }
 
     func test_lowLatencyAdmissionQueriesExactDimensionsBeforeConstruction() throws {
@@ -377,6 +338,10 @@ private final class VTModelConfigurationProbe:
 
     func currentStatus() -> VTModelStagerStatus {
         lock.withLock { $0.status }
+    }
+
+    func setStatus(_ status: VTModelStagerStatus) {
+        lock.withLock { $0.status = status }
     }
 
     func downloadConfigurationModel() async throws {

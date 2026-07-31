@@ -7,6 +7,7 @@ struct R13RecoverableUpscaleJob: Equatable, Identifiable, Sendable {
     let codec: OutputCodec
     let preserveAudio: Bool
     let mode: UpscaleMode
+    let processingConfiguration: UpscaleProcessingConfiguration
     let cachedFrameCount: Int
 
     init(
@@ -18,7 +19,19 @@ struct R13RecoverableUpscaleJob: Equatable, Identifiable, Sendable {
             throw R13RestartJobError.invalidFrameCount(cachedFrameCount)
         }
         guard let outputCodec = OutputCodec(rawValue: descriptor.codec),
-              let upscaleMode = UpscaleMode(rawValue: descriptor.mode) else {
+              let upscaleMode = UpscaleMode(rawValue: descriptor.mode),
+              let enginePreference = UpscaleEnginePreference(
+                rawValue: descriptor.enginePreference
+              ),
+              let strategyPreference = UpscaleStrategyPreference(
+                rawValue: descriptor.strategyPreference
+              ),
+              let edgeFidelityLevel = MirmirAdjustmentLevel(
+                rawValue: descriptor.edgeFidelityLevel
+              ),
+              let detailRecoveryLevel = MirmirAdjustmentLevel(
+                rawValue: descriptor.detailRecoveryLevel
+              ) else {
             throw R13RestartJobError.nonCanonicalDocument(
                 "recovery_job_options"
             )
@@ -32,6 +45,26 @@ struct R13RecoverableUpscaleJob: Equatable, Identifiable, Sendable {
         codec = outputCodec
         preserveAudio = descriptor.preserveAudio
         mode = upscaleMode
+        processingConfiguration = UpscaleProcessingConfiguration(
+            enginePreference: enginePreference,
+            strategyPreference: strategyPreference,
+            temporalConsistencyEnabled:
+                descriptor.temporalConsistencyEnabled,
+            edgeFidelityLevel: edgeFidelityLevel,
+            detailRecoveryLevel: detailRecoveryLevel,
+            effects: UpscaleEffectConfiguration(
+                edgePreservationEnabled:
+                    descriptor.edgePreservationEnabled ?? false,
+                compressionCleanupEnabled:
+                    descriptor.compressionCleanupEnabled ?? false,
+                textureGrainProtectionEnabled:
+                    descriptor.textureGrainProtectionEnabled ?? false,
+                temporalStabilityEnabled:
+                    descriptor.temporalStabilityEnabled ?? false
+            ),
+            smoothMotion:
+                try descriptor.smoothMotionConfiguration()
+        )
         self.cachedFrameCount = cachedFrameCount
     }
 
@@ -182,7 +215,8 @@ extension R13ReleaseUpscalerEngineService {
 }
 
 struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 4
+    private static let supportedSchemaVersions: Set<Int> = [2, 3, 4]
 
     let schemaVersion: Int
     let jobID: String
@@ -192,6 +226,17 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
     let codec: String
     let preserveAudio: Bool
     let mode: String
+    let enginePreference: String
+    let strategyPreference: String
+    let temporalConsistencyEnabled: Bool
+    let edgeFidelityLevel: String
+    let detailRecoveryLevel: String
+    let edgePreservationEnabled: Bool?
+    let compressionCleanupEnabled: Bool?
+    let textureGrainProtectionEnabled: Bool?
+    let temporalStabilityEnabled: Bool?
+    let smoothMotionCadence: String?
+    let smoothMotionSceneCutSensitivity: String?
 
     init(job: UpscaleJob) throws {
         schemaVersion = Self.currentSchemaVersion
@@ -211,6 +256,30 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
         codec = job.codec.rawValue
         preserveAudio = job.preserveAudio
         mode = job.mode.rawValue
+        enginePreference =
+            job.processingConfiguration.enginePreference.rawValue
+        strategyPreference =
+            job.processingConfiguration.strategyPreference.rawValue
+        temporalConsistencyEnabled =
+            job.processingConfiguration.temporalConsistencyEnabled
+        edgeFidelityLevel =
+            job.processingConfiguration.edgeFidelityLevel.rawValue
+        detailRecoveryLevel =
+            job.processingConfiguration.detailRecoveryLevel.rawValue
+        edgePreservationEnabled =
+            job.processingConfiguration.effects.edgePreservationEnabled
+        compressionCleanupEnabled =
+            job.processingConfiguration.effects.compressionCleanupEnabled
+        textureGrainProtectionEnabled =
+            job.processingConfiguration.effects
+                .textureGrainProtectionEnabled
+        temporalStabilityEnabled =
+            job.processingConfiguration.effects.temporalStabilityEnabled
+        smoothMotionCadence =
+            job.processingConfiguration.smoothMotion.cadence.rawValue
+        smoothMotionSceneCutSensitivity =
+            job.processingConfiguration.smoothMotion
+                .sceneCutSensitivity.rawValue
     }
 
     func makeJob(
@@ -218,7 +287,19 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
     ) throws -> UpscaleJob {
         try validate()
         guard let outputCodec = OutputCodec(rawValue: codec),
-              let upscaleMode = UpscaleMode(rawValue: mode) else {
+              let upscaleMode = UpscaleMode(rawValue: mode),
+              let engine = UpscaleEnginePreference(
+                rawValue: enginePreference
+              ),
+              let strategy = UpscaleStrategyPreference(
+                rawValue: strategyPreference
+              ),
+              let edge = MirmirAdjustmentLevel(
+                rawValue: edgeFidelityLevel
+              ),
+              let detail = MirmirAdjustmentLevel(
+                rawValue: detailRecoveryLevel
+              ) else {
             throw R13RestartJobError.nonCanonicalDocument(
                 "recovery_job_options"
             )
@@ -234,12 +315,22 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
             ),
             codec: outputCodec,
             preserveAudio: preserveAudio,
-            mode: upscaleMode
+            mode: upscaleMode,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                enginePreference: engine,
+                strategyPreference: strategy,
+                temporalConsistencyEnabled:
+                    temporalConsistencyEnabled,
+                edgeFidelityLevel: edge,
+                detailRecoveryLevel: detail,
+                effects: effectConfiguration,
+                smoothMotion: try smoothMotionConfiguration()
+            )
         )
     }
 
     func validate() throws {
-        guard schemaVersion == Self.currentSchemaVersion else {
+        guard Self.supportedSchemaVersions.contains(schemaVersion) else {
             throw R13RestartJobError.schemaMismatch(
                 document: "recovery_descriptor"
             )
@@ -248,11 +339,165 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
         _ = try Self.validateFilename(outputFilename)
         guard targetWidth > 0, targetHeight > 0,
               OutputCodec(rawValue: codec) != nil,
-              UpscaleMode(rawValue: mode) != nil else {
+              let decodedMode = UpscaleMode(rawValue: mode),
+              UpscaleEnginePreference(rawValue: enginePreference) != nil,
+              UpscaleStrategyPreference(rawValue: strategyPreference) != nil,
+              MirmirAdjustmentLevel(rawValue: edgeFidelityLevel) != nil,
+              MirmirAdjustmentLevel(rawValue: detailRecoveryLevel) != nil else {
             throw R13RestartJobError.nonCanonicalDocument(
                 "recovery_job_options"
             )
         }
+        if let smoothMotionCadence,
+           SmoothMotionCadence(rawValue: smoothMotionCadence) == nil {
+            throw R13RestartJobError.nonCanonicalDocument(
+                "smooth_motion_cadence"
+            )
+        }
+        if let smoothMotionSceneCutSensitivity,
+           SmoothMotionSceneCutSensitivity(
+            rawValue: smoothMotionSceneCutSensitivity
+           ) == nil {
+            throw R13RestartJobError.nonCanonicalDocument(
+                "smooth_motion_scene_cut_sensitivity"
+            )
+        }
+        if decodedMode == .smoothMotion,
+           smoothMotionCadence == nil
+            || smoothMotionSceneCutSensitivity == nil {
+            throw R13RestartJobError.nonCanonicalDocument(
+                "smooth_motion_configuration"
+            )
+        }
+    }
+
+    func validate(
+        against persisted: R13ValidatedRecoverableJob
+    ) throws {
+        try validate()
+        guard let mode = UpscaleMode(rawValue: mode),
+              let engine = UpscaleEnginePreference(
+                rawValue: enginePreference
+              ),
+              let strategy = UpscaleStrategyPreference(
+                rawValue: strategyPreference
+              ),
+              let edge = MirmirAdjustmentLevel(
+                rawValue: edgeFidelityLevel
+              ),
+              let detail = MirmirAdjustmentLevel(
+                rawValue: detailRecoveryLevel
+              ) else {
+            throw R13RestartJobError.nonCanonicalDocument(
+                "recovery_job_options"
+            )
+        }
+        let binding = R13ReleaseModePolicy.binding(
+            for: mode,
+            enginePreference: engine
+        )
+        let configuration = UpscaleProcessingConfiguration(
+            enginePreference: engine,
+            strategyPreference: strategy,
+            temporalConsistencyEnabled:
+                temporalConsistencyEnabled,
+            edgeFidelityLevel: edge,
+            detailRecoveryLevel: detail,
+            effects: effectConfiguration,
+            smoothMotion: try smoothMotionConfiguration()
+        )
+        let expectedAudioPolicy =
+            preserveAudio ? "preserve" : "omit"
+        guard persisted.processing.requestedMode
+                == binding.requestedMode.rawValue,
+              persisted.processing.effectiveMode
+                == binding.effectiveMode.rawValue,
+              persisted.processing.backendIdentity
+                == binding.backendID,
+              persisted.processing.backendRevision
+                == binding.backendRevision,
+              routeIdentity(
+                persisted.processing.routeIdentity,
+                binds: configuration
+              ),
+              persisted.output.width == targetWidth,
+              persisted.output.height == targetHeight,
+              persisted.output.codec == codec,
+              persisted.output.audioPolicy
+                == expectedAudioPolicy else {
+            throw R13RestartJobError.immutableCoreMismatch
+        }
+    }
+
+    private func routeIdentity(
+        _ routeIdentity: String,
+        binds configuration: UpscaleProcessingConfiguration
+    ) -> Bool {
+        let configurationSuffix = ":\(configuration.identity)"
+        if routeIdentity.hasSuffix(configurationSuffix) {
+            return true
+        }
+        return MediaVideoScanStructure.allCases.contains { scanStructure in
+            let deinterlacingIdentity =
+                scanStructure.requiresDeinterlacing
+                ? R13FormatPreservingDeinterlacer.algorithmIdentity
+                : "not_required"
+            return routeIdentity.hasSuffix(
+                configurationSuffix
+                    + ":\(scanStructure.rawValue)"
+                    + ":\(deinterlacingIdentity)"
+            )
+        }
+    }
+
+    private var effectConfiguration: UpscaleEffectConfiguration {
+        UpscaleEffectConfiguration(
+            edgePreservationEnabled:
+                edgePreservationEnabled ?? false,
+            compressionCleanupEnabled:
+                compressionCleanupEnabled ?? false,
+            textureGrainProtectionEnabled:
+                textureGrainProtectionEnabled ?? false,
+            temporalStabilityEnabled:
+                temporalStabilityEnabled ?? false
+        )
+    }
+
+    func smoothMotionConfiguration()
+        throws -> SmoothMotionConfiguration {
+        let cadence: SmoothMotionCadence
+        let sensitivity: SmoothMotionSceneCutSensitivity
+        if let smoothMotionCadence {
+            guard let value =
+                    SmoothMotionCadence(
+                        rawValue: smoothMotionCadence
+                    ) else {
+                throw R13RestartJobError.nonCanonicalDocument(
+                    "smooth_motion_cadence"
+                )
+            }
+            cadence = value
+        } else {
+            cadence = .double
+        }
+        if let smoothMotionSceneCutSensitivity {
+            guard let value =
+                    SmoothMotionSceneCutSensitivity(
+                        rawValue:
+                            smoothMotionSceneCutSensitivity
+                    ) else {
+                throw R13RestartJobError.nonCanonicalDocument(
+                    "smooth_motion_scene_cut_sensitivity"
+                )
+            }
+            sensitivity = value
+        } else {
+            sensitivity = .standard
+        }
+        return SmoothMotionConfiguration(
+            cadence: cadence,
+            sceneCutSensitivity: sensitivity
+        )
     }
 
     private static func validateFilename(_ value: String) throws -> String {
@@ -277,6 +522,24 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
         case codec
         case preserveAudio = "preserve_audio"
         case mode
+        case enginePreference = "engine_preference"
+        case strategyPreference = "strategy_preference"
+        case temporalConsistencyEnabled =
+            "temporal_consistency_enabled"
+        case edgeFidelityLevel = "edge_fidelity_level"
+        case detailRecoveryLevel = "detail_recovery_level"
+        case edgePreservationEnabled =
+            "edge_preservation_enabled"
+        case compressionCleanupEnabled =
+            "compression_cleanup_enabled"
+        case textureGrainProtectionEnabled =
+            "texture_grain_protection_enabled"
+        case temporalStabilityEnabled =
+            "temporal_stability_enabled"
+        case smoothMotionCadence =
+            "smooth_motion_cadence"
+        case smoothMotionSceneCutSensitivity =
+            "smooth_motion_scene_cut_sensitivity"
     }
 }
 
@@ -307,7 +570,7 @@ actor R13RecoveryDescriptorStore {
             isDirectory: true
         )
         try fileSystem.validateDirectory(directory)
-        let url = directory.appendingPathComponent("recovery-v1.json")
+        let url = directory.appendingPathComponent("recovery-v2.json")
         let data = try R13RestartCanonical.data(descriptor)
         if fileSystem.exists(url) {
             let stored = try fileSystem.readRegularFile(
@@ -374,7 +637,7 @@ actor R13RecoveryDescriptorStore {
             isDirectory: true
         )
         try fileSystem.validateDirectory(directory)
-        let url = directory.appendingPathComponent("recovery-v1.json")
+        let url = directory.appendingPathComponent("recovery-v2.json")
         let data = try fileSystem.readRegularFile(
             url,
             maximumBytes: Self.maximumDescriptorBytes

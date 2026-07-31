@@ -59,6 +59,417 @@ final class R13RestartJobStoreTests: XCTestCase {
         XCTAssertEqual(replayedSecond, second)
     }
 
+    func testCommitAndReopenPreserveAuxiliaryAlphaPlaneByteAccounting()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let pixelFormat =
+            kCVPixelFormatType_444YpCbCr16VideoRange_16A_TriPlanar
+        let pixelFormatFourCC = try R13CachedPixelFormat.fourCC(
+            pixelFormat
+        )
+        let core = try fixture.makeCore(
+            totalFrameCount: 1,
+            pixelFormat: pixelFormatFourCC
+        )
+        let counts = try R13NV12Frame.expectedPlaneByteCounts(
+            width: 4,
+            height: 2,
+            pixelFormat: pixelFormat
+        )
+        let frame = try R13NV12Frame(
+            width: 4,
+            height: 2,
+            pixelFormat: pixelFormat,
+            luma: Data(repeating: 0x20, count: counts.luma),
+            chroma: Data(repeating: 0x40, count: counts.chroma),
+            auxiliaryPlanes: counts.auxiliary.map {
+                Data(repeating: 0x60, count: $0)
+            }
+        )
+        let store = R13RestartJobStore(jobsRootURL: fixture.jobsRoot)
+        let plan = try await store.create(core)
+        _ = try await store.commitProcessedFrame(
+            frame,
+            at: 0,
+            using: plan
+        )
+
+        let reopened = try await store.reopen(
+            jobID: core.jobID,
+            expecting: core,
+            observedSource: core.source
+        )
+        let replayed = try await store.loadCachedFrame(
+            at: 0,
+            using: reopened
+        )
+
+        XCTAssertEqual(replayed, frame)
+        XCTAssertEqual(replayed.auxiliaryPlanes.count, 1)
+        XCTAssertEqual(
+            replayed.tightRawData.count,
+            counts.total
+        )
+    }
+
+    func testRoutedCachePersistsExactDecisionsAndMarksOnlyFinalPrefixWarmup()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(
+            totalFrameCount: 3,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.automatic.backendID
+        )
+        let primary = try fixture.route(
+            backendID: "test.restart.primary"
+        )
+        let fallback = try fixture.route(
+            backendID: "test.restart.fallback"
+        )
+        let decisions = [
+            R13ProductASHDecisionEvent(
+                sequenceNumber: 0,
+                selectedRouteIdentity: primary,
+                reason: .initialSelection,
+                failedBackendIDs: [],
+                processingPressureQ16: 4_096
+            ),
+            R13ProductASHDecisionEvent(
+                sequenceNumber: 1,
+                selectedRouteIdentity: fallback,
+                reason: .fatalBackendFailover,
+                failedBackendIDs: [
+                    primary.backend.backendID
+                ],
+                processingPressureQ16: 32_768
+            )
+        ]
+        let frames = [
+            try fixture.frame(value: 10),
+            try fixture.frame(value: 20)
+        ]
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        var plan = try await store.create(core)
+        for index in frames.indices {
+            plan = try await store.commitProcessedFrame(
+                frames[index],
+                routingDecision: decisions[index],
+                at: index,
+                using: plan
+            )
+        }
+
+        let reopened = try await store.reopen(
+            jobID: core.jobID,
+            expecting: core,
+            observedSource: core.source
+        )
+        let first = try await store.loadCachedFrameReplay(
+            at: 0,
+            using: reopened
+        )
+        let second = try await store.loadCachedFrameReplay(
+            at: 1,
+            using: reopened
+        )
+
+        XCTAssertEqual(first.frame, frames[0])
+        XCTAssertEqual(first.routingDecision, decisions[0])
+        XCTAssertFalse(first.isFinalCachedPrefixFrame)
+        XCTAssertFalse(first.requiresBackendWarmup)
+        XCTAssertEqual(second.frame, frames[1])
+        XCTAssertEqual(second.routingDecision, decisions[1])
+        XCTAssertTrue(second.isFinalCachedPrefixFrame)
+        XCTAssertTrue(second.requiresBackendWarmup)
+    }
+
+    func testFullCacheRoutedReplayRequiresZeroBackendWarmup()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(
+            totalFrameCount: 1,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.quality.backendID
+        )
+        let decision = R13ProductASHDecisionEvent(
+            sequenceNumber: 0,
+            selectedRouteIdentity: try fixture.route(
+                backendID: "test.restart.full-cache"
+            ),
+            reason: .initialSelection,
+            failedBackendIDs: [],
+            processingPressureQ16: 8_192
+        )
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 30),
+            routingDecision: decision,
+            at: 0,
+            using: plan
+        )
+
+        let replay = try await store.loadCachedFrameReplay(
+            at: 0,
+            using: plan
+        )
+
+        XCTAssertEqual(replay.routingDecision, decision)
+        XCTAssertTrue(replay.isFinalCachedPrefixFrame)
+        XCTAssertFalse(replay.requiresBackendWarmup)
+    }
+
+    func testRoutedCommitRequiresDecisionAndDirectCommitRejectsOne()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let routedCore = try fixture.makeCore(
+            jobID: "job-routed",
+            totalFrameCount: 1,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.fast.backendID
+        )
+        let directCore = try fixture.makeCore(
+            jobID: "job-direct",
+            totalFrameCount: 1
+        )
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        let routedPlan = try await store.create(routedCore)
+        let directPlan = try await store.create(directCore)
+        let decision = R13ProductASHDecisionEvent(
+            sequenceNumber: 0,
+            selectedRouteIdentity: try fixture.route(
+                backendID: "test.restart.direct-rejection"
+            ),
+            reason: .initialSelection,
+            failedBackendIDs: []
+        )
+
+        do {
+            _ = try await store.commitProcessedFrame(
+                fixture.frame(value: 40),
+                at: 0,
+                using: routedPlan
+            )
+            XCTFail("A routed cache record must bind its route decision.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .routingDecisionRequired(index: 0)
+            )
+        }
+        do {
+            _ = try await store.commitProcessedFrame(
+                fixture.frame(value: 41),
+                routingDecision: decision,
+                at: 0,
+                using: directPlan
+            )
+            XCTFail("A direct cache record must not claim routed evidence.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .unexpectedRoutingDecision(index: 0)
+            )
+        }
+    }
+
+    func testRoutedCommitRejectsInvalidPressureEvidence()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(
+            totalFrameCount: 1,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.automatic.backendID
+        )
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        let plan = try await store.create(core)
+        let decision = R13ProductASHDecisionEvent(
+            sequenceNumber: 0,
+            selectedRouteIdentity: try fixture.route(
+                backendID: "test.restart.invalid-pressure"
+            ),
+            reason: .initialSelection,
+            failedBackendIDs: [],
+            processingPressureQ16: R06ASHQ16.scale + 1
+        )
+
+        do {
+            _ = try await store.commitProcessedFrame(
+                fixture.frame(value: 50),
+                routingDecision: decision,
+                at: 0,
+                using: plan
+            )
+            XCTFail("Out-of-range processing pressure must be rejected.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .invalidRoutingDecision(index: 0)
+            )
+        }
+    }
+
+    func testRouteAndPressureTamperingBreaksRecordChain()
+        async throws {
+        for tamper in [
+            R13RestartRecordTamper.selectedBackendID,
+            .processingPressure
+        ] {
+            let fixture = try R13RestartStoreFixture()
+            defer { fixture.cleanup() }
+            let core = try fixture.makeCore(
+                jobID: "job-\(tamper.rawValue)",
+                totalFrameCount: 1,
+                backendIdentity:
+                    R13ReleaseOrchestrationKind.automatic.backendID
+            )
+            let store = R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            )
+            var plan = try await store.create(core)
+            plan = try await store.commitProcessedFrame(
+                fixture.frame(value: 60),
+                routingDecision: R13ProductASHDecisionEvent(
+                    sequenceNumber: 0,
+                    selectedRouteIdentity: try fixture.route(
+                        backendID: "test.restart.tamper"
+                    ),
+                    reason: .initialSelection,
+                    failedBackendIDs: [],
+                    processingPressureQ16: 1_024
+                ),
+                at: 0,
+                using: plan
+            )
+            try fixture.tamperRecord(
+                jobID: core.jobID,
+                tamper: tamper
+            )
+
+            do {
+                _ = try await R13RestartJobStore(
+                    jobsRootURL: fixture.jobsRoot
+                ).reopen(
+                    jobID: core.jobID,
+                    expecting: core,
+                    observedSource: core.source
+                )
+                XCTFail("Tampered route evidence must break the chain.")
+            } catch {
+                XCTAssertEqual(
+                    error as? R13RestartJobError,
+                    .recordChainMismatch(sequence: 0)
+                )
+            }
+        }
+    }
+
+    func testDirectSchemaOneAndTwoRecordsRemainReplayable()
+        async throws {
+        for schemaVersion in [1, 2] {
+            let fixture = try R13RestartStoreFixture()
+            defer { fixture.cleanup() }
+            let core = try fixture.makeCore(
+                jobID: "job-schema-\(schemaVersion)",
+                totalFrameCount: 1
+            )
+            let expected = try fixture.frame(
+                value: UInt8(70 + schemaVersion)
+            )
+            let store = R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            )
+            var plan = try await store.create(core)
+            plan = try await store.commitProcessedFrame(
+                expected,
+                at: 0,
+                using: plan
+            )
+            try fixture.rewriteRecordAsLegacy(
+                jobID: core.jobID,
+                schemaVersion: schemaVersion
+            )
+
+            let reopened = try await R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            ).reopen(
+                jobID: core.jobID,
+                expecting: core,
+                observedSource: core.source
+            )
+            let replayed = try await R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            ).loadCachedFrame(
+                at: 0,
+                using: reopened
+            )
+            XCTAssertEqual(replayed, expected)
+        }
+    }
+
+    func testLegacyRoutedRecordWithoutDecisionIsNotMisrepresentedAsContinuity()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(
+            totalFrameCount: 1,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.automatic.backendID
+        )
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 80),
+            routingDecision: R13ProductASHDecisionEvent(
+                sequenceNumber: 0,
+                selectedRouteIdentity: try fixture.route(
+                    backendID: "test.restart.legacy-routed"
+                ),
+                reason: .initialSelection,
+                failedBackendIDs: []
+            ),
+            at: 0,
+            using: plan
+        )
+        try fixture.rewriteRecordAsLegacy(
+            jobID: core.jobID,
+            schemaVersion: 2
+        )
+
+        do {
+            _ = try await R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            ).reopen(
+                jobID: core.jobID,
+                expecting: core,
+                observedSource: core.source
+            )
+            XCTFail(
+                "Legacy routed cache has no exact decision evidence."
+            )
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .routingDecisionRequired(index: 0)
+            )
+        }
+    }
+
     func testUnchangedFullValidationReusesDescriptorPinnedSnapshots()
         async throws {
         let fixture = try R13RestartStoreFixture()
@@ -514,7 +925,10 @@ private struct R13RestartStoreFixture {
 
     func makeCore(
         jobID: String = "job-restart",
-        totalFrameCount: Int
+        totalFrameCount: Int,
+        backendIdentity: String = "r03.mps.lanczos",
+        pixelFormat: String =
+            R13RestartOutputIdentity.nv12VideoRangePixelFormat
     ) throws -> R13RestartJobCore {
         try R13RestartJobCore(
             jobID: jobID,
@@ -526,16 +940,34 @@ private struct R13RestartStoreFixture {
                 requestedMode: "deterministic",
                 effectiveMode: "deterministic",
                 routeIdentity: "scale_3_over_2",
-                backendIdentity: "r03.mps.lanczos",
+                backendIdentity: backendIdentity,
                 backendRevision: "1"
             ),
             output: R13RestartOutputIdentity(
                 width: 4,
                 height: 2,
+                pixelFormat: pixelFormat,
                 codec: "hevc",
                 audioPolicy: "preserve"
             ),
             totalFrameCount: totalFrameCount
+        )
+    }
+
+    func route(
+        backendID: String
+    ) throws -> AppleUpscaleRouteIdentity {
+        try AppleUpscaleRouteIdentity(
+            backend: AppleUpscaleBackendIdentity(
+                backendID: backendID,
+                backendRevision: "test.restart.backend.v1",
+                modelAssetsIdentity: .notRequired
+            ),
+            configurationIdentity:
+                "\(backendID).configuration.v1",
+            policyIdentity: "test.restart.policy.v1",
+            materialDecisionIdentity:
+                "test.restart.material-decision.v1"
         )
     }
 
@@ -570,8 +1002,156 @@ private struct R13RestartStoreFixture {
         )
     }
 
+    func tamperRecord(
+        jobID: String,
+        tamper: R13RestartRecordTamper
+    ) throws {
+        let recordURL = jobDirectory(jobID: jobID)
+            .appendingPathComponent("records/0.json")
+        let data = try Data(contentsOf: recordURL)
+        guard var object = try JSONSerialization
+            .jsonObject(with: data) as? [String: Any],
+              var decision = object["routingDecision"]
+                as? [String: Any] else {
+            throw R13RestartFixtureError.invalidRecord
+        }
+        switch tamper {
+        case .selectedBackendID:
+            guard var route = decision["selectedRouteIdentity"]
+                    as? [String: Any] else {
+                throw R13RestartFixtureError.invalidRecord
+            }
+            route["backendID"] =
+                "test.restart.tampered-backend"
+            decision["selectedRouteIdentity"] = route
+        case .processingPressure:
+            decision["processingPressureQ16"] = 2_048
+        }
+        object["routingDecision"] = decision
+        try JSONSerialization.data(
+            withJSONObject: object,
+            options: [.sortedKeys, .withoutEscapingSlashes]
+        ).write(to: recordURL, options: .atomic)
+    }
+
+    func rewriteRecordAsLegacy(
+        jobID: String,
+        schemaVersion: Int
+    ) throws {
+        guard [1, 2].contains(schemaVersion) else {
+            throw R13RestartFixtureError.invalidSchema
+        }
+        let directory = jobDirectory(jobID: jobID)
+        let recordURL = directory.appendingPathComponent(
+            "records/0.json"
+        )
+        let current = try JSONDecoder().decode(
+            R13RestartCommitRecord.self,
+            from: Data(contentsOf: recordURL)
+        )
+        let artifact: R13CachedFrameArtifactIdentity
+        if schemaVersion == 1 {
+            let legacyRelativePath =
+                "frames/\(current.sequence)-"
+                + "\(current.artifact.artifactSHA256).r13nv12"
+            artifact = try R13CachedFrameArtifactIdentity(
+                relativePath: legacyRelativePath,
+                encoding: current.artifact.encoding,
+                artifactSHA256:
+                    current.artifact.artifactSHA256,
+                rawSHA256: current.artifact.rawSHA256,
+                artifactByteCount:
+                    current.artifact.artifactByteCount,
+                rawByteCount:
+                    current.artifact.rawByteCount,
+                width: current.artifact.width,
+                height: current.artifact.height
+            )
+            try FileManager.default.moveItem(
+                at: directory.appendingPathComponent(
+                    current.artifact.relativePath
+                ),
+                to: directory.appendingPathComponent(
+                    legacyRelativePath
+                )
+            )
+        } else {
+            artifact = current.artifact
+        }
+        let payload = R13LegacyCommitRecordPayload(
+            schemaVersion: schemaVersion,
+            sequence: current.sequence,
+            artifact: artifact,
+            previousRecordSHA256:
+                current.previousRecordSHA256
+        )
+        let digest = R13CryptoKitRestartDigest()
+        let recordSHA256 = digest.sha256(
+            try R13RestartCanonical.data(payload)
+        )
+        let legacyRecord = R13LegacyCommitRecord(
+            schemaVersion: schemaVersion,
+            sequence: current.sequence,
+            artifact: artifact,
+            previousRecordSHA256:
+                current.previousRecordSHA256,
+            recordSHA256: recordSHA256
+        )
+        try R13RestartCanonical.data(legacyRecord)
+            .write(to: recordURL, options: .atomic)
+
+        let headURL = directory.appendingPathComponent(
+            "head-v1.json"
+        )
+        let head = try JSONDecoder().decode(
+            R13RestartJobHead.self,
+            from: Data(contentsOf: headURL)
+        )
+        let updatedHead = try R13RestartJobHead(
+            coreSHA256: head.coreSHA256,
+            committedFrameCount: head.committedFrameCount,
+            headSHA256: recordSHA256
+        )
+        try R13RestartCanonical.data(updatedHead)
+            .write(to: headURL, options: .atomic)
+    }
+
     func cleanup() {
         try? FileManager.default.removeItem(at: root)
+    }
+}
+
+private enum R13RestartRecordTamper: String {
+    case selectedBackendID = "selected-backend"
+    case processingPressure = "processing-pressure"
+}
+
+private enum R13RestartFixtureError: Error {
+    case invalidRecord
+    case invalidSchema
+}
+
+private struct R13LegacyCommitRecordPayload: Codable {
+    let schemaVersion: Int
+    let sequence: Int
+    let artifact: R13CachedFrameArtifactIdentity
+    let previousRecordSHA256: String
+}
+
+private struct R13LegacyCommitRecord: Codable {
+    let schemaVersion: Int
+    let sequence: Int
+    let artifact: R13CachedFrameArtifactIdentity
+    let previousRecordSHA256: String
+    let recordSHA256: String
+}
+
+private func isRestartFrameArtifact(_ url: URL) -> Bool {
+    switch url.pathExtension {
+    case "r13nv12", "r13frame":
+        true
+    default:
+        false
     }
 }
 
@@ -669,7 +1249,7 @@ private final class R13CountingSnapshotFileSystem:
     }
 
     private func recordContentRead(at url: URL) {
-        guard url.pathExtension == "r13nv12" else { return }
+        guard isRestartFrameArtifact(url) else { return }
         lock.withLock {
             observedCounts.artifactContentReads += 1
         }
@@ -705,7 +1285,7 @@ private final class R13FailingHeadFileSystem:
     }
 
     func writeNewAtomically(_ data: Data, to url: URL) throws {
-        if url.pathExtension == "r13nv12" {
+        if isRestartFrameArtifact(url) {
             appendEvent("frame")
         } else if url.deletingLastPathComponent().lastPathComponent
                     == "records" {

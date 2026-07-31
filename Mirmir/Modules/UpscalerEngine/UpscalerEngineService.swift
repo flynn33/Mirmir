@@ -18,6 +18,7 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
     case modelAssetsNotReady
     case unsupportedSourceResolution(VideoResolution)
     case inputOutputCollision
+    case outputAlreadyExists
     case jobAlreadyRunning
     case strategyFailed(String)
     case cancelled
@@ -36,6 +37,9 @@ public enum UpscalerEngineError: Error, CustomStringConvertible {
             return "Source geometry \(res) cannot be represented by an available upscale route."
         case .inputOutputCollision:
             return "The output file must be different from the source video."
+        case .outputAlreadyExists:
+            return "A file already exists at the output destination. "
+                + "Choose a new filename so the existing video is unchanged."
         case .jobAlreadyRunning:
             return "An upscale job is already running."
         case .strategyFailed(let detail):

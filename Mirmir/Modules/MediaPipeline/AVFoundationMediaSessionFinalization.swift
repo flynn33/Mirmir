@@ -5,7 +5,9 @@ import Foundation
 private struct FinalMuxSourceTrack {
     let track: AVAssetTrack
     let timeRange: CMTimeRange
+    let segments: [AVAssetTrackSegment]
     let exactTimeScale: CMTimeScale
+    let preservation: SourceMediaTrackPreservationPlan?
 }
 
 extension AVFoundationMediaSession {
@@ -244,32 +246,98 @@ extension AVFoundationMediaSession {
             )
         }
 
-        var sourceTracks = try await makeFinalMuxSourceTracks(
-            [stagingVideoTrack] + stagingMetadataTracks
+        let sourceVideoReference = OutputMediaTrackReference(
+            mediaType: AVMediaType.video.rawValue,
+            ordinal: 0
         )
-        if let sourceAudioTrack {
-            let audioStage = telemetry.beginStage(.audioProcess)
-            do {
+        guard let sourceVideoPreservation = sourceMediaPreservation.tracks
+            .first(where: {
+                $0.expectation.reference == sourceVideoReference
+            }) else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the source video preservation plan is missing"
+            )
+        }
+        var sourceTracks: [FinalMuxSourceTrack] = [
+            try await makeFinalMuxSourceTrack(
+                stagingVideoTrack,
+                preservation: sourceVideoPreservation
+            )
+        ]
+        sourceTracks.append(
+            contentsOf: try await makeFinalMuxSourceTracks(
+                stagingMetadataTracks
+            )
+        )
+        for preservation in sourceMediaPreservation.tracks
+        where preservation.expectation.reference
+            != sourceVideoReference {
+            try checkCancellation()
+            if preservation.expectation.reference.mediaType
+                == AVMediaType.audio.rawValue {
+                let audioStage = telemetry.beginStage(.audioProcess)
+                do {
+                    sourceTracks.append(
+                        try await makeFinalMuxSourceTrack(
+                            preservation.track,
+                            preservation: preservation
+                        )
+                    )
+                    telemetry.endStage(audioStage)
+                } catch {
+                    telemetry.endStage(audioStage)
+                    throw error
+                }
+            } else {
                 sourceTracks.append(
-                    try await makeFinalMuxSourceTrack(sourceAudioTrack)
+                    try await makeFinalMuxSourceTrack(
+                        preservation.track,
+                        preservation: preservation
+                    )
                 )
-                telemetry.endStage(audioStage)
-            } catch {
-                telemetry.endStage(audioStage)
-                throw error
             }
         }
+        let exactBoundaryRanges = sourceTracks.flatMap { sourceTrack in
+            var ranges = [sourceTrack.timeRange]
+            for segment in sourceTrack.segments {
+                if segment.timeMapping.source.isValid {
+                    ranges.append(segment.timeMapping.source)
+                }
+                if segment.timeMapping.target.isValid {
+                    ranges.append(segment.timeMapping.target)
+                }
+            }
+            return ranges
+        }
         let movieTimeScale = try ExactVideoWriterTimeScale
-            .commonBoundaryScale(
-                sourceTracks.map(\.timeRange)
-            )
+            .commonBoundaryScale(exactBoundaryRanges)
         let fileType = try Self.writerFileType(for: outputProfile.url)
         telemetry.recordMedia(ASHMediaObservation(
             kind: "final_sample_copy_mux_started",
             details: [
                 "track_count": String(sourceTracks.count),
                 "movie_timescale": String(movieTimeScale),
-                "preserved_audio": String(sourceAudioTrack != nil)
+                "preserved_audio":
+                    String(!sourceAudioTracks.isEmpty),
+                "preserved_audio_track_count":
+                    String(sourceAudioTracks.count),
+                "preserved_subtitle_tracks": String(
+                    sourceMediaPreservation.tracks.filter {
+                        [
+                            AVMediaType.subtitle.rawValue,
+                            AVMediaType.text.rawValue,
+                            AVMediaType.closedCaption.rawValue
+                        ].contains($0.expectation.reference.mediaType)
+                    }.count
+                ),
+                "preserved_metadata_tracks": String(
+                    sourceMediaPreservation.tracks.filter {
+                        [
+                            AVMediaType.metadata.rawValue,
+                            AVMediaType.timecode.rawValue
+                        ].contains($0.expectation.reference.mediaType)
+                    }.count
+                )
             ]
         ))
 
@@ -288,10 +356,13 @@ extension AVFoundationMediaSession {
 
                 let movie = AVMutableMovie()
                 movie.timescale = movieTimeScale
+                movie.metadata = sourceMediaPreservation.containerMetadata
                 movie.defaultMediaDataStorage = AVMediaDataStorage(
                     url: outputTransaction.temporaryURL,
                     options: nil
                 )
+                var destinationTracks:
+                    [OutputMediaTrackReference: AVMutableMovieTrack] = [:]
                 for sourceTrack in sourceTracks {
                     try checkCancellation()
                     guard let destinationTrack = movie.addMutableTrack(
@@ -307,12 +378,60 @@ extension AVFoundationMediaSession {
                             )
                         )
                     }
+                    if let preservation = sourceTrack.preservation {
+                        destinationTrack.isEnabled =
+                            preservation.expectation.isEnabled
+                        destinationTrack.languageCode =
+                            preservation.expectation.languageCode
+                        destinationTrack.extendedLanguageTag =
+                            preservation.expectation.extendedLanguageTag
+                        destinationTrack.metadata =
+                            preservation.metadata
+                        let reference =
+                            preservation.expectation.reference
+                        guard destinationTracks.updateValue(
+                            destinationTrack,
+                            forKey: reference
+                        ) == nil else {
+                            throw MediaPipelineError
+                                .metadataPreservationFailed(
+                                    "duplicate destination track reference "
+                                        + "\(reference)"
+                                )
+                        }
+                    }
                     destinationTrack.timescale = sourceTrack.exactTimeScale
                     try destinationTrack.insertTimeRange(
                         sourceTrack.timeRange,
                         of: sourceTrack.track,
                         at: sourceTrack.timeRange.start,
                         copySampleData: true
+                    )
+                    if sourceTrack.track.mediaType == .closedCaption {
+                        try rebuildClosedCaptionEditList(
+                            from: sourceTrack,
+                            on: destinationTrack
+                        )
+                    }
+                }
+                for association in sourceMediaPreservation.associations {
+                    try checkCancellation()
+                    guard let sourceTrack =
+                            destinationTracks[association.source],
+                          let targetTrack =
+                            destinationTracks[association.target] else {
+                        throw MediaPipelineError
+                            .metadataPreservationFailed(
+                                "destination association mapping is "
+                                    + "incomplete for "
+                                    + association.associationType
+                            )
+                    }
+                    sourceTrack.addTrackAssociation(
+                        to: targetTrack,
+                        type: AVAssetTrack.AssociationType(
+                            rawValue: association.associationType
+                        )
                     )
                 }
                 try checkCancellation()
@@ -340,7 +459,12 @@ extension AVFoundationMediaSession {
             details: [
                 "track_count": String(sourceTracks.count),
                 "movie_timescale": String(movieTimeScale),
-                "preserved_audio": String(sourceAudioTrack != nil)
+                "preserved_audio":
+                    String(!sourceAudioTracks.isEmpty),
+                "preserved_audio_track_count":
+                    String(sourceAudioTracks.count),
+                "preserved_association_count":
+                    String(sourceMediaPreservation.associations.count)
             ]
         ))
     }
@@ -352,15 +476,22 @@ extension AVFoundationMediaSession {
         result.reserveCapacity(tracks.count)
         for track in tracks {
             try checkCancellation()
-            result.append(try await makeFinalMuxSourceTrack(track))
+            result.append(
+                try await makeFinalMuxSourceTrack(
+                    track,
+                    preservation: nil
+                )
+            )
         }
         return result
     }
 
     private func makeFinalMuxSourceTrack(
-        _ track: AVAssetTrack
+        _ track: AVAssetTrack,
+        preservation: SourceMediaTrackPreservationPlan?
     ) async throws -> FinalMuxSourceTrack {
         let timeRange = try await track.load(.timeRange)
+        let segments = try await track.load(.segments)
         let naturalTimeScale = try await track.load(.naturalTimeScale)
         let exactTimeScale = try ExactVideoWriterTimeScale.resolve(
             naturalTimeScale: naturalTimeScale,
@@ -369,8 +500,60 @@ extension AVFoundationMediaSession {
         return FinalMuxSourceTrack(
             track: track,
             timeRange: timeRange,
-            exactTimeScale: exactTimeScale
+            segments: segments,
+            exactTimeScale: exactTimeScale,
+            preservation: preservation
         )
+    }
+
+    private func rebuildClosedCaptionEditList(
+        from source: FinalMuxSourceTrack,
+        on destination: AVMutableMovieTrack
+    ) throws {
+        let copiedMediaTimeRange = destination.mediaPresentationTimeRange
+        let collapsedTimeRange = destination.timeRange
+        destination.removeTimeRange(collapsedTimeRange)
+        guard destination.mediaPresentationTimeRange
+                == copiedMediaTimeRange else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "removing the collapsed closed-caption edit changed its "
+                    + "copied media table"
+            )
+        }
+        var insertedMediaMapping = false
+        for segment in source.segments where !segment.isEmpty {
+            try checkCancellation()
+            guard destination.insertMediaTimeRange(
+                segment.timeMapping.source,
+                into: segment.timeMapping.target
+            ) else {
+                throw MediaPipelineError.metadataPreservationFailed(
+                    "the source closed-caption edit map could not be rebuilt"
+                )
+            }
+            insertedMediaMapping = true
+        }
+        guard insertedMediaMapping else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the source closed-caption track has no presented media segment"
+            )
+        }
+        let rebuiltTimeRange = destination.timeRange
+        guard CMTimeCompare(
+            rebuiltTimeRange.start,
+            source.timeRange.start
+        ) == 0,
+        CMTimeCompare(
+            rebuiltTimeRange.duration,
+            source.timeRange.duration
+        ) == 0 else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the rebuilt closed-caption edit map differs before header "
+                    + "(source \(source.timeRange), rebuilt "
+                    + "\(rebuiltTimeRange), appended media "
+                    + "\(destination.mediaPresentationTimeRange))"
+            )
+        }
     }
 
     private func finalMuxError(
@@ -457,9 +640,17 @@ extension AVFoundationMediaSession {
                     codec: outputProfile.codec,
                     timing: timing,
                     timedMetadata: finalMetadata,
-                    videoColor: .sdrBT709VideoRangeLeft,
-                    compressedAACIdentity: expectedCompressedAACIdentity,
-                    preferredTransform: expectedVideoTransform
+                    videoColor: .preserving(
+                        videoFormat,
+                        codec: outputProfile.codec
+                    ),
+                    compressedAACTrackIdentities:
+                        expectedCompressedAACTrackIdentities,
+                    preferredTransform: expectedVideoTransform,
+                    mediaPreservation:
+                        sourceMediaPreservation.expectation,
+                    scanStructure: .progressive,
+                    requiresExplicitScanStructure: true
                 ),
                 cancellationCheck: {
                     try self.checkCancellation()
@@ -485,11 +676,18 @@ extension AVFoundationMediaSession {
             details: [
                 "codec": verification.codec,
                 "dimensions": verification.resolution.description,
+                "scan_structure":
+                    verification.scanStructure.rawValue,
                 "frame_count": String(verification.frameCount),
                 "duration_value": String(verification.duration.value),
                 "duration_timescale": String(verification.duration.timescale),
                 "luma_payload_bytes": String(verification.lumaPayloadBytes),
-                "chroma_payload_bytes": String(verification.chromaPayloadBytes)
+                "chroma_payload_bytes": String(
+                    verification.chromaPayloadBytes
+                ),
+                "alpha_payload_bytes": String(
+                    verification.alphaPayloadBytes
+                )
             ]
         ))
     }

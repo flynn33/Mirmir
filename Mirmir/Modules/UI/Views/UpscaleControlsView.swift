@@ -10,31 +10,40 @@ struct UpscaleControlsView: View {
                 .font(.headline)
 
             if viewModel.availableTargets.isEmpty {
-                Text("Select a 720p or 1080p source first.")
+                Text(
+                    "Select a source below 2160p with a valid "
+                        + "upscale target."
+                )
                     .font(.callout)
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Target resolution", selection: $viewModel.targetResolution) {
+                Picker(
+                    "Target resolution",
+                    selection: targetSelection
+                ) {
                     ForEach(viewModel.availableTargets, id: \.self) { resolution in
                         Text(String(describing: resolution)).tag(resolution)
                     }
                 }
                 .pickerStyle(.menu)
+                .disabled(!viewModel.jobConfigurationIsEditable)
             }
 
-            Picker("Codec", selection: $viewModel.codec) {
+            Picker("Codec", selection: codecSelection) {
                 ForEach(OutputCodec.allCases) { codec in
-                    Text(codec.rawValue.uppercased()).tag(codec)
+                    Text(codec.displayName).tag(codec)
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(!viewModel.jobConfigurationIsEditable)
 
-            Picker("Mode", selection: $viewModel.selectedMode) {
+            Picker("Mode", selection: modeSelection) {
                 ForEach(UpscaleMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(!viewModel.jobConfigurationIsEditable)
             Text(viewModel.selectedModeSummary)
                 .font(.caption)
                 .foregroundStyle(
@@ -42,6 +51,63 @@ struct UpscaleControlsView: View {
                         ? Color.secondary
                         : Color.orange
                 )
+
+            if viewModel.selectedMode == .smoothMotion {
+                Picker(
+                    "Output Cadence",
+                    selection: smoothMotionCadenceSelection
+                ) {
+                    ForEach(SmoothMotionCadence.allCases) { cadence in
+                        Text(cadence.title).tag(cadence)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!viewModel.jobConfigurationIsEditable)
+
+                Picker(
+                    "Scene Cut Protection",
+                    selection: smoothMotionSceneCutSelection
+                ) {
+                    ForEach(
+                        SmoothMotionSceneCutSensitivity.allCases
+                    ) { sensitivity in
+                        Text(sensitivity.title).tag(sensitivity)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!viewModel.jobConfigurationIsEditable)
+
+                Text(
+                    "Output duration and audio timing remain unchanged."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+
+            if viewModel.modelAssetsShowsPreparationControl {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(viewModel.modelAssetsStatusText)
+                        .font(.callout.weight(.semibold))
+                    Text(viewModel.modelAssetsDetailText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if case .downloading(let progress) =
+                        viewModel.modelStatus {
+                        ProgressView(
+                            value: min(max(progress, 0), 1)
+                        )
+                        .accessibilityLabel("Model download progress")
+                    }
+                    if viewModel.modelAssetsCanPrepare {
+                        Button(
+                            viewModel.modelAssetsPreparationActionTitle,
+                            action: viewModel.ensureModelsReady
+                        )
+                        .disabled(viewModel.jobIsRunning)
+                    }
+                }
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -88,5 +154,49 @@ struct UpscaleControlsView: View {
                 .foregroundStyle(viewModel.canStart ? Color.secondary : Color.orange)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var smoothMotionCadenceSelection:
+        Binding<SmoothMotionCadence> {
+        Binding(
+            get: { viewModel.smoothMotionCadence },
+            set: {
+                viewModel.selectSmoothMotionCadenceForPendingJob($0)
+            }
+        )
+    }
+
+    private var targetSelection: Binding<VideoResolution> {
+        Binding(
+            get: { viewModel.targetResolution },
+            set: { viewModel.selectTargetForPendingJob($0) }
+        )
+    }
+
+    private var codecSelection: Binding<OutputCodec> {
+        Binding(
+            get: { viewModel.codec },
+            set: { viewModel.selectCodecForPendingJob($0) }
+        )
+    }
+
+    private var modeSelection: Binding<UpscaleMode> {
+        Binding(
+            get: { viewModel.selectedMode },
+            set: { viewModel.selectModeForPendingJob($0) }
+        )
+    }
+
+    private var smoothMotionSceneCutSelection:
+        Binding<SmoothMotionSceneCutSensitivity> {
+        Binding(
+            get: { viewModel.smoothMotionSceneCutSensitivity },
+            set: {
+                viewModel
+                    .selectSmoothMotionSceneCutSensitivityForPendingJob(
+                        $0
+                    )
+            }
+        )
     }
 }

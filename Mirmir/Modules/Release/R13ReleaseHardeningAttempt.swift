@@ -91,20 +91,31 @@ actor R13ReleaseHardeningAttempt {
     func replayFrame(
         at frameIndex: Int
     ) async throws -> R13NV12Frame {
-        let frame = try await store.loadCachedFrame(
+        try await replayFrameWithRoutingDecision(
+            at: frameIndex
+        ).frame
+    }
+
+    func replayFrameWithRoutingDecision(
+        at frameIndex: Int
+    ) async throws -> R13RestartCachedFrameReplay {
+        let replay = try await store.loadCachedFrameReplay(
             at: frameIndex,
             using: plan
         )
         try await recorder.recordCacheReplay()
-        return frame
+        return replay
     }
 
     func commit(
         frame: R13NV12Frame,
+        routingDecision:
+            R13ProductASHDecisionEvent? = nil,
         at frameIndex: Int
     ) async throws {
         plan = try await store.commitProcessedFrame(
             frame,
+            routingDecision: routingDecision,
             at: frameIndex,
             using: plan
         )

@@ -11,7 +11,7 @@ import XCTest
 // swiftlint:disable file_length type_body_length
 
 final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
-    func testModeAvailabilityKeepsAutoVisibleButUnavailable() {
+    func testEveryReleaseModeIsAvailable() {
         let eventLog = R13ReleaseTestEventLog()
         let media = R13ReleaseTestMediaPipeline(
             resolution: .p720,
@@ -25,16 +25,12 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let service = makeService(media: media, factory: factory)
 
         XCTAssertEqual(service.availability, .available)
-        XCTAssertEqual(
-            service.availability(for: .auto),
-            .unavailable(reason: R13ReleaseModePolicy.autoUnavailableReason)
-        )
-        for mode in [UpscaleMode.quality, .fast, .deterministic] {
+        for mode in UpscaleMode.allCases {
             XCTAssertEqual(service.availability(for: mode), .available)
         }
     }
 
-    func testAutoRejectsBeforeMediaProbeJobAdmissionOrBackendFactory() async throws {
+    func testAutoSubmitsAndFreezesItsResolvedAutomaticBinding() async throws {
         let eventLog = R13ReleaseTestEventLog()
         let media = R13ReleaseTestMediaPipeline(
             resolution: .p720,
@@ -47,36 +43,24 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = makeService(media: media, factory: factory)
 
-        XCTAssertThrowsError(
-            try service.submit(
-                makeJob(
-                    identifier: "r13-auto",
-                    target: .p1080,
-                    mode: .auto
-                )
-            )
-        ) { error in
-            guard let engineError = error as? UpscalerEngineError,
-                  case .modeUnavailable(let mode, let reason) = engineError else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-            XCTAssertEqual(mode, .auto)
-            XCTAssertEqual(reason, R13ReleaseModePolicy.autoUnavailableReason)
-        }
-        XCTAssertEqual(media.probeCount, 0)
-        XCTAssertEqual(media.beginSessionCount, 0)
-        XCTAssertTrue(factory.routes.isEmpty)
-        XCTAssertTrue(eventLog.events.isEmpty)
-
-        let deterministic = try service.submit(
+        let auto = try service.submit(
             makeJob(
-                identifier: "r13-after-auto",
+                identifier: "r13-auto",
                 target: .p1080,
-                mode: .deterministic
+                mode: .auto
             )
         )
-        _ = try await deterministic.waitForCompletion()
+        _ = try await auto.waitForCompletion()
+
+        XCTAssertEqual(media.probeCount, 1)
+        XCTAssertEqual(media.beginSessionCount, 1)
         XCTAssertEqual(factory.routes, [.scale3Over2])
+        XCTAssertEqual(factory.modeBindings.map(\.requestedMode), [.auto])
+        XCTAssertEqual(factory.modeBindings.map(\.effectiveMode), [.auto])
+        XCTAssertEqual(
+            factory.modeBindings.map(\.scalerKind),
+            [.highQualityVImage]
+        )
     }
 
     func testInvalidJobIdentifierRejectsBeforeMediaOrBackendWork() {
@@ -111,9 +95,9 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         XCTAssertTrue(factory.routes.isEmpty)
     }
 
-    func testAllEnabledModesUseExactCanonicalA11RoutesAndStableTransactionID() async throws {
+    func testAllModesUseTheirExactCanonicalScalerAndStableTransactionID() async throws {
         for route in R03ScaleRoute.allCases {
-            for mode in [UpscaleMode.quality, .fast, .deterministic] {
+            for mode in UpscaleMode.allCases {
                 let eventLog = R13ReleaseTestEventLog()
                 let media = R13ReleaseTestMediaPipeline(
                     resolution: route.canonicalSourceResolution,
@@ -138,6 +122,10 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
 
                 XCTAssertEqual(result.lastPathComponent, "\(identifier).mp4")
                 XCTAssertEqual(factory.routes, [route])
+                XCTAssertEqual(
+                    factory.modeBindings,
+                    [R13ReleaseModePolicy.binding(for: mode)]
+                )
                 let mediaSession = try XCTUnwrap(media.lastSession)
                 XCTAssertEqual(
                     mediaSession.outputProfile.transactionIdentifier,
@@ -265,8 +253,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             adaptiveScalerFactory: { [eventLog] plan in
                 R13ReleaseTestAdaptiveScaler(
@@ -299,7 +290,7 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             mediaSession.outputProfile.timedMetadataTemplate[
                 "com.mirmir.release.backend-id"
             ],
-            "r13.mps.lanczos.adaptive"
+            "r03.mps.lanczos"
         )
         XCTAssertEqual(
             mediaSession.outputProfile.timedMetadataTemplate[
@@ -307,6 +298,44 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             ],
             "adaptive_mps_lanczos"
         )
+    }
+
+    func testCanonicalLivePathAppliesEdgeAndDetailConfiguration()
+        async throws {
+        let low = try await runCapturedCanonicalEnhancement(
+            identifier: "r13-canonical-enhancement-low",
+            edge: .low,
+            detail: .low
+        )
+        let high = try await runCapturedCanonicalEnhancement(
+            identifier: "r13-canonical-enhancement-high",
+            edge: .high,
+            detail: .high
+        )
+
+        XCTAssertEqual(low.width, VideoResolution.p1080.width)
+        XCTAssertEqual(low.height, VideoResolution.p1080.height)
+        XCTAssertNotEqual(low.luma, high.luma)
+        XCTAssertEqual(low.chroma, high.chroma)
+    }
+
+    func testAdaptiveLivePathAppliesEdgeAndDetailConfiguration()
+        async throws {
+        let low = try await runCapturedAdaptiveEnhancement(
+            identifier: "r13-adaptive-enhancement-low",
+            edge: .low,
+            detail: .low
+        )
+        let high = try await runCapturedAdaptiveEnhancement(
+            identifier: "r13-adaptive-enhancement-high",
+            edge: .high,
+            detail: .high
+        )
+
+        XCTAssertEqual(low.width, 1_280)
+        XCTAssertEqual(low.height, 720)
+        XCTAssertNotEqual(low.luma, high.luma)
+        XCTAssertEqual(low.chroma, high.chroma)
     }
 
     func testOnePixelAdaptiveAspectRoundingIsAcceptedByOutputAndPreview()
@@ -405,8 +434,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             previewEncoder: previewEncoder,
             inputReleaseObserver: { [eventLog] identity in
@@ -435,7 +467,9 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         assertOrdered(
             [
                 "apple.submit.0",
-                "input.release.r13.a11.input.fast.0",
+                "input.release.r13.release.input."
+                    + "\(R13ReleaseModePolicy.binding(for: .fast).backendID)"
+                    + ".fast.0",
                 "media.append.0",
                 "preview.encode.0",
                 "output.release.0"
@@ -445,7 +479,9 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         assertOrdered(
             [
                 "apple.submit.1",
-                "input.release.r13.a11.input.fast.1",
+                "input.release.r13.release.input."
+                    + "\(R13ReleaseModePolicy.binding(for: .fast).backendID)"
+                    + ".fast.1",
                 "media.append.1",
                 "output.release.1"
             ],
@@ -796,8 +832,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             previewEncoder: previewEncoder
         )
@@ -967,8 +1006,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let diagnostics = MirmirDiagnosticStore()
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             previewEncoder: R13FailingPreviewEncoder(),
             diagnostics: diagnostics
@@ -1041,8 +1083,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let diagnostics = MirmirDiagnosticStore()
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             diagnostics: diagnostics
         )
@@ -1163,8 +1208,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let diagnostics = MirmirDiagnosticStore()
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             diagnostics: diagnostics
         )
@@ -1255,8 +1303,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             inputReleaseObserver: { [eventLog] identity in
                 eventLog.record("input.release.\(identity)")
@@ -1288,7 +1339,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let snapshot = await appleSession.snapshot()
         XCTAssertGreaterThanOrEqual(snapshot.cancelCount, 1)
         XCTAssertTrue(
-            eventLog.contains("input.release.r13.a11.input.quality.0")
+            eventLog.contains(
+                "input.release.r13.release.input."
+                    + "\(R13ReleaseModePolicy.binding(for: .quality).backendID)"
+                    + ".quality.0"
+            )
         )
         XCTAssertFalse(eventLog.contains("output.release.0"))
     }
@@ -1309,8 +1364,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         let diagnostics = MirmirDiagnosticStore()
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             diagnostics: diagnostics
         )
@@ -1460,8 +1518,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
         let service = R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: { [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             },
             diagnostics: diagnostics
         )
@@ -1540,25 +1601,224 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
     ) -> R13ReleaseUpscalerEngineService {
         R13ReleaseUpscalerEngineService(
             media: media,
-            sessionFactory: { [factory] route in
-                try await factory.make(route: route)
+            modeAwareSessionFactory: {
+                [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
             }
         )
+    }
+
+    private func runCapturedCanonicalEnhancement(
+        identifier: String,
+        edge: MirmirAdjustmentLevel,
+        detail: MirmirAdjustmentLevel
+    ) async throws -> R13NV12Frame {
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: .p720,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog,
+            captureAppendedFrames: true
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog,
+            outputFiller: { output, _ in
+                try Self.fillEnhancementPattern(output)
+            }
+        )
+        let service = makeService(media: media, factory: factory)
+        let job = UpscaleJob(
+            identifier: identifier,
+            inputURL: try makeInputFixtureURL(
+                identifier: identifier
+            ),
+            outputURL: URL(
+                fileURLWithPath: "/tmp/\(identifier).mp4"
+            ),
+            targetResolution: .p1080,
+            preserveAudio: false,
+            mode: .deterministic,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                temporalConsistencyEnabled: false,
+                edgeFidelityLevel: edge,
+                detailRecoveryLevel: detail
+            )
+        )
+
+        _ = try await service.submit(job).waitForCompletion()
+
+        return try XCTUnwrap(media.lastSession?.appendedFrames.first)
+    }
+
+    private func runCapturedAdaptiveEnhancement(
+        identifier: String,
+        edge: MirmirAdjustmentLevel,
+        detail: MirmirAdjustmentLevel
+    ) async throws -> R13NV12Frame {
+        let eventLog = R13ReleaseTestEventLog()
+        let source = VideoResolution(width: 640, height: 360)
+        let target = VideoResolution(width: 1_280, height: 720)
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: source,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: source,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog,
+            captureAppendedFrames: true
+        )
+        let factory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            modeAwareSessionFactory: {
+                [factory] route, modeBinding in
+                try await factory.make(
+                    route: route,
+                    modeBinding: modeBinding
+                )
+            },
+            adaptiveScalerFactory: { plan in
+                R13ReleaseTestAdaptiveScaler(
+                    plan: plan,
+                    eventLog: eventLog,
+                    destinationFiller: {
+                        try Self.fillEnhancementPattern($0)
+                    }
+                )
+            }
+        )
+        let job = UpscaleJob(
+            identifier: identifier,
+            inputURL: try makeInputFixtureURL(
+                identifier: identifier
+            ),
+            outputURL: URL(
+                fileURLWithPath: "/tmp/\(identifier).mp4"
+            ),
+            targetResolution: target,
+            preserveAudio: false,
+            mode: .deterministic,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                temporalConsistencyEnabled: false,
+                edgeFidelityLevel: edge,
+                detailRecoveryLevel: detail
+            )
+        )
+
+        _ = try await service.submit(job).waitForCompletion()
+
+        return try XCTUnwrap(media.lastSession?.appendedFrames.first)
+    }
+
+    private static func fillEnhancementPattern(
+        _ pixelBuffer: CVPixelBuffer
+    ) throws {
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard status == kCVReturnSuccess else {
+            throw R13PreviewTestError.pixelBufferLockFailed(status)
+        }
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+        }
+        guard let lumaAddress = CVPixelBufferGetBaseAddressOfPlane(
+                  pixelBuffer,
+                  0
+              ),
+              let chromaAddress = CVPixelBufferGetBaseAddressOfPlane(
+                  pixelBuffer,
+                  1
+              ) else {
+            throw R13PreviewTestError.invalidNV12Planes
+        }
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let lumaStride = CVPixelBufferGetBytesPerRowOfPlane(
+            pixelBuffer,
+            0
+        )
+        let chromaStride = CVPixelBufferGetBytesPerRowOfPlane(
+            pixelBuffer,
+            1
+        )
+        let luma = lumaAddress.assumingMemoryBound(to: UInt8.self)
+        let chroma = chromaAddress.assumingMemoryBound(to: UInt8.self)
+        for row in 0..<height {
+            for column in 0..<width {
+                let texture = (row * 13 + column * 29) % 37
+                let edge = column >= width / 2 ? 72 : 0
+                luma[row * lumaStride + column] = UInt8(
+                    min(235, 48 + texture + edge)
+                )
+            }
+        }
+        for row in 0..<(height / 2) {
+            memset(
+                chroma.advanced(by: row * chromaStride),
+                128,
+                width
+            )
+        }
     }
 
     private func makeJob(
         identifier: String,
         target: VideoResolution,
         mode: UpscaleMode
-    ) -> UpscaleJob {
+    ) throws -> UpscaleJob {
         UpscaleJob(
             identifier: identifier,
-            inputURL: URL(fileURLWithPath: "/tmp/\(identifier)-input.mp4"),
+            inputURL: try makeInputFixtureURL(
+                identifier: identifier
+            ),
             outputURL: URL(fileURLWithPath: "/tmp/\(identifier).mp4"),
             targetResolution: target,
             preserveAudio: false,
             mode: mode
         )
+    }
+
+    private func makeInputFixtureURL(
+        identifier: String
+    ) throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "mirmir-r13-service-source-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        do {
+            try FileManager.default.createDirectory(
+                at: directory,
+                withIntermediateDirectories: false
+            )
+            let sourceURL = directory.appendingPathComponent(
+                "source.mp4",
+                isDirectory: false
+            )
+            try Data(
+                "mirmir-r13-test-source:\(identifier)".utf8
+            ).write(to: sourceURL, options: .atomic)
+            addTeardownBlock {
+                try? FileManager.default.removeItem(at: directory)
+            }
+            return sourceURL
+        } catch {
+            try? FileManager.default.removeItem(at: directory)
+            throw error
+        }
     }
 
     private func assertOrdered(

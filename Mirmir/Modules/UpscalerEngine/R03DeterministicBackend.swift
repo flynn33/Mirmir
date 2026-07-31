@@ -64,7 +64,7 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
                     subject: subjectID
                 )
         }
-        if admissionProfile == .productQualifiedA11,
+        if admissionProfile.requiresProductAuthorization,
            productAdmissionAuthorization == nil {
             throw R03DeterministicBackendConstructionError
                 .productAdmissionAuthorizationRequired(subjectID)
@@ -182,6 +182,24 @@ final class R03DeterministicBackend: AppleUpscaleBackend, @unchecked Sendable {
 }
 
 extension R03DeterministicBackend {
+    static func makeProductQualifiedVImageHighQuality(
+        route: R03ScaleRoute,
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+    ) throws -> R03DeterministicBackend {
+        let kind = R13ReleaseScalerKind.highQualityVImage
+        return try R03DeterministicBackend(
+            subjectID: kind.subjectID,
+            route: route,
+            admissionProfile: .productQualifiedReleaseScaler(kind),
+            productAdmissionAuthorization:
+                R03A11ProductAdmissionAuthorization(),
+            scalerFactory: { _, _ in
+                R03VImageScaler(mode: .lanczos5, route: route)
+            },
+            outputReleaseObserver: outputReleaseObserver
+        )
+    }
+
     static func makeVImage(
         mode: R03VImageScalingMode,
         route: R03ScaleRoute,

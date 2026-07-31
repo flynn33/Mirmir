@@ -85,7 +85,7 @@ final class ArchitectureGuardrailTests: XCTestCase {
         }
     }
 
-    func test_productionCompositionUsesNoRetainedReferenceBackendOrVTStager() throws {
+    func test_productionCompositionUsesProductServices() throws {
         let root = repoRootURL()
         let developmentBackend = try String(
             contentsOf: root.appendingPathComponent(
@@ -129,14 +129,14 @@ final class ArchitectureGuardrailTests: XCTestCase {
         XCTAssertTrue(service.contains("backendFactory.makeBackend"))
         XCTAssertFalse(bootstrap.contains("ASHLockedUpscaleBackendFactoryV3"))
         XCTAssertFalse(bootstrap.contains("DefaultUpscalerEngineService"))
-        XCTAssertFalse(bootstrap.contains("DefaultModelAssetsService"))
+        XCTAssertTrue(bootstrap.contains("DefaultModelAssetsService"))
         XCTAssertFalse(bootstrap.contains("VTModelStager"))
         XCTAssertFalse(bootstrap.contains("ASHBackendStartupValidator"))
         XCTAssertFalse(bootstrap.contains("ASHDevelopmentUpscaleBackendFactory"))
         XCTAssertFalse(bootstrap.contains("UnavailableUpscalerEngineService"))
         XCTAssertFalse(bootstrap.contains("RoadmapTransitionModelAssetsService"))
         XCTAssertTrue(bootstrap.contains("R13ReleaseUpscalerEngineService"))
-        XCTAssertTrue(bootstrap.contains("NotRequiredModelAssetsService"))
+        XCTAssertFalse(bootstrap.contains("NotRequiredModelAssetsService"))
         XCTAssertTrue(strategy.contains("case direct3Over2"))
     }
 

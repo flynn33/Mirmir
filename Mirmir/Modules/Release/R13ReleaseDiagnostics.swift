@@ -147,6 +147,15 @@ struct R13ReleaseDiagnosticField: Equatable, Sendable {
         )
     }
 
+    static func backend(
+        _ value: String
+    ) -> R13ReleaseDiagnosticField {
+        R13ReleaseDiagnosticField(
+            key: .backendID,
+            value: value
+        )
+    }
+
     static func route(_ value: R03ScaleRoute) -> R13ReleaseDiagnosticField {
         R13ReleaseDiagnosticField(key: .routeID, value: value.rawValue)
     }

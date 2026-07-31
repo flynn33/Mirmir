@@ -16,19 +16,44 @@ private final class OutputMediaAACReaderCancellation: @unchecked Sendable {
     }
 }
 
+struct OutputMediaAACTrackIdentity:
+    @unchecked Sendable,
+    Equatable {
+    let reference: OutputMediaTrackReference
+    let compressedIdentity: OutputMediaAACIdentity
+    let isEnabled: Bool
+    let languageCode: String?
+    let extendedLanguageTag: String?
+    let metadata: OutputMediaMetadataIdentity
+}
+
 struct OutputMediaAACIdentityReader: Sendable {
     struct AccessUnit {
         let identity: OutputMediaAACSampleIdentity
         let payload: Data
     }
 
-    private struct HeaderIdentity {
+    private struct FormatIdentity: Equatable {
         let codec: AudioFormatID
         let sampleRate: Double
         let channelCount: UInt32
-        let trackTimeRange: CMTimeRange
         let codecConfigurationMagicCookie: Data
         let channelLayout: OutputMediaAACChannelLayoutIdentity?
+    }
+
+    private struct HeaderIdentity {
+        let format: FormatIdentity
+        let trackTimeRange: CMTimeRange
+
+        var codec: AudioFormatID { format.codec }
+        var sampleRate: Double { format.sampleRate }
+        var channelCount: UInt32 { format.channelCount }
+        var codecConfigurationMagicCookie: Data {
+            format.codecConfigurationMagicCookie
+        }
+        var channelLayout: OutputMediaAACChannelLayoutIdentity? {
+            format.channelLayout
+        }
     }
 
     func read(url: URL) async throws -> OutputMediaAACIdentity {
@@ -44,12 +69,39 @@ struct OutputMediaAACIdentityReader: Sendable {
         url: URL,
         cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws -> OutputMediaAACIdentity {
+        let tracks = try await readAll(
+            url: url,
+            cancellationCheck: cancellationCheck
+        )
+        guard tracks.count == 1, let track = tracks.first else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "expected one audio track, observed \(tracks.count)"
+            )
+        }
+        return track.compressedIdentity
+    }
+
+    func readAll(
+        url: URL
+    ) async throws -> [OutputMediaAACTrackIdentity] {
+        try await readAll(
+            url: url,
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
+        )
+    }
+
+    func readAll(
+        url: URL,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> [OutputMediaAACTrackIdentity] {
         try cancellationCheck()
         let asset = AVURLAsset(
             url: url,
             options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
         )
-        return try await Self.read(
+        return try await Self.readAll(
             asset: asset,
             cancellationCheck: cancellationCheck
         )
@@ -68,6 +120,33 @@ struct OutputMediaAACIdentityReader: Sendable {
         asset: AVURLAsset,
         cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws -> OutputMediaAACIdentity {
+        let tracks = try await readAll(
+            asset: asset,
+            cancellationCheck: cancellationCheck
+        )
+        guard tracks.count == 1, let track = tracks.first else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "expected one audio track, observed \(tracks.count)"
+            )
+        }
+        return track.compressedIdentity
+    }
+
+    static func readAll(
+        asset: AVURLAsset
+    ) async throws -> [OutputMediaAACTrackIdentity] {
+        try await readAll(
+            asset: asset,
+            cancellationCheck: {
+                try Task.checkCancellation()
+            }
+        )
+    }
+
+    static func readAll(
+        asset: AVURLAsset,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> [OutputMediaAACTrackIdentity] {
         let tracks: [AVAssetTrack]
         do {
             try cancellationCheck()
@@ -81,62 +160,230 @@ struct OutputMediaAACIdentityReader: Sendable {
                 reason: "audio track loading failed: \(error)"
             )
         }
-        guard tracks.count == 1, let track = tracks.first else {
-            throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "expected one audio track, observed \(tracks.count)"
+        var identities: [OutputMediaAACTrackIdentity] = []
+        identities.reserveCapacity(tracks.count)
+        for (ordinal, track) in tracks.enumerated() {
+            try cancellationCheck()
+            identities.append(
+                try await readTrack(
+                    asset: asset,
+                    track: track,
+                    ordinal: ordinal,
+                    cancellationCheck: cancellationCheck
+                )
             )
         }
+        try cancellationCheck()
+        return identities
+    }
 
+    static func readTracks(
+        asset: AVURLAsset,
+        references: [OutputMediaTrackReference],
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> [OutputMediaAACTrackIdentity] {
+        guard !references.isEmpty else {
+            try cancellationCheck()
+            return []
+        }
+        let tracks: [AVAssetTrack]
+        do {
+            try cancellationCheck()
+            tracks = try await asset.loadTracks(
+                withMediaType: .audio
+            )
+            try cancellationCheck()
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "selected AAC track loading failed: \(error)"
+            )
+        }
+        var seenOrdinals: Set<Int> = []
+        var identities: [OutputMediaAACTrackIdentity] = []
+        identities.reserveCapacity(references.count)
+        for reference in references {
+            guard reference.mediaType
+                    == AVMediaType.audio.rawValue else {
+                throw OutputMediaVerificationError
+                    .compressedAACMismatch(
+                        reason: "selected AAC reference "
+                            + "\(reference) is not an audio track"
+                    )
+            }
+            guard tracks.indices.contains(reference.ordinal) else {
+                throw OutputMediaVerificationError
+                    .compressedAACMismatch(
+                        reason: "selected AAC reference "
+                            + "\(reference) is absent from "
+                            + "\(tracks.count) reopened audio tracks"
+                    )
+            }
+            guard seenOrdinals.insert(reference.ordinal).inserted else {
+                throw OutputMediaVerificationError
+                    .compressedAACMismatch(
+                        reason: "selected AAC reference "
+                            + "\(reference) is duplicated"
+                    )
+            }
+            identities.append(
+                try await readTrack(
+                    asset: asset,
+                    track: tracks[reference.ordinal],
+                    ordinal: reference.ordinal,
+                    cancellationCheck: cancellationCheck
+                )
+            )
+        }
+        try cancellationCheck()
+        return identities
+    }
+
+    static func readTrack(
+        asset: AVURLAsset,
+        track: AVAssetTrack,
+        ordinal: Int,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) async throws -> OutputMediaAACTrackIdentity {
         let formatDescriptions: [CMFormatDescription]
         let trackTimeRange: CMTimeRange
+        let isEnabled: Bool
+        let languageCode: String?
+        let extendedLanguageTag: String?
+        let metadataItems: [AVMetadataItem]
         do {
             try cancellationCheck()
             formatDescriptions = try await track.load(.formatDescriptions)
             try cancellationCheck()
             trackTimeRange = try await track.load(.timeRange)
             try cancellationCheck()
+            isEnabled = try await track.load(.isEnabled)
+            try cancellationCheck()
+            languageCode = try await track.load(.languageCode)
+            try cancellationCheck()
+            extendedLanguageTag = try await track.load(
+                .extendedLanguageTag
+            )
+            try cancellationCheck()
+            metadataItems = try await track.load(.metadata)
+            try cancellationCheck()
         } catch is CancellationError {
             throw CancellationError()
         } catch {
             try cancellationCheck()
             throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "audio format loading failed: \(error)"
+                reason: "audio track \(ordinal) property loading failed: "
+                    + "\(error)"
             )
         }
-        guard formatDescriptions.count == 1,
-              let formatDescription = formatDescriptions.first,
-              let streamDescription = CMAudioFormatDescriptionGetStreamBasicDescription(
-                formatDescription
-              )?.pointee else {
+        guard !formatDescriptions.isEmpty else {
             throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "expected one audio stream description, observed "
-                    + "\(formatDescriptions.count)"
+                reason: "audio track \(ordinal) has no format description"
             )
         }
-        let codec = CMFormatDescriptionGetMediaSubType(formatDescription)
-        guard codec == kAudioFormatMPEG4AAC,
-              streamDescription.mFormatID == kAudioFormatMPEG4AAC else {
+        var formatIdentities: [FormatIdentity] = []
+        formatIdentities.reserveCapacity(formatDescriptions.count)
+        for (formatOrdinal, formatDescription) in
+            formatDescriptions.enumerated() {
+            try cancellationCheck()
+            formatIdentities.append(
+                try formatIdentity(
+                    formatDescription,
+                    trackOrdinal: ordinal,
+                    formatOrdinal: formatOrdinal
+                )
+            )
+        }
+        guard let formatIdentity = formatIdentities.first,
+              formatIdentities.dropFirst().allSatisfy({
+                  $0 == formatIdentity
+              }) else {
             throw OutputMediaVerificationError.compressedAACMismatch(
-                reason: "audio codec is subtype=\(fourCCString(codec)), "
-                    + "stream=\(fourCCString(streamDescription.mFormatID)); expected aac "
-                    + "(\(fourCCString(kAudioFormatMPEG4AAC)))"
+                reason: "audio track \(ordinal) changes AAC configuration "
+                    + "across \(formatDescriptions.count) format descriptions"
             )
         }
         let header = HeaderIdentity(
-            codec: codec,
-            sampleRate: streamDescription.mSampleRate,
-            channelCount: streamDescription.mChannelsPerFrame,
-            trackTimeRange: trackTimeRange,
-            codecConfigurationMagicCookie: try copyCodecConfigurationMagicCookie(
-                from: formatDescription
-            ),
-            channelLayout: try readChannelLayoutIdentity(from: formatDescription)
+            format: formatIdentity,
+            trackTimeRange: trackTimeRange
         )
-        return try await readCompressedSamples(
+        let compressedIdentity = try await readCompressedSamples(
             asset: asset,
             track: track,
             header: header,
             cancellationCheck: cancellationCheck
+        )
+        let metadata: OutputMediaMetadataIdentity
+        do {
+            metadata =
+                try await MediaPreservationMetadataIdentityReader.read(
+                    metadataItems
+                )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "audio track \(ordinal) metadata identity failed: "
+                    + "\(error)"
+            )
+        }
+        try cancellationCheck()
+        return OutputMediaAACTrackIdentity(
+            reference: OutputMediaTrackReference(
+                mediaType: AVMediaType.audio.rawValue,
+                ordinal: ordinal
+            ),
+            compressedIdentity: compressedIdentity,
+            isEnabled: isEnabled,
+            languageCode: languageCode,
+            extendedLanguageTag: extendedLanguageTag,
+            metadata: metadata
+        )
+    }
+
+    private static func formatIdentity(
+        _ formatDescription: CMFormatDescription,
+        trackOrdinal: Int,
+        formatOrdinal: Int
+    ) throws -> FormatIdentity {
+        let codec = CMFormatDescriptionGetMediaSubType(
+            formatDescription
+        )
+        guard CMFormatDescriptionGetMediaType(formatDescription)
+                == kCMMediaType_Audio,
+              let streamDescription =
+                CMAudioFormatDescriptionGetStreamBasicDescription(
+                    formatDescription
+                )?.pointee else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "audio track \(trackOrdinal) format "
+                    + "\(formatOrdinal) has no audio stream description"
+            )
+        }
+        guard codec == kAudioFormatMPEG4AAC,
+              streamDescription.mFormatID
+                == kAudioFormatMPEG4AAC else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "audio track \(trackOrdinal) format "
+                    + "\(formatOrdinal) codec is subtype="
+                    + "\(fourCCString(codec)), stream="
+                    + "\(fourCCString(streamDescription.mFormatID)); "
+                    + "expected aac "
+                    + "(\(fourCCString(kAudioFormatMPEG4AAC)))"
+            )
+        }
+        return FormatIdentity(
+            codec: codec,
+            sampleRate: streamDescription.mSampleRate,
+            channelCount: streamDescription.mChannelsPerFrame,
+            codecConfigurationMagicCookie:
+                try copyCodecConfigurationMagicCookie(
+                    from: formatDescription
+                ),
+            channelLayout: try readChannelLayoutIdentity(
+                from: formatDescription
+            )
         )
     }
 
@@ -567,6 +814,99 @@ private extension OutputMediaAACIdentityReader {
             UInt8(value & 0xff)
         ]
         return String(bytes: bytes, encoding: .ascii) ?? "????"
+    }
+}
+
+extension OutputMediaVerifier {
+    static func verifyCompressedAACTracks(
+        _ actual: [OutputMediaAACTrackIdentity],
+        expected: [OutputMediaAACTrackIdentity]
+    ) throws {
+        guard actual.count == expected.count else {
+            throw OutputMediaVerificationError.compressedAACMismatch(
+                reason: "audio track count: expected \(expected.count), "
+                    + "observed \(actual.count)"
+            )
+        }
+        for index in expected.indices {
+            let actualTrack = actual[index]
+            let expectedTrack = expected[index]
+            guard actualTrack.reference == expectedTrack.reference else {
+                throw trackMismatch(
+                    index: index,
+                    field: "ordered reference",
+                    expected: String(
+                        describing: expectedTrack.reference
+                    ),
+                    actual: String(
+                        describing: actualTrack.reference
+                    )
+                )
+            }
+            guard actualTrack.isEnabled == expectedTrack.isEnabled else {
+                throw trackMismatch(
+                    index: index,
+                    field: "enabled state",
+                    expected: String(expectedTrack.isEnabled),
+                    actual: String(actualTrack.isEnabled)
+                )
+            }
+            guard actualTrack.languageCode
+                    == expectedTrack.languageCode else {
+                throw trackMismatch(
+                    index: index,
+                    field: "language code",
+                    expected: expectedTrack.languageCode ?? "absent",
+                    actual: actualTrack.languageCode ?? "absent"
+                )
+            }
+            guard actualTrack.extendedLanguageTag
+                    == expectedTrack.extendedLanguageTag else {
+                throw trackMismatch(
+                    index: index,
+                    field: "extended language tag",
+                    expected:
+                        expectedTrack.extendedLanguageTag ?? "absent",
+                    actual:
+                        actualTrack.extendedLanguageTag ?? "absent"
+                )
+            }
+            guard actualTrack.metadata == expectedTrack.metadata else {
+                throw trackMismatch(
+                    index: index,
+                    field: "metadata",
+                    expected: "\(expectedTrack.metadata.canonicalItems.count) "
+                        + "canonical items",
+                    actual: "\(actualTrack.metadata.canonicalItems.count) "
+                        + "different canonical items"
+                )
+            }
+            do {
+                try verifyCompressedAAC(
+                    actualTrack.compressedIdentity,
+                    expected: expectedTrack.compressedIdentity
+                )
+            } catch let error as OutputMediaVerificationError {
+                guard case .compressedAACMismatch(let reason) = error else {
+                    throw error
+                }
+                throw OutputMediaVerificationError.compressedAACMismatch(
+                    reason: "audio track \(index) \(reason)"
+                )
+            }
+        }
+    }
+
+    private static func trackMismatch(
+        index: Int,
+        field: String,
+        expected: String,
+        actual: String
+    ) -> OutputMediaVerificationError {
+        .compressedAACMismatch(
+            reason: "audio track \(index) \(field): expected "
+                + "\(expected), observed \(actual)"
+        )
     }
 }
 

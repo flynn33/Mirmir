@@ -1,0 +1,53 @@
+ASH Model License
+
+Copyright (c) 2025-2026 James Daley. All rights reserved.
+
+PERMITTED USE
+
+This software and associated documentation files (the "Software") may be
+used free of charge under the following conditions:
+
+1. EDUCATIONAL USE: The Software may be used for academic study, classroom
+   instruction, coursework, and teaching purposes at any educational
+   institution.
+
+2. INDIVIDUAL EXPERIMENTATION: The Software may be used by individuals for
+   personal, non-commercial research and experimentation.
+
+PROHIBITED USE
+
+All other use of the Software is strictly prohibited without prior written
+permission from the copyright holder, including but not limited to:
+
+- Commercial use of any kind
+- Use within or on behalf of a commercial organization
+- Incorporation into commercial products or services
+- Redistribution for commercial purposes
+- Use in production systems or operational environments
+- Use by government agencies for non-educational purposes
+
+COMMERCIAL LICENSING
+
+Commercial use of the Software requires a separate commercial license.
+For commercial licensing inquiries, contact the copyright holder via
+GitHub Issues at the official repository.
+
+CONDITIONS
+
+- The above copyright notice and this license notice shall be included in
+  all copies or substantial portions of the Software.
+- Academic citation is required for any use or derivative work:
+  Daley, J. (2026). "Adinkra-Stabilized Hypercube Model (ASH Model):
+  Canonical Computational Specification and Reference Implementation," version 1.1.0.
+- Modifications and derivative works are permitted only within the scope
+  of the permitted uses defined above.
+
+NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

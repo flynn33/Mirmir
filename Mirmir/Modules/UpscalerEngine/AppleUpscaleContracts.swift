@@ -156,7 +156,18 @@ struct AppleUpscaleArtifactIdentity: Hashable, Sendable {
 
 enum AppleUpscaleModelAssetsIdentity: Hashable, Sendable {
     case notRequired
+    case appleConfigurationManaged(
+        configurationIdentity: String,
+        readiness: AppleUpscaleConfigurationModelReadiness
+    )
     case bound([AppleUpscaleArtifactIdentity])
+}
+
+enum AppleUpscaleConfigurationModelReadiness:
+    String,
+    Hashable,
+    Sendable {
+    case ready
 }
 
 struct AppleUpscaleBackendIdentity: Hashable, Sendable {
@@ -177,7 +188,18 @@ struct AppleUpscaleBackendIdentity: Hashable, Sendable {
             backendRevision,
             field: "backend_revision"
         )
-        if case .bound(let artifacts) = modelAssetsIdentity {
+        switch modelAssetsIdentity {
+        case .notRequired:
+            break
+        case .appleConfigurationManaged(
+            let configurationIdentity,
+            _
+        ):
+            _ = try requireAppleUpscaleIdentity(
+                configurationIdentity,
+                field: "configuration_model_identity"
+            )
+        case .bound(let artifacts):
             guard !artifacts.isEmpty else {
                 throw AppleUpscaleContractError.emptyBoundModelAssets
             }

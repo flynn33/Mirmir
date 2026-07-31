@@ -8,15 +8,21 @@ private let adaptiveTargetResolution = VideoResolution(width: 1_280, height: 720
 final class R13ReleaseTestAdaptiveScaler:
     R03NV12Scaling,
     @unchecked Sendable {
+    typealias DestinationFiller =
+        @Sendable (CVPixelBuffer) throws -> Void
+
     private let plan: R13AdaptiveScalePlan
     private let eventLog: R13ReleaseTestEventLog
+    private let destinationFiller: DestinationFiller
 
     init(
         plan: R13AdaptiveScalePlan,
-        eventLog: R13ReleaseTestEventLog
+        eventLog: R13ReleaseTestEventLog,
+        destinationFiller: @escaping DestinationFiller = { _ in }
     ) {
         self.plan = plan
         self.eventLog = eventLog
+        self.destinationFiller = destinationFiller
     }
 
     func scale(
@@ -35,6 +41,7 @@ final class R13ReleaseTestAdaptiveScaler:
             pixelBuffer: destination,
             resolution: plan.targetResolution
         )
+        try destinationFiller(destination)
         eventLog.record("adaptive.scale")
     }
 
@@ -226,12 +233,12 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
             job: job,
             source: source,
             scalePlan: scalePlan,
-            modeBinding: try R13ReleaseModePolicy.binding(for: job.mode),
+            modeBinding: R13ReleaseModePolicy.binding(for: job.mode),
             stagedSource: stagedSource
         )
         var invalidMetadata = attempt.identity.timedMetadata
         invalidMetadata["com.mirmir.release.backend-id"] =
-            R03A11ProductAdmission.subjectID.rawValue
+            "tampered.backend.identity"
 
         await assertMetadataMismatch(
             attempt: attempt,
@@ -352,13 +359,14 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
         try expectedIdentity.validateTimedMetadata(
             media.sessions[1].finalMetadata
         )
+        let modeBinding = R13ReleaseModePolicy.binding(for: job.mode)
         XCTAssertEqual(
             expectedIdentity.backendID,
-            R13ReleaseIdentity.adaptiveBackendID
+            modeBinding.backendID
         )
         XCTAssertEqual(
             expectedIdentity.routeID,
-            R13ReleaseIdentity.adaptiveRouteID
+            modeBinding.scalerKind.adaptiveRouteID
         )
 
         let diagnostics = await harness.diagnostics.snapshot()

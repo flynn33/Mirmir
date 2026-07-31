@@ -26,16 +26,65 @@ struct VideoSelectionView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     detail("File", profile.url.lastPathComponent)
                     detail("Resolution", String(describing: profile.resolution))
+                    detail("Scan", profile.scanStructure.displayName)
                     detail("Frame rate", String(format: "%.2f fps", profile.frameRate))
                     detail("Duration", String(format: "%.1f s", profile.durationSeconds))
                     if let codec = profile.codecHint {
                         detail("Codec", codec)
                     }
-                    detail("Audio", profile.hasAudio ? "Yes" : "No")
+                    detail("Audio", profile.audioTrackDescription)
+                    detail(
+                        "Media inventory",
+                        profile.mediaPreservationCapability
+                            .inventorySummary
+                    )
+                    ForEach(
+                        profile.mediaPreservationCapability.tracks
+                    ) { track in
+                        detail(
+                            track.displayName,
+                            track.displaySummary
+                        )
+                    }
+                    ForEach(
+                        profile.mediaPreservationCapability
+                            .associations
+                    ) { association in
+                        detail(
+                            "Association",
+                            association.displaySummary
+                        )
+                    }
+                    Text(
+                        profile.mediaPreservationCapability
+                            .failureReason(
+                                preserveAudio:
+                                    viewModel.preserveAudio,
+                                preserveSubtitles: true,
+                                preserveMetadata: true
+                            )
+                            ?? profile.mediaPreservationCapability
+                                .verificationSummary
+                    )
+                    .foregroundStyle(
+                        profile.mediaPreservationCapability
+                            .failureReason(
+                                preserveAudio:
+                                    viewModel.preserveAudio,
+                                preserveSubtitles: true,
+                                preserveMetadata: true
+                            ) == nil
+                            ? Color.secondary
+                            : Color.orange
+                    )
+                    .fixedSize(horizontal: false, vertical: true)
                 }
                 .font(.callout)
             } else {
-                Text("Drop a 720p or 1080p video here, or use the button above.")
+                Text(
+                    "Drop a source video below 2160p here, "
+                        + "or use the button above."
+                )
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }

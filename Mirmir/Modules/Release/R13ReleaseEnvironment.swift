@@ -21,14 +21,43 @@ struct R13ReleaseEnvironment: Sendable {
 
 protocol R13ReleaseEnvironmentCollecting: Sendable {
     func collect() throws -> R13ReleaseEnvironment
+    func collect(
+        frameworkIdentity: String
+    ) throws -> R13ReleaseEnvironment
+}
+
+extension R13ReleaseEnvironmentCollecting {
+    func collect(
+        frameworkIdentity: String
+    ) throws -> R13ReleaseEnvironment {
+        let environment = try collect()
+        guard environment.framework.frameworkIdentifier
+            == frameworkIdentity else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: "requested_framework"
+            )
+        }
+        return environment
+    }
 }
 
 struct R13ProductionReleaseEnvironmentCollector:
     R13ReleaseEnvironmentCollecting {
     private static let metalPerformanceShadersPath =
         "/System/Library/Frameworks/MetalPerformanceShaders.framework"
+    private static let acceleratePath =
+        "/System/Library/Frameworks/Accelerate.framework"
 
     func collect() throws -> R13ReleaseEnvironment {
+        try collect(
+            frameworkIdentity:
+                R03A11ProductAdmission.frameworkIdentity
+        )
+    }
+
+    func collect(
+        frameworkIdentity: String
+    ) throws -> R13ReleaseEnvironment {
         let bundle = Bundle.main
         guard let bundleIdentifier = bundle.bundleIdentifier else {
             throw R13ReleaseEnvironmentError.applicationIdentityUnavailable(
@@ -57,8 +86,19 @@ struct R13ProductionReleaseEnvironmentCollector:
         let executable = try R13LocalRestartSourceMeasurer()
             .measureSource(at: executableURL)
 
+        let frameworkPath: String
+        switch frameworkIdentity {
+        case "MetalPerformanceShaders":
+            frameworkPath = Self.metalPerformanceShadersPath
+        case "Accelerate":
+            frameworkPath = Self.acceleratePath
+        default:
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: "requested_framework"
+            )
+        }
         guard let frameworkBundle = Bundle(
-            path: Self.metalPerformanceShadersPath
+            path: frameworkPath
         ) else {
             throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
                 field: "bundle"
@@ -90,7 +130,7 @@ struct R13ProductionReleaseEnvironmentCollector:
                 executableByteCount: executable.byteCount
             ),
             framework: R13ReleaseFrameworkIdentity(
-                frameworkIdentifier: R03A11ProductAdmission.frameworkIdentity,
+                frameworkIdentifier: frameworkIdentity,
                 version: frameworkVersion,
                 buildIdentity: frameworkBuild
             ),
@@ -238,20 +278,18 @@ struct R13ReleaseHardeningDocuments: Sendable {
 
     static func production() throws -> R13ReleaseHardeningDocuments {
         let releasePolicy = R13ReleasePolicyDocument(
-            schemaVersion: 1,
-            allowedRequestedModes: [
-                UpscaleMode.deterministic.rawValue,
-                UpscaleMode.fast.rawValue,
-                UpscaleMode.quality.rawValue
-            ],
-            effectiveMode: UpscaleMode.deterministic.rawValue,
-            backendID: R03A11ProductAdmission.subjectID.rawValue,
-            backendRevision: R03DeterministicBackendCatalog.backendRevision,
-            policyIdentity: R03A11ProductAdmission.policyIdentity,
-            materialDecisionIdentity:
-                R03A11ProductAdmission.materialDecisionIdentity,
-            modelStatus: R13ReleaseIdentity.modelStatus,
-            fallbackPolicy: "forbidden"
+            bindings: UpscaleMode.allCases
+                .sorted { $0.rawValue < $1.rawValue }
+                .flatMap { mode in
+                    UpscaleEnginePreference.allCases
+                        .sorted { $0.rawValue < $1.rawValue }
+                        .map {
+                            R13ReleaseModeBinding(
+                                requestedMode: mode,
+                                enginePreference: $0
+                            )
+                        }
+                }
         )
         let resourceManifest = R13ReleaseResourceManifest(
             schemaVersion: 1,
@@ -362,27 +400,85 @@ struct R13ProductionResourceProbe {
     }
 }
 
-private struct R13ReleasePolicyDocument: Codable {
+struct R13ReleasePolicyDocument:
+    Codable,
+    Equatable,
+    Sendable {
+    static let schemaVersion = 3
+
     let schemaVersion: Int
-    let allowedRequestedModes: [String]
-    let effectiveMode: String
-    let backendID: String
-    let backendRevision: String
-    let policyIdentity: String
-    let materialDecisionIdentity: String
-    let modelStatus: String
-    let fallbackPolicy: String
+    let modes: [R13ReleaseModePolicyEntry]
+
+    init(bindings: [R13ReleaseModeBinding]) {
+        schemaVersion = Self.schemaVersion
+        modes = bindings.map(R13ReleaseModePolicyEntry.init)
+    }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
-        case allowedRequestedModes = "allowed_requested_modes"
+        case modes
+    }
+}
+
+struct R13ReleaseModePolicyEntry:
+    Codable,
+    Equatable,
+    Sendable {
+    let requestedMode: String
+    let enginePreference: String
+    let effectiveMode: String
+    let scalerKind: String
+    let capabilityID: String
+    let backendID: String
+    let backendRevision: String
+    let frameworkIdentity: String
+    let policyIdentity: String
+    let materialDecisionIdentity: String
+    let canonicalProductRoutePolicy:
+        R13ReleaseRoutePolicyClaim
+    let adaptiveFormatGeometryRoutePolicy:
+        R13ReleaseRoutePolicyClaim
+
+    init(_ binding: R13ReleaseModeBinding) {
+        requestedMode = binding.requestedMode.rawValue
+        enginePreference = binding.enginePreference.rawValue
+        effectiveMode = binding.effectiveMode.rawValue
+        scalerKind = binding.scalerKind.rawValue
+        capabilityID = binding.capabilityID
+        backendID = binding.backendID
+        backendRevision = binding.backendRevision
+        frameworkIdentity = binding.frameworkIdentity
+        policyIdentity = binding.policyIdentity
+        materialDecisionIdentity =
+            binding.materialDecisionIdentity
+        canonicalProductRoutePolicy =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: binding
+            )
+        adaptiveFormatGeometryRoutePolicy =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass:
+                    .adaptiveFormatGeometry,
+                binding: binding
+            )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case requestedMode = "requested_mode"
+        case enginePreference = "engine_preference"
         case effectiveMode = "effective_mode"
+        case scalerKind = "scaler_kind"
+        case capabilityID = "capability_id"
         case backendID = "backend_id"
         case backendRevision = "backend_revision"
+        case frameworkIdentity = "framework_identity"
         case policyIdentity = "policy_identity"
         case materialDecisionIdentity = "material_decision_identity"
-        case modelStatus = "model_status"
-        case fallbackPolicy = "fallback_policy"
+        case canonicalProductRoutePolicy =
+            "canonical_product_route_policy"
+        case adaptiveFormatGeometryRoutePolicy =
+            "adaptive_format_geometry_route_policy"
     }
 }
 

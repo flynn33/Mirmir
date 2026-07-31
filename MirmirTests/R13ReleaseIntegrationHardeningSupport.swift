@@ -17,6 +17,21 @@ struct R13IntegrationEnvironmentCollector:
     func collect() throws -> R13ReleaseEnvironment {
         environment
     }
+
+    func collect(
+        frameworkIdentity: String
+    ) throws -> R13ReleaseEnvironment {
+        try R13ReleaseEnvironment(
+            application: environment.application,
+            framework: R13ReleaseFrameworkIdentity(
+                frameworkIdentifier: frameworkIdentity,
+                version: environment.framework.version,
+                buildIdentity:
+                    environment.framework.buildIdentity
+            ),
+            runtime: environment.runtime
+        )
+    }
 }
 
 struct R13IntegrationBookmarkResolver:

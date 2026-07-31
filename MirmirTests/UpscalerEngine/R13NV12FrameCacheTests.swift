@@ -145,14 +145,54 @@ final class R13NV12FrameCacheTests: XCTestCase {
         XCTAssertFalse(frame.tightRawData.contains(0xEE))
     }
 
-    func testCaptureRejectsNonNV12PixelBuffer() throws {
+    func testCaptureCodecAndReplayPreserveEveryRegisteredLayout()
+        throws {
+        let codec = R13LZFSEFrameCacheCodec()
+        for storage in MediaVideoPixelStorage.allCases {
+            let source =
+                try R13PixelLayoutTestFixtures.makeGradientBuffer(
+                    pixelFormat: storage.pixelFormat,
+                    width: 8,
+                    height: 8
+                )
+            let captured =
+                try R13NV12Frame.captureTightActivePlanes(
+                    from: source
+                )
+            let decoded = try codec.decode(
+                codec.encode(captured).data
+            )
+            let planes =
+                [decoded.luma]
+                + (decoded.chroma.isEmpty
+                    ? []
+                    : [decoded.chroma])
+                + decoded.auxiliaryPlanes
+            let replay = try R13TightPixelFrame(
+                width: decoded.width,
+                height: decoded.height,
+                pixelFormat: decoded.pixelFormat,
+                planes: planes
+            ).makePixelBuffer()
+            let recaptured =
+                try R13NV12Frame.captureTightActivePlanes(
+                    from: replay
+                )
+
+            XCTAssertEqual(decoded, captured, storage.rawValue)
+            XCTAssertEqual(recaptured, captured, storage.rawValue)
+        }
+    }
+
+    func testCaptureRejectsGenuinelyUnregisteredPixelBuffer()
+        throws {
         var optionalBuffer: CVPixelBuffer?
         XCTAssertEqual(
             CVPixelBufferCreate(
                 kCFAllocatorDefault,
                 4,
                 2,
-                kCVPixelFormatType_32BGRA,
+                kCVPixelFormatType_OneComponent8,
                 nil,
                 &optionalBuffer
             ),
@@ -165,7 +205,9 @@ final class R13NV12FrameCacheTests: XCTestCase {
         ) { error in
             XCTAssertEqual(
                 error as? R13NV12FrameCacheError,
-                .unsupportedPixelFormat(kCVPixelFormatType_32BGRA)
+                .unsupportedPixelFormat(
+                    kCVPixelFormatType_OneComponent8
+                )
             )
         }
     }

@@ -140,13 +140,20 @@ extension AVFoundationMediaSession {
 
     static func configureReaderOutputs(
         reader: AVAssetReader,
-        videoTrack: AVAssetTrack
+        videoTrack: AVAssetTrack,
+        videoFormat: MediaVideoFormat
     ) throws -> ReaderOutputs {
-        let videoSettings: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: PixelBufferBridge.preferredFormat,
+        var videoSettings: [String: Any] = [
+            kCVPixelBufferPixelFormatTypeKey as String:
+                videoFormat.pixelStorage.pixelFormat,
             kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any](),
             kCVPixelBufferMetalCompatibilityKey as String: true
         ]
+        if videoFormat.pixelStorage.bitDepth > 8
+            || videoFormat.colorPrimaries == .bt2020
+            || videoFormat.isHDR {
+            videoSettings[AVVideoAllowWideColorKey] = true
+        }
         let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: videoSettings)
         videoOutput.alwaysCopiesSampleData = false
         guard reader.canAdd(videoOutput) else {
@@ -173,11 +180,16 @@ extension AVFoundationMediaSession {
     static func makeWriter(
         outputTransaction: AtomicMediaOutput,
         stagingFile: MediaPipelineStagingFile,
-        outputURL: URL
+        outputURL: URL,
+        videoFormat: MediaVideoFormat
     ) throws -> AVAssetWriter {
         let fileType: AVFileType
         do {
-            fileType = try writerFileType(for: outputURL)
+            let finalFileType = try writerFileType(for: outputURL)
+            fileType = videoFormat.hasAlpha
+                || videoFormat.requiresQuickTimeMovieOutput
+                ? .mov
+                : finalFileType
         } catch {
             let cleanup = outputTransaction.fail()
             if let cleanupError = cleanup.error {
@@ -207,11 +219,16 @@ extension AVFoundationMediaSession {
 
     static func makeStagingFile(
         outputTransaction: AtomicMediaOutput,
-        outputURL: URL
+        outputURL: URL,
+        videoFormat: MediaVideoFormat
     ) throws -> MediaPipelineStagingFile {
         do {
             return try MediaPipelineStagingFile(
                 finalTemporaryURL: outputTransaction.temporaryURL,
+                pathExtensionOverride: videoFormat.hasAlpha
+                    || videoFormat.requiresQuickTimeMovieOutput
+                    ? "mov"
+                    : nil,
                 fileSystem:
                     outputTransaction.fileSystemForSiblingTemporaryFiles
             )
@@ -245,6 +262,7 @@ extension AVFoundationMediaSession {
     static func configureWriterInputs(
         writer: AVAssetWriter,
         output: OutputProfile,
+        videoFormat: MediaVideoFormat,
         sourceResolution: VideoResolution,
         videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform
@@ -254,8 +272,22 @@ extension AVFoundationMediaSession {
             sourceResolution: sourceResolution,
             outputResolution: output.resolution
         )
+        let videoOutputSettings = ProductVideoOutputSettings.make(
+            resolution: output.resolution,
+            codec: output.codec,
+            videoFormat: videoFormat
+        )
+        guard writer.canApply(
+            outputSettings: videoOutputSettings,
+            forMediaType: .video
+        ) else {
+            throw MediaPipelineError.outputEncoderUnavailable(
+                codec: output.codec,
+                format: videoFormat
+            )
+        }
         let videoInput = try makeVideoInput(
-            output: output,
+            outputSettings: videoOutputSettings,
             videoTimeScale: videoTimeScale,
             videoTransform: outputTransform
         )
@@ -422,7 +454,7 @@ extension AVFoundationMediaSession {
     }
 
     private static func makeVideoInput(
-        output: OutputProfile,
+        outputSettings: [String: Any],
         videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform
     ) throws -> AVAssetWriterInput {
@@ -431,11 +463,10 @@ extension AVFoundationMediaSession {
                 "source video track has a nonpositive natural timescale: \(videoTimeScale)"
             )
         }
-        let videoOutputSettings = ProductVideoOutputSettings.make(
-            resolution: output.resolution,
-            codec: output.codec
+        let videoInput = AVAssetWriterInput(
+            mediaType: .video,
+            outputSettings: outputSettings
         )
-        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
         videoInput.expectsMediaDataInRealTime = false
         videoInput.mediaTimeScale = videoTimeScale
         videoInput.transform = videoTransform
@@ -532,11 +563,13 @@ final class MediaPipelineStagingFile: @unchecked Sendable {
 
     init(
         finalTemporaryURL: URL,
+        pathExtensionOverride: String? = nil,
         fileSystem: any AtomicMediaFileSystem =
             LocalAtomicMediaFileSystem()
     ) throws {
         let directory = finalTemporaryURL.deletingLastPathComponent()
-        let pathExtension = finalTemporaryURL.pathExtension
+        let pathExtension = pathExtensionOverride
+            ?? finalTemporaryURL.pathExtension
         let extensionSuffix = pathExtension.isEmpty
             ? ""
             : ".\(pathExtension)"

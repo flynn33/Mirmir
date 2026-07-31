@@ -5,17 +5,22 @@ struct MirmirWorkflowRootView: View {
 
     @Environment(\.colorScheme) private var colorScheme
     @State private var destination: MirmirWorkspaceDestination = .upscale
-    @State private var appearanceMode: MirmirAppearanceMode = .system
 
     var body: some View {
         GeometryReader { proxy in
             content(width: proxy.size.width)
         }
         .frame(minWidth: 960, minHeight: 680)
+        .onChange(
+            of: viewModel.historyReprocessNavigationRequest
+        ) { _, request in
+            guard request != nil else { return }
+            destination = .upscale
+        }
     }
 
     private func content(width: CGFloat) -> some View {
-        let theme = appearanceMode.tokens(for: colorScheme)
+        let theme = viewModel.appearanceMode.tokens(for: colorScheme)
         let isCompact = width < 1120
 
         return HStack(spacing: 0) {
@@ -57,7 +62,8 @@ struct MirmirWorkflowRootView: View {
             MirmirUpscaleWorkspaceView(
                 viewModel: viewModel,
                 theme: theme,
-                isCompact: isCompact
+                isCompact: isCompact,
+                showLibrary: { destination = .library }
             )
         case .queue:
             MirmirQueueScreen(viewModel: viewModel, theme: theme)
@@ -67,13 +73,20 @@ struct MirmirWorkflowRootView: View {
             MirmirSettingsScreen(
                 viewModel: viewModel,
                 theme: theme,
-                appearanceMode: $appearanceMode
+                appearanceMode: appearanceSelection
             )
         case .about:
             MirmirAboutWorkspaceScreen(viewModel: viewModel, theme: theme)
         case .diagnostics:
             MirmirDiagnosticsScreen(viewModel: viewModel, theme: theme)
         }
+    }
+
+    private var appearanceSelection: Binding<MirmirAppearanceMode> {
+        Binding(
+            get: { viewModel.appearanceMode },
+            set: { viewModel.selectAppearanceMode($0) }
+        )
     }
 }
 

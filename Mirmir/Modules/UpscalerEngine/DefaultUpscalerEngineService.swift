@@ -34,6 +34,11 @@ final class DefaultUpscalerEngineService: UpscalerEngineService, @unchecked Send
         guard !FileURLIdentity.refersToSameFile(job.inputURL, job.outputURL) else {
             throw UpscalerEngineError.inputOutputCollision
         }
+        guard !FileManager.default.fileExists(
+            atPath: job.outputURL.path
+        ) else {
+            throw UpscalerEngineError.outputAlreadyExists
+        }
         let reserved = jobIsActive.withLock { active in
             guard !active else { return false }
             active = true

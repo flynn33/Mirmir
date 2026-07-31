@@ -1165,7 +1165,17 @@ final class R02PrepublicationVerifier: OutputMediaVerifying, @unchecked Sendable
             )
         }
         guard expectation.videoColor == .sdrBT709VideoRangeLeft,
-              expectation.compressedAACIdentity == expectedAACIdentity else {
+              expectation.compressedAACIdentity == nil,
+              let expectedAACTracks =
+                expectation.compressedAACTrackIdentities,
+              expectedAACTracks.count == 1,
+              expectedAACTracks[0].reference
+                == OutputMediaTrackReference(
+                    mediaType: AVMediaType.audio.rawValue,
+                    ordinal: 0
+                ),
+              expectedAACTracks[0].compressedIdentity
+                == expectedAACIdentity else {
             throw R02FixtureTestSupportError.mediaFixtureFailure(
                 "production verification omitted frozen color or compressed AAC identity"
             )

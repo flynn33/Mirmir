@@ -46,7 +46,12 @@ public enum UpscaleStrategyError: Error, CustomStringConvertible {
     public var description: String {
         switch self {
         case .unsupportedResolutionPair(let source, let target):
-            return "Mirmir does not support upscaling \(source) → \(target). Supported pairs: 720p→1080p, 1080p→4K."
+            return "Mirmir cannot use the requested upscale geometry "
+                + "\(source) → \(target). The target must be larger, "
+                + "positive, even-sized, and preserve the source aspect "
+                + "ratio within one output pixel. Direct strategy is "
+                + "limited to 720p→1080p and 1080p→4K; Automatic and "
+                + "Adaptive support other valid geometries."
         }
     }
 }

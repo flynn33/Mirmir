@@ -27,7 +27,7 @@ enum R03VImageScalingMode: String, CaseIterable, Hashable, Sendable {
 
 final class R03VImageScaler: R03NV12Scaling, @unchecked Sendable {
     let mode: R03VImageScalingMode
-    let route: R03ScaleRoute
+    let route: R03ScaleRoute?
 
     private let sourceResolution: VideoResolution
     private let targetResolution: VideoResolution
@@ -37,6 +37,16 @@ final class R03VImageScaler: R03NV12Scaling, @unchecked Sendable {
         self.route = route
         sourceResolution = route.canonicalSourceResolution
         targetResolution = route.canonicalTargetResolution
+    }
+
+    init(
+        mode: R03VImageScalingMode,
+        adaptivePlan: R13AdaptiveScalePlan
+    ) {
+        self.mode = mode
+        route = nil
+        sourceResolution = adaptivePlan.processingSourceResolution
+        targetResolution = adaptivePlan.targetResolution
     }
 
     func scale(

@@ -1,3 +1,4 @@
+import CoreVideo
 import Foundation
 
 enum R13ReleaseHardeningError: Error, Equatable, Sendable,
@@ -131,21 +132,26 @@ extension R13ReleaseHardeningRuntime {
         modeBinding: R13ReleaseModeBinding,
         source: R13RestartSourceIdentity,
         environment: R13ReleaseEnvironment,
-        policyResources: R13ReleasePolicyResourceBinding
+        policyResources: R13ReleasePolicyResourceBinding,
+        sourceScanStructure:
+            MediaVideoScanStructure = .progressive
     ) throws -> R13ReleaseIdentity {
         let routeIdentity: AppleUpscaleRouteIdentity
         switch scalePlan {
         case .productQualified(let route):
-            routeIdentity = try R13ReleaseIdentity.makeA11Route(
-                for: route
+            routeIdentity = try R13ReleaseIdentity.makeProductRoute(
+                for: route,
+                modeBinding: modeBinding
             )
         case .adaptiveMPSLanczos(let plan):
             routeIdentity = try R13ReleaseIdentity.makeAdaptiveRoute(
-                for: plan
+                for: plan,
+                modeBinding: modeBinding
             )
         }
         let boundPolicyResources = try Self.policyResources(
             for: scalePlan,
+            modeBinding: modeBinding,
             base: policyResources
         )
         return try R13ReleaseIdentity(
@@ -166,20 +172,32 @@ extension R13ReleaseHardeningRuntime {
                 framework: environment.framework,
                 runtime: environment.runtime,
                 policyResources: boundPolicyResources,
-                fallbackHistory: []
+                fallbackHistory: [],
+                processingConfiguration:
+                    job.processingConfiguration,
+                sourceScanStructure: sourceScanStructure,
+                deinterlacingAlgorithmIdentity:
+                    sourceScanStructure.requiresDeinterlacing
+                    ? R13FormatPreservingDeinterlacer
+                        .algorithmIdentity
+                    : "not_required"
             )
         )
     }
 
     static func policyResources(
         for scalePlan: R13ReleaseScalePlan,
+        modeBinding: R13ReleaseModeBinding,
         base: R13ReleasePolicyResourceBinding
     ) throws -> R13ReleasePolicyResourceBinding {
         switch scalePlan {
         case .productQualified:
             return base
         case .adaptiveMPSLanczos(let plan):
-            let policy = R13AdaptiveReleasePolicyDocument(plan: plan)
+            let policy = R13AdaptiveReleasePolicyDocument(
+                plan: plan,
+                modeBinding: modeBinding
+            )
             let policySHA256 = R13CryptoKitRestartDigest().sha256(
                 try R13RestartCanonical.data(policy)
             )
@@ -191,13 +209,28 @@ extension R13ReleaseHardeningRuntime {
         }
     }
 
+    static func policyResources(
+        for scalePlan: R13ReleaseScalePlan,
+        base: R13ReleasePolicyResourceBinding
+    ) throws -> R13ReleasePolicyResourceBinding {
+        try policyResources(
+            for: scalePlan,
+            modeBinding: R13ReleaseModeBinding(
+                requestedMode: .deterministic
+            ),
+            base: base
+        )
+    }
+
     static func makeReleaseIdentity(
         job: UpscaleJob,
         route: R03ScaleRoute,
         modeBinding: R13ReleaseModeBinding,
         source: R13RestartSourceIdentity,
         environment: R13ReleaseEnvironment,
-        policyResources: R13ReleasePolicyResourceBinding
+        policyResources: R13ReleasePolicyResourceBinding,
+        sourceScanStructure:
+            MediaVideoScanStructure = .progressive
     ) throws -> R13ReleaseIdentity {
         try makeReleaseIdentity(
             job: job,
@@ -205,7 +238,8 @@ extension R13ReleaseHardeningRuntime {
             modeBinding: modeBinding,
             source: source,
             environment: environment,
-            policyResources: policyResources
+            policyResources: policyResources,
+            sourceScanStructure: sourceScanStructure
         )
     }
 
@@ -213,6 +247,7 @@ extension R13ReleaseHardeningRuntime {
         job: UpscaleJob,
         scalePlan: R13ReleaseScalePlan,
         identity: R13ReleaseIdentity,
+        modeBinding: R13ReleaseModeBinding,
         source: R13RestartSourceIdentity,
         totalFrameCount: Int
     ) throws -> R13RestartJobCore {
@@ -221,7 +256,7 @@ extension R13ReleaseHardeningRuntime {
         case .productQualified(let route):
             expectedRouteID = route.rawValue
         case .adaptiveMPSLanczos:
-            expectedRouteID = R13ReleaseIdentity.adaptiveRouteID
+            expectedRouteID = identity.routeID
         }
         guard identity.routeID == expectedRouteID else {
             throw R13RestartJobError.invalidIdentity(
@@ -235,15 +270,38 @@ extension R13ReleaseHardeningRuntime {
                 requestedMode: identity.requestedMode.rawValue,
                 effectiveMode: identity.effectiveMode.rawValue,
                 routeIdentity:
-                    "\(expectedRouteID):\(identity.configurationIdentity)",
+                    "\(expectedRouteID):"
+                    + "\(identity.configurationIdentity):"
+                    + "\(identity.processingConfigurationIdentity):"
+                    + "\(identity.sourceScanStructure.rawValue):"
+                    + identity.deinterlacingAlgorithmIdentity,
                 backendIdentity: identity.backendID,
                 backendRevision: identity.backendRevision
             ),
             output: R13RestartOutputIdentity(
                 width: job.targetResolution.width,
                 height: job.targetResolution.height,
+                pixelFormat: modeBinding.executionFormat.fourCC,
                 codec: job.codec.rawValue,
-                audioPolicy: job.preserveAudio ? "preserve" : "omit"
+                audioPolicy: job.preserveAudio ? "preserve" : "omit",
+                colorPrimaries:
+                    modeBinding.executionFormat.colorPrimaries,
+                transferFunction:
+                    modeBinding.executionFormat.transferFunction,
+                yCbCrMatrix:
+                    modeBinding.executionFormat.yCbCrMatrix,
+                chromaLocation:
+                    modeBinding.executionFormat.chromaLocation,
+                alphaMode:
+                    modeBinding.executionFormat.alphaMode == "none"
+                    ? nil
+                    : modeBinding.executionFormat.alphaMode,
+                masteringDisplaySHA256:
+                    modeBinding.executionFormat
+                        .displayVolumeSHA256,
+                contentLightLevelSHA256:
+                    modeBinding.executionFormat
+                        .contentLightLevelSHA256
             ),
             totalFrameCount: totalFrameCount
         )
@@ -253,13 +311,20 @@ extension R13ReleaseHardeningRuntime {
         job: UpscaleJob,
         route: R03ScaleRoute,
         identity: R13ReleaseIdentity,
+        modeBinding: R13ReleaseModeBinding? = nil,
         source: R13RestartSourceIdentity,
         totalFrameCount: Int
     ) throws -> R13RestartJobCore {
-        try makeRestartCore(
+        let resolvedModeBinding = modeBinding
+            ?? R13ReleaseModeBinding(
+                requestedMode: identity.requestedMode,
+                enginePreference: identity.enginePreference
+            )
+        return try makeRestartCore(
             job: job,
             scalePlan: .productQualified(route),
             identity: identity,
+            modeBinding: resolvedModeBinding,
             source: source,
             totalFrameCount: totalFrameCount
         )
@@ -360,15 +425,19 @@ extension R13ReleaseHardeningRuntime {
 
     static func requiredWorkingMemoryBytes(
         source: VideoResolution,
-        target: VideoResolution
+        target: VideoResolution,
+        pixelFormat: OSType =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
     ) throws -> UInt64 {
         let sourceCounts = try R13NV12Frame.expectedPlaneByteCounts(
             width: source.width,
-            height: source.height
+            height: source.height,
+            pixelFormat: pixelFormat
         )
         let targetCounts = try R13NV12Frame.expectedPlaneByteCounts(
             width: target.width,
-            height: target.height
+            height: target.height,
+            pixelFormat: pixelFormat
         )
         let (combined, addOverflow) = UInt64(sourceCounts.total)
             .addingReportingOverflow(UInt64(targetCounts.total))

@@ -20,10 +20,63 @@ enum R13NV12FrameCacheError: Error, Equatable, Sendable {
     case arithmeticOverflow
 }
 
+enum R13CachedPixelFormat {
+    static let supported =
+        R13PixelLayoutRegistry.supportedPixelFormats
+
+    static func fourCC(_ pixelFormat: OSType) throws -> String {
+        guard supported.contains(pixelFormat) else {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
+        }
+        let bytes = [
+            UInt8(truncatingIfNeeded: pixelFormat >> 24),
+            UInt8(truncatingIfNeeded: pixelFormat >> 16),
+            UInt8(truncatingIfNeeded: pixelFormat >> 8),
+            UInt8(truncatingIfNeeded: pixelFormat)
+        ]
+        guard let value = String(
+            bytes: bytes,
+            encoding: .macOSRoman
+        ) else {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
+        }
+        return value
+    }
+
+    static func pixelFormat(
+        _ fourCC: String?
+    ) throws -> OSType {
+        let value = fourCC
+            ?? R13RestartOutputIdentity.nv12VideoRangePixelFormat
+        let bytes = Array(value.utf8)
+        guard bytes.count == 4 else {
+            throw R13RestartJobError.invalidPixelFormat(value)
+        }
+        let pixelFormat =
+            OSType(bytes[0]) << 24
+            | OSType(bytes[1]) << 16
+            | OSType(bytes[2]) << 8
+            | OSType(bytes[3])
+        guard supported.contains(pixelFormat) else {
+            throw R13RestartJobError.invalidPixelFormat(value)
+        }
+        return pixelFormat
+    }
+}
+
 struct R13NV12PlaneByteCounts: Equatable, Sendable {
     let luma: Int
     let chroma: Int
+    let auxiliary: [Int]
     let total: Int
+
+    var all: [Int] {
+        [luma, chroma] + auxiliary
+    }
 }
 
 struct R13NV12Frame: Equatable, Sendable {
@@ -31,13 +84,24 @@ struct R13NV12Frame: Equatable, Sendable {
 
     let width: Int
     let height: Int
+    let pixelFormat: OSType
     let luma: Data
     let chroma: Data
+    let auxiliaryPlanes: [Data]
 
-    init(width: Int, height: Int, luma: Data, chroma: Data) throws {
+    init(
+        width: Int,
+        height: Int,
+        pixelFormat: OSType =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+        luma: Data,
+        chroma: Data,
+        auxiliaryPlanes: [Data] = []
+    ) throws {
         let counts = try Self.expectedPlaneByteCounts(
             width: width,
-            height: height
+            height: height,
+            pixelFormat: pixelFormat
         )
         guard luma.count == counts.luma else {
             throw R13NV12FrameCacheError.invalidPlaneByteCount(
@@ -53,38 +117,90 @@ struct R13NV12Frame: Equatable, Sendable {
                 actual: chroma.count
             )
         }
+        guard auxiliaryPlanes.count == counts.auxiliary.count else {
+            throw R13NV12FrameCacheError.invalidPlaneByteCount(
+                plane: "auxiliary_plane_count",
+                expected: counts.auxiliary.count,
+                actual: auxiliaryPlanes.count
+            )
+        }
+        for index in auxiliaryPlanes.indices
+        where auxiliaryPlanes[index].count != counts.auxiliary[index] {
+            throw R13NV12FrameCacheError.invalidPlaneByteCount(
+                plane: "auxiliary_\(index)",
+                expected: counts.auxiliary[index],
+                actual: auxiliaryPlanes[index].count
+            )
+        }
         self.width = width
         self.height = height
+        self.pixelFormat = pixelFormat
         self.luma = luma
         self.chroma = chroma
+        self.auxiliaryPlanes = auxiliaryPlanes
     }
 
     static func expectedPlaneByteCounts(
         width: Int,
-        height: Int
+        height: Int,
+        pixelFormat: OSType =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
     ) throws -> R13NV12PlaneByteCounts {
-        guard width > 0,
-              height > 0,
-              width.isMultiple(of: 2),
-              height.isMultiple(of: 2) else {
+        guard width > 0, height > 0 else {
             throw R13NV12FrameCacheError.invalidGeometry(
                 width: width,
                 height: height
             )
         }
-        let (luma, lumaOverflow) = width.multipliedReportingOverflow(
-            by: height
-        )
-        let chroma = luma / 2
-        let (total, totalOverflow) = luma.addingReportingOverflow(chroma)
-        guard !lumaOverflow,
-              !totalOverflow,
+        let layout: R13PixelLayout
+        let planeCounts: [Int]
+        do {
+            layout = try R13PixelLayoutRegistry.layout(
+                for: pixelFormat
+            )
+            planeCounts = try layout.activePlaneByteCounts(
+                width: width,
+                height: height
+            )
+        } catch R13PixelLayoutError.unsupportedPixelFormat {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
+        } catch R13PixelLayoutError.invalidGeometry {
+            throw R13NV12FrameCacheError.invalidGeometry(
+                width: width,
+                height: height
+            )
+        } catch {
+            throw R13NV12FrameCacheError.arithmeticOverflow
+        }
+        guard let luma = planeCounts.first else {
+            throw R13NV12FrameCacheError.unsupportedPixelFormat(
+                pixelFormat
+            )
+        }
+        let chroma = planeCounts.count > 1 ? planeCounts[1] : 0
+        let auxiliary =
+            planeCounts.count > 2
+            ? Array(planeCounts.dropFirst(2))
+            : []
+        var total = 0
+        for count in [luma, chroma] + auxiliary {
+            let (nextTotal, overflow) =
+                total.addingReportingOverflow(count)
+            guard !overflow else {
+                throw R13NV12FrameCacheError.arithmeticOverflow
+            }
+            total = nextTotal
+        }
+        guard
               total <= maximumRawByteCount else {
             throw R13NV12FrameCacheError.arithmeticOverflow
         }
         return R13NV12PlaneByteCounts(
             luma: luma,
             chroma: chroma,
+            auxiliary: auxiliary,
             total: total
         )
     }
@@ -93,6 +209,9 @@ struct R13NV12Frame: Equatable, Sendable {
         var data = Data(capacity: luma.count + chroma.count)
         data.append(luma)
         data.append(chroma)
+        for plane in auxiliaryPlanes {
+            data.append(plane)
+        }
         return data
     }
 
@@ -145,8 +264,11 @@ struct R13LZFSEFrameCacheCodec: R13NV12FrameCacheCoding {
             encoding: encoding,
             width: frame.width,
             height: frame.height,
+            pixelFormat: frame.pixelFormat,
             lumaByteCount: frame.luma.count,
             chromaByteCount: frame.chroma.count,
+            auxiliaryPlaneByteCounts:
+                frame.auxiliaryPlanes.map(\.count),
             rawSHA256: rawSHA256,
             payloadByteCount: payload.count
         )
@@ -204,18 +326,23 @@ struct R13LZFSEFrameCacheCodec: R13NV12FrameCacheCoding {
         guard try R13RestartCanonical.data(header) == headerData else {
             throw R13NV12FrameCacheError.malformedArtifact
         }
-        guard header.schemaVersion
-                == R13NV12FrameCacheHeader.currentSchemaVersion else {
+        guard (1...R13NV12FrameCacheHeader.currentSchemaVersion)
+            .contains(header.schemaVersion) else {
             throw R13NV12FrameCacheError.unsupportedSchemaVersion(
                 header.schemaVersion
             )
         }
+        let pixelFormat = header.pixelFormat
+            ?? kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         let counts = try R13NV12Frame.expectedPlaneByteCounts(
             width: header.width,
-            height: header.height
+            height: header.height,
+            pixelFormat: pixelFormat
         )
         guard header.lumaByteCount == counts.luma,
-              header.chromaByteCount == counts.chroma else {
+              header.chromaByteCount == counts.chroma,
+              (header.auxiliaryPlaneByteCounts ?? [])
+                == counts.auxiliary else {
             throw R13NV12FrameCacheError.malformedArtifact
         }
         let payload = artifact.suffix(from: headerRange.upperBound)
@@ -233,21 +360,48 @@ struct R13LZFSEFrameCacheCodec: R13NV12FrameCacheCoding {
               digest.sha256(raw) == header.rawSHA256 else {
             throw R13NV12FrameCacheError.rawPayloadHashMismatch
         }
+        var rawOffset = 0
+        let luma = raw.subdata(
+            in: rawOffset..<(rawOffset + counts.luma)
+        )
+        rawOffset += counts.luma
+        let chroma = raw.subdata(
+            in: rawOffset..<(rawOffset + counts.chroma)
+        )
+        rawOffset += counts.chroma
+        var auxiliaryPlanes: [Data] = []
+        auxiliaryPlanes.reserveCapacity(counts.auxiliary.count)
+        for byteCount in counts.auxiliary {
+            auxiliaryPlanes.append(
+                raw.subdata(
+                    in: rawOffset..<(rawOffset + byteCount)
+                )
+            )
+            rawOffset += byteCount
+        }
+        guard rawOffset == raw.count else {
+            throw R13NV12FrameCacheError.malformedArtifact
+        }
         return try R13NV12Frame(
             width: header.width,
             height: header.height,
-            luma: raw.prefix(counts.luma),
-            chroma: raw.suffix(counts.chroma)
+            pixelFormat: pixelFormat,
+            luma: luma,
+            chroma: chroma,
+            auxiliaryPlanes: auxiliaryPlanes
         )
     }
 
     static func maximumArtifactByteCount(
         width: Int,
-        height: Int
+        height: Int,
+        pixelFormat: OSType =
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
     ) throws -> UInt64 {
         let counts = try R13NV12Frame.expectedPlaneByteCounts(
             width: width,
-            height: height
+            height: height,
+            pixelFormat: pixelFormat
         )
         let (maximum, overflow) = UInt64(counts.total).addingReportingOverflow(
             UInt64(maximumEnvelopeOverheadBytes)
@@ -342,14 +496,16 @@ struct R13LZFSEFrameCacheCodec: R13NV12FrameCacheCoding {
 }
 
 private struct R13NV12FrameCacheHeader: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 3
 
     let schemaVersion: Int
     let encoding: R13FrameCacheEncoding
     let width: Int
     let height: Int
+    let pixelFormat: OSType?
     let lumaByteCount: Int
     let chromaByteCount: Int
+    let auxiliaryPlaneByteCounts: [Int]?
     let rawSHA256: String
     let payloadByteCount: Int
 }

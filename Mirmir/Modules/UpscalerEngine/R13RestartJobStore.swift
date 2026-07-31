@@ -1,5 +1,294 @@
 import Foundation
 
+struct R13ValidatedRecoverableJob: Equatable, Sendable {
+    let cachedFrameCount: Int
+    let processing: R13RestartProcessingIdentity
+    let output: R13RestartOutputIdentity
+}
+
+struct R13RestartCachedFrameReplay: Equatable, Sendable {
+    let frame: R13NV12Frame
+    let routingDecision: R13ProductASHDecisionEvent?
+    let isFinalCachedPrefixFrame: Bool
+    let requiresBackendWarmup: Bool
+}
+
+enum R13RestartRoutingModelKind:
+    String,
+    Codable,
+    Hashable,
+    Sendable {
+    case notRequired = "not_required"
+    case appleConfigurationManaged =
+        "apple_configuration_managed"
+    case artifactBound = "artifact_bound"
+}
+
+struct R13RestartRoutingArtifactIdentity:
+    Codable,
+    Hashable,
+    Sendable {
+    let identifier: String
+    let sha256: String
+
+    init(_ artifact: AppleUpscaleArtifactIdentity) throws {
+        identifier = try R13RestartValidation.identity(
+            artifact.identifier,
+            field: "routing_artifact_identifier"
+        )
+        sha256 = try R13RestartValidation.sha256(
+            artifact.sha256,
+            field: "routing_artifact_sha256"
+        )
+    }
+
+    func appleIdentity() throws -> AppleUpscaleArtifactIdentity {
+        try AppleUpscaleArtifactIdentity(
+            identifier: try R13RestartValidation.identity(
+                identifier,
+                field: "routing_artifact_identifier"
+            ),
+            sha256: try R13RestartValidation.sha256(
+                sha256,
+                field: "routing_artifact_sha256"
+            )
+        )
+    }
+}
+
+struct R13RestartRoutingModelIdentity:
+    Codable,
+    Hashable,
+    Sendable {
+    let kind: R13RestartRoutingModelKind
+    let configurationIdentity: String?
+    let configurationReadiness: String?
+    let artifacts: [R13RestartRoutingArtifactIdentity]
+
+    init(_ identity: AppleUpscaleModelAssetsIdentity) throws {
+        switch identity {
+        case .notRequired:
+            kind = .notRequired
+            configurationIdentity = nil
+            configurationReadiness = nil
+            artifacts = []
+        case .appleConfigurationManaged(
+            let configurationIdentity,
+            let readiness
+        ):
+            kind = .appleConfigurationManaged
+            self.configurationIdentity =
+                try R13RestartValidation.identity(
+                    configurationIdentity,
+                    field:
+                        "routing_model_configuration_identity"
+                )
+            configurationReadiness = readiness.rawValue
+            artifacts = []
+        case .bound(let artifacts):
+            kind = .artifactBound
+            configurationIdentity = nil
+            configurationReadiness = nil
+            self.artifacts = try artifacts.map {
+                try R13RestartRoutingArtifactIdentity($0)
+            }
+        }
+        _ = try appleIdentity()
+    }
+
+    func appleIdentity() throws
+        -> AppleUpscaleModelAssetsIdentity {
+        switch kind {
+        case .notRequired:
+            guard configurationIdentity == nil,
+                  configurationReadiness == nil,
+                  artifacts.isEmpty else {
+                throw R13RestartJobError.invalidIdentity(
+                    field: "routing_model_identity"
+                )
+            }
+            return .notRequired
+        case .appleConfigurationManaged:
+            guard let configurationIdentity,
+                  let configurationReadiness,
+                  artifacts.isEmpty,
+                  let readiness =
+                    AppleUpscaleConfigurationModelReadiness(
+                        rawValue: configurationReadiness
+                    ) else {
+                throw R13RestartJobError.invalidIdentity(
+                    field: "routing_model_identity"
+                )
+            }
+            return .appleConfigurationManaged(
+                configurationIdentity:
+                    try R13RestartValidation.identity(
+                        configurationIdentity,
+                        field:
+                            "routing_model_configuration_identity"
+                    ),
+                readiness: readiness
+            )
+        case .artifactBound:
+            guard configurationIdentity == nil,
+                  configurationReadiness == nil,
+                  !artifacts.isEmpty else {
+                throw R13RestartJobError.invalidIdentity(
+                    field: "routing_model_identity"
+                )
+            }
+            return .bound(
+                try artifacts.map { try $0.appleIdentity() }
+            )
+        }
+    }
+}
+
+struct R13RestartRoutingRouteIdentity:
+    Codable,
+    Hashable,
+    Sendable {
+    let backendID: String
+    let backendRevision: String
+    let modelAssetsIdentity: R13RestartRoutingModelIdentity
+    let configurationIdentity: String
+    let policyIdentity: String
+    let materialDecisionIdentity: String
+
+    init(_ identity: AppleUpscaleRouteIdentity) throws {
+        backendID = try R13RestartValidation.identity(
+            identity.backend.backendID,
+            field: "routing_backend_id"
+        )
+        backendRevision = try R13RestartValidation.identity(
+            identity.backend.backendRevision,
+            field: "routing_backend_revision"
+        )
+        modelAssetsIdentity = try R13RestartRoutingModelIdentity(
+            identity.backend.modelAssetsIdentity
+        )
+        configurationIdentity =
+            try R13RestartValidation.identity(
+                identity.configurationIdentity,
+                field: "routing_configuration_identity"
+            )
+        policyIdentity = try R13RestartValidation.identity(
+            identity.policyIdentity,
+            field: "routing_policy_identity"
+        )
+        materialDecisionIdentity =
+            try R13RestartValidation.identity(
+                identity.materialDecisionIdentity,
+                field: "routing_material_decision_identity"
+            )
+    }
+
+    func appleIdentity() throws -> AppleUpscaleRouteIdentity {
+        try AppleUpscaleRouteIdentity(
+            backend: AppleUpscaleBackendIdentity(
+                backendID: try R13RestartValidation.identity(
+                    backendID,
+                    field: "routing_backend_id"
+                ),
+                backendRevision:
+                    try R13RestartValidation.identity(
+                        backendRevision,
+                        field: "routing_backend_revision"
+                    ),
+                modelAssetsIdentity:
+                    try modelAssetsIdentity.appleIdentity()
+            ),
+            configurationIdentity:
+                try R13RestartValidation.identity(
+                    configurationIdentity,
+                    field: "routing_configuration_identity"
+                ),
+            policyIdentity: try R13RestartValidation.identity(
+                policyIdentity,
+                field: "routing_policy_identity"
+            ),
+            materialDecisionIdentity:
+                try R13RestartValidation.identity(
+                    materialDecisionIdentity,
+                    field: "routing_material_decision_identity"
+                )
+        )
+    }
+}
+
+struct R13RestartRoutingDecisionRecord:
+    Codable,
+    Hashable,
+    Sendable {
+    let sequenceNumber: Int
+    let selectedRouteIdentity: R13RestartRoutingRouteIdentity
+    let reason: String
+    let failedBackendIDs: [String]
+    let processingPressureQ16: Int64
+
+    init(_ event: R13ProductASHDecisionEvent) throws {
+        sequenceNumber = event.sequenceNumber
+        selectedRouteIdentity =
+            try R13RestartRoutingRouteIdentity(
+                event.selectedRouteIdentity
+            )
+        reason = event.reason.rawValue
+        failedBackendIDs = event.failedBackendIDs
+        processingPressureQ16 = event.processingPressureQ16
+        try validate(expectedSequenceNumber: event.sequenceNumber)
+    }
+
+    func event() throws -> R13ProductASHDecisionEvent {
+        try validate(expectedSequenceNumber: sequenceNumber)
+        guard let reason =
+            R06ASHTransitionReason(rawValue: reason) else {
+            throw R13RestartJobError.invalidRoutingDecision(
+                index: sequenceNumber
+            )
+        }
+        return R13ProductASHDecisionEvent(
+            sequenceNumber: sequenceNumber,
+            selectedRouteIdentity:
+                try selectedRouteIdentity.appleIdentity(),
+            reason: reason,
+            failedBackendIDs: failedBackendIDs,
+            processingPressureQ16: processingPressureQ16
+        )
+    }
+
+    func validate(expectedSequenceNumber: Int) throws {
+        guard sequenceNumber == expectedSequenceNumber,
+              sequenceNumber >= 0,
+              let transitionReason =
+                R06ASHTransitionReason(rawValue: reason),
+              (0...R06ASHQ16.scale)
+                .contains(processingPressureQ16),
+              Set(failedBackendIDs).count
+                == failedBackendIDs.count else {
+            throw R13RestartJobError.invalidRoutingDecision(
+                index: expectedSequenceNumber
+            )
+        }
+        let selectedRoute =
+            try selectedRouteIdentity.appleIdentity()
+        let validatedFailedBackendIDs = try failedBackendIDs.map {
+            try R13RestartValidation.identity(
+                $0,
+                field: "routing_failed_backend_id"
+            )
+        }
+        guard !validatedFailedBackendIDs.contains(
+            selectedRoute.backend.backendID
+        ),
+        (transitionReason == .fatalBackendFailover)
+            == !validatedFailedBackendIDs.isEmpty else {
+            throw R13RestartJobError.invalidRoutingDecision(
+                index: expectedSequenceNumber
+            )
+        }
+    }
+}
+
 // Atomic frame -> record -> head publication and its replay validator remain
 // co-located so the two sides of the persistence contract cannot drift.
 // swiftlint:disable file_length
@@ -13,6 +302,12 @@ struct R13CachedFrameArtifactIdentity: Codable, Hashable, Sendable {
     let rawByteCount: UInt64
     let width: Int
     let height: Int
+    let pixelFormat: String?
+
+    var resolvedPixelFormat: String {
+        pixelFormat
+            ?? R13RestartOutputIdentity.nv12VideoRangePixelFormat
+    }
 
     init(
         relativePath: String,
@@ -22,11 +317,15 @@ struct R13CachedFrameArtifactIdentity: Codable, Hashable, Sendable {
         artifactByteCount: UInt64,
         rawByteCount: UInt64,
         width: Int,
-        height: Int
+        height: Int,
+        pixelFormat: String? = nil
     ) throws {
+        let resolvedPixelFormat =
+            try R13CachedPixelFormat.pixelFormat(pixelFormat)
         let counts = try R13NV12Frame.expectedPlaneByteCounts(
             width: width,
-            height: height
+            height: height,
+            pixelFormat: resolvedPixelFormat
         )
         guard artifactByteCount > 0 else {
             throw R13RestartJobError.invalidByteCount(
@@ -54,6 +353,7 @@ struct R13CachedFrameArtifactIdentity: Codable, Hashable, Sendable {
         self.rawByteCount = rawByteCount
         self.width = width
         self.height = height
+        self.pixelFormat = pixelFormat
     }
 
     func validate() throws {
@@ -65,24 +365,29 @@ struct R13CachedFrameArtifactIdentity: Codable, Hashable, Sendable {
             artifactByteCount: artifactByteCount,
             rawByteCount: rawByteCount,
             width: width,
-            height: height
+            height: height,
+            pixelFormat: pixelFormat
         )
     }
 }
 
 struct R13RestartCommitRecord: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 1
+    static let currentSchemaVersion = 3
 
     let schemaVersion: Int
     let sequence: Int
     let artifact: R13CachedFrameArtifactIdentity
     let previousRecordSHA256: String
+    let routingDecision:
+        R13RestartRoutingDecisionRecord?
     let recordSHA256: String
 
     init(
         sequence: Int,
         artifact: R13CachedFrameArtifactIdentity,
         previousRecordSHA256: String,
+        routingDecision:
+            R13RestartRoutingDecisionRecord? = nil,
         recordSHA256: String
     ) throws {
         guard sequence >= 0 else {
@@ -98,6 +403,7 @@ struct R13RestartCommitRecord: Codable, Hashable, Sendable {
             previousRecordSHA256,
             field: "previous_record_sha256"
         )
+        self.routingDecision = routingDecision
         self.recordSHA256 = try R13RestartValidation.sha256(
             recordSHA256,
             field: "record_sha256"
@@ -109,7 +415,8 @@ struct R13RestartCommitRecord: Codable, Hashable, Sendable {
             schemaVersion: schemaVersion,
             sequence: sequence,
             artifact: artifact,
-            previousRecordSHA256: previousRecordSHA256
+            previousRecordSHA256: previousRecordSHA256,
+            routingDecision: routingDecision
         )
     }
 }
@@ -119,6 +426,7 @@ private struct R13RestartCommitRecordPayload: Codable, Hashable, Sendable {
     let sequence: Int
     let artifact: R13CachedFrameArtifactIdentity
     let previousRecordSHA256: String
+    let routingDecision: R13RestartRoutingDecisionRecord?
 }
 
 private struct R13PrepublicationReceiptPayload:
@@ -225,6 +533,8 @@ actor R13RestartJobStore {
 
     func commitProcessedFrame(
         _ frame: R13NV12Frame,
+        routingDecision:
+            R13ProductASHDecisionEvent? = nil,
         at frameIndex: Int,
         using plan: R13RestartAttemptPlan
     ) throws -> R13RestartAttemptPlan {
@@ -259,25 +569,38 @@ actor R13RestartJobStore {
             )
         }
         guard frame.width == state.core.output.width,
-              frame.height == state.core.output.height else {
+              frame.height == state.core.output.height,
+              try R13CachedPixelFormat.fourCC(frame.pixelFormat)
+                == state.core.output.pixelFormat else {
             throw R13RestartJobError.cachedFrameGeometryMismatch(
                 index: frameIndex
             )
         }
+        let routingDecisionRecord =
+            try validatedRoutingDecisionRecord(
+                routingDecision,
+                required: state.core.processing
+                    .requiresPerFrameRoutingDecision,
+                frameIndex: frameIndex
+            )
 
         let encoded = try frameCodec.encode(frame)
         let artifactSHA256 = digest.sha256(encoded.data)
         let artifactRelativePath =
-            "frames/\(frameIndex)-\(artifactSHA256).r13nv12"
+            "frames/\(frameIndex)-\(artifactSHA256).r13frame"
+        let pixelFormat = try R13CachedPixelFormat.fourCC(
+            frame.pixelFormat
+        )
         let artifact = try R13CachedFrameArtifactIdentity(
             relativePath: artifactRelativePath,
             encoding: encoded.encoding,
             artifactSHA256: artifactSHA256,
             rawSHA256: encoded.rawSHA256,
             artifactByteCount: UInt64(encoded.data.count),
-            rawByteCount: UInt64(frame.luma.count + frame.chroma.count),
+            rawByteCount: UInt64(frame.tightRawData.count),
             width: frame.width,
-            height: frame.height
+            height: frame.height,
+            pixelFormat: pixelFormat
         )
         let urls = try jobURLs(jobID: state.core.jobID)
         try writeNewOrVerify(
@@ -290,7 +613,8 @@ actor R13RestartJobStore {
             schemaVersion: R13RestartCommitRecord.currentSchemaVersion,
             sequence: frameIndex,
             artifact: artifact,
-            previousRecordSHA256: state.head.headSHA256
+            previousRecordSHA256: state.head.headSHA256,
+            routingDecision: routingDecisionRecord
         )
         let recordSHA256 = digest.sha256(
             try R13RestartCanonical.data(payload)
@@ -299,6 +623,7 @@ actor R13RestartJobStore {
             sequence: frameIndex,
             artifact: artifact,
             previousRecordSHA256: state.head.headSHA256,
+            routingDecision: routingDecisionRecord,
             recordSHA256: recordSHA256
         )
         let recordRelativePath = "records/\(frameIndex).json"
@@ -334,6 +659,16 @@ actor R13RestartJobStore {
         at frameIndex: Int,
         using plan: R13RestartAttemptPlan
     ) throws -> R13NV12Frame {
+        try loadCachedFrameReplay(
+            at: frameIndex,
+            using: plan
+        ).frame
+    }
+
+    func loadCachedFrameReplay(
+        at frameIndex: Int,
+        using plan: R13RestartAttemptPlan
+    ) throws -> R13RestartCachedFrameReplay {
         guard plan.verifiedCachedRecords.indices.contains(frameIndex) else {
             throw R13RestartJobError.invalidFrameIndex(
                 expected: plan.verifiedCachedPrefixCount,
@@ -361,10 +696,30 @@ actor R13RestartJobStore {
                 : plan.verifiedCachedRecords[frameIndex - 1].recordSHA256,
             jobID: plan.jobID
         )
-        return try loadAndValidateFrame(
+        let routingDecision =
+            try validatedRoutingDecisionEvent(
+                record.routingDecision,
+                required: state.core.processing
+                    .requiresPerFrameRoutingDecision,
+                frameIndex: frameIndex
+            )
+        let frame = try loadAndValidateFrame(
             record.artifact,
             frameIndex: frameIndex,
             jobID: plan.jobID
+        )
+        return R13RestartCachedFrameReplay(
+            frame: frame,
+            routingDecision: routingDecision,
+            isFinalCachedPrefixFrame:
+                frameIndex + 1
+                    == plan.verifiedCachedPrefixCount,
+            requiresBackendWarmup:
+                routingDecision != nil
+                && frameIndex + 1
+                    == plan.verifiedCachedPrefixCount
+                && plan.verifiedCachedPrefixCount
+                    < plan.totalFrameCount
         )
     }
 
@@ -529,11 +884,23 @@ extension R13RestartJobStore {
     }
 
     func validateRecoverableJob(jobID: String) throws -> Int {
+        try validatedRecoverableJob(
+            jobID: jobID
+        ).cachedFrameCount
+    }
+
+    func validatedRecoverableJob(
+        jobID: String
+    ) throws -> R13ValidatedRecoverableJob {
         let state = try loadValidatedState(
             jobID: jobID,
             validateArtifacts: true
         )
-        return state.head.committedFrameCount
+        return R13ValidatedRecoverableJob(
+            cachedFrameCount: state.head.committedFrameCount,
+            processing: state.core.processing,
+            output: state.core.output
+        )
     }
 
     func validateRecoverableSource(
@@ -720,8 +1087,16 @@ private extension R13RestartJobStore {
                 at: recordRead.url
             )
             let record = recordRead.record
+            _ = try validatedRoutingDecisionEvent(
+                record.routingDecision,
+                required: core.processing
+                    .requiresPerFrameRoutingDecision,
+                frameIndex: sequence
+            )
             guard record.artifact.width == core.output.width,
-                  record.artifact.height == core.output.height else {
+                  record.artifact.height == core.output.height,
+                  record.artifact.resolvedPixelFormat
+                    == core.output.pixelFormat else {
                 throw R13RestartJobError.cachedFrameGeometryMismatch(
                     index: sequence
                 )
@@ -825,8 +1200,8 @@ private extension R13RestartJobStore {
         reference: R13RestartRecordReference,
         expectedPreviousSHA256: String
     ) throws {
-        guard record.schemaVersion
-                == R13RestartCommitRecord.currentSchemaVersion,
+        guard (1...R13RestartCommitRecord.currentSchemaVersion)
+                .contains(record.schemaVersion),
               record.sequence == reference.sequence,
               record.previousRecordSHA256 == expectedPreviousSHA256,
               record.recordSHA256 == reference.recordSHA256 else {
@@ -835,8 +1210,29 @@ private extension R13RestartJobStore {
             )
         }
         try record.artifact.validate()
+        guard record.schemaVersion >= 3
+                || record.routingDecision == nil else {
+            throw R13RestartJobError.recordChainMismatch(
+                sequence: reference.sequence
+            )
+        }
+        if let routingDecision = record.routingDecision {
+            do {
+                try routingDecision.validate(
+                    expectedSequenceNumber: record.sequence
+                )
+            } catch {
+                throw R13RestartJobError.recordChainMismatch(
+                    sequence: reference.sequence
+                )
+            }
+        }
+        let artifactExtension =
+            record.schemaVersion == 1 ? "r13nv12" : "r13frame"
         let expectedArtifactPath =
-            "frames/\(record.sequence)-\(record.artifact.artifactSHA256).r13nv12"
+            "frames/\(record.sequence)-"
+            + "\(record.artifact.artifactSHA256)."
+            + artifactExtension
         guard record.artifact.relativePath == expectedArtifactPath,
               digest.sha256(
                   try R13RestartCanonical.data(record.payload)
@@ -869,7 +1265,11 @@ private extension R13RestartJobStore {
             maximumArtifactBytes =
                 try R13LZFSEFrameCacheCodec.maximumArtifactByteCount(
                     width: artifact.width,
-                    height: artifact.height
+                    height: artifact.height,
+                    pixelFormat:
+                        try R13CachedPixelFormat.pixelFormat(
+                            artifact.pixelFormat
+                        )
                 )
         } catch {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
@@ -907,11 +1307,14 @@ private extension R13RestartJobStore {
         } catch {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
         }
+        let tightRawData = frame.tightRawData
         guard frame.width == artifact.width,
               frame.height == artifact.height,
-              UInt64(frame.luma.count + frame.chroma.count)
+              try R13CachedPixelFormat.fourCC(frame.pixelFormat)
+                == artifact.resolvedPixelFormat,
+              UInt64(tightRawData.count)
                 == artifact.rawByteCount,
-              digest.sha256(frame.tightRawData) == artifact.rawSHA256 else {
+              digest.sha256(tightRawData) == artifact.rawSHA256 else {
             throw R13RestartJobError.cachedFrameCorrupt(index: frameIndex)
         }
         return ValidatedFrameRead(
@@ -953,6 +1356,69 @@ private extension R13RestartJobStore {
             return
         }
         try fileSystem.writeNewAtomically(data, to: url)
+    }
+
+    func validatedRoutingDecisionRecord(
+        _ event: R13ProductASHDecisionEvent?,
+        required: Bool,
+        frameIndex: Int
+    ) throws -> R13RestartRoutingDecisionRecord? {
+        guard required else {
+            guard event == nil else {
+                throw R13RestartJobError.unexpectedRoutingDecision(
+                    index: frameIndex
+                )
+            }
+            return nil
+        }
+        guard let event else {
+            throw R13RestartJobError.routingDecisionRequired(
+                index: frameIndex
+            )
+        }
+        do {
+            let record = try R13RestartRoutingDecisionRecord(
+                event
+            )
+            try record.validate(
+                expectedSequenceNumber: frameIndex
+            )
+            return record
+        } catch {
+            throw R13RestartJobError.invalidRoutingDecision(
+                index: frameIndex
+            )
+        }
+    }
+
+    func validatedRoutingDecisionEvent(
+        _ record: R13RestartRoutingDecisionRecord?,
+        required: Bool,
+        frameIndex: Int
+    ) throws -> R13ProductASHDecisionEvent? {
+        guard required else {
+            guard record == nil else {
+                throw R13RestartJobError.unexpectedRoutingDecision(
+                    index: frameIndex
+                )
+            }
+            return nil
+        }
+        guard let record else {
+            throw R13RestartJobError.routingDecisionRequired(
+                index: frameIndex
+            )
+        }
+        do {
+            try record.validate(
+                expectedSequenceNumber: frameIndex
+            )
+            return try record.event()
+        } catch {
+            throw R13RestartJobError.invalidRoutingDecision(
+                index: frameIndex
+            )
+        }
     }
 
     func decodeCanonical<T: Decodable & Encodable>(

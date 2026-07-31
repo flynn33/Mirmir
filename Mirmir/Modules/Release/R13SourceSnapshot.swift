@@ -2,8 +2,8 @@ import Darwin
 import Foundation
 
 extension SourceProfile {
-    func bindingSourceURL(_ url: URL) -> SourceProfile {
-        SourceProfile(
+    func bindingSourceURL(_ url: URL) throws -> SourceProfile {
+        try SourceProfile(
             url: url,
             resolution: resolution,
             codedResolution: codedResolution,
@@ -12,7 +12,12 @@ extension SourceProfile {
             durationSeconds: durationSeconds,
             estimatedFrameCount: estimatedFrameCount,
             codecHint: codecHint,
-            hasAudio: hasAudio
+            audioTrackCount: audioTrackCount,
+            videoFormat: videoFormat,
+            scanStructure: scanStructure,
+            subtitleTrackCount: subtitleTrackCount,
+            metadataTrackCount: metadataTrackCount,
+            hasContainerMetadata: hasContainerMetadata
         )
     }
 }
@@ -20,6 +25,7 @@ extension SourceProfile {
 struct R13PreparedReleaseSource: Sendable {
     let source: SourceProfile
     let scalePlan: R13ReleaseScalePlan
+    let modeBinding: R13ReleaseModeBinding
     let hardeningAttempt: R13ReleaseHardeningAttempt?
 }
 
@@ -39,14 +45,24 @@ enum R13ReleaseSourceStaging {
             stagedSource?.processingURL ?? job.inputURL
         let source: SourceProfile
         let scalePlan: R13ReleaseScalePlan
+        let resolvedModeBinding: R13ReleaseModeBinding
         do {
             try Task.checkCancellation()
             source = try await media.probe(
                 url: processingSourceURL
             ).bindingSourceURL(processingSourceURL)
+            try R13ReleaseJobContracts.validateOutputCodec(
+                job.codec,
+                for: source.videoFormat
+            )
+            resolvedModeBinding = modeBinding.resolving(
+                videoFormat: source.videoFormat
+            )
             scalePlan = try R13ReleaseJobContracts.scalePlan(
                 source: source.resolution,
-                target: job.targetResolution
+                target: job.targetResolution,
+                strategyPreference:
+                    job.processingConfiguration.strategyPreference
             )
             try Task.checkCancellation()
         } catch {
@@ -64,7 +80,7 @@ enum R13ReleaseSourceStaging {
                 job: job,
                 source: source,
                 scalePlan: scalePlan,
-                modeBinding: modeBinding,
+                modeBinding: resolvedModeBinding,
                 stagedSource: stagedSource,
                 requiresExistingRestartState:
                     requiresExistingRestartState
@@ -75,6 +91,7 @@ enum R13ReleaseSourceStaging {
         return R13PreparedReleaseSource(
             source: source,
             scalePlan: scalePlan,
+            modeBinding: resolvedModeBinding,
             hardeningAttempt: attempt
         )
     }

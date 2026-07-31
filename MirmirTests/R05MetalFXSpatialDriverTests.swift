@@ -145,15 +145,14 @@ final class R05MetalFXSpatialDriverTests: XCTestCase {
         let cancellation = R05SpatialCancellationProbe()
         let publishCount = R05SpatialCounter()
         let extraResource = R05SpatialResource()
+        let processRequest = request(
+            route: .two,
+            retainedResources: [extraResource],
+            cancellation: cancellation.contract,
+            publish: { publishCount.increment() }
+        )
         let task = Task {
-            await harness.driver.process(
-                request(
-                    route: .two,
-                    retainedResources: [extraResource],
-                    cancellation: cancellation.contract,
-                    publish: { publishCount.increment() }
-                )
-            )
+            await harness.driver.process(processRequest)
         }
         let reachedCommit = await waitUntil { harness.completer.pendingCount == 1 }
         XCTAssertTrue(reachedCommit)
@@ -209,14 +208,16 @@ final class R05MetalFXSpatialDriverTests: XCTestCase {
 
     func testMutableScalerUseRemainsSerializedAcrossCommandCompletion() async {
         let harness = R05SpatialHarness(completionMode: .manual)
+        let firstRequest = request(route: .oneAndOneHalf)
         let first = Task {
-            await harness.driver.process(request(route: .oneAndOneHalf))
+            await harness.driver.process(firstRequest)
         }
         let firstReachedCommit = await waitUntil { harness.completer.pendingCount == 1 }
         XCTAssertTrue(firstReachedCommit)
 
+        let secondRequest = request(route: .two)
         let second = Task {
-            await harness.driver.process(request(route: .two))
+            await harness.driver.process(secondRequest)
         }
         for _ in 0..<20 {
             await Task.yield()

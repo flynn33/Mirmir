@@ -62,6 +62,17 @@ struct R06ASHQ15: Comparable, Hashable, Sendable {
 
 enum R06ASHPlaneLayout: String, Equatable, Sendable {
     case nv12
+    case p010
+    case bgra
+    case yuv422BiPlanar8 = "yuv422_biplanar_8"
+    case yuv422BiPlanar10 = "yuv422_biplanar_10"
+    case yuv422BiPlanar16 = "yuv422_biplanar_16"
+    case yuv444BiPlanar8 = "yuv444_biplanar_8"
+    case yuv444BiPlanar10 = "yuv444_biplanar_10"
+    case yuv444BiPlanar16 = "yuv444_biplanar_16"
+    case yuv444TriPlanar16Alpha = "yuv444_triplanar_16_alpha"
+    case aycbcrPacked8Alpha = "aycbcr_packed_8_alpha"
+    case aycbcrPacked16Alpha = "aycbcr_packed_16_alpha"
 }
 
 enum R06ASHBackendAvailability: String, Equatable, Sendable {

@@ -443,7 +443,17 @@ final class R03PQMediaPrepublicationVerifier:
                 == R03ProductQualificationMediaFixture.frames.count,
               expectation.timedMetadata == expectedTimedMetadata,
               expectation.videoColor == .sdrBT709VideoRangeLeft,
-              expectation.compressedAACIdentity == expectedAACIdentity else {
+              expectation.compressedAACIdentity == nil,
+              let expectedAACTracks =
+                expectation.compressedAACTrackIdentities,
+              expectedAACTracks.count == 1,
+              expectedAACTracks[0].reference
+                == OutputMediaTrackReference(
+                    mediaType: AVMediaType.audio.rawValue,
+                    ordinal: 0
+                ),
+              expectedAACTracks[0].compressedIdentity
+                == expectedAACIdentity else {
             throw R03ProductQualificationMediaTestError.mediaFailure(
                 "verification expectation omitted an exact media identity"
             )

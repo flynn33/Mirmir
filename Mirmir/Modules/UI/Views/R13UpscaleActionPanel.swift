@@ -50,6 +50,10 @@ struct R13UpscaleActionPanel: View {
 
     @ViewBuilder
     private var content: some View {
+        if viewModel.modelAssetsShowsPreparationControl {
+            modelAssetsPreparation
+        }
+
         if !viewModel.recoverableJobs.isEmpty
             || viewModel.recoveryRejectedEntryCount > 0 {
             VStack(alignment: .leading, spacing: theme.spacing.space2) {
@@ -75,6 +79,10 @@ struct R13UpscaleActionPanel: View {
                 }
 
                 ForEach(viewModel.recoverableJobs) { interrupted in
+                    let resumeFailureReason =
+                        viewModel.recoverableJobResumeFailureReason(
+                            id: interrupted.id
+                        )
                     VStack(
                         alignment: .leading,
                         spacing: theme.spacing.space1
@@ -102,6 +110,11 @@ struct R13UpscaleActionPanel: View {
                             }
                             .buttonStyle(
                                 MirmirSecondaryButtonStyle(theme: theme)
+                            )
+                            .disabled(resumeFailureReason != nil)
+                            .help(
+                                resumeFailureReason
+                                    ?? "Resume this interrupted upscale."
                             )
 
                             if viewModel.recoveryRequiresReauthorization(
@@ -135,6 +148,16 @@ struct R13UpscaleActionPanel: View {
                             )
                         }
                         .disabled(recoveryActionsAreDisabled)
+
+                        if let resumeFailureReason {
+                            Text(resumeFailureReason)
+                                .font(theme.typography.caption)
+                                .foregroundStyle(theme.warning)
+                                .fixedSize(
+                                    horizontal: false,
+                                    vertical: true
+                                )
+                        }
                     }
                 }
             }
@@ -157,18 +180,8 @@ struct R13UpscaleActionPanel: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
 
-        Button {
-            viewModel.startUpscale()
-        } label: {
-            Label("Start Upscale", systemImage: "play.fill")
-        }
-        .buttonStyle(MirmirPrimaryButtonStyle(theme: theme))
-        .disabled(!viewModel.canStart)
-        .opacity(viewModel.canStart ? 1 : 0.48)
-        .help(viewModel.canStartFailureReason ?? "Start Upscale")
-        .accessibilityLabel("Start Upscale")
-
-        if viewModel.state.isRunning {
+        switch viewModel.state {
+        case .running:
             Button {
                 viewModel.cancelUpscale()
             } label: {
@@ -176,19 +189,148 @@ struct R13UpscaleActionPanel: View {
             }
             .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
             .accessibilityLabel("Cancel Processing")
-        }
 
-        Text(
-            viewModel.canStartFailureReason
-                ?? "Ready to start deterministic processing."
-        )
-        .font(theme.typography.caption)
-        .foregroundStyle(
-            viewModel.canStart || viewModel.jobIsRunning
-                ? theme.textTertiary
-                : theme.warning
-        )
-        .fixedSize(horizontal: false, vertical: true)
+            actionStatus("Upscale in progress.", warning: false)
+        case .finished:
+            Button {
+                viewModel.revealOutputInFinder()
+            } label: {
+                Label("Reveal Output", systemImage: "folder")
+            }
+            .buttonStyle(MirmirPrimaryButtonStyle(theme: theme))
+
+            Button {
+                viewModel.upscaleAnotherVideo()
+            } label: {
+                Label(
+                    "Upscale Another Video",
+                    systemImage: "plus.circle"
+                )
+            }
+            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+
+            if let error = viewModel.completedOutputRevealError {
+                actionStatus(error, warning: true)
+            } else {
+                actionStatus(
+                    "The completed output was verified and published.",
+                    warning: false
+                )
+            }
+        case .failed(let reason):
+            Button("Retry Same Settings") {
+                viewModel.retryFailedUpscale()
+            }
+            .buttonStyle(MirmirPrimaryButtonStyle(theme: theme))
+            .disabled(!viewModel.canRetryFailedUpscale)
+            .help(
+                viewModel.retrySameSettingsFailureReason
+                    ?? "Retries the same job identity and exact processing "
+                        + "configuration so verified cached frames can be "
+                        + "reused."
+            )
+
+            Button("Retry with Current Settings") {
+                viewModel.retryFailedUpscaleWithCurrentSettings()
+            }
+            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+            .disabled(
+                !viewModel.canRetryFailedUpscaleWithCurrentSettings
+            )
+            .help(
+                viewModel.retryWithCurrentSettingsFailureReason
+                    ?? "Starts a new job using the settings currently shown "
+                        + "in the inspector."
+            )
+
+            Button("Dismiss") {
+                viewModel.dismissTerminalJob()
+            }
+            .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+            .disabled(viewModel.recoveryMutationIsInProgress)
+
+            if let correctiveText =
+                viewModel.retryCorrectiveActionText {
+                actionStatus(correctiveText, warning: true)
+            }
+
+            actionStatus(reason, warning: true)
+        case .idle, .probing, .ready:
+            Button {
+                viewModel.startUpscale()
+            } label: {
+                Label("Start Upscale", systemImage: "play.fill")
+            }
+            .buttonStyle(MirmirPrimaryButtonStyle(theme: theme))
+            .disabled(!viewModel.canStart)
+            .opacity(viewModel.canStart ? 1 : 0.48)
+            .help(viewModel.canStartFailureReason ?? "Start Upscale")
+            .accessibilityLabel("Start Upscale")
+
+            actionStatus(
+                viewModel.canStartFailureReason
+                    ?? "Ready to start with "
+                        + "\(viewModel.engineSelectionText).",
+                warning: !viewModel.canStart
+            )
+        }
+    }
+
+    private var modelAssetsPreparation: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+            Label(
+                viewModel.modelAssetsStatusText,
+                systemImage: modelAssetsSystemImage
+            )
+            .font(theme.typography.caption.weight(.semibold))
+
+            Text(viewModel.modelAssetsDetailText)
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if case .downloading(let progress) = viewModel.modelStatus {
+                ProgressView(value: min(max(progress, 0), 1))
+                    .progressViewStyle(.linear)
+                    .accessibilityLabel("Model download progress")
+                    .accessibilityValue(
+                        "\(Int((progress * 100).rounded())) percent"
+                    )
+            }
+
+            if viewModel.modelAssetsCanPrepare {
+                Button {
+                    viewModel.ensureModelsReady()
+                } label: {
+                    Label(
+                        viewModel.modelAssetsPreparationActionTitle,
+                        systemImage: "arrow.down.circle"
+                    )
+                }
+                .buttonStyle(MirmirSecondaryButtonStyle(theme: theme))
+                .disabled(viewModel.jobIsRunning)
+                .accessibilityLabel(
+                    viewModel.modelAssetsPreparationActionTitle
+                )
+            }
+        }
+    }
+
+    private var modelAssetsSystemImage: String {
+        switch viewModel.modelStatus {
+        case .unknown:
+            return "questionmark.circle"
+        case .notRequired:
+            return "checkmark.circle"
+        case .downloadRequired:
+            return "arrow.down.circle"
+        case .downloading:
+            return "arrow.down.circle.fill"
+        case .ready:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle"
+        }
     }
 
     private var recoveryActionsAreDisabled: Bool {
@@ -218,5 +360,17 @@ struct R13UpscaleActionPanel: View {
 
     private func shortIdentifier(_ identifier: String) -> String {
         String(identifier.prefix(8)).uppercased()
+    }
+
+    private func actionStatus(
+        _ text: String,
+        warning: Bool
+    ) -> some View {
+        Text(text)
+            .font(theme.typography.caption)
+            .foregroundStyle(
+                warning ? theme.warning : theme.textTertiary
+            )
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

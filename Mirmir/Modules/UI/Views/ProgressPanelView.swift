@@ -17,7 +17,10 @@ struct ProgressPanelView: View {
             case .ready:
                 if let profile = viewModel.sourceProfile {
                     let arrow = String(describing: profile.resolution) + " → " + String(describing: viewModel.targetResolution)
-                    Text("Ready: " + arrow)
+                    Text(
+                        "Ready: " + arrow + " · "
+                            + profile.scanStructure.displayName
+                    )
                         .foregroundStyle(.secondary)
                 } else {
                     Text("Ready").foregroundStyle(.secondary)

@@ -18,23 +18,6 @@ final class AVFoundationMediaPipeline:
     private let outputVerifier: any OutputMediaVerifying
     private let diagnostics: MirmirDiagnosticStore?
     private let diagnosticRecorder: MirmirDiagnosticRecorder
-    private static let expectedColorMetadata = [
-        ExpectedColorMetadata(
-            key: kCMFormatDescriptionExtension_ColorPrimaries as String,
-            expected: kCMFormatDescriptionColorPrimaries_ITU_R_709_2 as String,
-            label: "primaries"
-        ),
-        ExpectedColorMetadata(
-            key: kCMFormatDescriptionExtension_TransferFunction as String,
-            expected: kCMFormatDescriptionTransferFunction_ITU_R_709_2 as String,
-            label: "transfer"
-        ),
-        ExpectedColorMetadata(
-            key: kCMFormatDescriptionExtension_YCbCrMatrix as String,
-            expected: kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String,
-            label: "matrix"
-        )
-    ]
 
     init(
         metal: MetalRenderingService,
@@ -99,17 +82,37 @@ final class AVFoundationMediaPipeline:
             let fps = Double(try await videoTrack.load(.nominalFrameRate))
             failureStage = "load_format_descriptions"
             let formats = try await videoTrack.load(.formatDescriptions)
-            failureStage = "validate_color_profile"
-            try await Self.validateSupportedColorProfile(
+            failureStage = "resolve_scan_structure"
+            let scanStructure =
+                try MediaVideoScanStructureResolver.resolve(formats)
+            failureStage = "resolve_video_format"
+            let videoFormat = try await Self.resolveSupportedVideoFormat(
                 track: videoTrack,
                 formats: formats
             )
             failureStage = "load_duration"
             let durationCM = try await asset.load(.duration)
             failureStage = "load_audio_tracks"
-            let hasAudio = try await !asset
+            let audioTrackCount = try await asset
                 .loadTracks(withMediaType: .audio)
-                .isEmpty
+                .count
+            failureStage = "load_auxiliary_tracks"
+            let subtitleTrackCount = try await Self.trackCount(
+                in: asset,
+                mediaTypes: [.subtitle, .text, .closedCaption]
+            )
+            let metadataTrackCount = try await Self.trackCount(
+                in: asset,
+                mediaTypes: [.metadata, .timecode]
+            )
+            failureStage = "load_container_metadata"
+            let hasContainerMetadata = try await !asset.load(.metadata).isEmpty
+            failureStage = "inspect_media_preservation"
+            let mediaPreservationCapability =
+                try await SourceMediaPreservationPreflight.inspect(
+                    asset: asset,
+                    videoTrack: videoTrack
+                )
 
             let codedResolution = Self.codedResolution(
                 from: formats.first,
@@ -129,7 +132,7 @@ final class AVFoundationMediaPipeline:
                 durationSeconds: durationSeconds,
                 frameRate: fps
             )
-            let profile = SourceProfile(
+            let profile = try SourceProfile(
                 url: url,
                 resolution: resolution,
                 codedResolution: codedResolution,
@@ -138,7 +141,14 @@ final class AVFoundationMediaPipeline:
                 durationSeconds: durationSeconds,
                 estimatedFrameCount: estimatedFrameCount,
                 codecHint: codecHint,
-                hasAudio: hasAudio
+                audioTrackCount: audioTrackCount,
+                videoFormat: videoFormat,
+                scanStructure: scanStructure,
+                subtitleTrackCount: subtitleTrackCount,
+                metadataTrackCount: metadataTrackCount,
+                hasContainerMetadata: hasContainerMetadata,
+                mediaPreservationCapability:
+                    mediaPreservationCapability
             )
             telemetry.recordMedia(ASHMediaObservation(
                 kind: "media_probe",
@@ -149,7 +159,24 @@ final class AVFoundationMediaPipeline:
                         "\(codedResolution.width)x\(codedResolution.height)",
                     "estimated_frame_count":
                         String(profile.estimatedFrameCount),
-                    "has_audio": String(profile.hasAudio)
+                    "has_audio": String(profile.hasAudio),
+                    "audio_track_count":
+                        String(profile.audioTrackCount),
+                    "video_format": profile.videoFormat.description,
+                    "scan_structure":
+                        profile.scanStructure.rawValue,
+                    "subtitle_track_count":
+                        String(profile.subtitleTrackCount),
+                    "metadata_track_count":
+                        String(profile.metadataTrackCount),
+                    "has_container_metadata":
+                        String(profile.hasContainerMetadata),
+                    "media_preservation_verification":
+                        profile.mediaPreservationCapability
+                            .verificationLevel.rawValue,
+                    "media_preservation_inventory":
+                        profile.mediaPreservationCapability
+                            .inventorySummary
                 ]
             ))
             diagnosticRecorder.enqueue(
@@ -291,7 +318,7 @@ final class AVFoundationMediaPipeline:
         }
     }
 
-    private static func fourCCString(_ value: FourCharCode) -> String {
+    fileprivate static func fourCCString(_ value: FourCharCode) -> String {
         let bytes: [UInt8] = [
             UInt8((value >> 24) & 0xff),
             UInt8((value >> 16) & 0xff),
@@ -301,41 +328,512 @@ final class AVFoundationMediaPipeline:
         return String(bytes: bytes, encoding: .ascii) ?? "????"
     }
 
-    fileprivate static func validateSupportedColorProfile(
+    fileprivate static func resolveSupportedVideoFormat(
         track: AVAssetTrack,
         formats: [CMFormatDescription]
-    ) async throws {
-        var unsupportedValues: [String] = []
+    ) async throws -> MediaVideoFormat {
+        guard !formats.isEmpty else {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "the video track has no format description"
+            )
+        }
         let mediaCharacteristics = try await track.load(.mediaCharacteristics)
-        if mediaCharacteristics.contains(.containsHDRVideo) {
-            unsupportedValues.append("HDR")
-        }
-
+        let hasHDRCharacteristic = mediaCharacteristics.contains(
+            .containsHDRVideo
+        )
+        let hasAlphaCharacteristic = mediaCharacteristics.contains(
+            .containsAlphaChannel
+        )
+        var resolved: MediaVideoFormat?
         for format in formats {
-            guard let formatExtensions = CMFormatDescriptionGetExtensions(format) else {
-                continue
+            let candidate = try resolveSupportedVideoFormat(
+                format: format,
+                hasHDRCharacteristic: hasHDRCharacteristic,
+                hasAlphaCharacteristic: hasAlphaCharacteristic
+            )
+            if let resolved, resolved != candidate {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "the video track changes color, bit-depth, or alpha "
+                        + "format within one track"
+                )
             }
-            let extensions = formatExtensions as NSDictionary
-            for metadata in expectedColorMetadata {
-                guard let observed = extensions[metadata.key] as? String else { continue }
-                if observed != metadata.expected {
-                    unsupportedValues.append("\(metadata.label)=\(observed)")
-                }
-            }
+            resolved = candidate
         }
+        return resolved ?? .sdrBT709
+    }
 
-        guard unsupportedValues.isEmpty else {
+    static func resolveSupportedVideoFormat(
+        format: CMFormatDescription,
+        hasHDRCharacteristic: Bool,
+        hasAlphaCharacteristic: Bool
+    ) throws -> MediaVideoFormat {
+        let subtype = CMFormatDescriptionGetMediaSubType(format)
+        guard subtype != kCMVideoCodecType_DolbyVisionHEVC else {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "Dolby Vision dynamic metadata requires regeneration after "
+                    + "pixel processing; supported HDR inputs are BT.2020 "
+                    + "HDR10/PQ and HLG"
+            )
+        }
+        let extensions = (
+            CMFormatDescriptionGetExtensions(format) as NSDictionary?
+        ) ?? [:]
+        let declaredStorage = uncompressedPixelStorage(subtype)
+        let containsAlpha = declaredStorage?.hasAlpha == true
+            || hasAlphaCharacteristic
+            || booleanValue(
+                extensions[
+                    kCMFormatDescriptionExtension_ContainsAlphaChannel
+                        as String
+                ]
+            )
+            || (extensions[
+                kCMFormatDescriptionExtension_Depth as String
+            ] as? NSNumber)?.intValue == 32
+            || subtype == kCMVideoCodecType_HEVCWithAlpha
+        let transfer = extensions[
+            kCMFormatDescriptionExtension_TransferFunction as String
+        ] as? String
+        let primaries = extensions[
+            kCMFormatDescriptionExtension_ColorPrimaries as String
+        ] as? String
+        let matrix = extensions[
+            kCMFormatDescriptionExtension_YCbCrMatrix as String
+        ] as? String
+        let taggedColorFieldCount = [transfer, primaries, matrix]
+            .compactMap { $0 }
+            .count
+        guard taggedColorFieldCount == 0 || taggedColorFieldCount == 3 else {
             throw MediaPipelineError.unsupportedColorProfile(
-                Array(Set(unsupportedValues)).sorted().joined(separator: ", ")
+                "color primaries, transfer function, and YCbCr matrix must "
+                    + "all be present together"
+            )
+        }
+        let resolvedTransfer = try transferFunction(
+            transfer,
+            hasHDRCharacteristic: hasHDRCharacteristic
+        )
+        let resolvedPrimaries = try colorPrimaries(
+            primaries,
+            transferFunction: resolvedTransfer
+        )
+        try validateMatrix(
+            matrix,
+            primaries: resolvedPrimaries,
+            hasTaggedColor: taggedColorFieldCount == 3
+        )
+        let bitsPerComponent = (
+            extensions[
+                kCMFormatDescriptionExtension_BitsPerComponent as String
+            ] as? NSNumber
+        )?.intValue
+        let pixelStorage = try resolvePixelStorage(
+            format: format,
+            subtype: subtype,
+            extensions: extensions,
+            declaredStorage: declaredStorage,
+            containsAlpha: containsAlpha,
+            transferFunction: resolvedTransfer,
+            bitsPerComponent: bitsPerComponent
+        )
+        if containsAlpha {
+            guard pixelStorage.hasAlpha else {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "the source declares alpha but its decoded storage "
+                        + "\(pixelStorage.rawValue) has no alpha component"
+                )
+            }
+            guard !resolvedTransfer.isHDR,
+                  resolvedPrimaries == .bt709 else {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "combined HDR and alpha processing is not supported by "
+                        + "the current HEVC-with-alpha writer path"
+                )
+            }
+            let alphaMode = try resolveAlphaMode(extensions)
+            return MediaVideoFormat(
+                pixelStorage: pixelStorage,
+                colorPrimaries: resolvedPrimaries,
+                transferFunction: resolvedTransfer,
+                alphaMode: alphaMode
+            )
+        }
+        if resolvedTransfer.isHDR {
+            if pixelStorage.bitDepth < 10 {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "HDR processing requires at least 10-bit decoded "
+                        + "component precision"
+                )
+            }
+            guard resolvedPrimaries == .bt2020 else {
+                throw MediaPipelineError.unsupportedColorProfile(
+                    "HDR transfer requires BT.2020 primaries and matrix"
+                )
+            }
+            let mastering = extensions[
+                kCMFormatDescriptionExtension_MasteringDisplayColorVolume
+                    as String
+            ] as? Data
+            let contentLight = extensions[
+                kCMFormatDescriptionExtension_ContentLightLevelInfo as String
+            ] as? Data
+            try validateHDRStaticMetadata(
+                masteringDisplayColorVolume: mastering,
+                contentLightLevelInfo: contentLight
+            )
+            return MediaVideoFormat(
+                pixelStorage: pixelStorage,
+                colorPrimaries: resolvedPrimaries,
+                transferFunction: resolvedTransfer,
+                masteringDisplayColorVolume: mastering,
+                contentLightLevelInfo: contentLight
+            )
+        }
+        if resolvedPrimaries == .bt2020,
+           pixelStorage.bitDepth < 10 {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "BT.2020 SDR input must declare 10 bits per component so "
+                    + "Mirmir can preserve its component precision"
+            )
+        }
+        return MediaVideoFormat(
+            pixelStorage: pixelStorage,
+            colorPrimaries: resolvedPrimaries,
+            transferFunction: resolvedTransfer
+        )
+    }
+
+    private static func uncompressedPixelStorage(
+        _ subtype: FourCharCode
+    ) -> MediaVideoPixelStorage? {
+        switch subtype {
+        case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
+            return .nv12VideoRange8Bit
+        case kCVPixelFormatType_420YpCbCr8BiPlanarFullRange:
+            return .nv12FullRange8Bit
+        case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
+            return .p010VideoRange10Bit
+        case kCVPixelFormatType_420YpCbCr10BiPlanarFullRange:
+            return .p010FullRange10Bit
+        case kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange:
+            return .yuv422VideoRange8Bit
+        case kCVPixelFormatType_422YpCbCr8BiPlanarFullRange:
+            return .yuv422FullRange8Bit
+        case kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange:
+            return .yuv422VideoRange10Bit
+        case kCVPixelFormatType_422YpCbCr10BiPlanarFullRange:
+            return .yuv422FullRange10Bit
+        case kCVPixelFormatType_422YpCbCr16BiPlanarVideoRange:
+            return .yuv422VideoRange16Bit
+        case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
+            return .yuv444VideoRange8Bit
+        case kCVPixelFormatType_444YpCbCr8BiPlanarFullRange:
+            return .yuv444FullRange8Bit
+        case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
+            return .yuv444VideoRange10Bit
+        case kCVPixelFormatType_444YpCbCr10BiPlanarFullRange:
+            return .yuv444FullRange10Bit
+        case kCVPixelFormatType_444YpCbCr16BiPlanarVideoRange:
+            return .yuv444VideoRange16Bit
+        case kCVPixelFormatType_4444AYpCbCr8:
+            return .yuv444VideoRange8BitWithAlpha
+        case kCVPixelFormatType_4444AYpCbCr16:
+            return .yuv444VideoRange16BitWithAlpha
+        case kCVPixelFormatType_444YpCbCr16VideoRange_16A_TriPlanar:
+            return .yuv444VideoRange16BitWithAlphaTriPlanar
+        case kCMPixelFormat_32BGRA, kCMPixelFormat_32ARGB:
+            return .bgra8WithAlpha
+        default:
+            return nil
+        }
+    }
+
+    private static func resolvePixelStorage(
+        format: CMFormatDescription,
+        subtype: FourCharCode,
+        extensions: NSDictionary,
+        declaredStorage: MediaVideoPixelStorage?,
+        containsAlpha: Bool,
+        transferFunction: MediaVideoTransferFunction,
+        bitsPerComponent: Int?
+    ) throws -> MediaVideoPixelStorage {
+        if let declaredStorage {
+            return declaredStorage
+        }
+        if containsAlpha,
+           (
+               subtype == kCMVideoCodecType_HEVCWithAlpha
+                   || subtype == kCMVideoCodecType_HEVC
+           ) {
+            guard bitsPerComponent == nil || bitsPerComponent == 8 else {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "HEVC alpha decoded through BGRA requires 8-bit "
+                        + "component precision; observed "
+                        + "\(bitsPerComponent ?? -1)"
+                )
+            }
+            return .bgra8WithAlpha
+        }
+        if subtype == kCMVideoCodecType_HEVC {
+            let identity: HEVCEncodedFormatIdentity
+            do {
+                identity = try HEVCFormatIdentityReader.read(
+                    formatDescription: format
+                )
+            } catch {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "HEVC sampling and bit depth could not be read exactly "
+                        + "from the sequence parameter set: \(error)"
+                )
+            }
+            guard identity.lumaBitDepth == identity.chromaBitDepth else {
+                throw MediaPipelineError.unsupportedVideoFormat(
+                    "HEVC luma/chroma bit depths differ ("
+                        + "\(identity.lumaBitDepth)/"
+                        + "\(identity.chromaBitDepth))"
+                )
+            }
+            let fullRange = compressedVideoFullRangeValue(
+                extensions[
+                    kCMFormatDescriptionExtension_FullRangeVideo as String
+                ]
+            )
+            return try hevcPixelStorage(
+                chromaSampling: identity.chromaSampling,
+                bitDepth: identity.lumaBitDepth,
+                fullRange: fullRange
+            )
+        }
+        if subtype == kCMVideoCodecType_AppleProRes4444
+            || subtype == kCMVideoCodecType_AppleProRes4444XQ {
+            if containsAlpha {
+                return .yuv444VideoRange16BitWithAlphaTriPlanar
+            }
+            if transferFunction.isHDR {
+                return .yuv444FullRange10Bit
+            }
+            if compressedVideoFullRangeValue(
+                extensions[
+                    kCMFormatDescriptionExtension_FullRangeVideo as String
+                ]
+            ) {
+                guard (bitsPerComponent ?? 10) <= 10 else {
+                    throw MediaPipelineError.unsupportedVideoFormat(
+                        "full-range ProRes 4444 above 10 decoded bits has "
+                            + "no exact executable full-range storage"
+                    )
+                }
+                return .yuv444FullRange10Bit
+            }
+            return .yuv444VideoRange16Bit
+        }
+        if subtype == kCMVideoCodecType_AppleProRes422Proxy
+            || subtype == kCMVideoCodecType_AppleProRes422LT
+            || subtype == kCMVideoCodecType_AppleProRes422
+            || subtype == kCMVideoCodecType_AppleProRes422HQ {
+            return .yuv422VideoRange10Bit
+        }
+        let fullRange = compressedVideoFullRangeValue(
+            extensions[
+                kCMFormatDescriptionExtension_FullRangeVideo as String
+            ]
+        )
+        switch bitsPerComponent {
+        case .some(let bits) where bits > 10:
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "\(bits)-bit compressed input does not declare a supported "
+                    + "decoded pixel-storage identity"
+            )
+        case .some(10):
+            return fullRange
+                ? .p010FullRange10Bit
+                : .p010VideoRange10Bit
+        default:
+            return fullRange
+                ? .nv12FullRange8Bit
+                : .nv12VideoRange8Bit
+        }
+    }
+
+    private static func hevcPixelStorage(
+        chromaSampling: HEVCChromaSampling,
+        bitDepth: Int,
+        fullRange: Bool
+    ) throws -> MediaVideoPixelStorage {
+        guard (8...10).contains(bitDepth) else {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "HEVC \(bitDepth)-bit precision has no exact executable "
+                    + "decoded storage"
+            )
+        }
+        let isTenBit = bitDepth > 8
+        switch chromaSampling {
+        case .monochrome:
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "monochrome HEVC has no executable YCbCr processing layout"
+            )
+        case .yuv420:
+            if isTenBit {
+                return fullRange
+                    ? .p010FullRange10Bit
+                    : .p010VideoRange10Bit
+            }
+            return fullRange
+                ? .nv12FullRange8Bit
+                : .nv12VideoRange8Bit
+        case .yuv422:
+            if isTenBit {
+                return fullRange
+                    ? .yuv422FullRange10Bit
+                    : .yuv422VideoRange10Bit
+            }
+            return fullRange
+                ? .yuv422FullRange8Bit
+                : .yuv422VideoRange8Bit
+        case .yuv444:
+            if isTenBit {
+                return fullRange
+                    ? .yuv444FullRange10Bit
+                    : .yuv444VideoRange10Bit
+            }
+            return fullRange
+                ? .yuv444FullRange8Bit
+                : .yuv444VideoRange8Bit
+        }
+    }
+
+    private static func validateHDRStaticMetadata(
+        masteringDisplayColorVolume: Data?,
+        contentLightLevelInfo: Data?
+    ) throws {
+        if let masteringDisplayColorVolume,
+           masteringDisplayColorVolume.count != 24 {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "HDR mastering-display metadata must contain exactly "
+                    + "24 bytes; observed "
+                    + "\(masteringDisplayColorVolume.count)"
+            )
+        }
+        if let contentLightLevelInfo,
+           contentLightLevelInfo.count != 4 {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "HDR content-light metadata must contain exactly 4 bytes; "
+                    + "observed \(contentLightLevelInfo.count)"
             )
         }
     }
-}
 
-private struct ExpectedColorMetadata: Sendable {
-    let key: String
-    let expected: String
-    let label: String
+    private static func transferFunction(
+        _ value: String?,
+        hasHDRCharacteristic: Bool
+    ) throws -> MediaVideoTransferFunction {
+        if value == kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ
+            as String {
+            return .pq
+        }
+        if value == kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG
+            as String {
+            return .hlg
+        }
+        if value == nil
+            || value == kCMFormatDescriptionTransferFunction_ITU_R_709_2
+                as String {
+            guard !hasHDRCharacteristic else {
+                throw MediaPipelineError.unsupportedColorProfile(
+                    "the track declares HDR but has no PQ or HLG transfer tag"
+                )
+            }
+            return .bt709
+        }
+        throw MediaPipelineError.unsupportedColorProfile(
+            "unsupported transfer function \(value ?? "missing")"
+        )
+    }
+
+    private static func colorPrimaries(
+        _ value: String?,
+        transferFunction: MediaVideoTransferFunction
+    ) throws -> MediaVideoColorPrimaries {
+        if value == kCMFormatDescriptionColorPrimaries_ITU_R_2020 as String {
+            return .bt2020
+        }
+        if value == nil
+            || value == kCMFormatDescriptionColorPrimaries_ITU_R_709_2
+                as String {
+            guard !transferFunction.isHDR else {
+                throw MediaPipelineError.unsupportedColorProfile(
+                    "HDR input must declare BT.2020 color primaries"
+                )
+            }
+            return .bt709
+        }
+        throw MediaPipelineError.unsupportedColorProfile(
+            "unsupported color primaries \(value ?? "missing")"
+        )
+    }
+
+    private static func validateMatrix(
+        _ value: String?,
+        primaries: MediaVideoColorPrimaries,
+        hasTaggedColor: Bool
+    ) throws {
+        guard hasTaggedColor else { return }
+        let expected = primaries == .bt2020
+            ? kCMFormatDescriptionYCbCrMatrix_ITU_R_2020 as String
+            : kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2 as String
+        guard value == expected else {
+            throw MediaPipelineError.unsupportedColorProfile(
+                "YCbCr matrix \(value ?? "missing") does not match "
+                    + "\(primaries.rawValue)"
+            )
+        }
+    }
+
+    private static func resolveAlphaMode(
+        _ extensions: NSDictionary
+    ) throws -> MediaVideoAlphaMode {
+        let value = extensions[
+            kCMFormatDescriptionExtension_AlphaChannelMode as String
+        ] as? String
+        if value == kCMFormatDescriptionAlphaChannelMode_StraightAlpha
+            as String {
+            return .straight
+        }
+        if value
+            == kCMFormatDescriptionAlphaChannelMode_PremultipliedAlpha
+                as String {
+            return .premultiplied
+        }
+        throw MediaPipelineError.unsupportedVideoFormat(
+            "the source contains alpha but does not declare straight or "
+                + "premultiplied alpha semantics"
+        )
+    }
+
+    private static func booleanValue(_ value: Any?) -> Bool {
+        guard let number = value as? NSNumber,
+              CFGetTypeID(number) == CFBooleanGetTypeID() else {
+            return false
+        }
+        return number.boolValue
+    }
+
+    private static func compressedVideoFullRangeValue(_ value: Any?) -> Bool {
+        booleanValue(value)
+    }
+
+    private static func trackCount(
+        in asset: AVURLAsset,
+        mediaTypes: [AVMediaType]
+    ) async throws -> Int {
+        var result = 0
+        for mediaType in mediaTypes {
+            result += try await asset.loadTracks(
+                withMediaType: mediaType
+            ).count
+        }
+        return result
+    }
 }
 
 enum AVFoundationSourceAssetFactory {
@@ -389,13 +887,15 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
     let sourceProfile: SourceProfile
     let outputProfile: OutputProfile
+    let videoFormat: MediaVideoFormat
     let outputPixelBufferPool: CVPixelBufferPool
+    private let deinterlacer: R13FormatPreservingDeinterlacer?
 
     private let asset: AVURLAsset
     private let sourceVideoEndTime: CMTime
     let reader: AVAssetReader
     private let videoOutput: AVAssetReaderTrackOutput
-    let sourceAudioTrack: AVAssetTrack?
+    let sourceAudioTracks: [AVAssetTrack]
 
     let writer: AVAssetWriter
     let videoInput: AVAssetWriterInput
@@ -404,8 +904,10 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     let stagingFile: MediaPipelineStagingFile
     let outputVerifier: any OutputMediaVerifying
     let telemetry: any ASHTelemetryRecording
-    let expectedCompressedAACIdentity: OutputMediaAACIdentity?
+    let expectedCompressedAACTrackIdentities:
+        [OutputMediaAACTrackIdentity]
     let expectedVideoTransform: CGAffineTransform
+    let sourceMediaPreservation: SourceMediaPreservationPlan
 
     var presentationTransform: CGAffineTransform {
         expectedVideoTransform
@@ -449,6 +951,71 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         }
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
+        let detectedScanStructure =
+            try MediaVideoScanStructureResolver.resolve(videoFormats)
+        guard detectedScanStructure == source.scanStructure else {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "the source profile describes scan structure "
+                    + "\(source.scanStructure.rawValue), but the selected "
+                    + "asset contains \(detectedScanStructure.rawValue)"
+            )
+        }
+        let detectedVideoFormat =
+            try await AVFoundationMediaPipeline.resolveSupportedVideoFormat(
+                track: videoTrack,
+                formats: videoFormats
+            )
+        guard detectedVideoFormat == source.videoFormat else {
+            throw MediaPipelineError.unsupportedVideoFormat(
+                "the source profile describes \(source.videoFormat), but "
+                    + "the selected asset contains \(detectedVideoFormat)"
+            )
+        }
+        let revalidatedMediaPreservation =
+            try await SourceMediaPreservationPreflight.inspect(
+                asset: asset,
+                videoTrack: videoTrack
+            )
+        if source.mediaPreservationCapability.verificationLevel
+                == .exactProbe,
+           source.mediaPreservationCapability
+                != revalidatedMediaPreservation {
+            throw MediaPipelineError
+                .mediaPreservationCapabilityChanged
+        }
+        if let reason = revalidatedMediaPreservation.failureReason(
+            preserveAudio: output.preserveAudio,
+            preserveSubtitles: output.preserveSubtitles,
+            preserveMetadata: output.preserveMetadata
+        ) {
+            throw MediaPipelineError
+                .mediaPreservationPreflightFailed(reason)
+        }
+        let videoFormat = output.videoFormat ?? source.videoFormat
+        guard videoFormat == source.videoFormat else {
+            throw MediaPipelineError.unsupportedVideoFormatConversion(
+                source: source.videoFormat,
+                requested: videoFormat
+            )
+        }
+        guard videoFormat.supports(outputCodec: output.codec) else {
+            throw MediaPipelineError.outputCodecCannotPreserveVideoFormat(
+                codec: output.codec,
+                format: videoFormat
+            )
+        }
+        let outputPathExtension = output.url.pathExtension.lowercased()
+        if let containerError =
+                MediaOutputContainerPolicy.validationError(
+                    pathExtension: outputPathExtension,
+                    codec: output.codec,
+                    videoFormat: videoFormat,
+                    preservationCapability:
+                        revalidatedMediaPreservation,
+                    preserveAudio: output.preserveAudio
+                ) {
+            throw containerError
+        }
         let videoTimeRange = try await videoTrack.load(.timeRange)
         try AVFoundationSourceTimelinePreflight.validate(
             videoTimeRange,
@@ -459,41 +1026,182 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             naturalTimeScale: naturalVideoTimeScale,
             trackTimeRange: videoTimeRange
         )
-        try await AVFoundationMediaPipeline.validateSupportedColorProfile(
-            track: videoTrack,
-            formats: videoFormats
-        )
-        let audioTracks = output.preserveAudio
-            ? try await asset.loadTracks(withMediaType: .audio)
-            : []
-        guard audioTracks.count <= 1 else {
-            throw MediaPipelineError.unsupportedAudioTrackCount(audioTracks.count)
+        let audioTracks: [AVAssetTrack]
+        if output.preserveAudio {
+            audioTracks = try await asset.loadTracks(
+                withMediaType: .audio
+            )
+            guard audioTracks.count == source.audioTrackCount else {
+                throw MediaPipelineError.metadataPreservationFailed(
+                    "the source audio-track count changed after probing "
+                        + "(expected \(source.audioTrackCount), observed "
+                        + "\(audioTracks.count))"
+                )
+            }
+        } else {
+            audioTracks = []
         }
-        let audioTrack = audioTracks.first
-        let audioFormatDescription: CMFormatDescription?
-        if let audioTrack {
-            let audioTimeRange = try await audioTrack.load(.timeRange)
+        for audioTrack in audioTracks {
+            let audioTimeRange = try await audioTrack.load(
+                .timeRange
+            )
             try AVFoundationSourceTimelinePreflight.validate(
                 audioTimeRange,
                 mediaType: .audio
             )
-            audioFormatDescription = try await audioTrack.load(.formatDescriptions).first
-            if let audioFormatDescription {
-                let subtype = CMFormatDescriptionGetMediaSubType(audioFormatDescription)
-                guard subtype == kAudioFormatMPEG4AAC else {
-                    throw MediaPipelineError.unsupportedAudioFormat(String(format: "0x%08x", subtype))
+        }
+        let expectedCompressedAACTrackIdentities:
+            [OutputMediaAACTrackIdentity]
+        if output.preserveAudio {
+            do {
+                var identities: [OutputMediaAACTrackIdentity] = []
+                identities.reserveCapacity(audioTracks.count)
+                for (ordinal, audioTrack) in
+                    audioTracks.enumerated() {
+                    let formats = try await audioTrack.load(
+                        .formatDescriptions
+                    )
+                    let subtypes = formats.map {
+                        CMFormatDescriptionGetMediaSubType($0)
+                    }
+                    guard !subtypes.isEmpty else {
+                        throw OutputMediaVerificationError
+                            .compressedAACMismatch(
+                                reason: "audio track \(ordinal + 1) "
+                                    + "has no format description"
+                            )
+                    }
+                    if subtypes.allSatisfy({
+                        $0 == kAudioFormatMPEG4AAC
+                    }) {
+                        identities.append(
+                            try await OutputMediaAACIdentityReader
+                            .readTrack(
+                                asset: asset,
+                                track: audioTrack,
+                                ordinal: ordinal,
+                                cancellationCheck: {
+                                    try Task.checkCancellation()
+                                }
+                            )
+                        )
+                    } else if subtypes.allSatisfy({
+                        $0 == kAudioFormatLinearPCM
+                    }) || subtypes.allSatisfy({
+                        $0 == kAudioFormatAppleLossless
+                    }) {
+                        continue
+                    } else {
+                        throw OutputMediaVerificationError
+                            .compressedAACMismatch(
+                                reason: "audio track \(ordinal + 1) "
+                                    + "is not uniformly AAC, Apple "
+                                    + "Lossless, or Linear PCM"
+                            )
+                    }
                 }
+                expectedCompressedAACTrackIdentities =
+                    output.preserveMetadata
+                        ? identities
+                        : identities.map {
+                            OutputMediaAACTrackIdentity(
+                                reference: $0.reference,
+                                compressedIdentity:
+                                    $0.compressedIdentity,
+                                isEnabled: $0.isEnabled,
+                                languageCode: $0.languageCode,
+                                extendedLanguageTag:
+                                    $0.extendedLanguageTag,
+                                metadata:
+                                    OutputMediaMetadataIdentity(
+                                        canonicalItems: []
+                                    )
+                            )
+                        }
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                throw MediaPipelineError.unsupportedAudioFormat(
+                    String(describing: error)
+                )
             }
         } else {
-            audioFormatDescription = nil
+            expectedCompressedAACTrackIdentities = []
         }
-        let expectedCompressedAACIdentity: OutputMediaAACIdentity?
-        if audioTrack != nil {
-            expectedCompressedAACIdentity = try await OutputMediaAACIdentityReader().read(
-                url: source.url
+        let subtitleTracks = try await Self.loadTracks(
+            from: asset,
+            mediaTypes: [.subtitle, .text, .closedCaption]
+        )
+        guard subtitleTracks.count == source.subtitleTrackCount else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the source subtitle-track count changed after probing "
+                    + "(expected \(source.subtitleTrackCount), observed "
+                    + "\(subtitleTracks.count))"
             )
-        } else {
-            expectedCompressedAACIdentity = nil
+        }
+        let metadataTracks = try await Self.loadTracks(
+            from: asset,
+            mediaTypes: [.metadata, .timecode]
+        )
+        guard metadataTracks.count == source.metadataTrackCount else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the source metadata/timecode-track count changed after "
+                    + "probing (expected \(source.metadataTrackCount), "
+                    + "observed \(metadataTracks.count))"
+            )
+        }
+        let containerMetadata = try await asset.load(.metadata)
+        guard !containerMetadata.isEmpty == source.hasContainerMetadata else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the source container-metadata presence changed after probing"
+            )
+        }
+        let selectedTracks = [videoTrack]
+            + audioTracks
+            + (output.preserveSubtitles ? subtitleTracks : [])
+            + (output.preserveMetadata ? metadataTracks : [])
+        let sourceMediaPreservation: SourceMediaPreservationPlan
+        do {
+            sourceMediaPreservation =
+                try await SourceMediaPreservationPlanner.make(
+                    asset: asset,
+                    selectedTracks: selectedTracks,
+                    preserveMetadata: output.preserveMetadata,
+                    associationTargetSelection:
+                        SourceMediaAssociationTargetSelection(
+                            preserveAudio: output.preserveAudio,
+                            preserveSubtitles:
+                                output.preserveSubtitles,
+                            preserveMetadata:
+                                output.preserveMetadata
+                        )
+                )
+        } catch let error as MediaPreservationIdentityError {
+            switch error {
+            case .missingAssociationTarget(
+                let associationType,
+                let sourceMediaType,
+                let targetMediaType
+            ):
+                throw MediaPipelineError.unsupportedTrackAssociation(
+                    associationType: associationType,
+                    sourceMediaType: sourceMediaType,
+                    targetMediaType: targetMediaType
+                )
+            case .disabledAssociationTarget:
+                throw MediaPipelineError
+                    .mediaPreservationPreflightFailed(
+                        error.description
+                    )
+            default:
+                throw MediaPipelineError.metadataPreservationFailed(
+                    error.description
+                )
+            }
+        } catch {
+            throw MediaPipelineError.metadataPreservationFailed(
+                String(describing: error)
+            )
         }
 
         return try AVFoundationMediaSession(
@@ -504,12 +1212,30 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             output: output,
             asset: asset,
             videoTrack: videoTrack,
+            videoFormat: videoFormat,
             sourceVideoEndTime: CMTimeRangeGetEnd(videoTimeRange),
             videoTimeScale: videoTimeScale,
             videoTransform: videoTransform,
-            audioTrack: audioTrack,
-            expectedCompressedAACIdentity: expectedCompressedAACIdentity
+            audioTracks: audioTracks,
+            expectedCompressedAACTrackIdentities:
+                expectedCompressedAACTrackIdentities,
+            sourceMediaPreservation: sourceMediaPreservation
         )
+    }
+
+    private static func loadTracks(
+        from asset: AVURLAsset,
+        mediaTypes: [AVMediaType]
+    ) async throws -> [AVAssetTrack] {
+        var result: [AVAssetTrack] = []
+        for mediaType in mediaTypes {
+            result.append(
+                contentsOf: try await asset.loadTracks(
+                    withMediaType: mediaType
+                )
+            )
+        }
+        return result
     }
 
     private init(
@@ -520,20 +1246,39 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         output: OutputProfile,
         asset: AVURLAsset,
         videoTrack: AVAssetTrack,
+        videoFormat: MediaVideoFormat,
         sourceVideoEndTime: CMTime,
         videoTimeScale: CMTimeScale,
         videoTransform: CGAffineTransform,
-        audioTrack: AVAssetTrack?,
-        expectedCompressedAACIdentity: OutputMediaAACIdentity?
+        audioTracks: [AVAssetTrack],
+        expectedCompressedAACTrackIdentities:
+            [OutputMediaAACTrackIdentity],
+        sourceMediaPreservation: SourceMediaPreservationPlan
     ) throws {
         guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
             throw MediaPipelineError.inputOutputCollision(source.url)
+        }
+        let deinterlacer: R13FormatPreservingDeinterlacer?
+        if source.scanStructure.requiresDeinterlacing {
+            do {
+                deinterlacer = try R13FormatPreservingDeinterlacer(
+                    resolution: source.codedResolution,
+                    pixelFormat: videoFormat.pixelStorage.pixelFormat
+                )
+            } catch {
+                throw MediaPipelineError.deinterlacingFailed(
+                    String(describing: error)
+                )
+            }
+        } else {
+            deinterlacer = nil
         }
 
         let reader = try Self.makeReader(asset: asset, sourceURL: source.url)
         let readerOutputs = try Self.configureReaderOutputs(
             reader: reader,
-            videoTrack: videoTrack
+            videoTrack: videoTrack,
+            videoFormat: videoFormat
         )
         let outputTransaction = try Self.makeOutputTransaction(
             outputURL: output.url,
@@ -542,16 +1287,19 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         outputTransaction.attachTelemetry(telemetry)
         let stagingFile = try Self.makeStagingFile(
             outputTransaction: outputTransaction,
-            outputURL: output.url
+            outputURL: output.url,
+            videoFormat: videoFormat
         )
         let writer = try Self.makeWriter(
             outputTransaction: outputTransaction,
             stagingFile: stagingFile,
-            outputURL: output.url
+            outputURL: output.url,
+            videoFormat: videoFormat
         )
         let writerInputs = try Self.configureWriterInputs(
             writer: writer,
             output: output,
+            videoFormat: videoFormat,
             sourceResolution: source.resolution,
             videoTimeScale: videoTimeScale,
             videoTransform: videoTransform
@@ -559,6 +1307,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         let outputPixelBufferPool = try PixelBufferBridge.makePool(
             width: output.resolution.width,
             height: output.resolution.height,
+            format: videoFormat.pixelStorage.pixelFormat,
             capacity: 8
         )
         try Self.start(
@@ -571,12 +1320,14 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
 
         self.sourceProfile = source
         self.outputProfile = output
+        self.videoFormat = videoFormat
         self.outputPixelBufferPool = outputPixelBufferPool
+        self.deinterlacer = deinterlacer
         self.asset = asset
         self.sourceVideoEndTime = sourceVideoEndTime
         self.reader = reader
         self.videoOutput = readerOutputs.video
-        self.sourceAudioTrack = audioTrack
+        self.sourceAudioTracks = audioTracks
         self.writer = writer
         self.videoInput = writerInputs.video
         self.timedMetadataWriter = writerInputs.timedMetadata
@@ -584,13 +1335,35 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         self.stagingFile = stagingFile
         self.outputVerifier = outputVerifier
         self.telemetry = telemetry
-        self.expectedCompressedAACIdentity = expectedCompressedAACIdentity
+        self.expectedCompressedAACTrackIdentities =
+            expectedCompressedAACTrackIdentities
         self.expectedVideoTransform = writerInputs.videoTransform
+        self.sourceMediaPreservation = sourceMediaPreservation
         telemetry.recordMedia(ASHMediaObservation(
             kind: "reader_writer_started",
             details: [
-                "input_pixel_format": "420v",
-                "output_pixel_format": "420v",
+                "input_pixel_format":
+                    AVFoundationMediaPipeline.fourCCString(
+                        videoFormat.pixelStorage.pixelFormat
+                    ),
+                "output_pixel_format":
+                    AVFoundationMediaPipeline.fourCCString(
+                        videoFormat.pixelStorage.pixelFormat
+                    ),
+                "video_format": videoFormat.description,
+                "source_scan_structure":
+                    source.scanStructure.rawValue,
+                "deinterlacing_algorithm":
+                    deinterlacer == nil
+                        ? "not_required"
+                        : R13FormatPreservingDeinterlacer
+                            .algorithmIdentity,
+                "preserved_audio_track_count":
+                    String(audioTracks.count),
+                "preserved_subtitle_track_count":
+                    String(source.subtitleTrackCount),
+                "preserved_metadata_track_count":
+                    String(source.metadataTrackCount),
                 "output_dimensions": "\(output.resolution.width)x\(output.resolution.height)"
             ]
         ))
@@ -630,15 +1403,50 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             presentationTime: pts,
             duration: duration
         )
-        let record = FrameRecord(pixelBuffer: buffer, timing: timing)
+        let progressiveBuffer: CVPixelBuffer
+        if let deinterlacer {
+            do {
+                progressiveBuffer = try deinterlacer
+                    .makeProgressiveFrame(from: buffer)
+            } catch {
+                throw failureAfterCleanup(
+                    MediaPipelineError.deinterlacingFailed(
+                        String(describing: error)
+                    )
+                )
+            }
+        } else {
+            progressiveBuffer = buffer
+        }
+        let record = FrameRecord(
+            pixelBuffer: progressiveBuffer,
+            timing: timing
+        )
         telemetry.recordMedia(ASHMediaObservation(
             kind: "frame_read",
             frameIndex: frameIndex,
             presentationTimestampValue: pts.value,
             presentationTimestampTimescale: pts.timescale,
             details: [
-                "pixel_format": String(CVPixelBufferGetPixelFormatType(buffer)),
-                "plane_count": String(CVPixelBufferGetPlaneCount(buffer)),
+                "pixel_format":
+                    String(
+                        CVPixelBufferGetPixelFormatType(
+                            progressiveBuffer
+                        )
+                    ),
+                "plane_count":
+                    String(
+                        CVPixelBufferGetPlaneCount(
+                            progressiveBuffer
+                        )
+                    ),
+                "source_scan_structure":
+                    sourceProfile.scanStructure.rawValue,
+                "deinterlacing_algorithm":
+                    deinterlacer == nil
+                        ? "not_required"
+                        : R13FormatPreservingDeinterlacer
+                            .algorithmIdentity,
                 "duration_value": String(duration.value),
                 "duration_timescale": String(duration.timescale)
             ]
@@ -683,6 +1491,8 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         do {
             try timingLock.withLock {
                 try timingLedger.append(timing) {
+                    try videoFormat.validate(pixelBuffer: pixelBuffer)
+                    videoFormat.installAttachments(on: pixelBuffer)
                     let sampleBuffer = try Self.makeVideoSampleBuffer(
                         pixelBuffer: pixelBuffer,
                         timing: timing

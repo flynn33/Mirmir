@@ -359,14 +359,19 @@ struct R06ASHOrchestrator: Sendable {
         masks: R06ASHMaskSet,
         ablation: R06ASHAblationMode
     ) -> R06ASHOrchestrationOutcome {
-        if scope == .product {
-            return .blocked(.blocked)
-        }
         let eligible = candidates.filter { candidate in
-            candidate.wholeFrameOnly && candidate.fixtureEligible
+            guard candidate.wholeFrameOnly else { return false }
+            switch scope {
+            case .fixtureOnly:
+                return candidate.fixtureEligible
+            case .product:
+                return candidate.productQualified
+            }
         }
         guard !eligible.isEmpty else {
-            return .failed(.noEligibleFixtureBackend)
+            return scope == .product
+                ? .blocked(.blocked)
+                : .failed(.noEligibleFixtureBackend)
         }
 
         do {

@@ -26,19 +26,19 @@ struct MirmirStatusStrip: View {
                 theme: theme
             )
             MirmirStatusCard(
-                title: "Deterministic State",
+                title: "Processing State",
                 primary: viewModel.state.statusTitle,
-                secondary: deterministicSecondary,
+                secondary: processingSecondary,
                 symbolName: "point.3.connected.trianglepath.dotted",
                 tone: stateTone,
                 theme: theme
             )
             MirmirStatusCard(
-                title: "Confidence",
-                primary: confidencePrimary,
-                secondary: confidenceSecondary,
+                title: "Readiness",
+                primary: readinessPrimary,
+                secondary: readinessSecondary,
                 symbolName: "checkmark.shield",
-                tone: confidenceTone,
+                tone: readinessTone,
                 theme: theme
             )
             MirmirStatusCard(
@@ -60,7 +60,8 @@ struct MirmirStatusStrip: View {
     private var sourceSecondary: String {
         guard let profile = viewModel.sourceProfile else { return "Choose Source" }
         let rate = String(format: "%.2f fps", profile.frameRate)
-        return "\(rate) - \(profile.hasAudio ? "Audio" : "No audio")"
+        return "\(rate) - \(profile.scanStructure.displayName) - "
+            + profile.audioTrackDescription
     }
 
     private var sourceTone: MirmirStatusTone {
@@ -80,18 +81,18 @@ struct MirmirStatusStrip: View {
         viewModel.outputURL == nil ? .warning : .success
     }
 
-    private var deterministicSecondary: String {
+    private var processingSecondary: String {
         switch viewModel.state {
         case .probing:
             return "Reading source metadata"
         case .running:
-            return "Frame reconstruction active"
+            return "\(viewModel.engineSelectionText) active"
         case .finished:
-            return "Output ready"
+            return "Published output passed verification"
         case .failed(let reason):
             return reason
         default:
-            return "Reproducible settings path"
+            return viewModel.engineSelectionText
         }
     }
 
@@ -110,35 +111,46 @@ struct MirmirStatusStrip: View {
         }
     }
 
-    private var confidencePrimary: String {
+    private var readinessPrimary: String {
         switch viewModel.state {
-        case .ready, .running, .finished:
-            return "Configured"
+        case .ready:
+            return viewModel.canStart ? "Ready to Start" : "Needs Input"
+        case .running:
+            return "Processing"
+        case .finished:
+            return "Output Verified"
         case .failed:
-            return "Blocked"
-        default:
-            return "Pending"
+            return "Needs Attention"
+        case .idle, .probing:
+            return "Preparing"
         }
     }
 
-    private var confidenceSecondary: String {
+    private var readinessSecondary: String {
         switch viewModel.state {
-        case .ready, .running, .finished:
-            return "Deterministic profile selected"
+        case .ready:
+            return viewModel.canStartFailureReason
+                ?? "Source, destination, and processing are configured"
+        case .running:
+            return "The active job configuration is locked"
+        case .finished:
+            return "Reopened and validated before publication"
         case .failed:
             return "Review source or output"
-        default:
+        case .idle, .probing:
             return "Analyze source first"
         }
     }
 
-    private var confidenceTone: MirmirStatusTone {
+    private var readinessTone: MirmirStatusTone {
         switch viewModel.state {
         case .failed:
             return .danger
-        case .ready, .running, .finished:
+        case .ready:
+            return viewModel.canStart ? .success : .warning
+        case .running, .finished:
             return .success
-        default:
+        case .idle, .probing:
             return .neutral
         }
     }
@@ -179,6 +191,10 @@ extension OutputCodec {
             return "HEVC/H.265"
         case .h264:
             return "H.264"
+        case .proRes422HQ:
+            return "ProRes 422 HQ"
+        case .proRes4444:
+            return "ProRes 4444"
         }
     }
 }

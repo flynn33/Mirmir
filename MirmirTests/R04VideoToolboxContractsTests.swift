@@ -135,6 +135,53 @@ final class R04VideoToolboxContractsTests: XCTestCase {
         XCTAssertNotEqual(oneAndOneHalf.configurationIdentity, two.configurationIdentity)
     }
 
+    func testNativeRouteSelectorBindsOnlyRepresentableExactRoutes() throws {
+        let quality = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p1080,
+                targetResolution: .p2160,
+                intent: .quality
+            )
+        )
+        XCTAssertEqual(quality.subjectID, .quality2x)
+        XCTAssertTrue(quality.requiresConfigurationModel)
+
+        let lowLatencyOneAndOneHalf = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p720,
+                targetResolution: .p1080,
+                intent: .lowLatency
+            )
+        )
+        XCTAssertEqual(lowLatencyOneAndOneHalf.subjectID, .lowLatency1p5x)
+        XCTAssertFalse(lowLatencyOneAndOneHalf.requiresConfigurationModel)
+
+        let lowLatencyTwo = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p1080,
+                targetResolution: .p2160,
+                intent: .lowLatency
+            )
+        )
+        XCTAssertEqual(lowLatencyTwo.subjectID, .lowLatency2x)
+        XCTAssertFalse(lowLatencyTwo.requiresConfigurationModel)
+
+        XCTAssertNil(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p720,
+                targetResolution: .p1080,
+                intent: .quality
+            )
+        )
+        XCTAssertNil(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p1080,
+                targetResolution: .p1080,
+                intent: .lowLatency
+            )
+        )
+    }
+
     func testA05IsSupportOnlyAndCannotBecomePrimary() throws {
         let route = try XCTUnwrap(
             R04VideoToolboxRouteCatalog.route(

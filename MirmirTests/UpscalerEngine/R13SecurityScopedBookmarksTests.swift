@@ -250,7 +250,7 @@ final class R13SecurityScopedBookmarksTests: XCTestCase {
         )
         try await recoveryStore.save(job: job)
         let descriptorURL = fixture.jobDirectory.appendingPathComponent(
-            "recovery-v1.json"
+            "recovery-v2.json"
         )
         let persistedData = try Data(contentsOf: descriptorURL)
         let persistedDescriptor = try JSONDecoder().decode(
@@ -326,7 +326,7 @@ final class R13SecurityScopedBookmarksTests: XCTestCase {
         )
         try Data("{\"invalid\":true}".utf8).write(
             to: malformedDirectory.appendingPathComponent(
-                "recovery-v1.json"
+                "recovery-v2.json"
             )
         )
 

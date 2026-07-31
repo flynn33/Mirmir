@@ -470,7 +470,7 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
 }
 
 @available(macOS 26.0, *)
-private enum VTNativeSRConfigurationBuilder {
+enum VTNativeSRConfigurationBuilder {
     static func quality(
         sourceResolution: VideoResolution,
         flowConfiguration: VTNativeQualityFlowConfiguration
@@ -546,6 +546,25 @@ private enum VTNativeSRConfigurationBuilder {
         default:
             return nil
         }
+    }
+}
+
+@available(macOS 26.0, *)
+enum R04VTNativeConfigurationFactory {
+    static func makeQualityConfiguration(
+        binding: R04VideoToolboxNativeRouteBinding,
+        flowConfiguration: VTNativeQualityFlowConfiguration = .appleComputed
+    ) throws -> VTSuperResolutionScalerConfiguration {
+        guard binding.intent == .quality,
+              binding.subjectID == .quality2x,
+              binding.route.backendKind == .quality,
+              binding.route.gate == .runtimeSupportRequired else {
+            throw VTNativeSuperResolutionError.rejected(.routeContractMismatch)
+        }
+        return try VTNativeSRConfigurationBuilder.quality(
+            sourceResolution: binding.route.sourceResolution,
+            flowConfiguration: flowConfiguration
+        )
     }
 }
 

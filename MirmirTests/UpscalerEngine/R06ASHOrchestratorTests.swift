@@ -48,14 +48,22 @@ final class R06ASHOrchestratorTests: XCTestCase {
         XCTAssertEqual(record.selectedPlan.policyProfileID, .message00)
     }
 
-    func testProductGateRunsBeforeScoringAndPlanConstructionForEveryAblation() throws {
+    func testProductScopeScoresOnlyProductQualifiedWholeFrameCandidates() throws {
         let orchestrator = R06ASHOrchestrator(parameters: .frozen)
         let frozen = try XCTUnwrap(R06ASHBackendCatalog.fixtures.first)
-        let syntheticProductCandidate = try R06ASHBackendFixture(
-            backendID: "synthetic.unbound.product",
-            routeID: "synthetic.unbound.product.route",
-            fixtureEligible: true,
+        let productCandidate = try R06ASHBackendFixture(
+            backendID: "product.apple.mps_lanczos",
+            routeID: "product.route.mps_lanczos",
+            fixtureEligible: false,
             productQualified: true,
+            wholeFrameOnly: true,
+            scoreComponents: frozen.scoreComponents
+        )
+        let unqualifiedCandidate = try R06ASHBackendFixture(
+            backendID: "diagnostic.apple.unqualified",
+            routeID: "diagnostic.route.unqualified",
+            fixtureEligible: true,
+            productQualified: false,
             wholeFrameOnly: true,
             scoreComponents: frozen.scoreComponents
         )
@@ -64,12 +72,40 @@ final class R06ASHOrchestratorTests: XCTestCase {
             let outcome = orchestrator.decide(
                 scope: .product,
                 context: try makeContext(),
-                candidates: [syntheticProductCandidate, syntheticProductCandidate],
+                candidates: [unqualifiedCandidate, productCandidate],
                 masks: try makeMasks(),
                 ablation: ablation
             )
-            XCTAssertEqual(outcome, .blocked(.blocked), ablation.rawValue)
+            guard case .selected(let record) = outcome else {
+                return XCTFail(
+                    "Expected a product decision, received \(outcome)",
+                    file: #filePath,
+                    line: #line
+                )
+            }
+            XCTAssertEqual(
+                record.selectedPlan.selectedBackendID,
+                productCandidate.backendID,
+                ablation.rawValue
+            )
+            XCTAssertEqual(
+                record.candidateScores.map(\.backendID),
+                [productCandidate.backendID],
+                ablation.rawValue
+            )
         }
+    }
+
+    func testProductScopeBlocksWhenNoProductQualifiedCandidateExists() throws {
+        let outcome = R06ASHOrchestrator(parameters: .frozen).decide(
+            scope: .product,
+            context: try makeContext(),
+            candidates: R06ASHBackendCatalog.fixtures,
+            masks: try makeMasks(),
+            ablation: .ashPlusContinuousSidecar
+        )
+
+        XCTAssertEqual(outcome, .blocked(.blocked))
     }
 
     func testEveryCandidatePermutationProducesIdenticalOrderedRecordAndSelection() throws {

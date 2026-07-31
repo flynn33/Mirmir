@@ -1,169 +1,260 @@
 import Foundation
 import os.lock
 
-@available(macOS 26.0, *)
-final class DefaultModelAssetsService: ModelAssetsService, @unchecked Sendable {
+struct ModelAssetsAcquisitionOperation {
+    let id: UUID
+    let binding: ModelAssetsRouteBinding
+    var task: Task<Void, Never>?
+}
 
-    private struct State {
-        var statusByTarget: [ModelAssetsTarget: ModelAssetsStatus] = [:]
-        var continuationsByTarget: [ModelAssetsTarget: [UUID: AsyncStream<ModelAssetsStatus>.Continuation]] = [:]
-        var inFlight: Set<ModelAssetsTarget> = []
-        var ownedAcquisitions: Set<ModelAssetsTarget> = []
+struct ModelAssetsTargetState {
+    var binding: ModelAssetsRouteBinding = .unresolved
+    var stager: VTModelStager?
+    var status: ModelAssetsStatus = .unknown
+    var operation: ModelAssetsAcquisitionOperation?
+    var waiters: Set<UUID> = []
+}
+
+struct DefaultModelAssetsServiceState {
+    var targets: [ModelAssetsTarget: ModelAssetsTargetState] = [:]
+    var continuations:
+        [ModelAssetsTarget:
+            [UUID: AsyncStream<ModelAssetsStatus>.Continuation]] = [:]
+}
+
+struct ModelAssetsBoundRoute {
+    let stager: VTModelStager?
+    let status: ModelAssetsStatus
+}
+
+struct ModelAssetsOperationContext {
+    let id: UUID
+    let binding: ModelAssetsRouteBinding
+    let stager: VTModelStager
+}
+
+struct ModelAssetsStatusSnapshot {
+    let binding: ModelAssetsRouteBinding
+    let stager: VTModelStager?
+    let operationIsActive: Bool
+}
+
+typealias ModelAssetsStatusContinuation =
+    AsyncStream<ModelAssetsStatus>.Continuation
+
+typealias ModelAssetsRebindResult = (
+    status: ModelAssetsStatus?,
+    continuations: [ModelAssetsStatusContinuation]
+)
+
+final class DefaultModelAssetsService:
+    ModelAssetsRouteBindingService,
+    @unchecked Sendable {
+
+    typealias StagerFactory = @Sendable (
+        R04VideoToolboxNativeRouteBinding
+    ) throws -> VTModelStager
+
+    let lock = OSAllocatedUnfairLock(
+        initialState: DefaultModelAssetsServiceState()
+    )
+    let stagerFactory: StagerFactory
+
+    init(
+        stagerFactory: @escaping StagerFactory =
+            { binding in
+                try DefaultModelAssetsService.makeProductionStager(
+                    binding: binding
+                )
+            }
+    ) {
+        self.stagerFactory = stagerFactory
     }
 
-    private let lock = OSAllocatedUnfairLock(initialState: State())
-    private let stager: VTModelStager
-
-    init(stager: VTModelStager = VTModelStager()) {
-        self.stager = stager
+    deinit {
+        let resources = lock.withLock { state -> (
+            [Task<Void, Never>],
+            [AsyncStream<ModelAssetsStatus>.Continuation]
+        ) in
+            let tasks = state.targets.values.compactMap {
+                $0.operation?.task
+            }
+            let continuations = state.continuations.values.flatMap {
+                $0.values
+            }
+            state.targets.removeAll()
+            state.continuations.removeAll()
+            return (tasks, continuations)
+        }
+        resources.0.forEach { $0.cancel() }
+        resources.1.forEach { $0.finish() }
     }
 
-    func currentStatus(for target: ModelAssetsTarget) -> ModelAssetsStatus {
-        lock.withLock { state in
-            state.statusByTarget[target] ?? .unknown
+    func bind(
+        _ binding: ModelAssetsRouteBinding,
+        for target: ModelAssetsTarget
+    ) {
+        if refreshEquivalentBinding(binding, for: target) {
+            return
+        }
+
+        let boundRoute = resolve(binding)
+        let result = lock.withLock { state -> (
+            Task<Void, Never>?,
+            [AsyncStream<ModelAssetsStatus>.Continuation]
+        ) in
+            var targetState =
+                state.targets[target] ?? ModelAssetsTargetState()
+            let staleTask = targetState.operation?.task
+            targetState.binding = binding
+            targetState.stager = boundRoute.stager
+            targetState.status = boundRoute.status
+            targetState.operation = nil
+            state.targets[target] = targetState
+            return (
+                staleTask,
+                Array(state.continuations[target]?.values ?? [:].values)
+            )
+        }
+        result.0?.cancel()
+        result.1.forEach { $0.yield(boundRoute.status) }
+
+        if case .downloading = boundRoute.status {
+            startOperationIfNeeded(
+                for: target,
+                binding: binding,
+                allowDownload: false
+            )
         }
     }
 
-    func statusStream(for target: ModelAssetsTarget) -> AsyncStream<ModelAssetsStatus> {
+    func currentBinding(
+        for target: ModelAssetsTarget
+    ) -> ModelAssetsRouteBinding {
+        lock.withLock {
+            $0.targets[target]?.binding ?? .unresolved
+        }
+    }
+
+    func currentStatus(
+        for target: ModelAssetsTarget
+    ) -> ModelAssetsStatus {
+        lock.withLock {
+            $0.targets[target]?.status ?? .unknown
+        }
+    }
+
+    func statusStream(
+        for target: ModelAssetsTarget
+    ) -> AsyncStream<ModelAssetsStatus> {
         AsyncStream { continuation in
             let id = UUID()
-            let initial: ModelAssetsStatus = lock.withLock { state in
-                state.continuationsByTarget[target, default: [:]][id] = continuation
-                return state.statusByTarget[target] ?? .unknown
+            let initial = lock.withLock { state in
+                state.continuations[target, default: [:]][id] =
+                    continuation
+                return state.targets[target]?.status ?? .unknown
             }
             continuation.yield(initial)
             continuation.onTermination = { [weak self] _ in
-                _ = self?.lock.withLock { state in
-                    state.continuationsByTarget[target]?.removeValue(forKey: id)
-                }
+                self?.removeContinuation(id, for: target)
             }
         }
     }
 
     func ensureReady(for target: ModelAssetsTarget) async throws {
-        let alreadyInFlight: Bool = lock.withLock { state in
-            if state.inFlight.contains(target) { return true }
-            state.inFlight.insert(target)
-            return false
-        }
-        if alreadyInFlight {
-            for await status in statusStream(for: target) {
-                if case .ready = status { return }
-                let acquisitionOwned = lock.withLock { state in
-                    state.ownedAcquisitions.contains(target)
-                }
-                if let error = Self.terminalWaiterError(
-                    for: status,
-                    acquisitionAuthority: stager.acquisitionAuthority,
-                    acquisitionOwned: acquisitionOwned
-                ) {
-                    throw error
-                }
-            }
-            return
-        }
+        try Task.checkCancellation()
+        refreshStatus(for: target)
+        let expectedBinding = currentBinding(for: target)
 
-        defer {
-            lock.withLock { state in
-                _ = state.inFlight.remove(target)
-                _ = state.ownedAcquisitions.remove(target)
-            }
-        }
-
-        do {
-            let status = stager.currentStatus()
-            if status == .downloadRequired,
-               stager.acquisitionAuthority == .systemDownloadAuthorized {
-                lock.withLock { state in
-                    _ = state.ownedAcquisitions.insert(target)
-                }
-            }
-            updateStatus(Self.serviceStatus(for: status), for: target)
-            if status == .ready { return }
-            try await stager.ensureReady { [weak self] progress in
-                self?.updateStatus(.downloading(progress: progress), for: target)
-            }
-            updateStatus(.ready, for: target)
-        } catch VTModelStagerError.acquisitionNotAuthorized {
-            updateStatus(.downloadRequired, for: target)
-            throw ModelAssetsServiceError.acquisitionNotAuthorized
-        } catch VTModelStagerError.downloadAlreadyInProgress(let progress) {
-            lock.withLock { state in
-                _ = state.ownedAcquisitions.remove(target)
-            }
-            updateStatus(.downloading(progress: progress), for: target)
-            throw ModelAssetsServiceError.downloadAlreadyInProgress(progress: progress)
-        } catch VTModelStagerError.unavailable {
-            updateStatus(.failed(reason: "quality_configuration_not_bound"), for: target)
+        switch expectedBinding {
+        case .unresolved:
             throw ModelAssetsServiceError.configurationNotBound
-        } catch VTModelStagerError.downloadCompletedWithoutReady(let status) {
-            let reason = String(describing: status)
-            updateStatus(.failed(reason: reason), for: target)
-            throw ModelAssetsServiceError.downloadFailed(reason)
-        } catch {
-            updateStatus(.failed(reason: String(describing: error)), for: target)
-            throw error
+        case .notRequired:
+            return
+        case .videoToolboxQuality:
+            retryFailedQualityBindingIfNeeded(
+                expectedBinding,
+                for: target
+            )
         }
+
+        let waiterID = UUID()
+        registerWaiter(waiterID, for: target)
+        defer {
+            unregisterWaiter(waiterID, for: target)
+        }
+
+        startOperationIfNeeded(
+            for: target,
+            binding: expectedBinding,
+            allowDownload: true
+        )
+
+        for await status in statusStream(for: target) {
+            try Task.checkCancellation()
+            guard currentBinding(for: target) == expectedBinding else {
+                throw ModelAssetsServiceError.configurationChanged
+            }
+            switch status {
+            case .ready, .notRequired:
+                return
+            case .failed(let reason):
+                throw ModelAssetsServiceError.downloadFailed(reason)
+            case .unknown:
+                throw ModelAssetsServiceError.configurationNotBound
+            case .downloadRequired, .downloading:
+                continue
+            }
+        }
+        try Task.checkCancellation()
+        throw ModelAssetsServiceError.downloadFailed(
+            "model_status_stream_ended"
+        )
     }
 
     func start() {
         for target in ModelAssetsTarget.allCases {
-            updateStatus(Self.serviceStatus(for: stager.currentStatus()), for: target)
+            refreshStatus(for: target)
+            if case .downloading = currentStatus(for: target) {
+                startOperationIfNeeded(
+                    for: target,
+                    binding: currentBinding(for: target),
+                    allowDownload: false
+                )
+            }
         }
     }
 
     func stop() {
-        lock.withLock { state in
-            for (_, conts) in state.continuationsByTarget {
-                for cont in conts.values {
-                    cont.finish()
-                }
+        let stoppedStatus = ModelAssetsStatus.failed(
+            reason: ModelAssetsServiceError.serviceStopped.description
+        )
+        let resources = lock.withLock { state -> (
+            [Task<Void, Never>],
+            [ModelAssetsStatusContinuation]
+        ) in
+            let tasks = state.targets.values.compactMap {
+                $0.operation?.task
             }
-            state.continuationsByTarget.removeAll()
-            state.inFlight.removeAll()
-            state.ownedAcquisitions.removeAll()
+            for target in state.targets.keys {
+                guard state.targets[target]?.operation != nil
+                        || state.targets[target]?.waiters.isEmpty == false
+                else {
+                    continue
+                }
+                state.targets[target]?.operation = nil
+                state.targets[target]?.waiters.removeAll()
+                state.targets[target]?.status = stoppedStatus
+            }
+            let continuations = state.continuations
+                .filter { target, _ in
+                    state.targets[target]?.status == stoppedStatus
+                }
+                .flatMap(\.value.values)
+            return (tasks, Array(continuations))
         }
+        resources.0.forEach { $0.cancel() }
+        resources.1.forEach { $0.yield(stoppedStatus) }
     }
 
-    private func updateStatus(_ status: ModelAssetsStatus, for target: ModelAssetsTarget) {
-        let conts: [AsyncStream<ModelAssetsStatus>.Continuation] = lock.withLock { state in
-            state.statusByTarget[target] = status
-            return Array(state.continuationsByTarget[target]?.values ?? [UUID: AsyncStream<ModelAssetsStatus>.Continuation]().values)
-        }
-        for cont in conts {
-            cont.yield(status)
-        }
-    }
-
-    private static func serviceStatus(
-        for nativeStatus: VTModelStagerStatus
-    ) -> ModelAssetsStatus {
-        switch nativeStatus {
-        case .downloadRequired:
-            return .downloadRequired
-        case .downloading(let progress):
-            return .downloading(progress: progress)
-        case .ready:
-            return .ready
-        case .unavailable(let reason):
-            return .failed(reason: reason)
-        }
-    }
-
-    static func terminalWaiterError(
-        for status: ModelAssetsStatus,
-        acquisitionAuthority: VTModelAcquisitionAuthority,
-        acquisitionOwned: Bool
-    ) -> ModelAssetsServiceError? {
-        switch status {
-        case .downloadRequired where acquisitionAuthority == .statusOnly:
-            return .acquisitionNotAuthorized
-        case .downloading(let progress) where !acquisitionOwned:
-            return .downloadAlreadyInProgress(progress: progress)
-        case .failed(let reason):
-            return .downloadFailed(reason)
-        case .unknown, .notRequired, .downloadRequired, .downloading, .ready:
-            return nil
-        }
-    }
 }

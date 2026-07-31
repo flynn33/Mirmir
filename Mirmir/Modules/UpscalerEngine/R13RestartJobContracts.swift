@@ -27,6 +27,9 @@ enum R13RestartJobError: Error, Equatable, Sendable {
     case cachedFrameMissing(index: Int)
     case cachedFrameCorrupt(index: Int)
     case cachedFrameGeometryMismatch(index: Int)
+    case routingDecisionRequired(index: Int)
+    case unexpectedRoutingDecision(index: Int)
+    case invalidRoutingDecision(index: Int)
     case incompleteJob(committed: Int, expected: Int)
     case prepublicationReceiptConflict
     case reauthorizationRequired(role: R13BookmarkRole)
@@ -68,6 +71,14 @@ struct R13RestartProcessingIdentity: Codable, Hashable, Sendable {
     let routeIdentity: String
     let backendIdentity: String
     let backendRevision: String
+
+    var requiresPerFrameRoutingDecision: Bool {
+        [
+            R13ReleaseOrchestrationKind.automatic.backendID,
+            R13ReleaseOrchestrationKind.quality.backendID,
+            R13ReleaseOrchestrationKind.fast.backendID
+        ].contains(backendIdentity)
+    }
 
     init(
         requestedMode: String,
@@ -111,6 +122,8 @@ struct R13RestartProcessingIdentity: Codable, Hashable, Sendable {
 
 struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
     static let nv12VideoRangePixelFormat = "420v"
+    static let p010VideoRangePixelFormat = "x420"
+    static let bgraPixelFormat = "BGRA"
 
     let width: Int
     let height: Int
@@ -121,6 +134,9 @@ struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
     let transferFunction: String
     let yCbCrMatrix: String
     let chromaLocation: String
+    let alphaMode: String?
+    let masteringDisplaySHA256: String?
+    let contentLightLevelSHA256: String?
 
     init(
         width: Int,
@@ -131,7 +147,10 @@ struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
         colorPrimaries: String = "ITU_R_709_2",
         transferFunction: String = "ITU_R_709_2",
         yCbCrMatrix: String = "ITU_R_709_2",
-        chromaLocation: String = "left"
+        chromaLocation: String = "left",
+        alphaMode: String? = nil,
+        masteringDisplaySHA256: String? = nil,
+        contentLightLevelSHA256: String? = nil
     ) throws {
         guard width > 0,
               height > 0,
@@ -142,9 +161,7 @@ struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
                 height: height
             )
         }
-        guard pixelFormat == Self.nv12VideoRangePixelFormat else {
-            throw R13RestartJobError.invalidPixelFormat(pixelFormat)
-        }
+        _ = try R13CachedPixelFormat.pixelFormat(pixelFormat)
         self.width = width
         self.height = height
         self.pixelFormat = pixelFormat
@@ -169,6 +186,26 @@ struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
             chromaLocation,
             field: "chroma_location"
         )
+        self.alphaMode = try alphaMode.map {
+            try R13RestartValidation.identity(
+                $0,
+                field: "alpha_mode"
+            )
+        }
+        self.masteringDisplaySHA256 =
+            try masteringDisplaySHA256.map {
+                try R13RestartValidation.sha256(
+                    $0,
+                    field: "mastering_display_sha256"
+                )
+            }
+        self.contentLightLevelSHA256 =
+            try contentLightLevelSHA256.map {
+                try R13RestartValidation.sha256(
+                    $0,
+                    field: "content_light_level_sha256"
+                )
+            }
     }
 
     func validate() throws {
@@ -181,7 +218,10 @@ struct R13RestartOutputIdentity: Codable, Hashable, Sendable {
             colorPrimaries: colorPrimaries,
             transferFunction: transferFunction,
             yCbCrMatrix: yCbCrMatrix,
-            chromaLocation: chromaLocation
+            chromaLocation: chromaLocation,
+            alphaMode: alphaMode,
+            masteringDisplaySHA256: masteringDisplaySHA256,
+            contentLightLevelSHA256: contentLightLevelSHA256
         )
     }
 }
