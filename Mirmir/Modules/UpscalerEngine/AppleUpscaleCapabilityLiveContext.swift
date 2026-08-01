@@ -291,8 +291,6 @@ struct R01LiveProbeContext: Sendable {
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityReportWriter.swift",
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityLiveProducer.swift",
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityWorker.swift",
-        "MirmirTests/AppleUpscaleCapabilityProbeTests.swift",
-        "MirmirTests/AppleUpscaleCapabilityLiveProbeTests.swift",
         "project.yml",
         "Mirmir.xcodeproj/project.pbxproj",
         "docs/roadmaps/evidence/schema/r01-host-report-v1.json",
