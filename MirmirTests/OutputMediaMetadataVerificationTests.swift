@@ -1103,6 +1103,15 @@ final class OutputMediaMetadataVerificationTests: XCTestCase {
         }
     }
 
+    func testSessionPreservesQuickTimeTextTimecodeAndTimecodeAssociation()
+        async throws {
+        for destinationExtension in ["mov", "mp4"] {
+            try await assertSessionPreservesQuickTimeTextTimecode(
+                destinationExtension: destinationExtension
+            )
+        }
+    }
+
     func testUnclassifiedMediaTypeIsSelectedInsteadOfSilentlyOmitted() {
         let selection = SourceMediaAssociationTargetSelection(
             preserveAudio: false,
@@ -1532,6 +1541,81 @@ final class OutputMediaMetadataVerificationTests: XCTestCase {
             withMediaType: .timecode
         )
         XCTAssertEqual(subtitleTracks.count, 1)
+        XCTAssertEqual(timecodeTracks.count, 1)
+        let outputVideoTracks = try await outputAsset.loadTracks(
+            withMediaType: .video
+        )
+        let outputVideoTrack = try XCTUnwrap(outputVideoTracks.first)
+        let associatedTimecodeTracks =
+            try await outputVideoTrack.loadAssociatedTracks(
+                ofType: .timecode
+            )
+        XCTAssertEqual(
+            associatedTimecodeTracks.map(\.trackID),
+            timecodeTracks.map(\.trackID)
+        )
+        XCTAssertTrue(fixture.recognizedTemporaryFiles().isEmpty)
+    }
+
+    private func assertSessionPreservesQuickTimeTextTimecode(
+        destinationExtension: String
+    ) async throws {
+        let fixture = try MediaOutputFixture(
+            sourceExtension: "mov",
+            destinationExtension: destinationExtension
+        )
+        defer { fixture.remove() }
+        let duration = CMTime(value: 1, timescale: 30)
+        try await writeOneFrameVideo(
+            to: fixture.source,
+            resolution: VideoResolution(width: 64, height: 64),
+            duration: duration,
+            textTrackText: "Preserve this text track.",
+            timecodeFrameNumber: 1_800
+        )
+        let pipeline = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService()
+        )
+        let source = try await pipeline.probe(url: fixture.source)
+        XCTAssertEqual(source.subtitleTrackCount, 1)
+        XCTAssertEqual(source.metadataTrackCount, 1)
+
+        let session = try await pipeline.beginSession(
+            source: source,
+            output: OutputProfile(
+                url: fixture.destination,
+                resolution: VideoResolution(width: 128, height: 128),
+                codec: .h264,
+                preserveAudio: false
+            )
+        )
+        let nextRecord = try await session.nextSourceFrame()
+        let record = try XCTUnwrap(nextRecord)
+        let output = try PixelBufferBridge.dequeue(
+            from: session.outputPixelBufferPool
+        )
+        try fillNV12(output)
+        try await session.appendOutput(
+            pixelBuffer: output,
+            timing: record.timing
+        )
+        let endOfStream = try await session.nextSourceFrame()
+        XCTAssertNil(endOfStream)
+        try await session.finish()
+
+        let outputAsset = AVURLAsset(
+            url: fixture.destination,
+            options: [
+                AVURLAssetPreferPreciseDurationAndTimingKey: true
+            ]
+        )
+        let textTracks = try await outputAsset.loadTracks(
+            withMediaType: .text
+        )
+        let timecodeTracks = try await outputAsset.loadTracks(
+            withMediaType: .timecode
+        )
+        XCTAssertEqual(textTracks.count, 1)
         XCTAssertEqual(timecodeTracks.count, 1)
         let outputVideoTracks = try await outputAsset.loadTracks(
             withMediaType: .video
