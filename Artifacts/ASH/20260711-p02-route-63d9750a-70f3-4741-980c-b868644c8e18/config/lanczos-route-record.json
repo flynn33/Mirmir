@@ -1,9 +1,0 @@
-{
-  "codec": "hevc",
-  "emitsSignposts": false,
-  "input": "inputs/img9200_exact_720p_1f.mp4",
-  "output": "raw/routes/lanczos/output-1080p-hevc.mp4",
-  "targetHeight": 1080,
-  "targetWidth": 1920,
-  "telemetry": "raw/routes/lanczos/telemetry.json"
-}

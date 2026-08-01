@@ -1,2 +1,0 @@
-35681
-35681 00:16 115632 /Users/jimdaley/GitHub/Mirmir/.build/mirmir-derived-data/Build/Products/Debug/Mirmir.app/Contents/MacOS/Mirmir
