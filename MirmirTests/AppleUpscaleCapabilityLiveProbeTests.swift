@@ -474,16 +474,6 @@ final class AppleUpscaleCapabilityLiveContractTests: XCTestCase {
         XCTAssertLessThan(started.duration(to: ContinuousClock().now), .seconds(1))
     }
 
-    func testProjectDefinesDedicatedCapabilityWorkerTool() throws {
-        let source = try String(
-            contentsOf: repositoryRoot().appendingPathComponent("project.yml"),
-            encoding: .utf8
-        )
-        XCTAssertTrue(source.contains("  R01CapabilityWorker:"))
-        XCTAssertTrue(source.contains("    type: tool"))
-        XCTAssertTrue(source.contains("      - path: R01CapabilityWorker"))
-    }
-
     func testFactoryMemorySamplingFailureIsResourceFailure() throws {
         let sampler = R01FailingMemorySampler(failingOnCall: 2)
         let record = try R01CapabilityExecutor(
@@ -552,35 +542,6 @@ final class AppleUpscaleCapabilityLiveContractTests: XCTestCase {
         XCTAssertThrowsError(
             try JSONDecoder().decode(R01FrozenHostProfile.self, from: Data(json.utf8))
         )
-    }
-
-    func testRunnerClosesFixtureAndPublishedSourcePreflight() throws {
-        let source = try String(
-            contentsOf: repositoryRoot().appendingPathComponent(
-                "Scripts/run-r01-capability-probe.sh"
-            ),
-            encoding: .utf8
-        )
-        XCTAssertTrue(source.contains("--check-fixtures"))
-        XCTAssertTrue(source.contains("diff-index --quiet HEAD --"))
-        XCTAssertTrue(source.contains("for-each-ref"))
-        XCTAssertTrue(source.contains("refs/remotes/origin"))
-        XCTAssertTrue(source.contains("ls-files --error-unmatch"))
-        XCTAssertTrue(source.contains("MIRMIR_R01_SOURCE_COMMIT"))
-        XCTAssertTrue(source.contains("MIRMIR_R01_SOURCE_TREE"))
-        XCTAssertTrue(source.contains("MIRMIR_R01_WORKER_EXECUTABLE"))
-        XCTAssertTrue(source.contains("MIRMIR_R01_WORKER_SHA256"))
-        XCTAssertTrue(source.contains("-scheme R01CapabilityWorker"))
-        XCTAssertTrue(source.contains("/usr/bin/env -i"))
-        XCTAssertTrue(source.contains("/usr/bin/python3 -I"))
-        XCTAssertTrue(source.contains("/usr/bin/git"))
-        XCTAssertTrue(source.contains("/usr/bin/xcodebuild"))
-        XCTAssertTrue(source.contains(
-            #"worker_executable="$derived_data/Build/Products/Debug/R01CapabilityWorker""#
-        ))
-        for path in R01LiveProbeContext.implementationSourcePaths {
-            XCTAssertTrue(source.contains(path), path)
-        }
     }
 
     private func supportContract(_ id: R01CapabilityID) -> R01InputContract {

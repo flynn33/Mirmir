@@ -277,7 +277,6 @@ struct R01LiveProbeContext: Sendable {
         "Scripts/r01_preregistration.py",
         "Scripts/phase_evidence.py",
         "Scripts/run-r01-capability-probe.sh",
-        "R01CapabilityWorker/main.swift",
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityProbe.swift",
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilitySupportProbe.swift",
         "Mirmir/Modules/UpscalerEngine/AppleUpscaleCapabilityCompileProbe.swift",
