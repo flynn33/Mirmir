@@ -357,6 +357,53 @@ final class R13FullFrameEnhancementProcessorTests: XCTestCase {
         )
     }
 
+    func testEnhancementReducesAggregateSquaredErrorForKnownFlickerSequence()
+        throws {
+        let referenceFrames = try (0..<4).map { _ in
+            try makeBuffer { _, _ in 100 }
+        }
+        let degradedLevels: [UInt8] = [100, 112, 100, 112]
+        let degradedFrames = try degradedLevels.map { level in
+            try makeBuffer { _, _ in level }
+        }
+        let enhancement = try processor(
+            temporal: true,
+            edge: .high,
+            detail: .high,
+            edgePreservation: true,
+            compressionCleanup: true,
+            textureProtection: true,
+            temporalStability: true
+        )
+        let enhancedFrames = try degradedFrames.map {
+            try enhancement.process($0)
+        }
+        let referenceSamples = referenceFrames.flatMap { luma($0) }
+        let degradedSamples = degradedFrames.flatMap { luma($0) }
+        let enhancedSamples = enhancedFrames.flatMap { luma($0) }
+        let degradedSquaredError = zip(
+            degradedSamples,
+            referenceSamples
+        ).reduce(into: Int64(0)) { total, samples in
+            let difference =
+                Int64(samples.0) - Int64(samples.1)
+            total += difference * difference
+        }
+        let enhancedSquaredError = zip(
+            enhancedSamples,
+            referenceSamples
+        ).reduce(into: Int64(0)) { total, samples in
+            let difference =
+                Int64(samples.0) - Int64(samples.1)
+            total += difference * difference
+        }
+
+        XCTAssertLessThan(
+            enhancedSquaredError,
+            degradedSquaredError
+        )
+    }
+
     func testTemporalStabilityRestoredHistoryMatchesUninterruptedHistory()
         throws {
         let first = try makeBuffer { row, column in
