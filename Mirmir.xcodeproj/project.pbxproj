@@ -26,7 +26,6 @@
 		0775DE001A1E9FD1FFC7DFE4 /* MirmirSynchronizedPlaybackController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271694C26EE74F0CB92AAC12 /* MirmirSynchronizedPlaybackController.swift */; };
 		07B7BA8607E1880A4E39B3AC /* AppleUpscaleCapabilityLegacyAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96B809DF7BB40D0236FBDB1B /* AppleUpscaleCapabilityLegacyAdapters.swift */; };
 		091ED902BEA9F4916D5C2138 /* AppleUpscaleFIFOSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB2C67256B4E9E50F55A298 /* AppleUpscaleFIFOSessionTests.swift */; };
-		09533D5C824AD0179779D666 /* AppleUpscaleCapabilitySupportProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */; };
 		0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */; };
 		09E32E402545542E390CAB99 /* R05MetalFXContractsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65407F8B287BD796D0DCA455 /* R05MetalFXContractsTests.swift */; };
 		0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */; };
@@ -173,7 +172,6 @@
 		53C033FE2B934A22C937428F /* ASHLockedReleaseLUTManifestV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */; };
 		53E7742B7CBA253F21102476 /* TimedMetadataPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6708410294B509E4E00F722 /* TimedMetadataPipelineIntegrationTests.swift */; };
 		546F517E2832B4050EED1057 /* R13CacheLocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */; };
-		558A05DD71EF2A2790278455 /* AppleUpscaleCapabilityWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A28245796CF46D6746515B4 /* AppleUpscaleCapabilityWorker.swift */; };
 		559A76D9D1E7FF82A6571199 /* R08AnalysisOutputDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A173CE5E54A507227B4602A1 /* R08AnalysisOutputDecoderTests.swift */; };
 		56ADDA68EF63F3F008D0454E /* ASHReconstruction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */; };
 		56D856CA170C5D675A339E01 /* ASHLUTTestSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7166136558CF130DE4671155 /* ASHLUTTestSupportV3.swift */; };
@@ -254,7 +252,6 @@
 		7D0B5F8DEC9E058D10814A21 /* ASHCoreConformance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26A625BAC19E969885282117 /* ASHCoreConformance.swift */; };
 		7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */; };
 		7E2763A03106C8D79742E157 /* ASHP08DescriptorParityRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DD06BABA4536E3E92BE3F91 /* ASHP08DescriptorParityRuntime.swift */; };
-		7ECC8E7A1E26DBBAF3C8AE66 /* AppleUpscaleCapabilityLegacyAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96B809DF7BB40D0236FBDB1B /* AppleUpscaleCapabilityLegacyAdapters.swift */; };
 		7EE4F9F2188A3F8805B49B1A /* AppleUpscaleCapabilityLiveContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7C63339DECCFCDED19ABE9 /* AppleUpscaleCapabilityLiveContext.swift */; };
 		7F1382B36C08F1B58C6170B0 /* MirmirModuleCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */; };
 		7F5DBD024923B5E1805B276D /* R13SourceSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A39F860076F2B463D20B9D3E /* R13SourceSnapshotTests.swift */; };
@@ -278,17 +275,14 @@
 		85655603E276358B21E29B98 /* MirmirPreferencesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9DB2B289DF8B063B885525 /* MirmirPreferencesStore.swift */; };
 		85EFC91BDEE2C599D7681279 /* R07TemporalHistoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1829CC44DABB0D579CD2A8BF /* R07TemporalHistoryTests.swift */; };
 		866F134074761039BB45AA79 /* ASHStrictJSONV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 237097304935D47E8209DF5C /* ASHStrictJSONV3.swift */; };
-		86AB05E13408525E78A89E4A /* AppleUpscaleCapabilityRawReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CC9992B6CBA1E08031A0459 /* AppleUpscaleCapabilityRawReport.swift */; };
 		870989D9970DA1ACE094F862 /* ASHLockedNonASHOutputCacheV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1CF6C028E41DDFD20D482E3 /* ASHLockedNonASHOutputCacheV2.swift */; };
 		87317B509FEB190A2F02FC83 /* ASHImmutableLUTValidationV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30F545DFA734A6565A169DFE /* ASHImmutableLUTValidationV3.swift */; };
 		87B0558519D5568FCE8E0D0D /* R13RestartJobContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8ACACE9ECC6BD1818A191CE /* R13RestartJobContracts.swift */; };
-		88EC2EF60AF11898481F916B /* AppleUpscaleCapabilityReportModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B890FF40EAAE7560AC093BA6 /* AppleUpscaleCapabilityReportModels.swift */; };
 		8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E391EBE193D62E60BF842DC1 /* Assets.xcassets */; };
 		891083DC3D18CAFD26A7440F /* R13PixelLayoutRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE28A76158AC5A10D8A49166 /* R13PixelLayoutRegistry.swift */; };
 		892B6DB22274E23046E9E193 /* MediaVideoScanStructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6AEBF2C8E41FB8F8A97762 /* MediaVideoScanStructure.swift */; };
 		892CE61AD070C0F7651F2B86 /* MirmirModuleFactoryRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 806CD5193BFC08B5B8EB2DD5 /* MirmirModuleFactoryRegistryTests.swift */; };
 		89AFC0D70695293B9451C3C3 /* ASHFeatureBranchReconstructionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BC3DE80C4232C189690AB1 /* ASHFeatureBranchReconstructionTests.swift */; };
-		89D8357567471FE66DCE4B22 /* AppleUpscaleCapabilityCompileProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB89075B23760832B37F915E /* AppleUpscaleCapabilityCompileProbe.swift */; };
 		89F3384F669D17B3AEE40CD4 /* ASHLUTLockedConfigurationJSONV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F92B3D9D88F0554C76021E8 /* ASHLUTLockedConfigurationJSONV2Tests.swift */; };
 		8A2E3464A97749DD19F6EF21 /* ASHCoordinateModelContractV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813D450EB08F87103C273CE0 /* ASHCoordinateModelContractV3Tests.swift */; };
 		8AA8671F9AE7671BC8149498 /* R13ReleaseFrameProcessing.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1F4039A9BC103EEEDCF7021 /* R13ReleaseFrameProcessing.swift */; };
@@ -297,7 +291,6 @@
 		8C640515B1B6358430DE7478 /* R09BoundedResidualStageTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF24A40AD6F96965D7B42887 /* R09BoundedResidualStageTestSupport.swift */; };
 		8C92C3B6639A30FA3D93FFE8 /* ASHGenericPhaseCompilerDiagnosticV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55D35E5AC50EE7E8056467A3 /* ASHGenericPhaseCompilerDiagnosticV3.swift */; };
 		8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF916B54CEB678B518E99197 /* ASHState.swift */; };
-		8D776C36DE79EB0F011C4695 /* AppleUpscaleCapabilityLiveErrors.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E7738087E5B1AB4AA431C8 /* AppleUpscaleCapabilityLiveErrors.swift */; };
 		8DFE033006E1C35962924E24 /* R13ReleaseHardeningRuntime+Production.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6B51B7B3E19633D0AA0739E /* R13ReleaseHardeningRuntime+Production.swift */; };
 		8E8FF9F553952125B24113ED /* MediaVideoScanStructureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8A7B30C9A73132353AE2F27 /* MediaVideoScanStructureTests.swift */; };
 		8ED5EF31CA1E3E95B0466965 /* R03ASHComparatorScaling.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA994E8113587B05BD50C04C /* R03ASHComparatorScaling.swift */; };
@@ -320,7 +313,6 @@
 		960DFE3E4DDD7A9C9F725781 /* ASHLUTCompilerV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BAF7326DBE08A930E61AC6 /* ASHLUTCompilerV3.swift */; };
 		96EE61B6E33F70D2D7A9729A /* ASHP08FixedControlRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = F062B2740352CAC48F7D3831 /* ASHP08FixedControlRuntimeV3.swift */; };
 		96F504BDA84D6BFB7D61CC62 /* R13NV12FrameNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6163A21AE6B257612A540D0 /* R13NV12FrameNormalizer.swift */; };
-		9757072252D768D7F38AF8EC /* AppleUpscaleCapabilityProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43ACAB8AB30019FF40451E21 /* AppleUpscaleCapabilityProbe.swift */; };
 		9794D96A844015D306289E96 /* R08DeterministicAnalysisServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6998109EE9BE32DD1A3630C /* R08DeterministicAnalysisServiceTests.swift */; };
 		9825428B1C731CB96D964DA7 /* R13ResourceGovernance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 329358467C2D7788C646F437 /* R13ResourceGovernance.swift */; };
 		987D17B42F554A756ED751A2 /* ASHLockedReferencePipelineV2+NonASHCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FA2FFF4DC0F20B4CDE6B8E0 /* ASHLockedReferencePipelineV2+NonASHCache.swift */; };
@@ -333,7 +325,6 @@
 		9B8AF9FD78745CA2DCF6DE20 /* R07TemporalHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 361DB51CD0B47DF7580337BE /* R07TemporalHistory.swift */; };
 		9BA73EFA3A202F1ADFAC292A /* R13ReleaseDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAC6662D092BDBD2950F07EA /* R13ReleaseDiagnostics.swift */; };
 		9C3D3240ABA4B4715FFCC0CA /* ASHMetalFrameResourceRingV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7516142A6192691C69B7DA4 /* ASHMetalFrameResourceRingV3.swift */; };
-		9C8DC1BC5E4592424303A20F /* AppleUpscaleCapabilityReportWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABB78655C14833B4F81D1084 /* AppleUpscaleCapabilityReportWriter.swift */; };
 		9D0E9E7A78E7FEA04113A0EC /* R13RegisteredFormatProcessingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97BE2232D08D9614E118C19F /* R13RegisteredFormatProcessingTests.swift */; };
 		9DEEAF7C245E942B9C7A81C7 /* R13SecurityScopedBookmarks.swift in Sources */ = {isa = PBXBuildFile; fileRef = A67CD3AE3859B9A617567A8B /* R13SecurityScopedBookmarks.swift */; };
 		9E942F47D4C6F98E228CF5DA /* R03VImageScalingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06E7350389CC945ACAC3116D /* R03VImageScalingTests.swift */; };
@@ -384,13 +375,11 @@
 		B6D2FDB79647CFFE058C09DE /* RegisteredVideoFormatPipelineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E3E22040B9707B025B43B4B /* RegisteredVideoFormatPipelineTests.swift */; };
 		B70E5F9B3B76667E0D73C66E /* R13UpscaleActionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1670F66A1AB02A3C99D9CBF3 /* R13UpscaleActionPanel.swift */; };
 		B7675A7E83D615B426C6E992 /* R09ResidualTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E7FEAB64B77481D770AC65D /* R09ResidualTestSupport.swift */; };
-		B770E62E2A27A7A36143D0DB /* AppleUpscaleCapabilityLiveProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAD72F7A538AAFC2C0B929F0 /* AppleUpscaleCapabilityLiveProducer.swift */; };
 		B77F4DEBDE3EE54569038552 /* R07PostflightFeedbackConsumptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F7A0942C1E48207B2A66102 /* R07PostflightFeedbackConsumptionTests.swift */; };
 		B7FB6D3733FB9C6228E44691 /* ASHLockedFramePipelineV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3320B058C01D8990E73DF4A /* ASHLockedFramePipelineV3.swift */; };
 		B8A82A9BA0F5F88005E6E83C /* R03DeterministicSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC655DA0477A4BAD28089E6 /* R03DeterministicSessionTests.swift */; };
 		B8CDE196E28E6492074F16CA /* ASHLockedRuntimeV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEE766FD957BCF6E36F94C9 /* ASHLockedRuntimeV2.swift */; };
 		B8CDF4589074679606155729 /* OutputMediaAACIdentityReaderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4BECA8BA576BC5F761BF64BF /* OutputMediaAACIdentityReaderTests.swift */; };
-		B9AE12C35B8A6CCB03C8801C /* AppleUpscaleCapabilityNativeAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 050C25AE56DC5648EF2EA402 /* AppleUpscaleCapabilityNativeAdapters.swift */; };
 		BA469A91B17C9B695B197834 /* DefaultModelAssetsService+Operations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254DD249B73CC33EB04C9F15 /* DefaultModelAssetsService+Operations.swift */; };
 		BAEA954959C26C43C6FCFE46 /* ash_video_mapping_v2.seed.json in Resources */ = {isa = PBXBuildFile; fileRef = 293AD3C18542FA491256F860 /* ash_video_mapping_v2.seed.json */; };
 		BAEE6B910E1C5FC760AF04D8 /* OutputMediaVerifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F04B20C3E6772FCD3E1E33 /* OutputMediaVerifier.swift */; };
@@ -445,16 +434,13 @@
 		D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */; };
 		D85427B96B0420F5C587B505 /* R13RestartJobStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE2CB98A0E0D27DAF6CF31C /* R13RestartJobStoreTests.swift */; };
 		D8A538BE9EC1806FE61DC81A /* ASHDeterministicUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */; };
-		DA1B78C7911C0BA40963E3D1 /* AppleUpscaleCapabilityLiveContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7C63339DECCFCDED19ABE9 /* AppleUpscaleCapabilityLiveContext.swift */; };
 		DB0117072D5B0D700292A1B7 /* R05MetalFXSpatialDriverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F579C353EE3649D8527DEC24 /* R05MetalFXSpatialDriverTests.swift */; };
 		DB2B03D9B32AA77480CD2560 /* ASHDevelopmentAssetTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D181F4BC9C1B11D842F54E2 /* ASHDevelopmentAssetTypes.swift */; };
 		DB39CBCB905179C470B7F665 /* R03DeterministicBackendTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE75668BAE098B4A7FA24CE4 /* R03DeterministicBackendTestSupport.swift */; };
 		DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */; };
 		DC3815FDDE73AB124CDD10BF /* ASHRiskStateDiagnosticV3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 367539453417B8A36D76D0D8 /* ASHRiskStateDiagnosticV3Tests.swift */; };
-		DD35E9E31C7443E19FE419CD /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1797630BE32E04F85355B0B /* main.swift */; };
 		DD52AD1EA5890AAB00B743C3 /* ASHLUTTypesV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */; };
 		DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */; };
-		DE81D46EFA43BB2581465374 /* AppleUpscaleCapabilityExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3277CBCD4AE7CFED824AF3FA /* AppleUpscaleCapabilityExecutor.swift */; };
 		DF00A05CD88411C32DB5A78A /* OutputMediaStructuralCarrierVerificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF17D3C279016C8F86F8508B /* OutputMediaStructuralCarrierVerificationTests.swift */; };
 		DF8BD8F30813ED7C58D51D8B /* MirmirTimedMetadataMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B451FD724E11A64180DCBB /* MirmirTimedMetadataMigration.swift */; };
 		E080A75FB0BB96B568B2CE9D /* R13ReleaseJobContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7876C4579EEF452766E0024 /* R13ReleaseJobContracts.swift */; };
@@ -507,7 +493,6 @@
 		F84258363C682F5669602019 /* R13ReleaseTaskStartGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB719A8C991D796EF0ED2632 /* R13ReleaseTaskStartGate.swift */; };
 		F8AA1287D112837A92BA7DE6 /* ASHAnalysisGridV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0094B29F70CD99DA3D843C3C /* ASHAnalysisGridV2Tests.swift */; };
 		F9205EEB4D5CE36312016F67 /* ModelAssetsLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05A8CEB4DE02A867CA4B5213 /* ModelAssetsLifecycleTests.swift */; };
-		F96F302739CF142421134BD7 /* AppleUpscaleCapabilityFixtureContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = B85F6B7D4C72F5BEEC34C057 /* AppleUpscaleCapabilityFixtureContract.swift */; };
 		F9FB44476955F73F22661F6A /* R13FormatPreservingScalingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCFDFD5A62786D6E3F685AE8 /* R13FormatPreservingScalingTests.swift */; };
 		FA46F17EAE925BBF148D00FF /* R13PixelLayoutBlend.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B3CAE96FBB9D394E543F11 /* R13PixelLayoutBlend.swift */; };
 		FA52AA3E0E3F4175AA8560BF /* R13ResourceGovernanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90664E94B4DC38C65D5273EE /* R13ResourceGovernanceTests.swift */; };
@@ -776,7 +761,6 @@
 		70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaPipelineService.swift; sourceTree = "<group>"; };
 		7111AEC9F75CCA9B8F736847 /* operator_bank_v2.seed.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = operator_bank_v2.seed.json; sourceTree = "<group>"; };
 		7166136558CF130DE4671155 /* ASHLUTTestSupportV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTestSupportV3.swift; sourceTree = "<group>"; };
-		71889C501D69416E53A6CF09 /* R01CapabilityWorker */ = {isa = PBXFileReference; includeInIndex = 0; path = R01CapabilityWorker; sourceTree = BUILT_PRODUCTS_DIR; };
 		71A1099CC8EDD6E01524476D /* AppleUpscaleCapabilityLiveProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleCapabilityLiveProbeTests.swift; sourceTree = "<group>"; };
 		71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTheme.swift; sourceTree = "<group>"; };
 		730DE64225D23C3A54C33491 /* ASHCoordinateModelContractV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCoordinateModelContractV3.swift; sourceTree = "<group>"; };
@@ -883,7 +867,6 @@
 		AD60E4323EA8CCF726775EDD /* ASHImmutableLUTValidationV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImmutableLUTValidationV2.swift; sourceTree = "<group>"; };
 		B1136666F4F6EA8BADFA2597 /* R13ReleaseHardeningDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseHardeningDiagnostics.swift; sourceTree = "<group>"; };
 		B159A0791093AC43C8E08CE2 /* MirmirCompletedPlaybackTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirCompletedPlaybackTypes.swift; sourceTree = "<group>"; };
-		B1797630BE32E04F85355B0B /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		B1CF6C028E41DDFD20D482E3 /* ASHLockedNonASHOutputCacheV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedNonASHOutputCacheV2.swift; sourceTree = "<group>"; };
 		B28FFFD7F0FB65554A8E0CE5 /* ASHImmutableLUTLoaderV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHImmutableLUTLoaderV2.swift; sourceTree = "<group>"; };
 		B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirModuleHost.swift; sourceTree = "<group>"; };
@@ -1064,7 +1047,6 @@
 				44C397D85806DEA084B8D3D0 /* Mirmir.app */,
 				376CE3CA1C2ED324C8392CDD /* MirmirP08Tests.xctest */,
 				A8D27BD31B0EEAEC5790AA95 /* MirmirTests.xctest */,
-				71889C501D69416E53A6CF09 /* R01CapabilityWorker */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -1519,7 +1501,6 @@
 				50E3FE83D97A4E37C0627F13 /* Mirmir */,
 				E92096B80DF17DB7916E448D /* MirmirP08Tests */,
 				FD80DC4B97DD178A7E605C3A /* MirmirTests */,
-				BA29203384D5B2A3E942DF30 /* R01CapabilityWorker */,
 				014C65A0E7683259859CCAD9 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -1546,14 +1527,6 @@
 				50556853862A18AB991915FF /* MirmirDiagnosticStoreTests.swift */,
 			);
 			path = Diagnostics;
-			sourceTree = "<group>";
-		};
-		BA29203384D5B2A3E942DF30 /* R01CapabilityWorker */ = {
-			isa = PBXGroup;
-			children = (
-				B1797630BE32E04F85355B0B /* main.swift */,
-			);
-			path = R01CapabilityWorker;
 			sourceTree = "<group>";
 		};
 		E92096B80DF17DB7916E448D /* MirmirP08Tests */ = {
@@ -1798,23 +1771,6 @@
 			productReference = 376CE3CA1C2ED324C8392CDD /* MirmirP08Tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		44A4E3AEA1C31837FADF0DCA /* R01CapabilityWorker */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = D9D40765D0C82E4C30A2E419 /* Build configuration list for PBXNativeTarget "R01CapabilityWorker" */;
-			buildPhases = (
-				B1D00ED2FBFA733AD5FB732F /* Sources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = R01CapabilityWorker;
-			packageProductDependencies = (
-			);
-			productName = R01CapabilityWorker;
-			productReference = 71889C501D69416E53A6CF09 /* R01CapabilityWorker */;
-			productType = "com.apple.product-type.tool";
-		};
 		5CC390BEAF19CC2CBBF634C3 /* MirmirTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EC3C324C5B8F116B2A39EB2B /* Build configuration list for PBXNativeTarget "MirmirTests" */;
@@ -1883,7 +1839,6 @@
 				AAB58EF4B52C8A77279FE17C /* Mirmir */,
 				132D486B4CE2D770CD7CB84B /* MirmirP08Tests */,
 				5CC390BEAF19CC2CBBF634C3 /* MirmirTests */,
-				44A4E3AEA1C31837FADF0DCA /* R01CapabilityWorker */,
 			);
 		};
 /* End PBXProject section */
@@ -2433,28 +2388,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		B1D00ED2FBFA733AD5FB732F /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				89D8357567471FE66DCE4B22 /* AppleUpscaleCapabilityCompileProbe.swift in Sources */,
-				DE81D46EFA43BB2581465374 /* AppleUpscaleCapabilityExecutor.swift in Sources */,
-				F96F302739CF142421134BD7 /* AppleUpscaleCapabilityFixtureContract.swift in Sources */,
-				7ECC8E7A1E26DBBAF3C8AE66 /* AppleUpscaleCapabilityLegacyAdapters.swift in Sources */,
-				DA1B78C7911C0BA40963E3D1 /* AppleUpscaleCapabilityLiveContext.swift in Sources */,
-				8D776C36DE79EB0F011C4695 /* AppleUpscaleCapabilityLiveErrors.swift in Sources */,
-				B770E62E2A27A7A36143D0DB /* AppleUpscaleCapabilityLiveProducer.swift in Sources */,
-				B9AE12C35B8A6CCB03C8801C /* AppleUpscaleCapabilityNativeAdapters.swift in Sources */,
-				9757072252D768D7F38AF8EC /* AppleUpscaleCapabilityProbe.swift in Sources */,
-				86AB05E13408525E78A89E4A /* AppleUpscaleCapabilityRawReport.swift in Sources */,
-				88EC2EF60AF11898481F916B /* AppleUpscaleCapabilityReportModels.swift in Sources */,
-				9C8DC1BC5E4592424303A20F /* AppleUpscaleCapabilityReportWriter.swift in Sources */,
-				09533D5C824AD0179779D666 /* AppleUpscaleCapabilitySupportProbe.swift in Sources */,
-				558A05DD71EF2A2790278455 /* AppleUpscaleCapabilityWorker.swift in Sources */,
-				DD35E9E31C7443E19FE419CD /* main.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -2667,38 +2600,6 @@
 			};
 			name = Debug;
 		};
-		CFF22E44C92D110B091DD1A4 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.R01CapabilityWorker;
-				PRODUCT_NAME = R01CapabilityWorker;
-				SDKROOT = macosx;
-			};
-			name = Release;
-		};
-		E2CE10BFF92CBFFE9A84E025 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGNING_ALLOWED = NO;
-				COMBINE_HIDPI_IMAGES = YES;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
-				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.R01CapabilityWorker;
-				PRODUCT_NAME = R01CapabilityWorker;
-				SDKROOT = macosx;
-			};
-			name = Debug;
-		};
 		F6DD59AFABB06E4BCA5416F4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -2766,15 +2667,6 @@
 			buildConfigurations = (
 				C6268DE8E8221D07D787AC8E /* Debug */,
 				FB0D0F9AB1BDADB8FA9641A0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		D9D40765D0C82E4C30A2E419 /* Build configuration list for PBXNativeTarget "R01CapabilityWorker" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E2CE10BFF92CBFFE9A84E025 /* Debug */,
-				CFF22E44C92D110B091DD1A4 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
