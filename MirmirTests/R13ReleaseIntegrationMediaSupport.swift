@@ -561,6 +561,13 @@ extension R13ReleaseIntegrationTests {
             pathExtension: "mov",
             majorBrand: "qt  "
         )
+        let expectedIdentity =
+            try makeR13ExpectedFormatPreservingIntegrationIdentity(
+                job: job,
+                source: source,
+                sourceURL: sourceURL,
+                harness: hardening
+            )
         let verification = try await OutputMediaVerifier().verify(
             url: result,
             expectation: OutputMediaVerificationExpectation(
@@ -570,6 +577,7 @@ extension R13ReleaseIntegrationTests {
                     presentationTime: .zero,
                     duration: CMTime(value: 1, timescale: 30)
                 ),
+                timedMetadata: expectedIdentity.timedMetadata,
                 videoColor: .preserving(format, codec: codec)
             )
         )
@@ -584,6 +592,7 @@ extension R13ReleaseIntegrationTests {
             try await assertR13ReopenedAlphaIsNonOpaque(at: result)
         }
         let metadata = try await readR13ReleaseMetadata(at: result)
+        try expectedIdentity.validateTimedMetadata(metadata)
         XCTAssertFalse(metadata.isEmpty, label)
         XCTAssertTrue(
             metadata.keys.allSatisfy {
@@ -764,6 +773,45 @@ extension R13ReleaseIntegrationTests {
                 == "release_first_decoded_frame_geometry_mismatch"
         })
     }
+}
+
+private func makeR13ExpectedFormatPreservingIntegrationIdentity(
+    job: UpscaleJob,
+    source: SourceProfile,
+    sourceURL: URL,
+    harness: R13IntegrationHardeningHarness
+) throws -> R13ReleaseIdentity {
+    let scalePlan = try R13ReleaseJobContracts.scalePlan(
+        source: source.resolution,
+        target: job.targetResolution,
+        strategyPreference:
+            job.processingConfiguration.strategyPreference
+    )
+    let modeBinding = R13ReleaseModePolicy.binding(
+        for: job.mode,
+        enginePreference:
+            job.processingConfiguration.enginePreference
+    ).resolving(videoFormat: source.videoFormat)
+    let environment = try R13ReleaseEnvironment(
+        application: harness.environment.application,
+        framework: R13ReleaseFrameworkIdentity(
+            frameworkIdentifier: modeBinding.frameworkIdentity,
+            version: harness.environment.framework.version,
+            buildIdentity: harness.environment.framework.buildIdentity
+        ),
+        runtime: harness.environment.runtime
+    )
+    return try R13ReleaseHardeningRuntime.makeReleaseIdentity(
+        job: job,
+        scalePlan: scalePlan,
+        modeBinding: modeBinding,
+        source: R13LocalRestartSourceMeasurer().measureSource(
+            at: sourceURL
+        ),
+        environment: environment,
+        policyResources: harness.documents.policyResources,
+        sourceScanStructure: source.scanStructure
+    )
 }
 
 private func makeR13ExpectedAdaptiveIntegrationIdentity(

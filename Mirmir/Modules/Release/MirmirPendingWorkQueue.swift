@@ -11,6 +11,41 @@ actor MirmirPendingWorkQueue {
     private struct Document: Codable {
         let schemaVersion: Int
         var records: [MirmirPendingWorkRecord]
+        var processingPathBatchResults:
+            [MirmirProcessingPathBatchResult]
+
+        init(
+            schemaVersion: Int,
+            records: [MirmirPendingWorkRecord],
+            processingPathBatchResults:
+                [MirmirProcessingPathBatchResult] = []
+        ) {
+            self.schemaVersion = schemaVersion
+            self.records = records
+            self.processingPathBatchResults = processingPathBatchResults
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case schemaVersion
+            case records
+            case processingPathBatchResults
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            schemaVersion = try container.decode(
+                Int.self,
+                forKey: .schemaVersion
+            )
+            records = try container.decode(
+                [MirmirPendingWorkRecord].self,
+                forKey: .records
+            )
+            processingPathBatchResults = try container.decodeIfPresent(
+                [MirmirProcessingPathBatchResult].self,
+                forKey: .processingPathBatchResults
+            ) ?? []
+        }
     }
 
     private let directoryURL: URL
@@ -118,7 +153,42 @@ actor MirmirPendingWorkQueue {
                 record.assigningOrder(startingOrder + offset)
             }
         )
+        pruneProcessingPathBatchResults(in: &loaded.document)
         try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
+        try persist(loaded.document)
+        return snapshot(from: loaded)
+    }
+
+    @discardableResult
+    func recordTerminalResultAndRemove(
+        id: String,
+        status: MirmirProcessingPathTerminalStatus,
+        reason: String?,
+        completedAt: Date = Date()
+    ) throws -> MirmirPendingQueueSnapshot {
+        try validateIdentity(id)
+        var loaded = try loadDocument()
+        guard let index = loaded.document.records.firstIndex(
+            where: { $0.id == id }
+        ) else {
+            throw MirmirPendingQueueError.recordNotFound
+        }
+        let record = loaded.document.records[index]
+        appendProcessingPathBatchResult(
+            for: record,
+            status: status,
+            reason: reason,
+            completedAt: completedAt,
+            to: &loaded.document
+        )
+        loaded.document.records.remove(at: index)
+        loaded.document.records = loaded.document.records
+            .enumerated()
+            .map { $0.element.assigningOrder($0.offset) }
+        pruneProcessingPathBatchResults(in: &loaded.document)
+        try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
         try persist(loaded.document)
         return snapshot(from: loaded)
     }
@@ -188,15 +258,26 @@ actor MirmirPendingWorkQueue {
     func remove(id: String) throws -> Bool {
         try validateIdentity(id)
         var loaded = try loadDocument()
-        let originalCount = loaded.document.records.count
-        loaded.document.records.removeAll { $0.id == id }
-        guard loaded.document.records.count != originalCount else {
+        guard let index = loaded.document.records.firstIndex(
+            where: { $0.id == id }
+        ) else {
             return false
         }
+        let record = loaded.document.records[index]
+        appendProcessingPathBatchResult(
+            for: record,
+            status: .cancelled,
+            reason: "Removed from the pending queue by the user.",
+            completedAt: Date(),
+            to: &loaded.document
+        )
+        loaded.document.records.remove(at: index)
         loaded.document.records = loaded.document.records
             .enumerated()
             .map { $0.element.assigningOrder($0.offset) }
+        pruneProcessingPathBatchResults(in: &loaded.document)
         try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
         try persist(loaded.document)
         return true
     }
@@ -207,7 +288,20 @@ actor MirmirPendingWorkQueue {
         guard !loaded.document.records.isEmpty else {
             return snapshot(from: loaded)
         }
+        let completedAt = Date()
+        for record in loaded.document.records {
+            appendProcessingPathBatchResult(
+                for: record,
+                status: .cancelled,
+                reason: "Cleared from the pending queue by the user.",
+                completedAt: completedAt,
+                to: &loaded.document
+            )
+        }
         loaded.document.records = []
+        pruneProcessingPathBatchResults(in: &loaded.document)
+        try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
         try persist(loaded.document)
         return snapshot(from: loaded)
     }
@@ -220,6 +314,8 @@ actor MirmirPendingWorkQueue {
             return MirmirPendingQueueHeadClaim(
                 record: nil,
                 didMarkStarted: false,
+                processingPathBatchResults:
+                    loaded.document.processingPathBatchResults,
                 recovery: loaded.recovery
             )
         }
@@ -227,6 +323,8 @@ actor MirmirPendingWorkQueue {
             return MirmirPendingQueueHeadClaim(
                 record: head,
                 didMarkStarted: false,
+                processingPathBatchResults:
+                    loaded.document.processingPathBatchResults,
                 recovery: loaded.recovery
             )
         }
@@ -241,6 +339,8 @@ actor MirmirPendingWorkQueue {
         return MirmirPendingQueueHeadClaim(
             record: started,
             didMarkStarted: true,
+            processingPathBatchResults:
+                loaded.document.processingPathBatchResults,
             recovery: loaded.recovery
         )
     }
@@ -281,7 +381,31 @@ private extension MirmirPendingWorkQueue {
     ) -> MirmirPendingQueueSnapshot {
         MirmirPendingQueueSnapshot(
             records: loaded.document.records,
+            processingPathBatchResults:
+                loaded.document.processingPathBatchResults,
             recovery: loaded.recovery
+        )
+    }
+
+    private func appendProcessingPathBatchResult(
+        for record: MirmirPendingWorkRecord,
+        status: MirmirProcessingPathTerminalStatus,
+        reason: String?,
+        completedAt: Date,
+        to document: inout Document
+    ) {
+        guard let batch = record.settings.processingPathBatch else {
+            return
+        }
+        document.processingPathBatchResults.append(
+            MirmirProcessingPathBatchResult(
+                batch: batch,
+                jobID: record.id,
+                outputDisplayName: record.bookmarks.outputDisplayName,
+                status: status,
+                reason: reason,
+                completedAt: completedAt
+            )
         )
     }
 
@@ -341,6 +465,11 @@ private extension MirmirPendingWorkQueue {
         if let reason = recoveryReason(for: document.records) {
             return try quarantineAndReset(data, reason: reason)
         }
+        do {
+            try validateBatchResults(document.processingPathBatchResults)
+        } catch {
+            return try quarantineAndReset(data, reason: .invalidRecord)
+        }
         let decodedRecords = document.records
         document.records.sort(by: Self.isEarlier)
         if document.records != decodedRecords {
@@ -398,6 +527,22 @@ private extension MirmirPendingWorkQueue {
                 quarantineFileName: fileName
             )
         )
+    }
+
+    private func pruneProcessingPathBatchResults(
+        in document: inout Document
+    ) {
+        let activeBatchIDs = Set(
+            document.records.compactMap {
+                $0.settings.processingPathBatch?.id
+            }
+        )
+        let latestBatchID = document.processingPathBatchResults
+            .last?.batch.id
+        document.processingPathBatchResults.removeAll { result in
+            !activeBatchIDs.contains(result.batch.id)
+                && result.batch.id != latestBatchID
+        }
     }
 
     func persistenceBoundary<T>(

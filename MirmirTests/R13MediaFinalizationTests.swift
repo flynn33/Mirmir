@@ -584,6 +584,56 @@ final class R13MediaFinalizationTests: XCTestCase {
         )
     }
 
+    func testReadOnlyAACSourceFinalizesWithoutChangingSourcePermissions()
+        async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let videoURL = fixture.directory.appendingPathComponent("video.mp4")
+        let audioURL = fixture.directory.appendingPathComponent("audio.m4a")
+        try await writeOneFrameVideo(
+            to: videoURL,
+            resolution: VideoResolution(width: 64, height: 64),
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        try writeAACFixture(to: audioURL, frameCount: 4_800)
+        try await muxVideoAndAAC(
+            videoURL: videoURL,
+            audioURL: audioURL,
+            destinationURL: fixture.source
+        )
+        let expectedAAC = try await OutputMediaAACIdentityReader()
+            .read(url: fixture.source)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: NSNumber(value: 0o400)],
+            ofItemAtPath: fixture.source.path
+        )
+        defer {
+            try? FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)],
+                ofItemAtPath: fixture.source.path
+            )
+        }
+
+        let session = try await makeReadySession(
+            fixture: fixture,
+            preserveAudio: true,
+            materializeSource: false
+        )
+        try await session.finish(finalMetadata: [:])
+
+        let actualAAC = try await OutputMediaAACIdentityReader()
+            .read(url: fixture.destination)
+        XCTAssertEqual(actualAAC, expectedAAC)
+        let sourceAttributes = try FileManager.default.attributesOfItem(
+            atPath: fixture.source.path
+        )
+        XCTAssertEqual(
+            (sourceAttributes[.posixPermissions] as? NSNumber)?.uint16Value,
+            UInt16(0o400)
+        )
+        XCTAssertTrue(fixture.recognizedStagingFiles().isEmpty)
+    }
+
     private func makeReadySession(
         fixture: MediaOutputFixture,
         sourceResolution: VideoResolution = VideoResolution(

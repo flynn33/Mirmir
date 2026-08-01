@@ -81,7 +81,8 @@ final class ASHMetalSpatialRuntimeV3: @unchecked Sendable {
         self.ring = try ASHMetalFrameResourceRingV3(capacity: ringCapacity)
         self.monitor = ASHMetalRuntimeMonitorV3(telemetry: telemetry)
 
-        guard let library = library ?? metal.device.makeDefaultLibrary() else {
+        guard let library = library
+            ?? MirmirDefaultMetalLibrary.make(on: metal.device) else {
             throw ASHMetalSpatialRuntimeErrorV3.defaultLibraryUnavailable
         }
         self.pipelines = try ASHMetalSpatialRuntimePreparationV3.makePipelines(

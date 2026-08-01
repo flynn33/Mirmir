@@ -944,10 +944,23 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         source: SourceProfile,
         output: OutputProfile
     ) async throws -> AVFoundationMediaSession {
+        guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
+            throw MediaPipelineError.inputOutputCollision(source.url)
+        }
         let asset = AVFoundationSourceAssetFactory.make(url: source.url)
         let videoTracks = try await asset.loadTracks(withMediaType: .video)
         guard let videoTrack = videoTracks.first else {
             throw MediaPipelineError.noVideoTrack(source.url)
+        }
+        let inventoriedTracks = try await asset.load(.tracks)
+        guard let sourceTracks = orderedSourceTracks(
+            inventoriedTracks,
+            primaryTrackID: videoTrack.trackID
+        ) else {
+            throw MediaPipelineError.metadataPreservationFailed(
+                "the primary video track is missing from the complete "
+                    + "source-track inventory"
+            )
         }
         let videoTransform = try await videoTrack.load(.preferredTransform)
         let videoFormats = try await videoTrack.load(.formatDescriptions)
@@ -1012,7 +1025,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                     videoFormat: videoFormat,
                     preservationCapability:
                         revalidatedMediaPreservation,
-                    preserveAudio: output.preserveAudio
+                    preserveAudio: output.preserveAudio,
+                    preserveSubtitles: output.preserveSubtitles,
+                    preserveMetadata: output.preserveMetadata
                 ) {
             throw containerError
         }
@@ -1028,9 +1043,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         )
         let audioTracks: [AVAssetTrack]
         if output.preserveAudio {
-            audioTracks = try await asset.loadTracks(
-                withMediaType: .audio
-            )
+            audioTracks = sourceTracks.filter { $0.mediaType == .audio }
             guard audioTracks.count == source.audioTrackCount else {
                 throw MediaPipelineError.metadataPreservationFailed(
                     "the source audio-track count changed after probing "
@@ -1128,10 +1141,14 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         } else {
             expectedCompressedAACTrackIdentities = []
         }
-        let subtitleTracks = try await Self.loadTracks(
-            from: asset,
-            mediaTypes: [.subtitle, .text, .closedCaption]
-        )
+        let subtitleMediaTypes: Set<AVMediaType> = [
+            .subtitle,
+            .text,
+            .closedCaption
+        ]
+        let subtitleTracks = sourceTracks.filter {
+            subtitleMediaTypes.contains($0.mediaType)
+        }
         guard subtitleTracks.count == source.subtitleTrackCount else {
             throw MediaPipelineError.metadataPreservationFailed(
                 "the source subtitle-track count changed after probing "
@@ -1139,10 +1156,10 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                     + "\(subtitleTracks.count))"
             )
         }
-        let metadataTracks = try await Self.loadTracks(
-            from: asset,
-            mediaTypes: [.metadata, .timecode]
-        )
+        let metadataMediaTypes: Set<AVMediaType> = [.metadata, .timecode]
+        let metadataTracks = sourceTracks.filter {
+            metadataMediaTypes.contains($0.mediaType)
+        }
         guard metadataTracks.count == source.metadataTrackCount else {
             throw MediaPipelineError.metadataPreservationFailed(
                 "the source metadata/timecode-track count changed after "
@@ -1156,10 +1173,26 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                 "the source container-metadata presence changed after probing"
             )
         }
-        let selectedTracks = [videoTrack]
-            + audioTracks
-            + (output.preserveSubtitles ? subtitleTracks : [])
-            + (output.preserveMetadata ? metadataTracks : [])
+        let associationTargetSelection =
+            SourceMediaAssociationTargetSelection(
+                preserveAudio: output.preserveAudio,
+                preserveSubtitles: output.preserveSubtitles,
+                preserveMetadata: output.preserveMetadata
+            )
+        let selectedTracks = sourceTracks.filter {
+            associationTargetSelection.includesSource($0.mediaType)
+        }
+        let outputTransaction = try Self.makeOutputTransaction(
+            outputURL: output.url,
+            transactionIdentifier: output.transactionIdentifier
+        )
+        outputTransaction.attachTelemetry(telemetry)
+        var transferredOutputTransaction = false
+        defer {
+            if !transferredOutputTransaction {
+                _ = outputTransaction.fail()
+            }
+        }
         let sourceMediaPreservation: SourceMediaPreservationPlan
         do {
             sourceMediaPreservation =
@@ -1168,13 +1201,8 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                     selectedTracks: selectedTracks,
                     preserveMetadata: output.preserveMetadata,
                     associationTargetSelection:
-                        SourceMediaAssociationTargetSelection(
-                            preserveAudio: output.preserveAudio,
-                            preserveSubtitles:
-                                output.preserveSubtitles,
-                            preserveMetadata:
-                                output.preserveMetadata
-                        )
+                        associationTargetSelection,
+                    outputTransaction: outputTransaction
                 )
         } catch let error as MediaPreservationIdentityError {
             switch error {
@@ -1204,7 +1232,7 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             )
         }
 
-        return try AVFoundationMediaSession(
+        let session = try AVFoundationMediaSession(
             metal: metal,
             telemetry: telemetry,
             outputVerifier: outputVerifier,
@@ -1219,8 +1247,11 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             audioTracks: audioTracks,
             expectedCompressedAACTrackIdentities:
                 expectedCompressedAACTrackIdentities,
+            outputTransaction: outputTransaction,
             sourceMediaPreservation: sourceMediaPreservation
         )
+        transferredOutputTransaction = true
+        return session
     }
 
     private static func loadTracks(
@@ -1253,11 +1284,9 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
         audioTracks: [AVAssetTrack],
         expectedCompressedAACTrackIdentities:
             [OutputMediaAACTrackIdentity],
+        outputTransaction: AtomicMediaOutput,
         sourceMediaPreservation: SourceMediaPreservationPlan
     ) throws {
-        guard !FileURLIdentity.refersToSameFile(source.url, output.url) else {
-            throw MediaPipelineError.inputOutputCollision(source.url)
-        }
         let deinterlacer: R13FormatPreservingDeinterlacer?
         if source.scanStructure.requiresDeinterlacing {
             do {
@@ -1280,11 +1309,6 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
             videoTrack: videoTrack,
             videoFormat: videoFormat
         )
-        let outputTransaction = try Self.makeOutputTransaction(
-            outputURL: output.url,
-            transactionIdentifier: output.transactionIdentifier
-        )
-        outputTransaction.attachTelemetry(telemetry)
         let stagingFile = try Self.makeStagingFile(
             outputTransaction: outputTransaction,
             outputURL: output.url,
@@ -1363,7 +1387,16 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
                 "preserved_subtitle_track_count":
                     String(source.subtitleTrackCount),
                 "preserved_metadata_track_count":
-                    String(source.metadataTrackCount),
+                    String(
+                        sourceMediaPreservation.tracks.filter {
+                            [
+                                AVMediaType.metadata.rawValue,
+                                AVMediaType.timecode.rawValue
+                            ].contains(
+                                $0.expectation.reference.mediaType
+                            )
+                        }.count
+                    ),
                 "output_dimensions": "\(output.resolution.width)x\(output.resolution.height)"
             ]
         ))
@@ -1524,6 +1557,10 @@ final class AVFoundationMediaSession: MediaSession, @unchecked Sendable {
     deinit {
         if let error = stagingFile.cleanup() {
             retainStagingCleanupError(error)
+        }
+        if let error = sourceMediaPreservation
+                .cleanupMigrationArtifacts() {
+            retainMigrationCleanupError(error)
         }
         let cleanup = outputTransaction.fail()
         retainCleanupError(cleanup)

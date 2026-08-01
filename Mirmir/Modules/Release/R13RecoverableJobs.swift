@@ -434,19 +434,46 @@ struct R13RecoveryDescriptor: Codable, Equatable, Sendable {
         binds configuration: UpscaleProcessingConfiguration
     ) -> Bool {
         let configurationSuffix = ":\(configuration.identity)"
-        if routeIdentity.hasSuffix(configurationSuffix) {
-            return true
-        }
-        return MediaVideoScanStructure.allCases.contains { scanStructure in
-            let deinterlacingIdentity =
-                scanStructure.requiresDeinterlacing
-                ? R13FormatPreservingDeinterlacer.algorithmIdentity
-                : "not_required"
-            return routeIdentity.hasSuffix(
-                configurationSuffix
+        let recognizedSuffixes = [configurationSuffix]
+            + MediaVideoScanStructure.allCases.map { scanStructure in
+                let deinterlacingIdentity =
+                    scanStructure.requiresDeinterlacing
+                    ? R13FormatPreservingDeinterlacer.algorithmIdentity
+                    : "not_required"
+                return configurationSuffix
                     + ":\(scanStructure.rawValue)"
                     + ":\(deinterlacingIdentity)"
+            }
+        return recognizedSuffixes.contains { suffix in
+            guard routeIdentity.hasSuffix(suffix) else {
+                return false
+            }
+            let prefix = routeIdentity.dropLast(suffix.count)
+            guard let separator = prefix.lastIndex(of: ":") else {
+                return false
+            }
+            let releaseComponent = String(
+                prefix[prefix.index(after: separator)...]
             )
+            let boundRoute = prefix[..<separator]
+            guard !boundRoute.isEmpty,
+                  !boundRoute.hasSuffix(":"),
+                  R13RestartProcessingIdentity
+                    .isValidReleaseIdentityComponent(
+                        releaseComponent
+                    ) else {
+                return false
+            }
+            let releaseComponentCount = routeIdentity.split(
+                separator: ":",
+                omittingEmptySubsequences: false
+            ).filter {
+                $0.hasPrefix(
+                    R13RestartProcessingIdentity
+                        .releaseIdentityComponentPrefix
+                )
+            }.count
+            return releaseComponentCount == 1
         }
     }
 

@@ -5,6 +5,8 @@ import CryptoKit
 import Foundation
 import VideoToolbox
 
+// swiftlint:disable file_length
+
 enum R13FormatPreservingScalingQuality: String, Sendable {
     case fast = "fast"
     case highQuality = "high_quality"
@@ -234,6 +236,484 @@ enum R13MediaVideoFormatContract {
     }
 }
 
+enum R13PremultipliedAlphaError:
+    Error,
+    Equatable,
+    Sendable {
+    case missingComponent(R13PixelPlaneRole, Int)
+    case unsupportedStorage(MediaVideoPixelStorage)
+}
+
+/// Reconciles an output buffer with its declared premultiplied-alpha
+/// contract without changing alpha samples, format identity, or attachments.
+/// Straight-alpha and alpha-free formats are intentionally left untouched.
+enum R13PremultipliedAlphaOutputPostcondition {
+    private struct ComponentLocation {
+        let planeIndex: Int
+        let componentIndex: Int
+    }
+
+    private struct RGB {
+        let red: Double
+        let green: Double
+        let blue: Double
+    }
+
+    private struct YCbCr {
+        let luma: Double
+        let cb: Double
+        let cr: Double
+    }
+
+    private struct YCbCrLocations {
+        let luma: ComponentLocation
+        let cb: ComponentLocation
+        let cr: ComponentLocation
+    }
+
+    private struct MatrixCoefficients {
+        let red: Double
+        let blue: Double
+
+        var green: Double { 1 - red - blue }
+    }
+
+    static func reconcile(
+        _ pixelBuffer: CVPixelBuffer,
+        format: MediaVideoFormat
+    ) throws {
+        guard format.alphaMode == .premultiplied else { return }
+
+        try format.validate(pixelBuffer: pixelBuffer)
+        let layout = try R13PixelLayoutRegistry.layout(
+            for: format.pixelStorage.pixelFormat
+        )
+        try layout.validate(pixelBuffer)
+        try R13PixelLayoutProcessor.validateStoredCodes(pixelBuffer)
+
+        let alpha = try alphaLocation(layout: layout)
+        if format.pixelStorage.usesYCbCr {
+            _ = try yCbCrLocations(
+                layout: layout,
+                storage: format.pixelStorage
+            )
+        } else {
+            try validateBGRALayout(layout, format: format)
+        }
+
+        let lockStatus = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard lockStatus == kCVReturnSuccess else {
+            throw R13PixelLayoutError.lockFailed(
+                destination: true,
+                status: lockStatus
+            )
+        }
+        do {
+            if format.pixelStorage.usesYCbCr {
+                try reconcileYCbCrLocked(
+                    pixelBuffer,
+                    layout: layout,
+                    format: format,
+                    alpha: alpha
+                )
+            } else {
+                try reconcileBGRALocked(
+                    pixelBuffer,
+                    layout: layout,
+                    alpha: alpha
+                )
+            }
+        } catch {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+            throw error
+        }
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, [])
+
+        try R13PixelLayoutProcessor.validateStoredCodes(pixelBuffer)
+    }
+}
+
+private extension R13PremultipliedAlphaOutputPostcondition {
+    private static func reconcileBGRALocked(
+        _ pixelBuffer: CVPixelBuffer,
+        layout: R13PixelLayout,
+        alpha: ComponentLocation
+    ) throws {
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        for row in 0..<height {
+            for column in 0..<width {
+                let alphaValue = try normalizedComponent(
+                    pixelBuffer,
+                    layout: layout,
+                    location: alpha,
+                    column: column,
+                    row: row
+                )
+                for component in 0..<3 {
+                    let location = ComponentLocation(
+                        planeIndex: 0,
+                        componentIndex: component
+                    )
+                    let color = try normalizedComponent(
+                        pixelBuffer,
+                        layout: layout,
+                        location: location,
+                        column: column,
+                        row: row
+                    )
+                    try writeNormalized(
+                        min(color, alphaValue),
+                        pixelBuffer: pixelBuffer,
+                        layout: layout,
+                        location: location,
+                        column: column,
+                        row: row
+                    )
+                }
+            }
+        }
+    }
+
+    private static func reconcileYCbCrLocked(
+        _ pixelBuffer: CVPixelBuffer,
+        layout: R13PixelLayout,
+        format: MediaVideoFormat,
+        alpha: ComponentLocation
+    ) throws {
+        let locations = try yCbCrLocations(
+            layout: layout,
+            storage: format.pixelStorage
+        )
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        for row in 0..<height {
+            for column in 0..<width {
+                let alphaValue = try normalizedComponent(
+                    pixelBuffer,
+                    layout: layout,
+                    location: alpha,
+                    column: column,
+                    row: row
+                )
+                let rgb = try encodedRGB(
+                    pixelBuffer,
+                    layout: layout,
+                    format: format,
+                    locations: locations,
+                    column: column,
+                    row: row
+                )
+                let premultiplied = RGB(
+                    red: min(rgb.red, alphaValue),
+                    green: min(rgb.green, alphaValue),
+                    blue: min(rgb.blue, alphaValue)
+                )
+                let encoded = yCbCr(
+                    premultiplied,
+                    primaries: format.colorPrimaries
+                )
+                try writeNormalized(
+                    encoded.luma,
+                    pixelBuffer: pixelBuffer,
+                    layout: layout,
+                    location: locations.luma,
+                    column: column,
+                    row: row
+                )
+                try writeNormalized(
+                    encoded.cb + 0.5,
+                    pixelBuffer: pixelBuffer,
+                    layout: layout,
+                    location: locations.cb,
+                    column: column,
+                    row: row
+                )
+                try writeNormalized(
+                    encoded.cr + 0.5,
+                    pixelBuffer: pixelBuffer,
+                    layout: layout,
+                    location: locations.cr,
+                    column: column,
+                    row: row
+                )
+            }
+        }
+    }
+
+    private static func encodedRGB(
+        _ pixelBuffer: CVPixelBuffer,
+        layout: R13PixelLayout,
+        format: MediaVideoFormat,
+        locations: YCbCrLocations,
+        column: Int,
+        row: Int
+    ) throws -> RGB {
+        let luma = try normalizedComponent(
+            pixelBuffer,
+            layout: layout,
+            location: locations.luma,
+            column: column,
+            row: row
+        )
+        let cb = try normalizedComponent(
+            pixelBuffer,
+            layout: layout,
+            location: locations.cb,
+            column: column,
+            row: row
+        ) - 0.5
+        let cr = try normalizedComponent(
+            pixelBuffer,
+            layout: layout,
+            location: locations.cr,
+            column: column,
+            row: row
+        ) - 0.5
+        let matrix = coefficients(for: format.colorPrimaries)
+        return RGB(
+            red: clampUnit(luma + 2 * (1 - matrix.red) * cr),
+            green: clampUnit(
+                luma
+                    - 2 * matrix.blue * (1 - matrix.blue)
+                        / matrix.green * cb
+                    - 2 * matrix.red * (1 - matrix.red)
+                        / matrix.green * cr
+            ),
+            blue: clampUnit(luma + 2 * (1 - matrix.blue) * cb)
+        )
+    }
+
+    private static func yCbCr(
+        _ rgb: RGB,
+        primaries: MediaVideoColorPrimaries
+    ) -> YCbCr {
+        let matrix = coefficients(for: primaries)
+        let luma = matrix.red * rgb.red
+            + matrix.green * rgb.green
+            + matrix.blue * rgb.blue
+        return YCbCr(
+            luma: clampUnit(luma),
+            cb: clampSignedHalf(
+                (rgb.blue - luma) / (2 * (1 - matrix.blue))
+            ),
+            cr: clampSignedHalf(
+                (rgb.red - luma) / (2 * (1 - matrix.red))
+            )
+        )
+    }
+
+    private static func yCbCrLocations(
+        layout: R13PixelLayout,
+        storage: MediaVideoPixelStorage
+    ) throws -> YCbCrLocations {
+        let luma = try requiredLocation(
+            layout: layout,
+            role: .luma,
+            packedRole: .packedAYCbCr,
+            packedComponent: 1
+        )
+        let cb = try requiredLocation(
+            layout: layout,
+            role: .interleavedChroma,
+            packedRole: .packedAYCbCr,
+            packedComponent: 2
+        )
+        let chromaPlane = layout.planes[cb.planeIndex]
+        guard chromaPlane.widthDivisor == 1,
+              chromaPlane.heightDivisor == 1,
+              cb.componentIndex + 1 < chromaPlane.componentsPerElement else {
+            throw R13PremultipliedAlphaError
+                .unsupportedStorage(storage)
+        }
+        return YCbCrLocations(
+            luma: luma,
+            cb: cb,
+            cr: ComponentLocation(
+                planeIndex: cb.planeIndex,
+                componentIndex: cb.componentIndex + 1
+            )
+        )
+    }
+
+    private static func requiredLocation(
+        layout: R13PixelLayout,
+        role: R13PixelPlaneRole,
+        packedRole: R13PixelPlaneRole,
+        packedComponent: Int
+    ) throws -> ComponentLocation {
+        if let planeIndex = layout.planes.firstIndex(where: { $0.role == role }) {
+            return ComponentLocation(
+                planeIndex: planeIndex,
+                componentIndex: 0
+            )
+        }
+        if let planeIndex = layout.planes.firstIndex(
+            where: { $0.role == packedRole }
+        ) {
+            return ComponentLocation(
+                planeIndex: planeIndex,
+                componentIndex: packedComponent
+            )
+        }
+        throw R13PremultipliedAlphaError
+            .missingComponent(role, 0)
+    }
+
+    private static func alphaLocation(
+        layout: R13PixelLayout
+    ) throws -> ComponentLocation {
+        if let planeIndex = layout.planes.firstIndex(where: { $0.role == .alpha }) {
+            return ComponentLocation(
+                planeIndex: planeIndex,
+                componentIndex: 0
+            )
+        }
+        if let planeIndex = layout.planes.firstIndex(
+            where: { $0.role == .packedBGRA }
+        ) {
+            return ComponentLocation(
+                planeIndex: planeIndex,
+                componentIndex: 3
+            )
+        }
+        if let planeIndex = layout.planes.firstIndex(
+            where: { $0.role == .packedAYCbCr }
+        ) {
+            return ComponentLocation(
+                planeIndex: planeIndex,
+                componentIndex: 0
+            )
+        }
+        throw R13PremultipliedAlphaError
+            .missingComponent(.alpha, 0)
+    }
+
+    private static func validateBGRALayout(
+        _ layout: R13PixelLayout,
+        format: MediaVideoFormat
+    ) throws {
+        guard layout.planes.count == 1,
+              layout.planes[0].role == .packedBGRA,
+              layout.planes[0].componentsPerElement == 4 else {
+            throw R13PremultipliedAlphaError
+                .unsupportedStorage(format.pixelStorage)
+        }
+    }
+
+    private static func normalizedComponent(
+        _ pixelBuffer: CVPixelBuffer,
+        layout: R13PixelLayout,
+        location: ComponentLocation,
+        column: Int,
+        row: Int
+    ) throws -> Double {
+        let plane = layout.planes[location.planeIndex]
+        guard location.componentIndex < plane.componentsPerElement else {
+            throw R13PremultipliedAlphaError
+                .missingComponent(plane.role, location.componentIndex)
+        }
+        let base = try R13PixelBufferAccess.baseAddress(
+            of: pixelBuffer,
+            layout: layout,
+            plane: location.planeIndex
+        )
+        let rowBytes = R13PixelBufferAccess.rowBytes(
+            of: pixelBuffer,
+            layout: layout,
+            plane: location.planeIndex
+        )
+        let planeColumn = column / plane.widthDivisor
+        let planeRow = row / plane.heightDivisor
+        let offset = planeColumn * plane.componentsPerElement
+            + location.componentIndex
+        let stored: UInt16
+        if plane.bytesPerComponent == 1 {
+            stored = UInt16(
+                base.advanced(by: planeRow * rowBytes)
+                    .assumingMemoryBound(to: UInt8.self)[offset]
+            )
+        } else {
+            stored = base.advanced(by: planeRow * rowBytes)
+                .assumingMemoryBound(to: UInt16.self)[offset]
+                >> UInt16(plane.storedCodeShift)
+        }
+        let bounds = plane.componentBounds[location.componentIndex]
+        let span = Double(bounds.maximum - bounds.minimum)
+        guard span > 0 else { return 0 }
+        return clampUnit(
+            (Double(stored) - Double(bounds.minimum)) / span
+        )
+    }
+
+    private static func writeNormalized(
+        _ normalized: Double,
+        pixelBuffer: CVPixelBuffer,
+        layout: R13PixelLayout,
+        location: ComponentLocation,
+        column: Int,
+        row: Int
+    ) throws {
+        let plane = layout.planes[location.planeIndex]
+        guard location.componentIndex < plane.componentsPerElement else {
+            throw R13PremultipliedAlphaError
+                .missingComponent(plane.role, location.componentIndex)
+        }
+        let bounds = plane.componentBounds[location.componentIndex]
+        let span = Double(bounds.maximum - bounds.minimum)
+        let code = UInt16(
+            min(
+                max(
+                    Double(bounds.minimum) + clampUnit(normalized) * span,
+                    Double(bounds.minimum)
+                ),
+                Double(bounds.maximum)
+            ).rounded()
+        )
+        let base = try R13PixelBufferAccess.baseAddress(
+            of: pixelBuffer,
+            layout: layout,
+            plane: location.planeIndex
+        )
+        let rowBytes = R13PixelBufferAccess.rowBytes(
+            of: pixelBuffer,
+            layout: layout,
+            plane: location.planeIndex
+        )
+        let planeColumn = column / plane.widthDivisor
+        let planeRow = row / plane.heightDivisor
+        let offset = planeColumn * plane.componentsPerElement
+            + location.componentIndex
+        if plane.bytesPerComponent == 1 {
+            base.advanced(by: planeRow * rowBytes)
+                .assumingMemoryBound(to: UInt8.self)[offset] = UInt8(code)
+        } else {
+            base.advanced(by: planeRow * rowBytes)
+                .assumingMemoryBound(to: UInt16.self)[offset] =
+                code << UInt16(plane.storedCodeShift)
+        }
+    }
+
+    private static func coefficients(
+        for primaries: MediaVideoColorPrimaries
+    ) -> MatrixCoefficients {
+        switch primaries {
+        case .bt709:
+            return MatrixCoefficients(red: 0.2126, blue: 0.0722)
+        case .bt2020:
+            return MatrixCoefficients(red: 0.2627, blue: 0.0593)
+        }
+    }
+
+    private static func clampUnit(_ value: Double) -> Double {
+        min(max(value, 0), 1)
+    }
+
+    private static func clampSignedHalf(_ value: Double) -> Double {
+        min(max(value, -0.5), 0.5)
+    }
+}
+
 final class R13FormatPreservingVImageScaler:
     R03NV12Scaling,
     @unchecked Sendable {
@@ -295,6 +775,10 @@ final class R13FormatPreservingVImageScaler:
         guard !cancellation.isCancelled else {
             throw R03NV12ScalingError.operationCancelled
         }
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            destination,
+            format: videoFormat
+        )
         CVBufferPropagateAttachments(source, destination)
         R13MediaVideoFormatContract.install(
             videoFormat,
@@ -306,6 +790,128 @@ final class R13FormatPreservingVImageScaler:
             resolution: targetResolution,
             format: videoFormat
         )
+    }
+}
+
+/// Scales a frame through VideoToolbox while retaining its declared pixel
+/// storage, color representation, dynamic-range metadata, and alpha semantics.
+/// No alternate scaling framework is invoked by this implementation.
+final class R13FormatPreservingVTPixelTransferScaler:
+    R03NV12Scaling,
+    @unchecked Sendable {
+    let sourceResolution: VideoResolution
+    let targetResolution: VideoResolution
+    let videoFormat: MediaVideoFormat
+
+    private let geometryTransfer = R13VideoFormatGeometryTransfer()
+
+    init(
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution,
+        videoFormat: MediaVideoFormat
+    ) {
+        self.sourceResolution = sourceResolution
+        self.targetResolution = targetResolution
+        self.videoFormat = videoFormat
+    }
+
+    func scale(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) throws {
+        guard !cancellation.isCancelled else {
+            throw R03NV12ScalingError.operationCancelled
+        }
+        try Self.validateStorageAndGeometry(
+            source,
+            resolution: sourceResolution,
+            format: videoFormat
+        )
+        try R13MediaVideoFormatContract.validate(
+            source,
+            resolution: sourceResolution,
+            format: videoFormat
+        )
+        try Self.validateStorageAndGeometry(
+            destination,
+            resolution: targetResolution,
+            format: videoFormat
+        )
+        guard !cancellation.isCancelled else {
+            throw R03NV12ScalingError.operationCancelled
+        }
+
+        try geometryTransfer.transfer(
+            from: source,
+            to: destination,
+            resolution: targetResolution,
+            format: videoFormat
+        )
+        guard !cancellation.isCancelled else {
+            throw R03NV12ScalingError.operationCancelled
+        }
+
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            destination,
+            format: videoFormat
+        )
+        CVBufferPropagateAttachments(source, destination)
+        R13MediaVideoFormatContract.install(
+            videoFormat,
+            on: destination,
+            resolution: targetResolution
+        )
+        try R13MediaVideoFormatContract.validate(
+            destination,
+            resolution: targetResolution,
+            format: videoFormat
+        )
+    }
+
+    func reset() {
+        geometryTransfer.invalidate()
+    }
+
+    func finish() {
+        geometryTransfer.invalidate()
+    }
+
+    func cancel() {
+        geometryTransfer.invalidate()
+    }
+
+    private static func validateStorageAndGeometry(
+        _ pixelBuffer: CVPixelBuffer,
+        resolution: VideoResolution,
+        format: MediaVideoFormat
+    ) throws {
+        let actualFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        guard actualFormat == format.pixelStorage.pixelFormat else {
+            throw R03NV12ScalingError.invalidPixelFormat(
+                expected: format.pixelStorage.pixelFormat,
+                actual: actualFormat
+            )
+        }
+        let actualWidth = CVPixelBufferGetWidth(pixelBuffer)
+        let actualHeight = CVPixelBufferGetHeight(pixelBuffer)
+        guard actualWidth == resolution.width,
+              actualHeight == resolution.height else {
+            throw R03NV12ScalingError.invalidDimensions(
+                expectedWidth: resolution.width,
+                expectedHeight: resolution.height,
+                actualWidth: actualWidth,
+                actualHeight: actualHeight
+            )
+        }
+        let actualPlaneCount = CVPixelBufferGetPlaneCount(pixelBuffer)
+        let expectedPlaneCount = format.pixelStorage.expectedPlaneCount
+        guard actualPlaneCount == expectedPlaneCount else {
+            throw R03NV12ScalingError.invalidPlaneCount(
+                expected: expectedPlaneCount,
+                actual: actualPlaneCount
+            )
+        }
     }
 }
 
@@ -600,6 +1206,10 @@ private final class R13VideoFormatGeometryTransfer:
         VTPixelTransferSession] = [:]
 
     deinit {
+        invalidate()
+    }
+
+    func invalidate() {
         lock.lock()
         for session in sessions.values {
             VTPixelTransferSessionInvalidate(session)

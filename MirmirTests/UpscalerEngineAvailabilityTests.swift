@@ -1,7 +1,11 @@
 import CoreMedia
+import CoreVideo
 import Foundation
 import os.lock
 @testable import Mirmir
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+import VideoToolbox
+#endif
 import XCTest
 
 final class UpscalerEngineAvailabilityTests: XCTestCase {
@@ -261,6 +265,139 @@ final class UpscalerEngineAvailabilityTests: XCTestCase {
         )
     }
 
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+    @available(macOS 26.0, *)
+    func test_qualityConfigurationFactoryBuildsDynamic720pAdmittedRoute()
+        throws {
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p720,
+                targetResolution: .p1080,
+                strategyPreference: .automatic
+            )
+        )
+        XCTAssertTrue(resolved.requiresAdaptiveNativeExecution)
+
+        let configuration = try R04VTNativeConfigurationFactory
+            .makeQualityConfiguration(binding: resolved.binding)
+
+        XCTAssertEqual(configuration.frameWidth, 1_280)
+        XCTAssertEqual(configuration.frameHeight, 720)
+        let scaleFactor = resolved.binding.route
+            .scaleFactor.numerator
+        XCTAssertEqual(configuration.scaleFactor, scaleFactor)
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferWidthKey as String
+            ] as? NSNumber)?.intValue,
+            1_280 * scaleFactor
+        )
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferHeightKey as String
+            ] as? NSNumber)?.intValue,
+            720 * scaleFactor
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func test_qualityBuilderUsesSupportedFourTimesRouteAndRGBAHalfContract()
+        throws {
+        guard VTSuperResolutionScalerConfiguration.isSupported else {
+            throw XCTSkip("The host does not expose native Quality SR.")
+        }
+        guard VTSuperResolutionScalerConfiguration.supportedScaleFactors
+                .contains(4) else {
+            throw XCTSkip("The host does not expose the public 4x route.")
+        }
+
+        let configuration = try VTNativeSRConfigurationBuilder.quality(
+            sourceResolution: .p270,
+            scaleFactor: .four,
+            flowConfiguration: .appleComputed
+        )
+
+        XCTAssertEqual(configuration.frameWidth, 480)
+        XCTAssertEqual(configuration.frameHeight, 270)
+        XCTAssertEqual(configuration.scaleFactor, 4)
+        XCTAssertEqual(configuration.inputType, .video)
+        XCTAssertFalse(configuration.usesPrecomputedFlow)
+        XCTAssertEqual(configuration.qualityPrioritization, .normal)
+        XCTAssertTrue(
+            configuration.supportedPixelFormats.contains(
+                VTNativeQualityPixelBufferBridge.nativePixelFormat
+            )
+        )
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferWidthKey as String
+            ] as? NSNumber)?.intValue,
+            VideoResolution.p1080.width
+        )
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferHeightKey as String
+            ] as? NSNumber)?.intValue,
+            VideoResolution.p1080.height
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func test_qualityPixelBufferBridgeConvertsCanonicalNV12ToRGBAHalfAndBack()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        let source = try PixelBufferBridge.dequeue(
+            from: PixelBufferBridge.makePool(
+                width: resolution.width,
+                height: resolution.height
+            )
+        )
+        R05MetalFXColorBridge.installRequiredAttachments(on: source)
+        try Self.fillNeutralNV12(source, luma: 128)
+        let native = try PixelBufferBridge.dequeue(
+            from: PixelBufferBridge.makePool(
+                width: resolution.width,
+                height: resolution.height,
+                format: VTNativeQualityPixelBufferBridge.nativePixelFormat
+            )
+        )
+        let roundTrip = try PixelBufferBridge.dequeue(
+            from: PixelBufferBridge.makePool(
+                width: resolution.width,
+                height: resolution.height
+            )
+        )
+        let bridge = VTNativeQualityPixelBufferBridge()
+
+        try bridge.convertCanonicalNV12(
+            source,
+            toNativeRGBAHalf: native,
+            resolution: resolution
+        )
+        try bridge.convertNativeRGBAHalf(
+            native,
+            toCanonicalNV12: roundTrip,
+            resolution: resolution
+        )
+
+        XCTAssertEqual(
+            CVPixelBufferGetPixelFormatType(native),
+            kCVPixelFormatType_64RGBAHalf
+        )
+        XCTAssertEqual(CVPixelBufferGetPlaneCount(native), 0)
+        XCTAssertNotNil(CVPixelBufferGetIOSurface(native))
+        try R03NV12Contract.validate(
+            pixelBuffer: roundTrip,
+            resolution: resolution
+        )
+        let roundTripLuma = try Self.firstLumaSample(roundTrip)
+        XCTAssertLessThanOrEqual(abs(Int(roundTripLuma) - 128), 1)
+    }
+#endif
+
     func test_nativeTemporalContinuityRequiresExactSequenceTimeAndDuration() {
         let priorTimestamp = CMTime(value: 100, timescale: 30)
         let duration = CMTime(value: 1, timescale: 30)
@@ -315,6 +452,76 @@ final class UpscalerEngineAvailabilityTests: XCTestCase {
             targetResolution: .p2160,
             preserveAudio: false
         )
+    }
+
+    private static func fillNeutralNV12(
+        _ pixelBuffer: CVPixelBuffer,
+        luma: UInt8
+    ) throws {
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferBridgeError.poolDequeueFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let lumaBase = CVPixelBufferGetBaseAddressOfPlane(
+                pixelBuffer,
+                0
+              ),
+              let chromaBase = CVPixelBufferGetBaseAddressOfPlane(
+                pixelBuffer,
+                1
+              ) else {
+            throw PixelBufferBridgeError.invalidPlaneCount(
+                expected: 2,
+                actual: CVPixelBufferGetPlaneCount(pixelBuffer)
+            )
+        }
+        for row in 0..<CVPixelBufferGetHeightOfPlane(pixelBuffer, 0) {
+            memset(
+                lumaBase.advanced(
+                    by: row * CVPixelBufferGetBytesPerRowOfPlane(
+                        pixelBuffer,
+                        0
+                    )
+                ),
+                Int32(luma),
+                CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+            )
+        }
+        for row in 0..<CVPixelBufferGetHeightOfPlane(pixelBuffer, 1) {
+            memset(
+                chromaBase.advanced(
+                    by: row * CVPixelBufferGetBytesPerRowOfPlane(
+                        pixelBuffer,
+                        1
+                    )
+                ),
+                128,
+                CVPixelBufferGetWidth(pixelBuffer)
+            )
+        }
+    }
+
+    private static func firstLumaSample(
+        _ pixelBuffer: CVPixelBuffer
+    ) throws -> UInt8 {
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferBridgeError.poolDequeueFailed(status)
+        }
+        defer {
+            CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly)
+        }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(
+            pixelBuffer,
+            0
+        ) else {
+            throw PixelBufferBridgeError.invalidPlaneCount(
+                expected: 2,
+                actual: CVPixelBufferGetPlaneCount(pixelBuffer)
+            )
+        }
+        return base.assumingMemoryBound(to: UInt8.self).pointee
     }
 }
 

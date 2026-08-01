@@ -275,13 +275,40 @@ struct OutputMediaTrackSegmentIdentity:
     let target: CMTimeRange
 }
 
+enum OutputMediaTrackPreservationRole: Sendable, Equatable {
+    case ordinary
+    case mirmirStructuralCarrier
+}
+
+struct OutputMediaMetadataFormatSchemaIdentity: Sendable, Equatable {
+    /// Canonicalized metadata key tables, one per format description. The
+    /// entries are sorted so dictionary and description enumeration order do
+    /// not affect equality, while every declared key property remains part of
+    /// the identity (including unused declarations and local IDs).
+    let canonicalFormatDescriptions: [Data]
+}
+
+struct OutputMediaMetadataSampleFormatBindingIdentity:
+    Sendable,
+    Equatable {
+    /// One canonical metadata format-description identity per encoded sample,
+    /// in encoded sample order. This binds the declared schemas to the samples
+    /// that use them; comparing only the declaration set cannot detect an
+    /// A/B sample-description swap.
+    let canonicalFormatDescriptionsBySample: [Data]
+}
+
 struct OutputMediaTrackPreservationExpectation:
     @unchecked Sendable,
     Equatable {
     let reference: OutputMediaTrackReference
+    let role: OutputMediaTrackPreservationRole
     let timeRange: CMTimeRange
     let naturalTimeScale: CMTimeScale
     let formatSubtypes: [FourCharCode]
+    let metadataFormatSchema: OutputMediaMetadataFormatSchemaIdentity?
+    let metadataSampleFormatBindings:
+        OutputMediaMetadataSampleFormatBindingIdentity?
     let totalSampleDataLength: Int64
     let sampleIdentity: OutputMediaTrackSampleIdentity?
     let linearPCMIdentity: OutputMediaLinearPCMTrackIdentity?
@@ -310,7 +337,10 @@ struct OutputMediaPreservationExpectation:
 }
 
 struct SourceMediaTrackPreservationPlan: @unchecked Sendable {
+    let originalTrackID: CMPersistentTrackID
     let track: AVAssetTrack
+    let sourceCopyTimeRange: CMTimeRange
+    let destinationStart: CMTime
     let metadata: [AVMetadataItem]
     let expectation: OutputMediaTrackPreservationExpectation
 }
@@ -320,11 +350,24 @@ struct SourceMediaPreservationPlan: @unchecked Sendable {
     let tracks: [SourceMediaTrackPreservationPlan]
     let associations: [OutputMediaTrackAssociationExpectation]
     let expectation: OutputMediaPreservationExpectation
+    let migrationArtifacts: [MirmirTimedMetadataMigrationResult]
 
     func track(
         withID trackID: CMPersistentTrackID
     ) -> SourceMediaTrackPreservationPlan? {
-        tracks.first { $0.track.trackID == trackID }
+        tracks.first { $0.originalTrackID == trackID }
+    }
+
+    func cleanupMigrationArtifacts() -> Error? {
+        var firstError: Error?
+        for artifact in migrationArtifacts {
+            do {
+                try artifact.cleanup()
+            } catch {
+                if firstError == nil { firstError = error }
+            }
+        }
+        return firstError
     }
 }
 
@@ -468,9 +511,9 @@ enum OutputMediaVerificationError: Error, Equatable, CustomStringConvertible {
         case .emptyPlanePayload(let frameIndex, let planeIndex):
             return "Decoded frame \(frameIndex) plane \(planeIndex) has no addressable payload."
         case .presentationTimeMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) PTS \(actual) does not match expected PTS \(expected)."
+            return "Output video frame \(frameIndex) PTS \(actual) does not match expected PTS \(expected)."
         case .frameDurationMismatch(let frameIndex, let expected, let actual):
-            return "Decoded frame \(frameIndex) duration \(actual) does not match expected duration \(expected)."
+            return "Output video frame \(frameIndex) duration \(actual) does not match expected duration \(expected)."
         case .mediaDurationMismatch(let expected, let actual):
             return "Reopened media duration \(actual) does not match expected endpoint \(expected)."
         case .trackEndMismatch(let expected, let actual):

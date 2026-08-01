@@ -3,17 +3,40 @@ import Foundation
 import VideoToolbox
 
 final class R03VTPixelTransferScaler: R03NV12Scaling, @unchecked Sendable {
-    let route: R03ScaleRoute
+    let route: R03ScaleRoute?
 
     private let sourceResolution: VideoResolution
     private let targetResolution: VideoResolution
     private let lock = NSLock()
     private var transferSession: VTPixelTransferSession?
 
-    init(route: R03ScaleRoute) throws {
+    convenience init(route: R03ScaleRoute) throws {
+        try self.init(
+            route: route,
+            sourceResolution: route.canonicalSourceResolution,
+            targetResolution: route.canonicalTargetResolution
+        )
+    }
+
+    convenience init(
+        adaptivePlan: R13AdaptiveScalePlan
+    ) throws {
+        try self.init(
+            route: nil,
+            sourceResolution:
+                adaptivePlan.processingSourceResolution,
+            targetResolution: adaptivePlan.targetResolution
+        )
+    }
+
+    private init(
+        route: R03ScaleRoute?,
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution
+    ) throws {
         self.route = route
-        sourceResolution = route.canonicalSourceResolution
-        targetResolution = route.canonicalTargetResolution
+        self.sourceResolution = sourceResolution
+        self.targetResolution = targetResolution
 
         var session: VTPixelTransferSession?
         let creationStatus = VTPixelTransferSessionCreate(
@@ -143,6 +166,24 @@ extension R03DeterministicBackend {
         try R03DeterministicBackend(
             subjectID: .vtPixelTransfer,
             route: route,
+            scalerFactory: { _, _ in
+                try R03VTPixelTransferScaler(route: route)
+            },
+            outputReleaseObserver: outputReleaseObserver
+        )
+    }
+
+    static func makeProductQualifiedVTPixelTransfer(
+        route: R03ScaleRoute,
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+    ) throws -> R03DeterministicBackend {
+        let kind = R13ReleaseScalerKind.videoToolboxPixelTransfer
+        return try R03DeterministicBackend(
+            subjectID: kind.subjectID,
+            route: route,
+            admissionProfile: .productQualifiedReleaseScaler(kind),
+            productAdmissionAuthorization:
+                R03A11ProductAdmissionAuthorization(),
             scalerFactory: { _, _ in
                 try R03VTPixelTransferScaler(route: route)
             },

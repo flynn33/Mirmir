@@ -80,8 +80,9 @@ enum R04VideoToolboxRuntimeOutcome: @unchecked Sendable {
 }
 
 protocol R04VideoToolboxRuntime: AnyObject, Sendable {
-    func quality2xSupport(
-        sourceResolution: VideoResolution
+    func qualitySupport(
+        sourceResolution: VideoResolution,
+        scaleFactor: R04VideoToolboxScaleFactor
     ) async -> R04VideoToolboxSupportObservation<Bool>
 
     func lowLatencySupportedScaleFactors(
@@ -141,8 +142,9 @@ enum R04VideoToolboxRouteResolver {
                 )
             )
         case .runtimeSupportRequired:
-            switch await runtime.quality2xSupport(
-                sourceResolution: route.sourceResolution
+            switch await runtime.qualitySupport(
+                sourceResolution: route.sourceResolution,
+                scaleFactor: route.scaleFactor
             ) {
             case .notObserved:
                 return unavailable(route, reason: .runtimeSupportNotObserved)
@@ -402,8 +404,11 @@ enum R04VideoToolboxDiagnosticsValidator {
         route: R04VideoToolboxRouteDescriptor,
         diagnostics: R04VideoToolboxConfigurationDiagnostics
     ) -> R04VideoToolboxDiagnosticsValidation {
+        let requiredNativePixelFormat = route.backendKind == .quality
+            ? kCVPixelFormatType_64RGBAHalf
+            : R04VideoToolboxRouteCatalog.pixelFormat
         guard diagnostics.supportedPixelFormats.contains(
-            R04VideoToolboxRouteCatalog.pixelFormat
+            requiredNativePixelFormat
         ) else {
             return .rejected(.supportedPixelFormatRejected)
         }
@@ -439,6 +444,63 @@ enum R04VideoToolboxDiagnosticsValidator {
         default:
             return .rejected(.configurationIdentityMismatch)
         }
+    }
+}
+
+enum R04VideoToolboxObservedRouteIdentityError:
+    Error,
+    Equatable,
+    Sendable {
+    case declaredRouteMismatch
+    case diagnosticsNotAccepted
+}
+
+enum R04VideoToolboxObservedRouteIdentity {
+    static func make(
+        declaredRouteIdentity: AppleUpscaleRouteIdentity,
+        route: R04VideoToolboxRouteDescriptor,
+        diagnostics: R04VideoToolboxConfigurationDiagnostics
+    ) throws -> AppleUpscaleRouteIdentity {
+        let catalogIdentity = try R04VideoToolboxRouteCatalog
+            .makeRouteIdentity(
+                for: route,
+                modelAssetsIdentity:
+                    declaredRouteIdentity.backend.modelAssetsIdentity
+            )
+        let admittedPolicyIdentities: Set<String> = [
+            R04VideoToolboxRouteCatalog.policyIdentity,
+            R04VideoToolboxBackendAdmissionPolicy
+                .nativeProduct.policyIdentity
+        ]
+        guard declaredRouteIdentity.backend == catalogIdentity.backend,
+              declaredRouteIdentity.configurationIdentity
+                == catalogIdentity.configurationIdentity,
+              declaredRouteIdentity.materialDecisionIdentity
+                == catalogIdentity.materialDecisionIdentity,
+              admittedPolicyIdentities.contains(
+                  declaredRouteIdentity.policyIdentity
+              ) else {
+            throw R04VideoToolboxObservedRouteIdentityError
+                .declaredRouteMismatch
+        }
+        guard R04VideoToolboxDiagnosticsValidator.validate(
+            route: route,
+            diagnostics: diagnostics
+        ) == .accepted else {
+            throw R04VideoToolboxObservedRouteIdentityError
+                .diagnosticsNotAccepted
+        }
+        return try AppleUpscaleRouteIdentity(
+            backend: declaredRouteIdentity.backend,
+            configurationIdentity: [
+                declaredRouteIdentity.configurationIdentity,
+                "observed",
+                diagnostics.stableIdentity
+            ].joined(separator: "."),
+            policyIdentity: declaredRouteIdentity.policyIdentity,
+            materialDecisionIdentity:
+                declaredRouteIdentity.materialDecisionIdentity
+        )
     }
 }
 
@@ -651,17 +713,12 @@ final class R04VideoToolboxBackend: AppleUpscaleBackend, @unchecked Sendable {
                 break
             }
             do {
-                let observedRouteIdentity = try AppleUpscaleRouteIdentity(
-                    backend: identity,
-                    configurationIdentity: [
-                        route.configurationIdentity,
-                        "observed",
-                        diagnostics.stableIdentity
-                    ].joined(separator: "."),
-                    policyIdentity: routeIdentity.policyIdentity,
-                    materialDecisionIdentity: R04VideoToolboxRouteCatalog
-                        .materialDecisionIdentity
-                )
+                let observedRouteIdentity = try
+                    R04VideoToolboxObservedRouteIdentity.make(
+                        declaredRouteIdentity: routeIdentity,
+                        route: route,
+                        diagnostics: diagnostics
+                    )
                 let driver = try R04VideoToolboxSessionDriver(
                     route: route,
                     routeIdentity: observedRouteIdentity,

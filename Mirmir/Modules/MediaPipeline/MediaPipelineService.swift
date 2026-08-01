@@ -26,6 +26,9 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
     case outputContainerCannotPreserveTrackAssociations(
         pathExtension: String
     )
+    case outputContainerCannotPreserveTrackMetadata(
+        pathExtension: String
+    )
     case unsupportedColorProfile(String)
     case unsupportedVideoFormat(String)
     case unsupportedVideoFormatConversion(
@@ -122,6 +125,13 @@ public enum MediaPipelineError: Error, CustomStringConvertible {
             return "The .\(pathExtension) output container cannot "
                 + "preserve the source auxiliary-video track association. "
                 + "Select a QuickTime Movie (.mov) destination."
+        case .outputContainerCannotPreserveTrackMetadata(
+            let pathExtension
+        ):
+            return "The .\(pathExtension) output container cannot "
+                + "preserve metadata attached to a selected source track. "
+                + "Select a QuickTime Movie (.mov) destination, or turn "
+                + "off Preserve Metadata."
         case .unsupportedColorProfile(let profile):
             return "The source color metadata is incomplete or inconsistent (\(profile)). Mirmir preserves Rec.709 SDR and 10-bit BT.2020 PQ/HLG without silent color conversion."
         case .unsupportedVideoFormat(let reason):

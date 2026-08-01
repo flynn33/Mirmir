@@ -141,6 +141,522 @@ final class R13UIReleaseModeTests: XCTestCase {
         engine.latestHandle?.completeCancellation()
     }
 
+    func testRecoveredJobRetainsScopesThroughTerminalHistoryPersistence()
+        async throws {
+        let historyDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "MirmirUIRecoveredHistory-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: historyDirectory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: historyDirectory)
+        }
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/r13-ui-recovered-history.mov"
+        )
+        let outputURL = URL(
+            fileURLWithPath: "/tmp/r13-ui-recovered-history.mp4"
+        )
+        let job = UpscaleJob(
+            identifier: "r13-ui-recovered-history",
+            inputURL: sourceURL,
+            outputURL: outputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+        let scopeAudit = R13UISecurityScopeAudit()
+        var recovered: R13ResolvedRecoverableUpscaleJob? =
+            R13ResolvedRecoverableUpscaleJob(
+                summary: try R13RecoverableUpscaleJob(job: job),
+                job: job,
+                securityAccess: try makeAccessSet(
+                    sourceURL: sourceURL,
+                    outputDirectoryURL:
+                        outputURL.deletingLastPathComponent(),
+                    scopeAudit: scopeAudit
+                )
+            )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [try XCTUnwrap(recovered)]
+        )
+        let historyStore = MirmirWorkHistoryStore(
+            directoryURL: historyDirectory
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NotRequiredModelAssetsService(),
+            workHistoryStore: historyStore,
+            workHistoryBookmarkResolver:
+                R13UIScopeCheckingWorkHistoryBookmarkResolver(
+                    scopeAudit: scopeAudit
+                ),
+            workHistoryOutputIdentityMeasurer:
+                R13UIScopeCheckingOutputIdentityMeasurer(
+                    scopeAudit: scopeAudit
+                )
+        )
+        for _ in 0..<200 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+
+        viewModel.resumeRecoverableJob(id: job.identifier)
+        for _ in 0..<200 where viewModel.state != .running {
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.state, .running)
+        let handle = try XCTUnwrap(engine.latestHandle)
+
+        engine.releaseResolvedRecoveryAccessesForTesting()
+        recovered = nil
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        handle.completeSuccess(outputURL)
+        for _ in 0..<500 where viewModel.workHistoryRecords.isEmpty {
+            await Task.yield()
+        }
+        let record = try XCTUnwrap(viewModel.workHistoryRecords.first)
+        XCTAssertEqual(record.id, job.identifier)
+        XCTAssertEqual(record.terminalResult, .completed)
+        XCTAssertEqual(
+            record.outputVerification,
+            .available(identity: String(repeating: "b", count: 64))
+        )
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .finished(outputURL))
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 0)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertFalse(
+            scopeAudit.events.contains { $0.hasPrefix("stop.") }
+        )
+
+        viewModel.dismissTerminalJob()
+        for _ in 0..<200 where scopeAudit.stopCount < 2 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 2)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+        let events = scopeAudit.events
+        let firstStopIndex = try XCTUnwrap(
+            events.firstIndex { $0.hasPrefix("stop.") }
+        )
+        for requiredEvent in [
+            "bookmark.source",
+            "bookmark.output",
+            "measure.output"
+        ] {
+            let eventIndex = try XCTUnwrap(
+                events.firstIndex(of: requiredEvent)
+            )
+            XCTAssertLessThan(eventIndex, firstStopIndex, requiredEvent)
+        }
+    }
+
+    func testRecoveredFailureRetainsScopesAcrossRetry() async throws {
+        let historyDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "MirmirUIRecoveredRetry-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: historyDirectory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: historyDirectory)
+        }
+        let sourceURL = URL(
+            fileURLWithPath: "/tmp/r13-ui-recovered-retry.mov"
+        )
+        let outputURL = URL(
+            fileURLWithPath: "/tmp/r13-ui-recovered-retry.mp4"
+        )
+        let job = UpscaleJob(
+            identifier: "r13-ui-recovered-retry",
+            inputURL: sourceURL,
+            outputURL: outputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+        let scopeAudit = R13UISecurityScopeAudit()
+        var recovered: R13ResolvedRecoverableUpscaleJob? =
+            R13ResolvedRecoverableUpscaleJob(
+                summary: try R13RecoverableUpscaleJob(job: job),
+                job: job,
+                securityAccess: try makeAccessSet(
+                    sourceURL: sourceURL,
+                    outputDirectoryURL:
+                        outputURL.deletingLastPathComponent(),
+                    scopeAudit: scopeAudit
+                )
+            )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [try XCTUnwrap(recovered)]
+        )
+        let historyStore = MirmirWorkHistoryStore(
+            directoryURL: historyDirectory
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NotRequiredModelAssetsService(),
+            workHistoryStore: historyStore,
+            workHistoryBookmarkResolver:
+                R13UIScopeCheckingWorkHistoryBookmarkResolver(
+                    scopeAudit: scopeAudit
+                )
+        )
+        for _ in 0..<200 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+
+        viewModel.resumeRecoverableJob(id: job.identifier)
+        for _ in 0..<200 where viewModel.state != .running {
+            await Task.yield()
+        }
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        engine.releaseResolvedRecoveryAccessesForTesting()
+        recovered = nil
+
+        firstHandle.completeFailure(
+            UpscalerEngineError.strategyFailed(
+                "injected recovered retry failure"
+            )
+        )
+        for _ in 0..<500 {
+            let failureWasPersisted =
+                viewModel.workHistoryRecords.first?.terminalResult == .failed
+            if case .failed = viewModel.state, failureWasPersisted {
+                break
+            }
+            await Task.yield()
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        guard case .failed = viewModel.state else {
+            return XCTFail("Expected the recovered attempt to fail.")
+        }
+        XCTAssertEqual(
+            viewModel.workHistoryRecords.first?.terminalResult,
+            .failed
+        )
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 0)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        viewModel.retryFailedUpscale()
+        for _ in 0..<200 where engine.submittedJobs.count < 2 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(engine.submittedJobs.count, 2)
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 0)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        let retryHandle = try XCTUnwrap(engine.latestHandle)
+        retryHandle.completeCancellation()
+        for _ in 0..<500 {
+            let cancellationWasPersisted =
+                viewModel.workHistoryRecords.first?.terminalResult
+                    == .cancelled
+            if cancellationWasPersisted, viewModel.state == .ready {
+                break
+            }
+            await Task.yield()
+        }
+
+        XCTAssertEqual(
+            viewModel.workHistoryRecords.first?.terminalResult,
+            .cancelled
+        )
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 0)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        viewModel.startUpscale()
+        for _ in 0..<200 where engine.submittedJobs.count < 3 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(engine.submittedJobs.count, 3)
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 0)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        engine.latestHandle?.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+
+        viewModel.upscaleAnotherVideo()
+        for _ in 0..<500 where scopeAudit.activeScopeCount != 0 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeAudit.startCount, 2)
+        XCTAssertEqual(scopeAudit.stopCount, 2)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+    }
+
+    func testRecoveredCancellationRetainsSourceScopeWhenOutputFolderChanges()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let sourceURL = directory.appendingPathComponent(
+            "recovered-cancel-new-output.mov"
+        )
+        try Data([0x01]).write(to: sourceURL)
+        let originalOutputDirectory = directory.appendingPathComponent(
+            "OriginalOutput",
+            isDirectory: true
+        )
+        let newOutputDirectory = directory.appendingPathComponent(
+            "NewOutput",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: originalOutputDirectory,
+            withIntermediateDirectories: false
+        )
+        try FileManager.default.createDirectory(
+            at: newOutputDirectory,
+            withIntermediateDirectories: false
+        )
+        let originalOutputURL = originalOutputDirectory
+            .appendingPathComponent("recovered-original.mp4")
+        let job = UpscaleJob(
+            identifier: "r13-ui-recovered-cancel-new-output",
+            inputURL: sourceURL,
+            outputURL: originalOutputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+        let recoveredScopeAudit = R13UISecurityScopeAudit()
+        let selectionScopeAudit = R13UIResourceAccessAudit()
+        var recovered: R13ResolvedRecoverableUpscaleJob? =
+            R13ResolvedRecoverableUpscaleJob(
+                summary: try R13RecoverableUpscaleJob(job: job),
+                job: job,
+                securityAccess: try makeAccessSet(
+                    sourceURL: sourceURL,
+                    outputDirectoryURL: originalOutputDirectory,
+                    scopeAudit: recoveredScopeAudit
+                )
+            )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [try XCTUnwrap(recovered)]
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NotRequiredModelAssetsService(),
+            securityScopedResourceAccess: selectionScopeAudit.resourceAccess
+        )
+        for _ in 0..<200 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+
+        viewModel.resumeRecoverableJob(id: job.identifier)
+        await waitForSubmittedJobs(engine, count: 1)
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        engine.releaseResolvedRecoveryAccessesForTesting()
+        recovered = nil
+
+        firstHandle.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(recoveredScopeAudit.startCount, 2)
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 0)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 2)
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 2)
+
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 0)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 2)
+
+        let sameOutputRetryHandle = try XCTUnwrap(engine.latestHandle)
+        sameOutputRetryHandle.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        selectionScopeAudit.adoptSystemGrant(for: newOutputDirectory)
+        XCTAssertEqual(
+            selectionScopeAudit.adoptedURLs,
+            [newOutputDirectory.standardizedFileURL]
+        )
+        let newOutputURL = try XCTUnwrap(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                newOutputDirectory,
+                requestedFilename: "recovered-new-output.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        XCTAssertEqual(
+            selectionScopeAudit.activeURLs,
+            [newOutputDirectory.standardizedFileURL]
+        )
+        for _ in 0..<500 where recoveredScopeAudit.stopCount != 1 {
+            await Task.yield()
+        }
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 1)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 1)
+        XCTAssertEqual(
+            recoveredScopeAudit.events.suffix(1),
+            ["stop.output_directory"]
+        )
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 3)
+
+        let resubmittedJob = try XCTUnwrap(engine.submittedJobs.last)
+        XCTAssertEqual(resubmittedJob.inputURL, sourceURL)
+        XCTAssertEqual(resubmittedJob.outputURL, newOutputURL)
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 1)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 1)
+        XCTAssertEqual(
+            selectionScopeAudit.activeURLs,
+            [newOutputDirectory.standardizedFileURL]
+        )
+        XCTAssertTrue(selectionScopeAudit.stoppedURLs.isEmpty)
+
+        engine.latestHandle?.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        viewModel.upscaleAnotherVideo()
+        for _ in 0..<500
+            where recoveredScopeAudit.activeScopeCount != 0
+                || selectionScopeAudit.activeScopeCount != 0 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(recoveredScopeAudit.startCount, 2)
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 2)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(selectionScopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(
+            selectionScopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [newOutputDirectory.standardizedFileURL]
+        )
+    }
+
+    func testRecoveredCancellationReleasesScopesWhenDifferentSourceIsLoaded()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let originalSource = try makePendingQueueSource(
+            in: directory,
+            name: "recovered-cancel-original.mov",
+            hasAudio: false
+        )
+        let newSource = try makePendingQueueSource(
+            in: directory,
+            name: "recovered-cancel-replacement.mov",
+            hasAudio: false
+        )
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let outputURL = outputDirectory.appendingPathComponent(
+            "recovered-cancel-original.mp4"
+        )
+        let job = UpscaleJob(
+            identifier: "r13-ui-recovered-cancel-replace-source",
+            inputURL: originalSource.url,
+            outputURL: outputURL,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .deterministic
+        )
+        let recoveredScopeAudit = R13UISecurityScopeAudit()
+        let selectionScopeAudit = R13UIResourceAccessAudit()
+        var recovered: R13ResolvedRecoverableUpscaleJob? =
+            R13ResolvedRecoverableUpscaleJob(
+                summary: try R13RecoverableUpscaleJob(job: job),
+                job: job,
+                securityAccess: try makeAccessSet(
+                    sourceURL: originalSource.url,
+                    outputDirectoryURL: outputDirectory,
+                    scopeAudit: recoveredScopeAudit
+                )
+            )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [try XCTUnwrap(recovered)]
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: R13UIQueueMediaPipeline(
+                profiles: [originalSource, newSource]
+            ),
+            upscalerEngine: engine,
+            modelAssets: NotRequiredModelAssetsService(),
+            securityScopedResourceAccess: selectionScopeAudit.resourceAccess
+        )
+        for _ in 0..<200 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+
+        viewModel.resumeRecoverableJob(id: job.identifier)
+        await waitForSubmittedJobs(engine, count: 1)
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        engine.releaseResolvedRecoveryAccessesForTesting()
+        recovered = nil
+
+        firstHandle.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 2)
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 0)
+
+        selectionScopeAudit.adoptSystemGrant(for: newSource.url)
+        viewModel.acceptSourceURLSelectedByUser(newSource.url)
+
+        XCTAssertEqual(recoveredScopeAudit.stopCount, 2)
+        XCTAssertEqual(recoveredScopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(
+            selectionScopeAudit.activeURLs,
+            [newSource.url.standardizedFileURL]
+        )
+        for _ in 0..<500 where viewModel.sourceProfile?.url != newSource.url {
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.sourceProfile?.url, newSource.url)
+
+        viewModel.upscaleAnotherVideo()
+        XCTAssertEqual(selectionScopeAudit.activeScopeCount, 0)
+    }
+
     func testRecoveryBeginClearsPreviewRetainedFromPreviousFailure()
         async throws {
         let recovered = try makeRecoveredJob(
@@ -962,6 +1478,100 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertEqual(persistedRecords, viewModel.workHistoryRecords)
     }
 
+    func testCancelledHistoryDoesNotRetainReplacedOutputSelection()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "cancelled-history-source.mov",
+            hasAudio: false
+        )
+        let originalOutputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let replacementOutputDirectory = directory.appendingPathComponent(
+            "ReplacementOutput",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: replacementOutputDirectory,
+            withIntermediateDirectories: false
+        )
+        let resolutionGate = R13UIBlockingResolutionGate()
+        defer { resolutionGate.release() }
+        let scopeAudit = R13UIResourceAccessAudit()
+        let engine = R13UIModeEngineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NotRequiredModelAssetsService(),
+            workHistoryStore: MirmirWorkHistoryStore(
+                directoryURL: directory.appendingPathComponent(
+                    "History",
+                    isDirectory: true
+                )
+            ),
+            workHistoryBookmarkResolver:
+                R13UIBlockingWorkHistoryBookmarkResolver(
+                    gate: resolutionGate
+                ),
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+
+        scopeAudit.adoptSystemGrant(for: originalOutputDirectory)
+        _ = try XCTUnwrap(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                originalOutputDirectory,
+                requestedFilename: "cancelled-original.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        viewModel.startUpscale()
+        let handle = try XCTUnwrap(engine.latestHandle)
+        handle.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        for _ in 0..<1_000 where !resolutionGate.isWaiting {
+            await Task.yield()
+        }
+        XCTAssertTrue(resolutionGate.isWaiting)
+
+        scopeAudit.adoptSystemGrant(for: replacementOutputDirectory)
+        _ = try XCTUnwrap(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                replacementOutputDirectory,
+                requestedFilename: "cancelled-replacement.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [originalOutputDirectory.standardizedFileURL]
+        )
+        XCTAssertEqual(
+            scopeAudit.activeURLs,
+            [replacementOutputDirectory.standardizedFileURL]
+        )
+
+        resolutionGate.release()
+        for _ in 0..<1_000 where viewModel.workHistoryRecords.isEmpty {
+            await Task.yield()
+        }
+        XCTAssertEqual(
+            viewModel.workHistoryRecords.first?.terminalResult,
+            .cancelled
+        )
+        viewModel.upscaleAnotherVideo()
+    }
+
     func testReprocessHistoryRestoresExactConfigurationToNewOutput()
         async throws {
         let directory = FileManager.default.temporaryDirectory
@@ -985,6 +1595,10 @@ final class R13UIReleaseModeTests: XCTestCase {
         try FileManager.default.createDirectory(
             at: outputDirectory,
             withIntermediateDirectories: false
+        )
+        let scopeMaterializer = R13UIScopeStartMaterializer(
+            sourceURL: sourceURL,
+            outputDirectoryURL: outputDirectory
         )
         let resolver = R13UIWorkHistoryBookmarkResolver()
         let configuration = UpscaleProcessingConfiguration(
@@ -1039,11 +1653,24 @@ final class R13UIReleaseModeTests: XCTestCase {
             workHistoryStore: historyStore,
             workHistoryBookmarkResolver: resolver,
             workHistoryOutputIdentityMeasurer:
-                R13UIOutputIdentityMeasurer()
+                R13UIOutputIdentityMeasurer(),
+            securityScopedResourceAccess:
+                scopeMaterializer.resourceAccess
         )
-        for _ in 0..<200 where viewModel.workHistoryRecords.isEmpty {
+        for _ in 0..<200
+        where viewModel.workHistoryLocationStates[record.id] == nil {
             await Task.yield()
         }
+        XCTAssertEqual(
+            viewModel.workHistoryLocationStates[record.id],
+            MirmirWorkHistoryBookmarkStates(
+                source: .available,
+                output: .available
+            )
+        )
+
+        try FileManager.default.removeItem(at: sourceURL)
+        scopeMaterializer.enableMaterialization()
 
         viewModel.reprocessWorkHistoryRecord(id: record.id)
         for _ in 0..<500 where viewModel.state != .ready {
@@ -1072,6 +1699,106 @@ final class R13UIReleaseModeTests: XCTestCase {
                 .contains("_reprocessed_") == true
         )
         XCTAssertNotNil(viewModel.historyReprocessNavigationRequest)
+        XCTAssertNil(viewModel.workHistoryReprocessInProgressID)
+        XCTAssertEqual(
+            scopeMaterializer.materializedURLs
+                .map(\.standardizedFileURL),
+            [sourceURL.standardizedFileURL]
+        )
+    }
+
+    func testFailedHistoryReprocessReleasesRestoredScopes()
+        async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "MirmirUIReprocessFailure-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sourceURL = directory.appendingPathComponent("source.mov")
+        try Data([0x01]).write(to: sourceURL)
+        let outputDirectory = directory.appendingPathComponent(
+            "Output",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: false
+        )
+        let resolver = R13UIWorkHistoryBookmarkResolver()
+        let record = MirmirWorkHistoryRecord(
+            id: "history-reprocess-failure",
+            sourceBookmark: try resolver.makeBookmark(
+                for: sourceURL,
+                role: .source
+            ),
+            outputBookmark: try resolver.makeBookmark(
+                for: outputDirectory,
+                role: .output
+            ),
+            outputBookmarkScope: .directory,
+            sourceDisplayName: sourceURL.lastPathComponent,
+            outputDisplayName: "failed-output.mp4",
+            sourceResolution: .p1080,
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            requestedMode: .deterministic,
+            processingConfiguration: .default,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            startedAt: Date(timeIntervalSinceReferenceDate: 11),
+            completedAt: Date(timeIntervalSinceReferenceDate: 12),
+            terminalResult: .failed,
+            outputVerification: .unavailable
+        )
+        let historyStore = MirmirWorkHistoryStore(
+            directoryURL: directory.appendingPathComponent(
+                "History",
+                isDirectory: true
+            )
+        )
+        _ = try await historyStore.upsert(record)
+        let scopeMaterializer = R13UIScopeStartMaterializer(
+            sourceURL: sourceURL,
+            outputDirectoryURL: outputDirectory
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: R13UIQueueMediaPipeline(
+                profiles: [],
+                failingProbePaths: [sourceURL.path]
+            ),
+            upscalerEngine: R13UIModeEngineService(),
+            modelAssets: NotRequiredModelAssetsService(),
+            workHistoryStore: historyStore,
+            workHistoryBookmarkResolver: resolver,
+            securityScopedResourceAccess:
+                scopeMaterializer.resourceAccess
+        )
+        for _ in 0..<200
+        where viewModel.workHistoryLocationStates[record.id] == nil {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 0)
+        viewModel.reprocessWorkHistoryRecord(id: record.id)
+        for _ in 0..<500 {
+            if case .failed = viewModel.state,
+               scopeMaterializer.activeScopeCount == 0 {
+                break
+            }
+            await Task.yield()
+        }
+
+        guard case .failed = viewModel.state else {
+            return XCTFail("Expected the restored source probe to fail.")
+        }
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 0)
         XCTAssertNil(viewModel.workHistoryReprocessInProgressID)
     }
 
@@ -1146,6 +1873,8 @@ final class R13UIReleaseModeTests: XCTestCase {
             workHistoryBookmarkResolver: resolver,
             workHistoryOutputIdentityMeasurer:
                 R13UIOutputIdentityMeasurer(),
+            securityScopedResourceAccess:
+                r13UIAlwaysGrantedResourceAccess,
             revealFileInFinder: { revealedURL = $0 }
         )
         for _ in 0..<200
@@ -1269,7 +1998,9 @@ final class R13UIReleaseModeTests: XCTestCase {
             workHistoryStore: historyStore,
             workHistoryBookmarkResolver: resolver,
             workHistoryOutputIdentityMeasurer:
-                R13UIOutputIdentityMeasurer()
+                R13UIOutputIdentityMeasurer(),
+            securityScopedResourceAccess:
+                r13UIAlwaysGrantedResourceAccess
         )
         for _ in 0..<200
         where viewModel.workHistoryLocationStates[record.id] == nil {
@@ -1515,6 +2246,123 @@ final class R13UIReleaseModeTests: XCTestCase {
             first: first,
             second: second,
             outputDirectory: outputDirectory
+        )
+    }
+
+    func testPendingQueueRetainsSystemSelectionGrantsThroughBatchEnqueue()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "scoped-source.mov",
+            hasAudio: false
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        let media = R13SuspendedProbeMediaPipeline()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: media
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        let scopeAudit = R13UISystemSelectionGrantAudit()
+        let selectedURLs = [source.url, outputDirectory]
+
+        viewModel.enqueueSourceURLs(
+            [source.url],
+            outputDirectoryURL: outputDirectory,
+            retainingSystemSelectionAccesses:
+                scopeAudit.adoptedLeases(for: selectedURLs)
+        )
+
+        XCTAssertTrue(scopeAudit.startedURLs.isEmpty)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+        for _ in 0..<200 where !media.probeStarted {
+            await Task.yield()
+        }
+        XCTAssertTrue(media.probeStarted)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+        media.completeProbe(source)
+        await waitForPendingQueue(
+            viewModel,
+            count: 1,
+            requireIdle: true
+        )
+        XCTAssertTrue(scopeAudit.startedURLs.isEmpty)
+        XCTAssertEqual(scopeAudit.stoppedURLs.count, selectedURLs.count)
+        XCTAssertEqual(
+            Set(scopeAudit.stoppedURLs.map(\.standardizedFileURL)),
+            Set(selectedURLs.map(\.standardizedFileURL))
+        )
+    }
+
+    func testPendingQueueReleasesSystemSelectionGrantsAfterProbeFailure()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "scoped-failure.mov",
+            hasAudio: false
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        let media = R13SuspendedProbeMediaPipeline()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: media
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        let scopeAudit = R13UISystemSelectionGrantAudit()
+        let selectedURLs = [source.url, outputDirectory]
+
+        viewModel.enqueueSourceURLs(
+            [source.url],
+            outputDirectoryURL: outputDirectory,
+            retainingSystemSelectionAccesses:
+                scopeAudit.adoptedLeases(for: selectedURLs)
+        )
+        for _ in 0..<200 where !media.probeStarted {
+            await Task.yield()
+        }
+        XCTAssertTrue(media.probeStarted)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+        media.failProbe(
+            MediaPipelineError.readerStartFailed
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true,
+            requireError: true
+        )
+
+        XCTAssertTrue(scopeAudit.startedURLs.isEmpty)
+        XCTAssertEqual(scopeAudit.stoppedURLs.count, selectedURLs.count)
+        XCTAssertEqual(
+            Set(scopeAudit.stoppedURLs.map(\.standardizedFileURL)),
+            Set(selectedURLs.map(\.standardizedFileURL))
         )
     }
 
@@ -1803,6 +2651,101 @@ final class R13UIReleaseModeTests: XCTestCase {
         )
     }
 
+    func testPendingQueuePostSubmitRefreshFailureKeepsActiveOwnership()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "post-submit-refresh-failure.mov",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let record = try makePendingQueueWorkflowRecord(
+            id: "post-submit-refresh-failure-job",
+            order: 0,
+            source: source,
+            outputDirectory: outputDirectory,
+            outputDisplayName: "post-submit-refresh-failure-output.mp4",
+            settings: makePendingQueueSettings(
+                targetResolution: .p2160,
+                preserveAudio: false
+            ),
+            resolver: resolver
+        )
+        let fileSystem = R13UIOneShotReadFailureFileSystem()
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            ),
+            fileSystem: fileSystem
+        )
+        _ = try await queue.enqueue(record)
+        let engine = R13UIModeEngineService()
+        let scopeAudit = R13UIResourceAccessAudit()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            resolver: resolver,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true
+        )
+
+        fileSystem.failRead(afterSuccessfulReads: 1)
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true,
+            requireError: true
+        )
+
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+        let started = try await queue.load()
+        XCTAssertEqual(started.records.first?.id, record.id)
+        XCTAssertEqual(started.records.first?.state, .started)
+
+        let handle = try XCTUnwrap(engine.latestHandle)
+        let submitted = try XCTUnwrap(engine.submittedJobs.first)
+        handle.completeSuccess(submitted.outputURL)
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+
+        let completed = try await queue.load()
+        XCTAssertTrue(completed.records.isEmpty)
+        XCTAssertEqual(viewModel.state, .finished(submitted.outputURL))
+        XCTAssertNil(viewModel.pendingQueueError)
+        XCTAssertEqual(
+            scopeAudit.activeScopeCount,
+            2,
+            "The finished job retains access for reveal and history work."
+        )
+
+        viewModel.dismissTerminalJob()
+        for _ in 0..<500 where scopeAudit.activeScopeCount != 0 {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [outputDirectory, source.url].map(\.standardizedFileURL)
+        )
+    }
+
     func testPendingQueueSuccessRemovesCompletedHeadAndAutoStartsNext()
         async throws {
         let fixture = try await makeTwoItemPendingQueueFixture(
@@ -1838,6 +2781,220 @@ final class R13UIReleaseModeTests: XCTestCase {
         )
     }
 
+    func testGeneralRecoveryRestoresStartedQueueOwnershipAndAdvances()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let sources = try [0, 1].map { index in
+            try makePendingQueueSource(
+                in: directory,
+                name: "recovered-queue-\(index).mov",
+                hasAudio: false
+            )
+        }
+        let settings = makePendingQueueSettings(
+            targetResolution: .p2160,
+            codec: .hevc,
+            preserveAudio: false,
+            requestedMode: .deterministic,
+            processingConfiguration: .default
+        )
+        let records = try sources.enumerated().map { index, source in
+            try makePendingQueueWorkflowRecord(
+                id: "recovered-queue-job-\(index)",
+                order: index,
+                source: source,
+                outputDirectory: outputDirectory,
+                outputDisplayName: "recovered-output-\(index).mp4",
+                settings: settings,
+                resolver: resolver
+            )
+        }
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        _ = try await queue.enqueueMany(records)
+        let claim = try await queue.markStartedOrReturnHead()
+        XCTAssertEqual(claim.record?.id, records[0].id)
+        XCTAssertEqual(claim.record?.state, .started)
+
+        let recoveredJob = UpscaleJob(
+            identifier: records[0].id,
+            inputURL: sources[0].url,
+            outputURL: outputDirectory.appendingPathComponent(
+                records[0].bookmarks.outputDisplayName
+            ),
+            targetResolution: settings.targetResolution,
+            codec: settings.codec,
+            preserveAudio: settings.preserveAudio,
+            mode: settings.requestedMode,
+            processingConfiguration: settings.processingConfiguration
+        )
+        let recovered = R13ResolvedRecoverableUpscaleJob(
+            summary: try R13RecoverableUpscaleJob(job: recoveredJob),
+            job: recoveredJob,
+            securityAccess: try makeAccessSet(
+                sourceURL: recoveredJob.inputURL,
+                outputDirectoryURL: outputDirectory
+            )
+        )
+        let engine = R13UIModeEngineService(
+            recoverableJobs: [recovered]
+        )
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: sources),
+            engine: engine,
+            resolver: resolver
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: records.map(\.id),
+            requireIdle: true
+        )
+        for _ in 0..<1_000 where viewModel.recoverableJobs.isEmpty {
+            await Task.yield()
+        }
+        XCTAssertEqual(
+            viewModel.recoverableJobs.map(\.id),
+            [records[0].id]
+        )
+
+        viewModel.resumeRecoverableJob(id: records[0].id)
+        await waitForSubmittedJobs(engine, count: 1)
+        let recoveredHandle = try XCTUnwrap(engine.latestHandle)
+        recoveredHandle.completeSuccess(recoveredJob.outputURL)
+
+        await waitForSubmittedJobs(engine, count: 2)
+        await waitForPendingQueue(
+            viewModel,
+            ids: [records[1].id],
+            requireIdle: true
+        )
+        XCTAssertEqual(
+            engine.submittedJobs.map(\.identifier),
+            records.map(\.id)
+        )
+        let persisted = try await queue.load()
+        XCTAssertEqual(persisted.records.map(\.id), [records[1].id])
+        XCTAssertEqual(persisted.records.first?.state, .started)
+
+        engine.latestHandle?.completeCancellation()
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+    }
+
+    func testPendingQueueStartsScopesBeforeCheckingRestoredPaths()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let sourceURL = directory.appendingPathComponent(
+            "scope-restored-source.mov",
+            isDirectory: false
+        )
+        let outputDirectory = directory.appendingPathComponent(
+            "ScopeRestoredOutput",
+            isDirectory: true
+        )
+        let source = SourceProfile(
+            url: sourceURL,
+            resolution: .p1080,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: "test",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let record = try makePendingQueueWorkflowRecord(
+            id: "queue-scope-order-job",
+            order: 0,
+            source: source,
+            outputDirectory: outputDirectory,
+            outputDisplayName: "scope-restored-output.mp4",
+            settings: makePendingQueueSettings(
+                targetResolution: .p2160,
+                preserveAudio: false
+            ),
+            resolver: resolver
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        _ = try await queue.enqueue(record)
+        let scopeMaterializer = R13UIScopeStartMaterializer(
+            sourceURL: sourceURL,
+            outputDirectoryURL: outputDirectory
+        )
+        scopeMaterializer.enableMaterialization()
+        let engine = R13UIModeEngineService()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            resolver: resolver,
+            securityScopedResourceAccess:
+                scopeMaterializer.resourceAccess
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true
+        )
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: sourceURL.path))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: outputDirectory.path)
+        )
+
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(engine.submittedJobs.map(\.identifier), [record.id])
+        XCTAssertEqual(
+            scopeMaterializer.materializedURLs
+                .map(\.standardizedFileURL),
+            [sourceURL, outputDirectory].map(\.standardizedFileURL)
+        )
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 2)
+
+        engine.latestHandle?.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 2)
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 2)
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 2)
+
+        engine.latestHandle?.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 2)
+
+        viewModel.upscaleAnotherVideo()
+        for _ in 0..<500 where scopeMaterializer.activeScopeCount != 0 {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeMaterializer.activeScopeCount, 0)
+    }
+
     func testPendingQueueFailureRemovesFailedHeadAndPausesWithNextPending()
         async throws {
         let fixture = try await makeTwoItemPendingQueueFixture(
@@ -1871,6 +3028,114 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertNil(persisted.records.first?.startedAt)
     }
 
+    func testPendingQueueFailureRetainsScopesAcrossRetryAndFinishedState()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "queue-retry-scope.mov",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let record = try makePendingQueueWorkflowRecord(
+            id: "queue-retry-scope-job",
+            order: 0,
+            source: source,
+            outputDirectory: outputDirectory,
+            outputDisplayName: "queue-retry-scope-output.mp4",
+            settings: makePendingQueueSettings(
+                targetResolution: .p2160,
+                preserveAudio: false
+            ),
+            resolver: resolver
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        _ = try await queue.enqueue(record)
+        let engine = R13UIModeEngineService()
+        let scopeAudit = R13UIResourceAccessAudit()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            resolver: resolver,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true
+        )
+
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertEqual(
+            scopeAudit.startedURLs.map(\.standardizedFileURL),
+            [source.url, outputDirectory].map(\.standardizedFileURL)
+        )
+
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        firstHandle.completeFailure(
+            UpscalerEngineError.strategyFailed(
+                "injected queued retry failure"
+            )
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        guard case .failed = viewModel.state else {
+            return XCTFail("Expected the queued attempt to fail.")
+        }
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        viewModel.retryFailedUpscale()
+        await waitForSubmittedJobs(engine, count: 2)
+
+        XCTAssertEqual(viewModel.state, .running)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        let retryJob = try XCTUnwrap(engine.submittedJobs.last)
+        let retryHandle = try XCTUnwrap(engine.latestHandle)
+        retryHandle.completeSuccess(retryJob.outputURL)
+        for _ in 0..<200 where viewModel.state != .finished(retryJob.outputURL) {
+            await Task.yield()
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .finished(retryJob.outputURL))
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        viewModel.dismissTerminalJob()
+        for _ in 0..<200 where scopeAudit.activeScopeCount != 0 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [outputDirectory, source.url].map(\.standardizedFileURL)
+        )
+    }
+
     func testPendingQueueCancellationRemovesCancelledHeadAndPausesWithNextPending()
         async throws {
         let fixture = try await makeTwoItemPendingQueueFixture(
@@ -1896,6 +3161,253 @@ final class R13UIReleaseModeTests: XCTestCase {
         XCTAssertEqual(persisted.records.map(\.id), [fixture.records[1].id])
         XCTAssertEqual(persisted.records.first?.state, .pending)
         XCTAssertNil(persisted.records.first?.startedAt)
+    }
+
+    func testPendingQueueCancellationRetainsSourceScopeWhenOutputFolderChanges()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let originalOutputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let newOutputDirectory = directory.appendingPathComponent(
+            "NewOutput",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: newOutputDirectory,
+            withIntermediateDirectories: false
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "queue-cancel-new-output.mov",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let record = try makePendingQueueWorkflowRecord(
+            id: "queue-cancel-new-output-job",
+            order: 0,
+            source: source,
+            outputDirectory: originalOutputDirectory,
+            outputDisplayName: "queue-original-output.mp4",
+            settings: makePendingQueueSettings(
+                targetResolution: .p2160,
+                preserveAudio: false
+            ),
+            resolver: resolver
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        _ = try await queue.enqueue(record)
+        let engine = R13UIModeEngineService()
+        let scopeAudit = R13UIResourceAccessAudit()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            resolver: resolver,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true
+        )
+
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        firstHandle.completeCancellation()
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertEqual(
+            scopeAudit.startedURLs.map(\.standardizedFileURL),
+            [source.url, originalOutputDirectory]
+                .map(\.standardizedFileURL)
+        )
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 2)
+
+        XCTAssertEqual(
+            scopeAudit.activeURLs,
+            [source.url, originalOutputDirectory]
+                .map(\.standardizedFileURL)
+                .sorted { $0.path < $1.path }
+        )
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        let sameOutputRetryHandle = try XCTUnwrap(engine.latestHandle)
+        sameOutputRetryHandle.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        scopeAudit.adoptSystemGrant(for: newOutputDirectory)
+        XCTAssertEqual(
+            scopeAudit.adoptedURLs,
+            [newOutputDirectory.standardizedFileURL]
+        )
+        let newOutputURL = try XCTUnwrap(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                newOutputDirectory,
+                requestedFilename: "queue-new-output.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        for _ in 0..<500 where scopeAudit.stoppedURLs.isEmpty {
+            await Task.yield()
+        }
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [originalOutputDirectory.standardizedFileURL]
+        )
+        XCTAssertEqual(
+            scopeAudit.activeURLs,
+            [source.url, newOutputDirectory]
+                .map(\.standardizedFileURL)
+                .sorted { $0.path < $1.path }
+        )
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 3)
+
+        let resubmittedJob = try XCTUnwrap(engine.submittedJobs.last)
+        XCTAssertEqual(resubmittedJob.inputURL, source.url)
+        XCTAssertEqual(resubmittedJob.outputURL, newOutputURL)
+        XCTAssertEqual(
+            scopeAudit.activeURLs,
+            [source.url, newOutputDirectory]
+                .map(\.standardizedFileURL)
+                .sorted { $0.path < $1.path }
+        )
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [originalOutputDirectory.standardizedFileURL]
+        )
+
+        engine.latestHandle?.completeCancellation()
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        viewModel.upscaleAnotherVideo()
+        for _ in 0..<500 where scopeAudit.activeScopeCount != 0 {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL).sorted {
+                $0.path < $1.path
+            },
+            [source.url, originalOutputDirectory, newOutputDirectory]
+                .map(\.standardizedFileURL)
+                .sorted { $0.path < $1.path }
+        )
+    }
+
+    func testPendingQueueCancellationReleasesScopesWhenDifferentSourceIsLoaded()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let originalSource = try makePendingQueueSource(
+            in: directory,
+            name: "queue-cancel-original.mov",
+            hasAudio: false
+        )
+        let newSource = try makePendingQueueSource(
+            in: directory,
+            name: "queue-cancel-replacement.mov",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let record = try makePendingQueueWorkflowRecord(
+            id: "queue-cancel-replace-source-job",
+            order: 0,
+            source: originalSource,
+            outputDirectory: outputDirectory,
+            outputDisplayName: "queue-cancel-original.mp4",
+            settings: makePendingQueueSettings(
+                targetResolution: .p2160,
+                preserveAudio: false
+            ),
+            resolver: resolver
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        _ = try await queue.enqueue(record)
+        let engine = R13UIModeEngineService()
+        let scopeAudit = R13UIResourceAccessAudit()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(
+                profiles: [originalSource, newSource]
+            ),
+            engine: engine,
+            resolver: resolver,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [record.id],
+            requireIdle: true
+        )
+
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        firstHandle.completeCancellation()
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        for _ in 0..<500 where viewModel.state != .ready {
+            await Task.yield()
+        }
+        for _ in 0..<100 {
+            await Task.yield()
+        }
+        XCTAssertEqual(scopeAudit.activeScopeCount, 2)
+        XCTAssertTrue(scopeAudit.stoppedURLs.isEmpty)
+
+        scopeAudit.adoptSystemGrant(for: newSource.url)
+        viewModel.acceptSourceURLSelectedByUser(newSource.url)
+
+        XCTAssertEqual(
+            scopeAudit.stoppedURLs.map(\.standardizedFileURL),
+            [outputDirectory, originalSource.url]
+                .map(\.standardizedFileURL)
+        )
+        XCTAssertEqual(
+            scopeAudit.activeURLs,
+            [newSource.url.standardizedFileURL]
+        )
+        for _ in 0..<500 where viewModel.sourceProfile?.url != newSource.url {
+            await Task.yield()
+        }
+        XCTAssertEqual(viewModel.sourceProfile?.url, newSource.url)
+
+        viewModel.upscaleAnotherVideo()
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
     }
 
     func testPendingQueueViewModelReordersRemovesAndClearsPersistently()
@@ -2091,19 +3603,632 @@ final class R13UIReleaseModeTests: XCTestCase {
         )
     }
 
+    func testProcessingPathSelectionIsNonemptyOrderedAndExclusive()
+        throws {
+        let viewModel = makeReadyViewModel(
+            engine: R13UIModeEngineService()
+        )
+
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [.automatic]
+        )
+        XCTAssertTrue(
+            viewModel.toggleProcessingPathForPendingJob(.mpsLanczos)
+        )
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [.mpsLanczos]
+        )
+        XCTAssertTrue(
+            viewModel.toggleProcessingPathForPendingJob(.coreImageLanczos)
+        )
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [.mpsLanczos, .coreImageLanczos]
+        )
+        XCTAssertFalse(
+            viewModel.selectedEnginePreferences.contains(.automatic)
+        )
+        XCTAssertTrue(viewModel.selectAutomaticRoutingForPendingJob())
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [.automatic]
+        )
+
+        XCTAssertTrue(viewModel.selectAllProcessingPathsForPendingJob())
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            UpscaleEnginePreference.concreteProcessingPaths
+        )
+        XCTAssertTrue(viewModel.allProcessingPathsAreSelected)
+
+        for path in UpscaleEnginePreference.concreteProcessingPaths
+            .dropLast() {
+            XCTAssertTrue(
+                viewModel.toggleProcessingPathForPendingJob(path),
+                path.rawValue
+            )
+        }
+        let finalPath = try XCTUnwrap(
+            UpscaleEnginePreference.concreteProcessingPaths.last
+        )
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [finalPath]
+        )
+        XCTAssertFalse(
+            viewModel.toggleProcessingPathForPendingJob(finalPath)
+        )
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            [finalPath]
+        )
+    }
+
+    func testEveryConcreteScale4PathSelectionSubmitsExactPreference()
+        async throws {
+        let paths = UpscaleEnginePreference.concreteProcessingPaths
+        XCTAssertEqual(paths.count, 10)
+
+        for path in paths {
+            let engine = R13UIModeEngineService()
+            let viewModel = makeReadyViewModel(
+                engine: engine,
+                sourceResolution: .p270,
+                targetResolution: .p1080,
+                modelAssets: NoopModelAssetsService()
+            )
+            for _ in 0..<1_000 where viewModel.modelStatus != .ready {
+                await Task.yield()
+            }
+            XCTAssertEqual(viewModel.modelStatus, .ready, path.rawValue)
+
+            XCTAssertTrue(
+                viewModel.toggleProcessingPathForPendingJob(path),
+                path.rawValue
+            )
+            XCTAssertEqual(
+                viewModel.selectedEnginePreferences,
+                [path],
+                path.rawValue
+            )
+            XCTAssertEqual(viewModel.enginePreference, path)
+            XCTAssertEqual(viewModel.processingPathMenuTitle, path.title)
+            XCTAssertTrue(
+                viewModel.canStart,
+                path.rawValue + ": "
+                    + (viewModel.canStartFailureReason ?? "ready")
+            )
+
+            viewModel.startUpscale()
+            await waitForSubmittedJobs(engine, count: 1)
+            let job = try XCTUnwrap(engine.submittedJobs.first)
+            XCTAssertEqual(job.targetResolution, .p1080)
+            XCTAssertEqual(
+                job.processingConfiguration.enginePreference,
+                path
+            )
+            XCTAssertNotEqual(
+                job.processingConfiguration.enginePreference,
+                .automatic
+            )
+            XCTAssertEqual(job.outputURL, viewModel.outputURL)
+
+            engine.latestHandle?.completeSuccess(job.outputURL)
+            for _ in 0..<1_000 where viewModel.state == .running {
+                await Task.yield()
+            }
+            XCTAssertEqual(viewModel.completedOutputURL, job.outputURL)
+        }
+    }
+
+    func testProcessingPathSummaryStatesEnhancementBeforeApplePaths() {
+        let viewModel = makeReadyViewModel(
+            engine: R13UIModeEngineService()
+        )
+
+        XCTAssertTrue(
+            viewModel.selectedModeSummary.hasPrefix(
+                "Deterministic enhancement runs first. "
+            )
+        )
+
+        XCTAssertTrue(
+            viewModel.toggleProcessingPathForPendingJob(.mpsLanczos)
+        )
+        XCTAssertEqual(
+            viewModel.selectedModeSummary,
+            "Deterministic enhancement runs first, then the enhanced "
+                + "video is processed by the explicit "
+                + "\(UpscaleEnginePreference.mpsLanczos.title) path."
+        )
+
+        XCTAssertTrue(
+            viewModel.toggleProcessingPathForPendingJob(.coreImageLanczos)
+        )
+        XCTAssertEqual(
+            viewModel.selectedModeSummary,
+            "Deterministic enhancement runs first for each of the 2 "
+                + "selected Apple processing paths. Each path receives "
+                + "the enhanced video and produces its own output; paths "
+                + "are not chained."
+        )
+    }
+
+    func testProcessingPathPreferencesMigrateLegacyScalarAndSortSelection()
+        throws {
+        let suiteName =
+            "com.mirmir.tests.processing-paths.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(
+            UserDefaults(suiteName: suiteName)
+        )
+        defaults.removePersistentDomain(forName: suiteName)
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+        let keys = MirmirPreferencesKeys.namespaced(suiteName)
+        let store = MirmirPreferencesStore(
+            defaults: defaults,
+            keys: keys
+        )
+        defaults.set(
+            UpscaleEnginePreference.mpsLanczos.rawValue,
+            forKey: keys.enginePreference
+        )
+
+        XCTAssertEqual(store.loadEnginePreferences(), [.mpsLanczos])
+
+        store.saveEnginePreferences([
+            .metalFXSpatial,
+            .coreImageLanczos,
+            .mpsLanczos
+        ])
+
+        let expected: [UpscaleEnginePreference] = [
+            .mpsLanczos,
+            .coreImageLanczos,
+            .metalFXSpatial
+        ]
+        XCTAssertEqual(store.loadEnginePreferences(), expected)
+        XCTAssertEqual(store.load().enginePreferences, expected)
+        XCTAssertEqual(
+            defaults.string(forKey: keys.enginePreference),
+            UpscaleEnginePreference.mpsLanczos.rawValue
+        )
+        XCTAssertEqual(
+            defaults.stringArray(forKey: keys.enginePreferences),
+            expected.map(\.rawValue)
+        )
+    }
+
+    func testMultiPathStartPersistsDistinctJobsAndContinuesAfterPathFailure()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "multi-path-source.mov",
+            hasAudio: true
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        let engine = R13UIModeEngineService()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p2160
+        viewModel.preserveAudio = true
+        viewModel.state = .ready
+        let baseDestination = outputDirectory.appendingPathComponent(
+            "multi-path-output.mp4"
+        )
+        XCTAssertTrue(
+            viewModel.acceptOutputURLSelectedByUser(baseDestination)
+        )
+        XCTAssertTrue(
+            viewModel.selectEngineForPendingJob(.mpsLanczos)
+        )
+        XCTAssertTrue(
+            viewModel.toggleProcessingPathForPendingJob(.coreImageLanczos)
+        )
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 1)
+
+        let firstSnapshot = try await queue.load()
+        XCTAssertEqual(firstSnapshot.records.count, 2)
+        XCTAssertEqual(
+            firstSnapshot.records.map {
+                $0.settings.processingConfiguration.enginePreference
+            },
+            [.mpsLanczos, .coreImageLanczos]
+        )
+        XCTAssertEqual(
+            firstSnapshot.records.map {
+                $0.bookmarks.outputDisplayName
+            },
+            [
+                "multi-path-output_mps-lanczos.mp4",
+                "multi-path-output_core-image-lanczos.mp4"
+            ]
+        )
+        XCTAssertEqual(firstSnapshot.records[0].state, .started)
+        XCTAssertEqual(firstSnapshot.records[1].state, .pending)
+        XCTAssertTrue(
+            firstSnapshot.records.allSatisfy {
+                $0.settings.targetResolution == .p2160
+                    && $0.settings.codec == viewModel.codec
+                    && $0.settings.preserveAudio
+                    && $0.settings.requestedMode == viewModel.selectedMode
+                    && $0.settings.continuesAfterFailure
+            }
+        )
+        let batchContexts = firstSnapshot.records.compactMap {
+            $0.settings.processingPathBatch
+        }
+        XCTAssertEqual(batchContexts.count, 2)
+        XCTAssertEqual(Set(batchContexts.map(\.id)).count, 1)
+        XCTAssertEqual(batchContexts.map(\.ordinal), [0, 1])
+        XCTAssertEqual(batchContexts.map(\.totalCount), [2, 2])
+        XCTAssertEqual(
+            batchContexts.map(\.path),
+            [.mpsLanczos, .coreImageLanczos]
+        )
+
+        let firstHandle = try XCTUnwrap(engine.latestHandle)
+        firstHandle.completeFailure(
+            UpscalerEngineError.strategyFailed(
+                "injected independent path failure"
+            )
+        )
+        await waitForSubmittedJobs(engine, count: 2)
+
+        XCTAssertEqual(
+            engine.submittedJobs.map {
+                $0.processingConfiguration.enginePreference
+            },
+            [.mpsLanczos, .coreImageLanczos]
+        )
+        XCTAssertEqual(
+            Set(engine.submittedJobs.map(\.outputURL)).count,
+            2
+        )
+        let secondJob = try XCTUnwrap(engine.submittedJobs.last)
+        engine.latestHandle?.completeSuccess(secondJob.outputURL)
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        let terminal = try await queue.load()
+        XCTAssertEqual(
+            terminal.processingPathBatchResults.map(\.status),
+            [.failed, .completed]
+        )
+        let summary = try XCTUnwrap(
+            viewModel.processingPathBatchSummary
+        )
+        XCTAssertEqual(summary.completedCount, 1)
+        XCTAssertEqual(summary.failedCount, 1)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertFalse(summary.allSucceeded)
+        guard case .failed(let reason) = viewModel.state else {
+            return XCTFail(
+                "A later path success masked an earlier path failure."
+            )
+        }
+        XCTAssertTrue(reason.contains("1 of 2 successful"))
+    }
+
+    func testProcessingPathBatchFailureSurvivesRestartAndLaterSuccess()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "batch-restart-source.mov",
+            hasAudio: false
+        )
+        let resolver = R13UIQueueBookmarkResolver()
+        let queueDirectory = directory.appendingPathComponent(
+            "Queue",
+            isDirectory: true
+        )
+        let queue = MirmirPendingWorkQueue(directoryURL: queueDirectory)
+        let batchID = "batch-view-model-restart"
+        let paths: [UpscaleEnginePreference] = [
+            .mpsLanczos,
+            .coreImageLanczos
+        ]
+        let records = try paths.enumerated().map { index, path in
+            try makePendingQueueWorkflowRecord(
+                id: "batch-restart-job-\(index)",
+                order: index,
+                source: source,
+                outputDirectory: outputDirectory,
+                outputDisplayName: "batch-restart-output-\(index).mp4",
+                settings: makePendingQueueSettings(
+                    targetResolution: .p2160,
+                    preserveAudio: false,
+                    requestedMode: .deterministic,
+                    processingConfiguration:
+                        UpscaleProcessingConfiguration(
+                            enginePreference: path
+                        ),
+                    continuesAfterFailure: true,
+                    processingPathBatch:
+                        MirmirProcessingPathBatchContext(
+                            id: batchID,
+                            path: path,
+                            ordinal: index,
+                            totalCount: paths.count
+                        )
+                ),
+                resolver: resolver
+            )
+        }
+        _ = try await queue.enqueueMany(records)
+        _ = try await queue.markStartedOrReturnHead()
+        _ = try await queue.recordTerminalResultAndRemove(
+            id: records[0].id,
+            status: .failed,
+            reason: "injected pre-restart failure"
+        )
+
+        let restartedQueue = MirmirPendingWorkQueue(
+            directoryURL: queueDirectory
+        )
+        let engine = R13UIModeEngineService()
+        let viewModel = makePendingQueueViewModel(
+            queue: restartedQueue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            resolver: resolver
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [records[1].id],
+            requireIdle: true
+        )
+        XCTAssertEqual(
+            viewModel.processingPathBatchSummary?.failedCount,
+            1
+        )
+
+        viewModel.startNextPendingWork()
+        await waitForSubmittedJobs(engine, count: 1)
+        let finalJob = try XCTUnwrap(engine.submittedJobs.first)
+        engine.latestHandle?.completeSuccess(finalJob.outputURL)
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+
+        let summary = try XCTUnwrap(
+            viewModel.processingPathBatchSummary
+        )
+        XCTAssertEqual(
+            summary.results.map(\.status),
+            [.failed, .completed]
+        )
+        XCTAssertEqual(summary.failedCount, 1)
+        XCTAssertEqual(summary.completedCount, 1)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertFalse(summary.allSucceeded)
+        guard case .failed = viewModel.state else {
+            return XCTFail(
+                "Restarted batch incorrectly reported overall success."
+            )
+        }
+    }
+
+    // swiftlint:disable:next function_body_length
+    func testAllPathsFanOutUsesOneSourceAndIndependentOutputs()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let outputDirectory = try makePendingQueueOutputDirectory(
+            in: directory
+        )
+        let source = try makePendingQueueSource(
+            in: directory,
+            name: "all-paths-source.mov",
+            hasAudio: false,
+            resolution: .p270
+        )
+        let queue = MirmirPendingWorkQueue(
+            directoryURL: directory.appendingPathComponent(
+                "Queue",
+                isDirectory: true
+            )
+        )
+        let engine = R13UIModeEngineService()
+        let viewModel = makePendingQueueViewModel(
+            queue: queue,
+            media: R13UIQueueMediaPipeline(profiles: [source]),
+            engine: engine,
+            modelAssets: NoopModelAssetsService()
+        )
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        viewModel.sourceProfile = source
+        viewModel.targetResolution = .p1080
+        viewModel.state = .ready
+        viewModel.temporalConsistencyEnabled = false
+        viewModel.edgeFidelityLevel = .high
+        viewModel.detailRecoveryLevel = .low
+        viewModel.edgePreservationEnabled = true
+        let destination = outputDirectory.appendingPathComponent(
+            "all-paths-output.mp4"
+        )
+        XCTAssertTrue(
+            viewModel.acceptOutputURLSelectedByUser(destination)
+        )
+        XCTAssertTrue(viewModel.selectAllProcessingPathsForPendingJob())
+        XCTAssertTrue(
+            viewModel.canStart,
+            viewModel.canStartFailureReason ?? "All Paths must be startable."
+        )
+
+        viewModel.startUpscale()
+        await waitForSubmittedJobs(engine, count: 1)
+
+        let snapshot = try await queue.load()
+        let paths = UpscaleEnginePreference.concreteProcessingPaths
+        XCTAssertEqual(snapshot.records.count, paths.count)
+        XCTAssertEqual(
+            snapshot.records.map {
+                $0.settings.processingConfiguration.enginePreference
+            },
+            paths
+        )
+        XCTAssertEqual(
+            Set(snapshot.records.map(\.bookmarks.sourceBookmark)).count,
+            1,
+            "Every path must start from the same selected source, not the "
+                + "preceding path's output."
+        )
+        XCTAssertEqual(
+            Set(snapshot.records.map(\.bookmarks.outputDisplayName)).count,
+            paths.count
+        )
+        XCTAssertEqual(snapshot.records.first?.state, .started)
+        XCTAssertTrue(
+            snapshot.records.dropFirst().allSatisfy {
+                $0.state == .pending
+            }
+        )
+        XCTAssertTrue(
+            snapshot.records.allSatisfy {
+                let configuration =
+                    $0.settings.processingConfiguration
+                return $0.settings.targetResolution == .p1080
+                    && !configuration.temporalConsistencyEnabled
+                    && configuration.edgeFidelityLevel == .high
+                    && configuration.detailRecoveryLevel == .low
+                    && configuration.effects.edgePreservationEnabled
+                    && $0.settings.continuesAfterFailure
+            },
+            "Fan-out must copy the deterministic enhancement controls to "
+                + "every independent path job."
+        )
+
+        for (index, path) in paths.enumerated() {
+            await waitForSubmittedJobs(engine, count: index + 1)
+            let job = engine.submittedJobs[index]
+            XCTAssertEqual(job.inputURL, source.url)
+            XCTAssertEqual(job.targetResolution, .p1080)
+            XCTAssertEqual(
+                job.processingConfiguration.enginePreference,
+                path
+            )
+            XCTAssertEqual(
+                job.outputURL.lastPathComponent,
+                snapshot.records[index].bookmarks.outputDisplayName
+            )
+            engine.latestHandle?.completeSuccess(job.outputURL)
+        }
+        await waitForPendingQueue(
+            viewModel,
+            ids: [],
+            requireIdle: true
+        )
+        XCTAssertEqual(
+            engine.submittedJobs.map {
+                $0.processingConfiguration.enginePreference
+            },
+            paths
+        )
+        XCTAssertEqual(
+            Set(engine.submittedJobs.map(\.outputURL)).count,
+            paths.count
+        )
+        let terminal = try await queue.load()
+        XCTAssertTrue(terminal.records.isEmpty)
+        XCTAssertEqual(
+            terminal.processingPathBatchResults.map(\.batch.path),
+            paths
+        )
+        XCTAssertTrue(
+            terminal.processingPathBatchResults.allSatisfy {
+                $0.status == .completed
+            }
+        )
+        let summary = try XCTUnwrap(
+            MirmirProcessingPathBatchSummary.latest(
+                in: terminal.processingPathBatchResults
+            )
+        )
+        XCTAssertEqual(summary.completedCount, paths.count)
+        XCTAssertEqual(summary.results.count, paths.count)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertTrue(summary.allSucceeded)
+    }
+
+    func testProcessingPathOutputFilenameIsStableAndFileSystemSafe() {
+        let base = URL(fileURLWithPath: "/tmp/")
+            .appendingPathComponent(
+                String(repeating: "é", count: 180) + ".mp4"
+            )
+        let first = MirmirViewModel.processingPathOutputURL(
+            basedOn: base,
+            path: .videoToolboxLowLatency
+        )
+        let second = MirmirViewModel.processingPathOutputURL(
+            basedOn: base,
+            path: .videoToolboxLowLatency
+        )
+
+        XCTAssertEqual(first, second)
+        XCTAssertLessThanOrEqual(first.lastPathComponent.utf8.count, 255)
+        XCTAssertTrue(
+            first.lastPathComponent.hasSuffix(
+                "_videotoolbox-low-latency.mp4"
+            )
+        )
+    }
+
     private func makePendingQueueViewModel(
         queue: MirmirPendingWorkQueue,
-        media: R13UIQueueMediaPipeline,
+        media: any MediaPipelineService,
         engine: R13UIModeEngineService = R13UIModeEngineService(),
+        modelAssets: any ModelAssetsService =
+            NotRequiredModelAssetsService(),
         resolver: R13UIQueueBookmarkResolver =
-            R13UIQueueBookmarkResolver()
+            R13UIQueueBookmarkResolver(),
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess =
+                r13UIAlwaysGrantedResourceAccess
     ) -> MirmirViewModel {
         MirmirViewModel(
             mediaPipeline: media,
             upscalerEngine: engine,
-            modelAssets: NotRequiredModelAssetsService(),
+            modelAssets: modelAssets,
             pendingWorkQueue: queue,
-            workHistoryBookmarkResolver: resolver
+            workHistoryBookmarkResolver: resolver,
+            securityScopedResourceAccess: securityScopedResourceAccess
         )
     }
 
@@ -2111,13 +4236,14 @@ final class R13UIReleaseModeTests: XCTestCase {
         in directory: URL,
         name: String,
         hasAudio: Bool,
+        resolution: VideoResolution = .p1080,
         videoFormat: MediaVideoFormat = .sdrBT709
     ) throws -> SourceProfile {
         let url = directory.appendingPathComponent(name)
         try Data([0x01, 0x02, 0x03]).write(to: url)
         return SourceProfile(
             url: url,
-            resolution: .p1080,
+            resolution: resolution,
             frameRate: 30,
             durationSeconds: 1,
             estimatedFrameCount: 30,
@@ -2351,16 +4477,20 @@ final class R13UIReleaseModeTests: XCTestCase {
     }
 
     private func makeReadyViewModel(
-        engine: R13UIModeEngineService
+        engine: R13UIModeEngineService,
+        sourceResolution: VideoResolution = .p1080,
+        targetResolution: VideoResolution = .p2160,
+        modelAssets: any ModelAssetsService =
+            NotRequiredModelAssetsService()
     ) -> MirmirViewModel {
         let viewModel = MirmirViewModel(
             mediaPipeline: NoopMediaPipelineService(),
             upscalerEngine: engine,
-            modelAssets: NotRequiredModelAssetsService()
+            modelAssets: modelAssets
         )
         let source = SourceProfile(
             url: URL(fileURLWithPath: "/tmp/r13-ui-source.mov"),
-            resolution: .p1080,
+            resolution: sourceResolution,
             frameRate: 30,
             durationSeconds: 1,
             estimatedFrameCount: 30,
@@ -2368,17 +4498,21 @@ final class R13UIReleaseModeTests: XCTestCase {
             hasAudio: false
         )
         viewModel.sourceProfile = source
-        viewModel.targetResolution = .p2160
+        viewModel.targetResolution = targetResolution
         viewModel.state = .ready
         XCTAssertTrue(viewModel.acceptOutputURLSelectedByUser(
-            viewModel.defaultOutputURL(for: source, target: .p2160)
+            viewModel.defaultOutputURL(
+                for: source,
+                target: targetResolution
+            )
         ))
         return viewModel
     }
 
     private func makeAccessSet(
         sourceURL: URL,
-        outputDirectoryURL: URL
+        outputDirectoryURL: URL,
+        scopeAudit: R13UISecurityScopeAudit? = nil
     ) throws -> R13SecurityScopedAccessSet {
         let bindings: [(R13BookmarkRole, URL)] = [
             (.source, sourceURL),
@@ -2391,8 +4525,13 @@ final class R13UIReleaseModeTests: XCTestCase {
                     resolved: R13ResolvedSecurityScopedBookmark(
                         url: url,
                         isStale: false,
-                        startAccessing: { true },
-                        stopAccessing: {}
+                        startAccessing: {
+                            scopeAudit?.recordStart(role: role)
+                            return true
+                        },
+                        stopAccessing: {
+                            scopeAudit?.recordStop(role: role)
+                        }
                     )
                 )
             }
@@ -2472,6 +4611,203 @@ private struct R13UISingleItemPendingQueueFixture {
     let record: MirmirPendingWorkRecord
     let viewModel: MirmirViewModel
     let engine: R13UIModeEngineService
+}
+
+private let r13UIAlwaysGrantedResourceAccess =
+    MirmirSecurityScopedResourceAccess(
+        startAccessing: { _ in true },
+        stopAccessing: { _ in },
+        canCreateBookmark: { _ in true }
+    )
+
+private final class R13UIScopeStartMaterializer: @unchecked Sendable {
+    private struct State {
+        var materializationEnabled = false
+        var materializedURLs: [URL] = []
+        var activeCounts: [URL: Int] = [:]
+    }
+
+    private let lock = NSLock()
+    private let sourceURL: URL
+    private let outputDirectoryURL: URL
+    private var state = State()
+
+    init(sourceURL: URL, outputDirectoryURL: URL) {
+        self.sourceURL = sourceURL.standardizedFileURL
+        self.outputDirectoryURL = outputDirectoryURL.standardizedFileURL
+    }
+
+    var materializedURLs: [URL] {
+        lock.withLock { state.materializedURLs }
+    }
+
+    var activeScopeCount: Int {
+        lock.withLock { state.activeCounts.values.reduce(0, +) }
+    }
+
+    func enableMaterialization() {
+        lock.withLock {
+            state.materializationEnabled = true
+        }
+    }
+
+    var resourceAccess: MirmirSecurityScopedResourceAccess {
+        MirmirSecurityScopedResourceAccess(
+            startAccessing: { [weak self] url in
+                self?.startAccessing(url) ?? false
+            },
+            stopAccessing: { [weak self] url in
+                self?.stopAccessing(url)
+            },
+            canCreateBookmark: { _ in true }
+        )
+    }
+
+    private func startAccessing(_ url: URL) -> Bool {
+        let standardizedURL = url.standardizedFileURL
+        let shouldMaterialize = lock.withLock {
+            state.materializationEnabled
+        }
+        if shouldMaterialize {
+            do {
+                if standardizedURL.path == sourceURL.path,
+                   !FileManager.default.fileExists(atPath: sourceURL.path) {
+                    try Data([0x01]).write(to: sourceURL)
+                    lock.withLock {
+                        state.materializedURLs.append(sourceURL)
+                    }
+                } else if standardizedURL.path == outputDirectoryURL.path,
+                          !FileManager.default.fileExists(
+                              atPath: outputDirectoryURL.path
+                          ) {
+                    try FileManager.default.createDirectory(
+                        at: outputDirectoryURL,
+                        withIntermediateDirectories: false
+                    )
+                    lock.withLock {
+                        state.materializedURLs.append(outputDirectoryURL)
+                    }
+                }
+            } catch {
+                return false
+            }
+        }
+        lock.withLock {
+            state.activeCounts[standardizedURL, default: 0] += 1
+        }
+        return true
+    }
+
+    private func stopAccessing(_ url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        lock.withLock {
+            let count = state.activeCounts[standardizedURL] ?? 0
+            if count <= 1 {
+                state.activeCounts.removeValue(forKey: standardizedURL)
+            } else {
+                state.activeCounts[standardizedURL] = count - 1
+            }
+        }
+    }
+}
+
+private enum R13UIQueueFileSystemFault: Error {
+    case injectedReadFailure
+}
+
+private final class R13UIOneShotReadFailureFileSystem:
+    R13RestartFileSystem,
+    @unchecked Sendable {
+    private let base = R13LocalRestartFileSystem()
+    private let lock = NSLock()
+    private var successfulReadsBeforeFailure: Int?
+
+    func failRead(afterSuccessfulReads count: Int) {
+        precondition(count >= 0)
+        lock.withLock {
+            successfulReadsBeforeFailure = count
+        }
+    }
+
+    func ensureDirectory(_ url: URL) throws {
+        try base.ensureDirectory(url)
+    }
+
+    func createDirectoryExclusively(_ url: URL) throws {
+        try base.createDirectoryExclusively(url)
+    }
+
+    func validateDirectory(_ url: URL) throws {
+        try base.validateDirectory(url)
+    }
+
+    func exists(_ url: URL) -> Bool {
+        base.exists(url)
+    }
+
+    func readRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        let shouldFail = lock.withLock { () -> Bool in
+            guard let remaining = successfulReadsBeforeFailure else {
+                return false
+            }
+            guard remaining > 0 else {
+                successfulReadsBeforeFailure = nil
+                return true
+            }
+            successfulReadsBeforeFailure = remaining - 1
+            return false
+        }
+        if shouldFail {
+            throw R13UIQueueFileSystemFault.injectedReadFailure
+        }
+        return try base.readRegularFile(
+            url,
+            maximumBytes: maximumBytes
+        )
+    }
+
+    func readRegularFileWithSnapshot(
+        _ url: URL,
+        maximumBytes: Int
+    ) throws -> R13RestartRegularFileRead {
+        R13RestartRegularFileRead(
+            data: try readRegularFile(url, maximumBytes: maximumBytes),
+            snapshot: nil
+        )
+    }
+
+    func regularFile(
+        _ url: URL,
+        matches snapshot: R13RestartRegularFileSnapshot
+    ) -> Bool {
+        base.regularFile(url, matches: snapshot)
+    }
+
+    func writeNewAtomically(_ data: Data, to url: URL) throws {
+        try base.writeNewAtomically(data, to: url)
+    }
+
+    func replaceAtomically(_ data: Data, at url: URL) throws {
+        try base.replaceAtomically(data, at: url)
+    }
+
+    func publishDirectoryAtomically(
+        from sourceURL: URL,
+        to destinationURL: URL
+    ) throws {
+        try base.publishDirectoryAtomically(
+            from: sourceURL,
+            to: destinationURL
+        )
+    }
+
+    func removeFile(_ url: URL) throws {
+        try base.removeFile(url)
+    }
+
+    func removeDirectory(_ url: URL) throws {
+        try base.removeDirectory(url)
+    }
 }
 
 private struct R13UIQueueBookmarkResolver:
@@ -2625,6 +4961,12 @@ private final class R13UIModeEngineService:
 
     var discardAllCount: Int {
         lock.withLock { storedDiscardAllCount }
+    }
+
+    func releaseResolvedRecoveryAccessesForTesting() {
+        lock.withLock {
+            storedRecoverableJobs = []
+        }
     }
 
     func suspendNextCatalog(using gate: R13UIAsyncGate) {
@@ -2889,6 +5231,287 @@ private struct R13UIOutputIdentityMeasurer:
     }
 }
 
+private final class R13UISecurityScopeAudit: @unchecked Sendable {
+    private struct State {
+        var activeRoles: Set<R13BookmarkRole> = []
+        var events: [String] = []
+        var startCount = 0
+        var stopCount = 0
+    }
+
+    private let state = NSLock()
+    private var storage = State()
+
+    var activeScopeCount: Int {
+        state.withLock { storage.activeRoles.count }
+    }
+
+    var events: [String] {
+        state.withLock { storage.events }
+    }
+
+    var startCount: Int {
+        state.withLock { storage.startCount }
+    }
+
+    var stopCount: Int {
+        state.withLock { storage.stopCount }
+    }
+
+    func recordStart(role: R13BookmarkRole) {
+        state.withLock {
+            storage.activeRoles.insert(role)
+            storage.startCount += 1
+            storage.events.append("start.\(role.rawValue)")
+        }
+    }
+
+    func recordStop(role: R13BookmarkRole) {
+        state.withLock {
+            storage.activeRoles.remove(role)
+            storage.stopCount += 1
+            storage.events.append("stop.\(role.rawValue)")
+        }
+    }
+
+    func recordProtectedOperation(_ event: String) -> Bool {
+        state.withLock {
+            storage.events.append(event)
+            return storage.activeRoles == Set(R13BookmarkRole.allCases)
+        }
+    }
+}
+
+private struct R13UIScopeCheckingWorkHistoryBookmarkResolver:
+    MirmirWorkHistoryBookmarkResolving {
+    let scopeAudit: R13UISecurityScopeAudit
+
+    func makeBookmark(
+        for url: URL,
+        role: MirmirWorkHistoryBookmarkRole
+    ) throws -> Data {
+        guard scopeAudit.recordProtectedOperation(
+            "bookmark.\(role.rawValue)"
+        ) else {
+            throw MirmirWorkHistoryBookmarkError.creationFailed(role: role)
+        }
+        return Data(url.path.utf8)
+    }
+
+    func resolveBookmark(
+        _ bookmark: Data,
+        role: MirmirWorkHistoryBookmarkRole
+    ) throws -> MirmirWorkHistoryResolvedBookmark {
+        guard scopeAudit.recordProtectedOperation(
+            "resolve.\(role.rawValue)"
+        ) else {
+            throw MirmirWorkHistoryBookmarkError.resolutionFailed(role: role)
+        }
+        guard let path = String(data: bookmark, encoding: .utf8) else {
+            throw MirmirWorkHistoryBookmarkError.resolutionFailed(role: role)
+        }
+        return MirmirWorkHistoryResolvedBookmark(
+            url: URL(fileURLWithPath: path),
+            isStale: false
+        )
+    }
+}
+
+private struct R13UIScopeCheckingOutputIdentityMeasurer:
+    R13RestartSourceMeasuring {
+    let scopeAudit: R13UISecurityScopeAudit
+
+    func measureSource(at _: URL) throws -> R13RestartSourceIdentity {
+        guard scopeAudit.recordProtectedOperation("measure.output") else {
+            throw R13RestartJobError.securityScopeDenied(
+                role: .outputDirectory
+            )
+        }
+        return try R13RestartSourceIdentity(
+            sha256: String(repeating: "b", count: 64),
+            byteCount: 1
+        )
+    }
+}
+
+private final class R13UIBlockingResolutionGate: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var waiting = false
+    private var released = false
+
+    var isWaiting: Bool {
+        condition.withLock { waiting }
+    }
+
+    func wait() {
+        condition.lock()
+        waiting = true
+        condition.broadcast()
+        while !released {
+            condition.wait()
+        }
+        condition.unlock()
+    }
+
+    func release() {
+        condition.withLock {
+            released = true
+            condition.broadcast()
+        }
+    }
+}
+
+private struct R13UIBlockingWorkHistoryBookmarkResolver:
+    MirmirWorkHistoryBookmarkResolving {
+    let gate: R13UIBlockingResolutionGate
+
+    func makeBookmark(
+        for url: URL,
+        role _: MirmirWorkHistoryBookmarkRole
+    ) throws -> Data {
+        Data(url.path.utf8)
+    }
+
+    func resolveBookmark(
+        _ bookmark: Data,
+        role: MirmirWorkHistoryBookmarkRole
+    ) throws -> MirmirWorkHistoryResolvedBookmark {
+        gate.wait()
+        guard let path = String(data: bookmark, encoding: .utf8),
+              path.hasPrefix("/") else {
+            throw MirmirWorkHistoryBookmarkError
+                .resolutionFailed(role: role)
+        }
+        return MirmirWorkHistoryResolvedBookmark(
+            url: URL(fileURLWithPath: path),
+            isStale: false
+        )
+    }
+}
+
+private final class R13UIResourceAccessAudit: @unchecked Sendable {
+    private struct State {
+        var startedURLs: [URL] = []
+        var adoptedURLs: [URL] = []
+        var stoppedURLs: [URL] = []
+        var activeCounts: [URL: Int] = [:]
+    }
+
+    private let lock = NSLock()
+    private var state = State()
+
+    var startedURLs: [URL] {
+        lock.withLock { state.startedURLs }
+    }
+
+    var stoppedURLs: [URL] {
+        lock.withLock { state.stoppedURLs }
+    }
+
+    var adoptedURLs: [URL] {
+        lock.withLock { state.adoptedURLs }
+    }
+
+    var activeURLs: [URL] {
+        lock.withLock {
+            state.activeCounts.keys.sorted { $0.path < $1.path }
+        }
+    }
+
+    var activeScopeCount: Int {
+        lock.withLock { state.activeCounts.values.reduce(0, +) }
+    }
+
+    func adoptSystemGrant(for url: URL) {
+        let standardizedURL = url.standardizedFileURL
+        lock.withLock {
+            state.adoptedURLs.append(standardizedURL)
+            state.activeCounts[standardizedURL, default: 0] += 1
+        }
+    }
+
+    var resourceAccess: MirmirSecurityScopedResourceAccess {
+        MirmirSecurityScopedResourceAccess(
+            startAccessing: { [weak self] url in
+                let standardizedURL = url.standardizedFileURL
+                self?.lock.withLock {
+                    self?.state.startedURLs.append(standardizedURL)
+                    self?.state.activeCounts[standardizedURL, default: 0]
+                        += 1
+                }
+                return true
+            },
+            stopAccessing: { [weak self] url in
+                let standardizedURL = url.standardizedFileURL
+                self?.lock.withLock {
+                    self?.state.stoppedURLs.append(standardizedURL)
+                    let activeCount =
+                        self?.state.activeCounts[standardizedURL] ?? 0
+                    if activeCount <= 1 {
+                        self?.state.activeCounts.removeValue(
+                            forKey: standardizedURL
+                        )
+                    } else {
+                        self?.state.activeCounts[standardizedURL] =
+                            activeCount - 1
+                    }
+                }
+            },
+            canCreateBookmark: { [weak self] url in
+                let standardizedURL = url.standardizedFileURL
+                return self?.lock.withLock {
+                    (self?.state.activeCounts[standardizedURL] ?? 0) > 0
+                } ?? false
+            }
+        )
+    }
+}
+
+private final class R13UISystemSelectionGrantAudit:
+    @unchecked Sendable {
+    private struct State {
+        var startedURLs: [URL] = []
+        var stoppedURLs: [URL] = []
+    }
+
+    private let state = NSLock()
+    private var storage = State()
+
+    var startedURLs: [URL] {
+        state.withLock { storage.startedURLs }
+    }
+
+    var stoppedURLs: [URL] {
+        state.withLock { storage.stoppedURLs }
+    }
+
+    func adoptedLeases(
+        for urls: [URL]
+    ) -> [MirmirSecurityScopedSelectionLease] {
+        let access = MirmirSecurityScopedResourceAccess(
+            startAccessing: { [weak self] url in
+                self?.state.withLock {
+                    self?.storage.startedURLs.append(url)
+                }
+                return true
+            },
+            stopAccessing: { [weak self] url in
+                self?.state.withLock {
+                    self?.storage.stoppedURLs.append(url)
+                }
+            },
+            canCreateBookmark: { _ in true }
+        )
+        return urls.map { url in
+            MirmirSecurityScopedSelectionLease(
+                url: url,
+                access: access,
+                acquisition: .adoptedSystemGrant
+            )
+        }
+    }
+}
+
 private final class R13SuspendedProbeMediaPipeline:
     MediaPipelineService,
     @unchecked Sendable {
@@ -2920,6 +5543,14 @@ private final class R13SuspendedProbeMediaPipeline:
             return state.continuation
         }
         continuation?.resume(returning: profile)
+    }
+
+    func failProbe(_ error: Error) {
+        let continuation = lock.withLock {
+            defer { state.continuation = nil }
+            return state.continuation
+        }
+        continuation?.resume(throwing: error)
     }
 
     func beginSession(

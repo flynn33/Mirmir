@@ -3,7 +3,7 @@ import XCTest
 @testable import Mirmir
 
 final class R04VideoToolboxContractsTests: XCTestCase {
-    func testCatalogMatchesFrozenFiveRouteMatrixExactly() {
+    func testCatalogMatchesFrozenSevenRouteMatrixExactly() {
         let observed = R04VideoToolboxRouteCatalog.routes.map(ExpectedRoute.init)
         let expected: [ExpectedRoute] = [
             .init(
@@ -14,6 +14,17 @@ final class R04VideoToolboxContractsTests: XCTestCase {
                 source: .p1080,
                 target: .p2160,
                 scale: .two,
+                gate: .runtimeSupportRequired,
+                defaultEligibility: .candidateAfterObservedQualification
+            ),
+            .init(
+                subjectID: .quality4x,
+                routeID: .quality4x,
+                capabilityID: "A01",
+                backendKind: .quality,
+                source: .p270,
+                target: .p1080,
+                scale: .four,
                 gate: .runtimeSupportRequired,
                 defaultEligibility: .candidateAfterObservedQualification
             ),
@@ -47,6 +58,17 @@ final class R04VideoToolboxContractsTests: XCTestCase {
                 source: .p1080,
                 target: .p2160,
                 scale: .two,
+                gate: .exactDimensionQueryRequired,
+                defaultEligibility: .candidateAfterObservedQualification
+            ),
+            .init(
+                subjectID: .lowLatency4x,
+                routeID: .lowLatency4x,
+                capabilityID: "A02",
+                backendKind: .lowLatency,
+                source: .p270,
+                target: .p1080,
+                scale: .four,
                 gate: .exactDimensionQueryRequired,
                 defaultEligibility: .candidateAfterObservedQualification
             ),
@@ -127,12 +149,18 @@ final class R04VideoToolboxContractsTests: XCTestCase {
         let two = try XCTUnwrap(
             R04VideoToolboxRouteCatalog.route(R04VideoToolboxSubjectID.lowLatency2x)
         )
+        let four = try XCTUnwrap(
+            R04VideoToolboxRouteCatalog.route(R04VideoToolboxSubjectID.lowLatency4x)
+        )
 
         XCTAssertEqual(oneAndOneHalf.capabilityID, "A02")
         XCTAssertEqual(two.capabilityID, "A02")
+        XCTAssertEqual(four.capabilityID, "A02")
         XCTAssertEqual(oneAndOneHalf.gate, .exactDimensionQueryRequired)
         XCTAssertEqual(two.gate, .exactDimensionQueryRequired)
+        XCTAssertEqual(four.gate, .exactDimensionQueryRequired)
         XCTAssertNotEqual(oneAndOneHalf.configurationIdentity, two.configurationIdentity)
+        XCTAssertNotEqual(two.configurationIdentity, four.configurationIdentity)
     }
 
     func testNativeRouteSelectorBindsOnlyRepresentableExactRoutes() throws {
@@ -145,6 +173,16 @@ final class R04VideoToolboxContractsTests: XCTestCase {
         )
         XCTAssertEqual(quality.subjectID, .quality2x)
         XCTAssertTrue(quality.requiresConfigurationModel)
+
+        let qualityFour = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p270,
+                targetResolution: .p1080,
+                intent: .quality
+            )
+        )
+        XCTAssertEqual(qualityFour.subjectID, .quality4x)
+        XCTAssertTrue(qualityFour.requiresConfigurationModel)
 
         let lowLatencyOneAndOneHalf = try XCTUnwrap(
             R04VideoToolboxNativeRouteSelector.exactBinding(
@@ -165,6 +203,16 @@ final class R04VideoToolboxContractsTests: XCTestCase {
         )
         XCTAssertEqual(lowLatencyTwo.subjectID, .lowLatency2x)
         XCTAssertFalse(lowLatencyTwo.requiresConfigurationModel)
+
+        let lowLatencyFour = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p270,
+                targetResolution: .p1080,
+                intent: .lowLatency
+            )
+        )
+        XCTAssertEqual(lowLatencyFour.subjectID, .lowLatency4x)
+        XCTAssertFalse(lowLatencyFour.requiresConfigurationModel)
 
         XCTAssertNil(
             R04VideoToolboxNativeRouteSelector.exactBinding(
@@ -202,6 +250,10 @@ final class R04VideoToolboxContractsTests: XCTestCase {
         XCTAssertEqual(
             try R04VideoToolboxScaleFactor(numerator: 6, denominator: 4),
             .oneAndOneHalf
+        )
+        XCTAssertEqual(
+            try R04VideoToolboxScaleFactor(numerator: 8, denominator: 2),
+            .four
         )
         XCTAssertThrowsError(
             try R04VideoToolboxScaleFactor(numerator: 0, denominator: 1)

@@ -60,13 +60,21 @@ enum R03DeterministicBackendAdmissionProfile: Hashable, Sendable {
                 && subject.frameworkIdentity == R03A11ProductAdmission.frameworkIdentity
                 && subject.qualificationRole == .deterministicGPUQualityBaseline
                 && subject.productDefaultEligibility == .candidateAfterObservedQualification
-                && subject.routeIDs == [.scale3Over2, .scale2x]
+                && subject.routeIDs == [
+                    .scale3Over2,
+                    .scale2x,
+                    .scale4x
+                ]
         case .productQualifiedReleaseScaler(let kind):
             return subject.id == kind.subjectID
                 && subject.kind == .wholeFrameBackend
                 && subject.capabilityID == kind.capabilityID
                 && subject.frameworkIdentity == kind.frameworkIdentity
-                && subject.routeIDs == [.scale3Over2, .scale2x]
+                && subject.routeIDs == [
+                    .scale3Over2,
+                    .scale2x,
+                    .scale4x
+                ]
         }
     }
 

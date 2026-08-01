@@ -626,21 +626,89 @@ private struct MirmirUpscaleInspector: View {
         MirmirPanel(theme: theme) {
             VStack(alignment: .leading, spacing: theme.spacing.space5) {
                 inspectorSection("Upscale Settings") {
-                    MirmirFieldRow("Engine", theme: theme) {
-                        Picker("Engine", selection: engineSelection) {
-                            ForEach(
-                                UpscaleEnginePreference.allCases
-                            ) { preference in
-                                Text(preference.title).tag(preference)
+                    MirmirFieldRow("Processing Paths", theme: theme) {
+                        Menu {
+                            processingPathButton(.automatic)
+
+                            Divider()
+
+                            Button {
+                                viewModel
+                                    .selectAllProcessingPathsForPendingJob()
+                            } label: {
+                                if viewModel.allProcessingPathsAreSelected {
+                                    Label(
+                                        "All Paths",
+                                        systemImage: "checkmark"
+                                    )
+                                } else {
+                                    Text("All Paths")
+                                }
                             }
+
+                            Divider()
+
+                            ForEach(
+                                UpscaleEnginePreference
+                                    .concreteProcessingPaths
+                            ) { path in
+                                processingPathButton(path)
+                            }
+                        } label: {
+                            Text(viewModel.processingPathMenuTitle)
+                                .lineLimit(1)
                         }
-                        .pickerStyle(.menu)
                         .disabled(!viewModel.jobConfigurationIsEditable)
                         .help(
-                            "Resolved engine: "
+                            "Resolved processing: "
                                 + viewModel.engineSelectionText
                         )
                     }
+
+                    Label(
+                        "Deterministic enhancement runs before every "
+                            + "selected path.",
+                        systemImage: "checkmark.seal"
+                    )
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
+
+                    if let batchStatus =
+                            viewModel.processingPathBatchStatusText,
+                       let summary =
+                            viewModel.processingPathBatchSummary {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(batchStatus)
+                                .font(theme.typography.caption)
+                                .foregroundStyle(
+                                    summary.allSucceeded
+                                        ? theme.success
+                                        : theme.textSecondary
+                                )
+                            ForEach(summary.results, id: \.jobID) { result in
+                                Label(
+                                    result.batch.path.title
+                                        + " · "
+                                        + result.status.title,
+                                    systemImage:
+                                        result.status.systemImage
+                                )
+                                .font(theme.typography.caption)
+                                .foregroundStyle(
+                                    result.status == .completed
+                                        ? theme.success
+                                        : theme.warning
+                                )
+                            }
+                        }
+                    }
+
+                    Label(
+                        "AVFoundation media I/O — always used",
+                        systemImage: "film.stack"
+                    )
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
 
                     MirmirFieldRow("Strategy", theme: theme) {
                         Picker("Strategy", selection: strategySelection) {
@@ -919,14 +987,6 @@ private struct MirmirUpscaleInspector: View {
         )
     }
 
-    private var engineSelection:
-        Binding<UpscaleEnginePreference> {
-        Binding(
-            get: { viewModel.enginePreference },
-            set: { viewModel.selectEngineForPendingJob($0) }
-        )
-    }
-
     private var strategySelection:
         Binding<UpscaleStrategyPreference> {
         Binding(
@@ -1077,6 +1137,25 @@ private struct MirmirUpscaleInspector: View {
             }
             .pickerStyle(.segmented)
             .disabled(!viewModel.jobConfigurationIsEditable)
+        }
+    }
+
+    @ViewBuilder
+    private func processingPathButton(
+        _ path: UpscaleEnginePreference
+    ) -> some View {
+        Button {
+            if path == .automatic {
+                viewModel.selectAutomaticRoutingForPendingJob()
+            } else {
+                viewModel.toggleProcessingPathForPendingJob(path)
+            }
+        } label: {
+            if viewModel.processingPathIsSelected(path) {
+                Label(path.title, systemImage: "checkmark")
+            } else {
+                Text(path.title)
+            }
         }
     }
 }

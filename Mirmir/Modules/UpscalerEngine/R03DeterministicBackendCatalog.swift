@@ -39,6 +39,7 @@ enum R03ProductDefaultEligibility: String, Hashable, Sendable {
 enum R03BaselineRouteID: String, CaseIterable, Hashable, Sendable {
     case scale3Over2 = "scale_3_over_2"
     case scale2x = "scale_2x"
+    case scale4x = "scale_4x"
     case guidedSupport1x = "guided_support_1x"
     case edgePreserveSupport2x = "edge_preserve_support_2x"
 }
@@ -46,6 +47,7 @@ enum R03BaselineRouteID: String, CaseIterable, Hashable, Sendable {
 enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
     case scale3Over2 = "scale_3_over_2"
     case scale2x = "scale_2x"
+    case scale4x = "scale_4x"
 
     var routeID: R03BaselineRouteID {
         switch self {
@@ -53,6 +55,8 @@ enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
             return .scale3Over2
         case .scale2x:
             return .scale2x
+        case .scale4x:
+            return .scale4x
         }
     }
 
@@ -62,6 +66,8 @@ enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
             return 3
         case .scale2x:
             return 2
+        case .scale4x:
+            return 4
         }
     }
 
@@ -69,7 +75,7 @@ enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
         switch self {
         case .scale3Over2:
             return 2
-        case .scale2x:
+        case .scale2x, .scale4x:
             return 1
         }
     }
@@ -80,6 +86,8 @@ enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
             return .p720
         case .scale2x:
             return .p1080
+        case .scale4x:
+            return .p270
         }
     }
 
@@ -89,6 +97,8 @@ enum R03ScaleRoute: String, CaseIterable, Hashable, Sendable {
             return .p1080
         case .scale2x:
             return .p2160
+        case .scale4x:
+            return .p1080
         }
     }
 
@@ -185,7 +195,8 @@ enum R03DeterministicBackendCatalog {
             capabilityID: "A17",
             framework: "Metal",
             role: .retainedReferenceComparator,
-            eligibility: .ineligibleReferenceRole
+            eligibility: .ineligibleReferenceRole,
+            routeIDs: [.scale3Over2, .scale2x]
         ),
         supportDescriptor(
             .mpsGuidedFilter,
@@ -275,7 +286,12 @@ enum R03DeterministicBackendCatalog {
         capabilityID: String,
         framework: String,
         role: R03BaselineQualificationRole,
-        eligibility: R03ProductDefaultEligibility
+        eligibility: R03ProductDefaultEligibility,
+        routeIDs: [R03BaselineRouteID] = [
+            .scale3Over2,
+            .scale2x,
+            .scale4x
+        ]
     ) -> R03BaselineSubjectDescriptor {
         R03BaselineSubjectDescriptor(
             id: id,
@@ -284,7 +300,7 @@ enum R03DeterministicBackendCatalog {
             frameworkIdentity: framework,
             qualificationRole: role,
             productDefaultEligibility: eligibility,
-            routeIDs: [.scale3Over2, .scale2x]
+            routeIDs: routeIDs
         )
     }
 

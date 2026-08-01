@@ -1,3 +1,4 @@
+import AppKit
 import AVFoundation
 import Foundation
 @testable import Mirmir
@@ -110,6 +111,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
                     mediaType: AVMediaType.audio.rawValue,
                     ordinal: 0,
                     formatSubtypes: ["lpcm"],
+                    staticMetadataItemCount: 0,
                     isEnabled: true,
                     languageCode: nil,
                     extendedLanguageTag: nil,
@@ -401,6 +403,604 @@ final class MirmirUIWorkflowTests: XCTestCase {
         )
     }
 
+    func test_outputDirectorySelectionRetainsScopeAndCustomFilenameUntilCleared() {
+        let access = MirmirSecurityScopedAccessProbe()
+        let viewModel = makeViewModel(
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        viewModel.sourceProfile = makeSourceProfile()
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        let directory = URL(
+            fileURLWithPath:
+                "/tmp/mirmir-output-folder-\(UUID().uuidString)",
+            isDirectory: true
+        )
+
+        let output = viewModel.acceptOutputDirectorySelectedByUser(
+            directory,
+            requestedFilename: "customer-selected-name.mov",
+            preferredPathExtension: "mp4"
+        )
+
+        XCTAssertEqual(
+            output,
+            directory.appendingPathComponent(
+                "customer-selected-name.mov",
+                isDirectory: false
+            )
+        )
+        XCTAssertEqual(viewModel.outputURL, output)
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertEqual(access.bookmarkValidatedURLs, [directory])
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        viewModel.clearOutputSelection()
+
+        XCTAssertEqual(access.stoppedURLs, [directory])
+        XCTAssertNil(viewModel.outputURL)
+    }
+
+    func test_outputDirectorySelectionRejectsMissingDurableAuthorization() {
+        let access = MirmirSecurityScopedAccessProbe(
+            canCreateBookmark: false
+        )
+        let viewModel = makeViewModel(
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        viewModel.sourceProfile = makeSourceProfile()
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        let directory = URL(
+            fileURLWithPath:
+                "/tmp/mirmir-denied-folder-\(UUID().uuidString)",
+            isDirectory: true
+        )
+
+        XCTAssertNil(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                directory,
+                requestedFilename: "output.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        XCTAssertNil(viewModel.outputURL)
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertEqual(access.bookmarkValidatedURLs, [directory])
+        XCTAssertEqual(access.stoppedURLs, [directory])
+        XCTAssertEqual(
+            viewModel.outputSelectionError,
+            "Mirmir could not retain permission to the selected output "
+                + "folder. Choose the folder again."
+        )
+    }
+
+    func test_outputFilenameConstructionAppendsContainerAndRejectsTraversal() {
+        let directory = URL(
+            fileURLWithPath: "/tmp/mirmir-output",
+            isDirectory: true
+        )
+
+        XCTAssertEqual(
+            MirmirViewModel.outputURL(
+                in: directory,
+                requestedFilename: "  finished-video  ",
+                preferredPathExtension: "mov"
+            ),
+            directory.appendingPathComponent("finished-video.mov")
+        )
+        XCTAssertNil(
+            MirmirViewModel.outputURL(
+                in: directory,
+                requestedFilename: "nested/output.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        XCTAssertNil(
+            MirmirViewModel.outputURL(
+                in: directory,
+                requestedFilename: "output.mp4",
+                preferredPathExtension: "avi"
+            )
+        )
+        XCTAssertNotNil(
+            MirmirViewModel.outputURL(
+                in: directory,
+                requestedFilename: String(repeating: "a", count: 251),
+                preferredPathExtension: "mp4"
+            )
+        )
+        XCTAssertNil(
+            MirmirViewModel.outputURL(
+                in: directory,
+                requestedFilename: String(repeating: "a", count: 252),
+                preferredPathExtension: "mp4"
+            )
+        )
+    }
+
+    func test_replacingOutputDirectoryGrantStopsEachSelectionExactlyOnce() {
+        let access = MirmirSecurityScopedAccessProbe()
+        let viewModel = makeViewModel(
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        viewModel.sourceProfile = makeSourceProfile()
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        let first = URL(
+            fileURLWithPath: "/tmp/mirmir-output-first",
+            isDirectory: true
+        )
+        let second = URL(
+            fileURLWithPath: "/tmp/mirmir-output-second",
+            isDirectory: true
+        )
+
+        XCTAssertNotNil(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                first,
+                requestedFilename: "first.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+        XCTAssertNotNil(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                second,
+                requestedFilename: "second.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertEqual(access.stoppedURLs, [first])
+
+        viewModel.clearOutputSelection()
+
+        XCTAssertEqual(access.stoppedURLs, [first, second])
+    }
+
+    func test_cacheLocationSelectionBalancesAdoptedGrantOnSuccess() {
+        let access = MirmirSecurityScopedAccessProbe()
+        let engine = RecordingCacheLocationEngineService(
+            grantWasReleased: { access.stoppedURLs.contains($0) }
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService(),
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        let selectedURL = URL(
+            fileURLWithPath: "/tmp/mirmir-cache-selection",
+            isDirectory: true
+        )
+
+        viewModel.acceptCacheLocationSelectedByUser(selectedURL)
+
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertEqual(access.stoppedURLs, [selectedURL])
+        XCTAssertEqual(engine.selectedURLs, [selectedURL])
+        XCTAssertEqual(engine.grantWasActiveDuringSelection, [true])
+        XCTAssertNil(viewModel.cacheLocationSelectionError)
+    }
+
+    func test_cacheLocationSelectionBalancesAdoptedGrantOnFailure() {
+        let access = MirmirSecurityScopedAccessProbe()
+        let engine = RecordingCacheLocationEngineService(
+            failSelection: true,
+            grantWasReleased: { access.stoppedURLs.contains($0) }
+        )
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService(),
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        let selectedURL = URL(
+            fileURLWithPath: "/tmp/mirmir-cache-selection-failure",
+            isDirectory: true
+        )
+
+        viewModel.acceptCacheLocationSelectedByUser(selectedURL)
+
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertEqual(access.stoppedURLs, [selectedURL])
+        XCTAssertEqual(engine.selectedURLs, [selectedURL])
+        XCTAssertEqual(engine.grantWasActiveDuringSelection, [true])
+        XCTAssertNotNil(viewModel.cacheLocationSelectionError)
+    }
+
+    func test_systemSelectedSourceAdoptsGrantWithoutStartingItAgain()
+        async {
+        let access = MirmirSecurityScopedAccessProbe()
+        let viewModel = makeViewModel(
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        let sourceURL = URL(
+            fileURLWithPath:
+                "/tmp/mirmir-panel-source-\(UUID().uuidString).mov"
+        )
+
+        viewModel.acceptSourceURLSelectedByUser(sourceURL)
+        for _ in 0..<100 where viewModel.state == .probing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertTrue(access.startedURLs.isEmpty)
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        viewModel.upscaleAnotherVideo()
+
+        XCTAssertEqual(access.stoppedURLs, [sourceURL])
+    }
+
+    func test_selectedSourceScopeRemainsActiveThroughProbeAndReleasesOnReset()
+        async {
+        let access = MirmirSecurityScopedAccessProbe()
+        let viewModel = makeViewModel(
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        let sourceURL = URL(
+            fileURLWithPath:
+                "/tmp/mirmir-source-\(UUID().uuidString).mov"
+        )
+
+        viewModel.loadSource(url: sourceURL)
+        for _ in 0..<100 where viewModel.state == .probing {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertEqual(access.startedURLs, [sourceURL])
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        viewModel.upscaleAnotherVideo()
+
+        XCTAssertEqual(access.stoppedURLs, [sourceURL])
+    }
+
+    func test_runningJobRetainsOutputDirectoryGrantUntilHandleTerminates()
+        async throws {
+        let access = MirmirSecurityScopedAccessProbe()
+        let engine = DelayedCancellationEngineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService(),
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        viewModel.sourceProfile = makeSourceProfile()
+        viewModel.targetResolution = .p2160
+        viewModel.state = .ready
+        let directory = URL(
+            fileURLWithPath: "/tmp/mirmir-active-output",
+            isDirectory: true
+        )
+        XCTAssertNotNil(
+            viewModel.acceptOutputDirectorySelectedByUser(
+                directory,
+                requestedFilename: "active.mp4",
+                preferredPathExtension: "mp4"
+            )
+        )
+
+        viewModel.startUpscale()
+        let handle = try XCTUnwrap(engine.latestHandle)
+        viewModel.upscaleAnotherVideo()
+
+        XCTAssertTrue(handle.cancelRequested)
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        handle.completeCancellation()
+        for _ in 0..<200 where access.stoppedURLs.isEmpty {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(access.stoppedURLs, [directory])
+    }
+
+    func test_historyReprocessRetainsResolvedScopesUntilJobTerminates()
+        async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "MirmirHistoryReprocessScopes-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sourceURL = directory.appendingPathComponent("source.mov")
+        try Data([0x01]).write(to: sourceURL)
+        let outputDirectory = directory.appendingPathComponent(
+            "Output",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: false
+        )
+        let resolver = WorkflowWorkHistoryBookmarkResolver()
+        let record = MirmirWorkHistoryRecord(
+            id: "history-reprocess-scopes",
+            sourceBookmark: try resolver.makeBookmark(
+                for: sourceURL,
+                role: .source
+            ),
+            outputBookmark: try resolver.makeBookmark(
+                for: outputDirectory,
+                role: .output
+            ),
+            outputBookmarkScope: .directory,
+            sourceDisplayName: sourceURL.lastPathComponent,
+            outputDisplayName: "previous-output.mp4",
+            sourceResolution: .p1080,
+            targetResolution: .p2160,
+            codec: .hevc,
+            sourceAudioTrackCount: 0,
+            sourceScanStructure: .progressive,
+            preserveAudio: false,
+            requestedMode: .deterministic,
+            processingConfiguration: .default,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            startedAt: Date(timeIntervalSinceReferenceDate: 11),
+            completedAt: Date(timeIntervalSinceReferenceDate: 12),
+            terminalResult: .failed,
+            outputVerification: .unavailable
+        )
+        let historyStore = MirmirWorkHistoryStore(
+            directoryURL: directory.appendingPathComponent(
+                "History",
+                isDirectory: true
+            )
+        )
+        _ = try await historyStore.upsert(record)
+        let access = MirmirSecurityScopedAccessProbe()
+        let engine = DelayedCancellationEngineService()
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: engine,
+            modelAssets: NoopModelAssetsService(),
+            workHistoryStore: historyStore,
+            workHistoryBookmarkResolver: resolver,
+            securityScopedResourceAccess: access.resourceAccess
+        )
+        for _ in 0..<200
+        where viewModel.workHistoryLocationStates[record.id] == nil {
+            await Task.yield()
+        }
+        XCTAssertEqual(
+            viewModel.workHistoryLocationStates[record.id],
+            MirmirWorkHistoryBookmarkStates(
+                source: .available,
+                output: .available
+            )
+        )
+        access.reset()
+
+        viewModel.reprocessWorkHistoryRecord(id: record.id)
+        for _ in 0..<300 where viewModel.state != .ready {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(viewModel.state, .ready)
+        XCTAssertEqual(
+            Set(access.startedURLs.map(\.standardizedFileURL)),
+            Set([
+                sourceURL.standardizedFileURL,
+                outputDirectory.standardizedFileURL
+            ])
+        )
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        viewModel.startUpscale()
+        let handle = try XCTUnwrap(engine.latestHandle)
+        viewModel.upscaleAnotherVideo()
+
+        XCTAssertTrue(handle.cancelRequested)
+        XCTAssertTrue(access.stoppedURLs.isEmpty)
+
+        handle.completeCancellation()
+        for _ in 0..<500 {
+            if access.activeScopeCount == 0,
+               access.startedURLs.count == access.stoppedURLs.count,
+               Set(access.stoppedURLs.map(\.standardizedFileURL))
+                == Set([
+                    sourceURL.standardizedFileURL,
+                    outputDirectory.standardizedFileURL
+                ]) {
+                break
+            }
+            await Task.yield()
+        }
+        XCTAssertEqual(
+            Set(access.stoppedURLs.map(\.standardizedFileURL)),
+            Set([
+                sourceURL.standardizedFileURL,
+                outputDirectory.standardizedFileURL
+            ])
+        )
+        XCTAssertEqual(access.activeScopeCount, 0)
+        XCTAssertEqual(
+            access.startedURLs.map(\.standardizedFileURL).sorted {
+                $0.path < $1.path
+            },
+            access.stoppedURLs.map(\.standardizedFileURL).sorted {
+                $0.path < $1.path
+            }
+        )
+    }
+
+    func test_historyRevealKeepsResolvedOutputScopeActiveThroughFinderCall()
+        async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(
+                "MirmirHistoryRevealScope-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: false
+        )
+        defer {
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let sourceURL = directory.appendingPathComponent("source.mov")
+        try Data([0x01]).write(to: sourceURL)
+        let outputDirectory = directory.appendingPathComponent(
+            "Output",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: false
+        )
+        let outputURL = outputDirectory.appendingPathComponent("output.mp4")
+        try Data([0x02]).write(to: outputURL)
+        let resolver = WorkflowWorkHistoryBookmarkResolver()
+        let record = MirmirWorkHistoryRecord(
+            id: "history-reveal-scope",
+            sourceBookmark: try resolver.makeBookmark(
+                for: sourceURL,
+                role: .source
+            ),
+            outputBookmark: try resolver.makeBookmark(
+                for: outputDirectory,
+                role: .output
+            ),
+            outputBookmarkScope: .directory,
+            sourceDisplayName: sourceURL.lastPathComponent,
+            outputDisplayName: outputURL.lastPathComponent,
+            sourceResolution: .p1080,
+            targetResolution: .p2160,
+            codec: .hevc,
+            sourceAudioTrackCount: 0,
+            sourceScanStructure: .progressive,
+            preserveAudio: false,
+            requestedMode: .deterministic,
+            processingConfiguration: .default,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            startedAt: Date(timeIntervalSinceReferenceDate: 11),
+            completedAt: Date(timeIntervalSinceReferenceDate: 12),
+            terminalResult: .completed,
+            outputVerification: .available(
+                identity: String(repeating: "a", count: 64)
+            )
+        )
+        let historyStore = MirmirWorkHistoryStore(
+            directoryURL: directory.appendingPathComponent(
+                "History",
+                isDirectory: true
+            )
+        )
+        _ = try await historyStore.upsert(record)
+        let access = MirmirSecurityScopedAccessProbe()
+        var revealedURL: URL?
+        var scopeWasActiveDuringReveal = false
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: NoopUpscalerEngineService(),
+            modelAssets: NoopModelAssetsService(),
+            workHistoryStore: historyStore,
+            workHistoryBookmarkResolver: resolver,
+            securityScopedResourceAccess: access.resourceAccess,
+            revealFileInFinder: { url in
+                revealedURL = url
+                scopeWasActiveDuringReveal = access.activeScopeCount > 0
+            }
+        )
+        for _ in 0..<200
+        where viewModel.workHistoryLocationStates[record.id] == nil {
+            await Task.yield()
+        }
+        XCTAssertNil(viewModel.workHistoryRevealFailureReason(id: record.id))
+        access.reset()
+
+        viewModel.revealWorkHistoryOutput(id: record.id)
+        for _ in 0..<200 where revealedURL == nil {
+            await Task.yield()
+        }
+
+        XCTAssertEqual(revealedURL, outputURL)
+        XCTAssertTrue(scopeWasActiveDuringReveal)
+        XCTAssertEqual(access.startedURLs, [outputDirectory])
+        XCTAssertEqual(access.stoppedURLs, [outputDirectory])
+        XCTAssertEqual(access.activeScopeCount, 0)
+        XCTAssertNil(viewModel.workHistoryError)
+    }
+
+    func test_bookmarkCreationFailureExplainsRequiredReauthorization() {
+        let viewModel = makeViewModel()
+
+        XCTAssertEqual(
+            viewModel.userFacingJobError(
+                R13RestartJobError.bookmarkCreationFailed(
+                    role: .outputDirectory
+                )
+            ),
+            "Mirmir needs permission to reopen the source or output folder. "
+                + "Select them again and retry."
+        )
+    }
+
+    func test_releaseEnvironmentFailuresHaveUserFacingMessages() {
+        let viewModel = makeViewModel()
+        let expectations: [(R13ReleaseEnvironmentError, String)] = [
+            (
+                .applicationSupportDirectoryUnavailable,
+                "Mirmir could not access its Application Support folder, "
+                    + "so the upscale did not start."
+            ),
+            (
+                .applicationIdentityUnavailable(field: "bundle_identifier"),
+                "Mirmir could not verify this app build's release identity, "
+                    + "so the upscale did not start."
+            ),
+            (
+                .frameworkIdentityUnavailable(field: "requested_framework"),
+                "Mirmir could not verify the Apple processing framework "
+                    + "required by this mode, so the upscale did not start."
+            ),
+            (
+                .runtimeIdentityUnavailable(field: "operating_system_build"),
+                "Mirmir could not verify the current macOS runtime identity, "
+                    + "so the upscale did not start."
+            ),
+            (
+                .frameCountReaderFailed("reader failed"),
+                "Mirmir could not determine the source video's exact frame "
+                    + "count, so the upscale did not start."
+            ),
+            (
+                .frameCountUnavailable,
+                "Mirmir could not determine the source video's exact frame "
+                    + "count, so the upscale did not start."
+            ),
+            (
+                .memoryProbeFailed,
+                "Mirmir could not measure available memory, so the upscale "
+                    + "did not start safely."
+            ),
+            (
+                .arithmeticOverflow(field: "available_memory_bytes"),
+                "The source or resource measurements were too large to "
+                    + "represent safely, so the upscale did not start."
+            )
+        ]
+
+        for (error, expectedMessage) in expectations {
+            XCTAssertEqual(
+                viewModel.userFacingJobError(error),
+                expectedMessage,
+                "Unexpected message for \(error)."
+            )
+        }
+    }
+
     func test_proResRejectsMP4DestinationBeforeSubmission() {
         let viewModel = makeViewModel()
         viewModel.sourceProfile = makeSourceProfile(
@@ -530,6 +1130,100 @@ final class MirmirUIWorkflowTests: XCTestCase {
         )
     }
 
+    func test_selectedTrackStaticMetadataRequiresMOVWhenPreserved() {
+        let capability = makeStaticTrackMetadataCapability(
+            mediaType: .audio
+        )
+
+        XCTAssertTrue(
+            capability.hasSelectedTrackStaticMetadata(
+                preserveAudio: true,
+                preserveSubtitles: true,
+                preserveMetadata: true
+            )
+        )
+        XCTAssertEqual(
+            MediaOutputContainerPolicy.preferredPathExtension(
+                codec: .h264,
+                videoFormat: .sdrBT709,
+                preservationCapability: capability,
+                preserveAudio: true,
+                preserveSubtitles: true,
+                preserveMetadata: true
+            ),
+            "mov"
+        )
+
+        let error = MediaOutputContainerPolicy.validationError(
+            pathExtension: "mp4",
+            codec: .h264,
+            videoFormat: .sdrBT709,
+            preservationCapability: capability,
+            preserveAudio: true,
+            preserveSubtitles: true,
+            preserveMetadata: true
+        )
+        guard let error else {
+            return XCTFail("Expected selected-track metadata rejection.")
+        }
+        guard case .outputContainerCannotPreserveTrackMetadata(
+            let pathExtension
+        ) = error else {
+            return XCTFail("Expected selected-track metadata rejection.")
+        }
+        XCTAssertEqual(pathExtension, "mp4")
+        XCTAssertEqual(
+            error.description,
+            MediaPipelineError.outputContainerCannotPreserveTrackMetadata(
+                pathExtension: "mp4"
+            ).description
+        )
+
+        XCTAssertNil(
+            MediaOutputContainerPolicy.validationError(
+                pathExtension: "mp4",
+                codec: .h264,
+                videoFormat: .sdrBT709,
+                preservationCapability: capability,
+                preserveAudio: true,
+                preserveSubtitles: true,
+                preserveMetadata: false
+            )
+        )
+    }
+
+    func test_unselectedTrackStaticMetadataDoesNotRequireMOV() {
+        let cases: [(AVMediaType, Bool, Bool)] = [
+            (.audio, false, true),
+            (.subtitle, true, false)
+        ]
+
+        for (mediaType, preserveAudio, preserveSubtitles) in cases {
+            let capability = makeStaticTrackMetadataCapability(
+                mediaType: mediaType
+            )
+            XCTAssertFalse(
+                capability.hasSelectedTrackStaticMetadata(
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: true
+                ),
+                "Unselected \(mediaType.rawValue) metadata must not force MOV."
+            )
+            XCTAssertNil(
+                MediaOutputContainerPolicy.validationError(
+                    pathExtension: "mp4",
+                    codec: .h264,
+                    videoFormat: .sdrBT709,
+                    preservationCapability: capability,
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: true
+                )
+            )
+        }
+    }
+
     func test_alphaHEVCAndAuxiliaryAssociationsRequireMOV()
         throws {
         let standardCapability =
@@ -586,6 +1280,80 @@ final class MirmirUIWorkflowTests: XCTestCase {
                 )
                 .description
         )
+    }
+
+    func test_unselectedQuickTimeOnlyAssociationDoesNotRequireMOV() {
+        let capability = SourceMediaPreservationCapability(
+            verificationLevel: .exactProbe,
+            tracks: [],
+            associations: [
+                SourceMediaTrackAssociationCapability(
+                    sourceMediaType: AVMediaType.audio.rawValue,
+                    sourceOrdinal: 0,
+                    targetMediaType: AVMediaType.video.rawValue,
+                    targetOrdinal: 0,
+                    associationType: "auxl",
+                    support: .exact
+                )
+            ],
+            hasContainerMetadata: false,
+            containerMetadataIdentitySHA256: nil,
+            support: .exact
+        )
+
+        XCTAssertTrue(capability.hasQuickTimeOnlyTrackAssociations)
+        XCTAssertFalse(
+            capability.hasSelectedQuickTimeOnlyTrackAssociations(
+                preserveAudio: false,
+                preserveSubtitles: true,
+                preserveMetadata: true
+            )
+        )
+        XCTAssertEqual(
+            MediaOutputContainerPolicy.preferredPathExtension(
+                codec: .h264,
+                videoFormat: .sdrBT709,
+                preservationCapability: capability,
+                preserveAudio: false
+            ),
+            "mp4"
+        )
+        XCTAssertNil(
+            MediaOutputContainerPolicy.validationError(
+                pathExtension: "mp4",
+                codec: .h264,
+                videoFormat: .sdrBT709,
+                preservationCapability: capability,
+                preserveAudio: false
+            )
+        )
+
+        XCTAssertTrue(
+            capability.hasSelectedQuickTimeOnlyTrackAssociations(
+                preserveAudio: true,
+                preserveSubtitles: true,
+                preserveMetadata: true
+            )
+        )
+        XCTAssertEqual(
+            MediaOutputContainerPolicy.preferredPathExtension(
+                codec: .h264,
+                videoFormat: .sdrBT709,
+                preservationCapability: capability,
+                preserveAudio: true
+            ),
+            "mov"
+        )
+        guard case .outputContainerCannotPreserveTrackAssociations =
+                MediaOutputContainerPolicy.validationError(
+                    pathExtension: "mp4",
+                    codec: .h264,
+                    videoFormat: .sdrBT709,
+                    preservationCapability: capability,
+                    preserveAudio: true
+                ) else {
+            return XCTFail("Expected selected association MP4 rejection.")
+        }
     }
 
     func test_standardH264AndHEVCAcceptMP4AndMOV() {
@@ -1363,10 +2131,46 @@ final class MirmirUIWorkflowTests: XCTestCase {
         XCTAssertTrue(settingsSource.contains("Button(\"JSON…\")"))
         XCTAssertTrue(settingsSource.contains("Button(\"Markdown…\")"))
         XCTAssertTrue(settingsSource.contains(".fileExporter("))
+        XCTAssertTrue(
+            settingsSource.contains(
+                "MirmirDiagnosticLogTextView(text: logDisplayText)"
+            )
+        )
+        XCTAssertTrue(
+            settingsSource.contains(
+                "struct MirmirDiagnosticLogTextView: NSViewRepresentable"
+            )
+        )
+        XCTAssertTrue(settingsSource.contains("textView.isEditable = false"))
+        XCTAssertTrue(settingsSource.contains("textView.isSelectable = true"))
+        XCTAssertTrue(settingsSource.contains("textView.string = text"))
+        XCTAssertFalse(settingsSource.contains("Text(logDisplayText)"))
         XCTAssertTrue(workspaceSource.contains("SettingsLink {"))
         XCTAssertTrue(
             workspaceSource.contains("Open Diagnostic Log Settings…")
         )
+    }
+
+    func test_diagnosticLogTextViewRetainsLargeLogInReadOnlyNativeControl()
+        throws {
+        let record = String(repeating: "diagnostic-field ", count: 64)
+        let log = Array(repeating: record, count: 790)
+            .joined(separator: "\n")
+        let scrollView = MirmirDiagnosticLogTextView.makeScrollView()
+
+        MirmirDiagnosticLogTextView.update(scrollView, text: log)
+
+        let textView = try XCTUnwrap(
+            scrollView.documentView as? NSTextView
+        )
+        XCTAssertEqual(textView.string, log)
+        XCTAssertFalse(textView.isEditable)
+        XCTAssertTrue(textView.isSelectable)
+        XCTAssertFalse(textView.isRichText)
+        XCTAssertTrue(textView.usesFindBar)
+        XCTAssertTrue(textView.textContainer?.widthTracksTextView == true)
+        XCTAssertTrue(scrollView.hasVerticalScroller)
+        XCTAssertFalse(scrollView.hasHorizontalScroller)
     }
 
     func test_failedCompositionSettingsExposeDiagnosticsWithoutFailureLoop()
@@ -1765,11 +2569,16 @@ final class MirmirUIWorkflowTests: XCTestCase {
         }
     }
 
-    private func makeViewModel() -> MirmirViewModel {
+    private func makeViewModel(
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess = .foundation
+    ) -> MirmirViewModel {
         MirmirViewModel(
             mediaPipeline: NoopMediaPipelineService(),
             upscalerEngine: NoopUpscalerEngineService(),
-            modelAssets: NoopModelAssetsService()
+            modelAssets: NoopModelAssetsService(),
+            securityScopedResourceAccess:
+                securityScopedResourceAccess
         )
     }
 
@@ -1798,6 +2607,7 @@ final class MirmirUIWorkflowTests: XCTestCase {
                     mediaType: AVMediaType.audio.rawValue,
                     ordinal: 0,
                     formatSubtypes: ["lpcm"],
+                    staticMetadataItemCount: 0,
                     isEnabled: true,
                     languageCode: nil,
                     extendedLanguageTag: nil,
@@ -1826,6 +2636,36 @@ final class MirmirUIWorkflowTests: XCTestCase {
             codecHint: "avc1",
             audioTrackCount: 1,
             mediaPreservationCapability: capability
+        )
+    }
+
+    private func makeStaticTrackMetadataCapability(
+        mediaType: AVMediaType
+    ) -> SourceMediaPreservationCapability {
+        let identity = String(repeating: "e", count: 64)
+        return SourceMediaPreservationCapability(
+            verificationLevel: .exactProbe,
+            tracks: [
+                SourceMediaTrackCapability(
+                    mediaType: mediaType.rawValue,
+                    ordinal: 0,
+                    formatSubtypes: [],
+                    staticMetadataItemCount: 1,
+                    isEnabled: true,
+                    languageCode: nil,
+                    extendedLanguageTag: nil,
+                    sampleRate: nil,
+                    channelCount: nil,
+                    compressedAudioIdentitySHA256: nil,
+                    linearPCMAudioIdentitySHA256: nil,
+                    exactTrackIdentitySHA256: identity,
+                    support: .exact
+                )
+            ],
+            associations: [],
+            hasContainerMetadata: false,
+            containerMetadataIdentitySHA256: nil,
+            support: .exact
         )
     }
 
@@ -1935,6 +2775,100 @@ final class MirmirUIWorkflowTests: XCTestCase {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
+    }
+}
+
+private final class MirmirSecurityScopedAccessProbe: @unchecked Sendable {
+    private let bookmarkResult: Bool
+    private let lock = NSLock()
+
+    private var storedStartedURLs: [URL] = []
+    private var storedStoppedURLs: [URL] = []
+    private var storedBookmarkValidatedURLs: [URL] = []
+    private var storedActiveCounts: [URL: Int] = [:]
+
+    var startedURLs: [URL] {
+        lock.withLock { storedStartedURLs }
+    }
+
+    var stoppedURLs: [URL] {
+        lock.withLock { storedStoppedURLs }
+    }
+
+    var bookmarkValidatedURLs: [URL] {
+        lock.withLock { storedBookmarkValidatedURLs }
+    }
+
+    var activeScopeCount: Int {
+        lock.withLock {
+            storedActiveCounts.values.reduce(0, +)
+        }
+    }
+
+    init(canCreateBookmark: Bool = true) {
+        bookmarkResult = canCreateBookmark
+    }
+
+    func reset() {
+        lock.withLock {
+            storedStartedURLs = []
+            storedStoppedURLs = []
+            storedBookmarkValidatedURLs = []
+            storedActiveCounts = [:]
+        }
+    }
+
+    var resourceAccess: MirmirSecurityScopedResourceAccess {
+        MirmirSecurityScopedResourceAccess(
+            startAccessing: { [weak self] url in
+                self?.lock.withLock {
+                    self?.storedStartedURLs.append(url)
+                    self?.storedActiveCounts[url, default: 0] += 1
+                }
+                return true
+            },
+            stopAccessing: { [weak self] url in
+                self?.lock.withLock {
+                    self?.storedStoppedURLs.append(url)
+                    if let count = self?.storedActiveCounts[url],
+                       count > 1 {
+                        self?.storedActiveCounts[url] = count - 1
+                    } else {
+                        self?.storedActiveCounts.removeValue(forKey: url)
+                    }
+                }
+            },
+            canCreateBookmark: { [weak self] url in
+                self?.lock.withLock {
+                    self?.storedBookmarkValidatedURLs.append(url)
+                }
+                return self?.bookmarkResult ?? false
+            }
+        )
+    }
+}
+
+private struct WorkflowWorkHistoryBookmarkResolver:
+    MirmirWorkHistoryBookmarkResolving {
+    func makeBookmark(
+        for url: URL,
+        role _: MirmirWorkHistoryBookmarkRole
+    ) throws -> Data {
+        Data(url.standardizedFileURL.path.utf8)
+    }
+
+    func resolveBookmark(
+        _ bookmark: Data,
+        role: MirmirWorkHistoryBookmarkRole
+    ) throws -> MirmirWorkHistoryResolvedBookmark {
+        guard let path = String(data: bookmark, encoding: .utf8) else {
+            throw MirmirWorkHistoryBookmarkError
+                .resolutionFailed(role: role)
+        }
+        return MirmirWorkHistoryResolvedBookmark(
+            url: URL(fileURLWithPath: path),
+            isStale: false
+        )
     }
 }
 
@@ -2067,6 +3001,82 @@ private final class RecordingUnavailableEngineService: UpscalerEngineService, @u
         count.withLock { storedSubmitCount += 1 }
         throw UpscalerEngineError.backendUnavailable(
             reason: UnavailableUpscalerEngineService.roadmapTransitionReason
+        )
+    }
+
+    func start() {}
+    func stop() {}
+}
+
+private final class RecordingCacheLocationEngineService:
+    UpscalerEngineService,
+    R13CacheLocationConfiguring,
+    @unchecked Sendable {
+    let availability: UpscalerEngineAvailability = .available
+
+    private struct State {
+        var selectedURLs: [URL] = []
+        var grantWasActiveDuringSelection: [Bool] = []
+    }
+
+    private let lock = NSLock()
+    private let failSelection: Bool
+    private let grantWasReleased: @Sendable (URL) -> Bool
+    private var state = State()
+
+    init(
+        failSelection: Bool = false,
+        grantWasReleased: @escaping @Sendable (URL) -> Bool
+    ) {
+        self.failSelection = failSelection
+        self.grantWasReleased = grantWasReleased
+    }
+
+    var selectedURLs: [URL] {
+        lock.withLock { state.selectedURLs }
+    }
+
+    var grantWasActiveDuringSelection: [Bool] {
+        lock.withLock { state.grantWasActiveDuringSelection }
+    }
+
+    func cacheLocationStatus() -> R13CacheLocationStatus {
+        R13CacheLocationStatus(
+            selection: R13CacheLocationSelection(
+                displayPath: "Application Support",
+                isCustom: false
+            ),
+            availabilityError: nil
+        )
+    }
+
+    func selectCacheLocation(_ url: URL) throws
+        -> R13CacheLocationStatus {
+        lock.withLock {
+            state.selectedURLs.append(url)
+            state.grantWasActiveDuringSelection.append(
+                !grantWasReleased(url)
+            )
+        }
+        if failSelection {
+            throw R13CacheLocationError.invalidDirectory
+        }
+        return R13CacheLocationStatus(
+            selection: R13CacheLocationSelection(
+                displayPath: url.path,
+                isCustom: true
+            ),
+            availabilityError: nil
+        )
+    }
+
+    func useDefaultCacheLocation() throws -> R13CacheLocationStatus {
+        cacheLocationStatus()
+    }
+
+    func submit(_: UpscaleJob) throws -> UpscalerJobHandle {
+        throw UpscalerEngineError.backendUnavailable(
+            reason: "Not used by cache-location tests."
         )
     }
 

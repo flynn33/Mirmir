@@ -2,7 +2,7 @@ import CoreMedia
 import XCTest
 @testable import Mirmir
 
-struct R13ProductASHTestCandidate {
+struct R13ProductASHTestCandidate: Sendable {
     let identity: AppleUpscaleRouteIdentity
     let session: R13ProductASHTestSession
     let candidate: R13ProductBackendSessionCandidate
@@ -11,6 +11,7 @@ struct R13ProductASHTestCandidate {
 enum R13ProductASHTestBehavior: Sendable {
     case processed
     case unavailable
+    case rejected
     case failed
 }
 
@@ -28,7 +29,9 @@ actor R13ProductASHTestSession: AppleUpscaleSession {
 
     private let processingIdentity: AppleUpscaleProcessingIdentity
     private let unavailable: AppleUpscaleBackendUnavailable
+    private let rejection: AppleUpscaleBackendRejected
     private let failure: AppleUpscaleBackendFailed
+    private let outputResolution: VideoResolution?
     private let script: [R13ProductASHTestBehavior]
     private var submitCount = 0
     private var submittedSequenceNumbers: [Int] = []
@@ -38,7 +41,8 @@ actor R13ProductASHTestSession: AppleUpscaleSession {
 
     init(
         identity: AppleUpscaleRouteIdentity,
-        script: [R13ProductASHTestBehavior]
+        script: [R13ProductASHTestBehavior],
+        outputResolution: VideoResolution? = nil
     ) throws {
         self.identity = identity
         processingIdentity = try AppleUpscaleProcessingIdentity(
@@ -49,11 +53,16 @@ actor R13ProductASHTestSession: AppleUpscaleSession {
             processingIdentity: processingIdentity,
             reason: "test_backend_unavailable"
         )
+        rejection = try AppleUpscaleBackendRejected(
+            processingIdentity: processingIdentity,
+            reason: "test_backend_rejected"
+        )
         failure = try AppleUpscaleBackendFailed(
             processingIdentity: processingIdentity,
             reason: "test_backend_failed"
         )
         self.script = script
+        self.outputResolution = outputResolution
     }
 
     func submit(
@@ -68,10 +77,15 @@ actor R13ProductASHTestSession: AppleUpscaleSession {
         switch behavior {
         case .processed:
             do {
+                let outputPixelBuffer = try outputResolution.map {
+                    try R13ReleaseTestFrames.makeOutput(
+                        resolution: $0
+                    )
+                } ?? frame.pixelBuffer
                 return .processed(
                     try AppleUpscaleProcessedFrame(
                         sequenceNumber: frame.sequenceNumber,
-                        pixelBuffer: frame.pixelBuffer,
+                        pixelBuffer: outputPixelBuffer,
                         presentationTimestamp:
                             frame.presentationTimestamp,
                         duration: frame.duration,
@@ -92,6 +106,8 @@ actor R13ProductASHTestSession: AppleUpscaleSession {
             }
         case .unavailable:
             return .unavailable(unavailable)
+        case .rejected:
+            return .rejected(rejection)
         case .failed:
             return .failed(failure)
         }
@@ -139,6 +155,7 @@ func makeCandidate(
     rank: Int64,
     modelAssetsIdentity:
         AppleUpscaleModelAssetsIdentity = .notRequired,
+    outputResolution: VideoResolution? = nil,
     script: [R13ProductASHTestBehavior]
 ) throws -> R13ProductASHTestCandidate {
     let identity = try AppleUpscaleRouteIdentity(
@@ -153,7 +170,8 @@ func makeCandidate(
     )
     let session = try R13ProductASHTestSession(
         identity: identity,
-        script: script
+        script: script,
+        outputResolution: outputResolution
     )
     let profile = R13ProductBackendProfile(
         primaryFamily: .spatial,

@@ -18,8 +18,7 @@ extension MirmirViewModel {
 
     func chooseCacheLocation() {
         guard canChangeCacheLocation,
-              let configurable =
-                upscalerEngine as? any R13CacheLocationConfiguring else {
+              upscalerEngine is any R13CacheLocationConfiguring else {
             Task { [diagnosticRecorder] in
                 diagnosticRecorder.enqueue(
                     severity: .warning,
@@ -44,6 +43,27 @@ extension MirmirViewModel {
             )
         }
         guard panel.runModal() == .OK, let url = panel.url else {
+            return
+        }
+        acceptCacheLocationSelectedByUser(url)
+    }
+
+    func acceptCacheLocationSelectedByUser(_ url: URL) {
+        let selectionAccess = adoptSystemSelectedSecurityScope(for: url)
+        defer {
+            withExtendedLifetime(selectionAccess) {}
+        }
+        guard canChangeCacheLocation,
+              let configurable =
+                upscalerEngine as? any R13CacheLocationConfiguring else {
+            Task { [diagnosticRecorder] in
+                diagnosticRecorder.enqueue(
+                    severity: .warning,
+                    subsystem: "cache",
+                    operation: "select_cache_location",
+                    code: "cache_location_change_blocked"
+                )
+            }
             return
         }
         let correlationID = UUID()
@@ -175,7 +195,9 @@ extension MirmirViewModel {
                 preservationCapability:
                     source.mediaPreservationCapability,
                 preserveAudio:
-                    source.hasAudio && preserveAudio
+                    source.hasAudio && preserveAudio,
+                preserveSubtitles: true,
+                preserveMetadata: true
             )
         return directoryURL.appendingPathComponent(
             "\(base)_mirmir_\(Self.fileLabel(for: target))."
@@ -295,6 +317,7 @@ extension MirmirViewModel {
     }
 
     func clearOutputSelection() {
+        selectedOutputDirectoryAccess = nil
         outputURL = nil
         outputSelectionError = nil
     }

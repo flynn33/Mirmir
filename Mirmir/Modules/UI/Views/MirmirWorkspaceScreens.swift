@@ -419,12 +419,7 @@ struct MirmirQueueScreen: View {
                             viewModel.pendingQueueMutationIsInProgress
                         )
 
-                        Button(
-                            viewModel.pendingWorkRecords.first?.state
-                                == .started
-                                ? "Resume Queue Head"
-                                : "Start Next"
-                        ) {
+                        Button(startNextButtonTitle) {
                             viewModel.startNextPendingWork()
                         }
                         .buttonStyle(
@@ -539,6 +534,55 @@ struct MirmirQueueScreen: View {
     private var queueContent: some View {
         if viewModel.pendingQueueIsLoading {
             ProgressView("Loading pending work…")
+        }
+
+        if let preparation =
+                viewModel.pendingQueueModelPreparation {
+            VStack(alignment: .leading, spacing: theme.spacing.space2) {
+                Text(
+                    preparation.isPreparing
+                        ? "Preparing VideoToolbox Quality for "
+                            + preparation.displayName
+                        : "VideoToolbox Quality preparation failed for "
+                            + preparation.displayName
+                )
+                .font(theme.typography.caption.weight(.semibold))
+                if preparation.isPreparing {
+                    Text(viewModel.modelAssetsDetailText)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textTertiary)
+                    if case .downloading(let progress) =
+                        viewModel.modelStatus {
+                        ProgressView(
+                            value: min(max(progress, 0), 1)
+                        )
+                        .accessibilityLabel(
+                            "Queued VideoToolbox model download progress"
+                        )
+                    } else {
+                        ProgressView()
+                            .accessibilityLabel(
+                                "Preparing queued VideoToolbox model"
+                            )
+                    }
+                } else if let failureReason =
+                            preparation.failureReason {
+                    Text(failureReason)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.warning)
+                    Text(
+                        "Select Retry Model & Start to prepare the model "
+                            + "again. The queued video remains pending."
+                    )
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
+                }
+            }
+            .padding(theme.spacing.space3)
+            .background(
+                theme.surfaceElevated,
+                in: RoundedRectangle(cornerRadius: theme.radius.medium)
+            )
         }
 
         ForEach(
@@ -701,6 +745,16 @@ struct MirmirQueueScreen: View {
                 )
             }
         }
+    }
+
+    private var startNextButtonTitle: String {
+        if viewModel.pendingQueueModelPreparation?.failureReason != nil {
+            return "Retry Model & Start"
+        }
+        if viewModel.pendingWorkRecords.first?.state == .started {
+            return "Resume Queue Head"
+        }
+        return "Start Next"
     }
 
     private var sourceDetail: String {

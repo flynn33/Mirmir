@@ -103,6 +103,7 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
     private let presentationTransform: CGAffineTransform
     private let appendFailureFrameIndex: Int?
     private let captureAppendedFrames: Bool
+    private let outputPixelBufferPoolCapacity: Int
     private let finishObserver: @Sendable () -> Void
     private let cancelObserver: @Sendable () -> Void
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -117,6 +118,7 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
         presentationTransform: CGAffineTransform = .identity,
         appendFailureFrameIndex: Int? = nil,
         captureAppendedFrames: Bool = false,
+        outputPixelBufferPoolCapacity: Int = 1,
         finishObserver: @escaping @Sendable () -> Void = {},
         cancelObserver: @escaping @Sendable () -> Void = {}
     ) {
@@ -129,6 +131,12 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
         self.presentationTransform = presentationTransform
         self.appendFailureFrameIndex = appendFailureFrameIndex
         self.captureAppendedFrames = captureAppendedFrames
+        precondition(
+            outputPixelBufferPoolCapacity > 0,
+            "The test media output pool must contain at least one buffer."
+        )
+        self.outputPixelBufferPoolCapacity =
+            outputPixelBufferPoolCapacity
         self.finishObserver = finishObserver
         self.cancelObserver = cancelObserver
     }
@@ -170,7 +178,7 @@ final class R13ReleaseTestMediaPipeline: MediaPipelineService,
             format:
                 output.videoFormat?.pixelStorage.pixelFormat
                 ?? PixelBufferBridge.preferredFormat,
-            capacity: 1
+            capacity: outputPixelBufferPoolCapacity
         )
         let session = R13ReleaseTestMediaSession(
             sourceProfile: source,
@@ -355,6 +363,8 @@ struct R13ReleaseTestAppleSessionSnapshot: Equatable, Sendable {
 }
 
 actor R13ReleaseTestAppleSession: AppleUpscaleSession {
+    typealias InputObserver =
+        @Sendable (CVPixelBuffer, Int) throws -> Void
     typealias OutputFiller =
         @Sendable (CVPixelBuffer, Int) throws -> Void
 
@@ -374,6 +384,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
     private let processingFailure: AppleUpscaleBackendFailed
     private let behavior: R13ReleaseTestAppleSessionBehavior
     private let eventLog: R13ReleaseTestEventLog
+    private let inputObserver: InputObserver
     private let outputFiller: OutputFiller
     private var submittedSequenceNumbers: [Int] = []
     private var processedFrameCount = 0
@@ -387,6 +398,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
         outputResolution: VideoResolution,
         behavior: R13ReleaseTestAppleSessionBehavior,
         eventLog: R13ReleaseTestEventLog,
+        inputObserver: @escaping InputObserver,
         outputFiller: @escaping OutputFiller
     ) throws {
         self.identity = identity
@@ -405,6 +417,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
         )
         self.behavior = behavior
         self.eventLog = eventLog
+        self.inputObserver = inputObserver
         self.outputFiller = outputFiller
     }
 
@@ -482,6 +495,7 @@ actor R13ReleaseTestAppleSession: AppleUpscaleSession {
                 resolution: outputResolution
             )
             let sequenceNumber = frame.sequenceNumber
+            try inputObserver(frame.pixelBuffer, sequenceNumber)
             try outputFiller(output, sequenceNumber)
             let outputToken = try AppleUpscaleResourceLifetimeToken(
                 identity: "r13.test.output.\(sequenceNumber)",
@@ -518,6 +532,8 @@ final class R13ReleaseTestSessionFactory: @unchecked Sendable {
 
     private let behavior: R13ReleaseTestAppleSessionBehavior
     private let eventLog: R13ReleaseTestEventLog
+    private let inputObserver:
+        R13ReleaseTestAppleSession.InputObserver
     private let outputFiller:
         R13ReleaseTestAppleSession.OutputFiller
     private let state = OSAllocatedUnfairLock(initialState: State())
@@ -525,6 +541,10 @@ final class R13ReleaseTestSessionFactory: @unchecked Sendable {
     init(
         behavior: R13ReleaseTestAppleSessionBehavior,
         eventLog: R13ReleaseTestEventLog,
+        inputObserver:
+            @escaping R13ReleaseTestAppleSession.InputObserver = {
+                _, _ in
+            },
         outputFiller:
             @escaping R13ReleaseTestAppleSession.OutputFiller = {
                 _, _ in
@@ -532,6 +552,7 @@ final class R13ReleaseTestSessionFactory: @unchecked Sendable {
     ) {
         self.behavior = behavior
         self.eventLog = eventLog
+        self.inputObserver = inputObserver
         self.outputFiller = outputFiller
     }
 
@@ -574,6 +595,7 @@ final class R13ReleaseTestSessionFactory: @unchecked Sendable {
             outputResolution: route.canonicalTargetResolution,
             behavior: behavior,
             eventLog: eventLog,
+            inputObserver: inputObserver,
             outputFiller: outputFiller
         )
         state.withLock { current in

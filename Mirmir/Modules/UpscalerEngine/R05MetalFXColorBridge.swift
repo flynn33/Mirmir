@@ -255,7 +255,27 @@ enum R05MetalFXColorBridge {
     static func encode(
         _ source: R05LinearRGBA16FloatFrame
     ) throws -> R05NV12VideoRangeFrame {
-        try validateLinearComponents(source)
+        try encode(source, clipsFiniteRGB: false)
+    }
+
+    /// MetalFX spatial filtering may produce finite half-float ringing just
+    /// outside the normalized RGB interval. NV12 cannot represent that extended
+    /// range, so this boundary conversion clips finite RGB through the existing
+    /// BT.709 transfer clamp while retaining strict non-finite and alpha checks.
+    static func encodeClippingFiniteRGB(
+        _ source: R05LinearRGBA16FloatFrame
+    ) throws -> R05NV12VideoRangeFrame {
+        try encode(source, clipsFiniteRGB: true)
+    }
+
+    private static func encode(
+        _ source: R05LinearRGBA16FloatFrame,
+        clipsFiniteRGB: Bool
+    ) throws -> R05NV12VideoRangeFrame {
+        try validateLinearComponents(
+            source,
+            clipsFiniteRGB: clipsFiniteRGB
+        )
         let pixelCount = try checkedProduct(
             source.width,
             source.height,
@@ -341,6 +361,29 @@ enum R05MetalFXColorBridge {
         _ source: R05LinearRGBA16FloatFrame,
         into pixelBuffer: CVPixelBuffer
     ) throws {
+        try encode(
+            source,
+            into: pixelBuffer,
+            clipsFiniteRGB: false
+        )
+    }
+
+    static func encodeClippingFiniteRGB(
+        _ source: R05LinearRGBA16FloatFrame,
+        into pixelBuffer: CVPixelBuffer
+    ) throws {
+        try encode(
+            source,
+            into: pixelBuffer,
+            clipsFiniteRGB: true
+        )
+    }
+
+    private static func encode(
+        _ source: R05LinearRGBA16FloatFrame,
+        into pixelBuffer: CVPixelBuffer,
+        clipsFiniteRGB: Bool
+    ) throws {
         try validate(pixelBuffer: pixelBuffer)
         let actualWidth = CVPixelBufferGetWidth(pixelBuffer)
         let actualHeight = CVPixelBufferGetHeight(pixelBuffer)
@@ -352,7 +395,10 @@ enum R05MetalFXColorBridge {
                 actualHeight: actualHeight
             )
         }
-        let encoded = try encode(source)
+        let encoded = try encode(
+            source,
+            clipsFiniteRGB: clipsFiniteRGB
+        )
         let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
         guard status == kCVReturnSuccess else {
             throw R05MetalFXColorBridgeError.pixelBufferLockFailed(
@@ -408,7 +454,8 @@ enum R05MetalFXColorBridge {
     }
 
     private static func validateLinearComponents(
-        _ source: R05LinearRGBA16FloatFrame
+        _ source: R05LinearRGBA16FloatFrame,
+        clipsFiniteRGB: Bool
     ) throws {
         for row in 0..<source.height {
             for column in 0..<source.width {
@@ -421,7 +468,7 @@ enum R05MetalFXColorBridge {
                             index: index
                         )
                     }
-                    guard (0...1).contains(value) else {
+                    guard clipsFiniteRGB || (0...1).contains(value) else {
                         throw R05MetalFXColorBridgeError.linearComponentOutOfRange(
                             index: index,
                             value: value

@@ -423,6 +423,9 @@ struct MirmirDiagnosticRecorder: Sendable {
         fields.append(
             contentsOf: try mpsTextureDimensionLimitFields(error)
         )
+        fields.append(
+            contentsOf: try releaseEnvironmentFields(error)
+        )
         if case let R03NV12ScalingError.invalidDimensions(
             expectedWidth,
             expectedHeight,
@@ -638,6 +641,52 @@ struct MirmirDiagnosticRecorder: Sendable {
             ])
         }
         return fields
+    }
+
+    private static func releaseEnvironmentFields(
+        _ error: Error
+    ) throws -> [MirmirDiagnosticField] {
+        let sourceField: String
+        switch error {
+        case let R13ReleaseEnvironmentError
+            .applicationIdentityUnavailable(field):
+            sourceField = field
+        case let R13ReleaseEnvironmentError
+            .frameworkIdentityUnavailable(field):
+            sourceField = field
+        case let R13ReleaseEnvironmentError
+            .runtimeIdentityUnavailable(field):
+            sourceField = field
+        case let R13ReleaseEnvironmentError
+            .arithmeticOverflow(field):
+            sourceField = field
+        default:
+            return []
+        }
+
+        let safeField: String
+        switch sourceField {
+        case "bundle_identifier",
+             "semantic_version",
+             "build_version",
+             "executable_url",
+             "requested_framework",
+             "bundle",
+             "version",
+             "build",
+             "operating_system_build",
+             "source_frame_count",
+             "available_memory_bytes":
+            safeField = sourceField
+        default:
+            safeField = "unclassified"
+        }
+        return [
+            try field(
+                "release_environment_field",
+                .identifier(safeField)
+            )
+        ]
     }
 
     private static func mpsTextureDimensionLimitFields(
@@ -921,6 +970,11 @@ struct MirmirDiagnosticRecorder: Sendable {
                 expected: expected,
                 actual: actual
             ))
+        case .metadataMismatch(let scope, let reason):
+            fields.append(contentsOf: try metadataMismatchFields(
+                scope: scope,
+                reason: reason
+            ))
         case .emptyTimingLedger,
              .reopenFailed,
              .missingVideoFormatDescription,
@@ -928,11 +982,98 @@ struct MirmirDiagnosticRecorder: Sendable {
              .readerCreationFailed,
              .readerStartFailed,
              .readerFailed,
-             .metadataMismatch,
              .videoColorMismatch,
              .compressedAACMismatch,
              .mediaPreservationMismatch:
             break
+        }
+        return fields
+    }
+
+    private static func metadataMismatchFields(
+        scope: String,
+        reason: String
+    ) throws -> [MirmirDiagnosticField] {
+        let scopeIdentifier: String
+        switch scope {
+        case "timed ASH identity":
+            scopeIdentifier = "timed_ash_identity"
+        case "timed Mirmir identity":
+            scopeIdentifier = "timed_mirmir_identity"
+        default:
+            scopeIdentifier = "unclassified"
+        }
+
+        let reasonIdentifier: String
+        switch reason {
+        case let value where value.hasPrefix(
+            "expected one track with identifiers"
+        ):
+            reasonIdentifier = "metadata_track_identity_count_mismatch"
+        case let value where value.hasPrefix("reader creation failed"):
+            reasonIdentifier = "metadata_reader_creation_failed"
+        case let value where value.hasPrefix("reader rejected"):
+            reasonIdentifier = "metadata_reader_rejected"
+        case "reader did not start":
+            reasonIdentifier = "metadata_reader_start_failed"
+        case let value where value.hasPrefix("reader status"):
+            reasonIdentifier = "metadata_reader_failed"
+        case let value where value.hasPrefix("expected one group"):
+            reasonIdentifier = "metadata_group_count_mismatch"
+        case "group time range does not span the completed video":
+            reasonIdentifier = "metadata_group_time_range_mismatch"
+        case "metadata item has an invalid or foreign key":
+            reasonIdentifier = "metadata_key_invalid"
+        case let value where value.hasPrefix("duplicate key"):
+            reasonIdentifier = "metadata_key_duplicate"
+        case let value where value.hasPrefix("key ")
+            && value.hasSuffix(" has no UTF-8 string value"):
+            reasonIdentifier = "metadata_value_invalid"
+        case let value where value.hasPrefix("missing="):
+            reasonIdentifier = "metadata_values_mismatch"
+        default:
+            reasonIdentifier = "metadata_mismatch_detail_unclassified"
+        }
+
+        var fields = [
+            try field(
+                "verification_metadata_scope",
+                .identifier(scopeIdentifier)
+            ),
+            try field(
+                "verification_metadata_reason_kind",
+                .identifier(reasonIdentifier)
+            )
+        ]
+        let words = reason.split(separator: " ")
+        if reasonIdentifier == "metadata_track_identity_count_mismatch",
+           let observedIndex = words.firstIndex(of: "observed"),
+           words.indices.contains(observedIndex + 1),
+           let matchingCount = UInt64(words[observedIndex + 1]),
+           let amongIndex = words[observedIndex...]
+            .firstIndex(of: "among"),
+           words.indices.contains(amongIndex + 1),
+           let totalCount = UInt64(words[amongIndex + 1]) {
+            fields.append(contentsOf: [
+                try field(
+                    "verification_matching_metadata_track_count",
+                    .unsignedInteger(matchingCount)
+                ),
+                try field(
+                    "verification_metadata_track_count",
+                    .unsignedInteger(totalCount)
+                )
+            ])
+        } else if reasonIdentifier == "metadata_group_count_mismatch",
+                  let observedIndex = words.firstIndex(of: "observed"),
+                  words.indices.contains(observedIndex + 1),
+                  let groupCount = UInt64(words[observedIndex + 1]) {
+            fields.append(
+                try field(
+                    "verification_metadata_group_count",
+                    .unsignedInteger(groupCount)
+                )
+            )
         }
         return fields
     }
@@ -1234,6 +1375,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "unsupported_output_container"
         case MediaPipelineError.unsupportedColorProfile:
             return "unsupported_color_profile"
+        case MediaPipelineError.mediaPreservationPreflightFailed:
+            return "media_preservation_preflight_failed"
         case MediaPipelineError.unsupportedNegativeSourceTimeline:
             return "unsupported_negative_source_timeline"
         case MediaPipelineError.unrepresentableVideoTimeline:
@@ -1318,6 +1461,26 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "output_frame_count_mismatch"
         case R13ReleaseHardeningError.arithmeticOverflow:
             return "resource_arithmetic_overflow"
+        case R13ReleaseEnvironmentError
+            .applicationSupportDirectoryUnavailable:
+            return "release_application_support_unavailable"
+        case R13ReleaseEnvironmentError
+            .applicationIdentityUnavailable:
+            return "release_application_identity_unavailable"
+        case R13ReleaseEnvironmentError
+            .frameworkIdentityUnavailable:
+            return "release_framework_identity_unavailable"
+        case R13ReleaseEnvironmentError
+            .runtimeIdentityUnavailable:
+            return "release_runtime_identity_unavailable"
+        case R13ReleaseEnvironmentError.frameCountReaderFailed:
+            return "release_frame_count_reader_failed"
+        case R13ReleaseEnvironmentError.frameCountUnavailable:
+            return "release_frame_count_unavailable"
+        case R13ReleaseEnvironmentError.memoryProbeFailed:
+            return "release_memory_probe_failed"
+        case R13ReleaseEnvironmentError.arithmeticOverflow:
+            return "release_environment_arithmetic_overflow"
         case R13CacheLocationError.invalidDirectory:
             return "invalid_cache_directory"
         case R13CacheLocationError.bookmarkCreationFailed:
@@ -1334,6 +1497,10 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "cache_configuration_corrupt"
         case R13CacheLocationError.changeWhileJobRunning:
             return "cache_change_while_job_running"
+        case MirmirWorkHistoryBookmarkError.creationFailed:
+            return "work_history_bookmark_creation_failed"
+        case MirmirWorkHistoryBookmarkError.resolutionFailed:
+            return "work_history_bookmark_resolution_failed"
         case R13RestartJobError.invalidIdentity:
             return "restart_invalid_identity"
         case R13RestartJobError.invalidSHA256:
@@ -1384,6 +1551,8 @@ struct MirmirDiagnosticRecorder: Sendable {
             return "restart_prepublication_receipt_conflict"
         case R13RestartJobError.reauthorizationRequired:
             return "restart_reauthorization_required"
+        case R13RestartJobError.bookmarkCreationFailed:
+            return "restart_bookmark_creation_failed"
         case R13RestartJobError.bookmarkResolutionFailed:
             return "restart_bookmark_resolution_failed"
         case R13RestartJobError.securityScopeDenied:

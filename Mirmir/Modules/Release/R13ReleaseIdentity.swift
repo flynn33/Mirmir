@@ -10,6 +10,7 @@ enum R13ReleaseIdentityError: Error, Equatable, Sendable {
     case a11BindingMismatch(field: String)
     case releaseScalerBindingMismatch(field: String)
     case adaptiveBindingMismatch(field: String)
+    case frameworkRuntimeIdentityMismatch(field: String)
     case outputRouteMismatch
     case modelAssetsMustBeNotRequired
     case fallbackHistoryMustBeEmpty
@@ -113,20 +114,28 @@ struct R13ReleaseRoutePolicyClaim:
     ) -> R13ReleaseRoutePolicyClaim {
         let isOrchestrated =
             binding.usesProductOrchestration
+        let isExactNative =
+            binding.enginePreference.requiresNativeUpscaleSession
         let modelStatus:
             R13ReleasePolicyModelStatus
         switch routeClass {
         case .canonicalProduct:
             modelStatus = isOrchestrated
+                && (!isExactNative
+                    || binding.enginePreference
+                        == .videoToolboxQuality)
                 ? .runtimeSelected
                 : .notRequired
         case .adaptiveFormatGeometry:
-            modelStatus = .notRequired
+            modelStatus =
+                binding.enginePreference == .videoToolboxQuality
+                    ? .runtimeSelected
+                    : .notRequired
         }
         return R13ReleaseRoutePolicyClaim(
             validatedRouteClass: routeClass,
             modelStatus: modelStatus,
-            fallbackSemantics: isOrchestrated
+            fallbackSemantics: isOrchestrated && !isExactNative
                 ? .runtimeSelectedOrderedFailover
                 : .forbidden
         )
@@ -492,6 +501,7 @@ struct R13ReleaseIdentity: Equatable, Sendable {
 
     init(_ input: R13ReleaseIdentityInput) throws {
         let routeBinding = try Self.validateAndResolveRouteBinding(input)
+        try Self.validateFrameworkRuntimeIdentity(input)
         let routePolicy =
             R13ReleaseRoutePolicyClaim.canonical(
                 routeClass: {
@@ -871,6 +881,65 @@ private extension R13ReleaseIdentity {
                     field: "routing_model_status_policy"
                 )
         }
+        if enginePreference.requiresNativeUpscaleSession {
+            let selectedBackendIDs = backendIDs.map(String.init)
+            let allowedBackendIDs: Set<String>
+            let requiredModelStatus:
+                R13ProductASHSelectedModelStatus
+            switch enginePreference {
+            case .videoToolboxQuality:
+                allowedBackendIDs = [
+                    R04VideoToolboxSubjectID.quality2x.rawValue,
+                    R04VideoToolboxSubjectID.quality4x.rawValue
+                ]
+                requiredModelStatus =
+                    .appleConfigurationManagedReady
+            case .videoToolboxLowLatency:
+                allowedBackendIDs = [
+                    R04VideoToolboxSubjectID
+                        .lowLatency1p5x.rawValue,
+                    R04VideoToolboxSubjectID
+                        .lowLatency2x.rawValue,
+                    R04VideoToolboxSubjectID
+                        .lowLatency4x.rawValue,
+                    "r04.videotoolbox.low-latency.adaptive"
+                ]
+                requiredModelStatus = .notRequired
+            case .metalFXSpatial:
+                allowedBackendIDs = [
+                    R05MetalFXSubjectID.spatial1p5x.rawValue,
+                    R05MetalFXSubjectID.spatial2x.rawValue,
+                    R05MetalFXSubjectID.spatial4x.rawValue,
+                    "r05.metalfx.spatial.adaptive"
+                ]
+                requiredModelStatus = .notRequired
+            case .automatic,
+                 .accelerateVImageStandard,
+                 .accelerateVImageHighQuality,
+                 .mpsBilinear,
+                 .mpsLanczos,
+                 .coreImageLanczos,
+                 .coreImageBicubic,
+                 .videoToolboxPixelTransfer:
+                preconditionFailure(
+                    "Only exact native preferences reach native metadata validation."
+                )
+            }
+            guard selectedBackendIDs.count == 1,
+                  allowedBackendIDs.contains(
+                    selectedBackendIDs[0]
+                  ),
+                  transitionCount == 0,
+                  fallbackCount == 0,
+                  candidateExclusionCount == 0,
+                  selectedModelStatuses
+                    == [requiredModelStatus] else {
+                throw R13ReleaseIdentityError
+                    .routingDecisionMetadataInvalid(
+                        field: "routing_exact_native_policy"
+                    )
+            }
+        }
         guard metadata[
             R13ProductASHDecisionMetadata.modelStatusKey
         ] == expectedModelStatus else {
@@ -879,6 +948,15 @@ private extension R13ReleaseIdentity {
                     field: "routing_model_status"
                 )
         }
+        try validateRoutingFallbackEvents(
+            metadata,
+            expectedCount: fallbackCount,
+            decisionCount: decisionCount,
+            selectedBackendIDs: Set(
+                backendIDs.map(String.init)
+            ),
+            selectedModelStatuses: Set(selectedModelStatuses)
+        )
         guard let candidateExclusionsJSON = metadata[
             R13ProductASHDecisionMetadata
                 .candidateExclusionsKey
@@ -983,6 +1061,103 @@ private extension R13ReleaseIdentity {
                 .routingDecisionMetadataInvalid(
                     field: "routing_journal_sha256"
                 )
+        }
+    }
+
+    func validateRoutingFallbackEvents(
+        _ metadata: [String: String],
+        expectedCount: Int,
+        decisionCount: Int,
+        selectedBackendIDs: Set<String>,
+        selectedModelStatuses:
+            Set<R13ProductASHSelectedModelStatus>
+    ) throws {
+        func invalid() -> R13ReleaseIdentityError {
+            .routingDecisionMetadataInvalid(
+                field: "routing_fallback_events"
+            )
+        }
+
+        guard let json = metadata[
+            R13ProductASHDecisionMetadata.fallbackEventsKey
+        ],
+              let data = json.data(using: .utf8),
+              let events = try? JSONDecoder().decode(
+                  [R13ProductASHFallbackEventEvidence].self,
+                  from: data
+              ),
+              events.count == expectedCount,
+              (try? R13ProductASHDecisionMetadata
+                  .canonicalFallbackEventsJSON(events)) == json else {
+            throw invalid()
+        }
+        guard !events.isEmpty || expectedCount == 0 else {
+            throw invalid()
+        }
+
+        var failedBackendIDs: Set<String> = []
+        var fallbackSequenceNumbers: Set<Int> = []
+        var currentSequenceNumber: Int?
+        var currentLinks: [AppleUpscaleFallbackLink] = []
+
+        func validateCurrentChain() throws {
+            guard let terminalRoute = currentLinks.last?.selectedRoute,
+                  (try? AppleUpscaleProcessingIdentity(
+                      route: terminalRoute,
+                      fallbackHistory: currentLinks
+                  )) != nil,
+                  selectedBackendIDs.contains(
+                      terminalRoute.backend.backendID
+                  ),
+                  selectedModelStatuses.contains(
+                      R13ProductASHSelectedModelStatus(
+                          modelAssetsIdentity:
+                              terminalRoute.backend
+                                  .modelAssetsIdentity
+                      )
+                  ) else {
+                throw invalid()
+            }
+        }
+
+        for event in events {
+            let link: AppleUpscaleFallbackLink
+            do {
+                link = try event.appleLink()
+            } catch {
+                throw invalid()
+            }
+            if let currentSequenceNumber {
+                guard event.sequenceNumber >= currentSequenceNumber else {
+                    throw invalid()
+                }
+                if event.sequenceNumber != currentSequenceNumber {
+                    try validateCurrentChain()
+                    currentLinks.removeAll(keepingCapacity: true)
+                }
+            }
+            if currentSequenceNumber != event.sequenceNumber {
+                guard fallbackSequenceNumbers.insert(
+                    event.sequenceNumber
+                ).inserted else {
+                    throw invalid()
+                }
+                currentSequenceNumber = event.sequenceNumber
+            }
+            guard event.selectedFallbackOrdinal
+                    == currentLinks.count,
+                  failedBackendIDs.insert(
+                      link.failedRoute.backend.backendID
+                  ).inserted else {
+                throw invalid()
+            }
+            currentLinks.append(link)
+        }
+        if !currentLinks.isEmpty {
+            try validateCurrentChain()
+        }
+        guard fallbackSequenceNumbers.count <= decisionCount else {
+            throw invalid()
         }
     }
 
@@ -1218,6 +1393,28 @@ private extension R13ReleaseIdentity {
     ) throws {
         guard binding == binding.canonicalReconstruction else {
             throw R13ReleaseIdentityError.modeBindingMismatch
+        }
+    }
+
+    static func validateFrameworkRuntimeIdentity(
+        _ input: R13ReleaseIdentityInput
+    ) throws {
+        guard input.framework.frameworkIdentifier
+                == "AppleNativeMultiEngine" else {
+            return
+        }
+        guard input.framework.version == input.runtime.version else {
+            throw R13ReleaseIdentityError
+                .frameworkRuntimeIdentityMismatch(
+                    field: "framework_version"
+                )
+        }
+        guard input.framework.buildIdentity
+                == input.runtime.buildIdentity else {
+            throw R13ReleaseIdentityError
+                .frameworkRuntimeIdentityMismatch(
+                    field: "framework_build_identity"
+                )
         }
     }
 

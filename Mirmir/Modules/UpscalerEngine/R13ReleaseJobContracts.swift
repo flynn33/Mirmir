@@ -252,6 +252,9 @@ enum R13ReleaseJobContracts {
         if R03ScaleRoute.scale2x.matches(source: source, target: target) {
             return .scale2x
         }
+        if R03ScaleRoute.scale4x.matches(source: source, target: target) {
+            return .scale4x
+        }
         throw UpscaleStrategyError.unsupportedResolutionPair(
             source: source,
             target: target

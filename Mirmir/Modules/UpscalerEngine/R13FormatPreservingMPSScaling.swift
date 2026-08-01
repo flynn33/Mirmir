@@ -185,6 +185,10 @@ final class R13FormatPreservingMPSScaler:
                 "r13_format_mps_bounds_\(error)"
             )
         }
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            destination,
+            format: videoFormat
+        )
         CVBufferPropagateAttachments(source, destination)
         R13MediaVideoFormatContract.install(
             videoFormat,

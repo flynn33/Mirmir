@@ -1,11 +1,9 @@
 # Mirmir Architecture
 
-> **Current status:** This document records the preserved ASH V3 implementation
-> and the Apple-native target architecture defined by
-> [Roadmap 1.0.1](docs/roadmaps/Mirmir_Apple_Native_ASH_Roadmap_2026-07-18.md)
-> and [ADR 0001](docs/decisions/0001-apple-native-adaptive-architecture.md).
-> ASH V3 testing, failure evidence, and diagnostic artifacts are retained, but
-> their publication is not a release or gate promotion.
+> **Current status:** The production composition described below is the active
+> application architecture. Roadmap checkpoints, ASH V3 evidence, and earlier
+> unavailable-service compositions are retained as historical records; they do
+> not define current feature availability or release readiness.
 
 - Roadmap phase `R00`: `passed`
 - Roadmap phase `R01`: `passed`
@@ -48,11 +46,11 @@ renders `MirmirProductionRootView` only after the UI module and primary view are
 registered. Debug launch with `MIRMIR_DEVELOPER_WORKSPACE=1` adds a read-only
 module/status surface. It provides no activation or deactivation controls.
 
-Production launch composes `NotRequiredModelAssetsService`,
-`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
-Fast, and Deterministic are available and bind to the genuine
-`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
-cannot submit. No silent fallback is permitted.
+Production launch composes `DefaultModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Auto,
+Quality, Fast, Deterministic, and Smooth Motion are available. The release
+engine resolves each job to a compatible Apple-native route and records native
+route exclusions and declared fallbacks in diagnostics and release identity.
 
 R02 began from local R01 closure commit
 `555ae5a1afce1e492bdc89b6b14f2ba269edc524`, tree
@@ -316,11 +314,10 @@ production call graph. R13 production launch instead follows:
 ```text
 MirmirAppBootstrap
   -> DefaultMetalRenderingService
-  -> NotRequiredModelAssetsService
+  -> DefaultModelAssetsService
   -> AVFoundationMediaPipeline
   -> R13ReleaseUpscalerEngineService
-       -> R13A11ProductSessionFactory
-            -> genuine r03.mps.lanczos A11
+       -> Apple-native mode router and format-preserving processing
   -> MirmirModuleFactoryRegistry
   -> MirmirModuleHost
   -> MirmirViewRegistry

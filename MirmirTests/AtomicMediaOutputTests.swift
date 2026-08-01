@@ -72,6 +72,64 @@ final class AtomicMediaOutputTests: XCTestCase {
         XCTAssertEqual(retry.snapshot.state, .created)
     }
 
+    func testReclaimSubstitutionInvalidatesMarkerAndPreservesReplacement()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let identifier = "reclaim-substitution"
+        let temporaryURL = fixture.directory.appendingPathComponent(
+            ".output.mirmir-\(identifier).partial.mp4"
+        )
+        let reservingFileSystem = LocalAtomicMediaFileSystem()
+        XCTAssertFalse(
+            try reservingFileSystem.reclaimTransactionTemporaryFile(
+                at: temporaryURL
+            )
+        )
+        try Data("owned-crash-remnant".utf8).write(
+            to: temporaryURL
+        )
+        let replacement = Data("replacement-during-reclaim".utf8)
+        let observer = QuarantineReplacingAtomicMediaObserver(
+            targetURL: temporaryURL,
+            replacementPayload: replacement
+        )
+        let reclaimingFileSystem = LocalAtomicMediaFileSystem(
+            cleanupObserver: observer
+        )
+
+        XCTAssertThrowsError(
+            try reclaimingFileSystem
+                .reclaimTransactionTemporaryFile(at: temporaryURL)
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unownedTemporaryFilePreserved(temporaryURL)
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: temporaryURL),
+            replacement
+        )
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
+
+        XCTAssertThrowsError(
+            try LocalAtomicMediaFileSystem()
+                .reclaimTransactionTemporaryFile(at: temporaryURL)
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unownedTemporaryFilePreserved(temporaryURL)
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: temporaryURL),
+            replacement
+        )
+    }
+
     func testUnmarkedRegularCollisionIsPreserved()
         throws {
         let fixture = try TemporaryOutputFixture()
@@ -438,6 +496,9 @@ final class AtomicMediaOutputTests: XCTestCase {
             )
         )
         XCTAssertEqual(try Data(contentsOf: nestedURL), nestedBytes)
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
     }
 
     func testCleanupPreservesReplacementAtClaimedPath()
@@ -463,7 +524,91 @@ final class AtomicMediaOutputTests: XCTestCase {
         let cleanup = transaction.cancel()
 
         XCTAssertFalse(cleanup.temporaryFileRemoved)
-        XCTAssertNotNil(cleanup.error)
+        XCTAssertEqual(
+            cleanup.error,
+            .unownedTemporaryFilePreserved(
+                transaction.temporaryURL
+            )
+        )
+        XCTAssertEqual(
+            try Data(contentsOf: transaction.temporaryURL),
+            replacement
+        )
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier: "claimed-replacement"
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unownedTemporaryFilePreserved(
+                    transaction.temporaryURL
+                )
+            )
+        }
+        XCTAssertEqual(
+            try Data(contentsOf: transaction.temporaryURL),
+            replacement
+        )
+    }
+
+    func testCleanupSubstitutionDuringMatchingRemovalPreservesReplacement()
+        throws {
+        let fixture = try TemporaryOutputFixture()
+        defer { fixture.remove() }
+        let replacement = Data("replacement-during-removal".utf8)
+        let fileSystem = InjectedAtomicMediaFileSystem(
+            pinnedRemovalSubstitutionPayload: replacement
+        )
+        let transaction = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            fileSystem: fileSystem,
+            cleanupAttemptLimit: 3,
+            temporaryIdentifier: "matching-removal-substitution"
+        )
+        try Data("owned".utf8).write(
+            to: transaction.temporaryURL
+        )
+        try transaction.beginWriting()
+        try transaction.beginFinishing()
+        try transaction.claimTemporaryFileForVerification()
+
+        let cleanup = transaction.cancel()
+
+        XCTAssertEqual(cleanup.attempts, 1)
+        XCTAssertFalse(cleanup.temporaryFileRemoved)
+        XCTAssertEqual(
+            cleanup.error,
+            .unownedTemporaryFilePreserved(
+                transaction.temporaryURL
+            )
+        )
+        XCTAssertEqual(fileSystem.removalCallCount, 1)
+        XCTAssertEqual(
+            try Data(contentsOf: transaction.temporaryURL),
+            replacement
+        )
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
+        XCTAssertThrowsError(
+            try AtomicMediaOutput(
+                destinationURL: fixture.destination,
+                temporaryIdentifier:
+                    "matching-removal-substitution"
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? AtomicMediaOutputError,
+                .unownedTemporaryFilePreserved(
+                    transaction.temporaryURL
+                )
+            )
+        }
         XCTAssertEqual(
             try Data(contentsOf: transaction.temporaryURL),
             replacement
@@ -641,6 +786,31 @@ final class AtomicMediaOutputTests: XCTestCase {
         XCTAssertEqual(transaction.snapshot.state, .cancelled)
         XCTAssertEqual(transaction.cancel(), cleanup)
         XCTAssertEqual(fileSystem.removalCallCount, 2)
+        XCTAssertEqual(
+            fixture.transactionOwnershipMarkers().count,
+            1
+        )
+
+        let retry = try AtomicMediaOutput(
+            destinationURL: fixture.destination,
+            temporaryIdentifier: "cleanup-failure"
+        )
+        XCTAssertTrue(retry.reclaimedStaleTemporaryFile)
+        XCTAssertFalse(
+            FileManager.default.fileExists(
+                atPath: retry.temporaryURL.path
+            )
+        )
+        XCTAssertEqual(
+            fixture.transactionOwnershipMarkers().count,
+            1
+        )
+        let retryCleanup = retry.cancel()
+        XCTAssertTrue(retryCleanup.temporaryFileRemoved)
+        XCTAssertNil(retryCleanup.error)
+        XCTAssertTrue(
+            fixture.transactionOwnershipMarkers().isEmpty
+        )
     }
 
     func testExistingDestinationIsRejectedWithoutChangingItsBytes() throws {
@@ -917,6 +1087,7 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
     private let temporaryMutationPayload: Data?
     private let verifiedRemovalFails: Bool
     private let cleanupSubstitutionPayload: Data?
+    private let pinnedRemovalSubstitutionPayload: Data?
     private let state: OSAllocatedUnfairLock<State>
 
     init(
@@ -926,6 +1097,7 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
         temporaryMutationPayload: Data? = nil,
         verifiedRemovalFails: Bool = false,
         cleanupSubstitutionPayload: Data? = nil,
+        pinnedRemovalSubstitutionPayload: Data? = nil,
         localFileSystem: LocalAtomicMediaFileSystem =
             LocalAtomicMediaFileSystem()
     ) {
@@ -935,6 +1107,8 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
         self.temporaryMutationPayload = temporaryMutationPayload
         self.verifiedRemovalFails = verifiedRemovalFails
         self.cleanupSubstitutionPayload = cleanupSubstitutionPayload
+        self.pinnedRemovalSubstitutionPayload =
+            pinnedRemovalSubstitutionPayload
         self.state = OSAllocatedUnfairLock(initialState: State(
             removalFailuresRemaining: removalFailures
         ))
@@ -994,6 +1168,10 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
     ) throws {
         let fails = recordRemovalAttempt()
         if fails { throw InjectedFailure() }
+        if let pinnedRemovalSubstitutionPayload {
+            try local.removeItem(at: url)
+            try pinnedRemovalSubstitutionPayload.write(to: url)
+        }
         try local.removeItem(
             at: url,
             ifMatchingFile: identity
@@ -1035,6 +1213,33 @@ final class InjectedAtomicMediaFileSystem: AtomicMediaFileSystem, @unchecked Sen
             }
             return false
         }
+    }
+}
+
+private final class QuarantineReplacingAtomicMediaObserver:
+    AtomicMediaQuarantineCleanupObserving,
+    @unchecked Sendable {
+    private let targetURL: URL
+    private let replacementPayload: Data
+
+    init(
+        targetURL: URL,
+        replacementPayload: Data
+    ) {
+        self.targetURL = targetURL
+        self.replacementPayload = replacementPayload
+    }
+
+    func didQuarantine(
+        destinationURL: URL,
+        quarantineURL: URL
+    ) throws {
+        guard destinationURL == targetURL else { return }
+        try FileManager.default.removeItem(at: quarantineURL)
+        try replacementPayload.write(
+            to: quarantineURL,
+            options: .withoutOverwriting
+        )
     }
 }
 

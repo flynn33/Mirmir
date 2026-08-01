@@ -111,6 +111,42 @@ final class R03VTPixelTransferScalingTests: XCTestCase {
         _ = await session.finish()
     }
 
+    func testAdaptivePixelTransferScalesArbitraryGreaterGeometryOrIsUnavailable()
+        throws {
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: VideoResolution(width: 64, height: 36),
+            targetResolution: VideoResolution(width: 160, height: 90)
+        )
+        let scaler: R03VTPixelTransferScaler
+        do {
+            scaler = try R03VTPixelTransferScaler(
+                adaptivePlan: plan
+            )
+        } catch R03NV12ScalingError.runtimeUnavailable {
+            return
+        }
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.processingSourceResolution
+        )
+        let destination = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.targetResolution
+        )
+
+        try scaler.scale(
+            source: source,
+            destination: destination,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        XCTAssertNil(scaler.route)
+        XCTAssertNoThrow(
+            try R03NV12Contract.validate(
+                pixelBuffer: destination,
+                resolution: plan.targetResolution
+            )
+        )
+    }
+
     private enum RunResult {
         case processed(Data)
         case unavailable

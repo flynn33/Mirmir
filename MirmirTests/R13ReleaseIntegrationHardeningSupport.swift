@@ -183,8 +183,8 @@ struct R13IntegrationHardeningHarness {
             framework: R13ReleaseFrameworkIdentity(
                 frameworkIdentifier:
                     R03A11ProductAdmission.frameworkIdentity,
-                version: "integration-1",
-                buildIdentity: "integration-build"
+                version: "15.4",
+                buildIdentity: "integration-runtime"
             ),
             runtime: R13ReleaseRuntimeIdentity(
                 runtimeIdentifier: "macOS",

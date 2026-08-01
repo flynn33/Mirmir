@@ -226,6 +226,35 @@ final class R05MetalFXColorBridgeTests: XCTestCase {
         )
     }
 
+    func testFiniteClippingEncoderBoundsRingingWithoutWeakeningStrictEncoder() throws {
+        let ringing = try solidFrame(
+            width: 2, height: 2, color: [-0.001953125, 1.001953125, 0.5]
+        )
+        let explicitlyClipped = try solidFrame(width: 2, height: 2, color: [0, 1, 0.5])
+
+        XCTAssertThrowsError(try R05MetalFXColorBridge.encode(ringing)) { error in
+            XCTAssertEqual(
+                error as? R05MetalFXColorBridgeError,
+                .linearComponentOutOfRange(index: 0, value: -0.001953125)
+            )
+        }
+        XCTAssertEqual(
+            try R05MetalFXColorBridge.encodeClippingFiniteRGB(ringing),
+            try R05MetalFXColorBridge.encode(explicitlyClipped)
+        )
+    }
+
+    func testFiniteClippingEncoderStillRejectsNonFiniteRGBAndNonOpaqueAlpha() throws {
+        try assertClippingEncodeError(
+            components: [.nan, 0, 0, 1],
+            expected: .nonFiniteLinearComponent(index: 0)
+        )
+        try assertClippingEncodeError(
+            components: [0, 0, 0, 0.5],
+            expected: .nonOpaqueAlpha(index: 3, value: 0.5)
+        )
+    }
+
     func testPixelBufferWrappersRequireExactContractAndCopyActiveRows() throws {
         let source = try makeNV12PixelBuffer(width: 4, height: 4)
         installRequiredAttachments(on: source)
@@ -370,6 +399,22 @@ final class R05MetalFXColorBridgeTests: XCTestCase {
             components: Array(repeating: components, count: 4).flatMap { $0 }
         )
         XCTAssertThrowsError(try R05MetalFXColorBridge.encode(source)) { error in
+            XCTAssertEqual(error as? R05MetalFXColorBridgeError, expected)
+        }
+    }
+
+    private func assertClippingEncodeError(
+        components: [Float16],
+        expected: R05MetalFXColorBridgeError
+    ) throws {
+        let source = try R05LinearRGBA16FloatFrame(
+            width: 2,
+            height: 2,
+            components: Array(repeating: components, count: 4).flatMap { $0 }
+        )
+        XCTAssertThrowsError(
+            try R05MetalFXColorBridge.encodeClippingFiniteRGB(source)
+        ) { error in
             XCTAssertEqual(error as? R05MetalFXColorBridgeError, expected)
         }
     }

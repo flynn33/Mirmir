@@ -171,6 +171,7 @@
 		529103EF8FA22597BD7B70E1 /* ASHSpatialReferencePipelineV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF87D2D34EEE56328850BF4 /* ASHSpatialReferencePipelineV2.swift */; };
 		52BAB99685EFC54160A6F696 /* R09ASHResidualAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AC402570E884246F237CBA6 /* R09ASHResidualAuthorization.swift */; };
 		53C033FE2B934A22C937428F /* ASHLockedReleaseLUTManifestV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */; };
+		53E7742B7CBA253F21102476 /* TimedMetadataPipelineIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6708410294B509E4E00F722 /* TimedMetadataPipelineIntegrationTests.swift */; };
 		546F517E2832B4050EED1057 /* R13CacheLocationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7C2CC145E908AED6A5590CD /* R13CacheLocationTests.swift */; };
 		558A05DD71EF2A2790278455 /* AppleUpscaleCapabilityWorker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A28245796CF46D6746515B4 /* AppleUpscaleCapabilityWorker.swift */; };
 		559A76D9D1E7FF82A6571199 /* R08AnalysisOutputDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A173CE5E54A507227B4602A1 /* R08AnalysisOutputDecoderTests.swift */; };
@@ -179,6 +180,8 @@
 		571678D0E5E21B9163D4020C /* R09ASHResidualAuthorizationTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188696A2EAD19E0B9326A01D /* R09ASHResidualAuthorizationTestSupport.swift */; };
 		5722817E9915698C26E66D21 /* OutputMediaMetadataVerificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA16F1FBCEDF17BE37E51D0A /* OutputMediaMetadataVerificationTests.swift */; };
 		57309299A60A706E5AF0B878 /* MirmirWorkHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 243C7EAC209ECFEB440F058C /* MirmirWorkHistoryStore.swift */; };
+		050F5FF01A0945FD84BD7400 /* MirmirRealProductionPathMatrixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */; };
+		D38A2E97080D4F669B8AA311 /* MirmirDeterministicImprovementAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */; };
 		57AB38652DC59647EAC97F7D /* MirmirRealQueueWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */; };
 		588499FCF90A14905B0A53AE /* OutputMediaAppleLosslessPreservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393485B96A2630EE469A8134 /* OutputMediaAppleLosslessPreservationTests.swift */; };
 		5889C655E2FB60975B5B4348 /* MirmirAppBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */; };
@@ -206,6 +209,7 @@
 		6710E743D7AA820685841DF1 /* R09ResidualIdentityContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B1DFC27961E6347F73A32E0 /* R09ResidualIdentityContracts.swift */; };
 		6846EC665799FA6655BBDA26 /* ASHSpatialDispatchV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CA2419717E346F88ABFE2C4 /* ASHSpatialDispatchV2.swift */; };
 		6865056B14BFCE0063B0CF64 /* MirmirSynchronizedPlaybackTimeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80F9320D4FEC736801E2A181 /* MirmirSynchronizedPlaybackTimeline.swift */; };
+		687B3C232A8E52354DC6B2EA /* MirmirTimedMetadataMigrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C8D55C9B67166AB68E55E35 /* MirmirTimedMetadataMigrationTests.swift */; };
 		690128A77A088C952EFD0EA3 /* ASHLockedReferencePipelineV2Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06911D354FDA2F754E91475 /* ASHLockedReferencePipelineV2Tests.swift */; };
 		69A0895DE9989550F863F36C /* MirmirDiagnosticExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 537C35F23F465263B71C9BE8 /* MirmirDiagnosticExport.swift */; };
 		6A89EE015951C10D87D1D1E4 /* ASHP08LauncherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C12E0737F2C42D353C867EF7 /* ASHP08LauncherTests.swift */; };
@@ -453,6 +457,8 @@
 		DD52AD1EA5890AAB00B743C3 /* ASHLUTTypesV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */; };
 		DDD7CBFC03AB2152FED3947B /* R04VideoToolboxSessionAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C408FD47066B5FAC2616EED /* R04VideoToolboxSessionAdapterTests.swift */; };
 		DE81D46EFA43BB2581465374 /* AppleUpscaleCapabilityExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3277CBCD4AE7CFED824AF3FA /* AppleUpscaleCapabilityExecutor.swift */; };
+		DF00A05CD88411C32DB5A78A /* OutputMediaStructuralCarrierVerificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF17D3C279016C8F86F8508B /* OutputMediaStructuralCarrierVerificationTests.swift */; };
+		DF8BD8F30813ED7C58D51D8B /* MirmirTimedMetadataMigration.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4B451FD724E11A64180DCBB /* MirmirTimedMetadataMigration.swift */; };
 		E080A75FB0BB96B568B2CE9D /* R13ReleaseJobContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7876C4579EEF452766E0024 /* R13ReleaseJobContracts.swift */; };
 		E09BB61A378D3EF1A51D9CFD /* R13ReleaseHardeningAttempt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 620BA372ABE2012512D6EABE /* R13ReleaseHardeningAttempt.swift */; };
 		E0CFC989FAF81373CB6D85B2 /* R13EngineRecoveryScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B98908B5F02AAE802BF8352A /* R13EngineRecoveryScopeTests.swift */; };
@@ -700,6 +706,7 @@
 		4B45EFEC1056F0FD18D22E97 /* ASHFrameCompletionIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHFrameCompletionIntegrationTests.swift; sourceTree = "<group>"; };
 		4BECA8BA576BC5F761BF64BF /* OutputMediaAACIdentityReaderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaAACIdentityReaderTests.swift; sourceTree = "<group>"; };
 		4C40D1FEF04763A6CAE004E2 /* ASHP08WriterSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08WriterSession.swift; sourceTree = "<group>"; };
+		4C8D55C9B67166AB68E55E35 /* MirmirTimedMetadataMigrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTimedMetadataMigrationTests.swift; sourceTree = "<group>"; };
 		4DA024482D4239339C7D7102 /* ASHLockedUpscaleBackendV3Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedUpscaleBackendV3Tests.swift; sourceTree = "<group>"; };
 		4DF4099E3189B674F58200CF /* R13ReleaseEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseEnvironment.swift; sourceTree = "<group>"; };
 		4E10E40DE830A79C6A060B73 /* ASHStrictJSONV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHStrictJSONV2.swift; sourceTree = "<group>"; };
@@ -887,6 +894,8 @@
 		B317C13C36AC6141EAD7557D /* R03ASHComparatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03ASHComparatorTests.swift; sourceTree = "<group>"; };
 		B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPassTests.swift; sourceTree = "<group>"; };
 		B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRealQueueWorkflowTests.swift; sourceTree = "<group>"; };
+		8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRealProductionPathMatrixTests.swift; sourceTree = "<group>"; };
+		D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeterministicImprovementAcceptanceTests.swift; sourceTree = "<group>"; };
 		B46992AB5BD06379314C3747 /* R13FormatPreservingEnhancementProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13FormatPreservingEnhancementProcessor.swift; sourceTree = "<group>"; };
 		B562B4260EDBFCDB3DAAAF65 /* ASHP08NativeSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08NativeSupportTests.swift; sourceTree = "<group>"; };
 		B562B76C94BCA2E06F74D1E2 /* R03VTPixelTransferScalingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03VTPixelTransferScalingTests.swift; sourceTree = "<group>"; };
@@ -927,6 +936,7 @@
 		C3320B058C01D8990E73DF4A /* ASHLockedFramePipelineV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedFramePipelineV3.swift; sourceTree = "<group>"; };
 		C4852FE82C12CF5F3181D8F0 /* R13PixelBufferAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13PixelBufferAccess.swift; sourceTree = "<group>"; };
 		C49D87C134298A1D7EABAC14 /* ASHLockedControlRuntimeV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedControlRuntimeV2.swift; sourceTree = "<group>"; };
+		C4B451FD724E11A64180DCBB /* MirmirTimedMetadataMigration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTimedMetadataMigration.swift; sourceTree = "<group>"; };
 		C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelAssetsServiceModule.swift; sourceTree = "<group>"; };
 		C616CA4BC24EEC81094A7A9B /* R13ReleaseUpscalerEngineService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseUpscalerEngineService.swift; sourceTree = "<group>"; };
 		C62FAEE9CA2981B0B1A73182 /* AppleUpscaleContractsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleUpscaleContractsTests.swift; sourceTree = "<group>"; };
@@ -969,6 +979,7 @@
 		D5B570AA878863BEC5DFE801 /* R07FunctionalCoordinatorBoundaryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R07FunctionalCoordinatorBoundaryTests.swift; sourceTree = "<group>"; };
 		D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategySelectorTests.swift; sourceTree = "<group>"; };
 		D64D77EB74F69251DAC68E19 /* ASHLumaSpatialOperator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLumaSpatialOperator.swift; sourceTree = "<group>"; };
+		D6708410294B509E4E00F722 /* TimedMetadataPipelineIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimedMetadataPipelineIntegrationTests.swift; sourceTree = "<group>"; };
 		D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTSuperResolutionDriver.swift; sourceTree = "<group>"; };
 		D6C9C974584EF942CBD2CA71 /* R04FunctionalPhaseAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R04FunctionalPhaseAcceptanceTests.swift; sourceTree = "<group>"; };
 		D6E96CE2EF99B15E95C08BE1 /* R13ReleaseIntegrationMediaSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseIntegrationMediaSupport.swift; sourceTree = "<group>"; };
@@ -991,6 +1002,7 @@
 		DCE6DB7A9DCCFA0B9AE5A074 /* R05FunctionalPhaseAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R05FunctionalPhaseAcceptanceTests.swift; sourceTree = "<group>"; };
 		DDFC3324F9653825E96ACF71 /* MirmirCompletedComparisonPlaybackView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirCompletedComparisonPlaybackView.swift; sourceTree = "<group>"; };
 		DE99505D14434D5BAC770786 /* R08TestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R08TestSupport.swift; sourceTree = "<group>"; };
+		DF17D3C279016C8F86F8508B /* OutputMediaStructuralCarrierVerificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaStructuralCarrierVerificationTests.swift; sourceTree = "<group>"; };
 		DF24A40AD6F96965D7B42887 /* R09BoundedResidualStageTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R09BoundedResidualStageTestSupport.swift; sourceTree = "<group>"; };
 		DFFC0A485E425EC72594D06D /* R13ReleaseUpscalerEngineTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13ReleaseUpscalerEngineTestSupport.swift; sourceTree = "<group>"; };
 		E06911D354FDA2F754E91475 /* ASHLockedReferencePipelineV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLockedReferencePipelineV2Tests.swift; sourceTree = "<group>"; };
@@ -1398,6 +1410,7 @@
 				CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */,
 				87DF56556BD38E52A6939975 /* MediaTypes.swift */,
 				8E6AEBF2C8E41FB8F8A97762 /* MediaVideoScanStructure.swift */,
+				C4B451FD724E11A64180DCBB /* MirmirTimedMetadataMigration.swift */,
 				D6FE074E5A06BC1629355C31 /* MirmirTimedMetadataPolicy.swift */,
 				ED3718FDB8CEE0250780473B /* OutputMediaAACIdentityReader.swift */,
 				6605AD95330D6A177C749485 /* OutputMediaAppleLosslessIdentityReader.swift */,
@@ -1704,8 +1717,11 @@
 				CDF261046D1AB00B6DD51CF2 /* MirmirPendingWorkQueueTests.swift */,
 				5196D3DC423827373395DF19 /* MirmirPendingWorkQueueTestSupport.swift */,
 				60627FA21A078C064B282ED0 /* MirmirPreferencesStoreTests.swift */,
+				D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */,
+				8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */,
 				B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */,
 				0DDE2C80834EB97A996C3911 /* MirmirSynchronizedPlaybackTimelineTests.swift */,
+				4C8D55C9B67166AB68E55E35 /* MirmirTimedMetadataMigrationTests.swift */,
 				BE38B753533390537A91CC29 /* MirmirUIWorkflowTests.swift */,
 				A7E57D8744A1068882CAD219 /* MirmirViewRegistryTests.swift */,
 				34D7427E57322F699A0138F4 /* MirmirWorkHistoryStoreTests.swift */,
@@ -1715,6 +1731,7 @@
 				4BECA8BA576BC5F761BF64BF /* OutputMediaAACIdentityReaderTests.swift */,
 				393485B96A2630EE469A8134 /* OutputMediaAppleLosslessPreservationTests.swift */,
 				CA16F1FBCEDF17BE37E51D0A /* OutputMediaMetadataVerificationTests.swift */,
+				DF17D3C279016C8F86F8508B /* OutputMediaStructuralCarrierVerificationTests.swift */,
 				7E0C8010F1A6A65AFCE57494 /* OutputMediaVerifierTests.swift */,
 				1BA2295DBF246B9B9D40A681 /* OutputMediaVerifierTestSupport.swift */,
 				F26204DC9C987BFAA914065E /* R02FixtureConformanceTests.swift */,
@@ -1782,6 +1799,7 @@
 				1E3E22040B9707B025B43B4B /* RegisteredVideoFormatPipelineTests.swift */,
 				11500A7EFBCBF78A8B20C5A6 /* SmoothMotionTests.swift */,
 				D5DDA25F0FAA4774175510AD /* StrategySelectorTests.swift */,
+				D6708410294B509E4E00F722 /* TimedMetadataPipelineIntegrationTests.swift */,
 				CDE93D1C6EAC0F3359F0662A /* UpscalerEngineAvailabilityTests.swift */,
 				B87253AB7004877756DB7EEA /* Diagnostics */,
 				22C0B9D429B46777730F6AAA /* Fixtures */,
@@ -2010,8 +2028,11 @@
 				1EF0DA34435F137B30B40218 /* MirmirPendingWorkQueueTestSupport.swift in Sources */,
 				E6738D8777F3896C3B7EE904 /* MirmirPendingWorkQueueTests.swift in Sources */,
 				0459EA1257089E7E2F1459FF /* MirmirPreferencesStoreTests.swift in Sources */,
+				D38A2E97080D4F669B8AA311 /* MirmirDeterministicImprovementAcceptanceTests.swift in Sources */,
+				050F5FF01A0945FD84BD7400 /* MirmirRealProductionPathMatrixTests.swift in Sources */,
 				57AB38652DC59647EAC97F7D /* MirmirRealQueueWorkflowTests.swift in Sources */,
 				6AE518910B7B0D576A029DC7 /* MirmirSynchronizedPlaybackTimelineTests.swift in Sources */,
+				687B3C232A8E52354DC6B2EA /* MirmirTimedMetadataMigrationTests.swift in Sources */,
 				29779086707D03C14748BAE5 /* MirmirUIWorkflowTests.swift in Sources */,
 				33899520F6995EF6651494E5 /* MirmirViewRegistryTests.swift in Sources */,
 				A5B277F32F04ED6A3F8C37EA /* MirmirWorkHistoryStoreTests.swift in Sources */,
@@ -2021,6 +2042,7 @@
 				B8CDF4589074679606155729 /* OutputMediaAACIdentityReaderTests.swift in Sources */,
 				588499FCF90A14905B0A53AE /* OutputMediaAppleLosslessPreservationTests.swift in Sources */,
 				5722817E9915698C26E66D21 /* OutputMediaMetadataVerificationTests.swift in Sources */,
+				DF00A05CD88411C32DB5A78A /* OutputMediaStructuralCarrierVerificationTests.swift in Sources */,
 				E634D54E37C3719CDF0ACCDF /* OutputMediaVerifierTestSupport.swift in Sources */,
 				F3286EA4584D23AB6BD71BE1 /* OutputMediaVerifierTests.swift in Sources */,
 				AD6AA523F701346321805594 /* R02FixtureConformanceTestSupport.swift in Sources */,
@@ -2123,6 +2145,7 @@
 				B6D2FDB79647CFFE058C09DE /* RegisteredVideoFormatPipelineTests.swift in Sources */,
 				2443376AD73F5E41FDC827E2 /* SmoothMotionTests.swift in Sources */,
 				9406D7EA82665CE7773DBE4E /* StrategySelectorTests.swift in Sources */,
+				53E7742B7CBA253F21102476 /* TimedMetadataPipelineIntegrationTests.swift in Sources */,
 				5E5B0DA8B1538E99C76C1EA4 /* UpscalerEngineAvailabilityTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2301,6 +2324,7 @@
 				0775DE001A1E9FD1FFC7DFE4 /* MirmirSynchronizedPlaybackController.swift in Sources */,
 				6865056B14BFCE0063B0CF64 /* MirmirSynchronizedPlaybackTimeline.swift in Sources */,
 				D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */,
+				DF8BD8F30813ED7C58D51D8B /* MirmirTimedMetadataMigration.swift in Sources */,
 				F706219BDEC215F2D30861AA /* MirmirTimedMetadataPolicy.swift in Sources */,
 				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
 				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
@@ -2731,6 +2755,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;

@@ -3,6 +3,11 @@ import XCTest
 
 final class R03DeterministicBackendCatalogTests: XCTestCase {
     func testCatalogMatchesPreregisteredSubjectMatrixExactly() {
+        let scalableRoutes: [R03BaselineRouteID] = [
+            .scale3Over2,
+            .scale2x,
+            .scale4x
+        ]
         let expected: [ExpectedSubject] = [
             .init(
                 id: .mpsLanczos,
@@ -11,7 +16,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "MetalPerformanceShaders",
                 role: .deterministicGPUQualityBaseline,
                 eligibility: .candidateAfterObservedQualification,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .mpsBilinear,
@@ -20,7 +25,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "MetalPerformanceShaders",
                 role: .diagnosticFastLowerBound,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .coreImageLanczos,
@@ -29,7 +34,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "CoreImage",
                 role: .compatibilityReference,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .coreImageBicubic,
@@ -38,7 +43,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "CoreImage",
                 role: .tunableReferenceFallback,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .vImageLanczos3,
@@ -47,7 +52,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "Accelerate",
                 role: .cpuReference,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .vImageLanczos5,
@@ -56,7 +61,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "Accelerate",
                 role: .highQualityCPUComparator,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .vtPixelTransfer,
@@ -65,7 +70,7 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
                 framework: "VideoToolbox",
                 role: .scalingConversionReference,
                 eligibility: .ineligibleReferenceRole,
-                routes: [.scale3Over2, .scale2x]
+                routes: scalableRoutes
             ),
             .init(
                 id: .ashCustomMetal,
@@ -126,6 +131,18 @@ final class R03DeterministicBackendCatalogTests: XCTestCase {
             R03ScaleRoute.scale2x.matches(
                 source: VideoResolution(width: 16, height: 8),
                 target: VideoResolution(width: 32, height: 16)
+            )
+        )
+
+        XCTAssertEqual(R03ScaleRoute.scale4x.scaleNumerator, 4)
+        XCTAssertEqual(R03ScaleRoute.scale4x.scaleDenominator, 1)
+        XCTAssertEqual(R03ScaleRoute.scale4x.canonicalSourceResolution, .p270)
+        XCTAssertEqual(R03ScaleRoute.scale4x.canonicalTargetResolution, .p1080)
+        XCTAssertTrue(R03ScaleRoute.scale4x.matches(source: .p270, target: .p1080))
+        XCTAssertFalse(
+            R03ScaleRoute.scale4x.matches(
+                source: VideoResolution(width: 640, height: 360),
+                target: VideoResolution(width: 2_560, height: 1_440)
             )
         )
     }

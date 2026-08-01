@@ -932,7 +932,9 @@ final class ASHMetalSpatialRuntimeV3Tests: XCTestCase {
         probeState: ASHState = ASHState(validatedRawValue: 0),
         controlledTwoCandidate: Bool = false
     ) async throws -> [DescriptorProbeOutput] {
-        let library = try XCTUnwrap(metal.device.makeDefaultLibrary())
+        let library = try XCTUnwrap(
+            MirmirDefaultMetalLibrary.make(on: metal.device)
+        )
         let function = try XCTUnwrap(
             library.makeFunction(name: "ash_v3_descriptor_parity_probe")
         )
@@ -1247,7 +1249,9 @@ final class ASHMetalSpatialRuntimeV3Tests: XCTestCase {
         configuration: ASHVideoAnalyzerV2DevelopmentConfiguration
     ) async throws -> [UInt16] {
         let metal = try DefaultMetalRenderingService()
-        let library = try XCTUnwrap(metal.device.makeDefaultLibrary())
+        let library = try XCTUnwrap(
+            MirmirDefaultMetalLibrary.make(on: metal.device)
+        )
         let function = try XCTUnwrap(
             library.makeFunction(name: "ash_v3_state_pack_parity_probe")
         )

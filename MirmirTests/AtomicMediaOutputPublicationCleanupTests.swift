@@ -43,7 +43,9 @@ final class AtomicMediaOutputPublicationCleanupTests: XCTestCase {
         let fixture = try TemporaryOutputFixture()
         defer { fixture.remove() }
         let replacement = Data("replacement-winner".utf8)
-        let observer = RecordingAtomicMediaQuarantineObserver()
+        let observer = RecordingAtomicMediaQuarantineObserver(
+            targetURL: fixture.destination
+        )
         let fileSystem = InjectedAtomicMediaFileSystem(
             temporaryMutationPayload: Data("corrupted".utf8),
             cleanupSubstitutionPayload: replacement,
@@ -89,6 +91,7 @@ final class AtomicMediaOutputPublicationCleanupTests: XCTestCase {
         defer { fixture.remove() }
         let replacement = Data("replacement-after-quarantine".utf8)
         let observer = RecordingAtomicMediaQuarantineObserver(
+            targetURL: fixture.destination,
             replacementPayload: replacement
         )
         let fileSystem = InjectedAtomicMediaFileSystem(
@@ -137,11 +140,16 @@ private final class RecordingAtomicMediaQuarantineObserver:
     }
 
     private let replacementPayload: Data?
+    private let targetURL: URL
     private let state = OSAllocatedUnfairLock(
         initialState: State()
     )
 
-    init(replacementPayload: Data? = nil) {
+    init(
+        targetURL: URL,
+        replacementPayload: Data? = nil
+    ) {
+        self.targetURL = targetURL
         self.replacementPayload = replacementPayload
     }
 
@@ -153,6 +161,7 @@ private final class RecordingAtomicMediaQuarantineObserver:
         destinationURL: URL,
         quarantineURL: URL
     ) throws {
+        guard destinationURL == targetURL else { return }
         state.withLock {
             $0.quarantineURL = quarantineURL
         }

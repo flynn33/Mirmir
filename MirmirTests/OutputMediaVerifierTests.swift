@@ -204,6 +204,77 @@ final class OutputMediaVerifierTests: XCTestCase {
         }
     }
 
+    func testVerifierRejectsPassthroughExportTrailingPacketMutation()
+        async throws {
+        let fixture = try MediaOutputFixture()
+        defer { fixture.remove() }
+        let resolution = VideoResolution(width: 64, height: 64)
+        let frameDuration = CMTime(value: 512, timescale: 15_360)
+        let frameCount = 60
+        try await writeVideoFrames(
+            to: fixture.source,
+            resolution: resolution,
+            frameCount: frameCount,
+            frameDuration: frameDuration,
+            inputMediaTimeScale: 15_360,
+            movieTimeScale: 15_360
+        )
+        var timing = FrameTimingLedger()
+        for frameIndex in 0..<frameCount {
+            try timing.append(FrameTiming(
+                frameIndex: frameIndex,
+                presentationTime: CMTimeMultiply(
+                    frameDuration,
+                    multiplier: Int32(frameIndex)
+                ),
+                duration: frameDuration
+            ))
+        }
+
+        _ = try await OutputMediaVerifier().verify(
+            url: fixture.source,
+            expectation: OutputMediaVerificationExpectation(
+                resolution: resolution,
+                codec: .h264,
+                timing: timing.snapshot
+            )
+        )
+        let sourceAsset = AVURLAsset(url: fixture.source)
+        let exporter = try XCTUnwrap(
+            AVAssetExportSession(
+                asset: sourceAsset,
+                presetName: AVAssetExportPresetPassthrough
+            )
+        )
+        try await exporter.export(to: fixture.destination, as: .mp4)
+
+        do {
+            _ = try await OutputMediaVerifier().verify(
+                url: fixture.destination,
+                expectation: OutputMediaVerificationExpectation(
+                    resolution: resolution,
+                    codec: .h264,
+                    timing: timing.snapshot
+                )
+            )
+            XCTFail(
+                "Expected the remuxed trailing packet mutation to fail "
+                    + "exact frame-timing verification."
+            )
+        } catch let error as OutputMediaVerificationError {
+            guard case .frameDurationMismatch(
+                let frameIndex,
+                let expected,
+                let actual
+            ) = error else {
+                return XCTFail("Unexpected verification error: \(error)")
+            }
+            XCTAssertEqual(frameIndex, frameCount - 1)
+            XCTAssertEqual(CMTimeCompare(expected, frameDuration), 0)
+            XCTAssertGreaterThan(CMTimeCompare(actual, expected), 0)
+        }
+    }
+
     func testMixedTimeScaleEditBoundaryPublishesExactTrailingDuration()
         async throws {
         let fixture = try MediaOutputFixture()

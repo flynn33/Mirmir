@@ -533,6 +533,8 @@ final class SmoothMotionTests: XCTestCase {
     func testReleaseServiceActuallyAppliesSmoothMotionCadence()
         async throws {
         for cadence in SmoothMotionCadence.allCases {
+            let fixture = try MediaOutputFixture()
+            defer { fixture.remove() }
             let eventLog = R13ReleaseTestEventLog()
             let media = R13ReleaseTestMediaPipeline(
                 resolution: .p720,
@@ -561,7 +563,8 @@ final class SmoothMotionTests: XCTestCase {
             let job = smoothMotionJob(
                 identifier: "smooth-motion-service-\(cadence.rawValue)",
                 cadence: cadence,
-                sensitivity: .standard
+                sensitivity: .standard,
+                directory: fixture.directory
             )
 
             _ = try await service.submit(job).waitForCompletion()
@@ -594,6 +597,8 @@ final class SmoothMotionTests: XCTestCase {
             .sdrBT709WithAlpha(mode: .straight)
         ]
         for (formatIndex, format) in formats.enumerated() {
+            let fixture = try MediaOutputFixture()
+            defer { fixture.remove() }
             let eventLog = R13ReleaseTestEventLog()
             let frames: [FrameRecord]
             if format.pixelStorage.pixelFormat
@@ -642,7 +647,8 @@ final class SmoothMotionTests: XCTestCase {
                 resolution: resolution,
                 frames: frames,
                 eventLog: eventLog,
-                videoFormat: format
+                videoFormat: format,
+                outputPixelBufferPoolCapacity: 2
             )
             let factory = R13ReleaseTestSessionFactory(
                 behavior: .processed,
@@ -662,7 +668,8 @@ final class SmoothMotionTests: XCTestCase {
                 identifier:
                     "smooth-motion-format-\(formatIndex)",
                 cadence: .double,
-                sensitivity: .standard
+                sensitivity: .standard,
+                directory: fixture.directory
             )
 
             _ = try await service.submit(job).waitForCompletion()
@@ -1242,15 +1249,21 @@ private extension SmoothMotionTests {
     func smoothMotionJob(
         identifier: String,
         cadence: SmoothMotionCadence,
-        sensitivity: SmoothMotionSceneCutSensitivity
+        sensitivity: SmoothMotionSceneCutSensitivity,
+        directory: URL? = nil
     ) -> UpscaleJob {
-        UpscaleJob(
+        let jobDirectory = directory
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent(
+                "mirmir-smooth-motion-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        return UpscaleJob(
             identifier: identifier,
-            inputURL: URL(
-                fileURLWithPath: "/tmp/\(identifier)-input.mp4"
+            inputURL: jobDirectory.appendingPathComponent(
+                "\(identifier)-input.mp4"
             ),
-            outputURL: URL(
-                fileURLWithPath: "/tmp/\(identifier).mp4"
+            outputURL: jobDirectory.appendingPathComponent(
+                "\(identifier).mp4"
             ),
             targetResolution: .p1080,
             codec: .hevc,

@@ -263,7 +263,7 @@ enum ASHP08DescriptorParityRuntime {
         metal: any MetalRenderingService,
         source: CVPixelBuffer
     ) async throws -> ProbeRun {
-        guard let library = metal.device.makeDefaultLibrary(),
+        guard let library = MirmirDefaultMetalLibrary.make(on: metal.device),
               let function = library.makeFunction(
                 name: "ash_v3_descriptor_parity_probe"
               ) else {

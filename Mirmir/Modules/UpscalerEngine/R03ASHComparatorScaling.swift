@@ -91,6 +91,12 @@ final class R03ASHComparatorBackend: AppleUpscaleBackend, @unchecked Sendable {
             ashRoute = .direct3Over2
         case .scale2x:
             ashRoute = .direct2x
+        case .scale4x:
+            throw R03DeterministicBackendConstructionError
+                .routeNotPreregistered(
+                    subject: subjectID,
+                    route: route
+                )
         }
         self.ashBackendFactory = ashBackendFactory
         self.outputReleaseObserver = outputReleaseObserver

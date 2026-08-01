@@ -133,15 +133,20 @@ final class R13RestartJobStoreTests: XCTestCase {
                 sequenceNumber: 0,
                 selectedRouteIdentity: primary,
                 reason: .initialSelection,
-                failedBackendIDs: [],
+                fallbackHistory: [],
                 processingPressureQ16: 4_096
             ),
             R13ProductASHDecisionEvent(
                 sequenceNumber: 1,
                 selectedRouteIdentity: fallback,
                 reason: .fatalBackendFailover,
-                failedBackendIDs: [
-                    primary.backend.backendID
+                fallbackHistory: [
+                    try AppleUpscaleFallbackLink(
+                        failedRoute: primary,
+                        selectedRoute: fallback,
+                        reasonCode: .backendFailed,
+                        selectedFallbackOrdinal: 0
+                    )
                 ],
                 processingPressureQ16: 32_768
             )
@@ -202,7 +207,7 @@ final class R13RestartJobStoreTests: XCTestCase {
                 backendID: "test.restart.full-cache"
             ),
             reason: .initialSelection,
-            failedBackendIDs: [],
+            fallbackHistory: [],
             processingPressureQ16: 8_192
         )
         let store = R13RestartJobStore(
@@ -251,7 +256,7 @@ final class R13RestartJobStoreTests: XCTestCase {
                 backendID: "test.restart.direct-rejection"
             ),
             reason: .initialSelection,
-            failedBackendIDs: []
+            fallbackHistory: []
         )
 
         do {
@@ -302,7 +307,7 @@ final class R13RestartJobStoreTests: XCTestCase {
                 backendID: "test.restart.invalid-pressure"
             ),
             reason: .initialSelection,
-            failedBackendIDs: [],
+            fallbackHistory: [],
             processingPressureQ16: R06ASHQ16.scale + 1
         )
 
@@ -348,7 +353,7 @@ final class R13RestartJobStoreTests: XCTestCase {
                         backendID: "test.restart.tamper"
                     ),
                     reason: .initialSelection,
-                    failedBackendIDs: [],
+                    fallbackHistory: [],
                     processingPressureQ16: 1_024
                 ),
                 at: 0,
@@ -441,7 +446,7 @@ final class R13RestartJobStoreTests: XCTestCase {
                     backendID: "test.restart.legacy-routed"
                 ),
                 reason: .initialSelection,
-                failedBackendIDs: []
+                fallbackHistory: []
             ),
             at: 0,
             using: plan
@@ -466,6 +471,81 @@ final class R13RestartJobStoreTests: XCTestCase {
             XCTAssertEqual(
                 error as? R13RestartJobError,
                 .routingDecisionRequired(index: 0)
+            )
+        }
+    }
+
+    func testSchemaThreeRoutedCacheWithoutExactFallbackEvidenceIsRejected()
+        async throws {
+        let fixture = try R13RestartStoreFixture()
+        defer { fixture.cleanup() }
+        let core = try fixture.makeCore(
+            totalFrameCount: 1,
+            backendIdentity:
+                R13ReleaseOrchestrationKind.automatic.backendID
+        )
+        let failedRoute = try fixture.route(
+            backendID: "test.restart.schema3.failed"
+        )
+        let selectedRoute = try fixture.route(
+            backendID: "test.restart.schema3.selected"
+        )
+        let store = R13RestartJobStore(
+            jobsRootURL: fixture.jobsRoot
+        )
+        var plan = try await store.create(core)
+        plan = try await store.commitProcessedFrame(
+            fixture.frame(value: 81),
+            routingDecision: R13ProductASHDecisionEvent(
+                sequenceNumber: 0,
+                selectedRouteIdentity: selectedRoute,
+                reason: .fatalBackendFailover,
+                fallbackHistory: [
+                    try AppleUpscaleFallbackLink(
+                        failedRoute: failedRoute,
+                        selectedRoute: selectedRoute,
+                        reasonCode: .backendUnavailable,
+                        selectedFallbackOrdinal: 0
+                    )
+                ]
+            ),
+            at: 0,
+            using: plan
+        )
+        try fixture.rewriteRoutedRecordAsSchemaThree(
+            jobID: core.jobID
+        )
+
+        let legacyRecord = try JSONDecoder().decode(
+            R13RestartCommitRecord.self,
+            from: Data(
+                contentsOf: fixture.jobDirectory(
+                    jobID: core.jobID
+                ).appendingPathComponent("records/0.json")
+            )
+        )
+        XCTAssertEqual(legacyRecord.schemaVersion, 3)
+        XCTAssertNil(
+            try XCTUnwrap(legacyRecord.routingDecision)
+                .fallbackHistory,
+            "A schema-three backend-ID list must not be upgraded into invented route/reason links."
+        )
+
+        do {
+            _ = try await R13RestartJobStore(
+                jobsRootURL: fixture.jobsRoot
+            ).reopen(
+                jobID: core.jobID,
+                expecting: core,
+                observedSource: core.source
+            )
+            XCTFail(
+                "Recovery must reject routed cache that lacks exact per-hop fallback evidence."
+            )
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .recordChainMismatch(sequence: 0)
             )
         }
     }
@@ -1116,6 +1196,69 @@ private struct R13RestartStoreFixture {
             .write(to: headURL, options: .atomic)
     }
 
+    func rewriteRoutedRecordAsSchemaThree(
+        jobID: String
+    ) throws {
+        let directory = jobDirectory(jobID: jobID)
+        let recordURL = directory.appendingPathComponent(
+            "records/0.json"
+        )
+        let current = try JSONDecoder().decode(
+            R13RestartCommitRecord.self,
+            from: Data(contentsOf: recordURL)
+        )
+        let currentDecision = try XCTUnwrap(
+            current.routingDecision
+        )
+        let event = try currentDecision.event()
+        let legacyDecision = R13SchemaThreeRoutingDecisionRecord(
+            sequenceNumber: currentDecision.sequenceNumber,
+            selectedRouteIdentity:
+                currentDecision.selectedRouteIdentity,
+            reason: currentDecision.reason,
+            failedBackendIDs: event.failedBackendIDs,
+            processingPressureQ16:
+                currentDecision.processingPressureQ16
+        )
+        let payload = R13SchemaThreeCommitRecordPayload(
+            schemaVersion: 3,
+            sequence: current.sequence,
+            artifact: current.artifact,
+            previousRecordSHA256:
+                current.previousRecordSHA256,
+            routingDecision: legacyDecision
+        )
+        let recordSHA256 = R13CryptoKitRestartDigest().sha256(
+            try R13RestartCanonical.data(payload)
+        )
+        let record = R13SchemaThreeCommitRecord(
+            schemaVersion: 3,
+            sequence: current.sequence,
+            artifact: current.artifact,
+            previousRecordSHA256:
+                current.previousRecordSHA256,
+            routingDecision: legacyDecision,
+            recordSHA256: recordSHA256
+        )
+        try R13RestartCanonical.data(record)
+            .write(to: recordURL, options: .atomic)
+
+        let headURL = directory.appendingPathComponent(
+            "head-v1.json"
+        )
+        let head = try JSONDecoder().decode(
+            R13RestartJobHead.self,
+            from: Data(contentsOf: headURL)
+        )
+        let updatedHead = try R13RestartJobHead(
+            coreSHA256: head.coreSHA256,
+            committedFrameCount: head.committedFrameCount,
+            headSHA256: recordSHA256
+        )
+        try R13RestartCanonical.data(updatedHead)
+            .write(to: headURL, options: .atomic)
+    }
+
     func cleanup() {
         try? FileManager.default.removeItem(at: root)
     }
@@ -1143,6 +1286,31 @@ private struct R13LegacyCommitRecord: Codable {
     let sequence: Int
     let artifact: R13CachedFrameArtifactIdentity
     let previousRecordSHA256: String
+    let recordSHA256: String
+}
+
+private struct R13SchemaThreeRoutingDecisionRecord: Codable {
+    let sequenceNumber: Int
+    let selectedRouteIdentity: R13RestartRoutingRouteIdentity
+    let reason: String
+    let failedBackendIDs: [String]
+    let processingPressureQ16: Int64
+}
+
+private struct R13SchemaThreeCommitRecordPayload: Codable {
+    let schemaVersion: Int
+    let sequence: Int
+    let artifact: R13CachedFrameArtifactIdentity
+    let previousRecordSHA256: String
+    let routingDecision: R13SchemaThreeRoutingDecisionRecord?
+}
+
+private struct R13SchemaThreeCommitRecord: Codable {
+    let schemaVersion: Int
+    let sequence: Int
+    let artifact: R13CachedFrameArtifactIdentity
+    let previousRecordSHA256: String
+    let routingDecision: R13SchemaThreeRoutingDecisionRecord?
     let recordSHA256: String
 }
 

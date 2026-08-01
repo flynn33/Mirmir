@@ -714,6 +714,9 @@ extension R13ReleaseUpscalerJobHandle {
                 presentationResolution: source.resolution,
                 pixelAspectRatio: source.pixelAspectRatio
             )
+            let enhancedSource = try enhancementProcessor.process(
+                normalizedSource
+            )
             if let routingDecision = replay.routingDecision {
                 guard let replayer =
                     upscaleBinding.session
@@ -739,7 +742,7 @@ extension R13ReleaseUpscalerJobHandle {
                 do {
                     replayFrame = try AppleUpscaleFrame(
                         sequenceNumber: record.frameIndex,
-                        pixelBuffer: normalizedSource,
+                        pixelBuffer: enhancedSource,
                         presentationTimestamp:
                             record.presentationTime,
                         duration: record.duration,
@@ -773,11 +776,6 @@ extension R13ReleaseUpscalerJobHandle {
                 pixelBuffer: pixelBuffer,
                 resolution: route.canonicalTargetResolution
             )
-            if enhancementProcessor.temporalConsistencyEnabled {
-                try enhancementProcessor.restoreTemporalHistory(
-                    from: pixelBuffer
-                )
-            }
             try await mediaSession.appendOutput(
                 pixelBuffer: pixelBuffer,
                 timing: record.timing
@@ -823,6 +821,8 @@ extension R13ReleaseUpscalerJobHandle {
             presentationResolution: source.resolution,
             pixelAspectRatio: source.pixelAspectRatio
         )
+        let enhancedSource = try enhancementProcessor.process(normalized)
+        try Task.checkCancellation()
         let inputTokenIdentity =
             "r13.release.input."
             + "\(runtime.modeBinding.backendID)."
@@ -836,7 +836,7 @@ extension R13ReleaseUpscalerJobHandle {
         )
         let frame = try AppleUpscaleFrame(
             sequenceNumber: record.frameIndex,
-            pixelBuffer: normalized,
+            pixelBuffer: enhancedSource,
             presentationTimestamp: record.presentationTime,
             duration: record.duration,
             colorDescription: R03NV12Contract.makeColorDescription(),
@@ -857,7 +857,6 @@ extension R13ReleaseUpscalerJobHandle {
             session: session,
             upscaleBinding: upscaleBinding,
             mediaSession: mediaSession,
-            enhancementProcessor: enhancementProcessor,
             hardeningAttempt: hardeningAttempt
         )
     }
@@ -871,7 +870,6 @@ extension R13ReleaseUpscalerJobHandle {
         session: any AppleUpscaleSession,
         upscaleBinding: R13ReleaseUpscaleSessionBinding,
         mediaSession: MediaSession,
-        enhancementProcessor: R13ReleaseFormatEnhancementProcessor,
         hardeningAttempt: R13ReleaseHardeningAttempt?
     ) async throws {
         switch outcome {
@@ -889,11 +887,8 @@ extension R13ReleaseUpscalerJobHandle {
                     upscaleBinding.admittedFrameRouteIdentities
             )
             try Task.checkCancellation()
-            let enhanced = try enhancementProcessor.process(
-                processed.pixelBuffer
-            )
             let cacheFrame = try R13NV12Frame.captureTightActivePlanes(
-                from: enhanced
+                from: processed.pixelBuffer
             )
             let routingDecision =
                 try await routingDecisionEvent(
@@ -906,12 +901,12 @@ extension R13ReleaseUpscalerJobHandle {
                 at: source.frameIndex
             )
             try await mediaSession.appendOutput(
-                pixelBuffer: enhanced,
+                pixelBuffer: processed.pixelBuffer,
                 timing: source.timing
             )
             runtime.previewEmitter.offer(
                 source: { normalizedSource },
-                processed: enhanced,
+                processed: processed.pixelBuffer,
                 sourcePresentationResolution:
                     route.canonicalSourceResolution,
                 frameIndex: source.frameIndex,

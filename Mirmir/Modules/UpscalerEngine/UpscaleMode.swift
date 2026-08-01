@@ -16,18 +16,30 @@ enum R13ReleaseScalerKind:
     Codable,
     Hashable,
     Sendable {
+    case standardVImage = "vimage_lanczos_standard"
     case highQualityVImage = "vimage_lanczos_high_quality"
     case fastMPSBilinear = "mps_bilinear"
     case deterministicMPSLanczos = "mps_lanczos"
+    case coreImageLanczos = "core_image_lanczos"
+    case coreImageBicubic = "core_image_bicubic"
+    case videoToolboxPixelTransfer = "videotoolbox_pixel_transfer"
 
     var subjectID: R03BaselineSubjectID {
         switch self {
+        case .standardVImage:
+            return .vImageLanczos3
         case .highQualityVImage:
             return .vImageLanczos5
         case .fastMPSBilinear:
             return .mpsBilinear
         case .deterministicMPSLanczos:
             return R03A11ProductAdmission.subjectID
+        case .coreImageLanczos:
+            return .coreImageLanczos
+        case .coreImageBicubic:
+            return .coreImageBicubic
+        case .videoToolboxPixelTransfer:
+            return .vtPixelTransfer
         }
     }
 
@@ -75,23 +87,39 @@ enum R13ReleaseScalerKind:
 
     var policyIdentity: String {
         switch self {
+        case .standardVImage:
+            return "r13.vimage-standard.no-fallback.v1"
         case .highQualityVImage:
             return "r13.quality.vimage-high-quality.no-fallback.v1"
         case .fastMPSBilinear:
             return "r13.fast.mps-bilinear.no-fallback.v1"
         case .deterministicMPSLanczos:
             return R03A11ProductAdmission.policyIdentity
+        case .coreImageLanczos:
+            return "r13.core-image-lanczos.no-fallback.v1"
+        case .coreImageBicubic:
+            return "r13.core-image-bicubic.no-fallback.v1"
+        case .videoToolboxPixelTransfer:
+            return "r13.videotoolbox-pixel-transfer.no-fallback.v1"
         }
     }
 
     var materialDecisionIdentity: String {
         switch self {
+        case .standardVImage:
+            return "r13.vimage-standard-resampling.v1"
         case .highQualityVImage:
             return "r13.quality.vimage-high-quality-resampling.v1"
         case .fastMPSBilinear:
             return "r13.fast.mps-bilinear-resampling.v1"
         case .deterministicMPSLanczos:
             return R03A11ProductAdmission.materialDecisionIdentity
+        case .coreImageLanczos:
+            return "r13.core-image-lanczos-resampling.v1"
+        case .coreImageBicubic:
+            return "r13.core-image-bicubic-resampling.v1"
+        case .videoToolboxPixelTransfer:
+            return "r13.videotoolbox-pixel-transfer-resampling.v1"
         }
     }
 }
@@ -182,6 +210,22 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
     let materialDecisionIdentity: String
 
     var frameworkIdentity: String {
+        switch enginePreference {
+        case .videoToolboxQuality,
+             .videoToolboxLowLatency:
+            return "VideoToolbox"
+        case .metalFXSpatial:
+            return "MetalFX"
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            break
+        }
         return orchestrationKind == .none
             ? scalerKind.frameworkIdentity
             : "AppleNativeMultiEngine"
@@ -200,6 +244,11 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
         }
         if orchestrationKind == .none {
             return scalerKind.configurationIdentity(for: route)
+        }
+        if enginePreference.requiresNativeUpscaleSession {
+            return "\(backendID).\(enginePreference.rawValue)."
+                + "\(route.rawValue)."
+                + "\(executionFormat.identityComponent).v1"
         }
         return "\(backendID).\(route.rawValue)."
             + "\(executionFormat.identityComponent).v1"
@@ -221,6 +270,15 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
                 for: plan
             )
         }
+        if enginePreference.requiresNativeUpscaleSession {
+            return "\(backendID).adaptive."
+                + "\(plan.processingSourceResolution.width)x"
+                + "\(plan.processingSourceResolution.height)-to-"
+                + "\(plan.targetResolution.width)x"
+                + "\(plan.targetResolution.height)."
+                + "exact-\(enginePreference.rawValue)."
+                + "\(executionFormat.identityComponent).v1"
+        }
         return "\(backendID).adaptive."
             + "\(plan.processingSourceResolution.width)x"
             + "\(plan.processingSourceResolution.height)-to-"
@@ -240,7 +298,9 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
         }
         return orchestrationKind == .none
             ? scalerKind.adaptiveRouteID
-            : "adaptive_\(orchestrationKind.rawValue)"
+            : enginePreference.requiresNativeUpscaleSession
+                ? "adaptive_\(enginePreference.rawValue)"
+                : "adaptive_\(orchestrationKind.rawValue)"
     }
 
     init(
@@ -275,6 +335,13 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
                 scalerKind = .highQualityVImage
                 orchestrationKind = .quality
             }
+        case .accelerateVImageStandard:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .quality
+            scalerKind = .standardVImage
+            orchestrationKind = .none
         case .accelerateVImageHighQuality:
             effectiveMode =
                 requestedMode == .smoothMotion
@@ -296,8 +363,61 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
                     : .deterministic
             scalerKind = .deterministicMPSLanczos
             orchestrationKind = .none
+        case .coreImageLanczos:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .quality
+            scalerKind = .coreImageLanczos
+            orchestrationKind = .none
+        case .coreImageBicubic:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .quality
+            scalerKind = .coreImageBicubic
+            orchestrationKind = .none
+        case .videoToolboxPixelTransfer:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .fast
+            scalerKind = .videoToolboxPixelTransfer
+            orchestrationKind = .none
+        case .videoToolboxQuality:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .quality
+            scalerKind = .highQualityVImage
+            orchestrationKind = .quality
+        case .videoToolboxLowLatency:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .fast
+            scalerKind = .fastMPSBilinear
+            orchestrationKind = .fast
+        case .metalFXSpatial:
+            effectiveMode =
+                requestedMode == .smoothMotion
+                    ? .smoothMotion
+                    : .fast
+            scalerKind = .fastMPSBilinear
+            orchestrationKind = .fast
         }
-        if orchestrationKind == .none {
+        if enginePreference.requiresNativeUpscaleSession {
+            capabilityID = orchestrationKind.capabilityID
+            backendID = orchestrationKind.backendID
+            backendRevision = "r13.product-router.v1"
+            policyIdentity = Self.exactNativePolicyIdentity(
+                enginePreference
+            )
+            materialDecisionIdentity =
+                Self.exactNativeMaterialDecisionIdentity(
+                    enginePreference
+                )
+        } else if orchestrationKind == .none {
             capabilityID = scalerKind.capabilityID
             backendID = scalerKind.subjectID.rawValue
             backendRevision =
@@ -312,6 +432,54 @@ struct R13ReleaseModeBinding: Hashable, Sendable {
             policyIdentity = orchestrationKind.policyIdentity
             materialDecisionIdentity =
                 orchestrationKind.materialDecisionIdentity
+        }
+    }
+
+    private static func exactNativePolicyIdentity(
+        _ preference: UpscaleEnginePreference
+    ) -> String {
+        switch preference {
+        case .videoToolboxQuality:
+            return "r13.videotoolbox-quality.exact.no-fallback.v1"
+        case .videoToolboxLowLatency:
+            return "r13.videotoolbox-low-latency.exact.no-fallback.v1"
+        case .metalFXSpatial:
+            return "r13.metalfx-spatial.exact.no-fallback.v1"
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            preconditionFailure(
+                "Only native session preferences have exact router policies."
+            )
+        }
+    }
+
+    private static func exactNativeMaterialDecisionIdentity(
+        _ preference: UpscaleEnginePreference
+    ) -> String {
+        switch preference {
+        case .videoToolboxQuality:
+            return "r13.videotoolbox-quality.exact-whole-frame.v1"
+        case .videoToolboxLowLatency:
+            return "r13.videotoolbox-low-latency.exact-whole-frame.v1"
+        case .metalFXSpatial:
+            return "r13.metalfx-spatial.exact-whole-frame.v1"
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            preconditionFailure(
+                "Only native session preferences have exact router decisions."
+            )
         }
     }
 
@@ -394,14 +562,29 @@ enum R13ReleaseModePolicy {
         sourceResolution: VideoResolution,
         targetResolution: VideoResolution
     ) -> R04VideoToolboxNativeRouteBinding? {
-        guard enginePreference == .automatic else { return nil }
         let intent: R04VideoToolboxNativeRouteIntent
-        switch mode {
-        case .auto, .quality, .smoothMotion:
+        switch enginePreference {
+        case .videoToolboxQuality:
             intent = .quality
-        case .fast:
+        case .videoToolboxLowLatency:
             intent = .lowLatency
-        case .deterministic:
+        case .automatic:
+            switch mode {
+            case .auto, .quality, .smoothMotion:
+                intent = .quality
+            case .fast:
+                intent = .lowLatency
+            case .deterministic:
+                return nil
+            }
+        case .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer,
+             .metalFXSpatial:
             return nil
         }
         return R04VideoToolboxNativeRouteSelector.exactBinding(

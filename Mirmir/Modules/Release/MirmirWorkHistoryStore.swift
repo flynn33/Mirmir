@@ -557,7 +557,6 @@ private enum MirmirWorkHistoryLocationValidator {
             && value != "."
             && value != ".."
             && !value.contains("/")
-            && !value.contains("\\")
             && !value.contains("\u{0}")
     }
 
@@ -875,7 +874,9 @@ actor MirmirWorkHistoryStore {
         id: String,
         resolver: any MirmirWorkHistoryBookmarkResolving,
         availabilityChecker: any MirmirWorkFileAvailabilityChecking =
-            MirmirFoundationWorkFileChecker()
+            MirmirFoundationWorkFileChecker(),
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess = .foundation
     ) throws -> MirmirWorkHistoryBookmarkStates {
         guard let record = try record(id: id) else {
             throw MirmirWorkHistoryStoreError.recordNotFound
@@ -884,12 +885,16 @@ actor MirmirWorkHistoryStore {
             source: sourceBookmarkState(
                 record: record,
                 resolver: resolver,
-                availabilityChecker: availabilityChecker
+                availabilityChecker: availabilityChecker,
+                securityScopedResourceAccess:
+                    securityScopedResourceAccess
             ),
             output: outputBookmarkState(
                 record: record,
                 resolver: resolver,
-                availabilityChecker: availabilityChecker
+                availabilityChecker: availabilityChecker,
+                securityScopedResourceAccess:
+                    securityScopedResourceAccess
             )
         )
     }
@@ -898,7 +903,9 @@ actor MirmirWorkHistoryStore {
         records: [MirmirWorkHistoryRecord],
         resolver: any MirmirWorkHistoryBookmarkResolving,
         availabilityChecker: any MirmirWorkFileAvailabilityChecking =
-            MirmirFoundationWorkFileChecker()
+            MirmirFoundationWorkFileChecker(),
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess = .foundation
     ) -> [String: MirmirWorkHistoryBookmarkStates] {
         var result: [String: MirmirWorkHistoryBookmarkStates] = [:]
         result.reserveCapacity(records.count)
@@ -907,12 +914,16 @@ actor MirmirWorkHistoryStore {
                 source: sourceBookmarkState(
                     record: record,
                     resolver: resolver,
-                    availabilityChecker: availabilityChecker
+                    availabilityChecker: availabilityChecker,
+                    securityScopedResourceAccess:
+                        securityScopedResourceAccess
                 ),
                 output: outputBookmarkState(
                     record: record,
                     resolver: resolver,
-                    availabilityChecker: availabilityChecker
+                    availabilityChecker: availabilityChecker,
+                    securityScopedResourceAccess:
+                        securityScopedResourceAccess
                 )
             )
         }
@@ -922,7 +933,9 @@ actor MirmirWorkHistoryStore {
     private func sourceBookmarkState(
         record: MirmirWorkHistoryRecord,
         resolver: any MirmirWorkHistoryBookmarkResolving,
-        availabilityChecker: any MirmirWorkFileAvailabilityChecking
+        availabilityChecker: any MirmirWorkFileAvailabilityChecking,
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess
     ) -> MirmirWorkHistoryBookmarkState {
         let resolved: MirmirWorkHistoryResolvedBookmark
         do {
@@ -935,6 +948,13 @@ actor MirmirWorkHistoryStore {
         }
         guard !resolved.isStale else {
             return .reauthorizationRequired
+        }
+        guard securityScopedResourceAccess.startAccessing(resolved.url)
+        else {
+            return .reauthorizationRequired
+        }
+        defer {
+            securityScopedResourceAccess.stopAccessing(resolved.url)
         }
         let sourceURL: URL
         do {
@@ -954,7 +974,9 @@ actor MirmirWorkHistoryStore {
     private func outputBookmarkState(
         record: MirmirWorkHistoryRecord,
         resolver: any MirmirWorkHistoryBookmarkResolving,
-        availabilityChecker: any MirmirWorkFileAvailabilityChecking
+        availabilityChecker: any MirmirWorkFileAvailabilityChecking,
+        securityScopedResourceAccess:
+            MirmirSecurityScopedResourceAccess
     ) -> MirmirWorkHistoryBookmarkState {
         let resolved: MirmirWorkHistoryResolvedBookmark
         do {
@@ -967,6 +989,13 @@ actor MirmirWorkHistoryStore {
         }
         guard !resolved.isStale else {
             return .reauthorizationRequired
+        }
+        guard securityScopedResourceAccess.startAccessing(resolved.url)
+        else {
+            return .reauthorizationRequired
+        }
+        defer {
+            securityScopedResourceAccess.stopAccessing(resolved.url)
         }
         let locations: (directoryURL: URL, fileURL: URL)
         do {

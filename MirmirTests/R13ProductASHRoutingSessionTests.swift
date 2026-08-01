@@ -1,3 +1,4 @@
+import CoreVideo
 import XCTest
 @testable import Mirmir
 
@@ -37,7 +38,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                         selectedRouteIdentity:
                             primary.identity,
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     )
                 ]
             )
@@ -80,8 +81,8 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
         )
         XCTAssertEqual(
             outputMetadata.journalSHA256,
-            "1d7b681a7083e857d9f34db5cd823589"
-                + "31bdbddf97ecc0416b0ac3faefee45aa"
+            "d585b34666f9f65246ef4333321d420d"
+                + "fb3c089a8973b12be8da910b8bdf97f1"
         )
         XCTAssertEqual(
             outputMetadata.values[
@@ -244,7 +245,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                         selectedRouteIdentity:
                             modelFreeRoute,
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     )
                 ]
             ).outputMetadata()
@@ -256,7 +257,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                         selectedRouteIdentity:
                             appleManagedRoute,
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     )
                 ]
             ).outputMetadata()
@@ -275,12 +276,17 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
         )
     }
 
-    func testUnavailableAndFailedCandidatesProduceTypedFallbackChain()
+    func testUnavailableRejectedAndFailedCandidatesProduceExactBoundedFallbackEvidence()
         async throws {
         let unavailable = try makeCandidate(
             backendID: "test.router.unavailable",
             rank: 65_536,
             script: [.unavailable]
+        )
+        let rejected = try makeCandidate(
+            backendID: "test.router.rejected",
+            rank: 49_152,
+            script: [.rejected]
         )
         let failed = try makeCandidate(
             backendID: "test.router.failed",
@@ -295,13 +301,14 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
         let router = try makeRouter(candidates: [
             selected.candidate,
             failed.candidate,
+            rejected.candidate,
             unavailable.candidate
         ])
         let fixture = try makeFrame(sequenceNumber: 8, seed: 47)
 
         let outcome = await router.submit(fixture.frame)
         let processed = try requireProcessed(outcome)
-        defer { processed.resourceLifetimeToken.release() }
+        processed.resourceLifetimeToken.release()
 
         XCTAssertEqual(processed.processingIdentity.route, selected.identity)
         XCTAssertEqual(
@@ -309,41 +316,110 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
             [
                 try AppleUpscaleFallbackLink(
                     failedRoute: unavailable.identity,
-                    selectedRoute: failed.identity,
+                    selectedRoute: rejected.identity,
                     reasonCode: .backendUnavailable,
                     selectedFallbackOrdinal: 0
+                ),
+                try AppleUpscaleFallbackLink(
+                    failedRoute: rejected.identity,
+                    selectedRoute: failed.identity,
+                    reasonCode: .backendRejected,
+                    selectedFallbackOrdinal: 1
                 ),
                 try AppleUpscaleFallbackLink(
                     failedRoute: failed.identity,
                     selectedRoute: selected.identity,
                     reasonCode: .backendFailed,
-                    selectedFallbackOrdinal: 1
+                    selectedFallbackOrdinal: 2
                 )
             ]
         )
+        try await submitAndRelease(
+            sequenceNumber: 9,
+            seed: 48,
+            to: router
+        )
+
         let decision = await router.decisionSummary()
-        XCTAssertEqual(decision.fallbackCount, 2)
+        XCTAssertEqual(decision.fallbackCount, 3)
         XCTAssertEqual(
-            decision.events,
-            [
+            decision.events.first,
                 R13ProductASHDecisionEvent(
                     sequenceNumber: 8,
                     selectedRouteIdentity:
                         selected.identity,
                     reason: .fatalBackendFailover,
-                    failedBackendIDs: [
-                        unavailable.identity.backend.backendID,
-                        failed.identity.backend.backendID
+                    fallbackHistory: [
+                        try AppleUpscaleFallbackLink(
+                            failedRoute: unavailable.identity,
+                            selectedRoute: rejected.identity,
+                            reasonCode: .backendUnavailable,
+                            selectedFallbackOrdinal: 0
+                        ),
+                        try AppleUpscaleFallbackLink(
+                            failedRoute: rejected.identity,
+                            selectedRoute: failed.identity,
+                            reasonCode: .backendRejected,
+                            selectedFallbackOrdinal: 1
+                        ),
+                        try AppleUpscaleFallbackLink(
+                            failedRoute: failed.identity,
+                            selectedRoute: selected.identity,
+                            reasonCode: .backendFailed,
+                            selectedFallbackOrdinal: 2
+                        )
                     ]
                 )
+        )
+        let metadata = try decision.outputMetadata()
+        XCTAssertEqual(metadata.fallbackCount, 3)
+        XCTAssertEqual(
+            metadata.fallbackEvents.map(\.reason),
+            [
+                AppleUpscaleFallbackReasonCode.backendUnavailable.rawValue,
+                AppleUpscaleFallbackReasonCode.backendRejected.rawValue,
+                AppleUpscaleFallbackReasonCode.backendFailed.rawValue
             ]
+        )
+        XCTAssertEqual(
+            metadata.fallbackEvents.map(\.sequenceNumber),
+            [8, 8, 8]
+        )
+        XCTAssertEqual(
+            metadata.fallbackEvents.map(\.selectedFallbackOrdinal),
+            [0, 1, 2]
+        )
+        XCTAssertEqual(
+            metadata.values[
+                R13ProductASHDecisionMetadata.fallbackEventsKey
+            ],
+            metadata.fallbackEventsJSON
+        )
+        XCTAssertEqual(
+            try JSONDecoder().decode(
+                [R13ProductASHFallbackEventEvidence].self,
+                from: try XCTUnwrap(
+                    metadata.fallbackEventsJSON.data(using: .utf8)
+                )
+            ),
+            metadata.fallbackEvents
+        )
+        XCTAssertLessThanOrEqual(
+            metadata.fallbackCount,
+            4 - 1,
+            "A successful frame cannot fail more routes than the admitted candidate count minus its terminal route."
         )
         let unavailableSnapshot =
             await unavailable.session.snapshot()
+        let rejectedSnapshot = await rejected.session.snapshot()
         let failedSnapshot = await failed.session.snapshot()
         let selectedSnapshot = await selected.session.snapshot()
         XCTAssertEqual(
             unavailableSnapshot.submittedSequenceNumbers,
+            [8]
+        )
+        XCTAssertEqual(
+            rejectedSnapshot.submittedSequenceNumbers,
             [8]
         )
         XCTAssertEqual(
@@ -352,9 +428,130 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
         )
         XCTAssertEqual(
             selectedSnapshot.submittedSequenceNumbers,
-            [8]
+            [8, 9]
         )
         await router.cancel()
+    }
+
+    func testDecisionJournalAndCanonicalEvidenceBindFallbackReason()
+        throws {
+        let failed = try makeCandidate(
+            backendID: "test.router.journal.failed",
+            rank: 65_536,
+            script: [.failed]
+        )
+        let selected = try makeCandidate(
+            backendID: "test.router.journal.selected",
+            rank: 0,
+            script: [.processed]
+        )
+        func metadata(
+            reason: AppleUpscaleFallbackReasonCode
+        ) throws -> R13ProductASHDecisionMetadata {
+            try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity: selected.identity,
+                        reason: .fatalBackendFailover,
+                        fallbackHistory: [
+                            try AppleUpscaleFallbackLink(
+                                failedRoute: failed.identity,
+                                selectedRoute: selected.identity,
+                                reasonCode: reason,
+                                selectedFallbackOrdinal: 0
+                            )
+                        ]
+                    )
+                ]
+            ).outputMetadata()
+        }
+
+        let unavailable = try metadata(reason: .backendUnavailable)
+        let rejected = try metadata(reason: .backendRejected)
+
+        XCTAssertNotEqual(
+            unavailable.fallbackEventsJSON,
+            rejected.fallbackEventsJSON
+        )
+        XCTAssertNotEqual(
+            unavailable.journalSHA256,
+            rejected.journalSHA256
+        )
+    }
+
+    func testMetadataRejectsRepeatedFailedBackendAcrossExactRouteRevisions()
+        throws {
+        func route(
+            backendID: String,
+            revision: String
+        ) throws -> AppleUpscaleRouteIdentity {
+            try AppleUpscaleRouteIdentity(
+                backend: AppleUpscaleBackendIdentity(
+                    backendID: backendID,
+                    backendRevision: revision,
+                    modelAssetsIdentity: .notRequired
+                ),
+                configurationIdentity: "\(revision).configuration",
+                policyIdentity: "test.router.repeated.policy",
+                materialDecisionIdentity:
+                    "test.router.repeated.decision"
+            )
+        }
+        let failedBackendID = "test.router.repeated.failed"
+        let firstFailed = try route(
+            backendID: failedBackendID,
+            revision: "test.router.repeated.failed.v1"
+        )
+        let secondFailed = try route(
+            backendID: failedBackendID,
+            revision: "test.router.repeated.failed.v2"
+        )
+        let firstSelected = try route(
+            backendID: "test.router.repeated.selected-one",
+            revision: "test.router.repeated.selected-one.v1"
+        )
+        let secondSelected = try route(
+            backendID: "test.router.repeated.selected-two",
+            revision: "test.router.repeated.selected-two.v1"
+        )
+        let summary = R13ProductASHDecisionSummary(
+            events: [
+                R13ProductASHDecisionEvent(
+                    sequenceNumber: 0,
+                    selectedRouteIdentity: firstSelected,
+                    reason: .fatalBackendFailover,
+                    fallbackHistory: [
+                        try AppleUpscaleFallbackLink(
+                            failedRoute: firstFailed,
+                            selectedRoute: firstSelected,
+                            reasonCode: .backendFailed,
+                            selectedFallbackOrdinal: 0
+                        )
+                    ]
+                ),
+                R13ProductASHDecisionEvent(
+                    sequenceNumber: 1,
+                    selectedRouteIdentity: secondSelected,
+                    reason: .fatalBackendFailover,
+                    fallbackHistory: [
+                        try AppleUpscaleFallbackLink(
+                            failedRoute: secondFailed,
+                            selectedRoute: secondSelected,
+                            reasonCode: .backendFailed,
+                            selectedFallbackOrdinal: 0
+                        )
+                    ]
+                )
+            ]
+        )
+
+        XCTAssertThrowsError(try summary.outputMetadata()) { error in
+            XCTAssertEqual(
+                error as? R13ProductASHDecisionMetadataError,
+                .repeatedFallbackRoute(failedBackendID)
+            )
+        }
     }
 
     func testResetClearsSelectionHistoryAndRestartsInitialSelection()
@@ -510,14 +707,14 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
             sequenceNumber: 0,
             selectedRouteIdentity: selected.identity,
             reason: .initialSelection,
-            failedBackendIDs: [],
+            fallbackHistory: [],
             processingPressureQ16: 4_096
         )
         let secondDecision = R13ProductASHDecisionEvent(
             sequenceNumber: 1,
             selectedRouteIdentity: selected.identity,
             reason: .hysteresisHold,
-            failedBackendIDs: [],
+            fallbackHistory: [],
             processingPressureQ16: 12_288
         )
 
@@ -631,7 +828,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                     reason: sequenceNumber == 0
                         ? .initialSelection
                         : .hysteresisHold,
-                    failedBackendIDs: [],
+                    fallbackHistory: [],
                     processingPressureQ16:
                         Int64(sequenceNumber * 1_024)
                 ),
@@ -697,7 +894,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                     sequenceNumber: 0,
                     selectedRouteIdentity: unknown.identity,
                     reason: .initialSelection,
-                    failedBackendIDs: []
+                    fallbackHistory: []
                 ),
                 isFinalCachedPrefixFrame: true,
                 requiresBackendWarmup: true
@@ -731,7 +928,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
             sequenceNumber: 0,
             selectedRouteIdentity: route,
             reason: .initialSelection,
-            failedBackendIDs: []
+            fallbackHistory: []
         )
         let base = try R13ProductASHDecisionSummary(
             events: [baseEvent]
@@ -742,7 +939,7 @@ final class R13ProductASHRoutingSessionTests: XCTestCase {
                     sequenceNumber: 0,
                     selectedRouteIdentity: route,
                     reason: .initialSelection,
-                    failedBackendIDs: [],
+                    fallbackHistory: [],
                     processingPressureQ16: 1
                 )
             ]
@@ -1061,9 +1258,9 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
         let diagnostics = R04VideoToolboxConfigurationDiagnostics(
             nativeIdentity: .quality(
                 R04ObservedQualityConfiguration(
-                    frameWidth: 1_920,
-                    frameHeight: 1_080,
-                    integerScaleFactor: 2,
+                    frameWidth: 480,
+                    frameHeight: 270,
+                    integerScaleFactor: 4,
                     inputType: .video,
                     usesPrecomputedFlow: false,
                     qualityPriority: .normal,
@@ -1071,10 +1268,17 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
                 )
             ),
             supportedPixelFormats: [
-                R04VideoToolboxRouteCatalog.pixelFormat
+                kCVPixelFormatType_64RGBAHalf
             ],
             modelStatus: .downloadRequired,
             processingMode: .quality
+        )
+        XCTAssertEqual(
+            R04VideoToolboxDiagnosticsValidator.validate(
+                route: binding.route,
+                diagnostics: diagnostics
+            ),
+            .unavailable(.modelNotReady)
         )
         let observation = R04VTNativeCapabilityObservation(
             route: binding.route,
@@ -1105,6 +1309,14 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
     func testReadyQualityObservationBindsAppleManagedModelToExactRoute()
         throws {
         let binding = try qualityBinding()
+        let diagnostics = readyQualityDiagnostics()
+        XCTAssertEqual(
+            R04VideoToolboxDiagnosticsValidator.validate(
+                route: binding.route,
+                diagnostics: diagnostics
+            ),
+            .accepted
+        )
         let observation = R04VTNativeCapabilityObservation(
             route: binding.route,
             capability: try capability(
@@ -1113,7 +1325,7 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
                 eligibility: .productQualified
             ),
             status: .runnable,
-            diagnostics: readyQualityDiagnostics()
+            diagnostics: diagnostics
         )
 
         let identity = try XCTUnwrap(
@@ -1195,13 +1407,16 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
 
     private func qualityBinding() throws
         -> R04VideoToolboxNativeRouteBinding {
-        try XCTUnwrap(
+        let binding = try XCTUnwrap(
             R04VideoToolboxNativeRouteSelector.exactBinding(
-                sourceResolution: .p1080,
-                targetResolution: .p2160,
+                sourceResolution: .p270,
+                targetResolution: .p1080,
                 intent: .quality
             )
         )
+        XCTAssertEqual(binding.subjectID, .quality4x)
+        XCTAssertEqual(binding.route.scaleFactor, .four)
+        return binding
     }
 
     private func readyQualityDiagnostics()
@@ -1209,9 +1424,9 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
         R04VideoToolboxConfigurationDiagnostics(
             nativeIdentity: .quality(
                 R04ObservedQualityConfiguration(
-                    frameWidth: 1_920,
-                    frameHeight: 1_080,
-                    integerScaleFactor: 2,
+                    frameWidth: 480,
+                    frameHeight: 270,
+                    integerScaleFactor: 4,
                     inputType: .video,
                     usesPrecomputedFlow: false,
                     qualityPriority: .normal,
@@ -1219,7 +1434,7 @@ final class R13ModelLifecycleEngineBoundaryTests: XCTestCase {
                 )
             ),
             supportedPixelFormats: [
-                R04VideoToolboxRouteCatalog.pixelFormat
+                kCVPixelFormatType_64RGBAHalf
             ],
             modelStatus: .ready,
             processingMode: .quality

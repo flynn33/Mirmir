@@ -11,6 +11,9 @@ extension MirmirViewModel {
         if let hardeningError = error as? R13ReleaseHardeningError {
             return userFacingHardeningError(hardeningError)
         }
+        if let environmentError = error as? R13ReleaseEnvironmentError {
+            return userFacingReleaseEnvironmentError(environmentError)
+        }
         if let engineError = error as? UpscalerEngineError {
             return String(describing: engineError)
         }
@@ -26,8 +29,8 @@ extension MirmirViewModel {
             return "Not enough free disk space. Mirmir needs "
                 + "\(Self.fileSize(required)) and found "
                 + "\(Self.fileSize(available))."
-        case .reauthorizationRequired, .bookmarkResolutionFailed,
-             .securityScopeDenied:
+        case .reauthorizationRequired, .bookmarkCreationFailed,
+             .bookmarkResolutionFailed, .securityScopeDenied:
             return "Mirmir needs permission to reopen the source or output "
                 + "folder. Select them again and retry."
         case .sourceDrift:
@@ -76,6 +79,34 @@ extension MirmirViewModel {
                 + "before publication."
         case .arithmeticOverflow:
             return "The requested job size could not be represented safely."
+        }
+    }
+
+    private func userFacingReleaseEnvironmentError(
+        _ error: R13ReleaseEnvironmentError
+    ) -> String {
+        switch error {
+        case .applicationSupportDirectoryUnavailable:
+            return "Mirmir could not access its Application Support folder, "
+                + "so the upscale did not start."
+        case .applicationIdentityUnavailable:
+            return "Mirmir could not verify this app build's release identity, "
+                + "so the upscale did not start."
+        case .frameworkIdentityUnavailable:
+            return "Mirmir could not verify the Apple processing framework "
+                + "required by this mode, so the upscale did not start."
+        case .runtimeIdentityUnavailable:
+            return "Mirmir could not verify the current macOS runtime identity, "
+                + "so the upscale did not start."
+        case .frameCountReaderFailed, .frameCountUnavailable:
+            return "Mirmir could not determine the source video's exact frame "
+                + "count, so the upscale did not start."
+        case .memoryProbeFailed:
+            return "Mirmir could not measure available memory, so the upscale "
+                + "did not start safely."
+        case .arithmeticOverflow:
+            return "The source or resource measurements were too large to "
+                + "represent safely, so the upscale did not start."
         }
     }
 
