@@ -1,6 +1,0 @@
-["kCGWindowAlpha": 1, "kCGWindowOwnerPID": 35681, "kCGWindowLayer": 0, "kCGWindowIsOnscreen": 1, "kCGWindowName": Mirmir, "kCGWindowSharingState": 1, "kCGWindowMemoryUsage": 2368, "kCGWindowBounds": {
-    Height = 800;
-    Width = 1200;
-    X = 1176;
-    Y = 231;
-}, "kCGWindowNumber": 529, "kCGWindowStoreType": 1, "kCGWindowOwnerName": Mirmir]

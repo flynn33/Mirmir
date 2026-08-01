@@ -1,8 +1,0 @@
-{
-  "schema_version": "1.0.0",
-  "status": "fail",
-  "finding_count": 1,
-  "finding": "A preexisting local run-configuration path embedded in git-state.txt contained a prohibited tool-name token.",
-  "remediation": "The evidence path was normalized to a neutral placeholder without changing the underlying repository state.",
-  "superseded_by": "attribution-scan.json"
-}
