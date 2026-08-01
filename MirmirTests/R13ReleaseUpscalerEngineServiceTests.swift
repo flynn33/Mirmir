@@ -312,6 +312,385 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         )
     }
 
+    @available(macOS 26.0, *)
+    func testExplicitQuality720pExecutesAdaptiveNativeInsteadOfRejectedContract()
+        async throws {
+        let eventLog = R13ReleaseTestEventLog()
+        let sourceFrame = try R13ReleaseTestFrames.make(
+            resolution: .p720,
+            index: 0
+        )
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [sourceFrame],
+            eventLog: eventLog,
+            captureAppendedFrames: true
+        )
+        let productFactory = R13ReleaseTestSessionFactory(
+            behavior: .processed,
+            eventLog: eventLog
+        )
+        let service = makeService(
+            media: media,
+            factory: productFactory
+        )
+        let identifier = "r13-quality-720-adaptive-native"
+        let job = UpscaleJob(
+            identifier: identifier,
+            inputURL: try makeInputFixtureURL(
+                identifier: identifier
+            ),
+            outputURL: URL(
+                fileURLWithPath: "/tmp/\(identifier).mp4"
+            ),
+            targetResolution: .p1080,
+            preserveAudio: false,
+            mode: .quality,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                enginePreference: .videoToolboxQuality,
+                strategyPreference: .automatic
+            )
+        )
+
+        let result = try await service.submit(job).waitForCompletion()
+
+        XCTAssertEqual(result.lastPathComponent, "\(identifier).mp4")
+        XCTAssertTrue(
+            productFactory.routes.isEmpty,
+            "The rejected public Quality 1.5x product contract must not run."
+        )
+        let mediaSession = try XCTUnwrap(media.lastSession)
+        XCTAssertEqual(mediaSession.appendedFrameIndices, [0])
+        XCTAssertEqual(mediaSession.appendedFrames.count, 1)
+        XCTAssertEqual(mediaSession.finishCount, 1)
+        XCTAssertEqual(mediaSession.cancelCount, 0)
+        XCTAssertEqual(
+            mediaSession.appendedFrames[0].width,
+            VideoResolution.p1080.width
+        )
+        XCTAssertEqual(
+            mediaSession.appendedFrames[0].height,
+            VideoResolution.p1080.height
+        )
+        XCTAssertEqual(
+            mediaSession.finalMetadata[
+                R13ProductASHDecisionMetadata
+                    .selectedModelStatusesKey
+            ],
+            R13ProductASHSelectedModelStatus
+                .appleConfigurationManagedReady.rawValue
+        )
+        XCTAssertEqual(
+            mediaSession.finalMetadata[
+                R13ProductASHDecisionMetadata.modelStatusKey
+            ],
+            R13ProductASHSelectedModelStatus
+                .appleConfigurationManagedReady.rawValue
+        )
+
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p720,
+                targetResolution: .p1080,
+                strategyPreference: .automatic
+            )
+        )
+        let nativePlan = try XCTUnwrap(
+            resolved.adaptiveNativePlan
+        )
+        let decisionIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: resolved.releaseScalePlan,
+                modeBinding: R13ReleaseModePolicy.binding(
+                    for: .quality,
+                    enginePreference: .videoToolboxQuality
+                ),
+                videoToolboxRouteBinding: resolved.binding,
+                videoToolboxPlan: nativePlan
+            )
+        let expectedModelIdentity: AppleUpscaleModelAssetsIdentity =
+            .appleConfigurationManaged(
+                configurationIdentity:
+                    resolved.binding.route.configurationIdentity,
+                readiness: .ready
+            )
+        XCTAssertEqual(
+            decisionIdentity.backend.modelAssetsIdentity,
+            expectedModelIdentity
+        )
+        XCTAssertEqual(
+            decisionIdentity.backend.backendID,
+            resolved.binding.subjectID.rawValue
+        )
+        XCTAssertEqual(
+            decisionIdentity.backend.backendRevision,
+            R04VideoToolboxRouteCatalog.backendRevision
+        )
+        XCTAssertEqual(
+            mediaSession.finalMetadata[
+                R13ProductASHDecisionMetadata.selectedBackendsKey
+            ],
+            resolved.binding.subjectID.rawValue
+        )
+        XCTAssertEqual(
+            decisionIdentity.configurationIdentity,
+            nativePlan.stableIdentity
+        )
+        XCTAssertEqual(
+            decisionIdentity.policyIdentity,
+            R04VideoToolboxBackendAdmissionPolicy.nativeProduct
+                .policyIdentity
+        )
+        let restartIdentity = try R13RestartRoutingRouteIdentity(
+            decisionIdentity
+        )
+        XCTAssertEqual(
+            try restartIdentity.appleIdentity(),
+            decisionIdentity
+        )
+    }
+
+    func testAdaptiveRequiredNativeIdentitiesNameExecutedBackends()
+        throws {
+        let lowLatencySource = VideoResolution(
+            width: 1_024,
+            height: 576
+        )
+        let lowLatencyTarget = VideoResolution(
+            width: 1_152,
+            height: 648
+        )
+        let lowLatencyPlan = try VTAdaptiveNativePlanAdmission
+            .makeLowLatencyPlan(
+                presentationSourceResolution: lowLatencySource,
+                requestedSourceResolution: lowLatencySource,
+                nativeSourceResolution: lowLatencySource,
+                requestedTargetResolution: lowLatencyTarget,
+                runtimeSupportedScaleFactors: [1.25]
+            )
+        let lowLatencyRoute = try VTAdaptiveNativeRouteFactory
+            .makeRoute(plan: lowLatencyPlan)
+        let lowLatencyBinding =
+            R04VideoToolboxNativeRouteBinding(
+                intent: .lowLatency,
+                route: lowLatencyRoute
+            )
+        let lowLatencyScalePlan = R13ReleaseScalePlan
+            .adaptiveMPSLanczos(
+                try R13AdaptiveScalePlan(
+                    sourceResolution: lowLatencySource,
+                    targetResolution: lowLatencyTarget
+                )
+            )
+        let metalFXPlan = try R13AdaptiveScalePlan(
+            sourceResolution: .p270,
+            targetResolution: .p720
+        )
+        let metalFXScalePlan = R13ReleaseScalePlan
+            .adaptiveMPSLanczos(metalFXPlan)
+        let lowLatencyModeBinding =
+            R13ReleaseModePolicy.binding(
+                for: .fast,
+                enginePreference: .videoToolboxLowLatency
+            )
+        let lowLatencyIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: lowLatencyScalePlan,
+                modeBinding: lowLatencyModeBinding,
+                videoToolboxRouteBinding: lowLatencyBinding,
+                videoToolboxPlan: lowLatencyPlan
+            )
+
+        XCTAssertEqual(
+            lowLatencyIdentity.backend.backendID,
+            "r04.videotoolbox.low-latency.adaptive"
+        )
+        XCTAssertEqual(
+            lowLatencyIdentity.backend.backendRevision,
+            R04VideoToolboxRouteCatalog.backendRevision
+        )
+        XCTAssertEqual(
+            lowLatencyIdentity.backend.modelAssetsIdentity,
+            .notRequired
+        )
+        XCTAssertEqual(
+            lowLatencyIdentity.configurationIdentity,
+            lowLatencyPlan.stableIdentity
+        )
+        XCTAssertEqual(
+            lowLatencyIdentity.policyIdentity,
+            R04VideoToolboxBackendAdmissionPolicy.nativeProduct
+                .policyIdentity
+        )
+        XCTAssertNotEqual(
+            lowLatencyIdentity.backend.backendID,
+            lowLatencyRoute.subjectID.rawValue
+        )
+
+        let metalFXModeBinding = R13ReleaseModePolicy.binding(
+            for: .fast,
+            enginePreference: .metalFXSpatial
+        )
+        let metalFXIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: metalFXScalePlan,
+                modeBinding: metalFXModeBinding
+            )
+
+        XCTAssertEqual(
+            metalFXIdentity.backend.backendID,
+            "r05.metalfx.spatial.adaptive"
+        )
+        XCTAssertEqual(
+            metalFXIdentity.backend.backendRevision,
+            R05MetalFXRouteCatalog.backendRevision
+        )
+        XCTAssertEqual(
+            metalFXIdentity.backend.modelAssetsIdentity,
+            .notRequired
+        )
+        XCTAssertTrue(
+            metalFXIdentity.configurationIdentity.contains(
+                "source-480x270.target-1280x720"
+            )
+        )
+        XCTAssertTrue(
+            metalFXIdentity.configurationIdentity.contains(
+                metalFXModeBinding.executionFormat.identityComponent
+            )
+        )
+        XCTAssertEqual(
+            metalFXIdentity.policyIdentity,
+            R05MetalFXBackendAdmissionPolicy.nativeProduct
+                .policyIdentity
+        )
+        XCTAssertNotEqual(
+            metalFXIdentity.backend.backendID,
+            metalFXModeBinding.backendID
+        )
+    }
+
+    func testAdaptiveQualityIdentityDistinguishesExactGeometryFinish()
+        throws {
+        let finishedPlan = try VTAdaptiveNativePlanAdmission
+            .makeQualityPlan(
+                presentationSourceResolution: .p270,
+                requestedSourceResolution: .p270,
+                nativeSourceResolution: .p270,
+                requestedTargetResolution: .p720,
+                runtimeSupportedScaleFactors: [4]
+            )
+        let exactPlan = try VTAdaptiveNativePlanAdmission
+            .makeQualityPlan(
+                presentationSourceResolution: .p270,
+                requestedSourceResolution: .p270,
+                nativeSourceResolution: .p270,
+                requestedTargetResolution: .p1080,
+                runtimeSupportedScaleFactors: [4]
+            )
+        let finishedRoute = try VTAdaptiveNativeRouteFactory
+            .makeRoute(plan: finishedPlan)
+        let exactRoute = try VTAdaptiveNativeRouteFactory
+            .makeRoute(plan: exactPlan)
+        XCTAssertEqual(finishedRoute, exactRoute)
+
+        let modeBinding = R13ReleaseModePolicy.binding(
+            for: .quality,
+            enginePreference: .videoToolboxQuality
+        )
+        let finishedIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: .adaptiveMPSLanczos(
+                    try R13AdaptiveScalePlan(
+                        sourceResolution: .p270,
+                        targetResolution: .p720
+                    )
+                ),
+                modeBinding: modeBinding,
+                videoToolboxRouteBinding:
+                    R04VideoToolboxNativeRouteBinding(
+                        intent: .quality,
+                        route: finishedRoute
+                    ),
+                videoToolboxPlan: finishedPlan
+            )
+        let exactIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: .adaptiveMPSLanczos(
+                    try R13AdaptiveScalePlan(
+                        sourceResolution: .p270,
+                        targetResolution: .p1080
+                    )
+                ),
+                modeBinding: modeBinding,
+                videoToolboxRouteBinding:
+                    R04VideoToolboxNativeRouteBinding(
+                        intent: .quality,
+                        route: exactRoute
+                    ),
+                videoToolboxPlan: exactPlan
+            )
+
+        XCTAssertEqual(
+            finishedIdentity.backend,
+            exactIdentity.backend
+        )
+        XCTAssertEqual(
+            finishedIdentity.configurationIdentity,
+            finishedPlan.stableIdentity
+        )
+        XCTAssertEqual(
+            exactIdentity.configurationIdentity,
+            exactPlan.stableIdentity
+        )
+        XCTAssertNotEqual(
+            finishedIdentity.configurationIdentity,
+            exactIdentity.configurationIdentity
+        )
+
+        let tenBitPlan = try VTAdaptiveNativePlanAdmission
+            .makeQualityPlan(
+                videoFormat: .sdrBT709TenBit,
+                presentationSourceResolution: .p270,
+                requestedSourceResolution: .p270,
+                nativeSourceResolution: .p270,
+                requestedTargetResolution: .p720,
+                runtimeSupportedScaleFactors: [4]
+            )
+        let tenBitRoute = try VTAdaptiveNativeRouteFactory
+            .makeRoute(plan: tenBitPlan)
+        XCTAssertEqual(tenBitRoute, finishedRoute)
+        let tenBitIdentity = try R13ReleaseUpscalerJobHandle
+            .requiredNativeRouteIdentity(
+                scalePlan: .adaptiveMPSLanczos(
+                    try R13AdaptiveScalePlan(
+                        sourceResolution: .p270,
+                        targetResolution: .p720
+                    )
+                ),
+                modeBinding: modeBinding.resolving(
+                    videoFormat: .sdrBT709TenBit
+                ),
+                videoToolboxRouteBinding:
+                    R04VideoToolboxNativeRouteBinding(
+                        intent: .quality,
+                        route: tenBitRoute
+                    ),
+                videoToolboxPlan: tenBitPlan
+            )
+        XCTAssertEqual(
+            tenBitIdentity.configurationIdentity,
+            tenBitPlan.stableIdentity
+        )
+        XCTAssertNotEqual(
+            finishedIdentity.configurationIdentity,
+            tenBitIdentity.configurationIdentity
+        )
+    }
+
     func testCanonicalLivePathAppliesEdgeAndDetailConfiguration()
         async throws {
         let low = try await runCapturedCanonicalEnhancement(
@@ -1968,7 +2347,9 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
 
     private func makeService(
         media: R13ReleaseTestMediaPipeline,
-        factory: R13ReleaseTestSessionFactory
+        factory: R13ReleaseTestSessionFactory,
+        enhancedSourceObserver:
+            @escaping R13ReleaseEnhancedSourceObserver = { _ in }
     ) -> R13ReleaseUpscalerEngineService {
         R13ReleaseUpscalerEngineService(
             media: media,
@@ -1978,7 +2359,8 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
                     route: route,
                     modeBinding: modeBinding
                 )
-            }
+            },
+            enhancedSourceObserver: enhancedSourceObserver
         )
     }
 
@@ -2015,7 +2397,21 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
                 try Self.fillEnhancementPattern(output)
             }
         )
-        let service = makeService(media: media, factory: factory)
+        let service = makeService(
+            media: media,
+            factory: factory,
+            enhancedSourceObserver: { source in
+                guard let captured = try? R13NV12Frame
+                    .captureTightActivePlanes(from: source) else {
+                    return
+                }
+                capturedInput.withLock { current in
+                    if current == nil {
+                        current = captured
+                    }
+                }
+            }
+        )
         let job = UpscaleJob(
             identifier: identifier,
             inputURL: try makeInputFixtureURL(

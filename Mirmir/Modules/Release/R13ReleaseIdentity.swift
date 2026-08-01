@@ -114,20 +114,28 @@ struct R13ReleaseRoutePolicyClaim:
     ) -> R13ReleaseRoutePolicyClaim {
         let isOrchestrated =
             binding.usesProductOrchestration
+        let isExactNative =
+            binding.enginePreference.requiresNativeUpscaleSession
         let modelStatus:
             R13ReleasePolicyModelStatus
         switch routeClass {
         case .canonicalProduct:
             modelStatus = isOrchestrated
+                && (!isExactNative
+                    || binding.enginePreference
+                        == .videoToolboxQuality)
                 ? .runtimeSelected
                 : .notRequired
         case .adaptiveFormatGeometry:
-            modelStatus = .notRequired
+            modelStatus =
+                binding.enginePreference == .videoToolboxQuality
+                    ? .runtimeSelected
+                    : .notRequired
         }
         return R13ReleaseRoutePolicyClaim(
             validatedRouteClass: routeClass,
             modelStatus: modelStatus,
-            fallbackSemantics: isOrchestrated
+            fallbackSemantics: isOrchestrated && !isExactNative
                 ? .runtimeSelectedOrderedFailover
                 : .forbidden
         )
@@ -872,6 +880,65 @@ private extension R13ReleaseIdentity {
                 .routingDecisionMetadataInvalid(
                     field: "routing_model_status_policy"
                 )
+        }
+        if enginePreference.requiresNativeUpscaleSession {
+            let selectedBackendIDs = backendIDs.map(String.init)
+            let allowedBackendIDs: Set<String>
+            let requiredModelStatus:
+                R13ProductASHSelectedModelStatus
+            switch enginePreference {
+            case .videoToolboxQuality:
+                allowedBackendIDs = [
+                    R04VideoToolboxSubjectID.quality2x.rawValue,
+                    R04VideoToolboxSubjectID.quality4x.rawValue
+                ]
+                requiredModelStatus =
+                    .appleConfigurationManagedReady
+            case .videoToolboxLowLatency:
+                allowedBackendIDs = [
+                    R04VideoToolboxSubjectID
+                        .lowLatency1p5x.rawValue,
+                    R04VideoToolboxSubjectID
+                        .lowLatency2x.rawValue,
+                    R04VideoToolboxSubjectID
+                        .lowLatency4x.rawValue,
+                    "r04.videotoolbox.low-latency.adaptive"
+                ]
+                requiredModelStatus = .notRequired
+            case .metalFXSpatial:
+                allowedBackendIDs = [
+                    R05MetalFXSubjectID.spatial1p5x.rawValue,
+                    R05MetalFXSubjectID.spatial2x.rawValue,
+                    R05MetalFXSubjectID.spatial4x.rawValue,
+                    "r05.metalfx.spatial.adaptive"
+                ]
+                requiredModelStatus = .notRequired
+            case .automatic,
+                 .accelerateVImageStandard,
+                 .accelerateVImageHighQuality,
+                 .mpsBilinear,
+                 .mpsLanczos,
+                 .coreImageLanczos,
+                 .coreImageBicubic,
+                 .videoToolboxPixelTransfer:
+                preconditionFailure(
+                    "Only exact native preferences reach native metadata validation."
+                )
+            }
+            guard selectedBackendIDs.count == 1,
+                  allowedBackendIDs.contains(
+                    selectedBackendIDs[0]
+                  ),
+                  transitionCount == 0,
+                  fallbackCount == 0,
+                  candidateExclusionCount == 0,
+                  selectedModelStatuses
+                    == [requiredModelStatus] else {
+                throw R13ReleaseIdentityError
+                    .routingDecisionMetadataInvalid(
+                        field: "routing_exact_native_policy"
+                    )
+            }
         }
         guard metadata[
             R13ProductASHDecisionMetadata.modelStatusKey

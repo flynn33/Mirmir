@@ -180,6 +180,8 @@
 		571678D0E5E21B9163D4020C /* R09ASHResidualAuthorizationTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 188696A2EAD19E0B9326A01D /* R09ASHResidualAuthorizationTestSupport.swift */; };
 		5722817E9915698C26E66D21 /* OutputMediaMetadataVerificationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA16F1FBCEDF17BE37E51D0A /* OutputMediaMetadataVerificationTests.swift */; };
 		57309299A60A706E5AF0B878 /* MirmirWorkHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 243C7EAC209ECFEB440F058C /* MirmirWorkHistoryStore.swift */; };
+		050F5FF01A0945FD84BD7400 /* MirmirRealProductionPathMatrixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */; };
+		D38A2E97080D4F669B8AA311 /* MirmirDeterministicImprovementAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */; };
 		57AB38652DC59647EAC97F7D /* MirmirRealQueueWorkflowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */; };
 		588499FCF90A14905B0A53AE /* OutputMediaAppleLosslessPreservationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 393485B96A2630EE469A8134 /* OutputMediaAppleLosslessPreservationTests.swift */; };
 		5889C655E2FB60975B5B4348 /* MirmirAppBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */; };
@@ -892,6 +894,8 @@
 		B317C13C36AC6141EAD7557D /* R03ASHComparatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03ASHComparatorTests.swift; sourceTree = "<group>"; };
 		B43CC7E0D95FA84059248DCE /* LanczosPolishPassTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanczosPolishPassTests.swift; sourceTree = "<group>"; };
 		B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRealQueueWorkflowTests.swift; sourceTree = "<group>"; };
+		8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirRealProductionPathMatrixTests.swift; sourceTree = "<group>"; };
+		D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirDeterministicImprovementAcceptanceTests.swift; sourceTree = "<group>"; };
 		B46992AB5BD06379314C3747 /* R13FormatPreservingEnhancementProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R13FormatPreservingEnhancementProcessor.swift; sourceTree = "<group>"; };
 		B562B4260EDBFCDB3DAAAF65 /* ASHP08NativeSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHP08NativeSupportTests.swift; sourceTree = "<group>"; };
 		B562B76C94BCA2E06F74D1E2 /* R03VTPixelTransferScalingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = R03VTPixelTransferScalingTests.swift; sourceTree = "<group>"; };
@@ -1713,6 +1717,8 @@
 				CDF261046D1AB00B6DD51CF2 /* MirmirPendingWorkQueueTests.swift */,
 				5196D3DC423827373395DF19 /* MirmirPendingWorkQueueTestSupport.swift */,
 				60627FA21A078C064B282ED0 /* MirmirPreferencesStoreTests.swift */,
+				D38A2E97080D4F669B8AA312 /* MirmirDeterministicImprovementAcceptanceTests.swift */,
+				8B3C461FC1E84345B0FCA1B5 /* MirmirRealProductionPathMatrixTests.swift */,
 				B45A9B421FBBA1383DB9B1DB /* MirmirRealQueueWorkflowTests.swift */,
 				0DDE2C80834EB97A996C3911 /* MirmirSynchronizedPlaybackTimelineTests.swift */,
 				4C8D55C9B67166AB68E55E35 /* MirmirTimedMetadataMigrationTests.swift */,
@@ -2022,6 +2028,8 @@
 				1EF0DA34435F137B30B40218 /* MirmirPendingWorkQueueTestSupport.swift in Sources */,
 				E6738D8777F3896C3B7EE904 /* MirmirPendingWorkQueueTests.swift in Sources */,
 				0459EA1257089E7E2F1459FF /* MirmirPreferencesStoreTests.swift in Sources */,
+				D38A2E97080D4F669B8AA311 /* MirmirDeterministicImprovementAcceptanceTests.swift in Sources */,
+				050F5FF01A0945FD84BD7400 /* MirmirRealProductionPathMatrixTests.swift in Sources */,
 				57AB38652DC59647EAC97F7D /* MirmirRealQueueWorkflowTests.swift in Sources */,
 				6AE518910B7B0D576A029DC7 /* MirmirSynchronizedPlaybackTimelineTests.swift in Sources */,
 				687B3C232A8E52354DC6B2EA /* MirmirTimedMetadataMigrationTests.swift in Sources */,

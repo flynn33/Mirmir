@@ -157,6 +157,156 @@ final class R03MPSCoreImageScalingTests: XCTestCase {
         }
     }
 
+    func testCoreImageModesPreserveEveryRegisteredVideoFormat()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 16, height: 16)
+        let formats = coreImageRegisteredVideoFormats
+        XCTAssertEqual(
+            Set(formats.map(\.pixelStorage)),
+            Set(MediaVideoPixelStorage.allCases)
+        )
+
+        for mode in R03CoreImageScalingMode.allCases {
+            for format in formats {
+                let source = try makeCoreImageBuffer(
+                    resolution: sourceResolution,
+                    format: format,
+                    initialize: true
+                )
+                let destination = try makeCoreImageBuffer(
+                    resolution: targetResolution,
+                    format: format,
+                    initialize: false
+                )
+                let propagatingKey =
+                    "com.mirmir.r03.core-image.propagating"
+                        as CFString
+                let localKey =
+                    "com.mirmir.r03.core-image.local" as CFString
+                CVBufferSetAttachment(
+                    source,
+                    propagatingKey,
+                    mode.rawValue as CFString,
+                    .shouldPropagate
+                )
+                CVBufferSetAttachment(
+                    source,
+                    localKey,
+                    format.description as CFString,
+                    .shouldNotPropagate
+                )
+                let scaler = try R03CoreImageScaler(
+                    mode: mode,
+                    sourceResolution: sourceResolution,
+                    targetResolution: targetResolution,
+                    videoFormat: format
+                )
+
+                try scaler.scale(
+                    source: source,
+                    destination: destination,
+                    cancellation:
+                        AppleUpscaleOperationCancellationSignal()
+                )
+
+                XCTAssertEqual(scaler.mode, mode)
+                XCTAssertNil(scaler.route)
+                XCTAssertEqual(scaler.videoFormat, format)
+                try R13MediaVideoFormatContract.validate(
+                    destination,
+                    resolution: targetResolution,
+                    format: format
+                )
+                try R13PixelLayoutProcessor.validateStoredCodes(
+                    destination
+                )
+                XCTAssertEqual(
+                    CVPixelBufferGetPixelFormatType(destination),
+                    format.pixelStorage.pixelFormat
+                )
+                XCTAssertEqual(
+                    CVPixelBufferGetPlaneCount(destination),
+                    format.pixelStorage.expectedPlaneCount
+                )
+                assertCoreImageAttachment(
+                    destination,
+                    key: propagatingKey,
+                    expectedValue: mode.rawValue,
+                    expectedMode: .shouldPropagate
+                )
+                assertCoreImageAttachment(
+                    destination,
+                    key: localKey,
+                    expectedValue: format.description,
+                    expectedMode: .shouldNotPropagate
+                )
+                let luma = try R13PixelLayoutTestFixtures
+                    .lumaCodes(destination)
+                XCTAssertFalse(luma.isEmpty, format.description)
+                XCTAssertGreaterThan(
+                    Set(luma).count,
+                    1,
+                    "Core Image output lost stored-code variation: "
+                        + "\(mode.rawValue) \(format.description)"
+                )
+                if format.hasAlpha {
+                    let alpha = try R13PixelLayoutTestFixtures
+                        .alphaCodes(destination)
+                    XCTAssertFalse(alpha.isEmpty, format.description)
+                    XCTAssertGreaterThan(
+                        Set(alpha).count,
+                        1,
+                        "Core Image output lost alpha variation: "
+                            + "\(mode.rawValue) \(format.description)"
+                    )
+                }
+                scaler.finish()
+            }
+        }
+    }
+
+    func testFormatPreservingCoreImageHonorsCancellationBeforeRender()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 16, height: 16)
+        let format = MediaVideoFormat.sdrBT709HighPrecisionAlpha(
+            mode: .straight
+        )
+        let source = try makeCoreImageBuffer(
+            resolution: sourceResolution,
+            format: format,
+            initialize: true
+        )
+        let destination = try makeCoreImageBuffer(
+            resolution: targetResolution,
+            format: format,
+            initialize: false
+        )
+        let scaler = try R03CoreImageScaler(
+            mode: .bicubic,
+            sourceResolution: sourceResolution,
+            targetResolution: targetResolution,
+            videoFormat: format
+        )
+        let cancellation = AppleUpscaleOperationCancellationSignal()
+        cancellation.cancel()
+
+        XCTAssertThrowsError(
+            try scaler.scale(
+                source: source,
+                destination: destination,
+                cancellation: cancellation
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R03NV12ScalingError,
+                .operationCancelled
+            )
+        }
+        scaler.cancel()
+    }
+
     func testInvalidInputIsRejectedBeforeMPSOrCoreImageScaling() async throws {
         let mpsBackend = try R03DeterministicBackend.makeMPS(
             mode: .lanczos,
@@ -367,4 +517,100 @@ final class R03MPSCoreImageScalingTests: XCTestCase {
             line: line
         )
     }
+
+    private func makeCoreImageBuffer(
+        resolution: VideoResolution,
+        format: MediaVideoFormat,
+        initialize: Bool
+    ) throws -> CVPixelBuffer {
+        let pool = try PixelBufferBridge.makePool(
+            width: resolution.width,
+            height: resolution.height,
+            format: format.pixelStorage.pixelFormat,
+            capacity: 1
+        )
+        let buffer = try PixelBufferBridge.dequeue(from: pool)
+        if initialize {
+            let fixture = try R13PixelLayoutTestFixtures
+                .makeGradientBuffer(
+                    pixelFormat: format.pixelStorage.pixelFormat,
+                    width: resolution.width,
+                    height: resolution.height
+                )
+            try R13PixelLayoutProcessor.copy(
+                source: fixture,
+                destination: buffer
+            )
+        }
+        R13MediaVideoFormatContract.install(
+            format,
+            on: buffer,
+            resolution: resolution
+        )
+        return buffer
+    }
+
+    private func assertCoreImageAttachment(
+        _ pixelBuffer: CVPixelBuffer,
+        key: CFString,
+        expectedValue: String,
+        expectedMode: CVAttachmentMode,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        var actualMode = CVAttachmentMode.shouldPropagate
+        let value = CVBufferCopyAttachment(
+            pixelBuffer,
+            key,
+            &actualMode
+        )
+        XCTAssertEqual(
+            value as? String,
+            expectedValue,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            actualMode,
+            expectedMode,
+            file: file,
+            line: line
+        )
+    }
+}
+
+private var coreImageRegisteredVideoFormats: [MediaVideoFormat] {
+    let masteringDisplay = Data((0..<24).map(UInt8.init))
+    let contentLight = Data([0x03, 0xE8, 0x01, 0x90])
+    return [
+        .sdrBT709,
+        .sdrBT709FullRange,
+        .sdrBT709TenBit,
+        .sdrBT709TenBitFullRange,
+        .sdrBT2020TenBit,
+        .sdrBT709YUV422,
+        .sdrBT709YUV422FullRange,
+        .sdrBT709YUV422TenBit,
+        .sdrBT709YUV422TenBitFullRange,
+        .sdrBT709YUV422SixteenBit,
+        .sdrBT709YUV444,
+        .sdrBT709YUV444FullRange,
+        .sdrBT709YUV444TenBit,
+        .sdrBT709YUV444TenBitFullRange,
+        .sdrBT709YUV444SixteenBit,
+        .sdrBT709YUV444WithAlpha(mode: .straight),
+        .sdrBT709HighPrecisionPackedAlpha(mode: .premultiplied),
+        .sdrBT709HighPrecisionAlpha(mode: .straight),
+        .sdrBT709WithAlpha(mode: .premultiplied),
+        .hdrBT2020PQ(
+            masteringDisplayColorVolume: masteringDisplay,
+            contentLightLevelInfo: contentLight
+        ),
+        .hdrBT2020HLG(),
+        .hdrBT2020PQYUV444FullRange(
+            masteringDisplayColorVolume: masteringDisplay,
+            contentLightLevelInfo: contentLight
+        ),
+        .hdrBT2020HLGYUV444FullRange()
+    ]
 }

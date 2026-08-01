@@ -486,6 +486,45 @@ final class R13ReleaseIdentityTests: XCTestCase {
                     .adaptiveFormatGeometry,
                 binding: router
             )
+        let explicitQualityAdaptive =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .adaptiveFormatGeometry,
+                binding: R13ReleaseModePolicy.binding(
+                    for: .quality,
+                    enginePreference: .videoToolboxQuality
+                )
+            )
+        let explicitQualityProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: R13ReleaseModePolicy.binding(
+                    for: .quality,
+                    enginePreference: .videoToolboxQuality
+                )
+            )
+        let explicitLowLatencyProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: R13ReleaseModePolicy.binding(
+                    for: .fast,
+                    enginePreference: .videoToolboxLowLatency
+                )
+            )
+        let explicitMetalFXProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: R13ReleaseModePolicy.binding(
+                    for: .fast,
+                    enginePreference: .metalFXSpatial
+                )
+            )
+        let automaticFastProduct =
+            R13ReleaseRoutePolicyClaim.canonical(
+                routeClass: .canonicalProduct,
+                binding: R13ReleaseModePolicy.binding(
+                    for: .fast
+                )
+            )
 
         XCTAssertEqual(
             directProduct.modelStatus,
@@ -517,6 +556,46 @@ final class R13ReleaseIdentityTests: XCTestCase {
         )
         XCTAssertEqual(
             routerAdaptive.fallbackSemantics,
+            .runtimeSelectedOrderedFailover
+        )
+        XCTAssertEqual(
+            explicitQualityAdaptive.modelStatus,
+            .runtimeSelected
+        )
+        XCTAssertEqual(
+            explicitQualityAdaptive.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            explicitQualityProduct.modelStatus,
+            .runtimeSelected
+        )
+        XCTAssertEqual(
+            explicitQualityProduct.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            explicitLowLatencyProduct.modelStatus,
+            .notRequired
+        )
+        XCTAssertEqual(
+            explicitLowLatencyProduct.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            explicitMetalFXProduct.modelStatus,
+            .notRequired
+        )
+        XCTAssertEqual(
+            explicitMetalFXProduct.fallbackSemantics,
+            .forbidden
+        )
+        XCTAssertEqual(
+            automaticFastProduct.modelStatus,
+            .runtimeSelected
+        )
+        XCTAssertEqual(
+            automaticFastProduct.fallbackSemantics,
             .runtimeSelectedOrderedFailover
         )
 
@@ -579,6 +658,145 @@ final class R13ReleaseIdentityTests: XCTestCase {
         )
     }
 
+    func testExactNativeMetadataRejectsWrongBackendFallbackAndModelClaims()
+        throws {
+        let scenarios: [(
+            preference: UpscaleEnginePreference,
+            mode: UpscaleMode,
+            backendID: String,
+            modelAssets: AppleUpscaleModelAssetsIdentity
+        )] = [
+            (
+                .videoToolboxQuality,
+                .quality,
+                R04VideoToolboxSubjectID.quality2x.rawValue,
+                .appleConfigurationManaged(
+                    configurationIdentity:
+                        "r04.quality.scale-2x",
+                    readiness: .ready
+                )
+            ),
+            (
+                .videoToolboxLowLatency,
+                .fast,
+                R04VideoToolboxSubjectID.lowLatency2x.rawValue,
+                .notRequired
+            ),
+            (
+                .metalFXSpatial,
+                .fast,
+                R05MetalFXSubjectID.spatial2x.rawValue,
+                .notRequired
+            )
+        ]
+
+        for scenario in scenarios {
+            let identity = try makeExactNativeIdentity(
+                preference: scenario.preference,
+                mode: scenario.mode
+            )
+            let routingMetadata = try R13ProductASHDecisionSummary(
+                events: [
+                    R13ProductASHDecisionEvent(
+                        sequenceNumber: 0,
+                        selectedRouteIdentity:
+                            try releaseDecisionRoute(
+                                backendID: scenario.backendID,
+                                configurationIdentity:
+                                    "exact-native-configuration",
+                                modelAssetsIdentity:
+                                    scenario.modelAssets
+                            ),
+                        reason: .initialSelection,
+                        fallbackHistory: []
+                    )
+                ]
+            ).outputMetadata()
+            let metadata = try identity.finalizedTimedMetadata(
+                routingDecisionMetadata: routingMetadata
+            )
+            XCTAssertNoThrow(
+                try identity.validateTimedMetadata(metadata),
+                scenario.preference.rawValue
+            )
+
+            var wrongBackend = metadata
+            wrongBackend[
+                R13ProductASHDecisionMetadata.selectedBackendsKey
+            ] = R13ReleaseModePolicy.binding(
+                for: scenario.mode,
+                enginePreference: scenario.preference
+            ).backendID
+            assertRoutingMetadataError(
+                identity: identity,
+                metadata: wrongBackend,
+                field: "routing_exact_native_policy"
+            )
+        }
+
+        let qualityIdentity = try makeExactNativeIdentity(
+            preference: .videoToolboxQuality,
+            mode: .quality
+        )
+        let qualityRoute = try releaseDecisionRoute(
+            backendID: R04VideoToolboxSubjectID.quality2x.rawValue,
+            configurationIdentity: "exact-native-quality",
+            modelAssetsIdentity: .appleConfigurationManaged(
+                configurationIdentity: "r04.quality.scale-2x",
+                readiness: .ready
+            )
+        )
+        let qualityRoutingMetadata = try R13ProductASHDecisionSummary(
+            events: [
+                R13ProductASHDecisionEvent(
+                    sequenceNumber: 0,
+                    selectedRouteIdentity: qualityRoute,
+                    reason: .initialSelection,
+                    fallbackHistory: []
+                )
+            ]
+        ).outputMetadata()
+        let qualityMetadata = try qualityIdentity.finalizedTimedMetadata(
+            routingDecisionMetadata: qualityRoutingMetadata
+        )
+
+        var falseFallback = qualityMetadata
+        falseFallback[
+            R13ProductASHDecisionMetadata.fallbackCountKey
+        ] = "1"
+        assertRoutingMetadataError(
+            identity: qualityIdentity,
+            metadata: falseFallback,
+            field: "routing_exact_native_policy"
+        )
+
+        var falseTransition = qualityMetadata
+        falseTransition[
+            R13ProductASHDecisionMetadata.decisionCountKey
+        ] = "2"
+        falseTransition[
+            R13ProductASHDecisionMetadata.transitionCountKey
+        ] = "1"
+        assertRoutingMetadataError(
+            identity: qualityIdentity,
+            metadata: falseTransition,
+            field: "routing_exact_native_policy"
+        )
+
+        var falseModel = qualityMetadata
+        falseModel[
+            R13ProductASHDecisionMetadata.selectedModelStatusesKey
+        ] = R13ProductASHSelectedModelStatus.notRequired.rawValue
+        falseModel[
+            R13ProductASHDecisionMetadata.modelStatusKey
+        ] = R13ProductASHSelectedModelStatus.notRequired.rawValue
+        assertRoutingMetadataError(
+            identity: qualityIdentity,
+            metadata: falseModel,
+            field: "routing_exact_native_policy"
+        )
+    }
+
     func testAdaptiveIdentityAndPolicyBindTheExactDynamicQualityPlan()
         throws {
         let plan = try R13AdaptiveScalePlan(
@@ -630,6 +848,40 @@ final class R13ReleaseIdentityTests: XCTestCase {
             R13ReleasePolicyFallbackSemantics
                 .runtimeSelectedOrderedFailover
                 .rawValue
+        )
+        let exactQualityPolicy =
+            R13AdaptiveReleasePolicyDocument(
+                plan: plan,
+                modeBinding:
+                    R13ReleaseModePolicy.binding(
+                        for: .quality,
+                        enginePreference: .videoToolboxQuality
+                    )
+            )
+        XCTAssertEqual(
+            exactQualityPolicy.modelStatus,
+            R13ReleasePolicyModelStatus.runtimeSelected.rawValue
+        )
+        XCTAssertEqual(
+            exactQualityPolicy.fallbackPolicy,
+            R13ReleasePolicyFallbackSemantics.forbidden.rawValue
+        )
+        let exactMetalFXPolicy =
+            R13AdaptiveReleasePolicyDocument(
+                plan: plan,
+                modeBinding:
+                    R13ReleaseModePolicy.binding(
+                        for: .fast,
+                        enginePreference: .metalFXSpatial
+                    )
+            )
+        XCTAssertEqual(
+            exactMetalFXPolicy.modelStatus,
+            R13ReleasePolicyModelStatus.notRequired.rawValue
+        )
+        XCTAssertEqual(
+            exactMetalFXPolicy.fallbackPolicy,
+            R13ReleasePolicyFallbackSemantics.forbidden.rawValue
         )
         XCTAssertEqual(
             boundPolicy.policySHA256,
@@ -1244,6 +1496,46 @@ private extension R13ReleaseIdentityTests {
                 sourceByteCount: sourceByteCount,
                 policySHA256: policySHA256,
                 sourceScanStructure: sourceScanStructure
+            )
+        )
+    }
+
+    func makeExactNativeIdentity(
+        preference: UpscaleEnginePreference,
+        mode: UpscaleMode
+    ) throws -> R13ReleaseIdentity {
+        let base = try makeInput()
+        let scaleRoute = R03ScaleRoute.scale2x
+        let modeBinding = R13ReleaseModePolicy.binding(
+            for: mode,
+            enginePreference: preference
+        )
+        return try R13ReleaseIdentity(
+            R13ReleaseIdentityInput(
+                source: base.source,
+                modeBinding: modeBinding,
+                output: base.output,
+                scalePlan: .productQualified(scaleRoute),
+                routeIdentity:
+                    try R13ReleaseIdentity.makeProductRoute(
+                        for: scaleRoute,
+                        modeBinding: modeBinding
+                    ),
+                application: base.application,
+                framework: try R13ReleaseFrameworkIdentity(
+                    frameworkIdentifier:
+                        modeBinding.frameworkIdentity,
+                    version: "1",
+                    buildIdentity: "1"
+                ),
+                runtime: base.runtime,
+                policyResources: base.policyResources,
+                fallbackHistory: [],
+                processingConfiguration:
+                    UpscaleProcessingConfiguration(
+                        enginePreference: preference,
+                        strategyPreference: .direct
+                    )
             )
         )
     }

@@ -380,6 +380,8 @@ struct MirmirASHPinnedNoticeIdentity: Equatable, Sendable {
     let citation: String
 }
 
+private final class MirmirAboutResourceBundleToken: NSObject {}
+
 struct MirmirAboutView: View {
     static let productSummary =
         "Mirmir upscales local videos supported by AVFoundation "
@@ -424,15 +426,25 @@ struct MirmirAboutView: View {
             + ashSourceRevision
     )
 
-    static let bundledASHLicenseText: String = {
-        guard let licenseURL = Bundle.main.url(
+    static let bundledASHLicenseURL: URL? = {
+        if let licenseURL = Bundle.main.url(
             forResource: ashNoticeIdentity.licenseResourceName,
             withExtension: ashNoticeIdentity.licenseResourceExtension
-        ),
-        let text = try? String(
-            contentsOf: licenseURL,
-            encoding: .utf8
-        ) else {
+        ) {
+            return licenseURL
+        }
+        return Bundle(for: MirmirAboutResourceBundleToken.self).url(
+            forResource: ashNoticeIdentity.licenseResourceName,
+            withExtension: ashNoticeIdentity.licenseResourceExtension
+        )
+    }()
+
+    static let bundledASHLicenseText: String = {
+        guard let licenseURL = bundledASHLicenseURL,
+              let text = try? String(
+                  contentsOf: licenseURL,
+                  encoding: .utf8
+              ) else {
             return "The bundled ASH Model license could not be read. "
                 + "Reinstall Mirmir to restore the required legal notice."
         }

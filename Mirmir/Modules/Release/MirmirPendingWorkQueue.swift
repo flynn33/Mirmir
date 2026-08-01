@@ -175,19 +175,13 @@ actor MirmirPendingWorkQueue {
             throw MirmirPendingQueueError.recordNotFound
         }
         let record = loaded.document.records[index]
-        if let batch = record.settings.processingPathBatch {
-            loaded.document.processingPathBatchResults.append(
-                MirmirProcessingPathBatchResult(
-                    batch: batch,
-                    jobID: record.id,
-                    outputDisplayName:
-                        record.bookmarks.outputDisplayName,
-                    status: status,
-                    reason: reason,
-                    completedAt: completedAt
-                )
-            )
-        }
+        appendProcessingPathBatchResult(
+            for: record,
+            status: status,
+            reason: reason,
+            completedAt: completedAt,
+            to: &loaded.document
+        )
         loaded.document.records.remove(at: index)
         loaded.document.records = loaded.document.records
             .enumerated()
@@ -264,15 +258,26 @@ actor MirmirPendingWorkQueue {
     func remove(id: String) throws -> Bool {
         try validateIdentity(id)
         var loaded = try loadDocument()
-        let originalCount = loaded.document.records.count
-        loaded.document.records.removeAll { $0.id == id }
-        guard loaded.document.records.count != originalCount else {
+        guard let index = loaded.document.records.firstIndex(
+            where: { $0.id == id }
+        ) else {
             return false
         }
+        let record = loaded.document.records[index]
+        appendProcessingPathBatchResult(
+            for: record,
+            status: .cancelled,
+            reason: "Removed from the pending queue by the user.",
+            completedAt: Date(),
+            to: &loaded.document
+        )
+        loaded.document.records.remove(at: index)
         loaded.document.records = loaded.document.records
             .enumerated()
             .map { $0.element.assigningOrder($0.offset) }
+        pruneProcessingPathBatchResults(in: &loaded.document)
         try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
         try persist(loaded.document)
         return true
     }
@@ -283,7 +288,20 @@ actor MirmirPendingWorkQueue {
         guard !loaded.document.records.isEmpty else {
             return snapshot(from: loaded)
         }
+        let completedAt = Date()
+        for record in loaded.document.records {
+            appendProcessingPathBatchResult(
+                for: record,
+                status: .cancelled,
+                reason: "Cleared from the pending queue by the user.",
+                completedAt: completedAt,
+                to: &loaded.document
+            )
+        }
         loaded.document.records = []
+        pruneProcessingPathBatchResults(in: &loaded.document)
+        try validateQueue(loaded.document.records)
+        try validateBatchResults(loaded.document.processingPathBatchResults)
         try persist(loaded.document)
         return snapshot(from: loaded)
     }
@@ -366,6 +384,28 @@ private extension MirmirPendingWorkQueue {
             processingPathBatchResults:
                 loaded.document.processingPathBatchResults,
             recovery: loaded.recovery
+        )
+    }
+
+    private func appendProcessingPathBatchResult(
+        for record: MirmirPendingWorkRecord,
+        status: MirmirProcessingPathTerminalStatus,
+        reason: String?,
+        completedAt: Date,
+        to document: inout Document
+    ) {
+        guard let batch = record.settings.processingPathBatch else {
+            return
+        }
+        document.processingPathBatchResults.append(
+            MirmirProcessingPathBatchResult(
+                batch: batch,
+                jobID: record.id,
+                outputDisplayName: record.bookmarks.outputDisplayName,
+                status: status,
+                reason: reason,
+                completedAt: completedAt
+            )
         )
     }
 

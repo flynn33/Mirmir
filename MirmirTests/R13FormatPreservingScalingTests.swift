@@ -5,6 +5,9 @@ import os.lock
 import XCTest
 @testable import Mirmir
 
+// swiftlint:disable file_length
+
+// swiftlint:disable:next type_body_length
 final class R13FormatPreservingScalingTests: XCTestCase {
     func testMPSScalersPreserveEveryDeclaredVideoFormat() throws {
         let displayVolume = Data((0..<24).map(UInt8.init))
@@ -172,6 +175,378 @@ final class R13FormatPreservingScalingTests: XCTestCase {
         }
     }
 
+    func testPremultipliedAlphaPostconditionReconcilesAllFourStorages()
+        throws {
+        let resolution = VideoResolution(width: 8, height: 8)
+        for format in premultipliedAlphaFormats {
+            let output = try makeTranslucentAlphaBuffer(
+                resolution: resolution,
+                format: format,
+                validPremultipliedRGB: false
+            )
+            let pixelFormat = CVPixelBufferGetPixelFormatType(output)
+            let alphaBefore = try R13PixelLayoutTestFixtures.alphaCodes(output)
+            let propagatedBefore = CVBufferCopyAttachments(
+                output,
+                .shouldPropagate
+            ) as NSDictionary?
+            let localKey = "com.mirmir.test.alpha-postcondition" as CFString
+            CVBufferSetAttachment(
+                output,
+                localKey,
+                "local-value" as CFString,
+                .shouldNotPropagate
+            )
+            let localBefore = CVBufferCopyAttachments(
+                output,
+                .shouldNotPropagate
+            ) as NSDictionary?
+
+            try R13PremultipliedAlphaOutputPostcondition.reconcile(
+                output,
+                format: format
+            )
+
+            XCTAssertEqual(
+                CVPixelBufferGetPixelFormatType(output),
+                pixelFormat,
+                format.description
+            )
+            XCTAssertEqual(
+                try R13PixelLayoutTestFixtures.alphaCodes(output),
+                alphaBefore,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachments(
+                    output,
+                    .shouldPropagate
+                ) as NSDictionary?,
+                propagatedBefore,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachments(
+                    output,
+                    .shouldNotPropagate
+                ) as NSDictionary?,
+                localBefore,
+                format.description
+            )
+            try R13MediaVideoFormatContract.validate(
+                output,
+                resolution: resolution,
+                format: format
+            )
+            try assertPremultipliedRGBDomain(
+                output,
+                format: format,
+                path: "shared-postcondition"
+            )
+        }
+    }
+
+    func testPremultipliedAlphaPostconditionDoesNotTouchStraightAlpha()
+        throws {
+        let resolution = VideoResolution(width: 8, height: 8)
+        for format in straightAlphaFormats {
+            let output = try makeTranslucentAlphaBuffer(
+                resolution: resolution,
+                format: format,
+                validPremultipliedRGB: false
+            )
+            let before = try R13TightPixelFrame(capturing: output)
+            let attachmentsBefore = CVBufferCopyAttachments(
+                output,
+                .shouldPropagate
+            ) as NSDictionary?
+
+            try R13PremultipliedAlphaOutputPostcondition.reconcile(
+                output,
+                format: format
+            )
+
+            XCTAssertEqual(
+                try R13TightPixelFrame(capturing: output),
+                before,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachments(
+                    output,
+                    .shouldPropagate
+                ) as NSDictionary?,
+                attachmentsBefore,
+                format.description
+            )
+        }
+    }
+
+    func testSelectableFormatPreservingScalersPublishPremultipliedRGB()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 12, height: 12)
+        for format in premultipliedAlphaFormats {
+            let source = try makeTranslucentAlphaBuffer(
+                resolution: sourceResolution,
+                format: format,
+                validPremultipliedRGB: true
+            )
+            let scalers: [(String, any R03NV12Scaling)] = [
+                (
+                    "vImage",
+                    R13FormatPreservingVImageScaler(
+                        sourceResolution: sourceResolution,
+                        targetResolution: targetResolution,
+                        videoFormat: format,
+                        quality: .highQuality
+                    )
+                ),
+                (
+                    "MPS",
+                    try R13FormatPreservingMPSScaler(
+                        mode: .lanczos,
+                        sourceResolution: sourceResolution,
+                        targetResolution: targetResolution,
+                        videoFormat: format
+                    )
+                ),
+                (
+                    "Core Image",
+                    try R03CoreImageScaler(
+                        mode: .lanczos,
+                        sourceResolution: sourceResolution,
+                        targetResolution: targetResolution,
+                        videoFormat: format
+                    )
+                ),
+                (
+                    "VT Pixel Transfer",
+                    R13FormatPreservingVTPixelTransferScaler(
+                        sourceResolution: sourceResolution,
+                        targetResolution: targetResolution,
+                        videoFormat: format
+                    )
+                )
+            ]
+
+            for (path, scaler) in scalers {
+                let destination = try makeBuffer(
+                    resolution: targetResolution,
+                    format: format,
+                    initialize: false
+                )
+                try scaler.scale(
+                    source: source,
+                    destination: destination,
+                    cancellation: AppleUpscaleOperationCancellationSignal()
+                )
+                scaler.finish()
+
+                try R13MediaVideoFormatContract.validate(
+                    destination,
+                    resolution: targetResolution,
+                    format: format
+                )
+                try assertPremultipliedRGBDomain(
+                    destination,
+                    format: format,
+                    path: path
+                )
+            }
+        }
+    }
+
+    func testVideoToolboxPixelTransferPreservesEveryRegisteredFormat()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 12, height: 12)
+        let formats = R13PixelLayoutTestFixtures.allMediaVideoFormats
+        XCTAssertEqual(formats.count, MediaVideoPixelStorage.allCases.count)
+
+        for format in formats {
+            let source = try makeBuffer(
+                resolution: sourceResolution,
+                format: format
+            )
+            let destination = try makeBuffer(
+                resolution: targetResolution,
+                format: format,
+                initialize: false
+            )
+            CVBufferRemoveAllAttachments(destination)
+            let scaler = R13FormatPreservingVTPixelTransferScaler(
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: format
+            )
+
+            try scaler.scale(
+                source: source,
+                destination: destination,
+                cancellation: AppleUpscaleOperationCancellationSignal()
+            )
+            scaler.finish()
+
+            try R13MediaVideoFormatContract.validate(
+                destination,
+                resolution: targetResolution,
+                format: format
+            )
+            XCTAssertGreaterThan(
+                Set(
+                    try R13PixelLayoutTestFixtures.lumaCodes(
+                        destination
+                    )
+                ).count,
+                1,
+                format.description
+            )
+            if format.hasAlpha {
+                XCTAssertGreaterThan(
+                    Set(
+                        try R13PixelLayoutTestFixtures.alphaCodes(
+                            destination
+                        )
+                    ).count,
+                    1,
+                    format.description
+                )
+            }
+            try assertCanonicalTargetGeometry(
+                destination,
+                resolution: targetResolution
+            )
+        }
+    }
+
+    func testVideoToolboxPixelTransferInstallsHDRMetadata() throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 12, height: 12)
+        let displayVolume = Data((0x20..<(0x20 + 24)).map(UInt8.init))
+        let contentLight = Data([0x60, 0x70, 0x80, 0x90])
+        let format = MediaVideoFormat.hdrBT2020PQ(
+            masteringDisplayColorVolume: displayVolume,
+            contentLightLevelInfo: contentLight
+        )
+        let source = try makeBuffer(
+            resolution: sourceResolution,
+            format: format
+        )
+        let destination = try makeBuffer(
+            resolution: targetResolution,
+            format: format,
+            initialize: false
+        )
+        CVBufferRemoveAllAttachments(destination)
+        let scaler = R13FormatPreservingVTPixelTransferScaler(
+            sourceResolution: sourceResolution,
+            targetResolution: targetResolution,
+            videoFormat: format
+        )
+
+        try scaler.scale(
+            source: source,
+            destination: destination,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        try R13MediaVideoFormatContract.validate(
+            destination,
+            resolution: targetResolution,
+            format: format
+        )
+        XCTAssertEqual(
+            CVBufferCopyAttachment(
+                destination,
+                kCVImageBufferMasteringDisplayColorVolumeKey,
+                nil
+            ) as? Data,
+            displayVolume
+        )
+        XCTAssertEqual(
+            CVBufferCopyAttachment(
+                destination,
+                kCVImageBufferContentLightLevelInfoKey,
+                nil
+            ) as? Data,
+            contentLight
+        )
+    }
+
+    func testVideoToolboxPixelTransferReturnsTypedCancellation()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 12, height: 12)
+        let format = MediaVideoFormat.sdrBT709
+        let source = try makeBuffer(
+            resolution: sourceResolution,
+            format: format
+        )
+        let destination = try makeBuffer(
+            resolution: targetResolution,
+            format: format,
+            initialize: false
+        )
+        let cancellation = AppleUpscaleOperationCancellationSignal()
+        cancellation.cancel()
+
+        XCTAssertThrowsError(
+            try R13FormatPreservingVTPixelTransferScaler(
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: format
+            ).scale(
+                source: source,
+                destination: destination,
+                cancellation: cancellation
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R03NV12ScalingError,
+                .operationCancelled
+            )
+        }
+    }
+
+    func testVideoToolboxPixelTransferReturnsTypedFormatFailure()
+        throws {
+        let sourceResolution = VideoResolution(width: 8, height: 8)
+        let targetResolution = VideoResolution(width: 12, height: 12)
+        let format = MediaVideoFormat.sdrBT709
+        let source = try makeBuffer(
+            resolution: sourceResolution,
+            format: format
+        )
+        let destination = try makeBuffer(
+            resolution: targetResolution,
+            format: .sdrBT709TenBit,
+            initialize: false
+        )
+
+        XCTAssertThrowsError(
+            try R13FormatPreservingVTPixelTransferScaler(
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: format
+            ).scale(
+                source: source,
+                destination: destination,
+                cancellation: AppleUpscaleOperationCancellationSignal()
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? R03NV12ScalingError,
+                .invalidPixelFormat(
+                    expected: format.pixelStorage.pixelFormat,
+                    actual:
+                        MediaVideoFormat.sdrBT709TenBit
+                            .pixelStorage.pixelFormat
+                )
+            )
+        }
+    }
+
     func testExtendedEnhancementPreservesP010StorageAndHDRMetadata()
         throws {
         let displayVolume =
@@ -320,6 +695,172 @@ final class R13FormatPreservingScalingTests: XCTestCase {
 }
 
 private extension R13FormatPreservingScalingTests {
+    var premultipliedAlphaFormats: [MediaVideoFormat] {
+        [
+            .sdrBT709YUV444WithAlpha(mode: .premultiplied),
+            .sdrBT709HighPrecisionPackedAlpha(mode: .premultiplied),
+            .sdrBT709HighPrecisionAlpha(mode: .premultiplied),
+            .sdrBT709WithAlpha(mode: .premultiplied)
+        ]
+    }
+
+    var straightAlphaFormats: [MediaVideoFormat] {
+        [
+            .sdrBT709YUV444WithAlpha(mode: .straight),
+            .sdrBT709HighPrecisionPackedAlpha(mode: .straight),
+            .sdrBT709HighPrecisionAlpha(mode: .straight),
+            .sdrBT709WithAlpha(mode: .straight)
+        ]
+    }
+
+    func makeTranslucentAlphaBuffer(
+        resolution: VideoResolution,
+        format: MediaVideoFormat,
+        validPremultipliedRGB: Bool
+    ) throws -> CVPixelBuffer {
+        var components: [Float16] = []
+        components.reserveCapacity(
+            resolution.width * resolution.height * 4
+        )
+        for row in 0..<resolution.height {
+            for column in 0..<resolution.width {
+                let phase = Double(
+                    (row * resolution.width + column) % 11
+                ) / 10
+                let alpha = 0.22 + 0.48 * phase
+                let rgb: [Double]
+                if validPremultipliedRGB {
+                    rgb = [
+                        0.008 + 0.012 * phase,
+                        0.012 + 0.016 * phase,
+                        0.016 + 0.020 * phase
+                    ]
+                } else {
+                    rgb = [
+                        0.82 + 0.08 * phase,
+                        0.76 + 0.10 * phase,
+                        0.88 + 0.06 * phase
+                    ]
+                }
+                components.append(contentsOf: rgb.map(Float16.init))
+                components.append(Float16(alpha))
+            }
+        }
+        let frame = try R05LinearRGBA16FloatFrame(
+            width: resolution.width,
+            height: resolution.height,
+            components: components
+        )
+        let pixelBuffer = try makeBuffer(
+            resolution: resolution,
+            format: format,
+            initialize: false
+        )
+        try R05MetalFXFormatColorBridge.encodeClippingFiniteRGB(
+            frame,
+            into: pixelBuffer,
+            format: format
+        )
+        R13MediaVideoFormatContract.install(
+            format,
+            on: pixelBuffer,
+            resolution: resolution
+        )
+        return pixelBuffer
+    }
+
+    func assertPremultipliedRGBDomain(
+        _ pixelBuffer: CVPixelBuffer,
+        format: MediaVideoFormat,
+        path: String
+    ) throws {
+        let frame = try R05MetalFXFormatColorBridge.decode(
+            pixelBuffer: pixelBuffer,
+            format: format
+        )
+        let tolerance = format.pixelStorage.bitDepth == 8
+            ? 0.01
+            : 0.001
+        var foundTranslucentColor = false
+        for row in 0..<frame.height {
+            for column in 0..<frame.width {
+                let offset = row * frame.componentsPerRow + column * 4
+                let rgb = (0..<3).map {
+                    Double(frame.components[offset + $0])
+                }
+                let alpha = Double(frame.components[offset + 3])
+                XCTAssertGreaterThan(
+                    alpha,
+                    0,
+                    "\(path) transparent sample for \(format)."
+                )
+                XCTAssertLessThan(
+                    alpha,
+                    1,
+                    "\(path) opaque sample for \(format)."
+                )
+                for color in rgb {
+                    XCTAssertLessThanOrEqual(
+                        color,
+                        alpha + tolerance,
+                        "\(path) RGB exceeds alpha for \(format)."
+                    )
+                    if color > 0 {
+                        foundTranslucentColor = true
+                    }
+                }
+            }
+        }
+        XCTAssertTrue(
+            foundTranslucentColor,
+            "\(path) flattened translucent color for \(format)."
+        )
+    }
+
+    func assertCanonicalTargetGeometry(
+        _ pixelBuffer: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        let cleanAperture = try XCTUnwrap(
+            CVBufferCopyAttachment(
+                pixelBuffer,
+                kCVImageBufferCleanApertureKey,
+                nil
+            ) as? NSDictionary
+        )
+        XCTAssertEqual(
+            cleanAperture[
+                kCVImageBufferCleanApertureWidthKey
+            ] as? NSNumber,
+            NSNumber(value: resolution.width)
+        )
+        XCTAssertEqual(
+            cleanAperture[
+                kCVImageBufferCleanApertureHeightKey
+            ] as? NSNumber,
+            NSNumber(value: resolution.height)
+        )
+        let pixelAspectRatio = try XCTUnwrap(
+            CVBufferCopyAttachment(
+                pixelBuffer,
+                kCVImageBufferPixelAspectRatioKey,
+                nil
+            ) as? NSDictionary
+        )
+        XCTAssertEqual(
+            pixelAspectRatio[
+                kCVImageBufferPixelAspectRatioHorizontalSpacingKey
+            ] as? NSNumber,
+            NSNumber(value: 1)
+        )
+        XCTAssertEqual(
+            pixelAspectRatio[
+                kCVImageBufferPixelAspectRatioVerticalSpacingKey
+            ] as? NSNumber,
+            NSNumber(value: 1)
+        )
+    }
+
     func makeBuffer(
         resolution: VideoResolution,
         format: MediaVideoFormat,

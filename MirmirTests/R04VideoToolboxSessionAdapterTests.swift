@@ -1,3 +1,4 @@
+import Accelerate
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -840,6 +841,143 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         XCTAssertEqual(summary.processedFrameCount, 1)
     }
 
+    @available(macOS 26.0, *)
+    func testLiveAdaptiveQualityPreservesPQBT2020P010AndChangesImage()
+        async throws {
+        let observation = try await R04VideoToolboxBackend.observeNativeCapability(
+            subjectID: .quality4x
+        )
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose a ready native VideoToolbox "
+                    + "Quality 480x270-to-1920x1080 route."
+            )
+        }
+        let format = MediaVideoFormat.hdrBT2020PQ(
+            masteringDisplayColorVolume: Data(repeating: 0x31, count: 24),
+            contentLightLevelInfo: Data([0x03, 0xE8, 0x01, 0x90])
+        )
+        let fixture = try makeFormatFrame(
+            format: format,
+            resolution: .p270,
+            sequence: 0,
+            tokenPrefix: "r04.live-quality-pq-p010",
+            offset: 11
+        )
+        let baseline = try R04VideoToolboxTestBuffers.makePixelBuffer(
+            .p1080,
+            pixelFormat: format.pixelStorage.pixelFormat
+        )
+        try R13PixelLayoutProcessor.scaleVImage(
+            source: fixture.frame.pixelBuffer,
+            destination: baseline,
+            flags: vImage_Flags(
+                kvImageEdgeExtend | kvImageHighQualityResampling
+            )
+        )
+        let session = try VTAdaptiveNativeUpscaleSession.make(
+            path: .quality,
+            videoFormat: format,
+            presentationSourceResolution: .p270,
+            requestedSourceResolution: .p270,
+            requestedTargetResolution: .p1080
+        )
+
+        let output = try await session.process(
+            fixture.frame,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        try R13MediaVideoFormatContract.validate(
+            output.pixelBuffer,
+            resolution: .p1080,
+            format: format
+        )
+        XCTAssertEqual(output.videoFormat, format)
+        XCTAssertNotEqual(
+            try R13PixelLayoutTestFixtures.lumaCodes(output.pixelBuffer),
+            try R13PixelLayoutTestFixtures.lumaCodes(baseline),
+            "The live Quality processor must measurably affect the output."
+        )
+        await session.finish()
+        fixture.frame.resourceLifetimeToken.release()
+        XCTAssertEqual(fixture.releaseProbe.value, 1)
+    }
+
+    @available(macOS 26.0, *)
+    func testLiveAdaptiveLowLatencyPreservesSixteenBitAlphaAndChangesImage()
+        async throws {
+        let observation = try await R04VideoToolboxBackend.observeNativeCapability(
+            subjectID: .lowLatency4x
+        )
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose the exact native "
+                    + "VideoToolbox 480x270-to-1920x1080 route."
+            )
+        }
+        let format = MediaVideoFormat.sdrBT709HighPrecisionAlpha(
+            mode: .premultiplied
+        )
+        let fixture = try makeFormatFrame(
+            format: format,
+            resolution: .p270,
+            sequence: 0,
+            tokenPrefix: "r04.live-low-latency-alpha16",
+            offset: 13
+        )
+        let baseline = try R04VideoToolboxTestBuffers.makePixelBuffer(
+            .p1080,
+            pixelFormat: format.pixelStorage.pixelFormat
+        )
+        try R13PixelLayoutProcessor.scaleVImage(
+            source: fixture.frame.pixelBuffer,
+            destination: baseline,
+            flags: vImage_Flags(
+                kvImageEdgeExtend | kvImageHighQualityResampling
+            )
+        )
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            baseline,
+            format: format
+        )
+        let session = try VTAdaptiveNativeUpscaleSession.make(
+            path: .lowLatency,
+            videoFormat: format,
+            presentationSourceResolution: .p270,
+            requestedSourceResolution: .p270,
+            requestedTargetResolution: .p1080
+        )
+
+        let output = try await session.process(
+            fixture.frame,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        try R13MediaVideoFormatContract.validate(
+            output.pixelBuffer,
+            resolution: .p1080,
+            format: format
+        )
+        XCTAssertEqual(
+            try R13PixelLayoutTestFixtures.alphaCodes(output.pixelBuffer),
+            try R13PixelLayoutTestFixtures.alphaCodes(baseline),
+            "The native 420v guide must not replace sixteen-bit alpha storage."
+        )
+        try assertPremultipliedColorInvariant(
+            output.pixelBuffer,
+            format: format
+        )
+        XCTAssertNotEqual(
+            try R13PixelLayoutTestFixtures.lumaCodes(output.pixelBuffer),
+            try R13PixelLayoutTestFixtures.lumaCodes(baseline),
+            "The live Low-Latency processor must measurably affect the output."
+        )
+        await session.finish()
+        fixture.frame.resourceLifetimeToken.release()
+        XCTAssertEqual(fixture.releaseProbe.value, 1)
+    }
+
     func testA05CanResolveOptionalSupportButCannotCreatePrimarySession() async throws {
         let runtime = R04RecordingVideoToolboxRuntime(opticalFlowSupport: .observed(true))
         let route = try XCTUnwrap(
@@ -949,6 +1087,1089 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         let runtimeSnapshot = await runtime.snapshot()
         XCTAssertEqual(runtimeSnapshot.processRequests, [])
         _ = await session.finish()
+    }
+
+    func testQualityJobRouteResolverUsesNativeTwoTimesThenExactFinishFor720p()
+        throws {
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p720,
+                targetResolution: .p1080,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [2, 4]
+            )
+        )
+
+        XCTAssertEqual(
+            resolved.releaseScalePlan,
+            .productQualified(.scale3Over2)
+        )
+        XCTAssertTrue(resolved.requiresAdaptiveNativeExecution)
+        let plan = try XCTUnwrap(resolved.adaptiveNativePlan)
+        XCTAssertEqual(plan.requestedSourceResolution, .p720)
+        XCTAssertEqual(plan.nativeSourceResolution, .p720)
+        XCTAssertEqual(plan.nativeTargetResolution, .p1440)
+        XCTAssertEqual(plan.requestedTargetResolution, .p1080)
+        XCTAssertEqual(plan.nativeScaleFactor, 2)
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+        XCTAssertEqual(resolved.binding.intent, .quality)
+        XCTAssertEqual(resolved.binding.subjectID, .quality2x)
+        XCTAssertEqual(resolved.binding.route.sourceResolution, .p720)
+        XCTAssertEqual(resolved.binding.route.targetResolution, .p1440)
+        XCTAssertNotEqual(
+            resolved.binding.subjectID,
+            .quality1p5xContract
+        )
+    }
+
+    func testQualityJobRouteResolverUsesAdaptivePlanForArbitraryGeometry()
+        throws {
+        let source = VideoResolution(width: 854, height: 480)
+        let target = VideoResolution(width: 1_282, height: 720)
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: source,
+                targetResolution: target,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [2, 4]
+            )
+        )
+
+        guard case .adaptiveMPSLanczos(let releasePlan) =
+                resolved.releaseScalePlan else {
+            return XCTFail("Expected an adaptive release scale plan.")
+        }
+        XCTAssertEqual(releasePlan.processingSourceResolution, source)
+        let plan = try XCTUnwrap(resolved.adaptiveNativePlan)
+        XCTAssertEqual(plan.requestedSourceResolution, source)
+        XCTAssertEqual(
+            plan.nativeTargetResolution,
+            VideoResolution(width: 1_708, height: 960)
+        )
+        XCTAssertEqual(plan.requestedTargetResolution, target)
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+        XCTAssertEqual(resolved.binding.route.scaleFactor, .two)
+    }
+
+    func testQualityJobRouteResolverBindsExtendedExplicitButNotAutomaticRoute()
+        throws {
+        let format = MediaVideoFormat.hdrBT2020PQ(
+            masteringDisplayColorVolume:
+                Data(repeating: 0x27, count: 24),
+            contentLightLevelInfo:
+                Data([0x01, 0x02, 0x03, 0x04])
+        )
+        let explicit = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: format,
+                presentationSourceResolution: .p1080,
+                targetResolution: .p2160,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [2, 4]
+            )
+        )
+
+        XCTAssertTrue(explicit.requiresAdaptiveNativeExecution)
+        XCTAssertEqual(
+            explicit.adaptiveNativePlan?.videoFormat,
+            format
+        )
+        XCTAssertEqual(explicit.binding.route.scaleFactor, .two)
+        XCTAssertNil(
+            try R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .automatic,
+                videoFormat: format,
+                presentationSourceResolution: .p1080,
+                targetResolution: .p2160,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [2, 4]
+            )
+        )
+    }
+
+    func testQualityJobRouteResolverDoesNotBindUnsupportedAutomaticExactRoute()
+        throws {
+        XCTAssertNil(
+            try R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .automatic,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p1080,
+                targetResolution: .p2160,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [4]
+            )
+        )
+
+        let explicit = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p1080,
+                targetResolution: .p2160,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [4]
+            )
+        )
+        XCTAssertTrue(explicit.requiresAdaptiveNativeExecution)
+        XCTAssertEqual(explicit.binding.route.scaleFactor, .four)
+        XCTAssertEqual(
+            explicit.adaptiveNativePlan?.nativeTargetResolution,
+            VideoResolution(width: 7_680, height: 4_320)
+        )
+        XCTAssertEqual(
+            explicit.adaptiveNativePlan?.requestedTargetResolution,
+            .p2160
+        )
+    }
+
+    func testExplicitQualityRequirementExcludesAutomaticRouting() {
+        XCTAssertTrue(
+            R13VideoToolboxQualityJobRouteResolver
+                .explicitlyRequiresQuality(
+                    enginePreference: .videoToolboxQuality
+                )
+        )
+        for mode in UpscaleMode.allCases {
+            XCTAssertFalse(
+                R13VideoToolboxQualityJobRouteResolver
+                    .explicitlyRequiresQuality(
+                        enginePreference: .automatic
+                    ),
+                mode.rawValue
+            )
+        }
+    }
+
+    func testDynamicQualityRouteAdmissionAcceptsOnlyStructuralQualityContract()
+        throws {
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p720,
+                targetResolution: .p1080,
+                strategyPreference: .automatic,
+                runtimeSupportedScaleFactors: [2]
+            )
+        )
+        try R04VTNativeQualityRouteAdmission.validate(
+            resolved.binding
+        )
+        let catalogBinding = try XCTUnwrap(
+            R04VideoToolboxNativeRouteSelector.exactBinding(
+                sourceResolution: .p1080,
+                targetResolution: .p2160,
+                intent: .quality
+            )
+        )
+        try R04VTNativeQualityRouteAdmission.validate(
+            catalogBinding
+        )
+
+        let route = resolved.binding.route
+        let malformedRoute = try R04VideoToolboxRouteDescriptor(
+            subjectID: route.subjectID,
+            routeID: route.routeID,
+            capabilityID: "A02",
+            backendKind: route.backendKind,
+            sourceResolution: route.sourceResolution,
+            targetResolution: route.targetResolution,
+            scaleFactor: route.scaleFactor,
+            gate: route.gate,
+            configurationContract: route.configurationContract,
+            temporalPolicy: route.temporalPolicy,
+            opticalFlowRole: route.opticalFlowRole,
+            productDefaultEligibility:
+                route.productDefaultEligibility,
+            productQualification: route.productQualification
+        )
+        XCTAssertThrowsError(
+            try R04VTNativeQualityRouteAdmission.validate(
+                R04VideoToolboxNativeRouteBinding(
+                    intent: .quality,
+                    route: malformedRoute
+                )
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? VTNativeSuperResolutionError,
+                .rejected(.routeContractMismatch)
+            )
+        }
+    }
+
+    func testAdaptiveQualityPlanUsesLargestSupportedNativeFactorBeforeExactFinish()
+        throws {
+        let presentationSource = VideoResolution(
+            width: 480,
+            height: 271
+        )
+        let processingSource = VideoResolution(width: 480, height: 272)
+        let requestedTarget = VideoResolution(
+            width: 3_840,
+            height: 2_168
+        )
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: presentationSource,
+            requestedSourceResolution: processingSource,
+            nativeSourceResolution: processingSource,
+            requestedTargetResolution: requestedTarget,
+            runtimeSupportedScaleFactors: [2, 4]
+        )
+
+        XCTAssertEqual(plan.path, .quality)
+        XCTAssertEqual(
+            plan.presentationSourceResolution,
+            presentationSource
+        )
+        XCTAssertEqual(plan.requestedSourceResolution, processingSource)
+        XCTAssertEqual(plan.nativeSourceResolution, processingSource)
+        XCTAssertEqual(
+            plan.nativeTargetResolution,
+            VideoResolution(width: 1_920, height: 1_088)
+        )
+        XCTAssertEqual(plan.nativeScaleFactor, 4)
+        XCTAssertFalse(plan.requiresInputPreparation)
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+        XCTAssertEqual(
+            plan.stableIdentity,
+            "vt-adaptive-native-v2.quality."
+                + "format-nv12_video_range_8_bit.bt_709.bt_709.none."
+                + "no-mastering-display.no-content-light-level."
+                + "preservation-rgba-half-native-roundtrip-original-storage."
+                + "presentation-source-480x271."
+                + "input-source-480x272.native-source-480x272."
+                + "native-target-1920x1088."
+                + "requested-target-3840x2168.scale-bits-40800000"
+        )
+    }
+
+    func testAdaptiveInputPreparationFailureHasStableTypedIdentity() {
+        let error = VTNativeSuperResolutionError.failed(.inputPreparation)
+
+        XCTAssertEqual(
+            error,
+            .failed(.inputPreparation)
+        )
+        XCTAssertEqual(
+            VTNativeSuperResolutionFailureReason.inputPreparation.rawValue,
+            "input_preparation"
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func testAdaptiveNativePlansCarryEveryRegisteredFormatIdentity() throws {
+        for format in r04VTFormatMatrix {
+            let plan = try VTAdaptiveNativePlanAdmission.makeLowLatencyPlan(
+                videoFormat: format,
+                presentationSourceResolution: .p270,
+                requestedSourceResolution: .p270,
+                nativeSourceResolution: .p270,
+                requestedTargetResolution: .p1080,
+                runtimeSupportedScaleFactors: [4]
+            )
+
+            XCTAssertEqual(plan.videoFormat, format, format.description)
+            XCTAssertTrue(
+                plan.stableIdentity.contains(
+                    R13ReleaseVideoFormatBinding(format).identityComponent
+                ),
+                format.description
+            )
+            XCTAssertEqual(
+                try VTAdaptiveMediaVideoFormatContract.makeColorDescription(
+                    for: format
+                ).range,
+                format.pixelStorage.codeRange == .video ? .video : .full,
+                format.description
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testQualityRGBAHalfBridgePreservesEveryFormatAndMetadata() throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        for format in r04VTFormatMatrix {
+            let source = try makeFormatBuffer(
+                format: format,
+                resolution: resolution,
+                offset: 1
+            )
+            CVBufferSetAttachment(
+                source,
+                r04VTCustomAttachmentKey,
+                "retained" as CFString,
+                .shouldNotPropagate
+            )
+            let native = try R04VideoToolboxTestBuffers.makePixelBuffer(
+                resolution,
+                pixelFormat: VTNativeQualityPixelBufferBridge.nativePixelFormat
+            )
+            let output = try R04VideoToolboxTestBuffers.makePixelBuffer(
+                resolution,
+                pixelFormat: format.pixelStorage.pixelFormat
+            )
+            let bridge = try VTNativeQualityPixelBufferBridge(
+                videoFormat: format
+            )
+
+            try bridge.convertVideoFormat(
+                source,
+                toNativeRGBAHalf: native,
+                resolution: resolution
+            )
+            try bridge.convertNativeRGBAHalf(
+                native,
+                toVideoFormat: output,
+                resolution: resolution,
+                metadataSource: source
+            )
+
+            XCTAssertEqual(
+                CVPixelBufferGetPixelFormatType(output),
+                format.pixelStorage.pixelFormat,
+                format.description
+            )
+            try R13MediaVideoFormatContract.validate(
+                output,
+                resolution: resolution,
+                format: format
+            )
+            try R13PixelLayoutProcessor.validateStoredCodes(output)
+            XCTAssertEqual(
+                CVBufferCopyAttachment(output, r04VTCustomAttachmentKey, nil)
+                    as? String,
+                "retained",
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachment(
+                    native,
+                    kCVImageBufferColorPrimariesKey,
+                    nil
+                ) as? String,
+                format.colorPrimaries.cmValue,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachment(
+                    native,
+                    kCVImageBufferTransferFunctionKey,
+                    nil
+                ) as? String,
+                format.transferFunction.cmValue,
+                format.description
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testQualityAlphaRestorationRetainsEveryAlphaStorage() throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        for format in r04VTFormatMatrix where format.hasAlpha {
+            let source = try makeFormatBuffer(
+                format: format,
+                resolution: resolution,
+                offset: 3
+            )
+            let destination = try makeFormatBuffer(
+                format: format,
+                resolution: resolution,
+                offset: 19
+            )
+            try R04VideoToolboxTestBuffers.fillAlphaWithMinimum(destination)
+            let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(
+                source
+            )
+            let originalLuma = try R13PixelLayoutTestFixtures.lumaCodes(
+                destination
+            )
+
+            try VTNativeAlphaStoragePreserver.restoreAlpha(
+                from: source,
+                to: destination
+            )
+
+            XCTAssertEqual(
+                try R13PixelLayoutTestFixtures.alphaCodes(destination),
+                expectedAlpha,
+                format.description
+            )
+            XCTAssertEqual(
+                try R13PixelLayoutTestFixtures.lumaCodes(destination),
+                originalLuma,
+                format.description
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testQualityRestorationEnforcesEveryPremultipliedAlphaStorage()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        let formats = r04VTPremultipliedAlphaFormats
+        XCTAssertEqual(formats.count, 4)
+
+        for format in formats {
+            let alphaCarrier = try makeConstantFormatBuffer(
+                format: format,
+                resolution: resolution,
+                red: 0.01,
+                green: 0.03,
+                blue: 0.06,
+                alpha: 0.5
+            )
+            let destination = try makeConstantFormatBuffer(
+                format: format,
+                resolution: resolution,
+                red: 1,
+                green: 1,
+                blue: 1,
+                alpha: 1
+            )
+            let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(
+                alphaCarrier
+            )
+            try assertTranslucentAlpha(expectedAlpha, format: format)
+            try assertPremultipliedColorInvariant(
+                alphaCarrier,
+                format: format
+            )
+
+            try VTNativeAlphaStoragePreserver.restoreAlpha(
+                from: alphaCarrier,
+                to: destination
+            )
+            try R13PremultipliedAlphaOutputPostcondition.reconcile(
+                destination,
+                format: format
+            )
+
+            XCTAssertEqual(
+                try R13PixelLayoutTestFixtures.alphaCodes(destination),
+                expectedAlpha,
+                format.description
+            )
+            try assertPremultipliedColorInvariant(
+                destination,
+                format: format
+            )
+            try R13MediaVideoFormatContract.validate(
+                destination,
+                resolution: resolution,
+                format: format
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testQualityPostconditionLeavesStraightAndOpaqueColorUnclamped()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        let straight = MediaVideoFormat.sdrBT709WithAlpha(mode: .straight)
+        let alphaCarrier = try makeConstantFormatBuffer(
+            format: straight,
+            resolution: resolution,
+            red: 1,
+            green: 1,
+            blue: 1,
+            alpha: 0.25
+        )
+        let destination = try makeConstantFormatBuffer(
+            format: straight,
+            resolution: resolution,
+            red: 1,
+            green: 1,
+            blue: 1,
+            alpha: 1
+        )
+        let colorBefore = try packedBGRAColorCodes(destination)
+        let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(
+            alphaCarrier
+        )
+
+        try VTNativeAlphaStoragePreserver.restoreAlpha(
+            from: alphaCarrier,
+            to: destination
+        )
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            destination,
+            format: straight
+        )
+
+        XCTAssertEqual(try packedBGRAColorCodes(destination), colorBefore)
+        XCTAssertEqual(
+            try R13PixelLayoutTestFixtures.alphaCodes(destination),
+            expectedAlpha
+        )
+
+        let opaque = try makeConstantFormatBuffer(
+            format: .sdrBT709,
+            resolution: resolution,
+            red: 1,
+            green: 1,
+            blue: 1,
+            alpha: 1
+        )
+        let opaqueBefore = try R13TightPixelFrame(capturing: opaque)
+        try R13PremultipliedAlphaOutputPostcondition.reconcile(
+            opaque,
+            format: .sdrBT709
+        )
+        XCTAssertEqual(
+            try R13TightPixelFrame(capturing: opaque),
+            opaqueBefore
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func testLowLatencyGuideBridgeAcceptsEveryRegisteredFormatExplicitly()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        for format in r04VTFormatMatrix {
+            let source = try makeFormatBuffer(
+                format: format,
+                resolution: resolution,
+                offset: 5
+            )
+            let guide = try R04VideoToolboxTestBuffers.makeNV12(resolution)
+            let bridge = try VTNativeLowLatencyGuideBridge(
+                videoFormat: format
+            )
+
+            try bridge.convertToNativeGuide(
+                source,
+                destination: guide,
+                resolution: resolution
+            )
+
+            XCTAssertEqual(
+                CVPixelBufferGetPixelFormatType(guide),
+                kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachment(
+                    guide,
+                    kCVImageBufferColorPrimariesKey,
+                    nil
+                ) as? String,
+                format.colorPrimaries.cmValue,
+                format.description
+            )
+            XCTAssertEqual(
+                CVBufferCopyAttachment(
+                    guide,
+                    kCVImageBufferTransferFunctionKey,
+                    nil
+                ) as? String,
+                format.transferFunction.cmValue,
+                format.description
+            )
+            XCTAssertNil(
+                CVBufferCopyAttachment(
+                    guide,
+                    kCVImageBufferAlphaChannelModeKey,
+                    nil
+                ),
+                format.description
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testLowLatencyNativeGuideMateriallyAffectsEveryPreservedStorage()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        for format in r04VTFormatMatrix {
+            let carrier = try makeFormatBuffer(
+                format: format,
+                resolution: resolution,
+                offset: 7
+            )
+            let baselineGuide = try R04VideoToolboxTestBuffers.makeNV12(
+                resolution
+            )
+            let nativeGuide = try R04VideoToolboxTestBuffers.makeNV12(
+                resolution
+            )
+            try R04VideoToolboxTestBuffers.fillGuide(
+                baselineGuide,
+                luma: { _, _ in 96 }
+            )
+            try R04VideoToolboxTestBuffers.fillGuide(
+                nativeGuide,
+                luma: { column, row in
+                    (column + row).isMultiple(of: 2) ? 108 : 96
+                }
+            )
+            try R13PremultipliedAlphaOutputPostcondition.reconcile(
+                carrier,
+                format: format
+            )
+            let protectedBefore = try R04VideoToolboxTestBuffers
+                .protectedComponentCodes(carrier)
+            let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(
+                carrier
+            )
+            let before = try R13TightPixelFrame(capturing: carrier)
+
+            let evidence = try VTNativeLowLatencyGuideComposite.apply(
+                nativeGuide: nativeGuide,
+                baselineGuide: baselineGuide,
+                to: carrier,
+                resolution: resolution,
+                format: format
+            )
+            let after = try R13TightPixelFrame(capturing: carrier)
+
+            XCTAssertGreaterThan(
+                evidence.guideApplicationChangedSampleCount,
+                0,
+                format.description
+            )
+            XCTAssertEqual(
+                evidence.nativeGuideChangedSampleCount,
+                resolution.width * resolution.height / 2,
+                format.description
+            )
+            XCTAssertNotEqual(before.planes[0], after.planes[0], format.description)
+            if format.alphaMode == .premultiplied {
+                XCTAssertEqual(
+                    try R13PixelLayoutTestFixtures.alphaCodes(carrier),
+                    expectedAlpha,
+                    format.description
+                )
+            } else {
+                XCTAssertEqual(
+                    try R04VideoToolboxTestBuffers
+                        .protectedComponentCodes(carrier),
+                    protectedBefore,
+                    format.description
+                )
+            }
+            try R13MediaVideoFormatContract.validate(
+                carrier,
+                resolution: resolution,
+                format: format
+            )
+            try R13PixelLayoutProcessor.validateStoredCodes(carrier)
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testLowLatencyCompositeEnforcesEveryPremultipliedAlphaStorage()
+        throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        let formats = r04VTPremultipliedAlphaFormats
+        XCTAssertEqual(formats.count, 4)
+
+        for format in formats {
+            let carrier = try makeConstantFormatBuffer(
+                format: format,
+                resolution: resolution,
+                red: 0.01,
+                green: 0.03,
+                blue: 0.06,
+                alpha: 0.5
+            )
+            let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(
+                carrier
+            )
+            try assertTranslucentAlpha(expectedAlpha, format: format)
+            try assertPremultipliedColorInvariant(carrier, format: format)
+            let before = try R13TightPixelFrame(capturing: carrier)
+            let baselineGuide = try R04VideoToolboxTestBuffers.makeNV12(
+                resolution
+            )
+            let nativeGuide = try R04VideoToolboxTestBuffers.makeNV12(
+                resolution
+            )
+            try R04VideoToolboxTestBuffers.fillGuide(
+                baselineGuide,
+                luma: { _, _ in 16 }
+            )
+            try R04VideoToolboxTestBuffers.fillGuide(
+                nativeGuide,
+                luma: { _, _ in 235 }
+            )
+
+            let evidence = try VTNativeLowLatencyGuideComposite.apply(
+                nativeGuide: nativeGuide,
+                baselineGuide: baselineGuide,
+                to: carrier,
+                resolution: resolution,
+                format: format
+            )
+            let after = try R13TightPixelFrame(capturing: carrier)
+
+            XCTAssertEqual(
+                evidence.nativeGuideChangedSampleCount,
+                resolution.width * resolution.height,
+                format.description
+            )
+            XCTAssertGreaterThan(
+                evidence.guideApplicationChangedSampleCount,
+                0,
+                format.description
+            )
+            XCTAssertNotEqual(after, before, format.description)
+            XCTAssertEqual(
+                try R13PixelLayoutTestFixtures.alphaCodes(carrier),
+                expectedAlpha,
+                format.description
+            )
+            try assertPremultipliedColorInvariant(carrier, format: format)
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testLowLatencyEvidenceNamesOnlyProvisionalGuideChanges() throws {
+        let resolution = VideoResolution(width: 16, height: 16)
+        let format = MediaVideoFormat.sdrBT709WithAlpha(
+            mode: .premultiplied
+        )
+        let carrier = try makeFormatBuffer(
+            format: format,
+            resolution: resolution,
+            offset: 0
+        )
+        try R04VideoToolboxTestBuffers.fillPackedBGRA(
+            carrier,
+            blue: 128,
+            green: 128,
+            red: 128,
+            alpha: 128
+        )
+        let expectedAlpha = try R13PixelLayoutTestFixtures.alphaCodes(carrier)
+        let before = try R13TightPixelFrame(capturing: carrier)
+        let baselineGuide = try R04VideoToolboxTestBuffers.makeNV12(resolution)
+        let nativeGuide = try R04VideoToolboxTestBuffers.makeNV12(resolution)
+        try R04VideoToolboxTestBuffers.fillGuide(
+            baselineGuide,
+            luma: { _, _ in 96 }
+        )
+        try R04VideoToolboxTestBuffers.fillGuide(
+            nativeGuide,
+            luma: { _, _ in 108 }
+        )
+
+        let evidence = try VTNativeLowLatencyGuideComposite.apply(
+            nativeGuide: nativeGuide,
+            baselineGuide: baselineGuide,
+            to: carrier,
+            resolution: resolution,
+            format: format
+        )
+
+        XCTAssertEqual(
+            evidence.guideApplicationChangedSampleCount,
+            resolution.width * resolution.height
+        )
+        XCTAssertEqual(try R13TightPixelFrame(capturing: carrier), before)
+        XCTAssertEqual(
+            try R13PixelLayoutTestFixtures.alphaCodes(carrier),
+            expectedAlpha
+        )
+        try assertPremultipliedColorInvariant(carrier, format: format)
+    }
+
+    func testAdaptiveOddHeightPlanAdmitsOnlyItsEvenCeilingInput() throws {
+        let presentationSource = VideoResolution(
+            width: 480,
+            height: 271
+        )
+        let processingSource = VideoResolution(width: 480, height: 272)
+        let requestedTarget = VideoResolution(
+            width: 1_920,
+            height: 1_084
+        )
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: presentationSource,
+            requestedSourceResolution: processingSource,
+            nativeSourceResolution: processingSource,
+            requestedTargetResolution: requestedTarget,
+            runtimeSupportedScaleFactors: [4]
+        )
+
+        XCTAssertEqual(
+            plan.presentationSourceResolution,
+            presentationSource
+        )
+        XCTAssertEqual(plan.requestedSourceResolution, processingSource)
+        XCTAssertEqual(
+            plan.nativeTargetResolution,
+            VideoResolution(width: 1_920, height: 1_088)
+        )
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+        XCTAssertThrowsError(
+            try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+                presentationSourceResolution: presentationSource,
+                requestedSourceResolution: VideoResolution(
+                    width: 480,
+                    height: 274
+                ),
+                nativeSourceResolution: VideoResolution(
+                    width: 480,
+                    height: 274
+                ),
+                requestedTargetResolution: requestedTarget,
+                runtimeSupportedScaleFactors: [4]
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? VTNativeSuperResolutionError,
+                .rejected(.routeContractMismatch)
+            )
+        }
+    }
+
+    func testAdaptiveQualityPlanExposesPreparedNativeSourceSeparately() throws {
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: .p1440,
+            requestedSourceResolution: .p1440,
+            nativeSourceResolution: .p1080,
+            requestedTargetResolution: .p2160,
+            runtimeSupportedScaleFactors: [2]
+        )
+
+        XCTAssertEqual(plan.requestedSourceResolution, .p1440)
+        XCTAssertEqual(plan.nativeSourceResolution, .p1080)
+        XCTAssertEqual(plan.nativeTargetResolution, .p2160)
+        XCTAssertTrue(plan.requiresInputPreparation)
+        XCTAssertFalse(plan.requiresExactGeometryFinish)
+    }
+
+    func testAdaptiveLowLatencyPlanAdmitsRuntimeFactorAtActualDimensions()
+        throws {
+        let source = VideoResolution(width: 1_024, height: 576)
+        let requestedTarget = VideoResolution(width: 1_152, height: 648)
+        let plan = try VTAdaptiveNativePlanAdmission.makeLowLatencyPlan(
+            presentationSourceResolution: source,
+            requestedSourceResolution: source,
+            nativeSourceResolution: source,
+            requestedTargetResolution: requestedTarget,
+            runtimeSupportedScaleFactors: [1.25]
+        )
+
+        XCTAssertEqual(plan.path, .lowLatency)
+        XCTAssertEqual(plan.nativeScaleFactor, 1.25)
+        XCTAssertEqual(
+            plan.nativeTargetResolution,
+            VideoResolution(width: 1_280, height: 720)
+        )
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+    }
+
+    func testAdaptivePlanAcceptsOneOutputPixelAspectRounding() throws {
+        let source = VideoResolution(width: 854, height: 480)
+        let roundedTarget = VideoResolution(width: 1_280, height: 720)
+
+        XCTAssertTrue(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: source,
+                target: roundedTarget
+            )
+        )
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: source,
+            requestedSourceResolution: source,
+            nativeSourceResolution: source,
+            requestedTargetResolution: roundedTarget,
+            runtimeSupportedScaleFactors: [2]
+        )
+
+        XCTAssertEqual(
+            plan.nativeTargetResolution,
+            VideoResolution(width: 1_708, height: 960)
+        )
+        XCTAssertTrue(plan.requiresExactGeometryFinish)
+    }
+
+    func testAdaptiveLowLatencyPlanRejectsWhenRuntimeReportsNoUsableFactor() {
+        XCTAssertThrowsError(
+            try VTAdaptiveNativePlanAdmission.makeLowLatencyPlan(
+                presentationSourceResolution: .p720,
+                requestedSourceResolution: .p720,
+                nativeSourceResolution: .p720,
+                requestedTargetResolution: .p1080,
+                runtimeSupportedScaleFactors: []
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? VTNativeSuperResolutionError,
+                .rejected(.exactDimensionScaleUnsupported)
+            )
+        }
+    }
+
+    @available(macOS 26.0, *)
+    func testAdaptiveSessionRunsSelectedNativeBeforeFinisherAndPreservesTiming()
+        async throws {
+        let processingSource = VideoResolution.p270
+        let nativeOutputResolution = VideoResolution.p1080
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: .p270,
+            requestedSourceResolution: processingSource,
+            nativeSourceResolution: processingSource,
+            requestedTargetResolution: .p2160,
+            runtimeSupportedScaleFactors: [4]
+        )
+        let processor = R04AdaptiveNativeProcessorRecorder(
+            behavior: .processed(nativeOutputResolution)
+        )
+        let finisherCount = R04SynchronousCounter()
+        let session = try VTAdaptiveNativeUpscaleSession(
+            plan: plan,
+            nativeProcessor: processor,
+            exactGeometryFinisher: { nativeOutput, nativeResolution, target, signal in
+                XCTAssertFalse(signal.isCancelled)
+                XCTAssertEqual(nativeResolution, nativeOutputResolution)
+                XCTAssertEqual(target, .p2160)
+                XCTAssertEqual(CVPixelBufferGetWidth(nativeOutput), 1_920)
+                finisherCount.increment()
+                return try R04VideoToolboxTestBuffers.makeNV12(.p2160)
+            }
+        )
+        let presentationTimestamp = CMTime(value: 90, timescale: 30)
+        let duration = CMTime(value: 1, timescale: 30)
+        let fixture = try makeFrame(
+            resolution: processingSource,
+            sequence: 7,
+            tokenPrefix: "r04.adaptive-quality",
+            presentationTimestamp: presentationTimestamp,
+            duration: duration
+        )
+
+        let output = try await session.process(
+            fixture.frame,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        XCTAssertEqual(output.sequenceNumber, 7)
+        XCTAssertEqual(output.presentationTimestamp, presentationTimestamp)
+        XCTAssertEqual(output.duration, duration)
+        XCTAssertEqual(output.path, .quality)
+        XCTAssertEqual(output.nativeSourceResolution, processingSource)
+        XCTAssertEqual(
+            output.nativeOutputResolution,
+            nativeOutputResolution
+        )
+        XCTAssertEqual(output.requestedTargetResolution, .p2160)
+        XCTAssertTrue(output.usedExactGeometryFinisher)
+        XCTAssertEqual(CVPixelBufferGetWidth(output.pixelBuffer), 3_840)
+        XCTAssertEqual(processor.processCount, 1)
+        XCTAssertEqual(finisherCount.value, 1)
+        await session.finish()
+        XCTAssertEqual(processor.finishCount, 1)
+        XCTAssertEqual(processor.cancelCount, 0)
+        fixture.frame.resourceLifetimeToken.release()
+    }
+
+    @available(macOS 26.0, *)
+    func testAdaptiveSessionNativeFailureDoesNotInvokeFinisher() async throws {
+        let processingSource = VideoResolution.p270
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: .p270,
+            requestedSourceResolution: processingSource,
+            nativeSourceResolution: processingSource,
+            requestedTargetResolution: .p2160,
+            runtimeSupportedScaleFactors: [4]
+        )
+        let processor = R04AdaptiveNativeProcessorRecorder(
+            behavior: .error(.unavailable(.qualityModelDownloading))
+        )
+        let finisherCount = R04SynchronousCounter()
+        let session = try VTAdaptiveNativeUpscaleSession(
+            plan: plan,
+            nativeProcessor: processor,
+            exactGeometryFinisher: { _, _, _, _ in
+                finisherCount.increment()
+                return try R04VideoToolboxTestBuffers.makeNV12(.p2160)
+            }
+        )
+        let fixture = try makeFrame(
+            resolution: processingSource,
+            sequence: 0,
+            tokenPrefix: "r04.adaptive-no-fallback"
+        )
+
+        do {
+            _ = try await session.process(
+                fixture.frame,
+                cancellation: AppleUpscaleOperationCancellationSignal()
+            )
+            XCTFail("Expected selected native path failure")
+        } catch {
+            XCTAssertEqual(
+                error as? VTNativeSuperResolutionError,
+                .unavailable(.qualityModelDownloading)
+            )
+        }
+        XCTAssertEqual(processor.processCount, 1)
+        XCTAssertEqual(finisherCount.value, 0)
+        await session.cancel()
+        XCTAssertEqual(processor.cancelCount, 1)
+        fixture.frame.resourceLifetimeToken.release()
+    }
+
+    @available(macOS 26.0, *)
+    func testAdaptiveSessionCancelSignalsInflightNativeWorkAndWaitsForTeardown()
+        async throws {
+        let plan = try VTAdaptiveNativePlanAdmission.makeQualityPlan(
+            presentationSourceResolution: .p1080,
+            requestedSourceResolution: .p1080,
+            nativeSourceResolution: .p1080,
+            requestedTargetResolution: .p2160,
+            runtimeSupportedScaleFactors: [2]
+        )
+        let processor = R04AdaptiveNativeProcessorRecorder(
+            behavior: .waitForCancellation
+        )
+        let session = try VTAdaptiveNativeUpscaleSession(
+            plan: plan,
+            nativeProcessor: processor
+        )
+        let fixture = try makeFrame(
+            resolution: .p1080,
+            sequence: 0,
+            tokenPrefix: "r04.adaptive-cancel"
+        )
+        let processing = Task {
+            try await session.process(
+                fixture.frame,
+                cancellation: AppleUpscaleOperationCancellationSignal()
+            )
+        }
+        while processor.processCount == 0 { await Task.yield() }
+
+        await session.cancel()
+
+        do {
+            _ = try await processing.value
+            XCTFail("Expected operation cancellation")
+        } catch {
+            XCTAssertEqual(
+                error as? VTNativeSuperResolutionError,
+                .rejected(.operationCancelled)
+            )
+        }
+        XCTAssertEqual(processor.processCount, 1)
+        XCTAssertEqual(processor.cancelCount, 1)
+        XCTAssertEqual(processor.finishCount, 0)
+        fixture.frame.resourceLifetimeToken.release()
     }
 
     private func makeBackend(
@@ -1141,6 +2362,253 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         return R04InputFrameFixture(frame: frame, releaseProbe: releaseProbe)
     }
 
+    private func makeFormatBuffer(
+        format: MediaVideoFormat,
+        resolution: VideoResolution,
+        offset: Int
+    ) throws -> CVPixelBuffer {
+        let pixelBuffer = try R13PixelLayoutTestFixtures.makeEffectBuffer(
+            pixelFormat: format.pixelStorage.pixelFormat,
+            width: resolution.width,
+            height: resolution.height,
+            offset: offset
+        )
+        R13MediaVideoFormatContract.install(
+            format,
+            on: pixelBuffer,
+            resolution: resolution
+        )
+        try R13MediaVideoFormatContract.validate(
+            pixelBuffer,
+            resolution: resolution,
+            format: format
+        )
+        return pixelBuffer
+    }
+
+    private func makeConstantFormatBuffer(
+        format: MediaVideoFormat,
+        resolution: VideoResolution,
+        red: Float16,
+        green: Float16,
+        blue: Float16,
+        alpha: Float16
+    ) throws -> CVPixelBuffer {
+        let pixelBuffer = try makeFormatBuffer(
+            format: format,
+            resolution: resolution,
+            offset: 0
+        )
+        var components: [Float16] = []
+        components.reserveCapacity(
+            resolution.width * resolution.height
+                * R05LinearRGBA16FloatFrame.componentCount
+        )
+        for _ in 0..<(resolution.width * resolution.height) {
+            components.append(red)
+            components.append(green)
+            components.append(blue)
+            components.append(alpha)
+        }
+        let frame = try R05LinearRGBA16FloatFrame(
+            width: resolution.width,
+            height: resolution.height,
+            components: components
+        )
+        try R05MetalFXFormatColorBridge.encodeClippingFiniteRGB(
+            frame,
+            into: pixelBuffer,
+            format: format
+        )
+        return pixelBuffer
+    }
+
+    private func assertTranslucentAlpha(
+        _ codes: [UInt16],
+        format: MediaVideoFormat,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        let bitDepth = try XCTUnwrap(
+            format.pixelStorage.alphaBitDepth,
+            file: file,
+            line: line
+        )
+        let maximum = bitDepth == 16
+            ? UInt16.max
+            : UInt16((1 << bitDepth) - 1)
+        XCTAssertFalse(codes.isEmpty, format.description, file: file, line: line)
+        XCTAssertTrue(
+            codes.allSatisfy { $0 > 0 && $0 < maximum },
+            format.description,
+            file: file,
+            line: line
+        )
+    }
+
+    private func assertPremultipliedColorInvariant(
+        _ pixelBuffer: CVPixelBuffer,
+        format: MediaVideoFormat,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) throws {
+        XCTAssertEqual(
+            format.alphaMode,
+            .premultiplied,
+            file: file,
+            line: line
+        )
+        XCTAssertEqual(
+            format.transferFunction,
+            .bt709,
+            file: file,
+            line: line
+        )
+        let decoded = try R05MetalFXFormatColorBridge.decode(
+            pixelBuffer: pixelBuffer,
+            format: format
+        )
+        let tolerance = format.pixelStorage.bitDepth == 8 ? 0.02 : 0.005
+        var foundTranslucentColor = false
+        for index in stride(
+            from: 0,
+            to: decoded.components.count,
+            by: R05LinearRGBA16FloatFrame.componentCount
+        ) {
+            let alpha = Double(decoded.components[index + 3])
+            for component in index..<(index + 3) {
+                let encoded = encodedBT709(
+                    Double(decoded.components[component])
+                )
+                XCTAssertLessThanOrEqual(
+                    encoded,
+                    alpha + tolerance,
+                    format.description,
+                    file: file,
+                    line: line
+                )
+                if alpha > 0, alpha < 1, encoded > 0 {
+                    foundTranslucentColor = true
+                }
+            }
+        }
+        XCTAssertTrue(
+            foundTranslucentColor,
+            format.description,
+            file: file,
+            line: line
+        )
+
+        guard format.pixelStorage == .bgra8WithAlpha else { return }
+        let colors = try packedBGRAColorCodes(pixelBuffer)
+        let alpha = try R13PixelLayoutTestFixtures.alphaCodes(pixelBuffer)
+        XCTAssertEqual(colors.count, alpha.count * 3, file: file, line: line)
+        for index in alpha.indices {
+            XCTAssertLessThanOrEqual(
+                UInt16(colors[index * 3]),
+                alpha[index],
+                file: file,
+                line: line
+            )
+            XCTAssertLessThanOrEqual(
+                UInt16(colors[index * 3 + 1]),
+                alpha[index],
+                file: file,
+                line: line
+            )
+            XCTAssertLessThanOrEqual(
+                UInt16(colors[index * 3 + 2]),
+                alpha[index],
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    private func packedBGRAColorCodes(
+        _ pixelBuffer: CVPixelBuffer
+    ) throws -> [UInt8] {
+        let layout = try R13PixelLayoutRegistry.layout(
+            for: CVPixelBufferGetPixelFormatType(pixelBuffer)
+        )
+        guard layout.planes.count == 1,
+              layout.planes[0].role == .packedBGRA else {
+            throw R04VideoToolboxAdapterTestError.missingPlaneBaseAddress
+        }
+        try R13PixelLayoutProcessor.lockReadOnly(pixelBuffer)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        let base = try R13PixelBufferAccess.baseAddress(
+            of: pixelBuffer,
+            layout: layout,
+            plane: 0
+        )
+        let rowBytes = R13PixelBufferAccess.rowBytes(
+            of: pixelBuffer,
+            layout: layout,
+            plane: 0
+        )
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        var result: [UInt8] = []
+        result.reserveCapacity(width * height * 3)
+        for row in 0..<height {
+            let bytes = base.advanced(by: row * rowBytes)
+                .assumingMemoryBound(to: UInt8.self)
+            for column in 0..<width {
+                let offset = column * 4
+                result.append(bytes[offset])
+                result.append(bytes[offset + 1])
+                result.append(bytes[offset + 2])
+            }
+        }
+        return result
+    }
+
+    private func encodedBT709(_ linear: Double) -> Double {
+        let value = min(max(linear, 0), 1)
+        return value < 0.018
+            ? 4.5 * value
+            : 1.099 * pow(value, 0.45) - 0.099
+    }
+
+    private func makeFormatFrame(
+        format: MediaVideoFormat,
+        resolution: VideoResolution,
+        sequence: Int,
+        tokenPrefix: String,
+        offset: Int = 0
+    ) throws -> R04InputFrameFixture {
+        let pixelBuffer = try makeFormatBuffer(
+            format: format,
+            resolution: resolution,
+            offset: offset
+        )
+        let releaseProbe = R04SynchronousCounter()
+        let token = try AppleUpscaleResourceLifetimeToken(
+            identity: "\(tokenPrefix).\(sequence)",
+            releaseAction: { releaseProbe.increment() }
+        )
+        return R04InputFrameFixture(
+            frame: try AppleUpscaleFrame(
+                sequenceNumber: sequence,
+                pixelBuffer: pixelBuffer,
+                presentationTimestamp: CMTime(
+                    value: Int64(sequence),
+                    timescale: 30
+                ),
+                duration: CMTime(value: 1, timescale: 30),
+                colorDescription:
+                    try VTAdaptiveMediaVideoFormatContract
+                    .makeColorDescription(for: format),
+                metadataIdentity: AppleUpscaleMetadataIdentity(
+                    "r04.format-metadata.\(sequence)"
+                ),
+                resourceLifetimeToken: token
+            ),
+            releaseProbe: releaseProbe
+        )
+    }
+
     private func processed(
         _ outcome: AppleUpscaleBackendOutcome<AppleUpscaleProcessedFrame>
     ) throws -> AppleUpscaleProcessedFrame {
@@ -1181,6 +2649,57 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
     }
 }
 
+private var r04VTCustomAttachmentKey: CFString {
+    "com.mirmir.tests.vt-format-retention" as CFString
+}
+
+private var r04VTFormatMatrix: [MediaVideoFormat] {
+    let registeredStorage = MediaVideoPixelStorage.allCases.map { storage in
+        MediaVideoFormat(
+            pixelStorage: storage,
+            colorPrimaries: .bt709,
+            transferFunction: .bt709,
+            alphaMode: storage.hasAlpha ? .straight : .none
+        )
+    }
+    let mastering = Data(repeating: 0x31, count: 24)
+    let contentLight = Data([0x03, 0xE8, 0x01, 0x90])
+    let semanticVariants: [MediaVideoFormat] = [
+        .sdrBT2020TenBit,
+        .hdrBT2020PQ(
+            masteringDisplayColorVolume: mastering,
+            contentLightLevelInfo: contentLight
+        ),
+        .hdrBT2020HLG(
+            masteringDisplayColorVolume: mastering,
+            contentLightLevelInfo: contentLight
+        ),
+        .hdrBT2020PQYUV444FullRange(
+            masteringDisplayColorVolume: mastering,
+            contentLightLevelInfo: contentLight
+        ),
+        .hdrBT2020HLGYUV444FullRange(
+            masteringDisplayColorVolume: mastering,
+            contentLightLevelInfo: contentLight
+        )
+    ]
+    let premultipliedAlpha = MediaVideoPixelStorage.allCases
+        .filter(\.hasAlpha)
+        .map { storage in
+            MediaVideoFormat(
+                pixelStorage: storage,
+                colorPrimaries: .bt709,
+                transferFunction: .bt709,
+                alphaMode: .premultiplied
+            )
+        }
+    return registeredStorage + semanticVariants + premultipliedAlpha
+}
+
+private var r04VTPremultipliedAlphaFormats: [MediaVideoFormat] {
+    r04VTFormatMatrix.filter { $0.alphaMode == .premultiplied }
+}
+
 private enum R04VideoToolboxAdapterTestError: Error {
     case sessionNotCreated
     case frameNotProcessed
@@ -1208,6 +2727,85 @@ private final class R04SynchronousCounter: @unchecked Sendable {
         lock.lock()
         storedValue += 1
         lock.unlock()
+    }
+}
+
+@available(macOS 26.0, *)
+private enum R04AdaptiveNativeProcessorBehavior: Sendable {
+    case processed(VideoResolution)
+    case error(VTNativeSuperResolutionError)
+    case waitForCancellation
+}
+
+@available(macOS 26.0, *)
+private final class R04AdaptiveNativeProcessorRecorder:
+    VTAdaptiveNativeFrameProcessing,
+    @unchecked Sendable {
+    private let behavior: R04AdaptiveNativeProcessorBehavior
+    private let lock = NSLock()
+    private var storedProcessCount = 0
+    private var storedResetCount = 0
+    private var storedFinishCount = 0
+    private var storedCancelCount = 0
+
+    var processCount: Int { locked { storedProcessCount } }
+    var resetCount: Int { locked { storedResetCount } }
+    var finishCount: Int { locked { storedFinishCount } }
+    var cancelCount: Int { locked { storedCancelCount } }
+
+    init(behavior: R04AdaptiveNativeProcessorBehavior) {
+        self.behavior = behavior
+    }
+
+    func process(
+        _: AppleUpscaleFrame,
+        historyGeneration _: UInt64,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) async throws -> CVPixelBuffer {
+        increment(\R04AdaptiveNativeProcessorRecorder.storedProcessCount)
+        guard !cancellation.isCancelled, !Task.isCancelled else {
+            throw VTNativeSuperResolutionError.rejected(.operationCancelled)
+        }
+        switch behavior {
+        case .processed(let resolution):
+            return try R04VideoToolboxTestBuffers.makeNV12(resolution)
+        case .error(let error):
+            throw error
+        case .waitForCancellation:
+            while !cancellation.isCancelled, !Task.isCancelled {
+                await Task.yield()
+            }
+            throw VTNativeSuperResolutionError.rejected(.operationCancelled)
+        }
+    }
+
+    func reset() {
+        increment(\R04AdaptiveNativeProcessorRecorder.storedResetCount)
+    }
+
+    func finish() {
+        increment(\R04AdaptiveNativeProcessorRecorder.storedFinishCount)
+    }
+
+    func cancel() {
+        increment(\R04AdaptiveNativeProcessorRecorder.storedCancelCount)
+    }
+
+    private func increment(
+        _ keyPath: ReferenceWritableKeyPath<
+            R04AdaptiveNativeProcessorRecorder,
+            Int
+        >
+    ) {
+        lock.lock()
+        self[keyPath: keyPath] += 1
+        lock.unlock()
+    }
+
+    private func locked<Value>(_ value: () -> Value) -> Value {
+        lock.lock()
+        defer { lock.unlock() }
+        return value()
     }
 }
 
@@ -1467,6 +3065,28 @@ private extension R04StubProcessBehavior {
 }
 
 private enum R04VideoToolboxTestBuffers {
+    static func makePixelBuffer(
+        _ resolution: VideoResolution,
+        pixelFormat: OSType
+    ) throws -> CVPixelBuffer {
+        let attributes: [String: Any] = [
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:]
+        ]
+        var buffer: CVPixelBuffer?
+        let status = CVPixelBufferCreate(
+            kCFAllocatorDefault,
+            resolution.width,
+            resolution.height,
+            pixelFormat,
+            attributes as CFDictionary,
+            &buffer
+        )
+        guard status == kCVReturnSuccess, let buffer else {
+            throw R04VideoToolboxAdapterTestError.pixelBufferCreationFailed(status)
+        }
+        return buffer
+    }
+
     static func makeNV12(
         _ resolution: VideoResolution,
         firstPlaneByte: UInt8? = nil
@@ -1491,6 +3111,199 @@ private enum R04VideoToolboxTestBuffers {
             try fillFirstPlane(buffer, value: firstPlaneByte)
         }
         return buffer
+    }
+
+    static func fillGuide(
+        _ pixelBuffer: CVPixelBuffer,
+        luma: (_ column: Int, _ row: Int) -> UInt8
+    ) throws {
+        guard CVPixelBufferGetPixelFormatType(pixelBuffer)
+                == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+              CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
+            throw R04VideoToolboxAdapterTestError.missingPlaneBaseAddress
+        }
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard status == kCVReturnSuccess else {
+            throw R04VideoToolboxAdapterTestError.pixelBufferLockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let lumaBase = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0),
+              let chromaBase = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 1)
+        else {
+            throw R04VideoToolboxAdapterTestError.missingPlaneBaseAddress
+        }
+        let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        let lumaStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+        for row in 0..<height {
+            let rowBase = lumaBase
+                .advanced(by: row * lumaStride)
+                .assumingMemoryBound(to: UInt8.self)
+            for column in 0..<width {
+                rowBase[column] = luma(column, row)
+            }
+        }
+        let chromaHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, 1)
+        let chromaStride = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 1)
+        let chromaActiveBytes = CVPixelBufferGetWidthOfPlane(pixelBuffer, 1) * 2
+        for row in 0..<chromaHeight {
+            memset(
+                chromaBase.advanced(by: row * chromaStride),
+                128,
+                chromaActiveBytes
+            )
+        }
+    }
+
+    static func fillPackedBGRA(
+        _ pixelBuffer: CVPixelBuffer,
+        blue: UInt8,
+        green: UInt8,
+        red: UInt8,
+        alpha: UInt8
+    ) throws {
+        guard CVPixelBufferGetPixelFormatType(pixelBuffer)
+                == kCVPixelFormatType_32BGRA else {
+            throw R04VideoToolboxAdapterTestError.missingPlaneBaseAddress
+        }
+        let status = CVPixelBufferLockBaseAddress(pixelBuffer, [])
+        guard status == kCVReturnSuccess else {
+            throw R04VideoToolboxAdapterTestError.pixelBufferLockFailed(status)
+        }
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        guard let base = CVPixelBufferGetBaseAddress(pixelBuffer) else {
+            throw R04VideoToolboxAdapterTestError.missingPlaneBaseAddress
+        }
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        let rowBytes = CVPixelBufferGetBytesPerRow(pixelBuffer)
+        for row in 0..<height {
+            let bytes = base.advanced(by: row * rowBytes)
+                .assumingMemoryBound(to: UInt8.self)
+            for column in 0..<width {
+                let offset = column * 4
+                bytes[offset] = blue
+                bytes[offset + 1] = green
+                bytes[offset + 2] = red
+                bytes[offset + 3] = alpha
+            }
+        }
+    }
+
+    static func fillAlphaWithMinimum(
+        _ pixelBuffer: CVPixelBuffer
+    ) throws {
+        let layout = try R13PixelLayoutRegistry.layout(
+            for: CVPixelBufferGetPixelFormatType(pixelBuffer)
+        )
+        let alpha: (planeIndex: Int, componentIndex: Int)?
+        if let planeIndex = layout.planes.firstIndex(
+            where: { $0.role == .alpha }
+        ) {
+            alpha = (planeIndex, 0)
+        } else {
+            switch layout.planes.first?.role {
+            case .packedAYCbCr:
+                alpha = (0, 0)
+            case .packedBGRA:
+                alpha = (0, 3)
+            default:
+                alpha = nil
+            }
+        }
+        guard let alpha else { return }
+        try R13PixelLayoutProcessor.lockWritable(pixelBuffer)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, []) }
+        let plane = layout.planes[alpha.planeIndex]
+        let base = try R13PixelBufferAccess.baseAddress(
+            of: pixelBuffer,
+            layout: layout,
+            plane: alpha.planeIndex
+        )
+        let stride = R13PixelBufferAccess.rowBytes(
+            of: pixelBuffer,
+            layout: layout,
+            plane: alpha.planeIndex
+        )
+        let width = plane.width(for: CVPixelBufferGetWidth(pixelBuffer))
+        let height = plane.height(for: CVPixelBufferGetHeight(pixelBuffer))
+        let stored = UInt16(plane.componentBounds[alpha.componentIndex].minimum)
+            << UInt16(plane.storedCodeShift)
+        for row in 0..<height {
+            for column in 0..<width {
+                let index =
+                    column * plane.componentsPerElement + alpha.componentIndex
+                if plane.bytesPerComponent == 1 {
+                    base.advanced(by: row * stride)
+                        .assumingMemoryBound(to: UInt8.self)[index] =
+                        UInt8(truncatingIfNeeded: stored)
+                } else {
+                    base.advanced(by: row * stride)
+                        .assumingMemoryBound(to: UInt16.self)[index] = stored
+                }
+            }
+        }
+    }
+
+    static func protectedComponentCodes(
+        _ pixelBuffer: CVPixelBuffer
+    ) throws -> [UInt16] {
+        let layout = try R13PixelLayoutRegistry.layout(
+            for: CVPixelBufferGetPixelFormatType(pixelBuffer)
+        )
+        try layout.validate(pixelBuffer)
+        try R13PixelLayoutProcessor.lockReadOnly(pixelBuffer)
+        defer { CVPixelBufferUnlockBaseAddress(pixelBuffer, .readOnly) }
+        var result: [UInt16] = []
+        for (planeIndex, plane) in layout.planes.enumerated() {
+            let components: [Int]
+            switch plane.role {
+            case .luma:
+                components = []
+            case .interleavedChroma, .alpha:
+                components = Array(0..<plane.componentsPerElement)
+            case .packedAYCbCr:
+                components = [0, 2, 3]
+            case .packedBGRA:
+                components = [3]
+            }
+            guard !components.isEmpty else { continue }
+            let base = try R13PixelBufferAccess.baseAddress(
+                of: pixelBuffer,
+                layout: layout,
+                plane: planeIndex
+            )
+            let stride = R13PixelBufferAccess.rowBytes(
+                of: pixelBuffer,
+                layout: layout,
+                plane: planeIndex
+            )
+            let width = plane.width(for: CVPixelBufferGetWidth(pixelBuffer))
+            let height = plane.height(for: CVPixelBufferGetHeight(pixelBuffer))
+            result.reserveCapacity(result.count + width * height * components.count)
+            for row in 0..<height {
+                for column in 0..<width {
+                    for component in components {
+                        let index = column * plane.componentsPerElement + component
+                        if plane.bytesPerComponent == 1 {
+                            result.append(
+                                UInt16(
+                                    base.advanced(by: row * stride)
+                                        .assumingMemoryBound(to: UInt8.self)[index]
+                                )
+                            )
+                        } else {
+                            result.append(
+                                base.advanced(by: row * stride)
+                                    .assumingMemoryBound(to: UInt16.self)[index]
+                                    >> UInt16(plane.storedCodeShift)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return result
     }
 
     static func fillFirstPlane(

@@ -78,10 +78,7 @@ final class ASHAssetConformanceTests: XCTestCase {
         let sourceURL = repoRootURL()
             .appendingPathComponent("Mirmir/Resources/Legal/ASH-Model-LICENSE.txt")
         let bundleURL = try XCTUnwrap(
-            Bundle.main.url(
-                forResource: noticeIdentity.licenseResourceName,
-                withExtension: noticeIdentity.licenseResourceExtension
-            )
+            MirmirAboutView.bundledASHLicenseURL
         )
         let sourceData = try Data(contentsOf: sourceURL)
         let bundleData = try Data(contentsOf: bundleURL)

@@ -213,6 +213,19 @@ final class MirmirViewModel: ObservableObject {
         case failed(String)
     }
 
+    struct PendingQueueModelPreparation: Equatable {
+        let jobID: String
+        let displayName: String
+        let failureReason: String?
+
+        var isPreparing: Bool { failureReason == nil }
+    }
+
+    private enum ClaimedPendingWorkStartResult {
+        case submitted
+        case requiresModelPreparation(ModelAssetsRouteBinding)
+    }
+
     struct RetryableFailedJob {
         let job: UpscaleJob
         let source: SourceProfile
@@ -377,7 +390,11 @@ final class MirmirViewModel: ObservableObject {
     @Published private(set) var selectedEnginePreferences:
         [UpscaleEnginePreference] = [.automatic]
     @Published var strategyPreference:
-        UpscaleStrategyPreference = .automatic
+        UpscaleStrategyPreference = .automatic {
+        didSet {
+            synchronizeModelAssetsRoute()
+        }
+    }
     @Published var temporalConsistencyEnabled = true
     @Published var edgeFidelityLevel: MirmirAdjustmentLevel = .medium
     @Published var detailRecoveryLevel: MirmirAdjustmentLevel = .medium
@@ -391,6 +408,7 @@ final class MirmirViewModel: ObservableObject {
     @Published var modelStatus: ModelAssetsStatus = .unknown
     @Published private(set) var modelAssetsBinding:
         ModelAssetsRouteBinding = .unresolved
+    @Published private(set) var modelAssetsRouteResolutionError: String?
     @Published private(set) var engineAvailability: UpscalerEngineAvailability
     @Published var progress: UpscaleProgress?
     @Published private(set) var latestPreviewFrame: UpscalePreviewFrame?
@@ -433,6 +451,8 @@ final class MirmirViewModel: ObservableObject {
     @Published private(set) var pendingQueueMutationIsInProgress = false
     @Published private(set) var pendingQueueError: String?
     @Published private(set) var pendingQueueRecoveryNotice: String?
+    @Published private(set) var pendingQueueModelPreparation:
+        PendingQueueModelPreparation?
 
     let mediaPipeline: MediaPipelineService
     let upscalerEngine: UpscalerEngineService
@@ -1346,10 +1366,105 @@ final class MirmirViewModel: ObservableObject {
                     return
                 }
                 claimedID = record.id
-                try await beginClaimedPendingWork(
+                let startResult = try await beginClaimedPendingWork(
                     record,
                     resolver: resolver
                 )
+                switch startResult {
+                case .submitted:
+                    pendingQueueModelPreparation = nil
+                case .requiresModelPreparation(let expectedBinding):
+                    let pendingSnapshot = try await pendingWorkQueue
+                        .returnStartedHeadToPending(id: record.id)
+                    claimedID = nil
+                    applyPendingQueueSnapshot(pendingSnapshot)
+                    pendingQueueModelPreparation =
+                        PendingQueueModelPreparation(
+                            jobID: record.id,
+                            displayName:
+                                record.bookmarks.sourceDisplayName,
+                            failureReason: nil
+                        )
+                    do {
+                        try await modelAssets.ensureReady(for: .video)
+                        let currentStatus = modelAssets.currentStatus(
+                            for: .video
+                        )
+                        modelStatus = currentStatus
+                        guard modelAssetsBinding == expectedBinding,
+                              currentStatus == .ready else {
+                            throw ModelAssetsServiceError
+                                .configurationChanged
+                        }
+                    } catch {
+                        modelStatus = modelAssets.currentStatus(
+                            for: .video
+                        )
+                        let reason = Self.historyErrorDescription(error)
+                        pendingQueueModelPreparation =
+                            PendingQueueModelPreparation(
+                                jobID: record.id,
+                                displayName:
+                                    record.bookmarks.sourceDisplayName,
+                                failureReason: reason
+                            )
+                        pendingQueueError = reason
+                        return
+                    }
+
+                    let preparedClaim = try await pendingWorkQueue
+                        .markStartedOrReturnHead()
+                    guard let preparedRecord = preparedClaim.record else {
+                        pendingQueueModelPreparation = nil
+                        applyPendingQueueSnapshot(
+                            MirmirPendingQueueSnapshot(
+                                records: [],
+                                processingPathBatchResults:
+                                    preparedClaim
+                                        .processingPathBatchResults,
+                                recovery: preparedClaim.recovery
+                            )
+                        )
+                        return
+                    }
+                    claimedID = preparedRecord.id
+                    guard preparedRecord.id == record.id else {
+                        let restoredSnapshot = try await pendingWorkQueue
+                            .returnStartedHeadToPending(
+                                id: preparedRecord.id
+                            )
+                        claimedID = nil
+                        applyPendingQueueSnapshot(restoredSnapshot)
+                        pendingQueueModelPreparation = nil
+                        return
+                    }
+                    let preparedStartResult =
+                        try await beginClaimedPendingWork(
+                            preparedRecord,
+                            resolver: resolver
+                        )
+                    guard case .submitted = preparedStartResult else {
+                        let restoredSnapshot = try await pendingWorkQueue
+                            .returnStartedHeadToPending(
+                                id: preparedRecord.id
+                            )
+                        claimedID = nil
+                        applyPendingQueueSnapshot(restoredSnapshot)
+                        let reason =
+                            "The prepared VideoToolbox Quality model "
+                            + "did not remain ready for the queued job."
+                        pendingQueueModelPreparation =
+                            PendingQueueModelPreparation(
+                                jobID: record.id,
+                                displayName:
+                                    record.bookmarks.sourceDisplayName,
+                                failureReason: reason
+                            )
+                        pendingQueueError = reason
+                        return
+                    }
+                    pendingQueueModelPreparation = nil
+                }
                 if jobIsRunning {
                     do {
                         let snapshot = try await pendingWorkQueue.load()
@@ -1367,7 +1482,16 @@ final class MirmirViewModel: ObservableObject {
                 activePendingQueueSecurityAccess?.stop()
                 activePendingQueueSecurityAccess = nil
                 activePendingQueueJobID = nil
-                pendingQueueError = Self.historyErrorDescription(error)
+                let reason = Self.historyErrorDescription(error)
+                if let preparation = pendingQueueModelPreparation {
+                    pendingQueueModelPreparation =
+                        PendingQueueModelPreparation(
+                            jobID: preparation.jobID,
+                            displayName: preparation.displayName,
+                            failureReason: reason
+                        )
+                }
+                pendingQueueError = reason
                 if let snapshot = try? await pendingWorkQueue.load() {
                     applyPendingQueueSnapshot(snapshot)
                 }
@@ -1378,7 +1502,7 @@ final class MirmirViewModel: ObservableObject {
     private func beginClaimedPendingWork(
         _ record: MirmirPendingWorkRecord,
         resolver: any MirmirWorkHistoryBookmarkResolving
-    ) async throws {
+    ) async throws -> ClaimedPendingWorkStartResult {
         let locations = try resolvePendingQueueLocations(
             record,
             resolver: resolver
@@ -1481,6 +1605,24 @@ final class MirmirViewModel: ObservableObject {
         outputSelectionError = nil
         progress = nil
         state = .ready
+        if Self.queuedWorkRequiresReadyConfigurationModel(
+            enginePreference:
+                record.settings.processingConfiguration
+                    .enginePreference
+        ) {
+            guard modelAssetsBinding.requiresConfigurationModel else {
+                access.stop()
+                throw ModelAssetsServiceError.configurationNotBound
+            }
+            let currentStatus = modelAssets.currentStatus(for: .video)
+            modelStatus = currentStatus
+            guard currentStatus == .ready else {
+                access.stop()
+                return .requiresModelPreparation(
+                    modelAssetsBinding
+                )
+            }
+        }
         activePendingQueueJobID = record.id
         activePendingQueueSecurityAccess = access
         let job = UpscaleJob(
@@ -1502,6 +1644,16 @@ final class MirmirViewModel: ObservableObject {
                 shouldAdvance: false
             )
         }
+        return .submitted
+    }
+
+    static func queuedWorkRequiresReadyConfigurationModel(
+        enginePreference: UpscaleEnginePreference
+    ) -> Bool {
+        R13VideoToolboxQualityJobRouteResolver
+            .explicitlyRequiresQuality(
+                enginePreference: enginePreference
+            )
     }
 
     func movePendingWork(id: String, offset: Int) {
@@ -1658,6 +1810,12 @@ final class MirmirViewModel: ObservableObject {
         _ snapshot: MirmirPendingQueueSnapshot
     ) {
         pendingWorkRecords = snapshot.records
+        if let preparation = pendingQueueModelPreparation,
+           !snapshot.records.contains(where: {
+               $0.id == preparation.jobID
+           }) {
+            pendingQueueModelPreparation = nil
+        }
         if let activeBatchID = snapshot.records.compactMap({
             $0.settings.processingPathBatch?.id
         }).first {
@@ -1872,7 +2030,19 @@ final class MirmirViewModel: ObservableObject {
             return "Multi-path processing requires the persisted work "
                 + "queue, which is unavailable in this session."
         }
-        if selectedEnginePreferences.contains(.videoToolboxQuality),
+        let explicitlyRequiresQuality =
+            selectedEnginePreferences.contains(.videoToolboxQuality)
+            || R13VideoToolboxQualityJobRouteResolver
+                .explicitlyRequiresQuality(
+                    enginePreference: enginePreference
+                )
+        if explicitlyRequiresQuality,
+           let modelAssetsRouteResolutionError,
+           sourceProfile != nil {
+            return "VideoToolbox Quality could not resolve its model "
+                + "configuration. \(modelAssetsRouteResolutionError)"
+        }
+        if explicitlyRequiresQuality,
            modelAssetsBinding.requiresConfigurationModel,
            modelStatus != .ready {
             return modelAssetsDetailText
@@ -4414,14 +4584,11 @@ final class MirmirViewModel: ObservableObject {
     private func synchronizeModelAssetsRoute() {
         modelPreparationTask?.cancel()
         modelPreparationTask = nil
+        modelAssetsRouteResolutionError = nil
 
-        let binding: ModelAssetsRouteBinding
         guard let sourceProfile,
               availableTargets.contains(targetResolution) else {
-            binding = .unresolved
-            modelAssetsBinding = binding
-            (modelAssets as? any ModelAssetsRouteBindingService)?
-                .bind(binding, for: .video)
+            bindModelAssetsRoute(.unresolved)
             return
         }
         let sourceResolution = sourceProfile.resolution
@@ -4429,58 +4596,132 @@ final class MirmirViewModel: ObservableObject {
             selectedEnginePreferences.contains(.videoToolboxQuality)
                 ? UpscaleEnginePreference.videoToolboxQuality
                 : enginePreference
+        let binding: ModelAssetsRouteBinding
+        #if compiler(>=6.2) && !targetEnvironment(simulator)
+        if #available(macOS 26.0, *) {
+            do {
+                if let qualityRoute =
+                    try R13VideoToolboxQualityJobRouteResolver
+                        .resolve(
+                            mode: selectedMode,
+                            enginePreference:
+                                modelBindingEnginePreference,
+                            videoFormat: sourceProfile.videoFormat,
+                            presentationSourceResolution:
+                                sourceResolution,
+                            targetResolution: targetResolution,
+                            strategyPreference:
+                                strategyPreference
+                        ) {
+                    binding = .videoToolboxQuality(
+                        qualityRoute.binding
+                    )
+                } else {
+                    binding = modelFreeModelAssetsBinding(
+                        sourceProfile: sourceProfile,
+                        enginePreference:
+                            modelBindingEnginePreference
+                    )
+                }
+            } catch {
+                modelAssetsRouteResolutionError =
+                    String(describing: error)
+                binding = .unresolved
+            }
+        } else {
+            if R13VideoToolboxQualityJobRouteResolver
+                .explicitlyRequiresQuality(
+                    enginePreference:
+                        modelBindingEnginePreference
+                ) {
+                modelAssetsRouteResolutionError =
+                    ModelAssetsServiceError.unsupportedOSVersion
+                        .description
+                binding = .unresolved
+            } else {
+                binding = modelFreeModelAssetsBinding(
+                    sourceProfile: sourceProfile,
+                    enginePreference:
+                        modelBindingEnginePreference
+                )
+            }
+        }
+        #else
+        if R13VideoToolboxQualityJobRouteResolver
+            .explicitlyRequiresQuality(
+                enginePreference: modelBindingEnginePreference
+            ) {
+            modelAssetsRouteResolutionError =
+                ModelAssetsServiceError.unsupportedOSVersion.description
+            binding = .unresolved
+        } else {
+            binding = modelFreeModelAssetsBinding(
+                sourceProfile: sourceProfile,
+                enginePreference: modelBindingEnginePreference
+            )
+        }
+        #endif
+        bindModelAssetsRoute(binding)
+    }
 
+    private func modelFreeModelAssetsBinding(
+        sourceProfile: SourceProfile,
+        enginePreference: UpscaleEnginePreference
+    ) -> ModelAssetsRouteBinding {
         if sourceProfile.videoFormat == .sdrBT709,
-           #available(macOS 26.0, *),
            let nativeBinding =
                 R13ReleaseModePolicy.nativeVideoToolboxBinding(
                     for: selectedMode,
-                    enginePreference: modelBindingEnginePreference,
-                    sourceResolution: sourceResolution,
+                    enginePreference: enginePreference,
+                    sourceResolution: sourceProfile.resolution,
                     targetResolution: targetResolution
-                ) {
-            if nativeBinding.requiresConfigurationModel {
-                binding = .videoToolboxQuality(nativeBinding)
-            } else {
-                binding = .notRequired(
-                    routeID: nativeBinding.subjectID.rawValue
-                )
-            }
-        } else {
-            let policy = R13ReleaseModePolicy.binding(
-                for: selectedMode,
-                enginePreference: enginePreference
-            ).resolving(videoFormat: sourceProfile.videoFormat)
-            let routeID =
-                "\(policy.backendID)."
-                + "\(sourceResolution.width)x"
-                + "\(sourceResolution.height)-to-"
-                + "\(targetResolution.width)x"
-                + "\(targetResolution.height)."
-                + "\(policy.executionFormat.identityComponent)"
-            binding = .notRequired(routeID: routeID)
+                ),
+           !nativeBinding.requiresConfigurationModel {
+            return .notRequired(
+                routeID: nativeBinding.subjectID.rawValue
+            )
         }
+        let policy = R13ReleaseModePolicy.binding(
+            for: selectedMode,
+            enginePreference: enginePreference
+        ).resolving(videoFormat: sourceProfile.videoFormat)
+        let routeID =
+            "\(policy.backendID)."
+            + "\(sourceProfile.resolution.width)x"
+            + "\(sourceProfile.resolution.height)-to-"
+            + "\(targetResolution.width)x"
+            + "\(targetResolution.height)."
+            + "\(policy.executionFormat.identityComponent)"
+        return .notRequired(routeID: routeID)
+    }
 
+    private func bindModelAssetsRoute(
+        _ binding: ModelAssetsRouteBinding
+    ) {
         modelAssetsBinding = binding
         (modelAssets as? any ModelAssetsRouteBindingService)?
             .bind(binding, for: .video)
+        modelStatus = modelAssets.currentStatus(for: .video)
     }
 
     private func startObservingModelStatus() {
         modelStatusTask?.cancel()
         let stream = modelAssets.statusStream(for: .video)
         modelStatusTask = Task { [weak self] in
-            for await status in stream {
+            for await _ in stream {
                 await MainActor.run {
-                    self?.modelStatus = status
-                }
-                if case .failed = status, let self {
-                    self.diagnosticRecorder.enqueue(
-                        severity: .error,
-                        subsystem: "model_assets",
-                        operation: "observe_status",
-                        code: "model_assets_status_failed"
-                    )
+                    guard let self else { return }
+                    let currentStatus = self.modelAssets
+                        .currentStatus(for: .video)
+                    self.modelStatus = currentStatus
+                    if case .failed = currentStatus {
+                        self.diagnosticRecorder.enqueue(
+                            severity: .error,
+                            subsystem: "model_assets",
+                            operation: "observe_status",
+                            code: "model_assets_status_failed"
+                        )
+                    }
                 }
             }
         }

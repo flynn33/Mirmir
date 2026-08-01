@@ -267,6 +267,43 @@ final class UpscalerEngineAvailabilityTests: XCTestCase {
 
 #if compiler(>=6.2) && !targetEnvironment(simulator)
     @available(macOS 26.0, *)
+    func test_qualityConfigurationFactoryBuildsDynamic720pAdmittedRoute()
+        throws {
+        let resolved = try XCTUnwrap(
+            R13VideoToolboxQualityJobRouteResolver.resolve(
+                mode: .quality,
+                enginePreference: .videoToolboxQuality,
+                videoFormat: .sdrBT709,
+                presentationSourceResolution: .p720,
+                targetResolution: .p1080,
+                strategyPreference: .automatic
+            )
+        )
+        XCTAssertTrue(resolved.requiresAdaptiveNativeExecution)
+
+        let configuration = try R04VTNativeConfigurationFactory
+            .makeQualityConfiguration(binding: resolved.binding)
+
+        XCTAssertEqual(configuration.frameWidth, 1_280)
+        XCTAssertEqual(configuration.frameHeight, 720)
+        let scaleFactor = resolved.binding.route
+            .scaleFactor.numerator
+        XCTAssertEqual(configuration.scaleFactor, scaleFactor)
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferWidthKey as String
+            ] as? NSNumber)?.intValue,
+            1_280 * scaleFactor
+        )
+        XCTAssertEqual(
+            (configuration.destinationPixelBufferAttributes[
+                kCVPixelBufferHeightKey as String
+            ] as? NSNumber)?.intValue,
+            720 * scaleFactor
+        )
+    }
+
+    @available(macOS 26.0, *)
     func test_qualityBuilderUsesSupportedFourTimesRouteAndRGBAHalfContract()
         throws {
         guard VTSuperResolutionScalerConfiguration.isSupported else {

@@ -175,6 +175,154 @@ final class MirmirPendingWorkQueueTests: XCTestCase {
         XCTAssertTrue(summary.allSucceeded)
     }
 
+    func testRemovingPendingSubsetPathRecordsCancellationAndCompletesBatch()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let batchID = "batch-subset-removal"
+        let paths: [UpscaleEnginePreference] = [
+            .mpsLanczos,
+            .coreImageLanczos,
+            .videoToolboxPixelTransfer
+        ]
+        let records = paths.enumerated().map { index, path in
+            makePendingQueueRecord(
+                id: "job-subset-removal-\(index)",
+                order: index,
+                bookmarks: makePendingQueueBookmarks(
+                    outputDisplayName: "subset-\(index).mp4"
+                ),
+                settings: makePendingQueueSettings(
+                    processingConfiguration:
+                        UpscaleProcessingConfiguration(
+                            enginePreference: path
+                        ),
+                    continuesAfterFailure: true,
+                    processingPathBatch:
+                        MirmirProcessingPathBatchContext(
+                            id: batchID,
+                            path: path,
+                            ordinal: index,
+                            totalCount: paths.count
+                        )
+                )
+            )
+        }
+        _ = try await queue.enqueueMany(records)
+        _ = try await queue.recordTerminalResultAndRemove(
+            id: records[0].id,
+            status: .completed,
+            reason: nil,
+            completedAt: Date(timeIntervalSinceReferenceDate: 101)
+        )
+
+        let removed = try await queue.remove(id: records[1].id)
+        XCTAssertTrue(removed)
+        _ = try await queue.recordTerminalResultAndRemove(
+            id: records[2].id,
+            status: .completed,
+            reason: nil,
+            completedAt: Date(timeIntervalSinceReferenceDate: 103)
+        )
+
+        let reloaded = try await MirmirPendingWorkQueue(
+            directoryURL: directory
+        ).load()
+        let summary = try XCTUnwrap(
+            MirmirProcessingPathBatchSummary.latest(
+                in: reloaded.processingPathBatchResults
+            )
+        )
+        XCTAssertTrue(reloaded.records.isEmpty)
+        XCTAssertEqual(summary.batchID, batchID)
+        XCTAssertEqual(summary.totalCount, paths.count)
+        XCTAssertEqual(summary.completedCount, 2)
+        XCTAssertEqual(summary.failedCount, 0)
+        XCTAssertEqual(summary.cancelledCount, 1)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertFalse(summary.allSucceeded)
+        let cancellation = try XCTUnwrap(
+            summary.results.first { $0.status == .cancelled }
+        )
+        XCTAssertEqual(cancellation.jobID, records[1].id)
+        XCTAssertEqual(cancellation.batch.path, paths[1])
+        XCTAssertEqual(
+            cancellation.reason,
+            "Removed from the pending queue by the user."
+        )
+    }
+
+    func testClearCompletesLatestPendingAllPathsBatchWithCancellations()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let batchID = "batch-all-paths-clear"
+        let paths = UpscaleEnginePreference.concreteProcessingPaths
+        let records = paths.enumerated().map { index, path in
+            makePendingQueueRecord(
+                id: "job-all-paths-clear-\(index)",
+                order: index,
+                bookmarks: makePendingQueueBookmarks(
+                    outputDisplayName: "all-paths-\(index).mp4"
+                ),
+                settings: makePendingQueueSettings(
+                    processingConfiguration:
+                        UpscaleProcessingConfiguration(
+                            enginePreference: path
+                        ),
+                    continuesAfterFailure: true,
+                    processingPathBatch:
+                        MirmirProcessingPathBatchContext(
+                            id: batchID,
+                            path: path,
+                            ordinal: index,
+                            totalCount: paths.count
+                        )
+                )
+            )
+        }
+        _ = try await queue.enqueueMany(records)
+        _ = try await queue.recordTerminalResultAndRemove(
+            id: records[0].id,
+            status: .completed,
+            reason: nil,
+            completedAt: Date(timeIntervalSinceReferenceDate: 101)
+        )
+
+        let cleared = try await queue.clear()
+        let summary = try XCTUnwrap(
+            MirmirProcessingPathBatchSummary.latest(
+                in: cleared.processingPathBatchResults
+            )
+        )
+        XCTAssertTrue(cleared.records.isEmpty)
+        XCTAssertEqual(summary.batchID, batchID)
+        XCTAssertEqual(summary.totalCount, paths.count)
+        XCTAssertEqual(summary.results.count, paths.count)
+        XCTAssertEqual(summary.completedCount, 1)
+        XCTAssertEqual(summary.failedCount, 0)
+        XCTAssertEqual(summary.cancelledCount, paths.count - 1)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertFalse(summary.allSucceeded)
+        XCTAssertTrue(
+            summary.results
+                .filter { $0.status == .cancelled }
+                .allSatisfy {
+                    $0.reason
+                        == "Cleared from the pending queue by the user."
+                }
+        )
+
+        let reloaded = try await MirmirPendingWorkQueue(
+            directoryURL: directory
+        ).load()
+        XCTAssertEqual(reloaded.records, cleared.records)
+        XCTAssertEqual(
+            reloaded.processingPathBatchResults,
+            cleared.processingPathBatchResults
+        )
+    }
+
     func testBackslashOutputNamePersistsAsContainedPathComponent()
         async throws {
         let directory = try makePendingQueueTemporaryDirectory()

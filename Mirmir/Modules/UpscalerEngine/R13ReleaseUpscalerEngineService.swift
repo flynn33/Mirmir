@@ -60,6 +60,9 @@ typealias R13ModeAwareAdaptiveScalerFactory = @Sendable (
 ) throws -> any R03NV12Scaling
 
 typealias R13ReleaseResourceReleaseObserver = @Sendable (_ identity: String) -> Void
+typealias R13ReleaseEnhancedSourceObserver = @Sendable (
+    _ source: CVPixelBuffer
+) -> Void
 typealias R13ReleaseBeforeHandleStart = @Sendable () -> Void
 typealias R13ReleaseHardeningRuntimeProvider = @Sendable () throws
     -> R13ReleaseHardeningRuntime?
@@ -95,6 +98,8 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
     private let normalizer: R13ReleaseVideoFrameNormalizer
     private let previewEncoder: any R13PreviewFrameEncoding
     private let inputReleaseObserver: R13ReleaseResourceReleaseObserver
+    private let enhancedSourceObserver:
+        R13ReleaseEnhancedSourceObserver
     private let diagnosticRecorder: MirmirDiagnosticRecorder
     let hardeningRuntimeProvider:
         R13ReleaseHardeningRuntimeProvider
@@ -125,6 +130,8 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         previewEncoder: any R13PreviewFrameEncoding =
             R13PreviewFrameEncoder(),
         inputReleaseObserver: @escaping R13ReleaseResourceReleaseObserver = { _ in },
+        enhancedSourceObserver:
+            @escaping R13ReleaseEnhancedSourceObserver = { _ in },
         hardeningRuntime: R13ReleaseHardeningRuntime? = nil,
         cacheLocationStore: R13CacheLocationStore? = nil,
         beforeHandleStart: @escaping R13ReleaseBeforeHandleStart = {},
@@ -213,6 +220,7 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         )
         self.previewEncoder = previewEncoder
         self.inputReleaseObserver = inputReleaseObserver
+        self.enhancedSourceObserver = enhancedSourceObserver
         let diagnosticRecorder = MirmirDiagnosticRecorder(
             store: diagnostics
         )
@@ -324,6 +332,7 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
                 normalizer: normalizer,
                 previewEncoder: previewEncoder,
                 inputReleaseObserver: inputReleaseObserver,
+                enhancedSourceObserver: enhancedSourceObserver,
                 hardeningRuntime: hardeningRuntime,
                 securityAccess: securityAccess,
                 diagnosticRecorder: diagnosticRecorder,
@@ -444,6 +453,7 @@ struct R13ReleaseJobRuntime: Sendable {
     let normalizer: R13ReleaseVideoFrameNormalizer
     let previewEmitter: R13UpscalePreviewEmitter
     let inputReleaseObserver: R13ReleaseResourceReleaseObserver
+    let enhancedSourceObserver: R13ReleaseEnhancedSourceObserver
     let hardeningRuntime: R13ReleaseHardeningRuntime?
     let securityAccess: R13SecurityScopedAccessSet?
     let progressContinuation: AsyncStream<UpscaleProgress>.Continuation
@@ -458,6 +468,7 @@ struct R13ReleaseJobRuntime: Sendable {
             normalizer: normalizer,
             previewEmitter: previewEmitter,
             inputReleaseObserver: inputReleaseObserver,
+            enhancedSourceObserver: enhancedSourceObserver,
             hardeningRuntime: hardeningRuntime,
             securityAccess: securityAccess,
             progressContinuation: progressContinuation,
@@ -486,6 +497,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
     private let adaptiveScalerFactory: R13ModeAwareAdaptiveScalerFactory
     private let normalizer: R13ReleaseVideoFrameNormalizer
     private let inputReleaseObserver: R13ReleaseResourceReleaseObserver
+    private let enhancedSourceObserver:
+        R13ReleaseEnhancedSourceObserver
     private let hardeningRuntime: R13ReleaseHardeningRuntime?
     private let securityAccessHolder: R13SecurityScopedAccessHolder
     private let diagnosticRecorder: MirmirDiagnosticRecorder
@@ -505,6 +518,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         normalizer: R13ReleaseVideoFrameNormalizer,
         previewEncoder: any R13PreviewFrameEncoding,
         inputReleaseObserver: @escaping R13ReleaseResourceReleaseObserver,
+        enhancedSourceObserver:
+            @escaping R13ReleaseEnhancedSourceObserver,
         hardeningRuntime: R13ReleaseHardeningRuntime?,
         securityAccess: R13SecurityScopedAccessSet? = nil,
         diagnosticRecorder: MirmirDiagnosticRecorder,
@@ -533,6 +548,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         self.previewEmitter = previewEmitter
         previewStream = previewEmitter.stream
         self.inputReleaseObserver = inputReleaseObserver
+        self.enhancedSourceObserver = enhancedSourceObserver
         self.hardeningRuntime = hardeningRuntime
         securityAccessHolder = R13SecurityScopedAccessHolder(securityAccess)
         self.diagnosticRecorder = diagnosticRecorder
@@ -553,6 +569,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             normalizer: normalizer,
             previewEmitter: previewEmitter,
             inputReleaseObserver: inputReleaseObserver,
+            enhancedSourceObserver: enhancedSourceObserver,
             hardeningRuntime: hardeningRuntime,
             securityAccess: securityAccessHolder.access,
             progressContinuation: progressContinuation,
@@ -750,7 +767,19 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             job: job,
             source: source
         )
+        let requiresAdaptiveQualityExecution: Bool
         if runtime.modeBinding.usesFormatPreservingFallback {
+            requiresAdaptiveQualityExecution = false
+        } else {
+            requiresAdaptiveQualityExecution =
+                try requiresAdaptiveVideoToolboxQualityExecution(
+                    runtime: runtime,
+                    source: source,
+                    scalePlan: preparedSource.scalePlan
+                )
+        }
+        if runtime.modeBinding.usesFormatPreservingFallback
+            || requiresAdaptiveQualityExecution {
             return try await runFormatPreservingJob(
                 runtime: runtime,
                 source: source,
@@ -985,6 +1014,45 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         }
     }
 
+    private static func requiresAdaptiveVideoToolboxQualityExecution(
+        runtime: R13ReleaseJobRuntime,
+        source: SourceProfile,
+        scalePlan: R13ReleaseScalePlan
+    ) throws -> Bool {
+        guard runtime.modeBinding.enginePreference
+                == .videoToolboxQuality else {
+            return false
+        }
+        #if compiler(>=6.2) && !targetEnvironment(simulator)
+        guard #available(macOS 26.0, *) else {
+            throw VTNativeSuperResolutionError.unavailable(
+                .nativeProcessorUnsupported
+            )
+        }
+        guard let resolution =
+                try R13VideoToolboxQualityJobRouteResolver.resolve(
+                    releaseScalePlan: scalePlan,
+                    mode: runtime.modeBinding.requestedMode,
+                    enginePreference:
+                        runtime.modeBinding.enginePreference,
+                    videoFormat: source.videoFormat,
+                    presentationSourceResolution:
+                        source.resolution,
+                    targetResolution:
+                        runtime.job.targetResolution
+                ) else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        return resolution.requiresAdaptiveNativeExecution
+        #else
+        throw VTNativeSuperResolutionError.unavailable(
+            .nativeProcessorUnsupported
+        )
+        #endif
+    }
+
     private static func processFormatPreservingFrames(
         runtime: R13ReleaseJobRuntime,
         source: SourceProfile,
@@ -1176,9 +1244,12 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             let enhancedSource = try enhancementProcessor.process(
                 normalized
             )
+            runtime.enhancedSourceObserver(enhancedSource)
             try await scalingExecution.replayCachedDecision(
                 source: enhancedSource,
                 frameIndex: record.frameIndex,
+                presentationTimestamp: record.presentationTime,
+                frameDuration: record.duration,
                 decision: replay.routingDecision,
                 isFinalCachedPrefixFrame:
                     replay.isFinalCachedPrefixFrame
@@ -1218,6 +1289,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             scalePlan: scalePlan
         )
         let enhancedSource = try enhancementProcessor.process(normalized)
+        runtime.enhancedSourceObserver(enhancedSource)
         try Task.checkCancellation()
         let processed = try PixelBufferBridge.dequeue(
             from: mediaSession.outputPixelBufferPool
@@ -1231,6 +1303,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             source: enhancedSource,
             destination: processed,
             frameIndex: record.frameIndex,
+            presentationTimestamp: record.presentationTime,
             frameDuration: record.duration,
             cancellation: cancellation
         )
@@ -1357,6 +1430,65 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         processingResolution: VideoResolution
     ) throws -> R13AdaptiveScalingExecution {
         let targetResolution = runtime.job.targetResolution
+        if runtime.modeBinding.enginePreference == .metalFXSpatial {
+            return .requiredNative(
+                R13RequiredNativeAdaptiveExecution(
+                    scaler: try R05MetalFXAdaptiveSpatialScaler(
+                        sourceResolution: processingResolution,
+                        targetResolution: targetResolution,
+                        videoFormat: source.videoFormat
+                    ),
+                    routeIdentity:
+                        try requiredNativeRouteIdentity(
+                            scalePlan: scalePlan,
+                            modeBinding: runtime.modeBinding
+                        )
+                )
+            )
+        }
+        if runtime.modeBinding.enginePreference == .videoToolboxQuality
+            || runtime.modeBinding.enginePreference
+                == .videoToolboxLowLatency {
+            #if compiler(>=6.2) && !targetEnvironment(simulator)
+            guard #available(macOS 26.0, *) else {
+                throw VTNativeSuperResolutionError.unavailable(
+                    .nativeProcessorUnsupported
+                )
+            }
+            let path: VTAdaptiveNativePath =
+                runtime.modeBinding.enginePreference
+                    == .videoToolboxQuality
+                    ? .quality
+                    : .lowLatency
+            let scaler = try R13VideoToolboxAdaptiveNativeScaler(
+                path: path,
+                videoFormat: source.videoFormat,
+                presentationSourceResolution:
+                    source.resolution,
+                requestedSourceResolution:
+                    processingResolution,
+                requestedTargetResolution:
+                    targetResolution
+            )
+            return .requiredNative(
+                R13RequiredNativeAdaptiveExecution(
+                    scaler: scaler,
+                    routeIdentity:
+                        try requiredNativeRouteIdentity(
+                            scalePlan: scalePlan,
+                            modeBinding: runtime.modeBinding,
+                            videoToolboxRouteBinding:
+                                scaler.nativeRouteBinding,
+                            videoToolboxPlan: scaler.nativePlan
+                        )
+                )
+            )
+            #else
+            throw VTNativeSuperResolutionError.unavailable(
+                .nativeProcessorUnsupported
+            )
+            #endif
+        }
         guard runtime.modeBinding.usesProductOrchestration else {
             return .direct(
                 try R13ProductASHScalingCandidateFactory
@@ -1412,6 +1544,158 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         )
     }
 
+    static func requiredNativeRouteIdentity(
+        scalePlan: R13ReleaseScalePlan,
+        modeBinding: R13ReleaseModeBinding,
+        videoToolboxRouteBinding:
+            R04VideoToolboxNativeRouteBinding? = nil,
+        videoToolboxPlan: VTAdaptiveNativePlan? = nil
+    ) throws -> AppleUpscaleRouteIdentity {
+        guard modeBinding.enginePreference
+                .requiresNativeUpscaleSession else {
+            throw R13ReleaseIdentityError
+                .releaseScalerBindingMismatch(
+                    field: "required_native_preference"
+                )
+        }
+        let nativeSourceResolution: VideoResolution
+        let nativeTargetResolution: VideoResolution
+        switch scalePlan {
+        case .productQualified(let route):
+            nativeSourceResolution =
+                route.canonicalSourceResolution
+            nativeTargetResolution =
+                route.canonicalTargetResolution
+        case .adaptiveMPSLanczos(let plan):
+            nativeSourceResolution =
+                plan.processingSourceResolution
+            nativeTargetResolution = plan.targetResolution
+        }
+        let nativeBackend: AppleUpscaleBackendIdentity
+        let nativeConfigurationIdentity: String
+        let nativePolicyIdentity: String
+        let nativeMaterialDecisionIdentity: String
+        switch modeBinding.enginePreference {
+        case .metalFXSpatial:
+            guard videoToolboxRouteBinding == nil,
+                  videoToolboxPlan == nil else {
+                throw R13ReleaseIdentityError
+                    .releaseScalerBindingMismatch(
+                        field: "metalfx_videotoolbox_binding"
+                    )
+            }
+            nativeBackend = try AppleUpscaleBackendIdentity(
+                backendID: "r05.metalfx.spatial.adaptive",
+                backendRevision:
+                    R05MetalFXRouteCatalog.backendRevision,
+                modelAssetsIdentity: .notRequired
+            )
+            nativeConfigurationIdentity =
+                "r05.metalfx.spatial.adaptive."
+                + "source-\(nativeSourceResolution.width)x"
+                + "\(nativeSourceResolution.height).target-"
+                + "\(nativeTargetResolution.width)x"
+                + "\(nativeTargetResolution.height).format-"
+                + modeBinding.executionFormat.identityComponent
+                + ".v1"
+            nativePolicyIdentity =
+                R05MetalFXBackendAdmissionPolicy.nativeProduct
+                    .policyIdentity
+            nativeMaterialDecisionIdentity =
+                R05MetalFXRouteCatalog.materialDecisionIdentity
+        case .videoToolboxQuality,
+             .videoToolboxLowLatency:
+            guard let videoToolboxRouteBinding,
+                  let videoToolboxPlan else {
+                throw R13ReleaseIdentityError
+                    .releaseScalerBindingMismatch(
+                        field: "videotoolbox_native_binding"
+                    )
+            }
+            let expectedIntent:
+                R04VideoToolboxNativeRouteIntent =
+                    modeBinding.enginePreference
+                        == .videoToolboxQuality
+                        ? .quality
+                        : .lowLatency
+            let expectedBackendKind:
+                R04VideoToolboxBackendKind =
+                    expectedIntent == .quality
+                        ? .quality
+                        : .lowLatency
+            let expectedPath: VTAdaptiveNativePath =
+                expectedIntent == .quality
+                    ? .quality
+                    : .lowLatency
+            let resolvedRoute = try VTAdaptiveNativeRouteFactory
+                .makeRoute(plan: videoToolboxPlan)
+            guard videoToolboxRouteBinding.intent
+                    == expectedIntent,
+                  videoToolboxRouteBinding.route.backendKind
+                    == expectedBackendKind,
+                  videoToolboxPlan.path == expectedPath,
+                  videoToolboxPlan.requestedSourceResolution
+                    == nativeSourceResolution,
+                  videoToolboxPlan.requestedTargetResolution
+                    == nativeTargetResolution,
+                  modeBinding.executionFormat
+                    == R13ReleaseVideoFormatBinding(
+                        videoToolboxPlan.videoFormat
+                    ),
+                  resolvedRoute
+                    == videoToolboxRouteBinding.route else {
+                throw R13ReleaseIdentityError
+                    .releaseScalerBindingMismatch(
+                        field: "videotoolbox_native_intent"
+                    )
+            }
+            let modelAssetsIdentity:
+                AppleUpscaleModelAssetsIdentity =
+                    expectedIntent == .quality
+                    ? .appleConfigurationManaged(
+                        configurationIdentity:
+                            videoToolboxRouteBinding.route
+                                .configurationIdentity,
+                        readiness: .ready
+                    )
+                    : .notRequired
+            nativeBackend = try AppleUpscaleBackendIdentity(
+                backendID: expectedIntent == .quality
+                    ? videoToolboxRouteBinding.subjectID.rawValue
+                    : "r04.videotoolbox.low-latency.adaptive",
+                backendRevision:
+                    R04VideoToolboxRouteCatalog.backendRevision,
+                modelAssetsIdentity: modelAssetsIdentity
+            )
+            nativeConfigurationIdentity =
+                videoToolboxPlan.stableIdentity
+            nativePolicyIdentity =
+                R04VideoToolboxBackendAdmissionPolicy.nativeProduct
+                    .policyIdentity
+            nativeMaterialDecisionIdentity =
+                R04VideoToolboxRouteCatalog.materialDecisionIdentity
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            throw R13ReleaseIdentityError
+                .releaseScalerBindingMismatch(
+                    field: "required_native_preference"
+                )
+        }
+        return try AppleUpscaleRouteIdentity(
+            backend: nativeBackend,
+            configurationIdentity: nativeConfigurationIdentity,
+            policyIdentity: nativePolicyIdentity,
+            materialDecisionIdentity:
+                nativeMaterialDecisionIdentity
+        )
+    }
+
     private static func finalizedRoutingBaseMetadata(
         hardeningAttempt: R13ReleaseHardeningAttempt?,
         mediaSession: MediaSession,
@@ -1437,7 +1721,67 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         source: SourceProfile,
         plan: R13AdaptiveScalePlan,
         scalerFactory: R13ModeAwareAdaptiveScalerFactory
-    ) throws -> R13AdaptiveScalingExecution {
+    ) async throws -> R13AdaptiveScalingExecution {
+        if runtime.modeBinding.enginePreference == .metalFXSpatial {
+            return .requiredNative(
+                R13RequiredNativeAdaptiveExecution(
+                    scaler: try R05MetalFXAdaptiveSpatialScaler(
+                        sourceResolution:
+                            plan.processingSourceResolution,
+                        targetResolution: plan.targetResolution,
+                        videoFormat: source.videoFormat
+                    ),
+                    routeIdentity:
+                        try requiredNativeRouteIdentity(
+                            scalePlan: .adaptiveMPSLanczos(plan),
+                            modeBinding: runtime.modeBinding
+                        )
+                )
+            )
+        }
+        if runtime.modeBinding.enginePreference == .videoToolboxQuality
+            || runtime.modeBinding.enginePreference
+                == .videoToolboxLowLatency {
+            #if compiler(>=6.2) && !targetEnvironment(simulator)
+            guard #available(macOS 26.0, *) else {
+                throw VTNativeSuperResolutionError.unavailable(
+                    .nativeProcessorUnsupported
+                )
+            }
+            let path: VTAdaptiveNativePath =
+                runtime.modeBinding.enginePreference
+                    == .videoToolboxQuality
+                    ? .quality
+                    : .lowLatency
+            let scaler = try R13VideoToolboxAdaptiveNativeScaler(
+                path: path,
+                videoFormat: source.videoFormat,
+                presentationSourceResolution:
+                    plan.sourceResolution,
+                requestedSourceResolution:
+                    plan.processingSourceResolution,
+                requestedTargetResolution:
+                    plan.targetResolution
+            )
+            return .requiredNative(
+                R13RequiredNativeAdaptiveExecution(
+                    scaler: scaler,
+                    routeIdentity:
+                        try requiredNativeRouteIdentity(
+                            scalePlan: .adaptiveMPSLanczos(plan),
+                            modeBinding: runtime.modeBinding,
+                            videoToolboxRouteBinding:
+                                scaler.nativeRouteBinding,
+                            videoToolboxPlan: scaler.nativePlan
+                        )
+                )
+            )
+            #else
+            throw VTNativeSuperResolutionError.unavailable(
+                .nativeProcessorUnsupported
+            )
+            #endif
+        }
         guard runtime.modeBinding.usesProductOrchestration else {
             return .direct(
                 try scalerFactory(plan, runtime.modeBinding)
@@ -1539,7 +1883,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             )
         )
         let scalingExecution =
-            try makeAdaptiveScalingExecution(
+            try await makeAdaptiveScalingExecution(
                 runtime: runtime,
                 source: source,
                 plan: plan,
@@ -1833,9 +2177,12 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             let enhancedSource = try enhancementProcessor.process(
                 normalized
             )
+            runtime.enhancedSourceObserver(enhancedSource)
             try await scalingExecution.replayCachedDecision(
                 source: enhancedSource,
                 frameIndex: record.frameIndex,
+                presentationTimestamp: record.presentationTime,
+                frameDuration: record.duration,
                 decision: replay.routingDecision,
                 isFinalCachedPrefixFrame:
                     replay.isFinalCachedPrefixFrame
@@ -1872,6 +2219,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 pixelAspectRatio: source.pixelAspectRatio
             )
         let enhancedSource = try enhancementProcessor.process(normalized)
+        runtime.enhancedSourceObserver(enhancedSource)
         try Task.checkCancellation()
         let processed = try PixelBufferBridge.dequeue(
             from: outputPool
@@ -1885,6 +2233,7 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             source: enhancedSource,
             destination: processed,
             frameIndex: record.frameIndex,
+            presentationTimestamp: record.presentationTime,
             frameDuration: record.duration,
             cancellation: cancellation
         )

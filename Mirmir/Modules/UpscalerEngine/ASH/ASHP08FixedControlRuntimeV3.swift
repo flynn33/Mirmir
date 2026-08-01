@@ -104,7 +104,7 @@ final class ASHP08FixedMetalRuntimeV3: @unchecked Sendable {
         self.commandQueue = metal.commandQueue
         self.textureCache = metal.textureCache
         self.ring = try ASHMetalFrameResourceRingV3(capacity: ringCapacity)
-        guard let library = metal.device.makeDefaultLibrary() else {
+        guard let library = MirmirDefaultMetalLibrary.make(on: metal.device) else {
             throw ASHMetalSpatialRuntimeErrorV3.defaultLibraryUnavailable
         }
         self.pipelines = try Self.makePipelines(

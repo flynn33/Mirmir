@@ -3,6 +3,10 @@ import CoreVideo
 import CryptoKit
 import Foundation
 
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+import VideoToolbox
+#endif
+
 enum R13ProductASHScalingRouterError:
     Error,
     Equatable,
@@ -253,9 +257,764 @@ enum R13ProductASHScalingCandidateExclusionEncoding {
     }
 }
 
+protocol R13RequiredNativeAdaptiveScaling: AnyObject, Sendable {
+    func scale(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) async throws
+
+    func replayCachedFrame(
+        source: CVPixelBuffer,
+        frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
+        isFinalCachedPrefixFrame: Bool
+    ) async throws
+
+    func finish() async throws
+    func cancel() async
+}
+
+extension R05MetalFXAdaptiveSpatialScaler:
+    R13RequiredNativeAdaptiveScaling {
+    func scale(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        frameIndex _: Int,
+        presentationTimestamp _: CMTime,
+        frameDuration _: CMTime,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) async throws {
+        try await scale(
+            source: source,
+            destination: destination,
+            cancellation: cancellation
+        )
+    }
+
+    func replayCachedFrame(
+        source _: CVPixelBuffer,
+        frameIndex _: Int,
+        presentationTimestamp _: CMTime,
+        frameDuration _: CMTime,
+        isFinalCachedPrefixFrame _: Bool
+    ) async throws {
+        // MetalFX spatial scaling is stateless between frames.
+    }
+
+    func finish() async throws {}
+    func cancel() async {}
+}
+
+enum R13VideoToolboxAdaptiveNativeSourceAdmission {
+    private static let qualityMaximumWidth = 1_920
+    private static let qualityMaximumHeight = 1_080
+
+    static func qualityResolution(
+        requestedSourceResolution: VideoResolution
+    ) throws -> VideoResolution {
+        try closestResolution(
+            requestedSourceResolution: requestedSourceResolution,
+            minimumResolution: VideoResolution(width: 2, height: 2),
+            maximumResolution: VideoResolution(
+                width: qualityMaximumWidth,
+                height: qualityMaximumHeight
+            )
+        )
+    }
+
+    static func lowLatencyResolution(
+        requestedSourceResolution: VideoResolution,
+        minimumResolution: VideoResolution,
+        maximumResolution: VideoResolution
+    ) throws -> VideoResolution {
+        try closestResolution(
+            requestedSourceResolution: requestedSourceResolution,
+            minimumResolution: minimumResolution,
+            maximumResolution: maximumResolution
+        )
+    }
+
+    private static func closestResolution(
+        requestedSourceResolution: VideoResolution,
+        minimumResolution: VideoResolution,
+        maximumResolution: VideoResolution
+    ) throws -> VideoResolution {
+        guard requestedSourceResolution.width >= 2,
+              requestedSourceResolution.height >= 2,
+              requestedSourceResolution.width.isMultiple(of: 2),
+              requestedSourceResolution.height.isMultiple(of: 2),
+              minimumResolution.width >= 2,
+              minimumResolution.height >= 2,
+              maximumResolution.width >= minimumResolution.width,
+              maximumResolution.height >= minimumResolution.height else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        if requestedSourceResolution.width >= minimumResolution.width,
+           requestedSourceResolution.height >= minimumResolution.height,
+           requestedSourceResolution.width <= maximumResolution.width,
+           requestedSourceResolution.height <= maximumResolution.height {
+            return requestedSourceResolution
+        }
+
+        var candidateHeight = minimumResolution.height
+        if !candidateHeight.isMultiple(of: 2) {
+            candidateHeight += 1
+        }
+        let maximumCandidateHeight = maximumResolution.height
+            - (maximumResolution.height.isMultiple(of: 2) ? 0 : 1)
+        var best: (resolution: VideoResolution, distance: Double)?
+        while candidateHeight <= maximumCandidateHeight {
+            let projectedWidth =
+                Double(requestedSourceResolution.width)
+                * Double(candidateHeight)
+                / Double(requestedSourceResolution.height)
+            guard projectedWidth.isFinite,
+                  projectedWidth <= Double(Int.max) else {
+                break
+            }
+            let candidateWidth = Int(
+                (projectedWidth / 2).rounded()
+            ) * 2
+            let candidate = VideoResolution(
+                width: candidateWidth,
+                height: candidateHeight
+            )
+            if candidateWidth >= minimumResolution.width,
+               candidateWidth <= maximumResolution.width,
+               R13AspectRatioContract.preservesWithinOneOutputPixel(
+                   source: requestedSourceResolution,
+                   target: candidate
+               ) {
+                let distance = abs(
+                    Double(candidateHeight)
+                        / Double(requestedSourceResolution.height)
+                        - 1
+                )
+                if best.map({ distance < $0.distance }) ?? true {
+                    best = (candidate, distance)
+                }
+            }
+            candidateHeight += 2
+        }
+        if let best {
+            return best.resolution
+        }
+        throw VTNativeSuperResolutionError.rejected(
+            .routeContractMismatch
+        )
+    }
+}
+
+private final class R13VideoToolboxAdaptiveVImageStage:
+    @unchecked Sendable {
+    let sourceResolution: VideoResolution
+    let targetResolution: VideoResolution
+
+    private let videoFormat: MediaVideoFormat
+    private let scaler: R13FormatPreservingVImageScaler
+    private let outputPool: CVPixelBufferPool
+
+    init(
+        sourceResolution: VideoResolution,
+        targetResolution: VideoResolution,
+        videoFormat: MediaVideoFormat
+    ) throws {
+        self.sourceResolution = sourceResolution
+        self.targetResolution = targetResolution
+        self.videoFormat = videoFormat
+        scaler = R13FormatPreservingVImageScaler(
+            sourceResolution: sourceResolution,
+            targetResolution: targetResolution,
+            videoFormat: videoFormat,
+            quality: .highQuality
+        )
+        outputPool = try PixelBufferBridge.makePool(
+            width: targetResolution.width,
+            height: targetResolution.height,
+            format: videoFormat.pixelStorage.pixelFormat,
+            capacity: 3
+        )
+    }
+
+    func process(
+        _ source: CVPixelBuffer,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) throws -> CVPixelBuffer {
+        let destination = try PixelBufferBridge.dequeue(
+            from: outputPool
+        )
+        R13MediaVideoFormatContract.install(
+            videoFormat,
+            on: destination,
+            resolution: targetResolution
+        )
+        try scaler.scale(
+            source: source,
+            destination: destination,
+            cancellation: cancellation
+        )
+        try R13MediaVideoFormatContract.validate(
+            destination,
+            resolution: targetResolution,
+            format: videoFormat
+        )
+        return destination
+    }
+}
+
+private final class R13VideoToolboxAdaptiveGeometryFinisher:
+    @unchecked Sendable {
+    private struct StageKey: Hashable {
+        let source: VideoResolution
+        let target: VideoResolution
+    }
+
+    private let requestedTargetResolution: VideoResolution
+    private let videoFormat: MediaVideoFormat
+    private let lock = NSLock()
+    private var stages: [StageKey: R13VideoToolboxAdaptiveVImageStage] = [:]
+
+    init(
+        requestedTargetResolution: VideoResolution,
+        videoFormat: MediaVideoFormat
+    ) {
+        self.requestedTargetResolution = requestedTargetResolution
+        self.videoFormat = videoFormat
+    }
+
+    func finish(
+        nativeOutput: CVPixelBuffer,
+        nativeResolution: VideoResolution,
+        requestedTarget: VideoResolution,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) throws -> CVPixelBuffer {
+        guard requestedTarget == requestedTargetResolution else {
+            throw VTNativeSuperResolutionError.rejected(
+                .outputContractMismatch
+            )
+        }
+        do {
+            return try stage(
+                source: nativeResolution,
+                target: requestedTarget
+            ).process(
+                nativeOutput,
+                cancellation: cancellation
+            )
+        } catch R03NV12ScalingError.operationCancelled {
+            throw VTNativeSuperResolutionError.rejected(
+                .operationCancelled
+            )
+        }
+    }
+
+    private func stage(
+        source: VideoResolution,
+        target: VideoResolution
+    ) throws -> R13VideoToolboxAdaptiveVImageStage {
+        let key = StageKey(source: source, target: target)
+        lock.lock()
+        defer { lock.unlock() }
+        if let stage = stages[key] { return stage }
+        let stage = try R13VideoToolboxAdaptiveVImageStage(
+            sourceResolution: source,
+            targetResolution: target,
+            videoFormat: videoFormat
+        )
+        stages[key] = stage
+        return stage
+    }
+}
+
+#if compiler(>=6.2) && !targetEnvironment(simulator)
+@available(macOS 26.0, *)
+final class R13VideoToolboxAdaptiveNativeScaler:
+    R13RequiredNativeAdaptiveScaling,
+    @unchecked Sendable {
+    let nativePlan: VTAdaptiveNativePlan
+    let nativeRouteBinding: R04VideoToolboxNativeRouteBinding
+    let qualityRouteBinding: R04VideoToolboxNativeRouteBinding?
+
+    private let path: VTAdaptiveNativePath
+    private let videoFormat: MediaVideoFormat
+    private let requestedSourceResolution: VideoResolution
+    private let requestedTargetResolution: VideoResolution
+    private let inputPreparation: R13VideoToolboxAdaptiveVImageStage?
+    private let session: VTAdaptiveNativeUpscaleSession
+
+    init(
+        path: VTAdaptiveNativePath,
+        videoFormat: MediaVideoFormat,
+        presentationSourceResolution: VideoResolution,
+        requestedSourceResolution: VideoResolution,
+        requestedTargetResolution: VideoResolution
+    ) throws {
+        let nativeSourceResolution: VideoResolution
+        let qualityRouteResolution:
+            VTAdaptiveNativeQualityRouteResolution?
+        switch path {
+        case .quality:
+            let resolved = try VTAdaptiveNativeQualityRouteResolver
+                .resolve(
+                    videoFormat: videoFormat,
+                    presentationSourceResolution:
+                        presentationSourceResolution,
+                    requestedSourceResolution:
+                        requestedSourceResolution,
+                    requestedTargetResolution:
+                        requestedTargetResolution
+                )
+            qualityRouteResolution = resolved
+            nativeSourceResolution =
+                resolved.plan.nativeSourceResolution
+        case .lowLatency:
+            qualityRouteResolution = nil
+            guard let minimum =
+                    VTLowLatencySuperResolutionScalerConfiguration
+                        .minimumDimensions,
+                  let maximum =
+                    VTLowLatencySuperResolutionScalerConfiguration
+                        .maximumDimensions else {
+                throw VTNativeSuperResolutionError.unavailable(
+                    .nativeProcessorUnsupported
+                )
+            }
+            nativeSourceResolution =
+                try R13VideoToolboxAdaptiveNativeSourceAdmission
+                    .lowLatencyResolution(
+                        requestedSourceResolution:
+                            requestedSourceResolution,
+                        minimumResolution: VideoResolution(
+                            width: Int(minimum.width),
+                            height: Int(minimum.height)
+                        ),
+                        maximumResolution: VideoResolution(
+                            width: Int(maximum.width),
+                            height: Int(maximum.height)
+                        )
+                    )
+        }
+        let inputPreparation: R13VideoToolboxAdaptiveVImageStage?
+        if nativeSourceResolution == requestedSourceResolution {
+            inputPreparation = nil
+        } else {
+            do {
+                inputPreparation = try R13VideoToolboxAdaptiveVImageStage(
+                    sourceResolution: requestedSourceResolution,
+                    targetResolution: nativeSourceResolution,
+                    videoFormat: videoFormat
+                )
+            } catch {
+                throw VTNativeSuperResolutionError.failed(
+                    .inputPreparation
+                )
+            }
+        }
+        let finisher = R13VideoToolboxAdaptiveGeometryFinisher(
+            requestedTargetResolution: requestedTargetResolution,
+            videoFormat: videoFormat
+        )
+        let exactGeometryFinisher: VTAdaptiveExactGeometryFinisher = {
+            [finisher] output, native, target, cancellation in
+            try finisher.finish(
+                nativeOutput: output,
+                nativeResolution: native,
+                requestedTarget: target,
+                cancellation: cancellation
+            )
+        }
+        let session: VTAdaptiveNativeUpscaleSession
+        if let qualityRouteResolution {
+            session = try VTAdaptiveNativeUpscaleSession.make(
+                plan: qualityRouteResolution.plan,
+                exactGeometryFinisher: exactGeometryFinisher
+            )
+        } else {
+            session = try VTAdaptiveNativeUpscaleSession.make(
+                path: path,
+                videoFormat: videoFormat,
+                presentationSourceResolution:
+                    presentationSourceResolution,
+                requestedSourceResolution:
+                    requestedSourceResolution,
+                nativeSourceResolution: nativeSourceResolution,
+                requestedTargetResolution:
+                    requestedTargetResolution,
+                exactGeometryFinisher: exactGeometryFinisher
+            )
+        }
+        guard session.plan.requiresInputPreparation
+                == (inputPreparation != nil),
+              session.plan.requestedSourceResolution
+                == requestedSourceResolution,
+              session.plan.requestedTargetResolution
+                == requestedTargetResolution,
+              session.plan.videoFormat == videoFormat else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        self.path = path
+        self.videoFormat = videoFormat
+        self.requestedSourceResolution = requestedSourceResolution
+        self.requestedTargetResolution = requestedTargetResolution
+        self.inputPreparation = inputPreparation
+        self.session = session
+        let resolvedNativePlan = session.plan
+        let resolvedNativeRouteBinding =
+            R04VideoToolboxNativeRouteBinding(
+                intent: path == .quality ? .quality : .lowLatency,
+                route: try VTAdaptiveNativeRouteFactory.makeRoute(
+                    plan: resolvedNativePlan
+                )
+            )
+        if let qualityRouteResolution,
+           qualityRouteResolution.binding
+            != resolvedNativeRouteBinding {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        nativePlan = resolvedNativePlan
+        nativeRouteBinding = resolvedNativeRouteBinding
+        qualityRouteBinding = path == .quality
+            ? resolvedNativeRouteBinding
+            : nil
+    }
+
+    func scale(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) async throws {
+        let output = try await processFrame(
+            source: source,
+            frameIndex: frameIndex,
+            presentationTimestamp: presentationTimestamp,
+            frameDuration: frameDuration,
+            cancellation: cancellation
+        )
+        guard !cancellation.isCancelled, !Task.isCancelled else {
+            throw VTNativeSuperResolutionError.rejected(
+                .operationCancelled
+            )
+        }
+        do {
+            try R13MediaVideoFormatContract.validate(
+                destination,
+                resolution: requestedTargetResolution,
+                format: videoFormat
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.rejected(
+                .outputContractMismatch
+            )
+        }
+        do {
+            try R13PixelLayoutProcessor.copy(
+                source: output,
+                destination: destination
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.failed(
+                .pixelBufferCopy
+            )
+        }
+        R13PixelLayoutProcessor.copyAttachments(
+            source: output,
+            destination: destination
+        )
+        R13MediaVideoFormatContract.install(
+            videoFormat,
+            on: destination,
+            resolution: requestedTargetResolution
+        )
+        do {
+            try R13MediaVideoFormatContract.validate(
+                destination,
+                resolution: requestedTargetResolution,
+                format: videoFormat
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.rejected(
+                .outputContractMismatch
+            )
+        }
+    }
+
+    func replayCachedFrame(
+        source: CVPixelBuffer,
+        frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
+        isFinalCachedPrefixFrame _: Bool
+    ) async throws {
+        guard path == .quality else { return }
+        let cancellation = AppleUpscaleOperationCancellationSignal()
+        _ = try await withTaskCancellationHandler {
+            try await processFrame(
+                source: source,
+                frameIndex: frameIndex,
+                presentationTimestamp: presentationTimestamp,
+                frameDuration: frameDuration,
+                cancellation: cancellation
+            )
+        } onCancel: {
+            cancellation.cancel()
+        }
+    }
+
+    func finish() async throws {
+        await session.finish()
+    }
+
+    func cancel() async {
+        await session.cancel()
+    }
+
+    private func processFrame(
+        source: CVPixelBuffer,
+        frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
+        cancellation: AppleUpscaleOperationCancellationSignal
+    ) async throws -> CVPixelBuffer {
+        do {
+            try R13MediaVideoFormatContract.validate(
+                source,
+                resolution: requestedSourceResolution,
+                format: videoFormat
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.rejected(
+                .frameContractMismatch
+            )
+        }
+
+        let preparedSource: CVPixelBuffer
+        if let inputPreparation {
+            do {
+                preparedSource = try inputPreparation.process(
+                    source,
+                    cancellation: cancellation
+                )
+            } catch R03NV12ScalingError.operationCancelled {
+                throw VTNativeSuperResolutionError.rejected(
+                    .operationCancelled
+                )
+            } catch {
+                throw VTNativeSuperResolutionError.failed(
+                    .inputPreparation
+                )
+            }
+        } else {
+            preparedSource = source
+        }
+
+        let token: AppleUpscaleResourceLifetimeToken
+        do {
+            token = try AppleUpscaleResourceLifetimeToken(
+                identity:
+                    "r13.vt-adaptive.\(path.rawValue).input.\(frameIndex)",
+                releaseAction: {}
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.failed(
+                .frameCreation
+            )
+        }
+        let frame: AppleUpscaleFrame
+        do {
+            frame = try AppleUpscaleFrame(
+                sequenceNumber: frameIndex,
+                pixelBuffer: preparedSource,
+                presentationTimestamp: presentationTimestamp,
+                duration: frameDuration,
+                colorDescription: try VTAdaptiveMediaVideoFormatContract
+                    .makeColorDescription(for: videoFormat),
+                metadataIdentity: AppleUpscaleMetadataIdentity(
+                    "r13.vt-adaptive.\(path.rawValue).frame.\(frameIndex)"
+                ),
+                resourceLifetimeToken: token
+            )
+        } catch {
+            token.release()
+            throw VTNativeSuperResolutionError.failed(
+                .frameCreation
+            )
+        }
+        defer { token.release() }
+
+        let output = try await session.process(
+            frame,
+            cancellation: cancellation
+        )
+        guard output.sequenceNumber == frameIndex,
+              CMTimeCompare(
+                  output.presentationTimestamp,
+                  presentationTimestamp
+              ) == 0,
+              CMTimeCompare(output.duration, frameDuration) == 0 else {
+            throw VTNativeSuperResolutionError.rejected(
+                .temporalContractMismatch
+            )
+        }
+        do {
+            try R13MediaVideoFormatContract.validate(
+                output.pixelBuffer,
+                resolution: requestedTargetResolution,
+                format: videoFormat
+            )
+        } catch {
+            throw VTNativeSuperResolutionError.rejected(
+                .outputContractMismatch
+            )
+        }
+        return output.pixelBuffer
+    }
+}
+#endif
+
+private actor R13RequiredNativeAdaptiveDecisionJournal {
+    private enum State {
+        case active
+        case finished
+        case cancelled
+    }
+
+    private let routeIdentity: AppleUpscaleRouteIdentity
+    private var events: [R13ProductASHDecisionEvent] = []
+    private var state = State.active
+
+    init(routeIdentity: AppleUpscaleRouteIdentity) {
+        self.routeIdentity = routeIdentity
+    }
+
+    func recordProcessedFrame(
+        frameIndex: Int
+    ) throws -> R13ProductASHDecisionEvent {
+        try requireActive()
+        let reason = try expectedReason(frameIndex: frameIndex)
+        let event = R13ProductASHDecisionEvent(
+            sequenceNumber: frameIndex,
+            selectedRouteIdentity: routeIdentity,
+            reason: reason,
+            fallbackHistory: [],
+            processingPressureQ16: 0
+        )
+        events.append(event)
+        return event
+    }
+
+    func replay(
+        _ event: R13ProductASHDecisionEvent,
+        frameIndex: Int
+    ) throws {
+        try requireActive()
+        let reason = try expectedReason(frameIndex: frameIndex)
+        guard event.sequenceNumber == frameIndex,
+              event.selectedRouteIdentity == routeIdentity,
+              event.reason == reason,
+              event.fallbackHistory.isEmpty,
+              event.processingPressureQ16 == 0 else {
+            throw R13ProductASHScalingRouterError.invalidReplayEvent(
+                "required_native_replay_decision_mismatch"
+            )
+        }
+        events.append(event)
+    }
+
+    func finish() throws -> R13ProductASHDecisionMetadata {
+        try requireActive()
+        state = .finished
+        return try R13ProductASHDecisionSummary(
+            events: events
+        ).outputMetadata()
+    }
+
+    func cancel() {
+        guard state == .active else { return }
+        state = .cancelled
+    }
+
+    private func expectedReason(
+        frameIndex: Int
+    ) throws -> R06ASHTransitionReason {
+        let expectedFrameIndex = events.count
+        guard frameIndex == expectedFrameIndex else {
+            throw R13ProductASHScalingRouterError.invalidReplayEvent(
+                "required_native_nonsequential_frame"
+            )
+        }
+        return events.isEmpty ? .initialSelection : .hysteresisHold
+    }
+
+    private func requireActive() throws {
+        guard state == .active else {
+            throw R13ProductASHScalingRouterError.terminal
+        }
+    }
+}
+
+final class R13RequiredNativeAdaptiveExecution: Sendable {
+    let scaler: any R13RequiredNativeAdaptiveScaling
+
+    private let decisionJournal:
+        R13RequiredNativeAdaptiveDecisionJournal
+
+    init(
+        scaler: any R13RequiredNativeAdaptiveScaling,
+        routeIdentity: AppleUpscaleRouteIdentity
+    ) {
+        self.scaler = scaler
+        decisionJournal = R13RequiredNativeAdaptiveDecisionJournal(
+            routeIdentity: routeIdentity
+        )
+    }
+
+    func recordProcessedFrame(
+        frameIndex: Int
+    ) async throws -> R13ProductASHDecisionEvent {
+        try await decisionJournal.recordProcessedFrame(
+            frameIndex: frameIndex
+        )
+    }
+
+    func replay(
+        _ event: R13ProductASHDecisionEvent,
+        frameIndex: Int
+    ) async throws {
+        try await decisionJournal.replay(
+            event,
+            frameIndex: frameIndex
+        )
+    }
+
+    func finish() async throws -> R13ProductASHDecisionMetadata {
+        try await scaler.finish()
+        return try await decisionJournal.finish()
+    }
+
+    func cancel() async {
+        await scaler.cancel()
+        await decisionJournal.cancel()
+    }
+}
+
 enum R13AdaptiveScalingExecution: Sendable {
     case direct(any R03NV12Scaling)
     case routed(R13ProductASHScalingRouter)
+    case requiredNative(R13RequiredNativeAdaptiveExecution)
 
     var candidateExclusions:
         [R13ProductASHScalingCandidateExclusion] {
@@ -264,6 +1023,8 @@ enum R13AdaptiveScalingExecution: Sendable {
             return []
         case .routed(let router):
             return router.candidateExclusions
+        case .requiredNative:
+            return []
         }
     }
 
@@ -271,6 +1032,7 @@ enum R13AdaptiveScalingExecution: Sendable {
         source: CVPixelBuffer,
         destination: CVPixelBuffer,
         frameIndex: Int,
+        presentationTimestamp: CMTime,
         frameDuration: CMTime,
         cancellation: AppleUpscaleOperationCancellationSignal
     ) async throws -> R13ProductASHDecisionEvent? {
@@ -292,6 +1054,18 @@ enum R13AdaptiveScalingExecution: Sendable {
                 frameDuration: frameDuration,
                 cancellation: cancellation
             )
+        case .requiredNative(let execution):
+            try await execution.scaler.scale(
+                source: source,
+                destination: destination,
+                frameIndex: frameIndex,
+                presentationTimestamp: presentationTimestamp,
+                frameDuration: frameDuration,
+                cancellation: cancellation
+            )
+            return try await execution.recordProcessedFrame(
+                frameIndex: frameIndex
+            )
         }
     }
 
@@ -304,12 +1078,16 @@ enum R13AdaptiveScalingExecution: Sendable {
         case .routed(let router):
             let summary = await router.finish()
             return try summary.outputMetadata()
+        case .requiredNative(let execution):
+            return try await execution.finish()
         }
     }
 
     func replayCachedDecision(
         source: CVPixelBuffer,
         frameIndex: Int,
+        presentationTimestamp: CMTime,
+        frameDuration: CMTime,
         decision: R13ProductASHDecisionEvent?,
         isFinalCachedPrefixFrame: Bool
     ) async throws {
@@ -335,6 +1113,25 @@ enum R13AdaptiveScalingExecution: Sendable {
                 isFinalCachedPrefixFrame:
                     isFinalCachedPrefixFrame
             )
+        case .requiredNative(let execution):
+            guard let decision else {
+                throw R13ProductASHScalingRouterError
+                    .invalidReplayEvent(
+                        "required_native_execution_missing_routing_decision"
+                    )
+            }
+            try await execution.replay(
+                decision,
+                frameIndex: frameIndex
+            )
+            try await execution.scaler.replayCachedFrame(
+                source: source,
+                frameIndex: frameIndex,
+                presentationTimestamp: presentationTimestamp,
+                frameDuration: frameDuration,
+                isFinalCachedPrefixFrame:
+                    isFinalCachedPrefixFrame
+            )
         }
     }
 
@@ -344,6 +1141,8 @@ enum R13AdaptiveScalingExecution: Sendable {
             scaler.cancel()
         case .routed(let router):
             await router.cancel()
+        case .requiredNative(let execution):
+            await execution.cancel()
         }
     }
 }
@@ -944,12 +1743,25 @@ enum R13ProductASHScalingCandidateFactory {
                 targetResolution: targetResolution,
                 videoFormat: videoFormat
             )
-        case .coreImageLanczos,
-             .coreImageBicubic,
-             .videoToolboxPixelTransfer:
-            throw R03NV12ScalingError.runtimeUnavailable(
-                "r13_exact_\(kind.rawValue)_does_not_support_"
-                    + "\(videoFormat.pixelStorage.rawValue)"
+        case .coreImageLanczos:
+            return try R03CoreImageScaler(
+                mode: .lanczos,
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: videoFormat
+            )
+        case .coreImageBicubic:
+            return try R03CoreImageScaler(
+                mode: .bicubic,
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: videoFormat
+            )
+        case .videoToolboxPixelTransfer:
+            return R13FormatPreservingVTPixelTransferScaler(
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: videoFormat
             )
         }
     }

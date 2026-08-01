@@ -317,7 +317,8 @@ func writeVideoFrames(
     textTrackText: String? = nil,
     closedCaptionText: String? = nil,
     closedCaptionTimeRange: CMTimeRange? = nil,
-    timecodeFrameNumber: UInt32? = nil
+    timecodeFrameNumber: UInt32? = nil,
+    framePixelBufferFiller: ((CVPixelBuffer, Int) throws -> Void)? = nil
 ) async throws {
     guard frameCount > 0, frameCount <= Int(Int32.max) else {
         throw MediaTestFailure.invalidFrameCount
@@ -577,7 +578,11 @@ func writeVideoFrames(
               let pixelBuffer = optionalPixelBuffer else {
             throw MediaTestFailure.cannotCreatePixelBuffer(createStatus)
         }
-        try fillFixturePixelBuffer(pixelBuffer)
+        if let framePixelBufferFiller {
+            try framePixelBufferFiller(pixelBuffer, frameIndex)
+        } else {
+            try fillFixturePixelBuffer(pixelBuffer)
+        }
         videoFormat?.installAttachments(on: pixelBuffer)
         let presentationTime = CMTimeMultiply(
             frameDuration,

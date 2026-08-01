@@ -10,6 +10,220 @@ private enum R13AdaptiveTestError: Error {
 }
 
 final class R13AdaptiveASHRoutingScalerTests: XCTestCase {
+    func testVideoToolboxQualityPreparesOversizedLandscapeInputAtNativeLimit()
+        throws {
+        let admitted =
+            try R13VideoToolboxAdaptiveNativeSourceAdmission
+                .qualityResolution(
+                    requestedSourceResolution: .p1440
+                )
+
+        XCTAssertEqual(admitted, .p1080)
+        XCTAssertTrue(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: .p1440,
+                target: admitted
+            )
+        )
+    }
+
+    func testVideoToolboxQualityPreparesOversizedPortraitInputProportionally()
+        throws {
+        let source = VideoResolution(width: 1_440, height: 2_560)
+        let admitted =
+            try R13VideoToolboxAdaptiveNativeSourceAdmission
+                .qualityResolution(
+                    requestedSourceResolution: source
+                )
+
+        XCTAssertEqual(
+            admitted,
+            VideoResolution(width: 608, height: 1_080)
+        )
+        XCTAssertTrue(
+            R13AspectRatioContract.preservesWithinOneOutputPixel(
+                source: source,
+                target: admitted
+            )
+        )
+    }
+
+    func testVideoToolboxLowLatencyFitsInputWithinNativeRuntimeRange() throws {
+        let source = VideoResolution(width: 2_560, height: 1_440)
+
+        let admitted =
+            try R13VideoToolboxAdaptiveNativeSourceAdmission
+                .lowLatencyResolution(
+                    requestedSourceResolution: source,
+                    minimumResolution: VideoResolution(
+                        width: 96,
+                        height: 96
+                    ),
+                    maximumResolution: VideoResolution(
+                        width: 960,
+                        height: 960
+                    )
+                )
+
+        XCTAssertEqual(
+            admitted,
+            VideoResolution(width: 960, height: 540)
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func testLiveVideoToolboxLowLatencyAdaptiveScalerPreparesAndRunsNative()
+        async throws {
+        let source = try Self.makeNV12Buffer(
+            resolution: .p720,
+            seed: 17
+        )
+        let destination = try Self.makeNV12Buffer(
+            resolution: .p1080,
+            seed: 0
+        )
+        let originalDestination =
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            )
+        let scaler = try R13VideoToolboxAdaptiveNativeScaler(
+            path: .lowLatency,
+            videoFormat: .sdrBT709,
+            presentationSourceResolution: .p720,
+            requestedSourceResolution: .p720,
+            requestedTargetResolution: .p1080
+        )
+
+        do {
+            try await scaler.scale(
+                source: source,
+                destination: destination,
+                frameIndex: 0,
+                presentationTimestamp: .zero,
+                frameDuration: CMTime(value: 1, timescale: 30),
+                cancellation:
+                    AppleUpscaleOperationCancellationSignal()
+            )
+            try await scaler.finish()
+        } catch {
+            await scaler.cancel()
+            throw error
+        }
+
+        try R03NV12Contract.validate(
+            pixelBuffer: destination,
+            resolution: .p1080
+        )
+        XCTAssertNotEqual(
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            ),
+            originalDestination
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func testLiveVideoToolboxQualityAdaptiveScalerFinishesExactGeometry()
+        async throws {
+        let source = try Self.makeNV12Buffer(
+            resolution: .p270,
+            seed: 23
+        )
+        let destination = try Self.makeNV12Buffer(
+            resolution: .p720,
+            seed: 0
+        )
+        let originalDestination =
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            )
+        let scaler = try R13VideoToolboxAdaptiveNativeScaler(
+            path: .quality,
+            videoFormat: .sdrBT709,
+            presentationSourceResolution: .p270,
+            requestedSourceResolution: .p270,
+            requestedTargetResolution: .p720
+        )
+
+        do {
+            try await scaler.scale(
+                source: source,
+                destination: destination,
+                frameIndex: 0,
+                presentationTimestamp: .zero,
+                frameDuration: CMTime(value: 1, timescale: 30),
+                cancellation:
+                    AppleUpscaleOperationCancellationSignal()
+            )
+            try await scaler.finish()
+        } catch {
+            await scaler.cancel()
+            throw error
+        }
+
+        try R03NV12Contract.validate(
+            pixelBuffer: destination,
+            resolution: .p720
+        )
+        XCTAssertNotEqual(
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            ),
+            originalDestination
+        )
+    }
+
+    @available(macOS 26.0, *)
+    func testLiveVideoToolboxQuality720pRunsAdmittedScaleThenFinishes1080p()
+        async throws {
+        let source = try Self.makeNV12Buffer(
+            resolution: .p720,
+            seed: 29
+        )
+        let destination = try Self.makeNV12Buffer(
+            resolution: .p1080,
+            seed: 0
+        )
+        let originalDestination =
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            )
+        let scaler = try R13VideoToolboxAdaptiveNativeScaler(
+            path: .quality,
+            videoFormat: .sdrBT709,
+            presentationSourceResolution: .p720,
+            requestedSourceResolution: .p720,
+            requestedTargetResolution: .p1080
+        )
+
+        do {
+            try await scaler.scale(
+                source: source,
+                destination: destination,
+                frameIndex: 0,
+                presentationTimestamp: .zero,
+                frameDuration: CMTime(value: 1, timescale: 30),
+                cancellation:
+                    AppleUpscaleOperationCancellationSignal()
+            )
+            try await scaler.finish()
+        } catch {
+            await scaler.cancel()
+            throw error
+        }
+
+        try R03NV12Contract.validate(
+            pixelBuffer: destination,
+            resolution: .p1080
+        )
+        XCTAssertNotEqual(
+            try R13NV12Frame.captureTightActivePlanes(
+                from: destination
+            ),
+            originalDestination
+        )
+    }
+
     func testRouterDispatchesEveryFrameAndUsesOrderedRuntimeFailover()
         async throws {
         let sourceResolution = VideoResolution(

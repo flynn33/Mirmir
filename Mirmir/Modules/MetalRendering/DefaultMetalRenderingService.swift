@@ -3,6 +3,19 @@ import Metal
 import CoreVideo
 import os.lock
 
+private final class MirmirMetalResourceBundleToken: NSObject {}
+
+enum MirmirDefaultMetalLibrary {
+    static func make(on device: any MTLDevice) -> MTLLibrary? {
+        if let library = device.makeDefaultLibrary() {
+            return library
+        }
+        return try? device.makeDefaultLibrary(
+            bundle: Bundle(for: MirmirMetalResourceBundleToken.self)
+        )
+    }
+}
+
 final class DefaultMetalRenderingService: MetalRenderingService, @unchecked Sendable {
     let device: MTLDevice
     let commandQueue: MTLCommandQueue
