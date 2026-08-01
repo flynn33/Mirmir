@@ -113,7 +113,7 @@ struct R13FoundationBookmarkResolver:
                 relativeTo: nil
             )
         } catch {
-            throw R13RestartJobError.bookmarkResolutionFailed(role: role)
+            throw R13RestartJobError.bookmarkCreationFailed(role: role)
         }
     }
 
@@ -170,19 +170,34 @@ final class R13SecurityScopeLease: @unchecked Sendable {
 }
 
 final class R13SecurityScopedAccessSet: @unchecked Sendable {
-    private let leases: [R13SecurityScopeLease]
+    private let lock = NSLock()
+    private var leases: [R13SecurityScopeLease]
 
     init(leases: [R13SecurityScopeLease]) {
         self.leases = leases
     }
 
-    func url(for role: R13BookmarkRole) -> URL {
-        guard let lease = leases.first(where: { $0.role == role }) else {
-            preconditionFailure(
-                "Validated R13 access sets contain every bookmark role."
-            )
+    func releaseOutputDirectory() {
+        let releasedLease = lock.withLock {
+            guard let index = leases.firstIndex(
+                where: { $0.role == .outputDirectory }
+            ) else {
+                return nil as R13SecurityScopeLease?
+            }
+            return leases.remove(at: index)
         }
-        return lease.url
+        withExtendedLifetime(releasedLease) {}
+    }
+
+    func url(for role: R13BookmarkRole) -> URL {
+        lock.withLock {
+            guard let lease = leases.first(where: { $0.role == role }) else {
+                preconditionFailure(
+                    "Active R13 access sets contain the requested role."
+                )
+            }
+            return lease.url
+        }
     }
 }
 

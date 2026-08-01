@@ -24,6 +24,17 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
     private static let quarantineAttemptLimit = 3
     private static let digestReadSize = 1_048_576
 
+    private struct QuarantineRestoration {
+        let wasDurablyRestored: Bool
+        let description: String
+    }
+
+    private enum ObservedTemporaryOwnership: Equatable {
+        case absent
+        case matching
+        case changed
+    }
+
     private let cleanupObserver:
         any AtomicMediaQuarantineCleanupObserving
 
@@ -256,6 +267,10 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
                 directoryDescriptor,
                 url: directoryURL
             )
+            try cleanupObserver.didQuarantine(
+                destinationURL: url,
+                quarantineURL: quarantineURL
+            )
             quarantineDescriptor =
                 try Self.openValidatedFileQuarantine(
                     named: quarantineName,
@@ -270,11 +285,17 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
                 directoryDescriptor: directoryDescriptor,
                 directoryURL: directoryURL
             )
+            if let outputError = error as? AtomicMediaOutputError,
+               case .verifiedTemporaryFileChanged = outputError,
+               restoration.wasDurablyRestored {
+                throw AtomicMediaOutputError
+                    .verifiedTemporaryFileChanged(url)
+            }
             throw AtomicMediaOutputError.cleanupFailed(
                 temporary: url,
                 attempts: 1,
                 reason: "quarantined file identity mismatch: \(error); "
-                    + restoration
+                    + restoration.description
             )
         }
         defer { close(quarantineDescriptor) }
@@ -292,6 +313,27 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
                 at: url
             )
         } catch {
+            if let outputError = error as? AtomicMediaOutputError,
+               case .verifiedTemporaryFileChanged(let changedURL) =
+                   outputError,
+               changedURL == quarantineURL {
+                let restoration = Self.restoreQuarantine(
+                    named: quarantineName,
+                    to: destinationName,
+                    directoryDescriptor: directoryDescriptor,
+                    directoryURL: directoryURL
+                )
+                if restoration.wasDurablyRestored {
+                    throw AtomicMediaOutputError
+                        .verifiedTemporaryFileChanged(url)
+                }
+                throw AtomicMediaOutputError.cleanupFailed(
+                    temporary: url,
+                    attempts: 1,
+                    reason: "matching temporary changed before cleanup: "
+                        + "\(error); \(restoration.description)"
+                )
+            }
             throw AtomicMediaOutputError.cleanupFailed(
                 temporary: url,
                 attempts: 1,
@@ -372,7 +414,7 @@ struct LocalAtomicMediaFileSystem: AtomicMediaFileSystem {
                 .publishedDestinationCleanupFailed(
                     destination: url,
                     reason: "quarantined identity mismatch: \(error); "
-                        + restoration
+                        + restoration.description
                 )
         }
         defer { close(quarantineDescriptor) }
@@ -462,10 +504,74 @@ private extension LocalAtomicMediaFileSystem {
                 .unownedTemporaryFilePreserved(url)
         }
 
-        try removeItem(
-            at: url,
-            ifMatchingFile: temporaryIdentity
-        )
+        do {
+            try removeItem(
+                at: url,
+                ifMatchingFile: temporaryIdentity
+            )
+        } catch {
+            let removalError = error
+            let ownershipMismatch: Bool
+            if let outputError = error as? AtomicMediaOutputError,
+               case .verifiedTemporaryFileChanged = outputError {
+                ownershipMismatch = true
+            } else {
+                ownershipMismatch = false
+            }
+            let observedOwnership: ObservedTemporaryOwnership
+            do {
+                if let observedIdentity = try Self
+                    .ownedRegularFileIdentity(at: url) {
+                    observedOwnership = observedIdentity
+                        == temporaryIdentity ? .matching : .changed
+                } else {
+                    observedOwnership = .absent
+                }
+            } catch {
+                observedOwnership = .changed
+            }
+
+            if !ownershipMismatch,
+               observedOwnership == .matching {
+                throw removalError
+            }
+            if !ownershipMismatch,
+               observedOwnership == .absent {
+                do {
+                    try discardReservedTransactionTemporaryFileMarker(
+                        at: url
+                    )
+                    try Self.createTransactionOwnershipMarker(
+                        at: markerURL,
+                        temporaryURL: url
+                    )
+                    return true
+                } catch {
+                    throw AtomicMediaOutputError.cleanupFailed(
+                        temporary: url,
+                        attempts: 1,
+                        reason: "owned temporary removal reported "
+                            + "\(removalError); reservation recovery "
+                            + "failed: \(error)"
+                    )
+                }
+            }
+            do {
+                try discardReservedTransactionTemporaryFileMarker(
+                    at: url
+                )
+            } catch {
+                throw AtomicMediaOutputError.cleanupFailed(
+                    temporary: url,
+                    attempts: 1,
+                    reason: "temporary ownership changed during "
+                        + "reclamation: \(removalError); ownership "
+                        + "reservation cleanup failed: \(error)"
+                )
+            }
+            throw AtomicMediaOutputError
+                .unownedTemporaryFilePreserved(url)
+        }
         guard !pathEntryExists(at: url) else {
             throw AtomicMediaOutputError.cleanupFailed(
                 temporary: url,
@@ -946,11 +1052,8 @@ private extension LocalAtomicMediaFileSystem {
                   ),
                   descriptorIdentity == expected,
                   pathIdentity == expected else {
-                throw AtomicMediaOutputError.cleanupFailed(
-                    temporary: quarantineURL,
-                    attempts: 1,
-                    reason: "isolated temporary inode differs"
-                )
+                throw AtomicMediaOutputError
+                    .verifiedTemporaryFileChanged(quarantineURL)
             }
             return descriptor
         } catch {
@@ -989,11 +1092,8 @@ private extension LocalAtomicMediaFileSystem {
               ),
               descriptorIdentity == expected,
               pathIdentity == expected else {
-            throw AtomicMediaOutputError.cleanupFailed(
-                temporary: quarantineURL,
-                attempts: 1,
-                reason: "temporary changed before unlink"
-            )
+            throw AtomicMediaOutputError
+                .verifiedTemporaryFileChanged(quarantineURL)
         }
 
         let unlinkResult = name.withCString {
@@ -1249,12 +1349,12 @@ private extension LocalAtomicMediaFileSystem {
         }.joined()
     }
 
-    static func restoreQuarantine(
+    private static func restoreQuarantine(
         named quarantineName: String,
         to destinationName: String,
         directoryDescriptor: Int32,
         directoryURL: URL
-    ) -> String {
+    ) -> QuarantineRestoration {
         let result = renameExclusively(
             from: quarantineName,
             to: destinationName,
@@ -1266,19 +1366,34 @@ private extension LocalAtomicMediaFileSystem {
                     directoryDescriptor,
                     url: directoryURL
                 )
-                return "mismatched entry restored without replacement"
+                return QuarantineRestoration(
+                    wasDurablyRestored: true,
+                    description:
+                        "mismatched entry restored without replacement"
+                )
             } catch {
-                return "mismatched entry restored; directory sync failed: "
-                    + String(describing: error)
+                return QuarantineRestoration(
+                    wasDurablyRestored: false,
+                    description: "mismatched entry restored; "
+                        + "directory sync failed: "
+                        + String(describing: error)
+                )
             }
         }
         let code = errno
         if code == EEXIST {
-            return "destination is occupied; mismatched quarantine retained "
-                + "as \(quarantineName)"
+            return QuarantineRestoration(
+                wasDurablyRestored: false,
+                description: "destination is occupied; mismatched "
+                    + "quarantine retained as \(quarantineName)"
+            )
         }
-        return "mismatched quarantine restore failed with errno \(code); "
-            + "quarantine retained as \(quarantineName)"
+        return QuarantineRestoration(
+            wasDurablyRestored: false,
+            description: "mismatched quarantine restore failed with "
+                + "errno \(code); quarantine retained as "
+                + quarantineName
+        )
     }
 
     static func renameExclusively(

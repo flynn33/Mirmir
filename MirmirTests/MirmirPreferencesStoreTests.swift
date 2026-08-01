@@ -148,6 +148,10 @@ final class MirmirPreferencesStoreTests: XCTestCase {
             forKey: fixture.keys.enginePreference
         )
         fixture.defaults.set(
+            ["unsupported-engine"],
+            forKey: fixture.keys.enginePreferences
+        )
+        fixture.defaults.set(
             "true",
             forKey: fixture.keys.temporalConsistencyEnabled
         )

@@ -534,6 +534,12 @@ struct TimedMetadataWriter {
 }
 
 final class MediaPipelineStagingFile: @unchecked Sendable {
+    enum Role: String {
+        case videoStage = "video-stage"
+        case finalMuxSource = "final-mux-source"
+        case sourceSeed = "source-seed"
+    }
+
     private enum StagingFileError: Error, CustomStringConvertible {
         case createdFileMissing
         case unownedPathPreserved
@@ -564,6 +570,7 @@ final class MediaPipelineStagingFile: @unchecked Sendable {
     init(
         finalTemporaryURL: URL,
         pathExtensionOverride: String? = nil,
+        role: Role = .videoStage,
         fileSystem: any AtomicMediaFileSystem =
             LocalAtomicMediaFileSystem()
     ) throws {
@@ -577,7 +584,7 @@ final class MediaPipelineStagingFile: @unchecked Sendable {
             .deletingPathExtension()
             .lastPathComponent
         url = directory.appendingPathComponent(
-            "\(baseName).video-stage\(extensionSuffix)",
+            "\(baseName).\(role.rawValue)\(extensionSuffix)",
             isDirectory: false
         )
         self.fileSystem = fileSystem

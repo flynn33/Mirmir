@@ -25,6 +25,26 @@ enum R03VImageScalingMode: String, CaseIterable, Hashable, Sendable {
     }
 }
 
+extension R03DeterministicBackend {
+    static func makeProductQualifiedVImageStandard(
+        route: R03ScaleRoute,
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+    ) throws -> R03DeterministicBackend {
+        let kind = R13ReleaseScalerKind.standardVImage
+        return try R03DeterministicBackend(
+            subjectID: kind.subjectID,
+            route: route,
+            admissionProfile: .productQualifiedReleaseScaler(kind),
+            productAdmissionAuthorization:
+                R03A11ProductAdmissionAuthorization(),
+            scalerFactory: { _, _ in
+                R03VImageScaler(mode: .lanczos3, route: route)
+            },
+            outputReleaseObserver: outputReleaseObserver
+        )
+    }
+}
+
 final class R03VImageScaler: R03NV12Scaling, @unchecked Sendable {
     let mode: R03VImageScalingMode
     let route: R03ScaleRoute?

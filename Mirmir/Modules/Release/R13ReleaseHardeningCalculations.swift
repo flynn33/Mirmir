@@ -263,6 +263,10 @@ extension R13ReleaseHardeningRuntime {
                 field: "processing_route_identity"
             )
         }
+        let releaseIdentityComponent =
+            try R13RestartProcessingIdentity.releaseIdentityComponent(
+                sha256: identity.identitySHA256
+            )
         return try R13RestartJobCore(
             jobID: job.identifier,
             source: source,
@@ -272,6 +276,7 @@ extension R13ReleaseHardeningRuntime {
                 routeIdentity:
                     "\(expectedRouteID):"
                     + "\(identity.configurationIdentity):"
+                    + "\(releaseIdentityComponent):"
                     + "\(identity.processingConfigurationIdentity):"
                     + "\(identity.sourceScanStructure.rawValue):"
                     + identity.deinterlacingAlgorithmIdentity,

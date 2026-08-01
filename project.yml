@@ -36,7 +36,7 @@ targets:
         CFBundleName: Mirmir
         CFBundleDisplayName: Mirmir
         CFBundleShortVersionString: "1.0.0"
-        CFBundleVersion: "1"
+        CFBundleVersion: "2"
         LSApplicationCategoryType: public.app-category.video
         LSMinimumSystemVersion: "15.4"
         NSHumanReadableCopyright: ""
@@ -52,6 +52,9 @@ targets:
         COMBINE_HIDPI_IMAGES: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.video
+      configs:
+        Release:
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
   R01CapabilityWorker:
     type: tool

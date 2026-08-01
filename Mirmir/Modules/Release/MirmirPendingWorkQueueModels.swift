@@ -7,25 +7,116 @@ struct MirmirPendingWorkBookmarks: Codable, Equatable, Sendable {
     let outputDisplayName: String
 }
 
+struct MirmirProcessingPathBatchContext:
+    Codable,
+    Equatable,
+    Sendable {
+    let id: String
+    let path: UpscaleEnginePreference
+    let ordinal: Int
+    let totalCount: Int
+}
+
+enum MirmirProcessingPathTerminalStatus:
+    String,
+    Codable,
+    Equatable,
+    Sendable {
+    case completed
+    case failed
+    case cancelled
+}
+
+struct MirmirProcessingPathBatchResult:
+    Codable,
+    Equatable,
+    Sendable {
+    let batch: MirmirProcessingPathBatchContext
+    let jobID: String
+    let outputDisplayName: String
+    let status: MirmirProcessingPathTerminalStatus
+    let reason: String?
+    let completedAt: Date
+}
+
+struct MirmirProcessingPathBatchSummary: Equatable, Sendable {
+    let batchID: String
+    let totalCount: Int
+    let results: [MirmirProcessingPathBatchResult]
+
+    init?(
+        batchID: String,
+        results: [MirmirProcessingPathBatchResult]
+    ) {
+        let matching = results
+            .filter { $0.batch.id == batchID }
+            .sorted { lhs, rhs in
+                if lhs.batch.ordinal != rhs.batch.ordinal {
+                    return lhs.batch.ordinal < rhs.batch.ordinal
+                }
+                return lhs.completedAt < rhs.completedAt
+            }
+        guard let first = matching.first else { return nil }
+        self.batchID = batchID
+        totalCount = first.batch.totalCount
+        self.results = matching
+    }
+
+    static func latest(
+        in results: [MirmirProcessingPathBatchResult]
+    ) -> Self? {
+        guard let latest = results.last else {
+            return nil
+        }
+        return Self(batchID: latest.batch.id, results: results)
+    }
+
+    var completedCount: Int {
+        results.filter { $0.status == .completed }.count
+    }
+
+    var failedCount: Int {
+        results.filter { $0.status == .failed }.count
+    }
+
+    var cancelledCount: Int {
+        results.filter { $0.status == .cancelled }.count
+    }
+
+    var isComplete: Bool {
+        results.count == totalCount
+    }
+
+    var allSucceeded: Bool {
+        isComplete && completedCount == totalCount
+    }
+}
+
 struct MirmirPendingWorkSettings: Codable, Equatable, Sendable {
     let targetResolution: VideoResolution
     let codec: OutputCodec
     let preserveAudio: Bool
     let requestedMode: UpscaleMode
     let processingConfiguration: UpscaleProcessingConfiguration
+    let continuesAfterFailure: Bool
+    let processingPathBatch: MirmirProcessingPathBatchContext?
 
     init(
         targetResolution: VideoResolution,
         codec: OutputCodec,
         preserveAudio: Bool,
         requestedMode: UpscaleMode,
-        processingConfiguration: UpscaleProcessingConfiguration
+        processingConfiguration: UpscaleProcessingConfiguration,
+        continuesAfterFailure: Bool = false,
+        processingPathBatch: MirmirProcessingPathBatchContext? = nil
     ) {
         self.targetResolution = targetResolution
         self.codec = codec
         self.preserveAudio = preserveAudio
         self.requestedMode = requestedMode
         self.processingConfiguration = processingConfiguration
+        self.continuesAfterFailure = continuesAfterFailure
+        self.processingPathBatch = processingPathBatch
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -34,6 +125,8 @@ struct MirmirPendingWorkSettings: Codable, Equatable, Sendable {
         case preserveAudio
         case requestedMode
         case processingConfiguration
+        case continuesAfterFailure
+        case processingPathBatch
     }
 
     private struct StoredResolution: Codable {
@@ -74,6 +167,14 @@ struct MirmirPendingWorkSettings: Codable, Equatable, Sendable {
             UpscaleProcessingConfiguration.self,
             forKey: .processingConfiguration
         ) ?? .default
+        continuesAfterFailure = try container.decodeIfPresent(
+            Bool.self,
+            forKey: .continuesAfterFailure
+        ) ?? false
+        processingPathBatch = try container.decodeIfPresent(
+            MirmirProcessingPathBatchContext.self,
+            forKey: .processingPathBatch
+        )
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -92,6 +193,16 @@ struct MirmirPendingWorkSettings: Codable, Equatable, Sendable {
             processingConfiguration,
             forKey: .processingConfiguration
         )
+        if continuesAfterFailure {
+            try container.encode(
+                true,
+                forKey: .continuesAfterFailure
+            )
+        }
+        try container.encodeIfPresent(
+            processingPathBatch,
+            forKey: .processingPathBatch
+        )
     }
 
     static func == (lhs: Self, rhs: Self) -> Bool {
@@ -100,6 +211,8 @@ struct MirmirPendingWorkSettings: Codable, Equatable, Sendable {
             && lhs.preserveAudio == rhs.preserveAudio
             && lhs.requestedMode.rawValue == rhs.requestedMode.rawValue
             && lhs.processingConfiguration == rhs.processingConfiguration
+            && lhs.continuesAfterFailure == rhs.continuesAfterFailure
+            && lhs.processingPathBatch == rhs.processingPathBatch
     }
 }
 
@@ -280,6 +393,7 @@ enum MirmirPendingQueueField: String, Equatable, Sendable {
     case createdAt = "created_at"
     case order
     case lifecycle
+    case processingPathBatch = "processing_path_batch"
 }
 
 enum MirmirPendingQueueOperation: String, Equatable, Sendable {
@@ -307,7 +421,20 @@ struct MirmirPendingQueueRecovery: Equatable, Sendable {
 
 struct MirmirPendingQueueSnapshot: Equatable, Sendable {
     let records: [MirmirPendingWorkRecord]
+    let processingPathBatchResults:
+        [MirmirProcessingPathBatchResult]
     let recovery: MirmirPendingQueueRecovery?
+
+    init(
+        records: [MirmirPendingWorkRecord],
+        processingPathBatchResults:
+            [MirmirProcessingPathBatchResult] = [],
+        recovery: MirmirPendingQueueRecovery?
+    ) {
+        self.records = records
+        self.processingPathBatchResults = processingPathBatchResults
+        self.recovery = recovery
+    }
 
     var head: MirmirPendingWorkRecord? {
         records.first
@@ -317,7 +444,22 @@ struct MirmirPendingQueueSnapshot: Equatable, Sendable {
 struct MirmirPendingQueueHeadClaim: Equatable, Sendable {
     let record: MirmirPendingWorkRecord?
     let didMarkStarted: Bool
+    let processingPathBatchResults:
+        [MirmirProcessingPathBatchResult]
     let recovery: MirmirPendingQueueRecovery?
+
+    init(
+        record: MirmirPendingWorkRecord?,
+        didMarkStarted: Bool,
+        processingPathBatchResults:
+            [MirmirProcessingPathBatchResult] = [],
+        recovery: MirmirPendingQueueRecovery?
+    ) {
+        self.record = record
+        self.didMarkStarted = didMarkStarted
+        self.processingPathBatchResults = processingPathBatchResults
+        self.recovery = recovery
+    }
 }
 
 enum MirmirPendingQueueError:

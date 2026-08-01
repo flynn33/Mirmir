@@ -8,11 +8,36 @@ public enum UpscaleEnginePreference:
     Identifiable,
     Sendable {
     case automatic
+    case accelerateVImageStandard = "accelerate_vimage_standard"
     case accelerateVImageHighQuality = "accelerate_vimage_high_quality"
     case mpsBilinear = "mps_bilinear"
     case mpsLanczos = "mps_lanczos"
+    case coreImageLanczos = "core_image_lanczos"
+    case coreImageBicubic = "core_image_bicubic"
+    case videoToolboxPixelTransfer = "videotoolbox_pixel_transfer"
+    case videoToolboxQuality = "videotoolbox_quality"
+    case videoToolboxLowLatency = "videotoolbox_low_latency"
+    case metalFXSpatial = "metalfx_spatial"
 
     public var id: String { rawValue }
+
+    var requiresNativeUpscaleSession: Bool {
+        switch self {
+        case .videoToolboxQuality,
+             .videoToolboxLowLatency,
+             .metalFXSpatial:
+            return true
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            return false
+        }
+    }
 }
 
 public enum UpscaleStrategyPreference:

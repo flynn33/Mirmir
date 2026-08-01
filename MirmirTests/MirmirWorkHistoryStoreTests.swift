@@ -354,6 +354,36 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
         XCTAssertEqual(persisted, [valid])
     }
 
+    func testOutputDisplayNameBoundaryRejectsSlashNULAndDotTraversal()
+        async throws {
+        let directory = try temporaryDirectory()
+        let store = MirmirWorkHistoryStore(directoryURL: directory)
+        let rejectedNames = [
+            "nested/output.mov",
+            "output\u{0}.mov",
+            ".",
+            ".."
+        ]
+
+        for (index, rejectedName) in rejectedNames.enumerated() {
+            let record = makeWorkHistoryRecord(
+                id: "job-invalid-output-name-\(index)",
+                completedAt: Date(
+                    timeIntervalSinceReferenceDate: Double(index)
+                ),
+                outputDisplayName: rejectedName
+            )
+            await assertRejected(
+                record,
+                field: .outputDisplayName,
+                by: store
+            )
+        }
+
+        let persisted = try await store.records()
+        XCTAssertEqual(persisted, [])
+    }
+
     func testDocumentByteBoundRejectsMutationWithoutReplacingExistingData()
         async throws {
         let directory = try temporaryDirectory()
@@ -429,18 +459,21 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
         let availability = WorkHistoryFakeAvailabilityChecker(
             availablePaths: [availableURL.path]
         )
+        let scopeAudit = WorkHistorySecurityScopeAudit()
 
         let first = try await store.bookmarkStates(
             id: record.id,
             resolver: resolver,
-            availabilityChecker: availability
+            availabilityChecker: availability,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(first.source, .available)
         XCTAssertEqual(first.output, .missing)
         let allStates = await store.bookmarkStates(
             records: [record],
             resolver: resolver,
-            availabilityChecker: availability
+            availabilityChecker: availability,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(allStates, [record.id: first])
 
@@ -458,7 +491,8 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
         let second = try await store.bookmarkStates(
             id: record.id,
             resolver: staleResolver,
-            availabilityChecker: availability
+            availabilityChecker: availability,
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(second.source, .reauthorizationRequired)
         XCTAssertEqual(second.output, .reauthorizationRequired)
@@ -467,6 +501,72 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
             [.source, .output, .source, .output]
         )
         XCTAssertEqual(staleResolver.resolvedRoles, [.source, .output])
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+    }
+
+    func testBookmarkStatesRetainResolvedScopesDuringAvailabilityChecks()
+        async throws {
+        let directory = try temporaryDirectory()
+        let store = MirmirWorkHistoryStore(directoryURL: directory)
+        let record = makeWorkHistoryRecord(
+            id: "job-scoped-bookmark-states",
+            completedAt: Date(timeIntervalSinceReferenceDate: 100),
+            sourceBookmark: Data("scoped-source".utf8),
+            outputBookmark: Data("scoped-output".utf8)
+        )
+        _ = try await store.upsert(record)
+        let sourceURL = URL(fileURLWithPath: "/scoped/source.mov")
+        let outputDirectoryURL = URL(
+            fileURLWithPath: "/scoped/Exports",
+            isDirectory: true
+        )
+        let resolver = WorkHistoryFakeBookmarkResolver(
+            outcomes: [
+                record.sourceBookmark: .resolved(
+                    MirmirWorkHistoryResolvedBookmark(
+                        url: sourceURL,
+                        isStale: false
+                    )
+                ),
+                record.outputBookmark: .resolved(
+                    MirmirWorkHistoryResolvedBookmark(
+                        url: outputDirectoryURL,
+                        isStale: false
+                    )
+                )
+            ]
+        )
+        let scopeAudit = WorkHistorySecurityScopeAudit()
+
+        let states = try await store.bookmarkStates(
+            id: record.id,
+            resolver: resolver,
+            availabilityChecker:
+                WorkHistoryScopeCheckingAvailabilityChecker(
+                    audit: scopeAudit
+                ),
+            securityScopedResourceAccess: scopeAudit.resourceAccess
+        )
+
+        XCTAssertEqual(
+            states,
+            MirmirWorkHistoryBookmarkStates(
+                source: .available,
+                output: .available
+            )
+        )
+        XCTAssertEqual(
+            scopeAudit.events,
+            [
+                "start:/scoped/source.mov",
+                "check:/scoped/source.mov",
+                "stop:/scoped/source.mov",
+                "start:/scoped/Exports",
+                "check:/scoped/Exports/output.mov",
+                "stop:/scoped/Exports"
+            ]
+        )
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
     }
 
     func testCapturingBookmarksOutputDirectoryAndRetainsFileName()
@@ -568,6 +668,7 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
                 )
             ]
         )
+        let scopeAudit = WorkHistorySecurityScopeAudit()
 
         let locations = try await store.resolveLocations(
             id: record.id,
@@ -587,7 +688,8 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
             resolver: resolver,
             availabilityChecker: WorkHistoryFakeAvailabilityChecker(
                 availablePaths: [sourceURL.path, outputFileURL.path]
-            )
+            ),
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(fileAvailable.output, .available)
 
@@ -599,9 +701,68 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
                     sourceURL.path,
                     outputDirectoryURL.path
                 ]
-            )
+            ),
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(directoryOnly.output, .missing)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
+    }
+
+    func testBackslashOutputNamePersistsAndResolvesWithinDirectory()
+        async throws {
+        let directory = try temporaryDirectory()
+        let store = MirmirWorkHistoryStore(directoryURL: directory)
+        let outputDisplayName = #"client\final.mov"#
+        let record = makeWorkHistoryRecord(
+            id: "job-backslash-output-name",
+            completedAt: Date(timeIntervalSinceReferenceDate: 100),
+            outputDisplayName: outputDisplayName,
+            sourceBookmark: Data("backslash-source".utf8),
+            outputBookmark: Data("backslash-output-directory".utf8)
+        )
+
+        _ = try await store.upsert(record)
+        let reloaded = MirmirWorkHistoryStore(directoryURL: directory)
+        let persistedRecord = try await reloaded.record(id: record.id)
+        XCTAssertEqual(
+            persistedRecord?.outputDisplayName,
+            outputDisplayName
+        )
+
+        let sourceURL = URL(fileURLWithPath: "/virtual/source.mov")
+        let outputDirectoryURL = URL(
+            fileURLWithPath: "/virtual/Exports",
+            isDirectory: true
+        ).standardizedFileURL
+        let resolver = WorkHistoryFakeBookmarkResolver(
+            outcomes: [
+                record.sourceBookmark: .resolved(
+                    MirmirWorkHistoryResolvedBookmark(
+                        url: sourceURL,
+                        isStale: false
+                    )
+                ),
+                record.outputBookmark: .resolved(
+                    MirmirWorkHistoryResolvedBookmark(
+                        url: outputDirectoryURL,
+                        isStale: false
+                    )
+                )
+            ]
+        )
+        let locations = try await reloaded.resolveLocations(
+            id: record.id,
+            resolver: resolver
+        )
+        XCTAssertEqual(
+            locations.outputFileURL.lastPathComponent,
+            outputDisplayName
+        )
+        XCTAssertEqual(
+            locations.outputFileURL.deletingLastPathComponent()
+                .standardizedFileURL,
+            outputDirectoryURL
+        )
     }
 
     func testFailedMissingOutputUsesAvailableOutputDirectoryState()
@@ -638,6 +799,7 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
                 )
             ]
         )
+        let scopeAudit = WorkHistorySecurityScopeAudit()
 
         let locations = try await store.resolveLocations(
             id: record.id,
@@ -658,10 +820,12 @@ final class MirmirWorkHistoryStoreTests: XCTestCase {
                     sourceURL.path,
                     outputDirectoryURL.path
                 ]
-            )
+            ),
+            securityScopedResourceAccess: scopeAudit.resourceAccess
         )
         XCTAssertEqual(states.source, .available)
         XCTAssertEqual(states.output, .available)
+        XCTAssertEqual(scopeAudit.activeScopeCount, 0)
     }
 
     func testResolvedLocationsExposeStaleFlagsAndRejectInvalidURLs()
@@ -996,5 +1160,58 @@ private struct WorkHistoryFakeAvailabilityChecker:
 
     func isAvailable(at url: URL) -> Bool {
         availablePaths.contains(url.path)
+    }
+}
+
+private final class WorkHistorySecurityScopeAudit: @unchecked Sendable {
+    private struct State {
+        var activeURLs: Set<URL> = []
+        var events: [String] = []
+    }
+
+    private let lock = NSLock()
+    private var state = State()
+
+    var activeScopeCount: Int {
+        lock.withLock { state.activeURLs.count }
+    }
+
+    var events: [String] {
+        lock.withLock { state.events }
+    }
+
+    var resourceAccess: MirmirSecurityScopedResourceAccess {
+        MirmirSecurityScopedResourceAccess(
+            startAccessing: { [weak self] url in
+                self?.lock.withLock {
+                    self?.state.activeURLs.insert(url)
+                    self?.state.events.append("start:\(url.path)")
+                }
+                return true
+            },
+            stopAccessing: { [weak self] url in
+                self?.lock.withLock {
+                    self?.state.events.append("stop:\(url.path)")
+                    self?.state.activeURLs.remove(url)
+                }
+            },
+            canCreateBookmark: { _ in true }
+        )
+    }
+
+    func recordAvailabilityCheck(at url: URL) -> Bool {
+        lock.withLock {
+            state.events.append("check:\(url.path)")
+            return !state.activeURLs.isEmpty
+        }
+    }
+}
+
+private struct WorkHistoryScopeCheckingAvailabilityChecker:
+    MirmirWorkFileAvailabilityChecking {
+    let audit: WorkHistorySecurityScopeAudit
+
+    func isAvailable(at url: URL) -> Bool {
+        audit.recordAvailabilityCheck(at: url)
     }
 }

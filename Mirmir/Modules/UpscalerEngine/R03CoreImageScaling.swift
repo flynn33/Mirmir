@@ -38,6 +38,32 @@ extension R03DeterministicBackend {
         )
     }
 
+    static func makeProductQualifiedCoreImage(
+        mode: R03CoreImageScalingMode,
+        route: R03ScaleRoute,
+        outputReleaseObserver: @escaping R03OutputReleaseObserver = { _ in }
+    ) throws -> R03DeterministicBackend {
+        let kind: R13ReleaseScalerKind = mode == .lanczos
+            ? .coreImageLanczos
+            : .coreImageBicubic
+        return try R03DeterministicBackend(
+            subjectID: kind.subjectID,
+            route: route,
+            admissionProfile: .productQualifiedReleaseScaler(kind),
+            productAdmissionAuthorization:
+                R03A11ProductAdmissionAuthorization(),
+            scalerFactory: { sourceResolution, targetResolution in
+                try requireExactCoreImageRoute(
+                    route,
+                    sourceResolution: sourceResolution,
+                    targetResolution: targetResolution
+                )
+                return R03CoreImageScaler(mode: mode, route: route)
+            },
+            outputReleaseObserver: outputReleaseObserver
+        )
+    }
+
     private static func requireExactCoreImageRoute(
         _ route: R03ScaleRoute,
         sourceResolution: VideoResolution,
@@ -64,7 +90,7 @@ extension R03DeterministicBackend {
 
 final class R03CoreImageScaler: R03NV12Scaling, @unchecked Sendable {
     let mode: R03CoreImageScalingMode
-    let route: R03ScaleRoute
+    let route: R03ScaleRoute?
 
     private enum FailureCode: Int {
         case nonuniformScale = -1
@@ -81,7 +107,22 @@ final class R03CoreImageScaler: R03NV12Scaling, @unchecked Sendable {
         self.route = route
         sourceResolution = route.canonicalSourceResolution
         targetResolution = route.canonicalTargetResolution
-        context = CIContext(options: [
+        context = Self.makeContext()
+    }
+
+    init(
+        mode: R03CoreImageScalingMode,
+        adaptivePlan: R13AdaptiveScalePlan
+    ) {
+        self.mode = mode
+        route = nil
+        sourceResolution = adaptivePlan.processingSourceResolution
+        targetResolution = adaptivePlan.targetResolution
+        context = Self.makeContext()
+    }
+
+    private static func makeContext() -> CIContext {
+        CIContext(options: [
             .workingColorSpace: NSNull(),
             .outputColorSpace: NSNull(),
             .cacheIntermediates: false

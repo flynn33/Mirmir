@@ -6,9 +6,13 @@ import XCTest
 
 // swiftlint:disable function_body_length
 final class R05FunctionalPhaseAcceptanceTests: XCTestCase {
-    func testBothSpatialRoutesProcessSourceDerivedFramesThroughProductionFIFO()
+    func testSpatialRoutesProcessSourceDerivedFramesThroughProductionFIFO()
         async throws {
-        let subjects: [R05MetalFXSubjectID] = [.spatial1p5x, .spatial2x]
+        let subjects: [R05MetalFXSubjectID] = [
+            .spatial1p5x,
+            .spatial2x,
+            .spatial4x
+        ]
 
         for subject in subjects {
             let expectedDriverRoute = try driverRoute(for: subject)
@@ -360,6 +364,8 @@ final class R05FunctionalPhaseAcceptanceTests: XCTestCase {
             return .oneAndOneHalf
         case .spatial2x:
             return .two
+        case .spatial4x:
+            return .four
         case .temporal1p5x,
              .temporal2x,
              .denoisedTemporal1p5x,
@@ -461,6 +467,8 @@ private final class R05FunctionalSimulatedSpatialDriver:
             scaleRoute = .scale3Over2
         case .two:
             scaleRoute = .scale2x
+        case .four:
+            scaleRoute = .scale4x
         }
         do {
             try R03VImageScaler(

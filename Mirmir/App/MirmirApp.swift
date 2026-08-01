@@ -1,5 +1,19 @@
 import Darwin
+import Foundation
 import SwiftUI
+
+enum MirmirAppProcessContext {
+    static func isHostedByXCTest(
+        environment: [String: String] =
+            ProcessInfo.processInfo.environment
+    ) -> Bool {
+        let configurationPath =
+            environment["XCTestConfigurationFilePath"] ?? ""
+        let injectedBundlePath =
+            environment["XCInjectBundleInto"] ?? ""
+        return !configurationPath.isEmpty || !injectedBundlePath.isEmpty
+    }
+}
 
 @MainActor
 private final class MirmirApplicationState: ObservableObject {
@@ -9,7 +23,8 @@ private final class MirmirApplicationState: ObservableObject {
         launchDisposition:
             ASHP08ProductionEvidenceRunner.LaunchDisposition
     ) {
-        if launchDisposition == .normal {
+        if launchDisposition == .normal,
+           !MirmirAppProcessContext.isHostedByXCTest() {
             composition = MirmirAppComposition()
         } else {
             composition = nil
@@ -56,6 +71,7 @@ struct MirmirApp: App {
                 EmptyView()
             }
         }
+        .defaultLaunchBehavior(.presented)
         .windowResizability(.contentSize)
         .commands {
             CommandGroup(replacing: .newItem) {}

@@ -39,14 +39,18 @@ func makePendingQueueSettings(
     codec: OutputCodec = .hevc,
     preserveAudio: Bool = true,
     requestedMode: UpscaleMode = .quality,
-    processingConfiguration: UpscaleProcessingConfiguration = .default
+    processingConfiguration: UpscaleProcessingConfiguration = .default,
+    continuesAfterFailure: Bool = false,
+    processingPathBatch: MirmirProcessingPathBatchContext? = nil
 ) -> MirmirPendingWorkSettings {
     MirmirPendingWorkSettings(
         targetResolution: targetResolution,
         codec: codec,
         preserveAudio: preserveAudio,
         requestedMode: requestedMode,
-        processingConfiguration: processingConfiguration
+        processingConfiguration: processingConfiguration,
+        continuesAfterFailure: continuesAfterFailure,
+        processingPathBatch: processingPathBatch
     )
 }
 

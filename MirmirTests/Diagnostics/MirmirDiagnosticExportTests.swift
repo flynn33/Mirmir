@@ -6,6 +6,245 @@ import XCTest
 @testable import Mirmir
 
 final class MirmirDiagnosticExportTests: XCTestCase {
+    func testReleaseEnvironmentFailuresExportTypedPrivateSafeCategories()
+        async throws {
+        struct FailureCase {
+            let error: R13ReleaseEnvironmentError
+            let category: String
+            let field: String?
+        }
+        let privateReason =
+            "/Users/alice/Secret Client/person@example.com/"
+            + "token-sk_test_SENTINEL"
+        let cases = [
+            FailureCase(
+                error: .applicationSupportDirectoryUnavailable,
+                category: "release_application_support_unavailable",
+                field: nil
+            ),
+            FailureCase(
+                error: .applicationIdentityUnavailable(
+                    field: "bundle_identifier"
+                ),
+                category: "release_application_identity_unavailable",
+                field: "bundle_identifier"
+            ),
+            FailureCase(
+                error: .frameworkIdentityUnavailable(
+                    field: "requested_framework"
+                ),
+                category: "release_framework_identity_unavailable",
+                field: "requested_framework"
+            ),
+            FailureCase(
+                error: .runtimeIdentityUnavailable(
+                    field: "operating_system_build"
+                ),
+                category: "release_runtime_identity_unavailable",
+                field: "operating_system_build"
+            ),
+            FailureCase(
+                error: .frameCountReaderFailed(privateReason),
+                category: "release_frame_count_reader_failed",
+                field: nil
+            ),
+            FailureCase(
+                error: .frameCountUnavailable,
+                category: "release_frame_count_unavailable",
+                field: nil
+            ),
+            FailureCase(
+                error: .memoryProbeFailed,
+                category: "release_memory_probe_failed",
+                field: nil
+            ),
+            FailureCase(
+                error: .arithmeticOverflow(field: "source_frame_count"),
+                category: "release_environment_arithmetic_overflow",
+                field: "source_frame_count"
+            ),
+            FailureCase(
+                error: .frameworkIdentityUnavailable(field: privateReason),
+                category: "release_framework_identity_unavailable",
+                field: "unclassified"
+            )
+        ]
+        let store = MirmirDiagnosticStore()
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        for failure in cases {
+            await recorder.record(
+                severity: .error,
+                subsystem: "release_engine",
+                operation: "prepare_source",
+                code: "release_job_failed",
+                error: failure.error
+            )
+        }
+
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.records.count, cases.count)
+        for (record, failure) in zip(snapshot.records, cases) {
+            let fields = Dictionary(
+                uniqueKeysWithValues: record.event.fields.map {
+                    ($0.key.rawValue, $0.value.displayValue)
+                }
+            )
+            XCTAssertEqual(fields["failure_category"], failure.category)
+            XCTAssertEqual(fields["release_environment_field"], failure.field)
+        }
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            XCTAssertFalse(exportedText.contains(privateReason))
+            XCTAssertFalse(exportedText.contains("Secret Client"))
+            XCTAssertFalse(exportedText.contains("person@example.com"))
+            XCTAssertFalse(exportedText.contains("token-sk_test_SENTINEL"))
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    func testWorkHistoryBookmarkFailuresExportDistinctCategories()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let recorder = MirmirDiagnosticRecorder(store: store)
+
+        await recorder.record(
+            severity: .error,
+            subsystem: "work_history",
+            operation: "capture_terminal_permissions",
+            code: "work_history_bookmark_capture_failed",
+            error: MirmirWorkHistoryBookmarkError.creationFailed(
+                role: .output
+            )
+        )
+        await recorder.record(
+            severity: .error,
+            subsystem: "work_history",
+            operation: "resolve_permissions",
+            code: "work_history_bookmark_resolution_failed",
+            error: MirmirWorkHistoryBookmarkError.resolutionFailed(
+                role: .source
+            )
+        )
+
+        let snapshot = try await store.snapshot()
+        XCTAssertEqual(snapshot.records.count, 2)
+        let categories = snapshot.records.map { record in
+            Dictionary(
+                uniqueKeysWithValues: record.event.fields.map {
+                    ($0.key.rawValue, $0.value.displayValue)
+                }
+            )["failure_category"]
+        }
+        XCTAssertEqual(
+            categories,
+            [
+                "work_history_bookmark_creation_failed",
+                "work_history_bookmark_resolution_failed"
+            ]
+        )
+    }
+
+    func testRestartBookmarkCreationFailureExportsDistinctCategory()
+        async throws {
+        let store = MirmirDiagnosticStore()
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_engine",
+            operation: "prepare_restart",
+            code: "release_job_failed",
+            error: R13RestartJobError.bookmarkCreationFailed(
+                role: .outputDirectory
+            )
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["failure_category"],
+            "restart_bookmark_creation_failed"
+        )
+    }
+
+    func testMediaPreservationPreflightFailureExportsTypedPrivateSafeCategory()
+        async throws {
+        let privateReason =
+            "/Users/alice/Secret Client/person@example.com/"
+            + "token-sk_test_SENTINEL/input.mov "
+            + String(repeating: "private-detail-", count: 512)
+        let store = MirmirDiagnosticStore()
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "media_pipeline",
+            operation: "preservation_preflight",
+            code: "media_preservation_preflight_failed",
+            error: MediaPipelineError.mediaPreservationPreflightFailed(
+                privateReason
+            )
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        XCTAssertEqual(snapshot.records.count, 1)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields,
+            [
+                "failure_category":
+                    "media_preservation_preflight_failed"
+            ]
+        )
+        XCTAssertLessThanOrEqual(
+            try XCTUnwrap(fields["failure_category"]).utf8.count,
+            MirmirDiagnosticToken.maximumBytes
+        )
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            XCTAssertFalse(exportedText.contains(privateReason))
+            XCTAssertFalse(exportedText.contains("Secret Client"))
+            XCTAssertFalse(exportedText.contains("person@example.com"))
+            XCTAssertFalse(exportedText.contains("token-sk_test_SENTINEL"))
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
     func testMPSTextureLimitExportsRequestedGeometryAndHardwareLimit()
         async throws {
         let store = MirmirDiagnosticStore()
@@ -480,6 +719,84 @@ final class MirmirDiagnosticExportTests: XCTestCase {
         let json = try await store.exportJSON()
         let markdown = try await store.exportMarkdown()
         let jsonText = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let markdownText = try XCTUnwrap(
+            String(data: markdown, encoding: .utf8)
+        )
+        for exportedText in [jsonText, markdownText] {
+            XCTAssertFalse(exportedText.contains(privateOutputURL.path))
+            XCTAssertFalse(exportedText.contains("Secret Client"))
+            XCTAssertFalse(exportedText.contains("person@example.com"))
+            XCTAssertFalse(exportedText.contains("token-sk_test_SENTINEL"))
+        }
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateJSON(json)
+        )
+        XCTAssertNoThrow(
+            try MirmirDiagnosticPrivacyValidator.validateDocumentText(
+                markdownText
+            )
+        )
+    }
+
+    func testMetadataVerificationFailureExportsTypedSafeCauseAndCounts()
+        async throws {
+        let store = MirmirDiagnosticStore()
+        let privateOutputURL = URL(
+            fileURLWithPath:
+                "/Users/alice/Secret Client/person@example.com/"
+                + "token-sk_test_SENTINEL/output.mp4"
+        )
+        let error = MediaPipelineError.outputVerificationFailed(
+            privateOutputURL,
+            OutputMediaVerificationError.metadataMismatch(
+                scope: "timed ASH identity",
+                reason: "expected one track with identifiers "
+                    + "[\"mdta/com.mirmir.release.backend-id\"], "
+                    + "observed 2 exact matches among 2 metadata tracks"
+            )
+        )
+
+        await MirmirDiagnosticRecorder(store: store).record(
+            severity: .error,
+            subsystem: "release_upscaler",
+            operation: "finish_job",
+            code: "release_job_failed",
+            error: error
+        )
+
+        let snapshot = try await store.snapshot()
+        let record = try XCTUnwrap(snapshot.records.first)
+        let fields = Dictionary(
+            uniqueKeysWithValues: record.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(
+            fields["verification_failure_kind"],
+            "metadata_mismatch"
+        )
+        XCTAssertEqual(
+            fields["verification_metadata_scope"],
+            "timed_ash_identity"
+        )
+        XCTAssertEqual(
+            fields["verification_metadata_reason_kind"],
+            "metadata_track_identity_count_mismatch"
+        )
+        XCTAssertEqual(
+            fields["verification_matching_metadata_track_count"],
+            "2"
+        )
+        XCTAssertEqual(
+            fields["verification_metadata_track_count"],
+            "2"
+        )
+
+        let json = try await store.exportJSON()
+        let markdown = try await store.exportMarkdown()
+        let jsonText = try XCTUnwrap(
+            String(data: json, encoding: .utf8)
+        )
         let markdownText = try XCTUnwrap(
             String(data: markdown, encoding: .utf8)
         )

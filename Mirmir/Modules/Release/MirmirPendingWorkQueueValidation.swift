@@ -154,6 +154,48 @@ extension MirmirPendingWorkQueue {
                 )
             }
         }
+        if let batch = record.settings.processingPathBatch {
+            try validate(batch)
+        }
+    }
+
+    func validateBatchResults(
+        _ results: [MirmirProcessingPathBatchResult]
+    ) throws {
+        guard results.count <= limits.maximumRecords else {
+            throw MirmirPendingQueueError.capacityExceeded
+        }
+        var jobIDs = Set<String>()
+        var ordinalsByBatch: [String: Set<Int>] = [:]
+        for result in results {
+            try validate(result.batch)
+            try validateIdentity(result.jobID)
+            try validateDisplayName(
+                result.outputDisplayName,
+                field: .outputDisplayName
+            )
+            guard result.completedAt.timeIntervalSinceReferenceDate.isFinite,
+                  jobIDs.insert(result.jobID).inserted,
+                  ordinalsByBatch[result.batch.id, default: []]
+                    .insert(result.batch.ordinal).inserted else {
+                throw MirmirPendingQueueError.invalidRecord(
+                    field: .processingPathBatch
+                )
+            }
+        }
+    }
+
+    func validate(_ batch: MirmirProcessingPathBatchContext) throws {
+        try validateIdentity(batch.id)
+        guard batch.path != .automatic,
+              batch.totalCount > 1,
+              batch.totalCount <= limits.maximumRecords,
+              batch.ordinal >= 0,
+              batch.ordinal < batch.totalCount else {
+            throw MirmirPendingQueueError.invalidRecord(
+                field: .processingPathBatch
+            )
+        }
     }
 
     func validateIdentity(_ value: String) throws {
@@ -191,7 +233,6 @@ extension MirmirPendingWorkQueue {
               value != ".",
               value != "..",
               !value.contains("/"),
-              !value.contains("\\"),
               !value.contains("\u{0}") else {
             throw MirmirPendingQueueError.invalidRecord(field: field)
         }

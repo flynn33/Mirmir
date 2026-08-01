@@ -501,6 +501,158 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         XCTAssertEqual(snapshot.configurationQueries, [.lowLatency2x])
     }
 
+    func testProductFactoryAcceptsObservedIdentityForBothNativeVideoToolboxPaths()
+        async throws {
+        for subjectID in [
+            R04VideoToolboxSubjectID.quality2x,
+            .lowLatency2x
+        ] {
+            let fixture = try await makeNativeProductIdentityFixture(
+                subjectID
+            )
+
+            XCTAssertEqual(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        fixture.identity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                fixture.identity,
+                subjectID.rawValue
+            )
+            _ = await fixture.session.finish()
+        }
+    }
+
+    func testProductFactoryRejectsNativeVideoToolboxIdentityTampering()
+        async throws {
+        for subjectID in [
+            R04VideoToolboxSubjectID.quality2x,
+            .lowLatency2x
+        ] {
+            let fixture = try await makeNativeProductIdentityFixture(
+                subjectID
+            )
+            let identity = fixture.identity
+
+            let wrongBackend = try AppleUpscaleBackendIdentity(
+                backendID: identity.backend.backendID + ".tampered",
+                backendRevision: identity.backend.backendRevision,
+                modelAssetsIdentity: identity.backend.modelAssetsIdentity
+            )
+            let wrongBackendIdentity = try AppleUpscaleRouteIdentity(
+                backend: wrongBackend,
+                configurationIdentity: identity.configurationIdentity,
+                policyIdentity: identity.policyIdentity,
+                materialDecisionIdentity:
+                    identity.materialDecisionIdentity
+            )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        wrongBackendIdentity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                subjectID.rawValue
+            )
+
+            let otherSubjectID: R04VideoToolboxSubjectID =
+                subjectID == .quality2x ? .lowLatency2x : .quality2x
+            let otherRoute = try XCTUnwrap(
+                R04VideoToolboxRouteCatalog.route(otherSubjectID)
+            )
+            let wrongRouteObservation = R04VTNativeCapabilityObservation(
+                route: otherRoute,
+                capability: fixture.observation.capability,
+                status: .runnable,
+                diagnostics: fixture.observation.diagnostics
+            )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        identity,
+                        backend: fixture.backend,
+                        observation: wrongRouteObservation
+                    ),
+                subjectID.rawValue
+            )
+
+            let wrongConfigurationIdentity = try AppleUpscaleRouteIdentity(
+                backend: identity.backend,
+                configurationIdentity:
+                    identity.configurationIdentity + ".tampered",
+                policyIdentity: identity.policyIdentity,
+                materialDecisionIdentity:
+                    identity.materialDecisionIdentity
+            )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        wrongConfigurationIdentity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                subjectID.rawValue
+            )
+
+            let alternateDiagnostics = try alternateAcceptedDiagnostics(
+                for: fixture.backend.route
+            )
+            let wrongDiagnosticsIdentity = try
+                R04VideoToolboxObservedRouteIdentity.make(
+                    declaredRouteIdentity: fixture.backend.routeIdentity,
+                    route: fixture.backend.route,
+                    diagnostics: alternateDiagnostics
+                )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        wrongDiagnosticsIdentity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                subjectID.rawValue
+            )
+
+            let wrongPolicyIdentity = try AppleUpscaleRouteIdentity(
+                backend: identity.backend,
+                configurationIdentity: identity.configurationIdentity,
+                policyIdentity: identity.policyIdentity + ".tampered",
+                materialDecisionIdentity:
+                    identity.materialDecisionIdentity
+            )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        wrongPolicyIdentity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                subjectID.rawValue
+            )
+
+            let wrongMaterialIdentity = try AppleUpscaleRouteIdentity(
+                backend: identity.backend,
+                configurationIdentity: identity.configurationIdentity,
+                policyIdentity: identity.policyIdentity,
+                materialDecisionIdentity:
+                    identity.materialDecisionIdentity + ".tampered"
+            )
+            XCTAssertNil(
+                R13A11ProductSessionFactory
+                    .validatedVideoToolboxSessionIdentity(
+                        wrongMaterialIdentity,
+                        backend: fixture.backend,
+                        observation: fixture.observation
+                    ),
+                subjectID.rawValue
+            )
+            _ = await fixture.session.finish()
+        }
+    }
+
     func testNativeCapabilityObserverQualifiesOnlyValidatedRunnableRoute() async throws {
         let runtime = R04RecordingVideoToolboxRuntime(
             lowLatencySupport: .observed([.two])
@@ -578,19 +730,20 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         }
     }
 
-    func testLiveNativeLowLatencyProductSessionProcessesWhenRunnable() async throws {
+    func testLiveNativeLowLatencyFourTimesProductSessionProcessesWhenRunnable()
+        async throws {
         let observation = try await R04VideoToolboxBackend.observeNativeCapability(
-            subjectID: .lowLatency1p5x
+            subjectID: .lowLatency4x
         )
         guard case .runnable = observation.status else {
             throw XCTSkip(
                 "This host does not expose the exact native "
-                    + "VideoToolbox 720p-to-1080p route."
+                    + "VideoToolbox 480x270-to-1920x1080 route."
             )
         }
 
         let backend = try R04VideoToolboxBackend.makeNative(
-            subjectID: .lowLatency1p5x
+            subjectID: .lowLatency4x
         )
         let creation = await backend.makeSession(
             configuration: try backend.makeConfiguration(),
@@ -606,9 +759,9 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
             return XCTFail("A runnable native route must create its product session")
         }
         let fixture = try makeFrame(
-            resolution: .p720,
+            resolution: .p270,
             sequence: 0,
-            tokenPrefix: "r04.live-native"
+            tokenPrefix: "r04.live-native-low-latency4x"
         )
 
         let outcome = await session.submit(fixture.frame)
@@ -622,6 +775,63 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
         XCTAssertEqual(
             processed.processingIdentity.route,
             sessionIdentity
+        )
+        XCTAssertEqual(fixture.releaseProbe.value, 1)
+        processed.resourceLifetimeToken.release()
+        let summary = await session.finish()
+        XCTAssertEqual(summary.submittedFrameCount, 1)
+        XCTAssertEqual(summary.processedFrameCount, 1)
+    }
+
+    func testLiveNativeQualityFourTimesProductSessionProcessesWhenRunnable()
+        async throws {
+        let observation = try await R04VideoToolboxBackend.observeNativeCapability(
+            subjectID: .quality4x
+        )
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose a ready native VideoToolbox "
+                    + "Quality 480x270-to-1920x1080 route."
+            )
+        }
+
+        let backend = try R04VideoToolboxBackend.makeNative(
+            subjectID: .quality4x
+        )
+        let creation = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: try AppleUpscaleSessionContext(
+                capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                    capabilities: [observation.capability]
+                ),
+                admissionScope: .product,
+                policyIdentity: backend.routeIdentity.policyIdentity
+            )
+        )
+        guard case .created(let session) = creation else {
+            return XCTFail("A runnable native Quality route must create its session")
+        }
+        let fixture = try makeFrame(
+            resolution: .p270,
+            sequence: 0,
+            tokenPrefix: "r04.live-native-quality4x"
+        )
+
+        let outcome = await session.submit(fixture.frame)
+        guard case .processed(let processed) = outcome else {
+            _ = await session.finish()
+            return XCTFail("The native Quality route must process canonical NV12")
+        }
+        XCTAssertEqual(CVPixelBufferGetWidth(processed.pixelBuffer), 1920)
+        XCTAssertEqual(CVPixelBufferGetHeight(processed.pixelBuffer), 1080)
+        XCTAssertEqual(
+            CVPixelBufferGetPixelFormatType(processed.pixelBuffer),
+            R04VideoToolboxRouteCatalog.pixelFormat
+        )
+        XCTAssertEqual(CVPixelBufferGetPlaneCount(processed.pixelBuffer), 2)
+        try R03NV12Contract.validate(
+            pixelBuffer: processed.pixelBuffer,
+            resolution: .p1080
         )
         XCTAssertEqual(fixture.releaseProbe.value, 1)
         processed.resourceLifetimeToken.release()
@@ -754,6 +964,110 @@ final class R04VideoToolboxSessionAdapterTests: XCTestCase {
                 return runtime
             }
         )
+    }
+
+    private func makeNativeProductIdentityFixture(
+        _ subjectID: R04VideoToolboxSubjectID
+    ) async throws -> (
+        backend: R04VideoToolboxBackend,
+        observation: R04VTNativeCapabilityObservation,
+        session: any AppleUpscaleSession,
+        identity: AppleUpscaleRouteIdentity
+    ) {
+        let route = try XCTUnwrap(
+            R04VideoToolboxRouteCatalog.route(subjectID)
+        )
+        let diagnostics = R04VideoToolboxTestDiagnostics.valid(
+            for: route
+        )
+        let runtime: R04RecordingVideoToolboxRuntime
+        let modelAssetsIdentity: AppleUpscaleModelAssetsIdentity
+        switch route.backendKind {
+        case .quality:
+            runtime = R04RecordingVideoToolboxRuntime(
+                qualitySupport: .observed(true),
+                diagnosticsBehavior: .observed(diagnostics)
+            )
+            modelAssetsIdentity = .appleConfigurationManaged(
+                configurationIdentity: route.configurationIdentity,
+                readiness: .ready
+            )
+        case .lowLatency:
+            runtime = R04RecordingVideoToolboxRuntime(
+                lowLatencySupport: .observed([route.scaleFactor]),
+                diagnosticsBehavior: .observed(diagnostics)
+            )
+            modelAssetsIdentity = .notRequired
+        case .optionalFlowSupport:
+            throw R04VideoToolboxAdapterTestError.sessionNotCreated
+        }
+        let backend = try R04VideoToolboxBackend(
+            subjectID: subjectID,
+            modelAssetsIdentity: modelAssetsIdentity,
+            runtimeFactory: { runtime },
+            admissionPolicy: .nativeProduct
+        )
+        let capability = try AppleUpscaleCapability(
+            id: backend.capabilityID,
+            role: .primaryScaler,
+            frameworkIdentity: "VideoToolbox",
+            observationStatus: .observed,
+            runtimeDisposition: .runnable,
+            backendEligibility: .productQualified
+        )
+        let context = try AppleUpscaleSessionContext(
+            capabilityRegistry: AppleUpscaleCapabilityRegistry(
+                capabilities: [capability]
+            ),
+            admissionScope: .product,
+            policyIdentity: backend.routeIdentity.policyIdentity
+        )
+        let outcome = await backend.makeSession(
+            configuration: try backend.makeConfiguration(),
+            context: context
+        )
+        guard case .created(let session) = outcome else {
+            throw R04VideoToolboxAdapterTestError.sessionNotCreated
+        }
+        let identity = await session.identity
+        return (
+            backend,
+            R04VTNativeCapabilityObservation(
+                route: route,
+                capability: capability,
+                status: .runnable,
+                diagnostics: diagnostics
+            ),
+            session,
+            identity
+        )
+    }
+
+    private func alternateAcceptedDiagnostics(
+        for route: R04VideoToolboxRouteDescriptor
+    ) throws -> R04VideoToolboxConfigurationDiagnostics {
+        switch route.backendKind {
+        case .quality:
+            return R04VideoToolboxTestDiagnostics.valid(
+                for: route,
+                usesPrecomputedFlow: true
+            )
+        case .lowLatency:
+            let original = R04VideoToolboxTestDiagnostics.valid(
+                for: route
+            )
+            return R04VideoToolboxConfigurationDiagnostics(
+                nativeIdentity: original.nativeIdentity,
+                supportedPixelFormats: [
+                    R04VideoToolboxRouteCatalog.pixelFormat,
+                    kCVPixelFormatType_32BGRA
+                ],
+                modelStatus: original.modelStatus,
+                processingMode: original.processingMode
+            )
+        case .optionalFlowSupport:
+            throw R04VideoToolboxAdapterTestError.sessionNotCreated
+        }
     }
 
     private func makeContext(
@@ -1010,8 +1324,9 @@ private actor R04RecordingVideoToolboxRuntime: R04VideoToolboxRuntime {
         self.processBehavior = processBehavior
     }
 
-    func quality2xSupport(
-        sourceResolution: VideoResolution
+    func qualitySupport(
+        sourceResolution: VideoResolution,
+        scaleFactor _: R04VideoToolboxScaleFactor
     ) async -> R04VideoToolboxSupportObservation<Bool> {
         qualityQueries.append(sourceResolution)
         return qualitySupport
@@ -1268,7 +1583,7 @@ private enum R04VideoToolboxTestDiagnostics {
         sourceResolution: VideoResolution = .p1080,
         scaleFactor: Int = 2,
         supportedPixelFormats: [OSType] = [
-            R04VideoToolboxRouteCatalog.pixelFormat
+            kCVPixelFormatType_64RGBAHalf
         ],
         modelStatus: R04VideoToolboxObservedModelStatus = .ready
     ) -> R04VideoToolboxConfigurationDiagnostics {

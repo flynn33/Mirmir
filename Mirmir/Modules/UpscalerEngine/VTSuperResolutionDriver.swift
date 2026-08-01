@@ -1,3 +1,4 @@
+import CoreImage
 import CoreMedia
 import CoreVideo
 import Foundation
@@ -200,19 +201,21 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
         self.qualityFlowConfiguration = qualityFlowConfiguration
     }
 
-    func quality2xSupport(
-        sourceResolution: VideoResolution
+    func qualitySupport(
+        sourceResolution: VideoResolution,
+        scaleFactor: R04VideoToolboxScaleFactor
     ) async -> R04VideoToolboxSupportObservation<Bool> {
         guard let configuration = try? VTNativeSRConfigurationBuilder
             .quality(
                 sourceResolution: sourceResolution,
+                scaleFactor: scaleFactor,
                 flowConfiguration: qualityFlowConfiguration
             ) else {
             return .observed(false)
         }
         return .observed(
             configuration.supportedPixelFormats.contains(
-                R04VideoToolboxRouteCatalog.pixelFormat
+                VTNativeQualityPixelBufferBridge.nativePixelFormat
             )
         )
     }
@@ -230,6 +233,7 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
         var scales = Set<R04VideoToolboxScaleFactor>()
         if values.contains(1.5) { scales.insert(.oneAndOneHalf) }
         if values.contains(2.0) { scales.insert(.two) }
+        if values.contains(4.0) { scales.insert(.four) }
         return .observed(scales)
     }
 
@@ -275,6 +279,7 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
                 let configuration = try VTNativeSRConfigurationBuilder
                     .quality(
                         sourceResolution: route.sourceResolution,
+                        scaleFactor: route.scaleFactor,
                         flowConfiguration: qualityFlowConfiguration
                     )
                 guard configuration.frameWidth == route.sourceResolution.width,
@@ -308,14 +313,26 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
                 let configuration = try VTNativeSRConfigurationBuilder
                     .lowLatency(route: route)
                 guard configuration.frameWidth == route.sourceResolution.width,
-                      configuration.frameHeight == route.sourceResolution.height else {
+                      configuration.frameHeight == route.sourceResolution.height,
+                      Self.pixelBufferAttributes(
+                          configuration.sourcePixelBufferAttributes,
+                          match: route.sourceResolution,
+                          pixelFormat: R04VideoToolboxRouteCatalog.pixelFormat
+                      ),
+                      Self.pixelBufferAttributes(
+                          configuration.destinationPixelBufferAttributes,
+                          match: route.targetResolution,
+                          pixelFormat: R04VideoToolboxRouteCatalog.pixelFormat
+                      ) else {
                     return .notObserved
                 }
+                let admittedScale = Float(route.scaleFactor.numerator)
+                    / Float(route.scaleFactor.denominator)
                 return .observed(
                     VTNativeConfigurationDiagnosticsFactory.lowLatency(
                         frameWidth: configuration.frameWidth,
                         frameHeight: configuration.frameHeight,
-                        scaleFactor: configuration.scaleFactor,
+                        scaleFactor: admittedScale,
                         supportedPixelFormats: configuration.supportedPixelFormats
                     )
                 )
@@ -408,8 +425,9 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
         let created: any VTNativeSuperResolutionSession
         switch request.route.backendKind {
         case .quality:
-            guard request.route.routeID == .quality2x,
-                  request.route.scaleFactor == .two else {
+            guard request.route.backendKind == .quality,
+                  request.route.gate == .runtimeSupportRequired,
+                  request.route.scaleFactor.denominator == 1 else {
                 throw VTNativeSuperResolutionError.rejected(.routeContractMismatch)
             }
             created = try VTNativeQualitySuperResolutionSession(
@@ -449,6 +467,32 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
         }
     }
 
+    private static func pixelBufferAttributes(
+        _ attributes: [String: any Sendable],
+        match resolution: VideoResolution,
+        pixelFormat: OSType
+    ) -> Bool {
+        integerValue(attributes[kCVPixelBufferWidthKey as String])
+            == resolution.width
+            && integerValue(attributes[kCVPixelBufferHeightKey as String])
+                == resolution.height
+            && unsignedIntegerValue(
+                attributes[kCVPixelBufferPixelFormatTypeKey as String]
+            ) == pixelFormat
+    }
+
+    private static func integerValue(_ value: (any Sendable)?) -> Int? {
+        if let value = value as? Int { return value }
+        return (value as? NSNumber)?.intValue
+    }
+
+    private static func unsignedIntegerValue(
+        _ value: (any Sendable)?
+    ) -> UInt32? {
+        if let value = value as? UInt32 { return value }
+        return (value as? NSNumber)?.uint32Value
+    }
+
     private static func runtimeOutcome(
         for error: VTNativeSuperResolutionError
     ) -> R04VideoToolboxRuntimeOutcome {
@@ -473,6 +517,7 @@ actor VTSuperResolutionDriver: R04VideoToolboxRuntime {
 enum VTNativeSRConfigurationBuilder {
     static func quality(
         sourceResolution: VideoResolution,
+        scaleFactor: R04VideoToolboxScaleFactor,
         flowConfiguration: VTNativeQualityFlowConfiguration
     ) throws -> VTSuperResolutionScalerConfiguration {
         guard VTSuperResolutionScalerConfiguration.isSupported else {
@@ -480,11 +525,17 @@ enum VTNativeSRConfigurationBuilder {
                 .nativeProcessorUnsupported
             )
         }
+        guard scaleFactor.denominator == 1 else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        let integerScaleFactor = scaleFactor.numerator
         let revision = VTSuperResolutionScalerConfiguration.defaultRevision
         return try VTNativeQualityConfigurationAdmission.construct(
             scaleIsSupported: {
                 VTSuperResolutionScalerConfiguration.supportedScaleFactors
-                    .contains(2)
+                    .contains(integerScaleFactor)
             },
             revisionIsSupported: {
                 VTSuperResolutionScalerConfiguration.supportedRevisions
@@ -494,7 +545,7 @@ enum VTNativeSRConfigurationBuilder {
                 VTSuperResolutionScalerConfiguration(
                     frameWidth: sourceResolution.width,
                     frameHeight: sourceResolution.height,
-                    scaleFactor: 2,
+                    scaleFactor: integerScaleFactor,
                     inputType: .video,
                     usePrecomputedFlow: flowConfiguration.usesPrecomputedFlow,
                     qualityPrioritization: .normal,
@@ -543,6 +594,8 @@ enum VTNativeSRConfigurationBuilder {
             return 1.5
         case .two:
             return 2.0
+        case .four:
+            return 4.0
         default:
             return nil
         }
@@ -556,13 +609,14 @@ enum R04VTNativeConfigurationFactory {
         flowConfiguration: VTNativeQualityFlowConfiguration = .appleComputed
     ) throws -> VTSuperResolutionScalerConfiguration {
         guard binding.intent == .quality,
-              binding.subjectID == .quality2x,
+              R04VideoToolboxRouteCatalog.route(binding.subjectID) == binding.route,
               binding.route.backendKind == .quality,
               binding.route.gate == .runtimeSupportRequired else {
             throw VTNativeSuperResolutionError.rejected(.routeContractMismatch)
         }
         return try VTNativeSRConfigurationBuilder.quality(
             sourceResolution: binding.route.sourceResolution,
+            scaleFactor: binding.route.scaleFactor,
             flowConfiguration: flowConfiguration
         )
     }
@@ -586,6 +640,8 @@ private final class VTNativeQualitySuperResolutionSession:
     private let processor: VTFrameProcessor
     private let sourcePool: VTNativePixelBufferPool
     private let destinationPool: VTNativePixelBufferPool
+    private let canonicalOutputPool: VTNativePixelBufferPool
+    private let colorBridge: VTNativeQualityPixelBufferBridge
 
     private var previousSourceFrame: VTFrameProcessorFrame?
     private var previousOutputFrame: VTFrameProcessorFrame?
@@ -602,10 +658,11 @@ private final class VTNativeQualitySuperResolutionSession:
         let configuration = try VTNativeSRConfigurationBuilder
             .quality(
                 sourceResolution: route.sourceResolution,
+                scaleFactor: route.scaleFactor,
                 flowConfiguration: flowConfiguration
             )
         guard configuration.supportedPixelFormats.contains(
-            R04VideoToolboxRouteCatalog.pixelFormat
+            VTNativeQualityPixelBufferBridge.nativePixelFormat
         ) else {
             throw VTNativeSuperResolutionError.rejected(.unsupportedPixelFormat)
         }
@@ -635,13 +692,22 @@ private final class VTNativeQualitySuperResolutionSession:
         sourcePool = try VTNativePixelBufferPool(
             requiredAttributes: configuration.sourcePixelBufferAttributes,
             resolution: route.sourceResolution,
-            pixelFormat: R04VideoToolboxRouteCatalog.pixelFormat
+            pixelFormat: VTNativeQualityPixelBufferBridge.nativePixelFormat,
+            expectedPlaneCount: 0
         )
         destinationPool = try VTNativePixelBufferPool(
             requiredAttributes: configuration.destinationPixelBufferAttributes,
             resolution: route.targetResolution,
-            pixelFormat: R04VideoToolboxRouteCatalog.pixelFormat
+            pixelFormat: VTNativeQualityPixelBufferBridge.nativePixelFormat,
+            expectedPlaneCount: 0
         )
+        canonicalOutputPool = try VTNativePixelBufferPool(
+            requiredAttributes: [:],
+            resolution: route.targetResolution,
+            pixelFormat: R04VideoToolboxRouteCatalog.pixelFormat,
+            expectedPlaneCount: 2
+        )
+        colorBridge = VTNativeQualityPixelBufferBridge()
         processor = VTFrameProcessor()
         do {
             try processor.startSession(configuration: configuration)
@@ -666,8 +732,14 @@ private final class VTNativeQualitySuperResolutionSession:
             throw VTNativeSuperResolutionError.rejected(.operationCancelled)
         }
 
-        let sourceBuffer = try sourcePool.stage(request.sourceFrame.pixelBuffer)
+        let sourceBuffer = try sourcePool.makePixelBuffer()
+        try colorBridge.convertCanonicalNV12(
+            request.sourceFrame.pixelBuffer,
+            toNativeRGBAHalf: sourceBuffer,
+            resolution: route.sourceResolution
+        )
         let destinationBuffer = try destinationPool.makePixelBuffer()
+        CVBufferPropagateAttachments(sourceBuffer, destinationBuffer)
         let sourceFrame = try Self.frame(
             sourceBuffer,
             timestamp: request.sourceFrame.presentationTimestamp
@@ -698,14 +770,19 @@ private final class VTNativeQualitySuperResolutionSession:
         guard !cancellation.isCancelled, !Task.isCancelled else {
             throw VTNativeSuperResolutionError.rejected(.operationCancelled)
         }
-        CVBufferPropagateAttachments(request.sourceFrame.pixelBuffer, destinationBuffer)
+        let canonicalOutput = try canonicalOutputPool.makePixelBuffer()
+        try colorBridge.convertNativeRGBAHalf(
+            destinationBuffer,
+            toCanonicalNV12: canonicalOutput,
+            resolution: route.targetResolution
+        )
         previousSourceFrame = sourceFrame
         previousOutputFrame = destinationFrame
         previousSequenceNumber = request.sourceFrame.sequenceNumber
         previousPresentationTimestamp = request.sourceFrame.presentationTimestamp
         previousDuration = request.sourceFrame.duration
         acceptedHistoryGeneration = request.historyGeneration
-        return destinationBuffer
+        return canonicalOutput
     }
 
     func end() {
@@ -929,15 +1006,123 @@ private final class VTNativeLowLatencySuperResolutionSession:
 }
 
 @available(macOS 26.0, *)
+final class VTNativeQualityPixelBufferBridge: @unchecked Sendable {
+    static let nativePixelFormat = kCVPixelFormatType_64RGBAHalf
+
+    private let context = CIContext(options: [
+        .workingColorSpace: NSNull(),
+        .outputColorSpace: NSNull(),
+        .cacheIntermediates: false
+    ])
+    private let executionLock = NSLock()
+
+    func convertCanonicalNV12(
+        _ source: CVPixelBuffer,
+        toNativeRGBAHalf destination: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        try R03NV12Contract.validate(
+            pixelBuffer: source,
+            resolution: resolution
+        )
+        try Self.validateNativeRGBAHalf(
+            destination,
+            resolution: resolution
+        )
+        try render(
+            source: source,
+            destination: destination,
+            resolution: resolution
+        )
+    }
+
+    func convertNativeRGBAHalf(
+        _ source: CVPixelBuffer,
+        toCanonicalNV12 destination: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        try Self.validateNativeRGBAHalf(
+            source,
+            resolution: resolution
+        )
+        guard CVPixelBufferGetWidth(destination) == resolution.width,
+              CVPixelBufferGetHeight(destination) == resolution.height,
+              CVPixelBufferGetPixelFormatType(destination)
+                == R04VideoToolboxRouteCatalog.pixelFormat,
+              CVPixelBufferGetPlaneCount(destination) == 2,
+              CVPixelBufferGetIOSurface(destination) != nil else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        try render(
+            source: source,
+            destination: destination,
+            resolution: resolution
+        )
+        try R03NV12Contract.validate(
+            pixelBuffer: destination,
+            resolution: resolution
+        )
+    }
+
+    private func render(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        guard resolution.width > 0, resolution.height > 0 else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+        let bounds = CGRect(
+            x: 0,
+            y: 0,
+            width: resolution.width,
+            height: resolution.height
+        )
+        let image = CIImage(cvPixelBuffer: source).cropped(to: bounds)
+        executionLock.lock()
+        defer { executionLock.unlock() }
+        context.render(
+            image,
+            to: destination,
+            bounds: bounds,
+            colorSpace: nil
+        )
+        CVBufferPropagateAttachments(source, destination)
+    }
+
+    private static func validateNativeRGBAHalf(
+        _ pixelBuffer: CVPixelBuffer,
+        resolution: VideoResolution
+    ) throws {
+        guard CVPixelBufferGetWidth(pixelBuffer) == resolution.width,
+              CVPixelBufferGetHeight(pixelBuffer) == resolution.height,
+              CVPixelBufferGetPixelFormatType(pixelBuffer)
+                == nativePixelFormat,
+              CVPixelBufferGetPlaneCount(pixelBuffer) == 0,
+              CVPixelBufferGetIOSurface(pixelBuffer) != nil else {
+            throw VTNativeSuperResolutionError.rejected(
+                .routeContractMismatch
+            )
+        }
+    }
+}
+
+@available(macOS 26.0, *)
 private final class VTNativePixelBufferPool: @unchecked Sendable {
     private let pool: CVPixelBufferPool
     private let resolution: VideoResolution
     private let pixelFormat: OSType
+    private let expectedPlaneCount: Int
 
     init(
         requiredAttributes: [String: any Sendable],
         resolution: VideoResolution,
-        pixelFormat: OSType
+        pixelFormat: OSType,
+        expectedPlaneCount: Int = 2
     ) throws {
         let clientAttributes: [String: Any] = [
             kCVPixelBufferWidthKey as String: resolution.width,
@@ -973,6 +1158,7 @@ private final class VTNativePixelBufferPool: @unchecked Sendable {
         pool = createdPool
         self.resolution = resolution
         self.pixelFormat = pixelFormat
+        self.expectedPlaneCount = expectedPlaneCount
     }
 
     func makePixelBuffer() throws -> CVPixelBuffer {
@@ -1003,7 +1189,8 @@ private final class VTNativePixelBufferPool: @unchecked Sendable {
         guard CVPixelBufferGetWidth(pixelBuffer) == resolution.width,
               CVPixelBufferGetHeight(pixelBuffer) == resolution.height,
               CVPixelBufferGetPixelFormatType(pixelBuffer) == pixelFormat,
-              CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
+              CVPixelBufferGetPlaneCount(pixelBuffer)
+                == expectedPlaneCount else {
             throw VTNativeSuperResolutionError.rejected(.routeContractMismatch)
         }
     }

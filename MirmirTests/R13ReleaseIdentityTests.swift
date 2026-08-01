@@ -27,7 +27,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
             "AppleNativeMultiEngine"
         )
 
-        XCTAssertEqual(first.timedMetadata.count, 38)
+        XCTAssertEqual(first.timedMetadata.count, 39)
         let routingMetadata = try R13ProductASHDecisionSummary(
             events: [
                 R13ProductASHDecisionEvent(
@@ -40,7 +40,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
                                 "r03.vimage.lanczos5.scale-2x"
                         ),
                     reason: .initialSelection,
-                    failedBackendIDs: []
+                    fallbackHistory: []
                 )
             ]
         ).outputMetadata()
@@ -166,7 +166,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
                                     "r03.vimage.lanczos5.scale-2x"
                             ),
                         reason: .initialSelection,
-                        failedBackendIDs: [],
+                        fallbackHistory: [],
                         processingPressureQ16: 1_024
                     )
                 ],
@@ -291,7 +291,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
                         selectedRouteIdentity:
                             appleManagedRoute,
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     )
                 ]
             ).outputMetadata()
@@ -345,15 +345,20 @@ final class R13ReleaseIdentityTests: XCTestCase {
                         selectedRouteIdentity:
                             appleManagedRoute,
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     ),
                     R13ProductASHDecisionEvent(
                         sequenceNumber: 1,
                         selectedRouteIdentity:
                             fallbackRoute,
                         reason: .fatalBackendFailover,
-                        failedBackendIDs: [
-                            appleManagedRoute.backend.backendID
+                        fallbackHistory: [
+                            try AppleUpscaleFallbackLink(
+                                failedRoute: appleManagedRoute,
+                                selectedRoute: fallbackRoute,
+                                reasonCode: .backendUnavailable,
+                                selectedFallbackOrdinal: 0
+                            )
                         ]
                     )
                 ]
@@ -378,6 +383,55 @@ final class R13ReleaseIdentityTests: XCTestCase {
         )
         XCTAssertNoThrow(
             try identity.validateTimedMetadata(mixedOutput)
+        )
+
+        var mismatchedFallbackCount = mixedOutput
+        mismatchedFallbackCount[
+            R13ProductASHDecisionMetadata.fallbackCountKey
+        ] = "2"
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: mismatchedFallbackCount,
+            field: "routing_fallback_events"
+        )
+
+        var noncanonicalFallbackEvents = mixedOutput
+        noncanonicalFallbackEvents[
+            R13ProductASHDecisionMetadata.fallbackEventsKey
+        ] = " " + mixedRoutingMetadata.fallbackEventsJSON
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: noncanonicalFallbackEvents,
+            field: "routing_fallback_events"
+        )
+
+        var invalidFallbackReason = mixedOutput
+        invalidFallbackReason[
+            R13ProductASHDecisionMetadata.fallbackEventsKey
+        ] = mixedRoutingMetadata.fallbackEventsJSON
+            .replacingOccurrences(
+                of: AppleUpscaleFallbackReasonCode
+                    .backendUnavailable.rawValue,
+                with: "invented_reason"
+            )
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: invalidFallbackReason,
+            field: "routing_fallback_events"
+        )
+
+        var invalidFallbackRoute = mixedOutput
+        invalidFallbackRoute[
+            R13ProductASHDecisionMetadata.fallbackEventsKey
+        ] = mixedRoutingMetadata.fallbackEventsJSON
+            .replacingOccurrences(
+                of: "r13.release.decision.test.v1",
+                with: ""
+            )
+        assertRoutingMetadataError(
+            identity: identity,
+            metadata: invalidFallbackRoute,
+            field: "routing_fallback_events"
         )
 
         var duplicatedStatus = mixedOutput
@@ -667,7 +721,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
                                     )
                             ),
                         reason: .initialSelection,
-                        failedBackendIDs: []
+                        fallbackHistory: []
                     )
                 ]
             ).outputMetadata()
@@ -712,6 +766,7 @@ final class R13ReleaseIdentityTests: XCTestCase {
             "\(modeBinding.adaptiveRouteID):"
                 + modeBinding
                     .adaptiveConfigurationIdentity(for: plan)
+                + ":release-\(identity.identitySHA256)"
                 + ":\(job.processingConfiguration.identity)"
                 + ":progressive:not_required"
         )
@@ -742,6 +797,293 @@ final class R13ReleaseIdentityTests: XCTestCase {
             XCTAssertEqual(
                 error as? R13ReleaseIdentityError,
                 .adaptiveBindingMismatch(field: "backend_id")
+            )
+        }
+    }
+
+    func testRestartCoreBindsFullReleaseIdentityAndRejectsIdentityDrift()
+        async throws {
+        let input = try makeDirectInput()
+        let identity = try R13ReleaseIdentity(input)
+        let core = try restartCore(
+            input: input,
+            identity: identity,
+            jobID: "r13-release-identity-drift"
+        )
+        let identicalIdentity = try R13ReleaseIdentity(input)
+        let identicalCore = try restartCore(
+            input: input,
+            identity: identicalIdentity,
+            jobID: core.jobID
+        )
+        let releaseComponent = try R13RestartProcessingIdentity
+            .releaseIdentityComponent(
+                sha256: identity.identitySHA256
+            )
+
+        XCTAssertEqual(
+            identicalIdentity.identitySHA256,
+            identity.identitySHA256
+        )
+        XCTAssertEqual(identicalCore, core)
+        XCTAssertEqual(
+            core.processing.routeIdentity,
+            "scale_2x:"
+                + "\(identity.configurationIdentity):"
+                + "\(releaseComponent):"
+                + "\(identity.processingConfigurationIdentity):"
+                + "progressive:not_required"
+        )
+
+        let changedInputs = try directRestartDriftInputs(input)
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = R13RestartJobStore(jobsRootURL: root)
+        _ = try await store.create(core)
+        _ = try await store.reopen(
+            jobID: core.jobID,
+            expecting: identicalCore,
+            observedSource: core.source
+        )
+
+        for changed in changedInputs {
+            let changedIdentity = try R13ReleaseIdentity(changed.input)
+            let changedCore = try restartCore(
+                input: changed.input,
+                identity: changedIdentity,
+                jobID: core.jobID
+            )
+
+            XCTAssertNotEqual(
+                changedIdentity.identitySHA256,
+                identity.identitySHA256,
+                changed.label
+            )
+            XCTAssertNotEqual(changedCore, core, changed.label)
+            XCTAssertEqual(changedCore.source, core.source, changed.label)
+            XCTAssertEqual(changedCore.output, core.output, changed.label)
+            XCTAssertEqual(
+                changedCore.processing.backendIdentity,
+                core.processing.backendIdentity,
+                changed.label
+            )
+            do {
+                _ = try await store.reopen(
+                    jobID: core.jobID,
+                    expecting: changedCore,
+                    observedSource: core.source
+                )
+                XCTFail(
+                    "Identity drift reopened cached frames: \(changed.label)"
+                )
+            } catch {
+                XCTAssertEqual(
+                    error as? R13RestartJobError,
+                    .immutableCoreMismatch,
+                    changed.label
+                )
+            }
+        }
+    }
+
+    func testRestartCoreRejectsCompositeFrameworkRuntimeDrift()
+        async throws {
+        let input = try makeInput()
+        let identity = try R13ReleaseIdentity(input)
+        let core = try restartCore(
+            input: input,
+            identity: identity,
+            jobID: "r13-composite-identity-drift"
+        )
+        let releaseComponent = try R13RestartProcessingIdentity
+            .releaseIdentityComponent(
+                sha256: identity.identitySHA256
+            )
+        XCTAssertEqual(
+            core.processing.routeIdentity,
+            "scale_2x:"
+                + "\(identity.configurationIdentity):"
+                + "\(releaseComponent):"
+                + "\(identity.processingConfigurationIdentity):"
+                + "progressive:not_required"
+        )
+
+        let changedInputs = [
+            (
+                label: "composite_version",
+                input: try replacingReleaseInputs(
+                    input,
+                    framework: R13ReleaseFrameworkIdentity(
+                        frameworkIdentifier:
+                            input.framework.frameworkIdentifier,
+                        version: "15.4.1",
+                        buildIdentity: input.framework.buildIdentity
+                    ),
+                    runtime: R13ReleaseRuntimeIdentity(
+                        runtimeIdentifier:
+                            input.runtime.runtimeIdentifier,
+                        version: "15.4.1",
+                        buildIdentity: input.runtime.buildIdentity,
+                        architecture: input.runtime.architecture
+                    )
+                )
+            ),
+            (
+                label: "composite_build",
+                input: try replacingReleaseInputs(
+                    input,
+                    framework: R13ReleaseFrameworkIdentity(
+                        frameworkIdentifier:
+                            input.framework.frameworkIdentifier,
+                        version: input.framework.version,
+                        buildIdentity: "24F75"
+                    ),
+                    runtime: R13ReleaseRuntimeIdentity(
+                        runtimeIdentifier:
+                            input.runtime.runtimeIdentifier,
+                        version: input.runtime.version,
+                        buildIdentity: "24F75",
+                        architecture: input.runtime.architecture
+                    )
+                )
+            )
+        ]
+
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = R13RestartJobStore(jobsRootURL: root)
+        _ = try await store.create(core)
+
+        for changed in changedInputs {
+            let changedIdentity = try R13ReleaseIdentity(changed.input)
+            let changedCore = try restartCore(
+                input: changed.input,
+                identity: changedIdentity,
+                jobID: core.jobID
+            )
+
+            XCTAssertNotEqual(
+                changedIdentity.identitySHA256,
+                identity.identitySHA256,
+                changed.label
+            )
+            XCTAssertNotEqual(changedCore, core, changed.label)
+            do {
+                _ = try await store.reopen(
+                    jobID: core.jobID,
+                    expecting: changedCore,
+                    observedSource: core.source
+                )
+                XCTFail(
+                    "Composite identity drift reopened cached frames: "
+                        + changed.label
+                )
+            } catch {
+                XCTAssertEqual(
+                    error as? R13RestartJobError,
+                    .immutableCoreMismatch,
+                    changed.label
+                )
+            }
+        }
+    }
+
+    func testRecoveryRejectsLegacyAndMalformedReleaseIdentityBindings()
+        async throws {
+        let input = try makeInput()
+        let identity = try R13ReleaseIdentity(input)
+        let jobID = "r13-release-identity-recovery"
+        let job = try restartJob(input: input, jobID: jobID)
+        let core = try restartCore(
+            input: input,
+            identity: identity,
+            jobID: jobID
+        )
+        let descriptor = try R13RecoveryDescriptor(job: job)
+        let releaseComponent = try R13RestartProcessingIdentity
+            .releaseIdentityComponent(
+                sha256: identity.identitySHA256
+            )
+        let boundMarker = ":\(releaseComponent):"
+        let legacyRouteIdentity = core.processing.routeIdentity
+            .replacingOccurrences(
+                of: boundMarker,
+                with: ":"
+            )
+
+        XCTAssertNotEqual(
+            legacyRouteIdentity,
+            core.processing.routeIdentity
+        )
+        XCTAssertNoThrow(
+            try descriptor.validate(
+                against: R13ValidatedRecoverableJob(
+                    cachedFrameCount: 0,
+                    processing: core.processing,
+                    output: core.output
+                )
+            )
+        )
+
+        let malformedRouteIdentities = [
+            legacyRouteIdentity,
+            core.processing.routeIdentity.replacingOccurrences(
+                of: releaseComponent,
+                with: "release-" + String(repeating: "a", count: 63)
+            ),
+            core.processing.routeIdentity.replacingOccurrences(
+                of: releaseComponent,
+                with: "release-" + String(repeating: "A", count: 64)
+            ),
+            core.processing.routeIdentity.replacingOccurrences(
+                of: boundMarker,
+                with: ":\(releaseComponent):\(releaseComponent):"
+            )
+        ]
+        for routeIdentity in malformedRouteIdentities {
+            let malformedCore = try replacingRouteIdentity(
+                core,
+                with: routeIdentity
+            )
+            XCTAssertThrowsError(
+                try descriptor.validate(
+                    against: R13ValidatedRecoverableJob(
+                        cachedFrameCount: 0,
+                        processing: malformedCore.processing,
+                        output: malformedCore.output
+                    )
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? R13RestartJobError,
+                    .immutableCoreMismatch
+                )
+            }
+        }
+
+        let legacyCore = try replacingRouteIdentity(
+            core,
+            with: legacyRouteIdentity
+        )
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = R13RestartJobStore(jobsRootURL: root)
+        _ = try await store.create(legacyCore)
+        do {
+            _ = try await store.reopen(
+                jobID: jobID,
+                expecting: core,
+                observedSource: core.source
+            )
+            XCTFail("A legacy core without release identity was reopened.")
+        } catch {
+            XCTAssertEqual(
+                error as? R13RestartJobError,
+                .immutableCoreMismatch
             )
         }
     }
@@ -978,6 +1320,37 @@ private extension R13ReleaseIdentityTests {
         )
     }
 
+    func makeDirectInput() throws -> R13ReleaseIdentityInput {
+        let base = try makeInput()
+        let scaleRoute = R03ScaleRoute.scale2x
+        let modeBinding = R13ReleaseModePolicy.binding(
+            for: .deterministic
+        )
+        return R13ReleaseIdentityInput(
+            source: base.source,
+            modeBinding: modeBinding,
+            output: base.output,
+            scalePlan: .productQualified(scaleRoute),
+            routeIdentity: try R13ReleaseIdentity.makeProductRoute(
+                for: scaleRoute,
+                modeBinding: modeBinding
+            ),
+            application: base.application,
+            framework: try R13ReleaseFrameworkIdentity(
+                frameworkIdentifier: "MetalPerformanceShaders",
+                version: "1.0",
+                buildIdentity: "1"
+            ),
+            runtime: base.runtime,
+            policyResources: base.policyResources,
+            fallbackHistory: base.fallbackHistory,
+            processingConfiguration: base.processingConfiguration,
+            sourceScanStructure: base.sourceScanStructure,
+            deinterlacingAlgorithmIdentity:
+                base.deinterlacingAlgorithmIdentity
+        )
+    }
+
     func application(
         bundleIdentifier: String = "com.mirmir.app"
     ) throws -> R13ReleaseApplicationIdentity {
@@ -1083,6 +1456,185 @@ private extension R13ReleaseIdentityTests {
             runtime: input.runtime,
             policyResources: input.policyResources,
             fallbackHistory: fallback
+        )
+    }
+
+    func replacingReleaseInputs(
+        _ input: R13ReleaseIdentityInput,
+        application: R13ReleaseApplicationIdentity? = nil,
+        framework: R13ReleaseFrameworkIdentity? = nil,
+        runtime: R13ReleaseRuntimeIdentity? = nil,
+        policyResources: R13ReleasePolicyResourceBinding? = nil
+    ) -> R13ReleaseIdentityInput {
+        R13ReleaseIdentityInput(
+            source: input.source,
+            modeBinding: input.modeBinding,
+            output: input.output,
+            scalePlan: input.scalePlan,
+            routeIdentity: input.routeIdentity,
+            application: application ?? input.application,
+            framework: framework ?? input.framework,
+            runtime: runtime ?? input.runtime,
+            policyResources: policyResources ?? input.policyResources,
+            fallbackHistory: input.fallbackHistory,
+            processingConfiguration: input.processingConfiguration,
+            sourceScanStructure: input.sourceScanStructure,
+            deinterlacingAlgorithmIdentity:
+                input.deinterlacingAlgorithmIdentity
+        )
+    }
+
+    func directRestartDriftInputs(
+        _ input: R13ReleaseIdentityInput
+    ) throws -> [(label: String, input: R13ReleaseIdentityInput)] {
+        [
+            (
+                "application_executable",
+                replacingReleaseInputs(
+                    input,
+                    application: try R13ReleaseApplicationIdentity(
+                        bundleIdentifier:
+                            input.application.bundleIdentifier,
+                        semanticVersion:
+                            input.application.semanticVersion,
+                        buildVersion: input.application.buildVersion,
+                        executableSHA256: hash("5"),
+                        executableByteCount:
+                            input.application.executableByteCount
+                    )
+                )
+            ),
+            (
+                "framework_version",
+                replacingReleaseInputs(
+                    input,
+                    framework: try R13ReleaseFrameworkIdentity(
+                        frameworkIdentifier:
+                            input.framework.frameworkIdentifier,
+                        version: "1.1",
+                        buildIdentity: input.framework.buildIdentity
+                    )
+                )
+            ),
+            (
+                "framework_build",
+                replacingReleaseInputs(
+                    input,
+                    framework: try R13ReleaseFrameworkIdentity(
+                        frameworkIdentifier:
+                            input.framework.frameworkIdentifier,
+                        version: input.framework.version,
+                        buildIdentity: "2"
+                    )
+                )
+            ),
+            (
+                "runtime_version",
+                replacingReleaseInputs(
+                    input,
+                    runtime: try R13ReleaseRuntimeIdentity(
+                        runtimeIdentifier:
+                            input.runtime.runtimeIdentifier,
+                        version: "15.4.1",
+                        buildIdentity: input.runtime.buildIdentity,
+                        architecture: input.runtime.architecture
+                    )
+                )
+            ),
+            (
+                "runtime_build",
+                replacingReleaseInputs(
+                    input,
+                    runtime: try R13ReleaseRuntimeIdentity(
+                        runtimeIdentifier:
+                            input.runtime.runtimeIdentifier,
+                        version: input.runtime.version,
+                        buildIdentity: "24F75",
+                        architecture: input.runtime.architecture
+                    )
+                )
+            ),
+            (
+                "policy_digest",
+                replacingReleaseInputs(
+                    input,
+                    policyResources:
+                        try R13ReleasePolicyResourceBinding(
+                            policySHA256: hash("6"),
+                            resourceManifestSHA256:
+                                input.policyResources
+                                    .resourceManifestSHA256
+                        )
+                )
+            )
+        ]
+    }
+
+    func restartJob(
+        input: R13ReleaseIdentityInput,
+        jobID: String
+    ) throws -> UpscaleJob {
+        guard let codec = OutputCodec(rawValue: input.output.codec) else {
+            throw R13RestartJobError.invalidIdentity(
+                field: "output_codec"
+            )
+        }
+        return UpscaleJob(
+            identifier: jobID,
+            inputURL: URL(
+                fileURLWithPath: "/tmp/\(jobID)-input.mov"
+            ),
+            outputURL: URL(
+                fileURLWithPath: "/tmp/\(jobID)-output.mp4"
+            ),
+            targetResolution: VideoResolution(
+                width: input.output.width,
+                height: input.output.height
+            ),
+            codec: codec,
+            preserveAudio: input.output.preserveAudio,
+            mode: input.modeBinding.requestedMode,
+            processingConfiguration: input.processingConfiguration
+        )
+    }
+
+    func restartCore(
+        input: R13ReleaseIdentityInput,
+        identity: R13ReleaseIdentity,
+        jobID: String
+    ) throws -> R13RestartJobCore {
+        let job = try restartJob(input: input, jobID: jobID)
+        let source = try R13RestartSourceIdentity(
+            sha256: input.source.sha256,
+            byteCount: input.source.byteCount
+        )
+        return try R13ReleaseHardeningRuntime.makeRestartCore(
+            job: job,
+            scalePlan: input.scalePlan,
+            identity: identity,
+            modeBinding: input.modeBinding,
+            source: source,
+            totalFrameCount: 17
+        )
+    }
+
+    func replacingRouteIdentity(
+        _ core: R13RestartJobCore,
+        with routeIdentity: String
+    ) throws -> R13RestartJobCore {
+        let processing = try R13RestartProcessingIdentity(
+            requestedMode: core.processing.requestedMode,
+            effectiveMode: core.processing.effectiveMode,
+            routeIdentity: routeIdentity,
+            backendIdentity: core.processing.backendIdentity,
+            backendRevision: core.processing.backendRevision
+        )
+        return try R13RestartJobCore(
+            jobID: core.jobID,
+            source: core.source,
+            processing: processing,
+            output: core.output,
+            totalFrameCount: core.totalFrameCount
         )
     }
 

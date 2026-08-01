@@ -14,9 +14,11 @@ enum R04VideoToolboxContractError: Error, Equatable, Sendable {
 
 enum R04VideoToolboxSubjectID: String, CaseIterable, Hashable, Sendable {
     case quality2x = "r04.videotoolbox.quality-2x"
+    case quality4x = "r04.videotoolbox.quality-4x"
     case quality1p5xContract = "r04.videotoolbox.quality-1p5x-contract"
     case lowLatency1p5x = "r04.videotoolbox.low-latency-1p5x"
     case lowLatency2x = "r04.videotoolbox.low-latency-2x"
+    case lowLatency4x = "r04.videotoolbox.low-latency-4x"
     case opticalFlowSupport = "r04.videotoolbox.optical-flow-support"
 }
 
@@ -43,10 +45,14 @@ enum R04VideoToolboxNativeRouteSelector {
         switch (sourceResolution, targetResolution, intent) {
         case (.p1080, .p2160, .quality):
             subjectID = .quality2x
+        case (.p270, .p1080, .quality):
+            subjectID = .quality4x
         case (.p720, .p1080, .lowLatency):
             subjectID = .lowLatency1p5x
         case (.p1080, .p2160, .lowLatency):
             subjectID = .lowLatency2x
+        case (.p270, .p1080, .lowLatency):
+            subjectID = .lowLatency4x
         default:
             subjectID = nil
         }
@@ -62,9 +68,11 @@ enum R04VideoToolboxNativeRouteSelector {
 
 enum R04VideoToolboxRouteID: String, CaseIterable, Hashable, Sendable {
     case quality2x = "quality_2x"
+    case quality4x = "quality_4x"
     case quality1p5xContract = "quality_1p5x_contract"
     case lowLatency1p5x = "low_latency_1p5x"
     case lowLatency2x = "low_latency_2x"
+    case lowLatency4x = "low_latency_4x"
     case opticalFlow1080p = "optical_flow_1080p"
 }
 
@@ -121,6 +129,7 @@ struct R04VideoToolboxScaleFactor: Hashable, Sendable {
     static let one = makeStatic(numerator: 1, denominator: 1)
     static let oneAndOneHalf = makeStatic(numerator: 3, denominator: 2)
     static let two = makeStatic(numerator: 2, denominator: 1)
+    static let four = makeStatic(numerator: 4, denominator: 1)
 
     func matches(
         source: VideoResolution,
@@ -544,6 +553,24 @@ enum R04VideoToolboxRouteCatalog {
                     productDefaultEligibility: .candidateAfterObservedQualification
                 ),
                 R04VideoToolboxRouteDescriptor(
+                    subjectID: .quality4x,
+                    routeID: .quality4x,
+                    capabilityID: "A01",
+                    backendKind: .quality,
+                    sourceResolution: .p270,
+                    targetResolution: .p1080,
+                    scaleFactor: .four,
+                    gate: .runtimeSupportRequired,
+                    configurationContract: qualityConfiguration(
+                        source: .p270,
+                        scaleFactorIdentity: "4",
+                        modelStatus: .notObserved
+                    ),
+                    temporalPolicy: .qualitySequential,
+                    opticalFlowRole: .optionalQualityInput,
+                    productDefaultEligibility: .candidateAfterObservedQualification
+                ),
+                R04VideoToolboxRouteDescriptor(
                     subjectID: .quality1p5xContract,
                     routeID: .quality1p5xContract,
                     capabilityID: "A01",
@@ -590,6 +617,23 @@ enum R04VideoToolboxRouteCatalog {
                     configurationContract: lowLatencyConfiguration(
                         source: .p1080,
                         floatScaleFactorIdentity: "2.0"
+                    ),
+                    temporalPolicy: .statelessRandom,
+                    opticalFlowRole: .notApplicable,
+                    productDefaultEligibility: .candidateAfterObservedQualification
+                ),
+                R04VideoToolboxRouteDescriptor(
+                    subjectID: .lowLatency4x,
+                    routeID: .lowLatency4x,
+                    capabilityID: "A02",
+                    backendKind: .lowLatency,
+                    sourceResolution: .p270,
+                    targetResolution: .p1080,
+                    scaleFactor: .four,
+                    gate: .exactDimensionQueryRequired,
+                    configurationContract: lowLatencyConfiguration(
+                        source: .p270,
+                        floatScaleFactorIdentity: "4.0"
                     ),
                     temporalPolicy: .statelessRandom,
                     opticalFlowRole: .notApplicable,

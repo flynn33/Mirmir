@@ -259,6 +259,8 @@ func writeOneFrameVideo(
     containerMetadata: [AVMetadataItem] = [],
     videoTrackMetadata: [AVMetadataItem] = [],
     timedMetadata: [String: String]? = nil,
+    timedMetadataTrackMetadata: [AVMetadataItem] = [],
+    timedMetadataAssociatesWithVideo: Bool = true,
     subtitleText: String? = nil,
     textTrackText: String? = nil,
     closedCaptionText: String? = nil,
@@ -278,6 +280,9 @@ func writeOneFrameVideo(
         containerMetadata: containerMetadata,
         videoTrackMetadata: videoTrackMetadata,
         timedMetadata: timedMetadata,
+        timedMetadataTrackMetadata: timedMetadataTrackMetadata,
+        timedMetadataAssociatesWithVideo:
+            timedMetadataAssociatesWithVideo,
         subtitleText: subtitleText,
         textTrackText: textTrackText,
         closedCaptionText: closedCaptionText,
@@ -306,6 +311,8 @@ func writeVideoFrames(
     containerMetadata: [AVMetadataItem] = [],
     videoTrackMetadata: [AVMetadataItem] = [],
     timedMetadata: [String: String]? = nil,
+    timedMetadataTrackMetadata: [AVMetadataItem] = [],
+    timedMetadataAssociatesWithVideo: Bool = true,
     subtitleText: String? = nil,
     textTrackText: String? = nil,
     closedCaptionText: String? = nil,
@@ -431,15 +438,18 @@ func writeVideoFrames(
         )
         resolvedMetadataInput.expectsMediaDataInRealTime = false
         resolvedMetadataInput.mediaTimeScale = inputMediaTimeScale
+        resolvedMetadataInput.metadata = timedMetadataTrackMetadata
         guard writer.canAdd(resolvedMetadataInput) else {
             throw MediaTestFailure.cannotAddWriterInput
         }
         writer.add(resolvedMetadataInput)
-        resolvedMetadataInput.addTrackAssociation(
-            withTrackOf: input,
-            type: AVAssetTrack.AssociationType
-                .metadataReferent.rawValue
-        )
+        if timedMetadataAssociatesWithVideo {
+            resolvedMetadataInput.addTrackAssociation(
+                withTrackOf: input,
+                type: AVAssetTrack.AssociationType
+                    .metadataReferent.rawValue
+            )
+        }
         metadataInput = resolvedMetadataInput
         metadataAdaptor = AVAssetWriterInputMetadataAdaptor(
             assetWriterInput: resolvedMetadataInput

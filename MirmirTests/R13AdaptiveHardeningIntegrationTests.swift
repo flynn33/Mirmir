@@ -1,4 +1,5 @@
 import Foundation
+import os.lock
 import XCTest
 @testable import Mirmir
 
@@ -8,20 +9,25 @@ private let adaptiveTargetResolution = VideoResolution(width: 1_280, height: 720
 final class R13ReleaseTestAdaptiveScaler:
     R03NV12Scaling,
     @unchecked Sendable {
+    typealias SourceObserver =
+        @Sendable (CVPixelBuffer) throws -> Void
     typealias DestinationFiller =
         @Sendable (CVPixelBuffer) throws -> Void
 
     private let plan: R13AdaptiveScalePlan
     private let eventLog: R13ReleaseTestEventLog
+    private let sourceObserver: SourceObserver
     private let destinationFiller: DestinationFiller
 
     init(
         plan: R13AdaptiveScalePlan,
         eventLog: R13ReleaseTestEventLog,
+        sourceObserver: @escaping SourceObserver = { _ in },
         destinationFiller: @escaping DestinationFiller = { _ in }
     ) {
         self.plan = plan
         self.eventLog = eventLog
+        self.sourceObserver = sourceObserver
         self.destinationFiller = destinationFiller
     }
 
@@ -41,6 +47,7 @@ final class R13ReleaseTestAdaptiveScaler:
             pixelBuffer: destination,
             resolution: plan.targetResolution
         )
+        try sourceObserver(source)
         try destinationFiller(destination)
         eventLog.record("adaptive.scale")
     }
@@ -136,15 +143,19 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
         let originalSource = Data("adaptive-stable-source".utf8)
         try workspace.writeOpaqueSource(originalSource)
         let eventLog = R13ReleaseTestEventLog()
+        let frames = try makeFrames(count: 3)
         let media = R13IntegrationMediaPipeline(
             resolution: adaptiveSourceResolution,
-            frames: try makeFrames(count: 3),
+            frames: frames,
             estimatedFrameCount: 3,
             failureThresholds: [2, nil]
         )
         let harness = try R13IntegrationHardeningHarness.make(
             jobsRootURL: workspace.jobsRootURL,
             exactFrameCount: 3
+        )
+        let scalerInputs = OSAllocatedUnfairLock(
+            initialState: [R13NV12Frame]()
         )
         let factory = R13ReleaseTestSessionFactory(
             behavior: .processed,
@@ -154,7 +165,12 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
             media: media,
             factory: factory,
             hardeningRuntime: harness.runtime,
-            eventLog: eventLog
+            eventLog: eventLog,
+            sourceObserver: { input in
+                let frame = try R13NV12Frame
+                    .captureTightActivePlanes(from: input)
+                scalerInputs.withLock { $0.append(frame) }
+            }
         )
         let job = makeJob(
             identifier: "r13-adaptive-stable-resume",
@@ -190,6 +206,42 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
             media: media,
             eventLog: eventLog,
             factory: factory
+        )
+        let baselineProcessor =
+            try R13ReleaseFormatEnhancementProcessor(
+                targetResolution: adaptiveSourceResolution,
+                videoFormat: .sdrBT709,
+                temporalConsistencyEnabled: true,
+                edgeFidelityLevel: .medium,
+                detailRecoveryLevel: .medium,
+                edgePreservationEnabled: false,
+                compressionCleanupEnabled: false,
+                textureGrainProtectionEnabled: false,
+                temporalStabilityEnabled: false
+            )
+        defer { baselineProcessor.cancel() }
+        let baselineNormalizer = R13NV12FrameNormalizer()
+        var baselineFrame: CVPixelBuffer?
+        for record in frames {
+            let normalized = try baselineNormalizer
+                .normalizeForAdaptiveScaling(
+                    record.pixelBuffer,
+                    codedResolution: adaptiveSourceResolution,
+                    presentationResolution: adaptiveSourceResolution,
+                    processingResolution: adaptiveSourceResolution,
+                    pixelAspectRatio: nil
+                )
+            baselineFrame = try baselineProcessor.process(normalized)
+        }
+        let expectedResumedInput = try R13NV12Frame
+            .captureTightActivePlanes(
+                from: try XCTUnwrap(baselineFrame)
+            )
+        XCTAssertEqual(
+            scalerInputs.withLock { $0.last },
+            expectedResumedInput,
+            "Adaptive cached-prefix replay must rebuild source-domain "
+                + "temporal enhancement before scaling the suffix."
         )
         try await assertResumeHardeningClosure(
             job: job,
@@ -304,7 +356,11 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
         media: MediaPipelineService,
         factory: R13ReleaseTestSessionFactory,
         hardeningRuntime: R13ReleaseHardeningRuntime,
-        eventLog: R13ReleaseTestEventLog
+        eventLog: R13ReleaseTestEventLog,
+        sourceObserver:
+            @escaping R13ReleaseTestAdaptiveScaler.SourceObserver = {
+                _ in
+            }
     ) -> R13ReleaseUpscalerEngineService {
         R13ReleaseUpscalerEngineService(
             media: media,
@@ -315,7 +371,8 @@ final class R13AdaptiveHardeningIntegrationTests: XCTestCase {
                 eventLog.record("adaptive.factory")
                 return R13ReleaseTestAdaptiveScaler(
                     plan: plan,
-                    eventLog: eventLog
+                    eventLog: eventLog,
+                    sourceObserver: sourceObserver
                 )
             },
             hardeningRuntime: hardeningRuntime

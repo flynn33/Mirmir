@@ -4,13 +4,76 @@ extension UpscaleEnginePreference {
     var title: String {
         switch self {
         case .automatic:
-            return "Automatic"
+            return "Automatic Routing"
+        case .accelerateVImageStandard:
+            return "Accelerate vImage Standard"
         case .accelerateVImageHighQuality:
             return "Accelerate vImage High Quality"
         case .mpsBilinear:
-            return "Apple MPS Bilinear"
+            return "Metal / MPS Bilinear"
         case .mpsLanczos:
-            return "Apple MPS Lanczos"
+            return "Metal / MPS Lanczos"
+        case .coreImageLanczos:
+            return "Core Image Lanczos"
+        case .coreImageBicubic:
+            return "Core Image Bicubic"
+        case .videoToolboxPixelTransfer:
+            return "VideoToolbox Pixel Transfer"
+        case .videoToolboxQuality:
+            return "VideoToolbox Quality"
+        case .videoToolboxLowLatency:
+            return "VideoToolbox Low Latency"
+        case .metalFXSpatial:
+            return "MetalFX Spatial"
+        }
+    }
+
+    static var concreteProcessingPaths: [Self] {
+        allCases.filter { $0 != .automatic }
+    }
+
+    var outputFilenameSuffix: String {
+        rawValue.replacingOccurrences(of: "_", with: "-")
+    }
+
+    static func normalizedProcessingPaths<S>(
+        _ paths: S,
+        fallback: Self = .automatic
+    ) -> [Self] where S: Sequence, S.Element == Self {
+        let requested = Set(paths)
+        if requested.contains(.automatic) {
+            return [.automatic]
+        }
+        let concrete = concreteProcessingPaths.filter {
+            requested.contains($0)
+        }
+        if !concrete.isEmpty {
+            return concrete
+        }
+        return fallback == .automatic ? [.automatic] : [fallback]
+    }
+}
+
+extension MirmirProcessingPathTerminalStatus {
+    var title: String {
+        switch self {
+        case .completed:
+            return "Completed"
+        case .failed:
+            return "Failed"
+        case .cancelled:
+            return "Cancelled"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .completed:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.triangle.fill"
+        case .cancelled:
+            return "xmark.circle.fill"
         }
     }
 }
@@ -116,6 +179,37 @@ extension UpscaleMode {
 }
 
 extension MirmirViewModel {
+    var allProcessingPathsAreSelected: Bool {
+        selectedEnginePreferences
+            == UpscaleEnginePreference.concreteProcessingPaths
+    }
+
+    var processingPathMenuTitle: String {
+        if allProcessingPathsAreSelected {
+            return "All Paths (\(selectedEnginePreferences.count))"
+        }
+        if selectedEnginePreferences.count == 1 {
+            return selectedEnginePreferences[0].title
+        }
+        return "\(selectedEnginePreferences.count) Paths Selected"
+    }
+
+    var processingPathBatchStatusText: String? {
+        guard let summary = processingPathBatchSummary else {
+            return nil
+        }
+        if summary.allSucceeded {
+            return "All \(summary.totalCount) selected paths completed."
+        }
+        if summary.isComplete {
+            return "Path batch complete · \(summary.completedCount) "
+                + "succeeded · \(summary.failedCount) failed · "
+                + "\(summary.cancelledCount) cancelled"
+        }
+        return "Path batch in progress · \(summary.results.count) of "
+            + "\(summary.totalCount) paths finished"
+    }
+
     var engineReadinessText: String {
         switch selectedModeAvailability {
         case .unavailable:
@@ -147,6 +241,13 @@ extension MirmirViewModel {
     var engineSelectionText: String {
         switch selectedModeAvailability {
         case .available:
+            if selectedEnginePreferences.count > 1 {
+                return "\(selectedEnginePreferences.count) Selected Paths"
+            }
+            if let explicitPath = selectedEnginePreferences.first,
+               explicitPath != .automatic {
+                return explicitPath.title
+            }
             var binding = R13ReleaseModePolicy.binding(
                 for: selectedMode,
                 enginePreference: enginePreference
@@ -167,15 +268,22 @@ extension MirmirViewModel {
             case .fast:
                 return "Low-Latency Multi-Engine Routing"
             case .none:
-                break
-            }
-            switch binding.scalerKind {
-            case .highQualityVImage:
-                return "Accelerate vImage High Quality"
-            case .fastMPSBilinear:
-                return "Apple MPS Bilinear"
-            case .deterministicMPSLanczos:
-                return "Apple MPS Lanczos"
+                switch binding.scalerKind {
+                case .standardVImage:
+                    return "Accelerate vImage Standard"
+                case .highQualityVImage:
+                    return "Accelerate vImage High Quality"
+                case .fastMPSBilinear:
+                    return "Apple MPS Bilinear"
+                case .deterministicMPSLanczos:
+                    return "Apple MPS Lanczos"
+                case .coreImageLanczos:
+                    return "Core Image Lanczos"
+                case .coreImageBicubic:
+                    return "Core Image Bicubic"
+                case .videoToolboxPixelTransfer:
+                    return "VideoToolbox Pixel Transfer"
+                }
             }
         case .unavailable:
             return "No available release mode"
@@ -187,16 +295,19 @@ extension MirmirViewModel {
     }
 
     var selectedModeSummary: String {
-        guard enginePreference != .automatic else {
-            return selectedMode.summary
+        if selectedEnginePreferences.count > 1 {
+            return "Deterministic enhancement runs first for each of the "
+                + "\(selectedEnginePreferences.count) selected Apple "
+                + "processing paths. Each path receives the enhanced video "
+                + "and produces its own output; paths are not chained."
         }
-        let binding = R13ReleaseModePolicy.binding(
-            for: selectedMode,
-            enginePreference: enginePreference
-        )
-        return "\(selectedMode.title) was requested. The explicit "
-            + "\(enginePreference.title) engine selection resolves this "
-            + "job to \(binding.effectiveMode.title) processing."
+        if enginePreference == .automatic {
+            return "Deterministic enhancement runs first. "
+                + selectedMode.summary
+        }
+        return "Deterministic enhancement runs first, then the enhanced "
+            + "video is processed by the explicit "
+            + "\(enginePreference.title) path."
     }
 
     var modelAssetsStatusText: String {

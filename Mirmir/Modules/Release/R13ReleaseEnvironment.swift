@@ -41,12 +41,85 @@ extension R13ReleaseEnvironmentCollecting {
     }
 }
 
+enum R13FrameworkBundleIdentityCanonicalizer {
+    private static let encodedPrefix = "utf8-hex-"
+    private static let maximumEncodableUTF8ByteCount = 75
+
+    static func version(_ value: String) throws -> String {
+        try canonicalValue(
+            value,
+            environmentField: "version",
+            identityField: "framework_version"
+        )
+    }
+
+    static func build(_ value: String) throws -> String {
+        try canonicalValue(
+            value,
+            environmentField: "build",
+            identityField: "framework_build_identity"
+        )
+    }
+
+    private static func canonicalValue(
+        _ value: String,
+        environmentField: String,
+        identityField: String
+    ) throws -> String {
+        if !value.hasPrefix(encodedPrefix),
+           let unchanged = try? R13ReleaseIdentityValidation.identity(
+               value,
+               field: identityField
+           ) {
+            return unchanged
+        }
+        guard !value.isEmpty,
+              value.utf8.count <= maximumEncodableUTF8ByteCount,
+              value.unicodeScalars.allSatisfy(Self.isPrintable) else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: environmentField
+            )
+        }
+        let encoded = encodedPrefix
+            + value.utf8.map { String(format: "%02x", $0) }.joined()
+        guard let canonical = try? R13ReleaseIdentityValidation.identity(
+            encoded,
+            field: identityField
+        ) else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: environmentField
+            )
+        }
+        return canonical
+    }
+
+    private static func isPrintable(_ scalar: Unicode.Scalar) -> Bool {
+        switch scalar.properties.generalCategory {
+        case .control,
+             .format,
+             .lineSeparator,
+             .paragraphSeparator,
+             .surrogate,
+             .unassigned:
+            return false
+        default:
+            return true
+        }
+    }
+}
+
 struct R13ProductionReleaseEnvironmentCollector:
     R13ReleaseEnvironmentCollecting {
     private static let metalPerformanceShadersPath =
         "/System/Library/Frameworks/MetalPerformanceShaders.framework"
     private static let acceleratePath =
         "/System/Library/Frameworks/Accelerate.framework"
+    private static let coreImagePath =
+        "/System/Library/Frameworks/CoreImage.framework"
+    private static let videoToolboxPath =
+        "/System/Library/Frameworks/VideoToolbox.framework"
+    private static let metalFXPath =
+        "/System/Library/Frameworks/MetalFX.framework"
 
     func collect() throws -> R13ReleaseEnvironment {
         try collect(
@@ -86,41 +159,46 @@ struct R13ProductionReleaseEnvironmentCollector:
         let executable = try R13LocalRestartSourceMeasurer()
             .measureSource(at: executableURL)
 
-        let frameworkPath: String
+        let processInfo = ProcessInfo.processInfo
+        let operatingSystemVersion = processInfo.operatingSystemVersion
+        let runtimeVersion =
+            "\(operatingSystemVersion.majorVersion)."
+            + "\(operatingSystemVersion.minorVersion)."
+            + "\(operatingSystemVersion.patchVersion)"
+        let runtimeBuild = try Self.operatingSystemBuildIdentity()
+
+        let frameworkVersion: String
+        let frameworkBuild: String
         switch frameworkIdentity {
         case "MetalPerformanceShaders":
-            frameworkPath = Self.metalPerformanceShadersPath
+            (frameworkVersion, frameworkBuild) = try Self.frameworkIdentity(
+                at: Self.metalPerformanceShadersPath
+            )
         case "Accelerate":
-            frameworkPath = Self.acceleratePath
+            (frameworkVersion, frameworkBuild) = try Self.frameworkIdentity(
+                at: Self.acceleratePath
+            )
+        case "CoreImage":
+            (frameworkVersion, frameworkBuild) = try Self.frameworkIdentity(
+                at: Self.coreImagePath
+            )
+        case "VideoToolbox":
+            (frameworkVersion, frameworkBuild) = try Self.frameworkIdentity(
+                at: Self.videoToolboxPath
+            )
+        case "MetalFX":
+            (frameworkVersion, frameworkBuild) = try Self.frameworkIdentity(
+                at: Self.metalFXPath
+            )
+        case "AppleNativeMultiEngine":
+            frameworkVersion = runtimeVersion
+            frameworkBuild = runtimeBuild
         default:
             throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
                 field: "requested_framework"
             )
         }
-        guard let frameworkBundle = Bundle(
-            path: frameworkPath
-        ) else {
-            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
-                field: "bundle"
-            )
-        }
-        guard let frameworkVersion = frameworkBundle.object(
-            forInfoDictionaryKey: "CFBundleShortVersionString"
-        ) as? String else {
-            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
-                field: "version"
-            )
-        }
-        guard let frameworkBuild = frameworkBundle.object(
-            forInfoDictionaryKey: "CFBundleVersion"
-        ) as? String else {
-            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
-                field: "build"
-            )
-        }
 
-        let processInfo = ProcessInfo.processInfo
-        let version = processInfo.operatingSystemVersion
         return try R13ReleaseEnvironment(
             application: R13ReleaseApplicationIdentity(
                 bundleIdentifier: bundleIdentifier,
@@ -136,10 +214,38 @@ struct R13ProductionReleaseEnvironmentCollector:
             ),
             runtime: R13ReleaseRuntimeIdentity(
                 runtimeIdentifier: "macOS",
-                version: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)",
-                buildIdentity: try Self.operatingSystemBuildIdentity(),
+                version: runtimeVersion,
+                buildIdentity: runtimeBuild,
                 architecture: Self.architecture
             )
+        )
+    }
+
+    private static func frameworkIdentity(
+        at path: String
+    ) throws -> (version: String, build: String) {
+        guard let frameworkBundle = Bundle(path: path) else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: "bundle"
+            )
+        }
+        guard let version = frameworkBundle.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: "version"
+            )
+        }
+        guard let build = frameworkBundle.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String else {
+            throw R13ReleaseEnvironmentError.frameworkIdentityUnavailable(
+                field: "build"
+            )
+        }
+        return (
+            try R13FrameworkBundleIdentityCanonicalizer.version(version),
+            try R13FrameworkBundleIdentityCanonicalizer.build(build)
         )
     }
 

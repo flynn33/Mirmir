@@ -12,6 +12,7 @@ enum R05MetalFXContractError: Error, Equatable, Sendable {
 enum R05MetalFXSubjectID: String, CaseIterable, Hashable, Sendable {
     case spatial1p5x = "r05.metalfx.spatial-1p5x"
     case spatial2x = "r05.metalfx.spatial-2x"
+    case spatial4x = "r05.metalfx.spatial-4x"
     case temporal1p5x = "r05.metalfx.temporal-1p5x"
     case temporal2x = "r05.metalfx.temporal-2x"
     case denoisedTemporal1p5x = "r05.metalfx.denoised-temporal-1p5x"
@@ -22,6 +23,7 @@ enum R05MetalFXSubjectID: String, CaseIterable, Hashable, Sendable {
 enum R05MetalFXRouteID: String, CaseIterable, Hashable, Sendable {
     case spatial1p5x = "spatial_1p5x"
     case spatial2x = "spatial_2x"
+    case spatial4x = "spatial_4x"
     case temporal1p5xContract = "temporal_1p5x_contract"
     case temporal2xContract = "temporal_2x_contract"
     case denoisedTemporal1p5xContract = "denoised_temporal_1p5x_contract"
@@ -105,6 +107,7 @@ struct R05MetalFXScaleFactor: Hashable, Sendable {
     static let one = makeStatic(numerator: 1, denominator: 1)
     static let oneAndOneHalf = makeStatic(numerator: 3, denominator: 2)
     static let two = makeStatic(numerator: 2, denominator: 1)
+    static let four = makeStatic(numerator: 4, denominator: 1)
 
     func matches(source: VideoResolution, target: VideoResolution) -> Bool {
         let widthLeft = source.width.multipliedReportingOverflow(by: numerator)
@@ -486,6 +489,13 @@ enum R05MetalFXRouteCatalog {
                     source: .p1080,
                     target: .p2160,
                     scale: .two
+                ),
+                makeSpatial(
+                    subjectID: .spatial4x,
+                    routeID: .spatial4x,
+                    source: .p270,
+                    target: .p1080,
+                    scale: .four
                 ),
                 makeRejected(
                     subjectID: .temporal1p5x,

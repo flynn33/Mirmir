@@ -13,6 +13,7 @@ public struct VideoResolution: Hashable, Sendable, CustomStringConvertible {
         self.height = height
     }
 
+    public static let p270 = VideoResolution(width: 480, height: 270)
     public static let p720 = VideoResolution(width: 1280, height: 720)
     public static let p1080 = VideoResolution(width: 1920, height: 1080)
     public static let p1440 = VideoResolution(width: 2560, height: 1440)
@@ -766,6 +767,7 @@ public struct SourceMediaTrackCapability:
     public let mediaType: String
     public let ordinal: Int
     public let formatSubtypes: [String]
+    public let staticMetadataItemCount: Int
     public let isEnabled: Bool?
     public let languageCode: String?
     public let extendedLanguageTag: String?
@@ -925,19 +927,67 @@ public struct SourceMediaPreservationCapability:
     }
 
     public var hasQuickTimeOnlyTrackAssociations: Bool {
+        hasSelectedQuickTimeOnlyTrackAssociations(
+            preserveAudio: true,
+            preserveSubtitles: true,
+            preserveMetadata: true
+        )
+    }
+
+    public func hasSelectedQuickTimeOnlyTrackAssociations(
+        preserveAudio: Bool,
+        preserveSubtitles: Bool,
+        preserveMetadata: Bool
+    ) -> Bool {
         associations.contains {
             $0.associationType == "auxl"
                 && $0.support.isCompatible
+                && isSelected(
+                    mediaType: $0.sourceMediaType,
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: preserveMetadata
+                )
+        }
+    }
+
+    public func hasSelectedTrackStaticMetadata(
+        preserveAudio: Bool,
+        preserveSubtitles: Bool,
+        preserveMetadata: Bool
+    ) -> Bool {
+        guard preserveMetadata else {
+            return false
+        }
+        return tracks.contains { track in
+            track.staticMetadataItemCount > 0
+                && isSelected(
+                    mediaType: track.mediaType,
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: preserveMetadata
+                )
         }
     }
 
     public func requiresQuickTimeMovieContainer(
-        preserveAudio: Bool
+        preserveAudio: Bool,
+        preserveSubtitles: Bool = true,
+        preserveMetadata: Bool = true
     ) -> Bool {
         let preservesLinearPCM =
             preserveAudio && hasLinearPCMAudioTracks
         return preservesLinearPCM
-            || hasQuickTimeOnlyTrackAssociations
+            || hasSelectedQuickTimeOnlyTrackAssociations(
+                preserveAudio: preserveAudio,
+                preserveSubtitles: preserveSubtitles,
+                preserveMetadata: preserveMetadata
+            )
+            || hasSelectedTrackStaticMetadata(
+                preserveAudio: preserveAudio,
+                preserveSubtitles: preserveSubtitles,
+                preserveMetadata: preserveMetadata
+            )
     }
 
     public var inventorySummary: String {
@@ -1004,15 +1054,22 @@ public struct SourceMediaPreservationCapability:
             preserveSubtitles: preserveSubtitles,
             preserveMetadata: preserveMetadata
         ) {
-            if let reason = association.support.failureReason {
-                return reason
-            }
-            guard isSelected(
+            let targetIsSelected = isSelected(
                 mediaType: association.targetMediaType,
                 preserveAudio: preserveAudio,
                 preserveSubtitles: preserveSubtitles,
                 preserveMetadata: preserveMetadata
-            ) else {
+            )
+            if !targetIsSelected,
+               hasUserSelectionControl(
+                   mediaType: association.targetMediaType
+               ) {
+                return disabledAssociationFailureReason(association)
+            }
+            if let reason = association.support.failureReason {
+                return reason
+            }
+            guard targetIsSelected else {
                 return disabledAssociationFailureReason(association)
             }
         }
@@ -1070,6 +1127,7 @@ public struct SourceMediaPreservationCapability:
             mediaType: mediaType,
             ordinal: ordinal,
             formatSubtypes: [],
+            staticMetadataItemCount: 0,
             isEnabled: nil,
             languageCode: nil,
             extendedLanguageTag: nil,
@@ -1100,6 +1158,20 @@ public struct SourceMediaPreservationCapability:
         case AVMediaType.metadata.rawValue,
              AVMediaType.timecode.rawValue:
             return preserveMetadata
+        default:
+            return false
+        }
+    }
+
+    private func hasUserSelectionControl(mediaType: String) -> Bool {
+        switch mediaType {
+        case AVMediaType.audio.rawValue,
+             AVMediaType.subtitle.rawValue,
+             AVMediaType.text.rawValue,
+             AVMediaType.closedCaption.rawValue,
+             AVMediaType.metadata.rawValue,
+             AVMediaType.timecode.rawValue:
+            return true
         default:
             return false
         }
@@ -1307,13 +1379,17 @@ enum MediaOutputContainerPolicy {
         videoFormat: MediaVideoFormat,
         preservationCapability:
             SourceMediaPreservationCapability,
-        preserveAudio: Bool
+        preserveAudio: Bool,
+        preserveSubtitles: Bool = true,
+        preserveMetadata: Bool = true
     ) -> String {
         requiresQuickTimeMovie(
             codec: codec,
             videoFormat: videoFormat,
             preservationCapability: preservationCapability,
-            preserveAudio: preserveAudio
+            preserveAudio: preserveAudio,
+            preserveSubtitles: preserveSubtitles,
+            preserveMetadata: preserveMetadata
         ) ? "mov" : "mp4"
     }
 
@@ -1323,7 +1399,9 @@ enum MediaOutputContainerPolicy {
         videoFormat: MediaVideoFormat,
         preservationCapability:
             SourceMediaPreservationCapability,
-        preserveAudio: Bool
+        preserveAudio: Bool,
+        preserveSubtitles: Bool = true,
+        preserveMetadata: Bool = true
     ) -> MediaPipelineError? {
         let normalizedExtension = pathExtension.lowercased()
         guard normalizedExtension == "mp4"
@@ -1350,7 +1428,9 @@ enum MediaOutputContainerPolicy {
         }
         if preservationCapability
             .requiresQuickTimeMovieContainer(
-                preserveAudio: preserveAudio
+                preserveAudio: preserveAudio,
+                preserveSubtitles: preserveSubtitles,
+                preserveMetadata: preserveMetadata
             ) {
             if preserveAudio,
                preservationCapability.hasLinearPCMAudioTracks {
@@ -1359,11 +1439,25 @@ enum MediaOutputContainerPolicy {
                 )
             }
             if preservationCapability
-                .hasQuickTimeOnlyTrackAssociations {
+                .hasSelectedQuickTimeOnlyTrackAssociations(
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: preserveMetadata
+                ) {
                 return
                     .outputContainerCannotPreserveTrackAssociations(
                         pathExtension: normalizedExtension
                     )
+            }
+            if preservationCapability
+                .hasSelectedTrackStaticMetadata(
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: preserveMetadata
+                ) {
+                return .outputContainerCannotPreserveTrackMetadata(
+                    pathExtension: normalizedExtension
+                )
             }
         }
         return nil
@@ -1374,14 +1468,18 @@ enum MediaOutputContainerPolicy {
         videoFormat: MediaVideoFormat,
         preservationCapability:
             SourceMediaPreservationCapability,
-        preserveAudio: Bool
+        preserveAudio: Bool,
+        preserveSubtitles: Bool,
+        preserveMetadata: Bool
     ) -> Bool {
         codec.requiresQuickTimeMovieContainer
             || videoFormat.hasAlpha
             || videoFormat.requiresQuickTimeMovieOutput
             || preservationCapability
                 .requiresQuickTimeMovieContainer(
-                    preserveAudio: preserveAudio
+                    preserveAudio: preserveAudio,
+                    preserveSubtitles: preserveSubtitles,
+                    preserveMetadata: preserveMetadata
                 )
     }
 }

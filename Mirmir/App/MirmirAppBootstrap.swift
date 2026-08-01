@@ -85,6 +85,13 @@ final class MirmirAppBootstrap: ObservableObject {
         case failed(String)
     }
 
+    struct ProductionStorage {
+        let preferencesStore: MirmirPreferencesStore
+        let workHistoryStore: MirmirWorkHistoryStore
+        let pendingWorkQueue: MirmirPendingWorkQueue
+        let cacheLocationStore: R13CacheLocationStore
+    }
+
     let moduleHost: MirmirModuleHost
     let viewRegistry: MirmirViewRegistry
     let viewModel: MirmirViewModel
@@ -95,14 +102,32 @@ final class MirmirAppBootstrap: ObservableObject {
     static func makeProduction(
         diagnostics: MirmirDiagnosticStore = .application
     ) throws -> MirmirAppBootstrap {
-        try MirmirAppBootstrap(
-            services: makeProductionServices(
-                diagnostics: diagnostics
-            ),
+        let services = try makeProductionServices(
+            diagnostics: diagnostics,
+            cacheLocationStore: R13CacheLocationStore()
+        )
+        return try MirmirAppBootstrap(
+            services: services,
             diagnostics: diagnostics,
             preferencesStore: MirmirPreferencesStore(),
             workHistoryStore: try MirmirWorkHistoryStore.production(),
             pendingWorkQueue: try MirmirPendingWorkQueue.production()
+        )
+    }
+
+    static func makeProduction(
+        diagnostics: MirmirDiagnosticStore,
+        storage: ProductionStorage
+    ) throws -> MirmirAppBootstrap {
+        try MirmirAppBootstrap(
+            services: makeProductionServices(
+                diagnostics: diagnostics,
+                cacheLocationStore: storage.cacheLocationStore
+            ),
+            diagnostics: diagnostics,
+            preferencesStore: storage.preferencesStore,
+            workHistoryStore: storage.workHistoryStore,
+            pendingWorkQueue: storage.pendingWorkQueue
         )
     }
 
@@ -221,7 +246,8 @@ final class MirmirAppBootstrap: ObservableObject {
     }
 
     private static func makeProductionServices(
-        diagnostics: MirmirDiagnosticStore
+        diagnostics: MirmirDiagnosticStore,
+        cacheLocationStore: R13CacheLocationStore
     ) throws -> MirmirServices {
         let metalService = try DefaultMetalRenderingService()
         let modelAssetsService = DefaultModelAssetsService()
@@ -231,7 +257,7 @@ final class MirmirAppBootstrap: ObservableObject {
         )
         let upscalerEngineService = R13ReleaseUpscalerEngineService(
             media: mediaPipelineService,
-            cacheLocationStore: R13CacheLocationStore(),
+            cacheLocationStore: cacheLocationStore,
             diagnostics: diagnostics
         )
 

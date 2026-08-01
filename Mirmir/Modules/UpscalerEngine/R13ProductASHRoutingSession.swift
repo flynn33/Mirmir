@@ -172,21 +172,25 @@ struct R13ProductASHDecisionEvent: Equatable, Sendable {
     let sequenceNumber: Int
     let selectedRouteIdentity: AppleUpscaleRouteIdentity
     let reason: R06ASHTransitionReason
-    let failedBackendIDs: [String]
+    let fallbackHistory: [AppleUpscaleFallbackLink]
     let processingPressureQ16: Int64
 
     init(
         sequenceNumber: Int,
         selectedRouteIdentity: AppleUpscaleRouteIdentity,
         reason: R06ASHTransitionReason,
-        failedBackendIDs: [String],
+        fallbackHistory: [AppleUpscaleFallbackLink],
         processingPressureQ16: Int64 = 0
     ) {
         self.sequenceNumber = sequenceNumber
         self.selectedRouteIdentity = selectedRouteIdentity
         self.reason = reason
-        self.failedBackendIDs = failedBackendIDs
+        self.fallbackHistory = fallbackHistory
         self.processingPressureQ16 = processingPressureQ16
+    }
+
+    var failedBackendIDs: [String] {
+        fallbackHistory.map { $0.failedRoute.backend.backendID }
     }
 
     var selectedBackendID: String {
@@ -204,6 +208,173 @@ struct R13ProductASHDecisionEvent: Equatable, Sendable {
                 selectedRouteIdentity.backend
                     .modelAssetsIdentity
         )
+    }
+}
+
+struct R13ProductASHRoutingArtifactEvidence:
+    Codable,
+    Equatable,
+    Sendable {
+    let identifier: String
+    let sha256: String
+
+    init(_ artifact: AppleUpscaleArtifactIdentity) {
+        identifier = artifact.identifier
+        sha256 = artifact.sha256
+    }
+
+    func appleIdentity() throws -> AppleUpscaleArtifactIdentity {
+        try AppleUpscaleArtifactIdentity(
+            identifier: identifier,
+            sha256: sha256
+        )
+    }
+}
+
+struct R13ProductASHRoutingRouteEvidence:
+    Codable,
+    Equatable,
+    Sendable {
+    let backendID: String
+    let backendRevision: String
+    let configurationIdentity: String
+    let policyIdentity: String
+    let materialDecisionIdentity: String
+    let modelStatus: R13ProductASHSelectedModelStatus
+    let modelConfigurationIdentity: String?
+    let modelArtifacts: [R13ProductASHRoutingArtifactEvidence]
+
+    init(_ route: AppleUpscaleRouteIdentity) {
+        backendID = route.backend.backendID
+        backendRevision = route.backend.backendRevision
+        configurationIdentity = route.configurationIdentity
+        policyIdentity = route.policyIdentity
+        materialDecisionIdentity = route.materialDecisionIdentity
+        modelStatus = R13ProductASHSelectedModelStatus(
+            modelAssetsIdentity: route.backend.modelAssetsIdentity
+        )
+        switch route.backend.modelAssetsIdentity {
+        case .notRequired:
+            modelConfigurationIdentity = nil
+            modelArtifacts = []
+        case .appleConfigurationManaged(
+            let configurationIdentity,
+            .ready
+        ):
+            modelConfigurationIdentity = configurationIdentity
+            modelArtifacts = []
+        case .bound(let artifacts):
+            modelConfigurationIdentity = nil
+            modelArtifacts = artifacts.map(
+                R13ProductASHRoutingArtifactEvidence.init
+            )
+        }
+    }
+
+    func appleIdentity() throws -> AppleUpscaleRouteIdentity {
+        let modelAssetsIdentity: AppleUpscaleModelAssetsIdentity
+        switch modelStatus {
+        case .notRequired:
+            guard modelConfigurationIdentity == nil,
+                  modelArtifacts.isEmpty else {
+                throw R13ProductASHDecisionMetadataError
+                    .invalidRouteEvidence(backendID)
+            }
+            modelAssetsIdentity = .notRequired
+        case .appleConfigurationManagedReady:
+            guard let modelConfigurationIdentity,
+                  modelArtifacts.isEmpty else {
+                throw R13ProductASHDecisionMetadataError
+                    .invalidRouteEvidence(backendID)
+            }
+            modelAssetsIdentity = .appleConfigurationManaged(
+                configurationIdentity: modelConfigurationIdentity,
+                readiness: .ready
+            )
+        case .artifactBound:
+            guard modelConfigurationIdentity == nil,
+                  !modelArtifacts.isEmpty else {
+                throw R13ProductASHDecisionMetadataError
+                    .invalidRouteEvidence(backendID)
+            }
+            modelAssetsIdentity = .bound(
+                try modelArtifacts.map { try $0.appleIdentity() }
+            )
+        }
+        return try AppleUpscaleRouteIdentity(
+            backend: AppleUpscaleBackendIdentity(
+                backendID: backendID,
+                backendRevision: backendRevision,
+                modelAssetsIdentity: modelAssetsIdentity
+            ),
+            configurationIdentity: configurationIdentity,
+            policyIdentity: policyIdentity,
+            materialDecisionIdentity: materialDecisionIdentity
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case backendID = "backend_id"
+        case backendRevision = "backend_revision"
+        case configurationIdentity = "configuration_identity"
+        case policyIdentity = "policy_identity"
+        case materialDecisionIdentity = "material_decision_identity"
+        case modelStatus = "model_status"
+        case modelConfigurationIdentity =
+            "model_configuration_identity"
+        case modelArtifacts = "model_artifacts"
+    }
+}
+
+struct R13ProductASHFallbackEventEvidence:
+    Codable,
+    Equatable,
+    Sendable {
+    let sequenceNumber: Int
+    let selectedFallbackOrdinal: Int
+    let reason: String
+    let failedRoute: R13ProductASHRoutingRouteEvidence
+    let selectedRoute: R13ProductASHRoutingRouteEvidence
+
+    init(
+        sequenceNumber: Int,
+        link: AppleUpscaleFallbackLink
+    ) {
+        self.sequenceNumber = sequenceNumber
+        selectedFallbackOrdinal = link.selectedFallbackOrdinal
+        reason = link.reasonCode.rawValue
+        failedRoute = R13ProductASHRoutingRouteEvidence(
+            link.failedRoute
+        )
+        selectedRoute = R13ProductASHRoutingRouteEvidence(
+            link.selectedRoute
+        )
+    }
+
+    func appleLink() throws -> AppleUpscaleFallbackLink {
+        guard sequenceNumber >= 0,
+              let reasonCode = AppleUpscaleFallbackReasonCode(
+                  rawValue: reason
+              ) else {
+            throw R13ProductASHDecisionMetadataError
+                .invalidFallbackHistory(
+                    sequenceNumber: sequenceNumber
+                )
+        }
+        return try AppleUpscaleFallbackLink(
+            failedRoute: failedRoute.appleIdentity(),
+            selectedRoute: selectedRoute.appleIdentity(),
+            reasonCode: reasonCode,
+            selectedFallbackOrdinal: selectedFallbackOrdinal
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sequenceNumber = "sequence_number"
+        case selectedFallbackOrdinal = "selected_fallback_ordinal"
+        case reason
+        case failedRoute = "failed_route"
+        case selectedRoute = "selected_route"
     }
 }
 
@@ -293,7 +464,11 @@ struct R13ProductASHDecisionSummary: Equatable, Sendable {
 
 enum R13ProductASHDecisionMetadataError: Error, Equatable, Sendable {
     case emptyDecisionJournal
+    case invalidSequenceNumber(Int)
     case nonMonotonicSequence(previous: Int, current: Int)
+    case invalidFallbackHistory(sequenceNumber: Int)
+    case invalidRouteEvidence(String)
+    case repeatedFallbackRoute(String)
     case invalidResumeBoundary(sequenceNumber: Int)
     case evidenceEncodingFailed
 }
@@ -307,6 +482,8 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         "com.mirmir.release.routing-transition-count"
     static let fallbackCountKey =
         "com.mirmir.release.routing-fallback-count"
+    static let fallbackEventsKey =
+        "com.mirmir.release.routing-fallback-events"
     static let selectedBackendsKey =
         "com.mirmir.release.routing-selected-backends"
     static let selectedModelStatusesKey =
@@ -329,6 +506,7 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         decisionCountKey: "0",
         transitionCountKey: "0",
         fallbackCountKey: "0",
+        fallbackEventsKey: "[]",
         selectedBackendsKey: "pending",
         selectedModelStatusesKey: "pending",
         modelStatusKey: "pending",
@@ -342,6 +520,8 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
     let decisionCount: Int
     let transitionCount: Int
     let fallbackCount: Int
+    let fallbackEvents: [R13ProductASHFallbackEventEvidence]
+    let fallbackEventsJSON: String
     let selectedBackendIDs: [String]
     let selectedModelStatuses:
         [R13ProductASHSelectedModelStatus]
@@ -371,10 +551,36 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         return value
     }
 
+    static func canonicalFallbackEventsJSON(
+        _ events: [R13ProductASHFallbackEventEvidence]
+    ) throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [
+            .sortedKeys,
+            .withoutEscapingSlashes
+        ]
+        let data = try encoder.encode(events)
+        guard let value = String(data: data, encoding: .utf8) else {
+            throw R13ProductASHDecisionMetadataError
+                .evidenceEncodingFailed
+        }
+        return value
+    }
+
     init(summary: R13ProductASHDecisionSummary) throws {
         guard !summary.events.isEmpty else {
             throw R13ProductASHDecisionMetadataError
                 .emptyDecisionJournal
+        }
+        guard summary.events.allSatisfy({
+            $0.sequenceNumber >= 0
+        }) else {
+            throw R13ProductASHDecisionMetadataError
+                .invalidSequenceNumber(
+                    summary.events.first(where: {
+                        $0.sequenceNumber < 0
+                    })?.sequenceNumber ?? -1
+                )
         }
         for pair in zip(
             summary.events,
@@ -385,6 +591,39 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
                     previous: pair.0.sequenceNumber,
                     current: pair.1.sequenceNumber
                 )
+        }
+        var failedBackendIDs: Set<String> = []
+        for event in summary.events {
+            do {
+                _ = try AppleUpscaleProcessingIdentity(
+                    route: event.selectedRouteIdentity,
+                    fallbackHistory: event.fallbackHistory
+                )
+            } catch {
+                throw R13ProductASHDecisionMetadataError
+                    .invalidFallbackHistory(
+                        sequenceNumber: event.sequenceNumber
+                    )
+            }
+            guard (event.reason == .fatalBackendFailover)
+                    == !event.fallbackHistory.isEmpty else {
+                throw R13ProductASHDecisionMetadataError
+                    .invalidFallbackHistory(
+                        sequenceNumber: event.sequenceNumber
+                    )
+            }
+            for link in event.fallbackHistory {
+                let failedBackendID =
+                    link.failedRoute.backend.backendID
+                guard failedBackendIDs.insert(
+                    failedBackendID
+                ).inserted else {
+                    throw R13ProductASHDecisionMetadataError
+                        .repeatedFallbackRoute(
+                            failedBackendID
+                        )
+                }
+            }
         }
         let eventSequenceNumbers = Set(
             summary.events.map(\.sequenceNumber)
@@ -406,7 +645,15 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         }
         decisionCount = summary.events.count
         transitionCount = summary.transitionCount
-        fallbackCount = summary.fallbackCount
+        fallbackEvents = summary.events.flatMap { event in
+            event.fallbackHistory.map {
+                R13ProductASHFallbackEventEvidence(
+                    sequenceNumber: event.sequenceNumber,
+                    link: $0
+                )
+            }
+        }
+        fallbackCount = fallbackEvents.count
         selectedBackendIDs = summary.selectedBackendIDs
         selectedModelStatuses = summary.selectedModelStatuses
         modelStatus = selectedModelStatuses.count == 1
@@ -419,6 +666,8 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         ]
         candidateExclusionCount =
             summary.candidateExclusions.count
+        fallbackEventsJSON = try Self
+            .canonicalFallbackEventsJSON(fallbackEvents)
         candidateExclusionsJSON =
             try R13ProductASHScalingCandidateExclusionEncoding
                 .canonicalJSON(summary.candidateExclusions)
@@ -447,6 +696,7 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
             Self.decisionCountKey: String(decisionCount),
             Self.transitionCountKey: String(transitionCount),
             Self.fallbackCountKey: String(fallbackCount),
+            Self.fallbackEventsKey: fallbackEventsJSON,
             Self.selectedBackendsKey:
                 selectedBackendIDs.joined(separator: ","),
             Self.selectedModelStatusesKey:
@@ -492,7 +742,8 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
         let selectedModelConfigurationIdentity: String?
         let selectedModelArtifacts: [JournalArtifactIdentity]
         let reason: String
-        let failedBackendIDs: [String]
+        let fallbackHistory:
+            [R13ProductASHFallbackEventEvidence]
         let processingPressureQ16: Int64
 
         init(event: R13ProductASHDecisionEvent) {
@@ -529,7 +780,12 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
                 }
             }
             reason = event.reason.rawValue
-            failedBackendIDs = event.failedBackendIDs
+            fallbackHistory = event.fallbackHistory.map {
+                R13ProductASHFallbackEventEvidence(
+                    sequenceNumber: event.sequenceNumber,
+                    link: $0
+                )
+            }
             processingPressureQ16 =
                 event.processingPressureQ16
         }
@@ -552,7 +808,7 @@ struct R13ProductASHDecisionMetadata: Equatable, Sendable {
             case selectedModelArtifacts =
                 "selected_model_artifacts"
             case reason
-            case failedBackendIDs = "failed_backend_ids"
+            case fallbackHistory = "fallback_history"
             case processingPressureQ16 =
                 "processing_pressure_q16"
         }
@@ -807,6 +1063,10 @@ actor R13ProductASHRoutingSession:
             events.last.map { $0.sequenceNumber + 1 } ?? 0
         let selectedBackendID =
             decision.selectedRouteIdentity.backend.backendID
+        let fallbackHistoryIsValid = (try? AppleUpscaleProcessingIdentity(
+            route: decision.selectedRouteIdentity,
+            fallbackHistory: decision.fallbackHistory
+        )) != nil
         guard !terminal,
               frame.sequenceNumber == expectedSequenceNumber,
               decision.sequenceNumber == expectedSequenceNumber,
@@ -819,16 +1079,15 @@ actor R13ProductASHRoutingSession:
                 candidatesByBackendID[selectedBackendID],
               candidate.routeIdentity
                 == decision.selectedRouteIdentity,
-              Set(decision.failedBackendIDs).count
-                == decision.failedBackendIDs.count,
-              !decision.failedBackendIDs.contains(
-                  selectedBackendID
-              ),
-              decision.failedBackendIDs.allSatisfy({
-                  candidatesByBackendID[$0] != nil
+              fallbackHistoryIsValid,
+              decision.fallbackHistory.allSatisfy({ link in
+                  let backendID = link.failedRoute.backend.backendID
+                  return candidatesByBackendID[backendID]?
+                      .routeIdentity == link.failedRoute
+                      && !unavailableBackendIDs.contains(backendID)
               }),
               (decision.reason == .fatalBackendFailover)
-                == !decision.failedBackendIDs.isEmpty else {
+                == !decision.fallbackHistory.isEmpty else {
             throw R13ProductASHRoutingSessionError
                 .invalidReplayDecision(
                     sequenceNumber: frame.sequenceNumber
@@ -875,7 +1134,7 @@ actor R13ProductASHRoutingSession:
                     frame,
                     backendID: selectedBackendID,
                     attemptOrdinal:
-                        decision.failedBackendIDs.count
+                        decision.fallbackHistory.count
                 )
             } catch {
                 throw R13ProductASHRoutingSessionError
@@ -1076,9 +1335,14 @@ actor R13ProductASHRoutingSession:
                     continue
                 }
                 do {
+                    let fallbackHistory = try makeFallbackHistory(
+                        failures: failures,
+                        selectedRoute:
+                            processed.processingIdentity.route
+                    )
                     let wrapped = try wrap(
                         processed,
-                        failures: failures
+                        fallbackHistory: fallbackHistory
                     )
                     let changedBackend =
                         currentBackendID != backendID
@@ -1101,9 +1365,7 @@ actor R13ProductASHRoutingSession:
                             reason: failures.isEmpty
                                 ? decision.reason
                                 : .fatalBackendFailover,
-                            failedBackendIDs: failures.map {
-                                $0.route.backend.backendID
-                            },
+                            fallbackHistory: fallbackHistory,
                             processingPressureQ16:
                                 priorProcessingPressureQ16
                                     .rawValue
@@ -1173,27 +1435,9 @@ actor R13ProductASHRoutingSession:
 
     private func wrap(
         _ processed: AppleUpscaleProcessedFrame,
-        failures: [(
-            route: AppleUpscaleRouteIdentity,
-            reason: AppleUpscaleFallbackReasonCode
-        )]
+        fallbackHistory: [AppleUpscaleFallbackLink]
     ) throws -> AppleUpscaleProcessedFrame {
-        var fallbackHistory: [AppleUpscaleFallbackLink] = []
-        for index in failures.indices {
-            let selectedRoute =
-                failures.indices.contains(index + 1)
-                    ? failures[index + 1].route
-                    : processed.processingIdentity.route
-            fallbackHistory.append(
-                try AppleUpscaleFallbackLink(
-                    failedRoute: failures[index].route,
-                    selectedRoute: selectedRoute,
-                    reasonCode: failures[index].reason,
-                    selectedFallbackOrdinal: index
-                )
-            )
-        }
-        return try AppleUpscaleProcessedFrame(
+        try AppleUpscaleProcessedFrame(
             sequenceNumber: processed.sequenceNumber,
             pixelBuffer: processed.pixelBuffer,
             presentationTimestamp:
@@ -1208,6 +1452,35 @@ actor R13ProductASHRoutingSession:
                 fallbackHistory: fallbackHistory
             )
         )
+    }
+
+    private func makeFallbackHistory(
+        failures: [(
+            route: AppleUpscaleRouteIdentity,
+            reason: AppleUpscaleFallbackReasonCode
+        )],
+        selectedRoute: AppleUpscaleRouteIdentity
+    ) throws -> [AppleUpscaleFallbackLink] {
+        var fallbackHistory: [AppleUpscaleFallbackLink] = []
+        for index in failures.indices {
+            let nextRoute =
+                failures.indices.contains(index + 1)
+                    ? failures[index + 1].route
+                    : selectedRoute
+            fallbackHistory.append(
+                try AppleUpscaleFallbackLink(
+                    failedRoute: failures[index].route,
+                    selectedRoute: nextRoute,
+                    reasonCode: failures[index].reason,
+                    selectedFallbackOrdinal: index
+                )
+            )
+        }
+        _ = try AppleUpscaleProcessingIdentity(
+            route: selectedRoute,
+            fallbackHistory: fallbackHistory
+        )
+        return fallbackHistory
     }
 
     private func resourceSnapshot()

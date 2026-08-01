@@ -453,8 +453,8 @@ final class R13AdaptiveASHRoutingScalerTests: XCTestCase {
                     selectedRouteIdentity:
                         event.selectedRouteIdentity,
                     reason: event.reason,
-                    failedBackendIDs:
-                        event.failedBackendIDs,
+                    fallbackHistory:
+                        event.fallbackHistory,
                     processingPressureQ16:
                         Int64((index + 1) * 1_024)
                 )
@@ -583,9 +583,11 @@ final class R13AdaptiveASHRoutingScalerTests: XCTestCase {
             XCTAssertEqual(
                 Set(exclusions.map(\.declaredKind)),
                 Set(
-                    R13ReleaseScalerKind.allCases.map {
+                    R13A11ProductSessionFactory
+                        .fallbackProfiles(for: .automatic)
+                        .map {
                         R13ProductASHCandidateKind(
-                            scalerKind: $0
+                            scalerKind: $0.kind
                         )
                     }
                 )
@@ -790,6 +792,148 @@ final class R13AdaptiveASHRoutingScalerTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testFormatPreservingAdaptiveServiceEnhancesBeforeVImageScaling()
+        async throws {
+        let source = VideoResolution(width: 4, height: 4)
+        let target = VideoResolution(width: 10, height: 10)
+        let format = MediaVideoFormat.sdrBT709WithAlpha(
+            mode: .straight
+        )
+        let record = try Self.makeExtendedFrameRecord(
+            resolution: source,
+            format: format,
+            frameIndex: 0
+        )
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: source,
+            frames: [record],
+            eventLog: eventLog,
+            videoFormat: format,
+            captureAppendedFrames: true
+        )
+        let service = R13ReleaseUpscalerEngineService(media: media)
+        let identifier =
+            "adaptive-format-order-" + UUID().uuidString
+        let configuration = UpscaleProcessingConfiguration(
+            enginePreference: .accelerateVImageStandard,
+            strategyPreference: .adaptive,
+            temporalConsistencyEnabled: false,
+            edgeFidelityLevel: .high,
+            detailRecoveryLevel: .high
+        )
+        let job = UpscaleJob(
+            identifier: identifier,
+            inputURL: try makeInputFixtureURL(identifier: identifier),
+            outputURL: makeOutputURL(identifier: identifier),
+            targetResolution: target,
+            codec: .hevc,
+            preserveAudio: false,
+            mode: .auto,
+            processingConfiguration: configuration
+        )
+
+        _ = try await service.submit(job).waitForCompletion()
+
+        let actual = try XCTUnwrap(
+            media.lastSession?.appendedFrames.first
+        )
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: source,
+            targetResolution: target
+        )
+        let normalized = try R13ReleaseVideoFrameNormalizer(
+            nv12: R13NV12FrameNormalizer()
+        ).normalizeForAdaptiveScaling(
+            record.pixelBuffer,
+            codedResolution: source,
+            presentationResolution: source,
+            processingResolution: plan.processingSourceResolution,
+            pixelAspectRatio: nil,
+            videoFormat: format
+        )
+        let forwardEnhancer = try R13ReleaseFormatEnhancementProcessor(
+            targetResolution: plan.processingSourceResolution,
+            videoFormat: format,
+            temporalConsistencyEnabled: false,
+            edgeFidelityLevel: configuration.edgeFidelityLevel,
+            detailRecoveryLevel: configuration.detailRecoveryLevel,
+            edgePreservationEnabled: false,
+            compressionCleanupEnabled: false,
+            textureGrainProtectionEnabled: false,
+            temporalStabilityEnabled: false
+        )
+        let enhancedSource = try forwardEnhancer.process(normalized)
+        try forwardEnhancer.finish()
+
+        func makeTargetBuffer() throws -> CVPixelBuffer {
+            let pool = try PixelBufferBridge.makePool(
+                width: target.width,
+                height: target.height,
+                format: format.pixelStorage.pixelFormat,
+                capacity: 1
+            )
+            let buffer = try PixelBufferBridge.dequeue(from: pool)
+            R13MediaVideoFormatContract.install(
+                format,
+                on: buffer,
+                resolution: target
+            )
+            return buffer
+        }
+
+        let scaler = R13FormatPreservingVImageScaler(
+            sourceResolution: plan.processingSourceResolution,
+            targetResolution: target,
+            videoFormat: format,
+            quality: .fast
+        )
+        let forwardOutput = try makeTargetBuffer()
+        try scaler.scale(
+            source: enhancedSource,
+            destination: forwardOutput,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+        let forward = try R13NV12Frame.captureTightActivePlanes(
+            from: forwardOutput
+        )
+
+        let scaledFirst = try makeTargetBuffer()
+        try scaler.scale(
+            source: normalized,
+            destination: scaledFirst,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+        let reverseEnhancer = try R13ReleaseFormatEnhancementProcessor(
+            targetResolution: target,
+            videoFormat: format,
+            temporalConsistencyEnabled: false,
+            edgeFidelityLevel: configuration.edgeFidelityLevel,
+            detailRecoveryLevel: configuration.detailRecoveryLevel,
+            edgePreservationEnabled: false,
+            compressionCleanupEnabled: false,
+            textureGrainProtectionEnabled: false,
+            temporalStabilityEnabled: false
+        )
+        let reverseOutput = try reverseEnhancer.process(scaledFirst)
+        try reverseEnhancer.finish()
+        let reverse = try R13NV12Frame.captureTightActivePlanes(
+            from: reverseOutput
+        )
+
+        XCTAssertEqual(
+            actual,
+            forward,
+            "Production must normalize, enhance at source size, then scale."
+        )
+        XCTAssertNotEqual(
+            actual,
+            reverse,
+            "The fixture must distinguish enhancement-before-scaling from "
+                + "the rejected scale-before-enhancement order."
+        )
     }
 
     func testInterruptedRoutedAdaptiveJobRestoresCachedJournalAndRunsOnlySuffix()
@@ -1286,12 +1430,20 @@ private final class R13AdaptiveRouterTestScaler:
             CVPixelBufferGetBytesPerRowOfPlane(destination, 1)
         let lumaValue: UInt8
         switch kind {
+        case .standardVImage:
+            lumaValue = 64
         case .highQualityVImage:
             lumaValue = 72
         case .deterministicMPSLanczos:
             lumaValue = 104
         case .fastMPSBilinear:
             lumaValue = 136
+        case .coreImageLanczos:
+            lumaValue = 80
+        case .coreImageBicubic:
+            lumaValue = 88
+        case .videoToolboxPixelTransfer:
+            lumaValue = 96
         }
         for row in 0..<plan.targetResolution.height {
             luma.advanced(by: row * lumaStride)

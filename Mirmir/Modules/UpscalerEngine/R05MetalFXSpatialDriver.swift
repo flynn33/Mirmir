@@ -17,6 +17,7 @@ struct R05MetalFXSpatialDriverDimensions: Equatable, Hashable, Sendable {
 enum R05MetalFXSpatialDriverRoute: String, CaseIterable, Hashable, Sendable {
     case oneAndOneHalf = "a07_spatial_720p_to_1080p"
     case two = "a07_spatial_1080p_to_2160p"
+    case four = "a07_spatial_270p_to_1080p"
 
     var sourceDimensions: R05MetalFXSpatialDriverDimensions {
         switch self {
@@ -24,6 +25,8 @@ enum R05MetalFXSpatialDriverRoute: String, CaseIterable, Hashable, Sendable {
             return R05MetalFXSpatialDriverDimensions(width: 1280, height: 720)
         case .two:
             return R05MetalFXSpatialDriverDimensions(width: 1920, height: 1080)
+        case .four:
+            return R05MetalFXSpatialDriverDimensions(width: 480, height: 270)
         }
     }
 
@@ -33,6 +36,8 @@ enum R05MetalFXSpatialDriverRoute: String, CaseIterable, Hashable, Sendable {
             return R05MetalFXSpatialDriverDimensions(width: 1920, height: 1080)
         case .two:
             return R05MetalFXSpatialDriverDimensions(width: 3840, height: 2160)
+        case .four:
+            return R05MetalFXSpatialDriverDimensions(width: 1920, height: 1080)
         }
     }
 }
@@ -537,7 +542,7 @@ final class R05DefaultMetalFXSpatialColorConverter: R05MetalFXSpatialColorConver
                     components: components,
                     componentsPerRow: bytesPerRow / MemoryLayout<Float16>.stride
                 )
-                try R05MetalFXColorBridge.encode(
+                try R05MetalFXColorBridge.encodeClippingFiniteRGB(
                     linear,
                     into: destination.pixelBuffer
                 )

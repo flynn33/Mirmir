@@ -208,12 +208,14 @@ final class MirmirPendingWorkQueueRecoveryTests: XCTestCase {
         secondSettings["processingConfiguration"] = secondConfiguration
         records[1]["settings"] = secondSettings
         document["records"] = records
+        document.removeValue(forKey: "processingPathBatchResults")
         _ = try writeDocument(document, in: directory)
 
         let reloadedQueue = MirmirPendingWorkQueue(directoryURL: directory)
         let recovered = try await reloadedQueue.load()
         XCTAssertNil(recovered.recovery)
         XCTAssertEqual(recovered.records.count, 2)
+        XCTAssertEqual(recovered.processingPathBatchResults, [])
 
         let first = recovered.records[0].settings
         XCTAssertEqual(first.codec.rawValue, OutputCodec.h264.rawValue)

@@ -7,7 +7,13 @@ import XCTest
 @available(macOS 15.4, *)
 final class R03ASHComparatorTests: XCTestCase {
     func testIdentityAndRouteBindingAreExactForBothPreregisteredRoutes() async throws {
-        for route in R03ScaleRoute.allCases {
+        let subject = try XCTUnwrap(
+            R03DeterministicBackendCatalog.subject(.ashCustomMetal)
+        )
+        let routes = R03ScaleRoute.allCases.filter {
+            subject.routeIDs.contains($0.routeID)
+        }
+        for route in routes {
             let routeProbe = R03ASHRouteProbe()
             let completion = R03ASHCompletionProbe()
             let backend = try makeInjectedBackend(

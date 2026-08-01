@@ -26,8 +26,8 @@ extension MirmirViewModel {
               ),
               let recoveryEngine =
                 upscalerEngine as? any R13RecoverableUpscalerEngine,
-              let sourceURL = chooseRecoverySource(),
-              let outputDirectoryURL = chooseRecoveryOutputDirectory(
+              let sourceAccess = chooseRecoverySource(),
+              let outputDirectoryAccess = chooseRecoveryOutputDirectory(
                 outputFilename: summary.outputFilename
               ) else {
             return
@@ -36,8 +36,12 @@ extension MirmirViewModel {
             id: id,
             recoveryEngine: recoveryEngine,
             reauthorization: R13RecoveryReauthorization(
-                sourceURL: sourceURL,
-                outputDirectoryURL: outputDirectoryURL
+                sourceURL: sourceAccess.url,
+                outputDirectoryURL: outputDirectoryAccess.url,
+                retainedSystemSelectionAccesses: [
+                    sourceAccess,
+                    outputDirectoryAccess
+                ]
             )
         )
     }
@@ -280,7 +284,12 @@ extension MirmirViewModel {
         recoveryIsProbing = true
         recoveryError = nil
         state = .probing
-        recoveryTask = Task { [weak self] in
+        recoveryTask = Task { [weak self, reauthorization] in
+            defer {
+                withExtendedLifetime(
+                    reauthorization?.retainedSystemSelectionAccesses
+                ) {}
+            }
             guard let self else { return }
             diagnosticRecorder.enqueue(
                 severity: .info,
@@ -314,6 +323,12 @@ extension MirmirViewModel {
 
                 sourceProfile = source
                 restoreCurrentConfiguration(from: job)
+                let restoresPendingQueueOwnership = try await
+                    persistedPendingQueueJobIsStarted(
+                        id: job.identifier
+                    )
+                try Task.checkCancellation()
+                guard recoveryGeneration == generation else { return }
                 let handle = try recoveryEngine.submitRecoveredJob(
                     recovered
                 )
@@ -336,7 +351,12 @@ extension MirmirViewModel {
                 observeSubmittedJob(
                     job: job,
                     source: source,
-                    handle: handle
+                    handle: handle,
+                    retainedSecurityAccess: RetainedJobSecurityAccess(
+                        recovery: recovered.securityAccess
+                    ),
+                    restoringPendingQueueOwnership:
+                        restoresPendingQueueOwnership
                 )
             } catch is CancellationError {
                 guard recoveryGeneration == generation else { return }
@@ -397,8 +417,8 @@ extension MirmirViewModel {
             return false
         }
         switch restartError {
-        case .reauthorizationRequired, .bookmarkResolutionFailed,
-             .securityScopeDenied:
+        case .reauthorizationRequired, .bookmarkCreationFailed,
+             .bookmarkResolutionFailed, .securityScopeDenied:
             return true
         default:
             return false
@@ -413,7 +433,8 @@ extension MirmirViewModel {
         recoveryReauthorizationRequiredIDs.insert(id)
     }
 
-    private func chooseRecoverySource() -> URL? {
+    private func chooseRecoverySource()
+        -> MirmirSecurityScopedSelectionLease? {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -421,16 +442,17 @@ extension MirmirViewModel {
         panel.title = "Reauthorize interrupted upscale source"
         panel.prompt = "Select Source"
         guard panel.runModal() == .OK,
-              let url = panel.url,
-              Self.supportsVideoFile(url) else {
+              let url = panel.url else {
             return nil
         }
-        return url
+        let access = adoptSystemSelectedSecurityScope(for: url)
+        guard Self.supportsVideoFile(url) else { return nil }
+        return access
     }
 
     private func chooseRecoveryOutputDirectory(
         outputFilename: String
-    ) -> URL? {
+    ) -> MirmirSecurityScopedSelectionLease? {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = true
@@ -438,12 +460,17 @@ extension MirmirViewModel {
         panel.canCreateDirectories = true
         panel.title = "Reauthorize output folder for \(outputFilename)"
         panel.prompt = "Select Folder"
-        guard panel.runModal() == .OK else { return nil }
-        return panel.url
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return nil
+        }
+        return adoptSystemSelectedSecurityScope(for: url)
     }
 }
 
 private struct R13RecoveryReauthorization {
     let sourceURL: URL
     let outputDirectoryURL: URL
+    let retainedSystemSelectionAccesses:
+        [MirmirSecurityScopedSelectionLease]
 }

@@ -20,9 +20,14 @@ final class ModelAssetsLifecycleTests: XCTestCase {
         let binding = try makeQualityModelBinding()
         service.bind(binding, for: .video)
 
+        // Register the observer synchronously before acquisition starts. A
+        // Task does not guarantee that its body begins before subsequently
+        // created child tasks, so constructing the stream inside the Task
+        // made this test race the initial downloading(0) publication.
+        let statusStream = service.statusStream(for: .video)
         let statusTask = Task { () -> [ModelAssetsStatus] in
             var statuses: [ModelAssetsStatus] = []
-            for await status in service.statusStream(for: .video) {
+            for await status in statusStream {
                 statuses.append(status)
                 if status == .ready {
                     return statuses
@@ -333,6 +338,79 @@ final class ModelAssetsLifecycleTests: XCTestCase {
         }
         XCTAssertTrue(routeID.contains("r03"))
         XCTAssertEqual(service.currentStatus(for: .video), .notRequired)
+    }
+
+    @MainActor
+    @available(macOS 26.0, *)
+    func test_allPathsBindsVideoToolboxQualityModelBeforeQueueing()
+        async throws {
+        let queueDirectory = try makePendingQueueTemporaryDirectory()
+        let provider = VTControlledModelConfigurationProbe(
+            status: .downloadRequired
+        )
+        let service = DefaultModelAssetsService { _ in
+            VTModelStager(
+                configurationProvider: provider,
+                acquisitionAuthority: .systemDownloadAuthorized
+            )
+        }
+        let viewModel = MirmirViewModel(
+            mediaPipeline: NoopMediaPipelineService(),
+            upscalerEngine: NoopUpscalerEngineService(),
+            modelAssets: service,
+            pendingWorkQueue: MirmirPendingWorkQueue(
+                directoryURL: queueDirectory
+            )
+        )
+        viewModel.sourceProfile = SourceProfile(
+            url: URL(fileURLWithPath: "/tmp/all-paths-model-route.mov"),
+            resolution: .p1080,
+            frameRate: 30,
+            durationSeconds: 1,
+            estimatedFrameCount: 30,
+            codecHint: "test",
+            hasAudio: false
+        )
+        viewModel.targetResolution = .p2160
+        viewModel.outputURL = queueDirectory.appendingPathComponent(
+            "all-paths-output.mp4"
+        )
+        viewModel.state = .ready
+
+        XCTAssertTrue(
+            viewModel.selectAllProcessingPathsForPendingJob()
+        )
+        await waitForModelStatus(.downloadRequired, in: viewModel)
+        let expected = try makeQualityModelBinding()
+        XCTAssertEqual(viewModel.modelAssetsBinding, expected)
+        XCTAssertEqual(service.currentBinding(for: .video), expected)
+        XCTAssertEqual(
+            service.currentStatus(for: .video),
+            .downloadRequired
+        )
+        XCTAssertTrue(viewModel.modelAssetsShowsPreparationControl)
+        XCTAssertTrue(viewModel.modelAssetsCanPrepare)
+        XCTAssertTrue(
+            viewModel.selectedEnginePreferences.contains(
+                .videoToolboxQuality
+            )
+        )
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertEqual(
+            viewModel.canStartFailureReason,
+            viewModel.modelAssetsDetailText
+        )
+
+        viewModel.ensureModelsReady()
+        await waitForModelStatus(.ready, in: viewModel)
+
+        XCTAssertEqual(provider.downloadCount, 1)
+        XCTAssertTrue(viewModel.canStart)
+        XCTAssertNil(viewModel.canStartFailureReason)
+        XCTAssertEqual(
+            viewModel.selectedEnginePreferences,
+            UpscaleEnginePreference.concreteProcessingPaths
+        )
     }
 
     @MainActor

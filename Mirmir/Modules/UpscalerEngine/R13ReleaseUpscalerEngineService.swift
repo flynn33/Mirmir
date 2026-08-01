@@ -171,6 +171,11 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
         } else {
             self.adaptiveScalerFactory = { plan, modeBinding in
                 switch modeBinding.scalerKind {
+                case .standardVImage:
+                    return R03VImageScaler(
+                        mode: .lanczos3,
+                        adaptivePlan: plan
+                    )
                 case .highQualityVImage:
                     return R03VImageScaler(
                         mode: .lanczos5,
@@ -184,6 +189,20 @@ final class R13ReleaseUpscalerEngineService: UpscalerEngineService,
                 case .deterministicMPSLanczos:
                     return try R03MPSScaler(
                         mode: .lanczos,
+                        adaptivePlan: plan
+                    )
+                case .coreImageLanczos:
+                    return R03CoreImageScaler(
+                        mode: .lanczos,
+                        adaptivePlan: plan
+                    )
+                case .coreImageBicubic:
+                    return R03CoreImageScaler(
+                        mode: .bicubic,
+                        adaptivePlan: plan
+                    )
+                case .videoToolboxPixelTransfer:
+                    return try R03VTPixelTransferScaler(
                         adaptivePlan: plan
                     )
                 }
@@ -689,9 +708,16 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         )
         let source = preparedSource.source
         let hardeningAttempt = preparedSource.hardeningAttempt
+        let enhancementResolution: VideoResolution
+        switch preparedSource.scalePlan {
+        case .productQualified(let route):
+            enhancementResolution = route.canonicalSourceResolution
+        case .adaptiveMPSLanczos(let plan):
+            enhancementResolution = plan.processingSourceResolution
+        }
         let enhancementProcessor =
             try R13ReleaseFormatEnhancementProcessor(
-                targetResolution: job.targetResolution,
+                targetResolution: enhancementResolution,
                 videoFormat: source.videoFormat,
                 temporalConsistencyEnabled:
                     job.processingConfiguration
@@ -1036,6 +1062,10 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         let routingMetadata =
             try await scalingExecution.finish()
         if let routingMetadata {
+            try recordRoutingFallbackDiagnostics(
+                routingMetadata,
+                runtime: runtime
+            )
             runtime.diagnosticRecorder.enqueue(
                 severity: .notice,
                 subsystem: "release_engine",
@@ -1143,8 +1173,11 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 source: source,
                 scalePlan: scalePlan
             )
+            let enhancedSource = try enhancementProcessor.process(
+                normalized
+            )
             try await scalingExecution.replayCachedDecision(
-                source: normalized,
+                source: enhancedSource,
                 frameIndex: record.frameIndex,
                 decision: replay.routingDecision,
                 isFinalCachedPrefixFrame:
@@ -1163,11 +1196,6 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 resolution: runtime.job.targetResolution,
                 format: source.videoFormat
             )
-            if enhancementProcessor.temporalConsistencyEnabled {
-                try enhancementProcessor.restoreTemporalHistory(
-                    from: processed
-                )
-            }
             try await mediaSession.appendOutput(
                 pixelBuffer: processed,
                 timing: record.timing
@@ -1189,6 +1217,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             source: source,
             scalePlan: scalePlan
         )
+        let enhancedSource = try enhancementProcessor.process(normalized)
+        try Task.checkCancellation()
         let processed = try PixelBufferBridge.dequeue(
             from: mediaSession.outputPixelBufferPool
         )
@@ -1198,17 +1228,16 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             resolution: runtime.job.targetResolution
         )
         let routingDecision = try await scalingExecution.scale(
-            source: normalized,
+            source: enhancedSource,
             destination: processed,
             frameIndex: record.frameIndex,
             frameDuration: record.duration,
             cancellation: cancellation
         )
         try Task.checkCancellation()
-        let enhanced = try enhancementProcessor.process(processed)
         let cacheFrame =
             try R13NV12Frame.captureTightActivePlanes(
-                from: enhanced
+                from: processed
             )
         try await hardeningAttempt?.commit(
             frame: cacheFrame,
@@ -1216,12 +1245,12 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             at: record.frameIndex
         )
         try await mediaSession.appendOutput(
-            pixelBuffer: enhanced,
+            pixelBuffer: processed,
             timing: record.timing
         )
         runtime.previewEmitter.offer(
             source: { normalized },
-            processed: enhanced,
+            processed: processed,
             sourcePresentationResolution: source.resolution,
             frameIndex: record.frameIndex,
             presentationTime: record.presentationTime,
@@ -1346,6 +1375,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                     videoFormat: source.videoFormat,
                     orchestrationKind:
                         runtime.modeBinding.orchestrationKind,
+                    enginePreference:
+                        runtime.modeBinding.enginePreference,
                     makeScaler: { kind in
                         try R13ProductASHScalingCandidateFactory
                             .makeFormatPreservingScaler(
@@ -1421,6 +1452,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                     videoFormat: source.videoFormat,
                     orchestrationKind:
                         runtime.modeBinding.orchestrationKind,
+                    enginePreference:
+                        runtime.modeBinding.enginePreference,
                     makeScaler: { kind in
                         let binding =
                             R13ProductASHScalingCandidateFactory
@@ -1797,8 +1830,11 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                     pixelAspectRatio:
                         source.pixelAspectRatio
                 )
+            let enhancedSource = try enhancementProcessor.process(
+                normalized
+            )
             try await scalingExecution.replayCachedDecision(
-                source: normalized,
+                source: enhancedSource,
                 frameIndex: record.frameIndex,
                 decision: replay.routingDecision,
                 isFinalCachedPrefixFrame:
@@ -1810,11 +1846,6 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 pixelBuffer: processed,
                 resolution: plan.targetResolution
             )
-            if enhancementProcessor.temporalConsistencyEnabled {
-                try enhancementProcessor.restoreTemporalHistory(
-                    from: processed
-                )
-            }
             try await mediaSession.appendOutput(
                 pixelBuffer: processed,
                 timing: record.timing
@@ -1840,6 +1871,8 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                     plan.processingSourceResolution,
                 pixelAspectRatio: source.pixelAspectRatio
             )
+        let enhancedSource = try enhancementProcessor.process(normalized)
+        try Task.checkCancellation()
         let processed = try PixelBufferBridge.dequeue(
             from: outputPool
         )
@@ -1849,16 +1882,15 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
         )
         R03NV12Contract.installColorAttachments(on: processed)
         let routingDecision = try await scalingExecution.scale(
-            source: normalized,
+            source: enhancedSource,
             destination: processed,
             frameIndex: record.frameIndex,
             frameDuration: record.duration,
             cancellation: cancellation
         )
         try Task.checkCancellation()
-        let enhanced = try enhancementProcessor.process(processed)
         let cacheFrame = try R13NV12Frame.captureTightActivePlanes(
-            from: enhanced
+            from: processed
         )
         try await hardeningAttempt?.commit(
             frame: cacheFrame,
@@ -1866,12 +1898,12 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
             at: record.frameIndex
         )
         try await mediaSession.appendOutput(
-            pixelBuffer: enhanced,
+            pixelBuffer: processed,
             timing: record.timing
         )
         runtime.previewEmitter.offer(
             source: { normalized },
-            processed: enhanced,
+            processed: processed,
             sourcePresentationResolution: source.resolution,
             frameIndex: record.frameIndex,
             presentationTime: record.presentationTime,
@@ -2062,6 +2094,10 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                         for: upscaleBinding.session
                     )
                 if let routingMetadata {
+                    try recordRoutingFallbackDiagnostics(
+                        routingMetadata,
+                        runtime: runtime
+                    )
                     runtime.diagnosticRecorder.enqueue(
                         severity: .notice,
                         subsystem: "release_engine",
@@ -2238,6 +2274,177 @@ final class R13ReleaseUpscalerJobHandle: UpscalerJobHandle,
                 value: try .sha256(metadata.journalSHA256)
             )
         ].compactMap { $0 }
+    }
+
+    private static func recordRoutingFallbackDiagnostics(
+        _ metadata: R13ProductASHDecisionMetadata,
+        runtime: R13ReleaseJobRuntime
+    ) throws {
+        for event in metadata.fallbackEvents {
+            runtime.diagnosticRecorder.enqueue(
+                severity: .notice,
+                subsystem: "release_engine",
+                operation: "record_backend_fallback",
+                code: "release_product_routing_fallback_recorded",
+                job: runtime.job,
+                additionalFields: try routingFallbackDiagnosticFields(
+                    event,
+                    journalSHA256: metadata.journalSHA256
+                )
+            )
+            try recordRoutingFallbackArtifactDiagnostics(
+                event,
+                runtime: runtime,
+                journalSHA256: metadata.journalSHA256
+            )
+        }
+    }
+
+    private static func routingFallbackDiagnosticFields(
+        _ event: R13ProductASHFallbackEventEvidence,
+        journalSHA256: String
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = [
+            try MirmirDiagnosticField(
+                key: "routing_sequence_number",
+                value: .unsignedInteger(
+                    UInt64(event.sequenceNumber)
+                )
+            ),
+            try MirmirDiagnosticField(
+                key: "routing_fallback_ordinal",
+                value: .unsignedInteger(
+                    UInt64(event.selectedFallbackOrdinal)
+                )
+            ),
+            try MirmirDiagnosticField(
+                key: "routing_fallback_reason",
+                value: try .identifier(event.reason)
+            ),
+            try MirmirDiagnosticField(
+                key: "routing_journal_sha256",
+                value: try .sha256(journalSHA256)
+            )
+        ]
+        fields.append(contentsOf: try routingRouteDiagnosticFields(
+            event.failedRoute,
+            prefix: "routing_failed_route"
+        ))
+        fields.append(contentsOf: try routingRouteDiagnosticFields(
+            event.selectedRoute,
+            prefix: "routing_selected_route"
+        ))
+        precondition(
+            fields.count + 6 <= MirmirDiagnosticEvent.maximumFields,
+            "Fallback diagnostics must fit with all six job context fields."
+        )
+        return fields
+    }
+
+    private static func routingRouteDiagnosticFields(
+        _ route: R13ProductASHRoutingRouteEvidence,
+        prefix: String
+    ) throws -> [MirmirDiagnosticField] {
+        var fields = [
+            try MirmirDiagnosticField(
+                key: "\(prefix)_backend_id",
+                value: try .identifier(route.backendID)
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_backend_revision",
+                value: try .identifier(route.backendRevision)
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_configuration_identity",
+                value: try .identifier(route.configurationIdentity)
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_policy_identity",
+                value: try .identifier(route.policyIdentity)
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_material_decision_identity",
+                value: try .identifier(
+                    route.materialDecisionIdentity
+                )
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_model_status",
+                value: try .identifier(route.modelStatus.rawValue)
+            ),
+            try MirmirDiagnosticField(
+                key: "\(prefix)_model_artifact_count",
+                value: .unsignedInteger(
+                    UInt64(route.modelArtifacts.count)
+                )
+            )
+        ]
+        if let configurationIdentity =
+                route.modelConfigurationIdentity {
+            fields.append(
+                try MirmirDiagnosticField(
+                    key: "\(prefix)_model_configuration_identity",
+                    value: try .identifier(configurationIdentity)
+                )
+            )
+        }
+        return fields
+    }
+
+    private static func recordRoutingFallbackArtifactDiagnostics(
+        _ event: R13ProductASHFallbackEventEvidence,
+        runtime: R13ReleaseJobRuntime,
+        journalSHA256: String
+    ) throws {
+        for (role, route) in [
+            ("failed", event.failedRoute),
+            ("selected", event.selectedRoute)
+        ] {
+            for (index, artifact) in route.modelArtifacts.enumerated() {
+                runtime.diagnosticRecorder.enqueue(
+                    severity: .notice,
+                    subsystem: "release_engine",
+                    operation: "record_backend_fallback_artifact",
+                    code:
+                        "release_product_routing_fallback_artifact_recorded",
+                    job: runtime.job,
+                    additionalFields: [
+                        try MirmirDiagnosticField(
+                            key: "routing_sequence_number",
+                            value: .unsignedInteger(
+                                UInt64(event.sequenceNumber)
+                            )
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_fallback_ordinal",
+                            value: .unsignedInteger(
+                                UInt64(event.selectedFallbackOrdinal)
+                            )
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_route_role",
+                            value: try .identifier(role)
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_model_artifact_index",
+                            value: .unsignedInteger(UInt64(index))
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_model_artifact_identifier",
+                            value: try .identifier(artifact.identifier)
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_model_artifact_sha256",
+                            value: try .sha256(artifact.sha256)
+                        ),
+                        try MirmirDiagnosticField(
+                            key: "routing_journal_sha256",
+                            value: try .sha256(journalSHA256)
+                        )
+                    ]
+                )
+            }
+        }
     }
 
     private static func candidateAdmissionDiagnosticFields(

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
@@ -347,8 +348,10 @@ struct MirmirCacheLocationSettings: View {
             }
 
             Text(
-                "Choose any writable folder on an internal disk, "
-                    + "external drive, or mounted network share."
+                "Choose a compatible writable folder on an internal disk, "
+                    + "external drive, or mounted network share. Mirmir "
+                    + "verifies the required atomic file operations before "
+                    + "using it."
             )
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -739,16 +742,7 @@ struct MirmirDiagnosticSettingsView: View {
 
     private var logViewer: some View {
         GroupBox("Records") {
-            ScrollView([.horizontal, .vertical]) {
-                Text(logDisplayText)
-                    .font(.system(.caption, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(
-                        maxWidth: .infinity,
-                        alignment: .topLeading
-                    )
-                    .padding(8)
-            }
+            MirmirDiagnosticLogTextView(text: logDisplayText)
             .frame(minHeight: 300)
             .background(.background.secondary)
             .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -896,6 +890,77 @@ struct MirmirDiagnosticSettingsView: View {
         let identity = error as NSError
         return "Unable to \(action). "
             + "\(identity.domain) error \(identity.code)."
+    }
+}
+
+struct MirmirDiagnosticLogTextView: NSViewRepresentable {
+    let text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = Self.makeScrollView()
+        Self.update(scrollView, text: text)
+        return scrollView
+    }
+
+    func updateNSView(
+        _ scrollView: NSScrollView,
+        context: Context
+    ) {
+        Self.update(scrollView, text: text)
+    }
+
+    @MainActor
+    static func makeScrollView() -> NSScrollView {
+        let scrollView = NSTextView.scrollableTextView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+        scrollView.drawsBackground = false
+
+        guard let textView = scrollView.documentView as? NSTextView else {
+            return scrollView
+        }
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.isRichText = false
+        textView.importsGraphics = false
+        textView.usesFindBar = true
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+        textView.isAutomaticSpellingCorrectionEnabled = false
+        textView.font = NSFont.monospacedSystemFont(
+            ofSize: NSFont.smallSystemFontSize,
+            weight: .regular
+        )
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.containerSize = NSSize(
+            width: scrollView.contentSize.width,
+            height: .greatestFiniteMagnitude
+        )
+        textView.textContainer?.widthTracksTextView = true
+        textView.setAccessibilityLabel("Diagnostic records")
+        return scrollView
+    }
+
+    @MainActor
+    static func update(
+        _ scrollView: NSScrollView,
+        text: String
+    ) {
+        guard let textView = scrollView.documentView as? NSTextView,
+              textView.string != text else {
+            return
+        }
+        let visibleOrigin = scrollView.contentView.bounds.origin
+        textView.string = text
+        scrollView.contentView.scroll(to: visibleOrigin)
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 }
 

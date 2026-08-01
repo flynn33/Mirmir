@@ -5,7 +5,7 @@ import XCTest
 
 final class R05MetalFXContractsTests: XCTestCase {
     // swiftlint:disable:next function_body_length
-    func testCatalogMatchesFrozenSevenSubjectRouteMatrixExactly() {
+    func testCatalogMatchesFrozenEightSubjectRouteMatrixExactly() {
         let observed = R05MetalFXRouteCatalog.routes.map(ExpectedRoute.init)
         let expected: [ExpectedRoute] = [
             .init(
@@ -29,6 +29,19 @@ final class R05MetalFXContractsTests: XCTestCase {
                 source: .p1080,
                 target: .p2160,
                 scale: .two,
+                gate: .runtimeObservationRequired,
+                status: .notObserved,
+                disposition: .notObserved,
+                rejectionReason: nil
+            ),
+            .init(
+                subjectID: .spatial4x,
+                routeID: .spatial4x,
+                capabilityID: "A07",
+                backend: .spatial,
+                source: .p270,
+                target: .p1080,
+                scale: .four,
                 gate: .runtimeObservationRequired,
                 status: .notObserved,
                 disposition: .notObserved,
@@ -218,7 +231,7 @@ final class R05MetalFXContractsTests: XCTestCase {
         }
         XCTAssertEqual(
             Set(R05MetalFXRouteCatalog.routes.map(\.configurationIdentity)).count,
-            7
+            8
         )
     }
 

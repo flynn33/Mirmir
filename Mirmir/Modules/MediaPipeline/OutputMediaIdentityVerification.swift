@@ -113,7 +113,7 @@ enum MediaPreservationMetadataIdentityReader {
     }
 }
 
-private enum MediaPreservationCanonicalEncoder {
+enum MediaPreservationCanonicalEncoder {
     static func encode(_ value: Any) throws -> Data {
         var result = Data()
         try append(value, to: &result)
@@ -226,6 +226,134 @@ private enum MediaPreservationCanonicalEncoder {
     }
 }
 
+enum OutputMediaMetadataFormatSchemaIdentityReader {
+    static func read(
+        _ formatDescriptions: [CMFormatDescription]
+    ) throws -> OutputMediaMetadataFormatSchemaIdentity {
+        var canonicalDescriptions = try formatDescriptions.map(
+            canonicalFormatDescription
+        )
+        canonicalDescriptions.sort {
+            $0.lexicographicallyPrecedes($1)
+        }
+        return OutputMediaMetadataFormatSchemaIdentity(
+            canonicalFormatDescriptions: canonicalDescriptions
+        )
+    }
+
+    static func canonicalFormatDescription(
+        _ description: CMFormatDescription
+    ) throws -> Data {
+        let extensions = CMFormatDescriptionGetExtensions(description)
+            as NSDictionary?
+        let keyTable = extensions?[
+            kCMFormatDescriptionExtensionKey_MetadataKeyTable as String
+        ]
+        let fields: NSDictionary = [
+            "media_subtype": NSNumber(
+                value: CMFormatDescriptionGetMediaSubType(description)
+            ),
+            "metadata_key_table": keyTable ?? NSNull()
+        ]
+        return try MediaPreservationCanonicalEncoder.encode(fields)
+    }
+}
+
+enum OutputMediaMetadataSampleFormatBindingIdentityReader {
+    static func read(
+        asset: AVAsset,
+        track: AVAssetTrack,
+        cancellationCheck: @escaping @Sendable () throws -> Void
+    ) throws -> OutputMediaMetadataSampleFormatBindingIdentity {
+        guard track.mediaType == .metadata else {
+            throw MediaPreservationIdentityError.sampleIdentityFailed(
+                mediaType: track.mediaType.rawValue,
+                reason: "sample-format binding requested for a non-metadata track"
+            )
+        }
+        let reader: AVAssetReader
+        do {
+            try cancellationCheck()
+            reader = try AVAssetReader(asset: asset)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw failure(track, "reader creation failed: \(error)")
+        }
+        let output = AVAssetReaderTrackOutput(
+            track: track,
+            outputSettings: nil
+        )
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw failure(track, "reader rejected raw metadata output")
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw failure(
+                track,
+                reader.error.map {
+                    "reader did not start: \($0)"
+                } ?? "reader did not start"
+            )
+        }
+
+        var bindings: [Data] = []
+        do {
+            while true {
+                try cancellationCheck()
+                guard let sampleBuffer = output.copyNextSampleBuffer() else {
+                    break
+                }
+                let sampleCount = CMSampleBufferGetNumSamples(sampleBuffer)
+                guard sampleCount > 0 else { continue }
+                guard let description =
+                        CMSampleBufferGetFormatDescription(sampleBuffer) else {
+                    throw failure(
+                        track,
+                        "a nonempty metadata sample buffer has no format description"
+                    )
+                }
+                let canonical = try
+                    OutputMediaMetadataFormatSchemaIdentityReader
+                    .canonicalFormatDescription(description)
+                bindings.append(
+                    contentsOf: repeatElement(
+                        canonical,
+                        count: sampleCount
+                    )
+                )
+            }
+            try cancellationCheck()
+        } catch {
+            reader.cancelReading()
+            throw error
+        }
+        guard reader.status == .completed else {
+            if reader.status == .cancelled { throw CancellationError() }
+            throw failure(
+                track,
+                reader.error.map {
+                    "reader ended unsuccessfully: \($0)"
+                } ?? "reader ended with status \(reader.status.rawValue)"
+            )
+        }
+        return OutputMediaMetadataSampleFormatBindingIdentity(
+            canonicalFormatDescriptionsBySample: bindings
+        )
+    }
+
+    private static func failure(
+        _ track: AVAssetTrack,
+        _ reason: String
+    ) -> MediaPreservationIdentityError {
+        .sampleIdentityFailed(
+            mediaType: track.mediaType.rawValue,
+            reason: "metadata sample-format binding failed: \(reason)"
+        )
+    }
+}
+
 private final class MediaPreservationReaderCancellation:
     @unchecked Sendable {
     private let reader: AVAssetReader
@@ -243,9 +371,17 @@ enum MediaPreservationTrackSampleIdentityReader {
     static func read(
         asset: AVURLAsset,
         track: AVAssetTrack,
+        timelineOffset: CMTime = .zero,
         cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws -> OutputMediaTrackSampleIdentity {
         let mediaType = track.mediaType.rawValue
+        guard timelineOffset.isNumeric,
+              timelineOffset.epoch == 0 else {
+            throw failure(
+                mediaType,
+                "sample-identity timeline offset is not numeric epoch zero"
+            )
+        }
         let reader: AVAssetReader
         do {
             try cancellationCheck()
@@ -408,8 +544,19 @@ enum MediaPreservationTrackSampleIdentityReader {
                                 "payload byte count overflowed"
                             )
                         }
+                        let shiftedTiming = CMSampleTimingInfo(
+                            duration: timing.duration,
+                            presentationTimeStamp: shifted(
+                                timing.presentationTimeStamp,
+                                by: timelineOffset
+                            ),
+                            decodeTimeStamp: shifted(
+                                timing.decodeTimeStamp,
+                                by: timelineOffset
+                            )
+                        )
                         hasher.append(
-                            timing: timing,
+                            timing: shiftedTiming,
                             payload: payload,
                             index: sampleCount + containedIndex
                         )
@@ -459,6 +606,14 @@ enum MediaPreservationTrackSampleIdentityReader {
             mediaType: mediaType,
             reason: reason
         )
+    }
+
+    private static func shifted(
+        _ time: CMTime,
+        by offset: CMTime
+    ) -> CMTime {
+        guard time.isNumeric else { return time }
+        return CMTimeAdd(time, offset)
     }
 
     private struct CanonicalSampleHasher {
@@ -564,6 +719,19 @@ struct SourceMediaAssociationTargetSelection: Sendable, Equatable {
     let preserveSubtitles: Bool
     let preserveMetadata: Bool
 
+    func includesSource(_ mediaType: AVMediaType) -> Bool {
+        switch mediaType {
+        case .audio:
+            return preserveAudio
+        case .subtitle, .text, .closedCaption:
+            return preserveSubtitles
+        case .metadata, .timecode:
+            return preserveMetadata
+        default:
+            return true
+        }
+    }
+
     func disabledAction(for mediaType: AVMediaType) -> String? {
         switch mediaType {
         case .audio:
@@ -585,6 +753,19 @@ struct SourceMediaAssociationTargetSelection: Sendable, Equatable {
 }
 
 enum SourceMediaPreservationPlanner {
+    private struct PreparedTrack {
+        let originalTrack: AVAssetTrack
+        let sampleAsset: AVURLAsset
+        let sampleTrack: AVAssetTrack
+        let sourceCopyTimeRange: CMTimeRange
+        let destinationStart: CMTime
+        let outputTimeRange: CMTimeRange
+        let role: OutputMediaTrackPreservationRole
+        let metadataFormatSchemaOverride:
+            OutputMediaMetadataFormatSchemaIdentity?
+        let migrationArtifact: MirmirTimedMetadataMigrationResult?
+    }
+
     static let preservedMediaTypes: [AVMediaType] = [
         .video,
         .audio,
@@ -600,14 +781,22 @@ enum SourceMediaPreservationPlanner {
         selectedTracks: [AVAssetTrack],
         preserveMetadata: Bool,
         associationTargetSelection:
-            SourceMediaAssociationTargetSelection = .all
+            SourceMediaAssociationTargetSelection = .all,
+        outputTransaction: AtomicMediaOutput? = nil
     ) async throws -> SourceMediaPreservationPlan {
-        let preservationTracks = try await includingAssociationTargets(
+        let expandedTracks = try await includingAssociationTargets(
             selectedTracks,
             selection: associationTargetSelection
         )
+        let preparedTracks = try await prepareTracks(
+            asset: asset,
+            expandedTracks: expandedTracks,
+            outputTransaction: outputTransaction
+        )
         let containerMetadata = preserveMetadata
-            ? try await asset.load(.metadata)
+            ? MirmirTimedMetadataPolicy.containerMetadataForPreservation(
+                from: try await asset.load(.metadata)
+            )
             : []
         let containerIdentity =
             try await MediaPreservationMetadataIdentityReader.read(
@@ -617,10 +806,11 @@ enum SourceMediaPreservationPlanner {
         var trackReferenceByID:
             [CMPersistentTrackID: OutputMediaTrackReference] = [:]
         var trackPlans: [SourceMediaTrackPreservationPlan] = []
-        trackPlans.reserveCapacity(preservationTracks.count)
+        trackPlans.reserveCapacity(preparedTracks.count)
 
-        for track in preservationTracks {
-            let mediaType = track.mediaType.rawValue
+        for prepared in preparedTracks {
+            let originalTrack = prepared.originalTrack
+            let mediaType = originalTrack.mediaType.rawValue
             let ordinal = nextOrdinalByMediaType[mediaType, default: 0]
             nextOrdinalByMediaType[mediaType] = ordinal + 1
             let reference = OutputMediaTrackReference(
@@ -629,17 +819,24 @@ enum SourceMediaPreservationPlanner {
             )
             guard trackReferenceByID.updateValue(
                 reference,
-                forKey: track.trackID
+                forKey: originalTrack.trackID
             ) == nil else {
                 throw MediaPreservationIdentityError.duplicateTrackID(
-                    track.trackID
+                    originalTrack.trackID
                 )
             }
 
             trackPlans.append(
                 try await makeTrackPlan(
-                    asset: asset,
-                    track: track,
+                    asset: prepared.sampleAsset,
+                    track: prepared.sampleTrack,
+                    originalTrackID: originalTrack.trackID,
+                    sourceCopyTimeRange: prepared.sourceCopyTimeRange,
+                    destinationStart: prepared.destinationStart,
+                    outputTimeRange: prepared.outputTimeRange,
+                    role: prepared.role,
+                    metadataFormatSchemaOverride:
+                        prepared.metadataFormatSchemaOverride,
                     reference: reference,
                     preserveMetadata: preserveMetadata
                 )
@@ -647,12 +844,13 @@ enum SourceMediaPreservationPlanner {
         }
 
         var associations: [OutputMediaTrackAssociationExpectation] = []
-        for plan in trackPlans {
-            let associationTypes = try await plan.track.load(
+        for (prepared, plan) in zip(preparedTracks, trackPlans) {
+            let originalTrack = prepared.originalTrack
+            let associationTypes = try await originalTrack.load(
                 .availableTrackAssociationTypes
             )
             for associationType in associationTypes {
-                let targets = try await plan.track.loadAssociatedTracks(
+                let targets = try await originalTrack.loadAssociatedTracks(
                     ofType: associationType
                 )
                 for target in targets {
@@ -662,7 +860,7 @@ enum SourceMediaPreservationPlanner {
                             .missingAssociationTarget(
                                 associationType: associationType.rawValue,
                                 sourceMediaType:
-                                    plan.track.mediaType.rawValue,
+                                    originalTrack.mediaType.rawValue,
                                 targetMediaType:
                                     target.mediaType.rawValue
                             )
@@ -697,31 +895,263 @@ enum SourceMediaPreservationPlanner {
             containerMetadata: containerMetadata,
             tracks: trackPlans,
             associations: associations,
-            expectation: expectation
+            expectation: expectation,
+            migrationArtifacts: preparedTracks.compactMap(
+                \.migrationArtifact
+            )
         )
+    }
+
+    private static func prepareTracks(
+        asset: AVURLAsset,
+        expandedTracks: [AVAssetTrack],
+        outputTransaction: AtomicMediaOutput?
+    ) async throws -> [PreparedTrack] {
+        let associationParticipants = try await MirmirTimedMetadataPolicy
+            .associationParticipantIDs(in: expandedTracks)
+        guard let primaryVideoTrack = expandedTracks.first(where: {
+            $0.mediaType == .video
+        }) else {
+            throw MediaPreservationIdentityError.sampleIdentityFailed(
+                mediaType: AVMediaType.video.rawValue,
+                reason: "the preservation graph has no primary video track"
+            )
+        }
+        let primaryVideoTimeRange = try await primaryVideoTrack.load(
+            .timeRange
+        )
+
+        var result: [PreparedTrack] = []
+        result.reserveCapacity(expandedTracks.count)
+        for (index, track) in expandedTracks.enumerated() {
+            try Task.checkCancellation()
+            let originalTimeRange = try await track.load(.timeRange)
+            guard track.mediaType == .metadata else {
+                result.append(PreparedTrack(
+                    originalTrack: track,
+                    sampleAsset: asset,
+                    sampleTrack: track,
+                    sourceCopyTimeRange: originalTimeRange,
+                    destinationStart: originalTimeRange.start,
+                    outputTimeRange: originalTimeRange,
+                    role: .ordinary,
+                    metadataFormatSchemaOverride: nil,
+                    migrationArtifact: nil
+                ))
+                continue
+            }
+
+            let formatDescriptions = try await track.load(
+                .formatDescriptions
+            )
+            let declaredIdentifiers = formatDescriptions.flatMap {
+                (CMMetadataFormatDescriptionGetIdentifiers($0)
+                    as? [String]) ?? []
+            }
+            let isDeclaredStructuralCarrier =
+                declaredIdentifiers
+                    == [MirmirTimedMetadataMigration.shellCarrierIdentifier]
+            if isDeclaredStructuralCarrier {
+                let inspection = try await MirmirTimedMetadataMigration
+                    .inspect(
+                        sourceAsset: asset,
+                        sourceTrack: track
+                    )
+                guard inspection.isSanitizedShell,
+                      inspection.classification == .sanitizedShell else {
+                    throw MirmirTimedMetadataMigrationError
+                        .verificationFailure(
+                            "a declared structural carrier did not pass "
+                                + "strict source-shell validation"
+                        )
+                }
+                result.append(PreparedTrack(
+                    originalTrack: track,
+                    sampleAsset: asset,
+                    sampleTrack: track,
+                    sourceCopyTimeRange: originalTimeRange,
+                    destinationStart: originalTimeRange.start,
+                    outputTimeRange: originalTimeRange,
+                    role: .mirmirStructuralCarrier,
+                    metadataFormatSchemaOverride: nil,
+                    migrationArtifact: nil
+                ))
+                continue
+            }
+
+            let eligibility = MirmirTimedMetadataPolicy
+                .sourceIdentityFormatEligibility(
+                    mediaType: track.mediaType,
+                    formatDescriptions: formatDescriptions
+                )
+            guard eligibility != .preserve else {
+                result.append(PreparedTrack(
+                    originalTrack: track,
+                    sampleAsset: asset,
+                    sampleTrack: track,
+                    sourceCopyTimeRange: originalTimeRange,
+                    destinationStart: originalTimeRange.start,
+                    outputTimeRange: originalTimeRange,
+                    role: .ordinary,
+                    metadataFormatSchemaOverride: nil,
+                    migrationArtifact: nil
+                ))
+                continue
+            }
+
+            let inspection = try await MirmirTimedMetadataMigration.inspect(
+                sourceAsset: asset,
+                sourceTrack: track
+            )
+            let properties = inspection.sourceTrackProperties
+            let carriesIndependentState =
+                inspection.retainedForeignFormatEntryCount > 0
+                || inspection.preservedStaticItemCount > 0
+                || associationParticipants.contains(track.trackID)
+                || !properties.isEnabled
+                || MirmirTimedMetadataPolicy.hasExplicitTrackLanguage(
+                    properties.languageCode
+                )
+                || MirmirTimedMetadataPolicy.hasExplicitTrackLanguage(
+                    properties.extendedLanguageTag
+                )
+                || CMTimeCompare(
+                    properties.timeRange.start,
+                    primaryVideoTimeRange.start
+                ) != 0
+                || CMTimeCompare(
+                    properties.timeRange.duration,
+                    primaryVideoTimeRange.duration
+                ) != 0
+            guard inspection.foreignItemCount > 0
+                    || inspection.retainedForeignFormatEntryCount > 0
+                    || carriesIndependentState else {
+                continue
+            }
+            guard let outputTransaction else {
+                throw MirmirTimedMetadataMigrationError.writerFailure(
+                    stage: "preservation planning",
+                    reason: "timed-metadata migration requires an active "
+                        + "output transaction"
+                )
+            }
+            try outputTransaction.validateActiveTransactionLease()
+            let migrationURL = metadataMigrationURL(
+                outputTransaction: outputTransaction,
+                index: index
+            )
+            let migration = try await MirmirTimedMetadataMigration.migrate(
+                sourceAsset: asset,
+                sourceTrack: track,
+                outputURL: migrationURL,
+                emptyForeignBehavior:
+                    inspection.foreignItemCount == 0
+                        && inspection.retainedForeignFormatEntryCount == 0
+                    ? .preserveSanitizedShell
+                    : .fail,
+                fileSystem:
+                    outputTransaction.fileSystemForSiblingTemporaryFiles
+            )
+            result.append(PreparedTrack(
+                originalTrack: track,
+                sampleAsset: migration.migrationAsset,
+                sampleTrack: migration.sanitizedTrack,
+                sourceCopyTimeRange:
+                    migration.normalizedPrivateSourceCopyTimeRange,
+                destinationStart: migration.originalDestinationStart,
+                outputTimeRange: properties.timeRange,
+                role: migration.retainedItemCount == 0
+                    && migration.retainedForeignFormatEntryCount == 0
+                    ? .mirmirStructuralCarrier
+                    : .ordinary,
+                metadataFormatSchemaOverride:
+                    migration.retainedFormatSchema,
+                migrationArtifact: migration
+            ))
+        }
+        return result
+    }
+
+    private static func metadataMigrationURL(
+        outputTransaction: AtomicMediaOutput,
+        index: Int
+    ) -> URL {
+        let temporaryURL = outputTransaction.temporaryURL
+        let baseName = temporaryURL.deletingPathExtension()
+            .lastPathComponent
+        return temporaryURL.deletingLastPathComponent()
+            .appendingPathComponent(
+                "\(baseName).metadata-stage-\(index).mov",
+                isDirectory: false
+            )
     }
 
     private static func makeTrackPlan(
         asset: AVURLAsset,
         track: AVAssetTrack,
+        originalTrackID: CMPersistentTrackID,
+        sourceCopyTimeRange: CMTimeRange,
+        destinationStart: CMTime,
+        outputTimeRange: CMTimeRange,
+        role: OutputMediaTrackPreservationRole,
+        metadataFormatSchemaOverride:
+            OutputMediaMetadataFormatSchemaIdentity?,
         reference: OutputMediaTrackReference,
         preserveMetadata: Bool
     ) async throws -> SourceMediaTrackPreservationPlan {
         let timeRange = try await track.load(.timeRange)
+        guard CMTimeCompare(
+            timeRange.start,
+            sourceCopyTimeRange.start
+        ) == 0, CMTimeCompare(
+            timeRange.duration,
+            sourceCopyTimeRange.duration
+        ) == 0 else {
+            throw MediaPreservationIdentityError.sampleIdentityFailed(
+                mediaType: track.mediaType.rawValue,
+                reason: "prepared source-copy time range changed"
+            )
+        }
         try AVFoundationSourceTimelinePreflight.validate(
-            timeRange,
+            outputTimeRange,
             mediaType: track.mediaType
         )
         let naturalTimeScale = try await track.load(.naturalTimeScale)
         let exactTimeScale = try ExactVideoWriterTimeScale.resolve(
             naturalTimeScale: naturalTimeScale,
-            trackTimeRange: timeRange
+            trackTimeRange: outputTimeRange
         )
         let formatDescriptions = try await track.load(
             .formatDescriptions
         )
+        let metadataFormatSchema:
+            OutputMediaMetadataFormatSchemaIdentity?
+        if track.mediaType == .metadata {
+            metadataFormatSchema = try metadataFormatSchemaOverride
+                ?? OutputMediaMetadataFormatSchemaIdentityReader.read(
+                    formatDescriptions
+                )
+        } else {
+            metadataFormatSchema = nil
+        }
+        let metadataSampleFormatBindings:
+            OutputMediaMetadataSampleFormatBindingIdentity?
+        if track.mediaType == .metadata {
+            metadataSampleFormatBindings = try
+                OutputMediaMetadataSampleFormatBindingIdentityReader.read(
+                    asset: asset,
+                    track: track,
+                    cancellationCheck: {
+                        try Task.checkCancellation()
+                    }
+                )
+        } else {
+            metadataSampleFormatBindings = nil
+        }
         let metadata = preserveMetadata
-            ? try await track.load(.metadata)
+            ? MirmirTimedMetadataPolicy.removingControlledStaticMetadata(
+                from: try await track.load(.metadata)
+            )
             : []
         let metadataIdentity =
             try await MediaPreservationMetadataIdentityReader.read(
@@ -734,6 +1164,10 @@ enum SourceMediaPreservationPlanner {
                 .read(
                     asset: asset,
                     track: track,
+                    timelineOffset: CMTimeSubtract(
+                        destinationStart,
+                        sourceCopyTimeRange.start
+                    ),
                     cancellationCheck: {
                         try Task.checkCancellation()
                     }
@@ -798,11 +1232,14 @@ enum SourceMediaPreservationPlanner {
         }
         let expectation = OutputMediaTrackPreservationExpectation(
             reference: reference,
-            timeRange: timeRange,
+            role: role,
+            timeRange: outputTimeRange,
             naturalTimeScale: exactTimeScale,
             formatSubtypes: formatDescriptions.map {
                 CMFormatDescriptionGetMediaSubType($0)
             },
+            metadataFormatSchema: metadataFormatSchema,
+            metadataSampleFormatBindings: metadataSampleFormatBindings,
             totalSampleDataLength:
                 try await track.load(.totalSampleDataLength),
             sampleIdentity: sampleIdentity,
@@ -816,7 +1253,10 @@ enum SourceMediaPreservationPlanner {
             metadata: metadataIdentity
         )
         return SourceMediaTrackPreservationPlan(
+            originalTrackID: originalTrackID,
             track: track,
+            sourceCopyTimeRange: sourceCopyTimeRange,
+            destinationStart: destinationStart,
             metadata: metadata,
             expectation: expectation
         )
@@ -826,10 +1266,13 @@ enum SourceMediaPreservationPlanner {
         _ selectedTracks: [AVAssetTrack],
         selection: SourceMediaAssociationTargetSelection = .all
     ) async throws -> [AVAssetTrack] {
+        let selectedSourceTracks = selectedTracks.filter {
+            selection.includesSource($0.mediaType)
+        }
         var tracks: [AVAssetTrack] = []
-        tracks.reserveCapacity(selectedTracks.count)
+        tracks.reserveCapacity(selectedSourceTracks.count)
         var includedTrackIDs: Set<CMPersistentTrackID> = []
-        for track in selectedTracks {
+        for track in selectedSourceTracks {
             guard includedTrackIDs.insert(track.trackID).inserted else {
                 throw MediaPreservationIdentityError.duplicateTrackID(
                     track.trackID
@@ -899,38 +1342,69 @@ enum SourceMediaPreservationPlanner {
     }
 }
 
-enum SourceMediaPreservationPreflight {
-    private static let auxiliaryMediaTypes: [AVMediaType] = [
-        .subtitle,
-        .text,
-        .closedCaption,
-        .metadata,
-        .timecode
-    ]
+func orderedSourceTracks(
+    _ tracks: [AVAssetTrack],
+    primaryTrackID: CMPersistentTrackID
+) -> [AVAssetTrack]? {
+    guard let primaryIndex = tracks.firstIndex(where: {
+        $0.trackID == primaryTrackID
+    }) else {
+        return nil
+    }
+    var result = tracks
+    let primaryTrack = result.remove(at: primaryIndex)
+    result.insert(primaryTrack, at: 0)
+    return result
+}
 
+enum SourceMediaPreservationPreflight {
+    private struct MetadataReplacementSelection {
+        let preservationTracks: [AVAssetTrack]
+        let migrationTrackIDs: Set<CMPersistentTrackID>
+    }
+
+    // swiftlint:disable:next function_body_length
     static func inspect(
         asset: AVURLAsset,
         videoTrack: AVAssetTrack
     ) async throws -> SourceMediaPreservationCapability {
         try Task.checkCancellation()
-        let audioTracks = try await asset.loadTracks(
-            withMediaType: .audio
-        )
-        var auxiliaryTracks: [AVAssetTrack] = []
-        for mediaType in auxiliaryMediaTypes {
-            try Task.checkCancellation()
-            auxiliaryTracks.append(
-                contentsOf: try await asset.loadTracks(
-                    withMediaType: mediaType
-                )
+        let inventoriedTracks = try await asset.load(.tracks)
+        guard let sourceTracks = orderedSourceTracks(
+            inventoriedTracks,
+            primaryTrackID: videoTrack.trackID
+        ) else {
+            throw MediaPreservationIdentityError.sampleIdentityFailed(
+                mediaType: AVMediaType.video.rawValue,
+                reason: "the primary video track is missing from the "
+                    + "complete source-track inventory"
             )
         }
-        let selectedTracks =
+        let expandedTracks =
             try await SourceMediaPreservationPlanner
                 .includingAssociationTargets(
-                    [videoTrack] + audioTracks + auxiliaryTracks
+                    sourceTracks
                 )
+        let selectedTracks: [AVAssetTrack]
+        let migratedMetadataTrackIDs: Set<CMPersistentTrackID>
+        let metadataReplacementError: Error?
+        do {
+            let selection = try await metadataReplacementSelection(
+                asset: asset,
+                expandedTracks
+            )
+            selectedTracks = selection.preservationTracks
+            migratedMetadataTrackIDs = selection.migrationTrackIDs
+            metadataReplacementError = nil
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            selectedTracks = expandedTracks
+            migratedMetadataTrackIDs = []
+            metadataReplacementError = error
+        }
         let references = trackReferences(selectedTracks)
+        let associationReferences = trackReferences(expandedTracks)
         let inspectableTracks = selectedTracks.filter {
             $0.trackID != videoTrack.trackID
         }
@@ -972,78 +1446,21 @@ enum SourceMediaPreservationPreflight {
         }
 
         let associationResult = await inspectAssociations(
-            selectedTracks: selectedTracks,
-            references: references
+            selectedTracks: expandedTracks,
+            references: associationReferences
         )
         let containerResult = await inspectContainerMetadata(
             asset: asset
         )
         var overallSupport = containerResult.support
-
-        do {
-            _ = try await SourceMediaPreservationPlanner.make(
-                asset: asset,
-                selectedTracks: selectedTracks,
-                preserveMetadata: true
-            )
-        } catch is CancellationError {
-            throw CancellationError()
-        } catch is OutputMediaLinearPCMIdentityError {
-            // `inspectTrack` records the exact per-audio-track PCM
-            // remediation. Do not promote that selected-track gap to
-            // container metadata, because disabling audio preservation
-            // must leave otherwise supported metadata selectable.
-        } catch let error as MediaPreservationIdentityError {
-            switch error {
-            case .missingAssociationTarget,
-                    .disabledAssociationTarget:
-                if associationResult.associations.allSatisfy({
-                    $0.support.isCompatible
-                }) {
-                    overallSupport = unsupportedAssociationSupport(
-                        error.description
-                    )
-                }
-            case .unsupportedMetadataValue:
-                overallSupport = .unavailable(
-                    gap: .metadataIdentityUnavailable,
-                    reason: "Source metadata uses a value that Mirmir "
-                        + "cannot yet preserve exactly (\(error)). "
-                        + "Exact preservation for this metadata value "
-                        + "type is not implemented.",
-                    missingCapability:
-                        "metadata value passthrough"
-                )
-            case .sampleIdentityFailed:
-                overallSupport = .unavailable(
-                    gap: .trackIdentityUnavailable,
-                    reason: "A source auxiliary track cannot be "
-                        + "identified exactly (\(error)). Exact sample "
-                        + "passthrough for this track remains "
-                        + "unimplemented.",
-                    missingCapability:
-                        "auxiliary sample passthrough"
-                )
-            case .duplicateTrackID:
-                overallSupport = .unavailable(
-                    gap: .trackIdentityUnavailable,
-                    reason: "The source media graph is ambiguous "
-                        + "(\(error)). Exact duplicate-track identity "
-                        + "handling is not implemented.",
-                    missingCapability:
-                        "duplicate track identity handling"
-                )
-            }
-        } catch {
-            overallSupport = .unavailable(
-                gap: .trackIdentityUnavailable,
-                reason: "Mirmir could not establish an exact source "
-                    + "media preservation plan (\(error)). The missing "
-                    + "track-preservation path must be implemented "
-                    + "before this media can be preserved.",
-                missingCapability:
-                    "source track preservation planning"
-            )
+        if let planningFailure = try await planningFailureSupport(
+            asset: asset,
+            selectedTracks: selectedTracks,
+            associationResult: associationResult,
+            metadataReplacementError: metadataReplacementError,
+            requiresMigration: !migratedMetadataTrackIDs.isEmpty
+        ) {
+            overallSupport = planningFailure
         }
         if let failure = associationResult.failureSupport {
             overallSupport = failure
@@ -1061,6 +1478,217 @@ enum SourceMediaPreservationPreflight {
                 containerResult.identitySHA256,
             support: overallSupport
         )
+    }
+
+    private static func metadataReplacementSelection(
+        asset: AVURLAsset,
+        _ tracks: [AVAssetTrack]
+    ) async throws -> MetadataReplacementSelection {
+        var preservationTracks: [AVAssetTrack] = []
+        preservationTracks.reserveCapacity(tracks.count)
+        var migrationTrackIDs: Set<CMPersistentTrackID> = []
+        let associationParticipants = try await MirmirTimedMetadataPolicy
+            .associationParticipantIDs(in: tracks)
+        guard let primaryVideo = tracks.first(where: {
+            $0.mediaType == .video
+        }) else {
+            throw MediaPreservationIdentityError.sampleIdentityFailed(
+                mediaType: AVMediaType.video.rawValue,
+                reason: "the preservation graph has no primary video track"
+            )
+        }
+        let primaryVideoTimeRange = try await primaryVideo.load(.timeRange)
+
+        for track in tracks {
+            guard track.mediaType == .metadata else {
+                preservationTracks.append(track)
+                continue
+            }
+            let formatDescriptions = try await track.load(
+                .formatDescriptions
+            )
+            let declaredIdentifiers = formatDescriptions.flatMap {
+                (CMMetadataFormatDescriptionGetIdentifiers($0)
+                    as? [String]) ?? []
+            }
+            if declaredIdentifiers
+                == [MirmirTimedMetadataMigration.shellCarrierIdentifier] {
+                let inspection = try await MirmirTimedMetadataMigration
+                    .inspect(
+                        sourceAsset: asset,
+                        sourceTrack: track
+                    )
+                guard inspection.isSanitizedShell else {
+                    throw MirmirTimedMetadataMigrationError
+                        .verificationFailure(
+                            "a declared preservation shell failed strict "
+                                + "source validation"
+                        )
+                }
+                preservationTracks.append(track)
+                continue
+            }
+            switch MirmirTimedMetadataPolicy
+                .sourceIdentityFormatEligibility(
+                    mediaType: track.mediaType,
+                    formatDescriptions: formatDescriptions
+                ) {
+            case .preserve:
+                preservationTracks.append(track)
+            case .replace, .migrate:
+                let inspection = try await MirmirTimedMetadataMigration
+                    .inspect(
+                        sourceAsset: asset,
+                        sourceTrack: track
+                    )
+                let properties = inspection.sourceTrackProperties
+                let carriesIndependentState =
+                    inspection.retainedForeignFormatEntryCount > 0
+                    || inspection.preservedStaticItemCount > 0
+                    || associationParticipants.contains(track.trackID)
+                    || !properties.isEnabled
+                    || MirmirTimedMetadataPolicy.hasExplicitTrackLanguage(
+                        properties.languageCode
+                    )
+                    || MirmirTimedMetadataPolicy.hasExplicitTrackLanguage(
+                        properties.extendedLanguageTag
+                    )
+                    || CMTimeCompare(
+                        properties.timeRange.start,
+                        primaryVideoTimeRange.start
+                    ) != 0
+                    || CMTimeCompare(
+                        properties.timeRange.duration,
+                        primaryVideoTimeRange.duration
+                    ) != 0
+                if inspection.foreignItemCount > 0
+                    || inspection.retainedForeignFormatEntryCount > 0
+                    || carriesIndependentState {
+                    preservationTracks.append(track)
+                    migrationTrackIDs.insert(track.trackID)
+                }
+            }
+        }
+        return MetadataReplacementSelection(
+            preservationTracks: preservationTracks,
+            migrationTrackIDs: migrationTrackIDs
+        )
+    }
+
+    private static func metadataMigrationFailureSupport(
+        _ error: Error
+    ) -> SourceMediaPreservationSupport {
+        .unavailable(
+            gap: .metadataIdentityUnavailable,
+            reason: "Source timed metadata cannot be inspected or migrated "
+                + "without losing preserved information (\(error)). "
+                + "Mirmir stopped before processing.",
+            missingCapability:
+                "a lossless representation for this timed-metadata stream"
+        )
+    }
+
+    private static func planningFailureSupport(
+        asset: AVURLAsset,
+        selectedTracks: [AVAssetTrack],
+        associationResult: (
+            associations: [SourceMediaTrackAssociationCapability],
+            failureSupport: SourceMediaPreservationSupport?
+        ),
+        metadataReplacementError: Error?,
+        requiresMigration: Bool
+    ) async throws -> SourceMediaPreservationSupport? {
+        if let metadataReplacementError {
+            return metadataMigrationFailureSupport(
+                metadataReplacementError
+            )
+        }
+        let hasDirectedMetadataReplacementBlocker =
+            associationResult.associations.contains {
+                if case .unavailable(
+                    gap: .metadataIdentityUnavailable,
+                    reason: _,
+                    missingCapability: _
+                ) = $0.support {
+                    return true
+                }
+                return false
+            }
+        if hasDirectedMetadataReplacementBlocker {
+            // The synchronous capability query evaluates these blockers
+            // against the user's selected association-source graph. A
+            // global planner failure here would incorrectly make an
+            // unselected incoming source association block metadata.
+            return nil
+        }
+        if requiresMigration {
+            // Inspect-only migration preflight has already validated the
+            // controlled/foreign stream without creating an artifact. The
+            // exact preservation plan is materialized only after the runtime
+            // output transaction owns its sibling temporary paths.
+            return nil
+        }
+        do {
+            _ = try await SourceMediaPreservationPlanner.make(
+                asset: asset,
+                selectedTracks: selectedTracks,
+                preserveMetadata: true
+            )
+            return nil
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch is OutputMediaLinearPCMIdentityError {
+            // `inspectTrack` records the per-audio-track remediation.
+            return nil
+        } catch let error as MediaPreservationIdentityError {
+            switch error {
+            case .missingAssociationTarget,
+                    .disabledAssociationTarget:
+                guard associationResult.associations.allSatisfy({
+                    $0.support.isCompatible
+                }) else {
+                    return nil
+                }
+                return unsupportedAssociationSupport(error.description)
+            case .unsupportedMetadataValue:
+                return .unavailable(
+                    gap: .metadataIdentityUnavailable,
+                    reason: "Source metadata uses a value that Mirmir "
+                        + "cannot yet preserve exactly (\(error)). "
+                        + "Exact preservation for this metadata value "
+                        + "type is not implemented.",
+                    missingCapability: "metadata value passthrough"
+                )
+            case .sampleIdentityFailed:
+                return .unavailable(
+                    gap: .trackIdentityUnavailable,
+                    reason: "A source auxiliary track cannot be "
+                        + "identified exactly (\(error)). Exact sample "
+                        + "passthrough for this track remains "
+                        + "unimplemented.",
+                    missingCapability: "auxiliary sample passthrough"
+                )
+            case .duplicateTrackID:
+                return .unavailable(
+                    gap: .trackIdentityUnavailable,
+                    reason: "The source media graph is ambiguous "
+                        + "(\(error)). Exact duplicate-track identity "
+                        + "handling is not implemented.",
+                    missingCapability:
+                        "duplicate track identity handling"
+                )
+            }
+        } catch {
+            return .unavailable(
+                gap: .trackIdentityUnavailable,
+                reason: "Mirmir could not establish an exact source "
+                    + "media preservation plan (\(error)). The missing "
+                    + "track-preservation path must be implemented "
+                    + "before this media can be preserved.",
+                missingCapability:
+                    "source track preservation planning"
+            )
+        }
     }
 
     private static func inspectTrack(
@@ -1096,7 +1724,10 @@ enum SourceMediaPreservationPreflight {
         let extendedLanguageTag = try await track.load(
             .extendedLanguageTag
         )
-        let metadata = try await track.load(.metadata)
+        let metadata = MirmirTimedMetadataPolicy
+            .removingControlledStaticMetadata(
+                from: try await track.load(.metadata)
+            )
         let metadataIdentity =
             try await MediaPreservationMetadataIdentityReader.read(
                 metadata
@@ -1260,6 +1891,7 @@ enum SourceMediaPreservationPreflight {
             mediaType: reference.mediaType,
             ordinal: reference.ordinal,
             formatSubtypes: formatSubtypes,
+            staticMetadataItemCount: metadata.count,
             isEnabled: isEnabled,
             languageCode: languageCode,
             extendedLanguageTag: extendedLanguageTag,
@@ -1388,7 +2020,10 @@ enum SourceMediaPreservationPreflight {
         support: SourceMediaPreservationSupport
     ) {
         do {
-            let metadata = try await asset.load(.metadata)
+            let metadata = MirmirTimedMetadataPolicy
+                .containerMetadataForPreservation(
+                    from: try await asset.load(.metadata)
+                )
             let identity =
                 try await MediaPreservationMetadataIdentityReader.read(
                     metadata
@@ -1428,6 +2063,7 @@ enum SourceMediaPreservationPreflight {
             mediaType: track.mediaType.rawValue,
             ordinal: ordinal,
             formatSubtypes: [],
+            staticMetadataItemCount: 0,
             isEnabled: nil,
             languageCode: nil,
             extendedLanguageTag: nil,
@@ -1871,6 +2507,66 @@ extension OutputMediaVerifier {
         cancellationCheck: @escaping @Sendable () throws -> Void
     ) async throws {
         let reference = expected.reference
+        if reference.mediaType == AVMediaType.metadata.rawValue {
+            let formatDescriptions = try await track.load(
+                .formatDescriptions
+            )
+            let actualFormatSchema = try
+                OutputMediaMetadataFormatSchemaIdentityReader.read(
+                    formatDescriptions
+                )
+            guard actualFormatSchema == expected.metadataFormatSchema else {
+                throw mediaPreservationMismatch(
+                    "\(reference) declared metadata schema differs"
+                )
+            }
+            let actualSampleFormatBindings = try
+                OutputMediaMetadataSampleFormatBindingIdentityReader.read(
+                    asset: asset,
+                    track: track,
+                    cancellationCheck: cancellationCheck
+                )
+            guard actualSampleFormatBindings
+                    == expected.metadataSampleFormatBindings else {
+                throw mediaPreservationMismatch(
+                    "\(reference) metadata sample-format bindings differ"
+                )
+            }
+            let identifierLists = formatDescriptions.map { description in
+                (
+                    CMMetadataFormatDescriptionGetIdentifiers(description)
+                        as? [String]
+                ) ?? []
+            }
+            let formatIdentifiers = Set(
+                identifierLists.flatMap { $0 }
+            )
+            let carrierIdentifier =
+                MirmirTimedMetadataMigration.shellCarrierIdentifier
+            switch expected.role {
+            case .ordinary:
+                guard !formatIdentifiers.contains(carrierIdentifier) else {
+                    throw mediaPreservationMismatch(
+                        "\(reference) ordinary preservation role maps "
+                            + "to a structural-carrier track"
+                    )
+                }
+            case .mirmirStructuralCarrier:
+                guard !identifierLists.isEmpty,
+                      identifierLists.allSatisfy({ !$0.isEmpty }),
+                      formatIdentifiers == [carrierIdentifier] else {
+                    throw mediaPreservationMismatch(
+                        "\(reference) structural-carrier role does not "
+                            + "map to the exact carrier-only format"
+                    )
+                }
+            }
+        } else if expected.role == .mirmirStructuralCarrier {
+            throw mediaPreservationMismatch(
+                "\(reference) structural-carrier role targets a "
+                    + "non-metadata track"
+            )
+        }
         let timeRange = try await track.load(.timeRange)
         guard semanticTimesAreEqual(
             timeRange.start,

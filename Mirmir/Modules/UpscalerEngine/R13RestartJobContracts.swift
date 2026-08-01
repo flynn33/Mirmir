@@ -33,6 +33,7 @@ enum R13RestartJobError: Error, Equatable, Sendable {
     case incompleteJob(committed: Int, expected: Int)
     case prepublicationReceiptConflict
     case reauthorizationRequired(role: R13BookmarkRole)
+    case bookmarkCreationFailed(role: R13BookmarkRole)
     case bookmarkResolutionFailed(role: R13BookmarkRole)
     case securityScopeDenied(role: R13BookmarkRole)
     case insufficientDiskSpace(requiredBytes: UInt64, availableBytes: UInt64)
@@ -66,11 +67,35 @@ struct R13RestartSourceIdentity: Codable, Hashable, Sendable {
 }
 
 struct R13RestartProcessingIdentity: Codable, Hashable, Sendable {
+    static let releaseIdentityComponentPrefix = "release-"
+
     let requestedMode: String
     let effectiveMode: String
     let routeIdentity: String
     let backendIdentity: String
     let backendRevision: String
+
+    static func releaseIdentityComponent(
+        sha256: String
+    ) throws -> String {
+        let validatedSHA256 = try R13RestartValidation.sha256(
+            sha256,
+            field: "release_identity_sha256"
+        )
+        return Self.releaseIdentityComponentPrefix + validatedSHA256
+    }
+
+    static func isValidReleaseIdentityComponent(
+        _ value: String
+    ) -> Bool {
+        guard value.hasPrefix(releaseIdentityComponentPrefix) else {
+            return false
+        }
+        return (try? R13RestartValidation.sha256(
+            String(value.dropFirst(releaseIdentityComponentPrefix.count)),
+            field: "release_identity_sha256"
+        )) != nil
+    }
 
     var requiresPerFrameRoutingDecision: Bool {
         [

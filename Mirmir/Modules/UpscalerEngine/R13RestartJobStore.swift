@@ -216,6 +216,45 @@ struct R13RestartRoutingRouteIdentity:
     }
 }
 
+struct R13RestartRoutingFallbackLink:
+    Codable,
+    Hashable,
+    Sendable {
+    let failedRoute: R13RestartRoutingRouteIdentity
+    let selectedRoute: R13RestartRoutingRouteIdentity
+    let reason: String
+    let selectedFallbackOrdinal: Int
+
+    init(_ link: AppleUpscaleFallbackLink) throws {
+        failedRoute = try R13RestartRoutingRouteIdentity(
+            link.failedRoute
+        )
+        selectedRoute = try R13RestartRoutingRouteIdentity(
+            link.selectedRoute
+        )
+        reason = link.reasonCode.rawValue
+        selectedFallbackOrdinal = link.selectedFallbackOrdinal
+        _ = try appleLink()
+    }
+
+    func appleLink() throws -> AppleUpscaleFallbackLink {
+        guard let reasonCode = AppleUpscaleFallbackReasonCode(
+            rawValue: reason
+        ) else {
+            throw R13RestartJobError.invalidIdentity(
+                field: "routing_fallback_reason"
+            )
+        }
+        return try AppleUpscaleFallbackLink(
+            failedRoute: try failedRoute.appleIdentity(),
+            selectedRoute: try selectedRoute.appleIdentity(),
+            reasonCode: reasonCode,
+            selectedFallbackOrdinal: selectedFallbackOrdinal
+        )
+    }
+
+}
+
 struct R13RestartRoutingDecisionRecord:
     Codable,
     Hashable,
@@ -223,7 +262,8 @@ struct R13RestartRoutingDecisionRecord:
     let sequenceNumber: Int
     let selectedRouteIdentity: R13RestartRoutingRouteIdentity
     let reason: String
-    let failedBackendIDs: [String]
+    let fallbackHistory: [R13RestartRoutingFallbackLink]?
+    private let legacyFailedBackendIDs: [String]?
     let processingPressureQ16: Int64
 
     init(_ event: R13ProductASHDecisionEvent) throws {
@@ -233,7 +273,10 @@ struct R13RestartRoutingDecisionRecord:
                 event.selectedRouteIdentity
             )
         reason = event.reason.rawValue
-        failedBackendIDs = event.failedBackendIDs
+        fallbackHistory = try event.fallbackHistory.map {
+            try R13RestartRoutingFallbackLink($0)
+        }
+        legacyFailedBackendIDs = nil
         processingPressureQ16 = event.processingPressureQ16
         try validate(expectedSequenceNumber: event.sequenceNumber)
     }
@@ -241,7 +284,9 @@ struct R13RestartRoutingDecisionRecord:
     func event() throws -> R13ProductASHDecisionEvent {
         try validate(expectedSequenceNumber: sequenceNumber)
         guard let reason =
-            R06ASHTransitionReason(rawValue: reason) else {
+            R06ASHTransitionReason(rawValue: reason),
+              let fallbackHistory,
+              legacyFailedBackendIDs == nil else {
             throw R13RestartJobError.invalidRoutingDecision(
                 index: sequenceNumber
             )
@@ -251,7 +296,9 @@ struct R13RestartRoutingDecisionRecord:
             selectedRouteIdentity:
                 try selectedRouteIdentity.appleIdentity(),
             reason: reason,
-            failedBackendIDs: failedBackendIDs,
+            fallbackHistory: try fallbackHistory.map {
+                try $0.appleLink()
+            },
             processingPressureQ16: processingPressureQ16
         )
     }
@@ -263,29 +310,93 @@ struct R13RestartRoutingDecisionRecord:
                 R06ASHTransitionReason(rawValue: reason),
               (0...R06ASHQ16.scale)
                 .contains(processingPressureQ16),
-              Set(failedBackendIDs).count
-                == failedBackendIDs.count else {
+              let fallbackHistory,
+              legacyFailedBackendIDs == nil else {
             throw R13RestartJobError.invalidRoutingDecision(
                 index: expectedSequenceNumber
             )
         }
         let selectedRoute =
             try selectedRouteIdentity.appleIdentity()
-        let validatedFailedBackendIDs = try failedBackendIDs.map {
-            try R13RestartValidation.identity(
-                $0,
-                field: "routing_failed_backend_id"
-            )
+        let validatedFallbackHistory = try fallbackHistory.map {
+            try $0.appleLink()
         }
-        guard !validatedFailedBackendIDs.contains(
-            selectedRoute.backend.backendID
-        ),
+        guard (try? AppleUpscaleProcessingIdentity(
+            route: selectedRoute,
+            fallbackHistory: validatedFallbackHistory
+        )) != nil,
         (transitionReason == .fatalBackendFailover)
-            == !validatedFailedBackendIDs.isEmpty else {
+            == !validatedFallbackHistory.isEmpty else {
             throw R13RestartJobError.invalidRoutingDecision(
                 index: expectedSequenceNumber
             )
         }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(
+            keyedBy: CodingKeys.self
+        )
+        sequenceNumber = try container.decode(
+            Int.self,
+            forKey: .sequenceNumber
+        )
+        selectedRouteIdentity = try container.decode(
+            R13RestartRoutingRouteIdentity.self,
+            forKey: .selectedRouteIdentity
+        )
+        reason = try container.decode(
+            String.self,
+            forKey: .reason
+        )
+        fallbackHistory = try container.decodeIfPresent(
+            [R13RestartRoutingFallbackLink].self,
+            forKey: .fallbackHistory
+        )
+        legacyFailedBackendIDs = try container.decodeIfPresent(
+            [String].self,
+            forKey: .failedBackendIDs
+        )
+        processingPressureQ16 = try container.decode(
+            Int64.self,
+            forKey: .processingPressureQ16
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(
+            keyedBy: CodingKeys.self
+        )
+        try container.encode(
+            sequenceNumber,
+            forKey: .sequenceNumber
+        )
+        try container.encode(
+            selectedRouteIdentity,
+            forKey: .selectedRouteIdentity
+        )
+        try container.encode(reason, forKey: .reason)
+        try container.encodeIfPresent(
+            fallbackHistory,
+            forKey: .fallbackHistory
+        )
+        try container.encodeIfPresent(
+            legacyFailedBackendIDs,
+            forKey: .failedBackendIDs
+        )
+        try container.encode(
+            processingPressureQ16,
+            forKey: .processingPressureQ16
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case sequenceNumber
+        case selectedRouteIdentity
+        case reason
+        case fallbackHistory
+        case failedBackendIDs
+        case processingPressureQ16
     }
 }
 
@@ -372,7 +483,7 @@ struct R13CachedFrameArtifactIdentity: Codable, Hashable, Sendable {
 }
 
 struct R13RestartCommitRecord: Codable, Hashable, Sendable {
-    static let currentSchemaVersion = 3
+    static let currentSchemaVersion = 4
 
     let schemaVersion: Int
     let sequence: Int

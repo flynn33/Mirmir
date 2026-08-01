@@ -41,32 +41,52 @@ enum R13ProductASHCandidateKind:
     Equatable,
     Hashable,
     Sendable {
+    case standardVImage = "vimage_lanczos_standard"
     case highQualityVImage = "vimage_lanczos_high_quality"
     case fastMPSBilinear = "mps_bilinear"
     case deterministicMPSLanczos = "mps_lanczos"
+    case coreImageLanczos = "core_image_lanczos"
+    case coreImageBicubic = "core_image_bicubic"
+    case videoToolboxPixelTransfer = "videotoolbox_pixel_transfer"
     case videoToolboxQuality = "videotoolbox_quality"
     case videoToolboxLowLatency = "videotoolbox_low_latency"
     case metalFXSpatial = "metalfx_spatial"
 
     init(scalerKind: R13ReleaseScalerKind) {
         switch scalerKind {
+        case .standardVImage:
+            self = .standardVImage
         case .highQualityVImage:
             self = .highQualityVImage
         case .fastMPSBilinear:
             self = .fastMPSBilinear
         case .deterministicMPSLanczos:
             self = .deterministicMPSLanczos
+        case .coreImageLanczos:
+            self = .coreImageLanczos
+        case .coreImageBicubic:
+            self = .coreImageBicubic
+        case .videoToolboxPixelTransfer:
+            self = .videoToolboxPixelTransfer
         }
     }
 
     var scalerKind: R13ReleaseScalerKind? {
         switch self {
+        case .standardVImage:
+            return .standardVImage
         case .highQualityVImage:
             return .highQualityVImage
         case .fastMPSBilinear:
             return .fastMPSBilinear
         case .deterministicMPSLanczos:
             return .deterministicMPSLanczos
+        case .coreImageLanczos:
+            return .coreImageLanczos
+        case .coreImageBicubic:
+            return .coreImageBicubic
+        case .videoToolboxPixelTransfer:
+            return .videoToolboxPixelTransfer
         case .videoToolboxQuality,
              .videoToolboxLowLatency,
              .metalFXSpatial:
@@ -523,6 +543,10 @@ actor R13ProductASHScalingRouter {
             events.last.map { $0.sequenceNumber + 1 } ?? 0
         let selectedBackendID =
             decision.selectedRouteIdentity.backend.backendID
+        let fallbackHistoryIsValid = (try? AppleUpscaleProcessingIdentity(
+            route: decision.selectedRouteIdentity,
+            fallbackHistory: decision.fallbackHistory
+        )) != nil
         guard frameIndex == expectedSequenceNumber,
               decision.sequenceNumber == expectedSequenceNumber,
               (0...R06ASHQ16.scale).contains(
@@ -531,13 +555,11 @@ actor R13ProductASHScalingRouter {
               declaredRouteIdentitiesByBackendID[
                   selectedBackendID
               ] == decision.selectedRouteIdentity,
-              Set(decision.failedBackendIDs).count
-                == decision.failedBackendIDs.count,
-              !decision.failedBackendIDs.contains(
-                  selectedBackendID
-              ),
-              decision.failedBackendIDs.allSatisfy({
-                  declaredRouteIdentitiesByBackendID[$0] != nil
+              fallbackHistoryIsValid,
+              decision.fallbackHistory.allSatisfy({ link in
+                  declaredRouteIdentitiesByBackendID[
+                      link.failedRoute.backend.backendID
+                  ] == link.failedRoute
               }),
               decision.failedBackendIDs.allSatisfy({
                   !replayedFailedBackendIDs.contains($0)
@@ -634,7 +656,7 @@ actor R13ProductASHScalingRouter {
         orderedBackendIDs: [String],
         decision: R06ASHDecisionRecord
     ) throws -> R13ProductASHDecisionEvent {
-        var failedBackendIDs: [String] = []
+        var failedRoutes: [AppleUpscaleRouteIdentity] = []
         for backendID in orderedBackendIDs {
             guard !unavailableBackendIDs.contains(backendID),
                   let candidate =
@@ -671,14 +693,18 @@ actor R13ProductASHScalingRouter {
                         ? Int.max
                         : dwellFrames + 1
                 }
+                let fallbackHistory = try Self.makeFallbackHistory(
+                    failedRoutes: failedRoutes,
+                    selectedRoute: candidate.routeIdentity
+                )
                 let event = R13ProductASHDecisionEvent(
                     sequenceNumber: frameIndex,
                     selectedRouteIdentity:
                         candidate.routeIdentity,
-                    reason: failedBackendIDs.isEmpty
+                    reason: fallbackHistory.isEmpty
                         ? decision.reason
                         : .fatalBackendFailover,
-                    failedBackendIDs: failedBackendIDs,
+                    fallbackHistory: fallbackHistory,
                     processingPressureQ16:
                         priorProcessingPressureQ16.rawValue
                 )
@@ -692,12 +718,33 @@ actor R13ProductASHScalingRouter {
                     frameDuration: frameDuration
                 )
                 unavailableBackendIDs.insert(backendID)
-                failedBackendIDs.append(backendID)
+                failedRoutes.append(candidate.routeIdentity)
             }
         }
         currentBackendID = nil
         throw R13ProductASHScalingRouterError
             .noRunnableCandidate
+    }
+
+    private static func makeFallbackHistory(
+        failedRoutes: [AppleUpscaleRouteIdentity],
+        selectedRoute: AppleUpscaleRouteIdentity
+    ) throws -> [AppleUpscaleFallbackLink] {
+        let history = try failedRoutes.indices.map { index in
+            try AppleUpscaleFallbackLink(
+                failedRoute: failedRoutes[index],
+                selectedRoute: failedRoutes.indices.contains(index + 1)
+                    ? failedRoutes[index + 1]
+                    : selectedRoute,
+                reasonCode: .backendFailed,
+                selectedFallbackOrdinal: index
+            )
+        }
+        _ = try AppleUpscaleProcessingIdentity(
+            route: selectedRoute,
+            fallbackHistory: history
+        )
+        return history
     }
 
     private func resourceSnapshot()
@@ -786,10 +833,17 @@ enum R13ProductASHScalingCandidateFactory {
         scalePlan: R13ReleaseScalePlan,
         videoFormat: MediaVideoFormat,
         orchestrationKind: R13ReleaseOrchestrationKind,
+        enginePreference: UpscaleEnginePreference = .automatic,
         makeScaler: (
             _ kind: R13ReleaseScalerKind
         ) throws -> any R03NV12Scaling
     ) throws -> R13ProductASHScalingCandidateSet {
+        guard !enginePreference.requiresNativeUpscaleSession else {
+            throw R03NV12ScalingError.runtimeUnavailable(
+                "r13_exact_\(enginePreference.rawValue)_requires_"
+                    + "canonical_nv12_native_session"
+            )
+        }
         var candidates: [R13ProductASHScalingCandidate] = []
         var exclusions:
             [R13ProductASHScalingCandidateExclusion] = []
@@ -862,6 +916,13 @@ enum R13ProductASHScalingCandidateFactory {
         videoFormat: MediaVideoFormat
     ) throws -> any R03NV12Scaling {
         switch kind {
+        case .standardVImage:
+            return R13FormatPreservingVImageScaler(
+                sourceResolution: sourceResolution,
+                targetResolution: targetResolution,
+                videoFormat: videoFormat,
+                quality: .fast
+            )
         case .highQualityVImage:
             return R13FormatPreservingVImageScaler(
                 sourceResolution: sourceResolution,
@@ -883,6 +944,13 @@ enum R13ProductASHScalingCandidateFactory {
                 targetResolution: targetResolution,
                 videoFormat: videoFormat
             )
+        case .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            throw R03NV12ScalingError.runtimeUnavailable(
+                "r13_exact_\(kind.rawValue)_does_not_support_"
+                    + "\(videoFormat.pixelStorage.rawValue)"
+            )
         }
     }
 
@@ -893,6 +961,9 @@ enum R13ProductASHScalingCandidateFactory {
         let mode: UpscaleMode
         let preference: UpscaleEnginePreference
         switch kind {
+        case .standardVImage:
+            mode = .quality
+            preference = .accelerateVImageStandard
         case .highQualityVImage:
             mode = .quality
             preference = .accelerateVImageHighQuality
@@ -902,6 +973,15 @@ enum R13ProductASHScalingCandidateFactory {
         case .deterministicMPSLanczos:
             mode = .deterministic
             preference = .mpsLanczos
+        case .coreImageLanczos:
+            mode = .quality
+            preference = .coreImageLanczos
+        case .coreImageBicubic:
+            mode = .quality
+            preference = .coreImageBicubic
+        case .videoToolboxPixelTransfer:
+            mode = .fast
+            preference = .videoToolboxPixelTransfer
         }
         return R13ReleaseModeBinding(
             requestedMode: mode,

@@ -583,8 +583,9 @@ private actor R04FunctionalTestRuntime: R04VideoToolboxRuntime {
         self.mode = mode
     }
 
-    func quality2xSupport(
-        sourceResolution: VideoResolution
+    func qualitySupport(
+        sourceResolution: VideoResolution,
+        scaleFactor _: R04VideoToolboxScaleFactor
     ) async -> R04VideoToolboxSupportObservation<Bool> {
         events.append(.qualitySupport(sourceResolution))
         return .observed(sourceResolution == .p1080)
@@ -632,7 +633,7 @@ private actor R04FunctionalTestRuntime: R04VideoToolboxRuntime {
                         )
                     ),
                     supportedPixelFormats: [
-                        R04VideoToolboxRouteCatalog.pixelFormat
+                        kCVPixelFormatType_64RGBAHalf
                     ],
                     modelStatus: .ready,
                     processingMode: .quality

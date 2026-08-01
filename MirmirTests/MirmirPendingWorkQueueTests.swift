@@ -59,6 +59,164 @@ final class MirmirPendingWorkQueueTests: XCTestCase {
         XCTAssertFalse(json.contains("/Users/"))
     }
 
+    func testProcessingPathBatchFailurePersistsAtomicallyAcrossRestart()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let batchID = "batch-restart"
+        let paths: [UpscaleEnginePreference] = [
+            .mpsLanczos,
+            .coreImageLanczos
+        ]
+        let records = paths.enumerated().map { index, path in
+            makePendingQueueRecord(
+                id: "job-path-\(index)",
+                order: index,
+                bookmarks: makePendingQueueBookmarks(
+                    outputDisplayName: "output-\(index).mp4"
+                ),
+                settings: makePendingQueueSettings(
+                    continuesAfterFailure: true,
+                    processingPathBatch:
+                        MirmirProcessingPathBatchContext(
+                            id: batchID,
+                            path: path,
+                            ordinal: index,
+                            totalCount: paths.count
+                        )
+                )
+            )
+        }
+        _ = try await queue.enqueueMany(records)
+        _ = try await queue.markStartedOrReturnHead(
+            startedAt: Date(timeIntervalSinceReferenceDate: 101)
+        )
+
+        let terminal = try await queue.recordTerminalResultAndRemove(
+            id: records[0].id,
+            status: .failed,
+            reason: "injected path failure",
+            completedAt: Date(timeIntervalSinceReferenceDate: 102)
+        )
+        XCTAssertEqual(terminal.records.map(\.id), [records[1].id])
+        XCTAssertEqual(terminal.records.map(\.order), [0])
+
+        let reloaded = try await MirmirPendingWorkQueue(
+            directoryURL: directory
+        ).load()
+        XCTAssertEqual(reloaded.records.map(\.id), [records[1].id])
+        XCTAssertEqual(reloaded.processingPathBatchResults.count, 1)
+        let result = try XCTUnwrap(
+            reloaded.processingPathBatchResults.first
+        )
+        XCTAssertEqual(result.batch.id, batchID)
+        XCTAssertEqual(result.batch.path, paths[0])
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertEqual(result.reason, "injected path failure")
+        let summary = try XCTUnwrap(
+            MirmirProcessingPathBatchSummary.latest(
+                in: reloaded.processingPathBatchResults
+            )
+        )
+        XCTAssertEqual(summary.totalCount, 2)
+        XCTAssertEqual(summary.completedCount, 0)
+        XCTAssertEqual(summary.failedCount, 1)
+        XCTAssertFalse(summary.isComplete)
+    }
+
+    func testProcessingPathBatchReportsSuccessOnlyAfterEveryPathCompletes()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let batchID = "batch-all-success"
+        let paths: [UpscaleEnginePreference] = [
+            .mpsLanczos,
+            .coreImageLanczos
+        ]
+        let records = paths.enumerated().map { index, path in
+            makePendingQueueRecord(
+                id: "job-success-\(index)",
+                order: index,
+                settings: makePendingQueueSettings(
+                    continuesAfterFailure: true,
+                    processingPathBatch:
+                        MirmirProcessingPathBatchContext(
+                            id: batchID,
+                            path: path,
+                            ordinal: index,
+                            totalCount: paths.count
+                        )
+                )
+            )
+        }
+        _ = try await queue.enqueueMany(records)
+        _ = try await queue.recordTerminalResultAndRemove(
+            id: records[0].id,
+            status: .completed,
+            reason: nil,
+            completedAt: Date(timeIntervalSinceReferenceDate: 101)
+        )
+        let finished = try await queue.recordTerminalResultAndRemove(
+            id: records[1].id,
+            status: .completed,
+            reason: nil,
+            completedAt: Date(timeIntervalSinceReferenceDate: 102)
+        )
+
+        let summary = try XCTUnwrap(
+            MirmirProcessingPathBatchSummary.latest(
+                in: finished.processingPathBatchResults
+            )
+        )
+        XCTAssertTrue(finished.records.isEmpty)
+        XCTAssertEqual(summary.completedCount, 2)
+        XCTAssertEqual(summary.failedCount, 0)
+        XCTAssertTrue(summary.isComplete)
+        XCTAssertTrue(summary.allSucceeded)
+    }
+
+    func testBackslashOutputNamePersistsAsContainedPathComponent()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let outputDisplayName = #"client\final.mov"#
+        let record = makePendingQueueRecord(
+            id: "job-backslash-output-name",
+            order: 0,
+            bookmarks: makePendingQueueBookmarks(
+                outputDisplayName: outputDisplayName
+            )
+        )
+
+        _ = try await queue.enqueue(record)
+        let reloadedQueue = MirmirPendingWorkQueue(directoryURL: directory)
+        let reloaded = try await reloadedQueue.load()
+        let persistedDisplayName = try XCTUnwrap(
+            reloaded.records.first?.bookmarks.outputDisplayName
+        )
+        XCTAssertEqual(persistedDisplayName, outputDisplayName)
+
+        let outputDirectory = directory.appendingPathComponent(
+            "Exports",
+            isDirectory: true
+        ).standardizedFileURL
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: false
+        )
+        let outputFile = outputDirectory.appendingPathComponent(
+            persistedDisplayName,
+            isDirectory: false
+        ).standardizedFileURL
+        try Data([0x01]).write(to: outputFile)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outputFile.path))
+        XCTAssertEqual(outputFile.lastPathComponent, persistedDisplayName)
+        XCTAssertEqual(
+            outputFile.deletingLastPathComponent().standardizedFileURL,
+            outputDirectory
+        )
+    }
+
     func testBatchOrderUpdateReorderRemoveAndClearPersistDeterministically()
         async throws {
         let directory = try makePendingQueueTemporaryDirectory()
@@ -231,6 +389,36 @@ final class MirmirPendingWorkQueueTests: XCTestCase {
 
         let snapshot = try await queue.load()
         XCTAssertEqual(snapshot.records, [])
+    }
+
+    func testOutputDisplayNameBoundaryRejectsSlashNULAndDotTraversal()
+        async throws {
+        let directory = try makePendingQueueTemporaryDirectory()
+        let queue = MirmirPendingWorkQueue(directoryURL: directory)
+        let rejectedNames = [
+            "nested/output.mov",
+            "output\u{0}.mov",
+            ".",
+            ".."
+        ]
+
+        for (index, rejectedName) in rejectedNames.enumerated() {
+            let record = makePendingQueueRecord(
+                id: "job-invalid-output-name-\(index)",
+                order: 0,
+                bookmarks: makePendingQueueBookmarks(
+                    outputDisplayName: rejectedName
+                )
+            )
+            await assertEnqueueRejected(
+                record,
+                expected: .invalidRecord(field: .outputDisplayName),
+                by: queue
+            )
+        }
+
+        let persisted = try await queue.load()
+        XCTAssertEqual(persisted.records, [])
     }
 
     func testCountAndDocumentByteBoundsPreserveExistingQueue()

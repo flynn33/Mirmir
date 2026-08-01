@@ -189,7 +189,9 @@ enum R13A11ProductSessionFactory {
         for declaration in candidateDeclarations(
             route: route,
             orchestrationKind:
-                modeBinding.orchestrationKind
+                modeBinding.orchestrationKind,
+            enginePreference:
+                modeBinding.enginePreference
         ) {
             do {
                 let candidate = try await candidateConstructor(
@@ -285,9 +287,16 @@ enum R13A11ProductSessionFactory {
 
     static func candidateDeclarations(
         route: R03ScaleRoute,
-        orchestrationKind: R13ReleaseOrchestrationKind
+        orchestrationKind: R13ReleaseOrchestrationKind,
+        enginePreference: UpscaleEnginePreference = .automatic
     ) -> [R13A11ProductCandidateDeclaration] {
         guard orchestrationKind != .none else { return [] }
+        if let exactDeclaration = exactNativeDeclaration(
+            route: route,
+            enginePreference: enginePreference
+        ) {
+            return [exactDeclaration]
+        }
         var declarations =
             nativeVideoToolboxIntents(
                 for: orchestrationKind
@@ -324,7 +333,7 @@ enum R13A11ProductSessionFactory {
                     requestedMode:
                         directMode(for: fallback.kind),
                     enginePreference:
-                        enginePreference(for: fallback.kind)
+                        directEnginePreference(for: fallback.kind)
                 )
                 return R13A11ProductCandidateDeclaration(
                     declaredKind:
@@ -356,9 +365,13 @@ enum R13A11ProductSessionFactory {
             )
         case .metalFXSpatial:
             return try await makeMetalFXCandidate(route: route)
-        case .highQualityVImage,
+        case .standardVImage,
+             .highQualityVImage,
              .fastMPSBilinear,
-             .deterministicMPSLanczos:
+             .deterministicMPSLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
             guard let scalerKind =
                     declaration.declaredKind.scalerKind else {
                 preconditionFailure(
@@ -433,7 +446,12 @@ enum R13A11ProductSessionFactory {
                 .sessionFailed(failure.reason)
         }
         let observedIdentity = await session.identity
-        guard observedIdentity == backend.routeIdentity else {
+        guard let validatedIdentity =
+                validatedVideoToolboxSessionIdentity(
+                    observedIdentity,
+                    backend: backend,
+                    observation: observation
+                ) else {
             await session.cancel()
             throw R13A11ProductCandidateConstructionError
                 .sessionRouteIdentityMismatch(
@@ -445,11 +463,38 @@ enum R13A11ProductSessionFactory {
         }
         return R13ProductBackendSessionCandidate(
             session: session,
-            routeIdentity: observedIdentity,
+            routeIdentity: validatedIdentity,
             profile: intent == .quality
                 ? .videoToolboxQuality
                 : .videoToolboxLowLatency
         )
+    }
+
+    static func validatedVideoToolboxSessionIdentity(
+        _ observedIdentity: AppleUpscaleRouteIdentity,
+        backend: R04VideoToolboxBackend,
+        observation: R04VTNativeCapabilityObservation
+    ) -> AppleUpscaleRouteIdentity? {
+        guard observation.route == backend.route,
+              case .runnable = observation.status,
+              observation.capability.id == backend.capabilityID,
+              observation.capability.role == .primaryScaler,
+              observation.capability.frameworkIdentity == "VideoToolbox",
+              observation.capability.observationStatus == .observed,
+              observation.capability.runtimeDisposition == .runnable,
+              observation.capability.backendEligibility
+                == .productQualified,
+              let diagnostics = observation.diagnostics,
+              let expectedIdentity = try?
+                R04VideoToolboxObservedRouteIdentity.make(
+                    declaredRouteIdentity: backend.routeIdentity,
+                    route: observation.route,
+                    diagnostics: diagnostics
+                ),
+              observedIdentity == expectedIdentity else {
+            return nil
+        }
+        return observedIdentity
     }
 
     private static func makeMetalFXCandidate(
@@ -522,7 +567,7 @@ enum R13A11ProductSessionFactory {
             modeBinding: R13ReleaseModeBinding(
                 requestedMode: directMode(for: kind),
                 enginePreference:
-                    enginePreference(for: kind)
+                    directEnginePreference(for: kind)
             )
         )
         return R13ProductBackendSessionCandidate(
@@ -537,6 +582,10 @@ enum R13A11ProductSessionFactory {
         kind: R13ReleaseScalerKind
     ) throws -> R03DeterministicBackend {
         switch kind {
+        case .standardVImage:
+            return try .makeProductQualifiedVImageStandard(
+                route: route
+            )
         case .highQualityVImage:
             return try .makeProductQualifiedVImageHighQuality(
                 route: route
@@ -549,6 +598,64 @@ enum R13A11ProductSessionFactory {
             return try .makeProductQualifiedMPSLanczos(
                 route: route
             )
+        case .coreImageLanczos:
+            return try .makeProductQualifiedCoreImage(
+                mode: .lanczos,
+                route: route
+            )
+        case .coreImageBicubic:
+            return try .makeProductQualifiedCoreImage(
+                mode: .bicubic,
+                route: route
+            )
+        case .videoToolboxPixelTransfer:
+            return try .makeProductQualifiedVTPixelTransfer(
+                route: route
+            )
+        }
+    }
+
+    private static func exactNativeDeclaration(
+        route: R03ScaleRoute,
+        enginePreference: UpscaleEnginePreference
+    ) -> R13A11ProductCandidateDeclaration? {
+        switch enginePreference {
+        case .videoToolboxQuality:
+            return R13A11ProductCandidateDeclaration(
+                declaredKind: .videoToolboxQuality,
+                expectedBackendID:
+                    videoToolboxSubjectID(
+                        route: route,
+                        intent: .quality
+                    ).rawValue,
+                profile: .videoToolboxQuality
+            )
+        case .videoToolboxLowLatency:
+            return R13A11ProductCandidateDeclaration(
+                declaredKind: .videoToolboxLowLatency,
+                expectedBackendID:
+                    videoToolboxSubjectID(
+                        route: route,
+                        intent: .lowLatency
+                    ).rawValue,
+                profile: .videoToolboxLowLatency
+            )
+        case .metalFXSpatial:
+            return R13A11ProductCandidateDeclaration(
+                declaredKind: .metalFXSpatial,
+                expectedBackendID:
+                    metalFXSubjectID(route: route).rawValue,
+                profile: .metalFXSpatial
+            )
+        case .automatic,
+             .accelerateVImageStandard,
+             .accelerateVImageHighQuality,
+             .mpsBilinear,
+             .mpsLanczos,
+             .coreImageLanczos,
+             .coreImageBicubic,
+             .videoToolboxPixelTransfer:
+            return nil
         }
     }
 
@@ -580,6 +687,10 @@ enum R13A11ProductSessionFactory {
             return .quality2x
         case (.scale2x, .lowLatency):
             return .lowLatency2x
+        case (.scale4x, .quality):
+            return .quality4x
+        case (.scale4x, .lowLatency):
+            return .lowLatency4x
         }
     }
 
@@ -591,6 +702,8 @@ enum R13A11ProductSessionFactory {
             return .spatial1p5x
         case .scale2x:
             return .spatial2x
+        case .scale4x:
+            return .spatial4x
         }
     }
 
@@ -627,25 +740,38 @@ enum R13A11ProductSessionFactory {
         for kind: R13ReleaseScalerKind
     ) -> UpscaleMode {
         switch kind {
-        case .highQualityVImage:
+        case .standardVImage,
+             .highQualityVImage,
+             .coreImageLanczos,
+             .coreImageBicubic:
             return .quality
         case .fastMPSBilinear:
             return .fast
         case .deterministicMPSLanczos:
             return .deterministic
+        case .videoToolboxPixelTransfer:
+            return .fast
         }
     }
 
-    private static func enginePreference(
+    private static func directEnginePreference(
         for kind: R13ReleaseScalerKind
     ) -> UpscaleEnginePreference {
         switch kind {
+        case .standardVImage:
+            return .accelerateVImageStandard
         case .highQualityVImage:
             return .accelerateVImageHighQuality
         case .fastMPSBilinear:
             return .mpsBilinear
         case .deterministicMPSLanczos:
             return .mpsLanczos
+        case .coreImageLanczos:
+            return .coreImageLanczos
+        case .coreImageBicubic:
+            return .coreImageBicubic
+        case .videoToolboxPixelTransfer:
+            return .videoToolboxPixelTransfer
         }
     }
 

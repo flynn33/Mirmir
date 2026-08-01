@@ -43,6 +43,37 @@ final class R03VImageScalingTests: XCTestCase {
         }
     }
 
+    func testStandardVImageScalesArbitraryGreaterGeometry() throws {
+        let plan = try R13AdaptiveScalePlan(
+            sourceResolution: VideoResolution(width: 64, height: 36),
+            targetResolution: VideoResolution(width: 160, height: 90)
+        )
+        let source = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.processingSourceResolution
+        )
+        let destination = try R13ReleaseTestFrames.makeOutput(
+            resolution: plan.targetResolution
+        )
+        let scaler = R03VImageScaler(
+            mode: .lanczos3,
+            adaptivePlan: plan
+        )
+
+        try scaler.scale(
+            source: source,
+            destination: destination,
+            cancellation: AppleUpscaleOperationCancellationSignal()
+        )
+
+        XCTAssertNil(scaler.route)
+        XCTAssertNoThrow(
+            try R03NV12Contract.validate(
+                pixelBuffer: destination,
+                resolution: plan.targetResolution
+            )
+        )
+    }
+
     private func runOnce(
         mode: R03VImageScalingMode,
         route: R03ScaleRoute,

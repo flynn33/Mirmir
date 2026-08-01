@@ -267,6 +267,14 @@ enum R05MetalFXSpatialRouteMapping {
                 return nil
             }
             return .two
+        case .spatial4x:
+            guard route.routeID == .spatial4x,
+                  route.sourceResolution == .p270,
+                  route.targetResolution == .p1080,
+                  route.scaleFactor == .four else {
+                return nil
+            }
+            return .four
         case .temporal1p5x,
              .temporal2x,
              .denoisedTemporal1p5x,

@@ -37,7 +37,11 @@ final class R05MetalFXSpatialBackendTests: XCTestCase {
     }
 
     func testSpatialProductAndNotObservedCapabilityNeverConstructDriver() async throws {
-        for subject: R05MetalFXSubjectID in [.spatial1p5x, .spatial2x] {
+        for subject: R05MetalFXSubjectID in [
+            .spatial1p5x,
+            .spatial2x,
+            .spatial4x
+        ] {
             let counter = R05BackendCounter()
             let backend = try makeBackend(subject, counter: counter)
 
@@ -300,8 +304,12 @@ final class R05MetalFXSpatialBackendTests: XCTestCase {
         )
     }
 
-    func testBothSpatialRoutesPreserveIdentityAttachmentsAndLifetimes() async throws {
-        for subject: R05MetalFXSubjectID in [.spatial1p5x, .spatial2x] {
+    func testSpatialRoutesPreserveIdentityAttachmentsAndLifetimes() async throws {
+        for subject: R05MetalFXSubjectID in [
+            .spatial1p5x,
+            .spatial2x,
+            .spatial4x
+        ] {
             let releases = R05BackendCounter()
             let inputReleases = R05BackendCounter()
             let counter = R05BackendCounter()

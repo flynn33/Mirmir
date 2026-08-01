@@ -10,6 +10,11 @@ import XCTest
 // Release service scenarios share one test fixture and helper set.
 // swiftlint:disable file_length type_body_length
 
+private struct R13CapturedEnhancementOrder {
+    let input: R13NV12Frame
+    let output: R13NV12Frame
+}
+
 final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
     func testEveryReleaseModeIsAvailable() {
         let eventLog = R13ReleaseTestEventLog()
@@ -156,6 +161,13 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
                 target: .p2160
             ),
             .productQualified(.scale2x)
+        )
+        XCTAssertEqual(
+            try R13ReleaseJobContracts.scalePlan(
+                source: .p270,
+                target: .p1080
+            ),
+            .productQualified(.scale4x)
         )
 
         let source = VideoResolution(width: 729, height: 411)
@@ -313,10 +325,62 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             detail: .high
         )
 
-        XCTAssertEqual(low.width, VideoResolution.p1080.width)
-        XCTAssertEqual(low.height, VideoResolution.p1080.height)
-        XCTAssertNotEqual(low.luma, high.luma)
-        XCTAssertEqual(low.chroma, high.chroma)
+        XCTAssertEqual(low.input.width, VideoResolution.p720.width)
+        XCTAssertEqual(low.input.height, VideoResolution.p720.height)
+        XCTAssertNotEqual(low.input.luma, high.input.luma)
+        XCTAssertEqual(low.input.chroma, high.input.chroma)
+        XCTAssertEqual(low.output.width, VideoResolution.p1080.width)
+        XCTAssertEqual(low.output.height, VideoResolution.p1080.height)
+        XCTAssertEqual(low.output.luma, high.output.luma)
+        XCTAssertEqual(low.output.chroma, high.output.chroma)
+    }
+
+    func testEverySelectableCanonicalPathReceivesEnhancedSourceIndependently()
+        async throws {
+        var referenceInput: R13NV12Frame?
+
+        for path in UpscaleEnginePreference.concreteProcessingPaths {
+            let captured = try await runCapturedCanonicalEnhancement(
+                identifier:
+                    "r13-canonical-path-order-\(path.rawValue)",
+                edge: .high,
+                detail: .high,
+                enginePreference: path
+            )
+
+            XCTAssertEqual(
+                captured.input.width,
+                VideoResolution.p720.width,
+                path.rawValue
+            )
+            XCTAssertEqual(
+                captured.input.height,
+                VideoResolution.p720.height,
+                path.rawValue
+            )
+            XCTAssertEqual(
+                captured.output.width,
+                VideoResolution.p1080.width,
+                path.rawValue
+            )
+            XCTAssertEqual(
+                captured.output.height,
+                VideoResolution.p1080.height,
+                path.rawValue
+            )
+            if let referenceInput {
+                XCTAssertEqual(
+                    captured.input,
+                    referenceInput,
+                    "\(path.rawValue) must receive the same independently "
+                        + "enhanced source, never another path's output."
+                )
+            } else {
+                referenceInput = captured.input
+            }
+        }
+
+        XCTAssertNotNil(referenceInput)
     }
 
     func testAdaptiveLivePathAppliesEdgeAndDetailConfiguration()
@@ -332,10 +396,14 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             detail: .high
         )
 
-        XCTAssertEqual(low.width, 1_280)
-        XCTAssertEqual(low.height, 720)
-        XCTAssertNotEqual(low.luma, high.luma)
-        XCTAssertEqual(low.chroma, high.chroma)
+        XCTAssertEqual(low.input.width, 640)
+        XCTAssertEqual(low.input.height, 360)
+        XCTAssertNotEqual(low.input.luma, high.input.luma)
+        XCTAssertEqual(low.input.chroma, high.input.chroma)
+        XCTAssertEqual(low.output.width, 1_280)
+        XCTAssertEqual(low.output.height, 720)
+        XCTAssertEqual(low.output.luma, high.output.luma)
+        XCTAssertEqual(low.output.chroma, high.output.chroma)
     }
 
     func testOnePixelAdaptiveAspectRoundingIsAcceptedByOutputAndPreview()
@@ -1059,6 +1127,309 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
         XCTAssertNotNil(diagnostic.event.error)
     }
 
+    func testFallbackEventsPersistInCompletedMetadataAndReleaseDiagnostics()
+        async throws {
+        let diagnosticDirectoryURL = FileManager.default
+            .temporaryDirectory.appendingPathComponent(
+                "mirmir-r13-fallback-diagnostics-\(UUID().uuidString)",
+                isDirectory: true
+            )
+        defer {
+            try? FileManager.default.removeItem(
+                at: diagnosticDirectoryURL
+            )
+        }
+        let diagnostics = try MirmirDiagnosticStore(
+            persistentDirectoryURL: diagnosticDirectoryURL
+        )
+        let eventLog = R13ReleaseTestEventLog()
+        let media = R13ReleaseTestMediaPipeline(
+            resolution: .p720,
+            frames: [
+                try R13ReleaseTestFrames.make(
+                    resolution: .p720,
+                    index: 0
+                )
+            ],
+            eventLog: eventLog
+        )
+        let unavailable = try makeCandidate(
+            backendID: "test.release.fallback.unavailable",
+            rank: 65_536,
+            modelAssetsIdentity: .bound([
+                try AppleUpscaleArtifactIdentity(
+                    identifier:
+                        "test.release.fallback.unavailable.model",
+                    sha256: String(repeating: "a", count: 64)
+                )
+            ]),
+            outputResolution: .p1080,
+            script: [.unavailable]
+        )
+        let rejected = try makeCandidate(
+            backendID: "test.release.fallback.rejected",
+            rank: 49_152,
+            modelAssetsIdentity: .appleConfigurationManaged(
+                configurationIdentity:
+                    "test.release.fallback.rejected.model",
+                readiness: .ready
+            ),
+            outputResolution: .p1080,
+            script: [.rejected]
+        )
+        let failed = try makeCandidate(
+            backendID: "test.release.fallback.failed",
+            rank: 32_768,
+            outputResolution: .p1080,
+            script: [.failed]
+        )
+        let selected = try makeCandidate(
+            backendID: "test.release.fallback.selected",
+            rank: 0,
+            outputResolution: .p1080,
+            script: [.processed]
+        )
+        let candidates = [
+            unavailable,
+            rejected,
+            failed,
+            selected
+        ]
+        let router = try makeRouter(
+            candidates: candidates.map(\.candidate)
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            modeAwareSessionFactory: { route, modeBinding in
+                guard route == .scale3Over2,
+                      modeBinding
+                        == R13ReleaseModePolicy.binding(
+                            for: .quality
+                        ) else {
+                    throw R13ProductASHRoutingSessionError
+                        .invalidRouterIdentity
+                }
+                return R13ReleaseUpscaleSessionBinding(
+                    session: router,
+                    route: route,
+                    routeIdentity: router.identity,
+                    admittedFrameRouteIdentities: Set(
+                        candidates.map(\.identity)
+                    )
+                )
+            },
+            diagnostics: diagnostics
+        )
+        let jobIdentifier = UUID().uuidString
+        let handle = try service.submit(
+            makeJob(
+                identifier: jobIdentifier,
+                target: .p1080,
+                mode: .quality
+            )
+        )
+
+        _ = try await handle.waitForCompletion()
+        _ = try await waitForDiagnostic(
+            code: "release_product_routing_fallback_recorded",
+            in: diagnostics
+        )
+        var fallbackRecords: [MirmirDiagnosticRecord] = []
+        for _ in 0..<200 {
+            let snapshot = try await diagnostics.snapshot()
+            fallbackRecords = snapshot.records.filter {
+                $0.event.code.rawValue
+                    == "release_product_routing_fallback_recorded"
+            }
+            if fallbackRecords.count == 3 {
+                break
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        XCTAssertEqual(fallbackRecords.count, 3)
+
+        let mediaSession = try XCTUnwrap(media.lastSession)
+        let finalMetadata = mediaSession.finalMetadata
+        let fallbackJSON = try XCTUnwrap(
+            finalMetadata[
+                R13ProductASHDecisionMetadata.fallbackEventsKey
+            ]
+        )
+        let fallbackEvents = try JSONDecoder().decode(
+            [R13ProductASHFallbackEventEvidence].self,
+            from: try XCTUnwrap(fallbackJSON.data(using: .utf8))
+        )
+        XCTAssertEqual(fallbackEvents.count, 3)
+        XCTAssertEqual(
+            finalMetadata[
+                R13ProductASHDecisionMetadata.fallbackCountKey
+            ],
+            "3"
+        )
+        let journalSHA256 = try XCTUnwrap(
+            finalMetadata[
+                R13ProductASHDecisionMetadata.journalSHA256Key
+            ]
+        )
+
+        let recordsByOrdinal = try Dictionary(
+            uniqueKeysWithValues: fallbackRecords.map { record in
+                let fields = Dictionary(
+                    uniqueKeysWithValues: record.event.fields.map {
+                        ($0.key.rawValue, $0.value.displayValue)
+                    }
+                )
+                return (
+                    try XCTUnwrap(
+                        Int(fields["routing_fallback_ordinal"] ?? "")
+                    ),
+                    (record, fields)
+                )
+            }
+        )
+        for event in fallbackEvents {
+            let (record, fields) = try XCTUnwrap(
+                recordsByOrdinal[event.selectedFallbackOrdinal]
+            )
+            XCTAssertEqual(record.event.severity, .notice)
+            XCTAssertLessThanOrEqual(
+                record.event.fields.count,
+                MirmirDiagnosticEvent.maximumFields
+            )
+            XCTAssertEqual(fields["routing_sequence_number"], "0")
+            XCTAssertEqual(
+                fields["routing_fallback_reason"],
+                event.reason
+            )
+            XCTAssertEqual(
+                fields["routing_journal_sha256"],
+                journalSHA256
+            )
+            XCTAssertEqual(
+                fields["routing_failed_route_backend_id"],
+                event.failedRoute.backendID
+            )
+            XCTAssertEqual(
+                fields["routing_failed_route_backend_revision"],
+                event.failedRoute.backendRevision
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_failed_route_configuration_identity"
+                ],
+                event.failedRoute.configurationIdentity
+            )
+            XCTAssertEqual(
+                fields["routing_failed_route_policy_identity"],
+                event.failedRoute.policyIdentity
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_failed_route_material_decision_identity"
+                ],
+                event.failedRoute.materialDecisionIdentity
+            )
+            XCTAssertEqual(
+                fields["routing_failed_route_model_status"],
+                event.failedRoute.modelStatus.rawValue
+            )
+            XCTAssertEqual(
+                fields["routing_failed_route_model_artifact_count"],
+                String(event.failedRoute.modelArtifacts.count)
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_failed_route_model_configuration_identity"
+                ],
+                event.failedRoute.modelConfigurationIdentity
+            )
+            XCTAssertEqual(
+                fields["routing_selected_route_backend_id"],
+                event.selectedRoute.backendID
+            )
+            XCTAssertEqual(
+                fields["routing_selected_route_backend_revision"],
+                event.selectedRoute.backendRevision
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_selected_route_configuration_identity"
+                ],
+                event.selectedRoute.configurationIdentity
+            )
+            XCTAssertEqual(
+                fields["routing_selected_route_policy_identity"],
+                event.selectedRoute.policyIdentity
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_selected_route_material_decision_identity"
+                ],
+                event.selectedRoute.materialDecisionIdentity
+            )
+            XCTAssertEqual(
+                fields["routing_selected_route_model_status"],
+                event.selectedRoute.modelStatus.rawValue
+            )
+            XCTAssertEqual(
+                fields["routing_selected_route_model_artifact_count"],
+                String(event.selectedRoute.modelArtifacts.count)
+            )
+            XCTAssertEqual(
+                fields[
+                    "routing_selected_route_model_configuration_identity"
+                ],
+                event.selectedRoute.modelConfigurationIdentity
+            )
+        }
+
+        let artifactRecord = try await waitForDiagnostic(
+            code:
+                "release_product_routing_fallback_artifact_recorded",
+            in: diagnostics
+        )
+        let artifactFields = Dictionary(
+            uniqueKeysWithValues: artifactRecord.event.fields.map {
+                ($0.key.rawValue, $0.value.displayValue)
+            }
+        )
+        XCTAssertEqual(artifactFields["routing_sequence_number"], "0")
+        XCTAssertEqual(artifactFields["routing_fallback_ordinal"], "0")
+        XCTAssertEqual(artifactFields["routing_route_role"], "failed")
+        XCTAssertEqual(
+            artifactFields["routing_model_artifact_identifier"],
+            "test.release.fallback.unavailable.model"
+        )
+        XCTAssertEqual(
+            artifactFields["routing_model_artifact_sha256"],
+            String(repeating: "a", count: 64)
+        )
+        XCTAssertEqual(
+            artifactFields["routing_journal_sha256"],
+            journalSHA256
+        )
+
+        let reopenedDiagnostics = try MirmirDiagnosticStore(
+            persistentDirectoryURL: diagnosticDirectoryURL
+        )
+        let reopenedSnapshot = try await reopenedDiagnostics.snapshot()
+        XCTAssertEqual(
+            reopenedSnapshot.records.filter {
+                $0.event.code.rawValue
+                    == "release_product_routing_fallback_recorded"
+            }.count,
+            3,
+            "Fallback records must survive reopening the persistent diagnostic store."
+        )
+        XCTAssertEqual(
+            reopenedSnapshot.records.filter {
+                $0.event.code.rawValue
+                    == "release_product_routing_fallback_artifact_recorded"
+            }.count,
+            1
+        )
+    }
+
     func testGeometryFailureDiagnosticCapturesActualAndExpectedDimensions()
         async throws {
         let eventLog = R13ReleaseTestEventLog()
@@ -1614,23 +1985,32 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
     private func runCapturedCanonicalEnhancement(
         identifier: String,
         edge: MirmirAdjustmentLevel,
-        detail: MirmirAdjustmentLevel
-    ) async throws -> R13NV12Frame {
+        detail: MirmirAdjustmentLevel,
+        enginePreference: UpscaleEnginePreference = .automatic
+    ) async throws -> R13CapturedEnhancementOrder {
         let eventLog = R13ReleaseTestEventLog()
+        let sourceRecord = try R13ReleaseTestFrames.make(
+            resolution: .p720,
+            index: 0
+        )
+        try Self.fillEnhancementPattern(sourceRecord.pixelBuffer)
+        let capturedInput = OSAllocatedUnfairLock<R13NV12Frame?>(
+            initialState: nil
+        )
         let media = R13ReleaseTestMediaPipeline(
             resolution: .p720,
-            frames: [
-                try R13ReleaseTestFrames.make(
-                    resolution: .p720,
-                    index: 0
-                )
-            ],
+            frames: [sourceRecord],
             eventLog: eventLog,
             captureAppendedFrames: true
         )
         let factory = R13ReleaseTestSessionFactory(
             behavior: .processed,
             eventLog: eventLog,
+            inputObserver: { input, _ in
+                let captured = try R13NV12Frame
+                    .captureTightActivePlanes(from: input)
+                capturedInput.withLock { $0 = captured }
+            },
             outputFiller: { output, _ in
                 try Self.fillEnhancementPattern(output)
             }
@@ -1648,6 +2028,7 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
             preserveAudio: false,
             mode: .deterministic,
             processingConfiguration: UpscaleProcessingConfiguration(
+                enginePreference: enginePreference,
                 temporalConsistencyEnabled: false,
                 edgeFidelityLevel: edge,
                 detailRecoveryLevel: detail
@@ -1656,25 +2037,33 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
 
         _ = try await service.submit(job).waitForCompletion()
 
-        return try XCTUnwrap(media.lastSession?.appendedFrames.first)
+        return R13CapturedEnhancementOrder(
+            input: try XCTUnwrap(capturedInput.withLock { $0 }),
+            output: try XCTUnwrap(
+                media.lastSession?.appendedFrames.first
+            )
+        )
     }
 
     private func runCapturedAdaptiveEnhancement(
         identifier: String,
         edge: MirmirAdjustmentLevel,
         detail: MirmirAdjustmentLevel
-    ) async throws -> R13NV12Frame {
+    ) async throws -> R13CapturedEnhancementOrder {
         let eventLog = R13ReleaseTestEventLog()
         let source = VideoResolution(width: 640, height: 360)
         let target = VideoResolution(width: 1_280, height: 720)
+        let sourceRecord = try R13ReleaseTestFrames.make(
+            resolution: source,
+            index: 0
+        )
+        try Self.fillEnhancementPattern(sourceRecord.pixelBuffer)
+        let capturedInput = OSAllocatedUnfairLock<R13NV12Frame?>(
+            initialState: nil
+        )
         let media = R13ReleaseTestMediaPipeline(
             resolution: source,
-            frames: [
-                try R13ReleaseTestFrames.make(
-                    resolution: source,
-                    index: 0
-                )
-            ],
+            frames: [sourceRecord],
             eventLog: eventLog,
             captureAppendedFrames: true
         )
@@ -1695,6 +2084,11 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
                 R13ReleaseTestAdaptiveScaler(
                     plan: plan,
                     eventLog: eventLog,
+                    sourceObserver: { input in
+                        let captured = try R13NV12Frame
+                            .captureTightActivePlanes(from: input)
+                        capturedInput.withLock { $0 = captured }
+                    },
                     destinationFiller: {
                         try Self.fillEnhancementPattern($0)
                     }
@@ -1721,7 +2115,12 @@ final class R13ReleaseUpscalerEngineServiceTests: XCTestCase {
 
         _ = try await service.submit(job).waitForCompletion()
 
-        return try XCTUnwrap(media.lastSession?.appendedFrames.first)
+        return R13CapturedEnhancementOrder(
+            input: try XCTUnwrap(capturedInput.withLock { $0 }),
+            output: try XCTUnwrap(
+                media.lastSession?.appendedFrames.first
+            )
+        )
     }
 
     private static func fillEnhancementPattern(

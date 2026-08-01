@@ -90,7 +90,9 @@ final class MirmirRealQueueWorkflowTests: XCTestCase {
                 diagnostics: diagnostics,
                 preferencesStore: preferencesStore,
                 pendingWorkQueue: enqueueQueue,
-                workHistoryBookmarkResolver: resolver
+                workHistoryBookmarkResolver: resolver,
+                securityScopedResourceAccess:
+                    mirmirRealQueueGrantedResourceAccess
             )
             try await waitForMirmirRealQueue(
                 enqueueViewModel,
@@ -249,7 +251,9 @@ final class MirmirRealQueueWorkflowTests: XCTestCase {
             pendingWorkQueue: executionQueue,
             workHistoryBookmarkResolver: resolver,
             workHistoryOutputIdentityMeasurer:
-                R13LocalRestartSourceMeasurer()
+                R13LocalRestartSourceMeasurer(),
+            securityScopedResourceAccess:
+                mirmirRealQueueGrantedResourceAccess
         )
         try await waitForMirmirRealQueue(
             executionViewModel,
@@ -374,6 +378,15 @@ final class MirmirRealQueueWorkflowTests: XCTestCase {
         XCTAssertTrue(recoverableJobs.jobs.isEmpty)
     }
 }
+
+// The fixture resolver serializes temporary paths instead of creating real
+// sandbox bookmarks, so it supplies the matching deterministic scope grant.
+private let mirmirRealQueueGrantedResourceAccess =
+    MirmirSecurityScopedResourceAccess(
+        startAccessing: { _ in true },
+        stopAccessing: { _ in },
+        canCreateBookmark: { _ in true }
+    )
 
 private struct MirmirRealQueueWorkspace {
     let directoryURL: URL

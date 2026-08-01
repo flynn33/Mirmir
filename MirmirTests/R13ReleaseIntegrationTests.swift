@@ -213,6 +213,303 @@ final class R13ReleaseIntegrationTests: XCTestCase {
         }
     }
 
+    func testShippingServiceProcessesRealLowLatencyScale4Video()
+        async throws {
+        let observation = try await R04VideoToolboxBackend
+            .observeNativeCapability(subjectID: .lowLatency4x)
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose the exact native VideoToolbox "
+                    + "480x270-to-1920x1080 Low Latency route: "
+                    + "\(observation.status)."
+            )
+        }
+
+        let keepProof = ProcessInfo.processInfo.environment[
+            "MIRMIR_KEEP_LOW_LATENCY_4X_PROOF"
+        ] == "1"
+        let workspace = try R13IntegrationWorkspace(
+            outputFileName: "low-latency-4x-output.mov"
+        )
+        defer {
+            if !keepProof {
+                workspace.remove()
+            }
+        }
+        let videoOnlyURL = workspace.directory.appendingPathComponent(
+            "low-latency-4x-video-only.mp4"
+        )
+        let audioOnlyURL = workspace.directory.appendingPathComponent(
+            "low-latency-4x-audio-only.m4a"
+        )
+        let frameCount = 3
+        let frameDuration = CMTime(value: 1, timescale: 30)
+        try await writeVideoFrames(
+            to: videoOnlyURL,
+            resolution: .p270,
+            frameCount: frameCount,
+            frameDuration: frameDuration
+        )
+        try writeAACFixture(
+            to: audioOnlyURL,
+            seed: 43,
+            frameCount: 4_800
+        )
+        try await muxVideoAndAAC(
+            videoURL: videoOnlyURL,
+            audioURL: audioOnlyURL,
+            destinationURL: workspace.sourceURL
+        )
+        let diagnostics = MirmirDiagnosticStore()
+        let media = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService(),
+            diagnostics: diagnostics
+        )
+        let source = try await media.probe(url: workspace.sourceURL)
+        XCTAssertEqual(source.resolution, .p270)
+        XCTAssertEqual(source.codedResolution, .p270)
+        XCTAssertEqual(source.audioTrackCount, 1)
+        let sourceAACIdentity = try await OutputMediaAACIdentityReader().read(
+            url: workspace.sourceURL
+        )
+        XCTAssertEqual(sourceAACIdentity.codec, kAudioFormatMPEG4AAC)
+        XCTAssertEqual(sourceAACIdentity.sampleRate, 48_000)
+        XCTAssertEqual(sourceAACIdentity.channelCount, 2)
+        let visibleTargets = await MirmirViewModel.targets(for: .p270)
+        XCTAssertTrue(visibleTargets.contains(.p1080))
+        XCTAssertEqual(
+            try R13ReleaseJobContracts.scalePlan(
+                source: .p270,
+                target: .p1080,
+                strategyPreference: .direct
+            ),
+            .productQualified(.scale4x)
+        )
+
+        let harness = try R13IntegrationHardeningHarness.make(
+            jobsRootURL: workspace.jobsRootURL,
+            exactFrameCount: frameCount
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            hardeningRuntime: harness.runtime,
+            diagnostics: diagnostics
+        )
+        let job = UpscaleJob(
+            identifier: "r13-real-videotoolbox-low-latency-4x",
+            inputURL: workspace.sourceURL,
+            outputURL: workspace.outputURL,
+            targetResolution: .p1080,
+            codec: .h264,
+            preserveAudio: true,
+            mode: .fast,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                enginePreference: .videoToolboxLowLatency,
+                strategyPreference: .direct
+            )
+        )
+
+        let result = try await service.submit(job).waitForCompletion()
+
+        XCTAssertEqual(result, workspace.outputURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: result.path))
+        let output = try await media.probe(url: result)
+        XCTAssertEqual(output.resolution, .p1080)
+        XCTAssertEqual(output.codedResolution, .p1080)
+        XCTAssertEqual(output.estimatedFrameCount, frameCount)
+        XCTAssertEqual(output.audioTrackCount, 1)
+        XCTAssertEqual(output.codecHint, "avc1")
+        let outputAACIdentity = try await OutputMediaAACIdentityReader().read(
+            url: result
+        )
+        XCTAssertEqual(outputAACIdentity.codec, kAudioFormatMPEG4AAC)
+        XCTAssertEqual(outputAACIdentity.sampleRate, 48_000)
+        XCTAssertEqual(outputAACIdentity.channelCount, 2)
+        XCTAssertEqual(outputAACIdentity, sourceAACIdentity)
+        let metadata = try await readR13ReleaseMetadata(at: result)
+        XCTAssertEqual(
+            metadata["com.mirmir.release.engine-preference"],
+            UpscaleEnginePreference.videoToolboxLowLatency.rawValue
+        )
+        XCTAssertEqual(
+            metadata["com.mirmir.release.route-id"],
+            R03ScaleRoute.scale4x.rawValue
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.selectedBackendsKey],
+            R04VideoToolboxSubjectID.lowLatency4x.rawValue
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.fallbackCountKey],
+            "0"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.candidateExclusionCountKey],
+            "0"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.decisionCountKey],
+            String(frameCount)
+        )
+        try await assertR13SuccessfulResourceClosure(
+            service: service,
+            harness: harness
+        )
+
+        let sourceAttachment = XCTAttachment(
+            contentsOfFile: workspace.sourceURL
+        )
+        sourceAttachment.name = "low-latency-4x-source.mp4"
+        sourceAttachment.lifetime = .keepAlways
+        add(sourceAttachment)
+        let outputAttachment = XCTAttachment(contentsOfFile: result)
+        outputAttachment.name = "low-latency-4x-output.mov"
+        outputAttachment.lifetime = .keepAlways
+        add(outputAttachment)
+
+        if keepProof {
+            print("MIRMIR_LOW_LATENCY_4X_SOURCE=\(workspace.sourceURL.path)")
+            print("MIRMIR_LOW_LATENCY_4X_OUTPUT=\(workspace.outputURL.path)")
+        }
+    }
+
+    func testShippingServiceProcessesRealQualityScale4VideoWithAAC()
+        async throws {
+        let observation = try await R04VideoToolboxBackend
+            .observeNativeCapability(subjectID: .quality4x)
+        guard case .runnable = observation.status else {
+            throw XCTSkip(
+                "This host does not expose a ready native VideoToolbox "
+                    + "Quality 480x270-to-1920x1080 route: "
+                    + "\(observation.status)."
+            )
+        }
+
+        let keepProof = ProcessInfo.processInfo.environment[
+            "MIRMIR_KEEP_QUALITY_4X_PROOF"
+        ] == "1"
+        let workspace = try R13IntegrationWorkspace(
+            outputFileName: "quality-4x-output.mov"
+        )
+        defer {
+            if !keepProof {
+                workspace.remove()
+            }
+        }
+        let videoOnlyURL = workspace.directory.appendingPathComponent(
+            "quality-4x-video-only.mp4"
+        )
+        let audioOnlyURL = workspace.directory.appendingPathComponent(
+            "quality-4x-audio-only.m4a"
+        )
+        let frameCount = 3
+        let frameDuration = CMTime(value: 1, timescale: 30)
+        try await writeVideoFrames(
+            to: videoOnlyURL,
+            resolution: .p270,
+            frameCount: frameCount,
+            frameDuration: frameDuration
+        )
+        try writeAACFixture(
+            to: audioOnlyURL,
+            seed: 41,
+            frameCount: 4_800
+        )
+        try await muxVideoAndAAC(
+            videoURL: videoOnlyURL,
+            audioURL: audioOnlyURL,
+            destinationURL: workspace.sourceURL
+        )
+
+        let diagnostics = MirmirDiagnosticStore()
+        let media = AVFoundationMediaPipeline(
+            metal: NoopMetalRenderingService(),
+            diagnostics: diagnostics
+        )
+        let source = try await media.probe(url: workspace.sourceURL)
+        XCTAssertEqual(source.resolution, .p270)
+        XCTAssertEqual(source.codedResolution, .p270)
+        XCTAssertEqual(source.audioTrackCount, 1)
+        let visibleTargets = await MirmirViewModel.targets(for: .p270)
+        XCTAssertTrue(visibleTargets.contains(.p1080))
+        XCTAssertEqual(
+            try R13ReleaseJobContracts.scalePlan(
+                source: .p270,
+                target: .p1080,
+                strategyPreference: .direct
+            ),
+            .productQualified(.scale4x)
+        )
+
+        let harness = try R13IntegrationHardeningHarness.make(
+            jobsRootURL: workspace.jobsRootURL,
+            exactFrameCount: frameCount
+        )
+        let service = R13ReleaseUpscalerEngineService(
+            media: media,
+            hardeningRuntime: harness.runtime,
+            diagnostics: diagnostics
+        )
+        let job = UpscaleJob(
+            identifier: "r13-real-videotoolbox-quality-4x",
+            inputURL: workspace.sourceURL,
+            outputURL: workspace.outputURL,
+            targetResolution: .p1080,
+            codec: .h264,
+            preserveAudio: true,
+            mode: .quality,
+            processingConfiguration: UpscaleProcessingConfiguration(
+                enginePreference: .videoToolboxQuality,
+                strategyPreference: .direct
+            )
+        )
+
+        let result = try await service.submit(job).waitForCompletion()
+
+        XCTAssertEqual(result, workspace.outputURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: result.path))
+        let output = try await media.probe(url: result)
+        XCTAssertEqual(output.resolution, .p1080)
+        XCTAssertEqual(output.codedResolution, .p1080)
+        XCTAssertEqual(output.estimatedFrameCount, frameCount)
+        XCTAssertEqual(output.audioTrackCount, 1)
+        XCTAssertEqual(output.codecHint, "avc1")
+        let metadata = try await readR13ReleaseMetadata(at: result)
+        XCTAssertEqual(
+            metadata["com.mirmir.release.engine-preference"],
+            UpscaleEnginePreference.videoToolboxQuality.rawValue
+        )
+        XCTAssertEqual(
+            metadata["com.mirmir.release.route-id"],
+            R03ScaleRoute.scale4x.rawValue
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.selectedBackendsKey],
+            R04VideoToolboxSubjectID.quality4x.rawValue
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.fallbackCountKey],
+            "0"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.candidateExclusionCountKey],
+            "0"
+        )
+        XCTAssertEqual(
+            metadata[R13ProductASHDecisionMetadata.decisionCountKey],
+            String(frameCount)
+        )
+        try await assertR13SuccessfulResourceClosure(
+            service: service,
+            harness: harness
+        )
+
+        if keepProof {
+            print("MIRMIR_QUALITY_4X_SOURCE=\(workspace.sourceURL.path)")
+            print("MIRMIR_QUALITY_4X_OUTPUT=\(workspace.outputURL.path)")
+        }
+    }
+
     @MainActor
     func testShippingViewModelCompletesRealSelectedFileWorkflow()
         async throws {

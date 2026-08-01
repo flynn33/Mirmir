@@ -607,33 +607,16 @@ private extension AtomicMediaOutput {
 
     func cleanupTemporaryLocked() -> AtomicMediaOutputCleanupResult {
         guard fileSystem.pathEntryExists(at: temporaryURL) else {
-            do {
-                try fileSystem.discardTransactionTemporaryFileReservation(
-                    at: temporaryURL
-                )
-            } catch {
-                return AtomicMediaOutputCleanupResult(
-                    attempts: 0,
-                    temporaryFileRemoved: true,
-                    error: .cleanupFailed(
-                        temporary: temporaryURL,
-                        attempts: 0,
-                        reason: "ownership reservation cleanup failed: "
-                            + String(describing: error)
-                    )
-                )
-            }
-            return AtomicMediaOutputCleanupResult(
-                attempts: 0,
-                temporaryFileRemoved: true,
-                error: nil
+            return cleanupResultAfterRemovingTemporary(
+                attempts: 0
             )
         }
         guard let verifiedTemporaryFile else {
-            return AtomicMediaOutputCleanupResult(
+            return cleanupResultPreservingTemporary(
                 attempts: 0,
-                temporaryFileRemoved: false,
-                error: .unownedTemporaryFilePreserved(temporaryURL)
+                outcome: .unownedTemporaryFilePreserved(
+                    temporaryURL
+                )
             )
         }
 
@@ -642,24 +625,22 @@ private extension AtomicMediaOutput {
             cleanupIdentity = try verifiedTemporaryFile
                 .makePinnedFileIdentity()
         } catch {
-            if let outputError = error as? AtomicMediaOutputError,
-               case .verifiedTemporaryFileChanged = outputError {
-                return AtomicMediaOutputCleanupResult(
-                    attempts: 0,
-                    temporaryFileRemoved: false,
-                    error: .unownedTemporaryFilePreserved(
-                        temporaryURL
-                    )
+            let outcome: AtomicMediaOutputError
+            if Self.representsTemporaryOwnershipMismatch(error) {
+                outcome = .unownedTemporaryFilePreserved(
+                    temporaryURL
                 )
-            }
-            return AtomicMediaOutputCleanupResult(
-                attempts: 0,
-                temporaryFileRemoved: false,
-                error: .cleanupFailed(
+            } else {
+                outcome = .cleanupFailed(
                     temporary: temporaryURL,
                     attempts: 0,
-                    reason: String(describing: error)
+                    reason: "temporary ownership verification failed: "
+                        + String(describing: error)
                 )
+            }
+            return cleanupResultPreservingTemporary(
+                attempts: 0,
+                outcome: outcome
             )
         }
 
@@ -675,20 +656,149 @@ private extension AtomicMediaOutput {
                 )
             } catch {
                 lastFailure = String(describing: error)
+                if Self.representsTemporaryOwnershipMismatch(error) {
+                    return cleanupResultPreservingTemporary(
+                        attempts: attempts,
+                        outcome: .unownedTemporaryFilePreserved(
+                            temporaryURL
+                        )
+                    )
+                }
+                guard fileSystem.pathEntryExists(
+                    at: temporaryURL
+                ) else {
+                    return cleanupResultAfterRemovingTemporary(
+                        attempts: attempts
+                    )
+                }
+                do {
+                    let observedIdentity = try verifiedTemporaryFile
+                        .makePinnedFileIdentity()
+                    guard observedIdentity == cleanupIdentity else {
+                        return cleanupResultPreservingTemporary(
+                            attempts: attempts,
+                            outcome: .unownedTemporaryFilePreserved(
+                                temporaryURL
+                            )
+                        )
+                    }
+                } catch {
+                    return cleanupResultPreservingTemporary(
+                        attempts: attempts,
+                        outcome: .unownedTemporaryFilePreserved(
+                            temporaryURL
+                        )
+                    )
+                }
+                continue
             }
+            guard !fileSystem.pathEntryExists(at: temporaryURL) else {
+                return cleanupResultPreservingTemporary(
+                    attempts: attempts,
+                    outcome: .unownedTemporaryFilePreserved(
+                        temporaryURL
+                    )
+                )
+            }
+            return cleanupResultAfterRemovingTemporary(
+                attempts: attempts
+            )
         }
 
-        let wasRemoved = !fileSystem.pathEntryExists(at: temporaryURL)
-        let error = wasRemoved ? nil : AtomicMediaOutputError.cleanupFailed(
-            temporary: temporaryURL,
-            attempts: attempts,
-            reason: lastFailure
-        )
+        if !fileSystem.pathEntryExists(at: temporaryURL) {
+            return cleanupResultAfterRemovingTemporary(
+                attempts: attempts
+            )
+        }
         return AtomicMediaOutputCleanupResult(
             attempts: attempts,
-            temporaryFileRemoved: wasRemoved,
-            error: error
+            temporaryFileRemoved: false,
+            error: .cleanupFailed(
+                temporary: temporaryURL,
+                attempts: attempts,
+                reason: lastFailure
+            )
         )
+    }
+
+    func cleanupResultAfterRemovingTemporary(
+        attempts: Int
+    ) -> AtomicMediaOutputCleanupResult {
+        do {
+            try fileSystem.discardTransactionTemporaryFileReservation(
+                at: temporaryURL
+            )
+        } catch {
+            return AtomicMediaOutputCleanupResult(
+                attempts: attempts,
+                temporaryFileRemoved:
+                    !fileSystem.pathEntryExists(at: temporaryURL),
+                error: .cleanupFailed(
+                    temporary: temporaryURL,
+                    attempts: attempts,
+                    reason: "ownership reservation cleanup failed: "
+                        + String(describing: error)
+                )
+            )
+        }
+        guard !fileSystem.pathEntryExists(at: temporaryURL) else {
+            return AtomicMediaOutputCleanupResult(
+                attempts: attempts,
+                temporaryFileRemoved: false,
+                error: .unownedTemporaryFilePreserved(
+                    temporaryURL
+                )
+            )
+        }
+        return AtomicMediaOutputCleanupResult(
+            attempts: attempts,
+            temporaryFileRemoved: true,
+            error: nil
+        )
+    }
+
+    func cleanupResultPreservingTemporary(
+        attempts: Int,
+        outcome: AtomicMediaOutputError
+    ) -> AtomicMediaOutputCleanupResult {
+        do {
+            try fileSystem.discardTransactionTemporaryFileReservation(
+                at: temporaryURL
+            )
+        } catch {
+            return AtomicMediaOutputCleanupResult(
+                attempts: attempts,
+                temporaryFileRemoved: false,
+                error: .cleanupFailed(
+                    temporary: temporaryURL,
+                    attempts: attempts,
+                    reason: String(describing: outcome)
+                        + "; ownership reservation cleanup failed: "
+                        + String(describing: error)
+                )
+            )
+        }
+        return AtomicMediaOutputCleanupResult(
+            attempts: attempts,
+            temporaryFileRemoved: false,
+            error: outcome
+        )
+    }
+
+    static func representsTemporaryOwnershipMismatch(
+        _ error: Error
+    ) -> Bool {
+        guard let outputError = error as? AtomicMediaOutputError else {
+            return false
+        }
+        switch outputError {
+        case .unsafeTemporaryFile,
+             .unownedTemporaryFilePreserved,
+             .verifiedTemporaryFileChanged:
+            return true
+        default:
+            return false
+        }
     }
 
     func recordTransition(

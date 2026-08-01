@@ -11,6 +11,7 @@ struct MirmirPreferencesSnapshot: Equatable, Sendable {
     let defaultUpscaleMode: UpscaleMode
     let defaultOutputCodec: OutputCodec
     let enginePreference: UpscaleEnginePreference
+    let enginePreferences: [UpscaleEnginePreference]
     let strategyPreference: UpscaleStrategyPreference
     let temporalConsistencyEnabled: Bool
     let edgeFidelityLevel: MirmirAdjustmentLevel
@@ -28,6 +29,7 @@ struct MirmirPreferencesSnapshot: Equatable, Sendable {
         defaultUpscaleMode: UpscaleMode = .deterministic,
         defaultOutputCodec: OutputCodec = .hevc,
         enginePreference: UpscaleEnginePreference = .automatic,
+        enginePreferences: [UpscaleEnginePreference]? = nil,
         strategyPreference: UpscaleStrategyPreference = .automatic,
         temporalConsistencyEnabled: Bool = true,
         edgeFidelityLevel: MirmirAdjustmentLevel = .medium,
@@ -43,7 +45,13 @@ struct MirmirPreferencesSnapshot: Equatable, Sendable {
         self.appearanceMode = appearanceMode
         self.defaultUpscaleMode = defaultUpscaleMode
         self.defaultOutputCodec = defaultOutputCodec
-        self.enginePreference = enginePreference
+        let normalizedEnginePreferences = UpscaleEnginePreference
+            .normalizedProcessingPaths(
+                enginePreferences ?? [enginePreference],
+                fallback: enginePreference
+            )
+        self.enginePreference = normalizedEnginePreferences[0]
+        self.enginePreferences = normalizedEnginePreferences
         self.strategyPreference = strategyPreference
         self.temporalConsistencyEnabled = temporalConsistencyEnabled
         self.edgeFidelityLevel = edgeFidelityLevel
@@ -66,6 +74,7 @@ struct MirmirPreferencesKeys: Equatable, Sendable {
     let defaultUpscaleMode: String
     let defaultOutputCodec: String
     let enginePreference: String
+    let enginePreferences: String
     let strategyPreference: String
     let temporalConsistencyEnabled: String
     let edgeFidelityLevel: String
@@ -88,6 +97,7 @@ struct MirmirPreferencesKeys: Equatable, Sendable {
             defaultUpscaleMode: "\(namespace).default-upscale-mode",
             defaultOutputCodec: "\(namespace).default-output-codec",
             enginePreference: "\(namespace).engine-preference",
+            enginePreferences: "\(namespace).engine-preferences",
             strategyPreference: "\(namespace).strategy-preference",
             temporalConsistencyEnabled:
                 "\(namespace).temporal-consistency-enabled",
@@ -136,7 +146,13 @@ final class MirmirPreferencesStore: @unchecked Sendable {
 
     func load() -> MirmirPreferencesSnapshot {
         lock.withLock {
-            MirmirPreferencesSnapshot(
+            let enginePreference = loadRawValue(
+                UpscaleEnginePreference.self,
+                forKey: keys.enginePreference,
+                fallback: MirmirPreferencesSnapshot.default
+                    .enginePreference
+            )
+            return MirmirPreferencesSnapshot(
                 appearanceMode: loadRawValue(
                     MirmirAppearanceMode.self,
                     forKey: keys.appearanceMode,
@@ -155,11 +171,9 @@ final class MirmirPreferencesStore: @unchecked Sendable {
                     fallback: MirmirPreferencesSnapshot.default
                         .defaultOutputCodec
                 ),
-                enginePreference: loadRawValue(
-                    UpscaleEnginePreference.self,
-                    forKey: keys.enginePreference,
-                    fallback: MirmirPreferencesSnapshot.default
-                        .enginePreference
+                enginePreference: enginePreference,
+                enginePreferences: loadEnginePreferences(
+                    fallback: enginePreference
                 ),
                 strategyPreference: loadRawValue(
                     UpscaleStrategyPreference.self,
@@ -237,6 +251,10 @@ final class MirmirPreferencesStore: @unchecked Sendable {
             defaults.set(
                 snapshot.enginePreference.rawValue,
                 forKey: keys.enginePreference
+            )
+            defaults.set(
+                snapshot.enginePreferences.map(\.rawValue),
+                forKey: keys.enginePreferences
             )
             defaults.set(
                 snapshot.strategyPreference.rawValue,
@@ -337,7 +355,36 @@ final class MirmirPreferencesStore: @unchecked Sendable {
     }
 
     func saveEnginePreference(_ value: UpscaleEnginePreference) {
-        save(value.rawValue, forKey: keys.enginePreference)
+        saveEnginePreferences([value])
+    }
+
+    func loadEnginePreferences() -> [UpscaleEnginePreference] {
+        lock.withLock {
+            let fallback = loadRawValue(
+                UpscaleEnginePreference.self,
+                forKey: keys.enginePreference,
+                fallback: MirmirPreferencesSnapshot.default
+                    .enginePreference
+            )
+            return loadEnginePreferences(fallback: fallback)
+        }
+    }
+
+    func saveEnginePreferences(
+        _ values: [UpscaleEnginePreference]
+    ) {
+        let normalized = UpscaleEnginePreference
+            .normalizedProcessingPaths(values)
+        lock.withLock {
+            defaults.set(
+                normalized[0].rawValue,
+                forKey: keys.enginePreference
+            )
+            defaults.set(
+                normalized.map(\.rawValue),
+                forKey: keys.enginePreferences
+            )
+        }
     }
 
     func loadStrategyPreference() -> UpscaleStrategyPreference {
@@ -510,6 +557,28 @@ final class MirmirPreferencesStore: @unchecked Sendable {
             return fallback
         }
         return number.boolValue
+    }
+
+    private func loadEnginePreferences(
+        fallback: UpscaleEnginePreference
+    ) -> [UpscaleEnginePreference] {
+        guard let rawValues = defaults.object(
+            forKey: keys.enginePreferences
+        ) as? [String],
+        !rawValues.isEmpty,
+        rawValues.count <= UpscaleEnginePreference.allCases.count else {
+            return [fallback]
+        }
+        let decoded = rawValues.compactMap(
+            UpscaleEnginePreference.init(rawValue:)
+        )
+        guard decoded.count == rawValues.count else {
+            return [fallback]
+        }
+        return UpscaleEnginePreference.normalizedProcessingPaths(
+            decoded,
+            fallback: fallback
+        )
     }
 
     private func loadEffectFlag(

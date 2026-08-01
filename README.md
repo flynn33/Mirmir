@@ -10,7 +10,25 @@ Python under `validation/` is offline calibration, evidence, and test tooling; i
 is not a source of the `Mirmir` application target and is not embedded in the
 application bundle.
 
-## Product Direction and Evidence Status
+## Current Product
+
+Production launch composes `DefaultModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Auto,
+Quality, Fast, Deterministic, and Smooth Motion are available. Automatic and
+mode-specific routing use compatible Apple-native processing paths and record
+any fallback explicitly in release diagnostics.
+
+The shipping workspace includes single-video upscaling, serial queueing,
+interrupted-job recovery, persistent work history and reprocessing, completed
+source/output comparison playback, configurable cache storage, preferences,
+and privacy-bounded diagnostic export.
+
+## Archived Roadmap and Evidence History
+
+> The roadmap material below is retained as implementation history. It is not
+> the authority for current product availability, release readiness, or feature
+> scope; current behavior is defined by the production application and its
+> verified workflows.
 
 The canonical product direction is the **Mirmir Apple-Native Adaptive Video
 Enhancement Roadmap 1.0.1**, published 2026-07-18 and revised 2026-07-23. The canonical source files are
@@ -60,14 +78,9 @@ The functional execution receipt has SHA-256
 the phase-acceptance record has SHA-256
 `9a5659d45bac7d7e2c1c9d1f0826a8326626ae17beb275dc114916f03c57cc8f`.
 
-**Authorization boundary:** Quality, Fast, and Deterministic are available.
-Auto remains visible but `unavailable` and `not_authorized`; no model or
-fallback route is accepted. Comparison and A/B methods are absent and not
-required. Hardware, simulator, operator observation, Release-app execution,
-distribution signing, notarization, Gatekeeper assessment, and launch smoke are
-`not_observed` and nonblocking. The candidate was not published or released,
-and no publication, distribution, tag, release, Auto, or market claim is
-authorized.
+**Historical R13 authorization boundary:** this preserved checkpoint predates
+the current production composition and distribution verification. Its
+availability and release restrictions do not describe the current product.
 
 <!-- BEGIN ROADMAP PROGRESS -->
 **Overall:** `14 / 14` roadmap phases passed (`100%`)
@@ -1901,13 +1914,12 @@ dependency. The app retains one UI module and separate service modules for Metal
 model-asset status, AVFoundation media IO, and upscale orchestration.
 
 Production launch activates the product modules directly and opens the Mirmir
-workspace. It composes `NotRequiredModelAssetsService`,
-`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Quality,
-Fast, and Deterministic are available and bind to the genuine
-`r03.mps.lanczos` A11 implementation; Auto remains visible but unavailable and
-cannot submit. No silent fallback is permitted. The developer host is available
-only in Debug builds when `MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a
-read-only module/status surface.
+workspace. It composes `DefaultModelAssetsService`,
+`AVFoundationMediaPipeline`, and `R13ReleaseUpscalerEngineService`. Auto,
+Quality, Fast, Deterministic, and Smooth Motion are available. Route selection
+and fallback are explicit in diagnostic and release identity data. The
+developer host is available only in Debug builds when
+`MIRMIR_DEVELOPER_WORKSPACE=1` is set; it is a read-only module/status surface.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the module inventory and transaction
 boundaries.
@@ -1925,22 +1937,19 @@ product call graph is:
 ```text
 MirmirAppBootstrap
   -> DefaultMetalRenderingService
-  -> NotRequiredModelAssetsService
+  -> DefaultModelAssetsService
   -> AVFoundationMediaPipeline
   -> R13ReleaseUpscalerEngineService
-       -> R13A11ProductSessionFactory
-            -> genuine r03.mps.lanczos A11
+       -> Apple-native mode router and format-preserving processing
   -> MirmirModuleFactoryRegistry
   -> MirmirModuleHost
   -> MirmirViewRegistry
 ```
 
-The production bootstrap has no call site for `DefaultUpscalerEngineService`,
-`ASHLockedUpscaleBackendFactoryV3`, or `VTModelStager`. Quality, Fast, and
-Deterministic bind to one exact A11 product identity; Auto fails with a typed
-mode-unavailable result before admission. The product path does not silently
-fall back to the development P05 backend, a runtime LUT compiler or selector,
-or a fixed control.
+The production bootstrap has no call site for `DefaultUpscalerEngineService`
+or `ASHLockedUpscaleBackendFactoryV3`. Every user-selectable release mode is
+admitted through `R13ReleaseUpscalerEngineService`; unavailable native routes
+produce explicit routing evidence and use only declared compatible fallbacks.
 
 The CPU locked-reference backend remains available only through explicitly
 constructed development and test factories. It is used as a parity and
@@ -2180,8 +2189,8 @@ same-commit immutable gate publications.
 ## Notes
 
 - The main product workflow does not expose framework or architecture controls.
-- App boot requires no model release set. Quality, Fast, and Deterministic use
-  the exact R13 A11 product path; Auto remains unavailable and cannot submit.
+- App boot does not require a downloaded model release set. All five visible
+  modes submit through the production release engine.
 - Fixture tests prove only the behavior of their tested bytes. They do not
   establish perceptual superiority or authorize a P06/G07/G08 release.
 - App Intents `linkd.autoShortcut` messages can appear in local macOS test logs;
