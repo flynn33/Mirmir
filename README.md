@@ -14,6 +14,8 @@ packaging, signing, notarization, and publication remain manual operations.
 
 - Midnight Nordic interface with an interactive before-and-after comparison
   viewer for completed jobs.
+- Branded Dashboard and About surfaces with live, app-specific CPU, memory, and
+  disk telemetry plus truthful explicit Metal-route activity.
 - Deterministic CPU and Metal preview routes for supported 2× and 3:2 NV12
   inputs, with no silent backend substitution.
 - Explicit Apple-native choices using VideoToolbox, MetalFX, Metal Performance
@@ -26,6 +28,9 @@ packaging, signing, notarization, and publication remain manual operations.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
+The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
+product guide, architecture reference, ASH engine documentation, diagrams,
+testing procedures, and troubleshooting material.
 
 ## Requirements
 

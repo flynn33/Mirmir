@@ -1,4 +1,7 @@
 import CoreMedia
+import Darwin
+import Metal
+import Observation
 import SwiftUI
 
 enum MirmirPresentation {
@@ -65,6 +68,28 @@ enum MirmirPresentation {
         )
     }
 
+    static func byteRateText(_ bytesPerSecond: Double?) -> String {
+        guard let bytesPerSecond,
+              bytesPerSecond.isFinite,
+              bytesPerSecond >= 0,
+              bytesPerSecond <= Double(Int64.max) else {
+            return "Sampling…"
+        }
+        if bytesPerSecond < 0.5 { return "0 B/s" }
+        let byteCount = Int64(bytesPerSecond.rounded())
+        return ByteCountFormatter.string(
+            fromByteCount: byteCount,
+            countStyle: .file
+        ) + "/s"
+    }
+
+    static func percentageText(_ percentage: Double?) -> String {
+        guard let percentage, percentage.isFinite, percentage >= 0 else {
+            return "Sampling…"
+        }
+        return String(format: "%.1f%%", percentage)
+    }
+
     static func audioText(_ info: VideoInfo) -> String {
         guard info.hasAudio else { return "Absent" }
         let suffix = info.audioTrackCount == 1 ? "track" : "tracks"
@@ -120,6 +145,316 @@ enum MirmirPresentation {
             )
         }
         return limitations.isEmpty ? nil : limitations.joined(separator: " ")
+    }
+}
+
+enum MirmirBrandLockupLayout {
+    case markOnly
+    case horizontal
+    case vertical
+}
+
+struct MirmirBrandLockup: View {
+    let layout: MirmirBrandLockupLayout
+    let iconSize: CGFloat
+    let theme: MirmirThemeTokens
+    var showsTagline = false
+
+    var body: some View {
+        Group {
+            switch layout {
+            case .markOnly:
+                mark
+            case .horizontal:
+                HStack(spacing: max(8, iconSize * 0.24)) {
+                    mark
+                    wordmark
+                }
+            case .vertical:
+                VStack(spacing: max(8, iconSize * 0.12)) {
+                    mark
+                    wordmark
+                }
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            showsTagline
+                ? "Mirmir, Deterministic Video Upscaler"
+                : "Mirmir"
+        )
+    }
+
+    private var mark: some View {
+        Image("MirmirBrandIcon")
+            .resizable()
+            .interpolation(.high)
+            .antialiased(true)
+            .scaledToFit()
+            .frame(width: iconSize, height: iconSize)
+            .clipShape(
+                RoundedRectangle(
+                    cornerRadius: iconSize * 0.22,
+                    style: .continuous
+                )
+            )
+    }
+
+    private var wordmark: some View {
+        VStack(
+            alignment: layout == .vertical ? .center : .leading,
+            spacing: 2
+        ) {
+            Text("MIRMIR")
+                .font(
+                    .system(
+                        size: layout == .vertical ? 24 : 16,
+                        weight: .semibold,
+                        design: .default
+                    )
+                )
+                .tracking(layout == .vertical ? 5 : 4)
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+            if showsTagline {
+                Text("Deterministic Video Upscaler")
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textSecondary)
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+struct MirmirMachTimebase: Equatable, Sendable {
+    let numerator: UInt32
+    let denominator: UInt32
+
+    static let current: Self = {
+        var info = mach_timebase_info_data_t()
+        mach_timebase_info(&info)
+        return Self(
+            numerator: max(info.numer, 1),
+            denominator: max(info.denom, 1)
+        )
+    }()
+}
+
+struct MirmirProcessTelemetryCounters: Equatable, Sendable {
+    let timestampTicks: UInt64
+    let userNanoseconds: UInt64
+    let systemNanoseconds: UInt64
+    let residentBytes: UInt64
+    let physicalFootprintBytes: UInt64
+    let diskReadBytes: UInt64
+    let diskWrittenBytes: UInt64
+}
+
+struct MirmirDashboardTelemetrySnapshot: Equatable, Sendable {
+    let processCPUPercent: Double?
+    let residentBytes: UInt64
+    let physicalFootprintBytes: UInt64
+    let diskReadBytesPerSecond: Double?
+    let diskWrittenBytesPerSecond: Double?
+    let cumulativeDiskReadBytes: UInt64
+    let cumulativeDiskWrittenBytes: UInt64
+}
+
+enum MirmirTelemetryCalculator {
+    static func snapshot(
+        previous: MirmirProcessTelemetryCounters?,
+        current: MirmirProcessTelemetryCounters,
+        timebase: MirmirMachTimebase
+    ) -> MirmirDashboardTelemetrySnapshot {
+        guard let previous,
+              current.timestampTicks > previous.timestampTicks else {
+            return MirmirDashboardTelemetrySnapshot(
+                processCPUPercent: nil,
+                residentBytes: current.residentBytes,
+                physicalFootprintBytes: current.physicalFootprintBytes,
+                diskReadBytesPerSecond: nil,
+                diskWrittenBytesPerSecond: nil,
+                cumulativeDiskReadBytes: current.diskReadBytes,
+                cumulativeDiskWrittenBytes: current.diskWrittenBytes
+            )
+        }
+
+        let tickDelta = current.timestampTicks - previous.timestampTicks
+        let elapsedNanoseconds = Double(tickDelta)
+            * Double(timebase.numerator)
+            / Double(timebase.denominator)
+        guard elapsedNanoseconds.isFinite, elapsedNanoseconds > 0 else {
+            return snapshot(
+                previous: nil,
+                current: current,
+                timebase: timebase
+            )
+        }
+        let elapsedSeconds = elapsedNanoseconds / 1_000_000_000
+
+        return MirmirDashboardTelemetrySnapshot(
+            processCPUPercent: cpuPercent(
+                previous: previous,
+                current: current,
+                elapsedNanoseconds: elapsedNanoseconds
+            ),
+            residentBytes: current.residentBytes,
+            physicalFootprintBytes: current.physicalFootprintBytes,
+            diskReadBytesPerSecond: byteRate(
+                previous: previous.diskReadBytes,
+                current: current.diskReadBytes,
+                elapsedSeconds: elapsedSeconds
+            ),
+            diskWrittenBytesPerSecond: byteRate(
+                previous: previous.diskWrittenBytes,
+                current: current.diskWrittenBytes,
+                elapsedSeconds: elapsedSeconds
+            ),
+            cumulativeDiskReadBytes: current.diskReadBytes,
+            cumulativeDiskWrittenBytes: current.diskWrittenBytes
+        )
+    }
+
+    private static func cpuPercent(
+        previous: MirmirProcessTelemetryCounters,
+        current: MirmirProcessTelemetryCounters,
+        elapsedNanoseconds: Double
+    ) -> Double? {
+        guard current.userNanoseconds >= previous.userNanoseconds,
+              current.systemNanoseconds >= previous.systemNanoseconds else {
+            return nil
+        }
+        let userDelta = current.userNanoseconds - previous.userNanoseconds
+        let systemDelta = current.systemNanoseconds - previous.systemNanoseconds
+        let totalDelta = Double(userDelta) + Double(systemDelta)
+        let percentage = totalDelta / elapsedNanoseconds * 100
+        return percentage.isFinite && percentage >= 0 ? percentage : nil
+    }
+
+    private static func byteRate(
+        previous: UInt64,
+        current: UInt64,
+        elapsedSeconds: Double
+    ) -> Double? {
+        guard current >= previous,
+              elapsedSeconds.isFinite,
+              elapsedSeconds > 0 else {
+            return nil
+        }
+        let rate = Double(current - previous) / elapsedSeconds
+        return rate.isFinite && rate >= 0 ? rate : nil
+    }
+}
+
+enum MirmirProcessTelemetryError: LocalizedError {
+    case resourceUsageUnavailable(errno: Int32)
+
+    var errorDescription: String? {
+        switch self {
+        case .resourceUsageUnavailable(let code):
+            return "Process resource sampling failed with errno \(code): "
+                + String(cString: strerror(code))
+        }
+    }
+}
+
+struct MirmirSystemProcessTelemetrySampler: Sendable {
+    func sample() throws -> MirmirProcessTelemetryCounters {
+        var usage = rusage_info_v2()
+        let result = withUnsafeMutablePointer(to: &usage) { pointer in
+            pointer.withMemoryRebound(
+                to: rusage_info_t?.self,
+                capacity: 1
+            ) {
+                proc_pid_rusage(getpid(), RUSAGE_INFO_V2, $0)
+            }
+        }
+        guard result == 0 else {
+            throw MirmirProcessTelemetryError.resourceUsageUnavailable(
+                errno: errno
+            )
+        }
+
+        return MirmirProcessTelemetryCounters(
+            timestampTicks: mach_continuous_time(),
+            userNanoseconds: usage.ri_user_time,
+            systemNanoseconds: usage.ri_system_time,
+            residentBytes: usage.ri_resident_size,
+            physicalFootprintBytes: usage.ri_phys_footprint,
+            diskReadBytes: usage.ri_diskio_bytesread,
+            diskWrittenBytes: usage.ri_diskio_byteswritten
+        )
+    }
+}
+
+typealias MirmirTelemetrySampleProvider = @Sendable () throws
+    -> MirmirProcessTelemetryCounters
+
+@MainActor
+@Observable
+final class MirmirDashboardTelemetry {
+    private(set) var snapshot: MirmirDashboardTelemetrySnapshot?
+    private(set) var errorDescription: String?
+    let metalDeviceName: String?
+
+    @ObservationIgnored private let sampleProvider: MirmirTelemetrySampleProvider
+    @ObservationIgnored private let timebase: MirmirMachTimebase
+    @ObservationIgnored private var previousCounters:
+        MirmirProcessTelemetryCounters?
+    @ObservationIgnored private var hasLoggedFailure = false
+
+    init(
+        sampleProvider: @escaping MirmirTelemetrySampleProvider = {
+            try MirmirSystemProcessTelemetrySampler().sample()
+        },
+        timebase: MirmirMachTimebase = .current,
+        metalDeviceName: String? = MTLCreateSystemDefaultDevice()?.name
+    ) {
+        self.sampleProvider = sampleProvider
+        self.timebase = timebase
+        self.metalDeviceName = metalDeviceName
+    }
+
+    func monitor() async {
+        previousCounters = nil
+        MirmirLog.telemetry.debug("Dashboard telemetry sampling started")
+        refresh()
+        while !Task.isCancelled {
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch {
+                break
+            }
+            refresh()
+        }
+        MirmirLog.telemetry.debug("Dashboard telemetry sampling stopped")
+    }
+
+    func refresh() {
+        do {
+            let counters = try sampleProvider()
+            snapshot = MirmirTelemetryCalculator.snapshot(
+                previous: previousCounters,
+                current: counters,
+                timebase: timebase
+            )
+            previousCounters = counters
+            errorDescription = nil
+            if hasLoggedFailure {
+                MirmirLog.telemetry.notice("Dashboard telemetry sampling recovered")
+                hasLoggedFailure = false
+            }
+        } catch {
+            snapshot = nil
+            previousCounters = nil
+            errorDescription = "Live process telemetry is unavailable."
+            if !hasLoggedFailure {
+                MirmirLog.telemetry.error(
+                    "Dashboard telemetry sampling failed: \(error.localizedDescription, privacy: .public)"
+                )
+                hasLoggedFailure = true
+            }
+        }
     }
 }
 
@@ -283,6 +618,98 @@ struct MirmirProductStatusCard: View {
         .overlay {
             RoundedRectangle(cornerRadius: theme.radius.large)
                 .stroke(tone.borderColor(theme: theme), lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct MirmirProductMetricCard: View {
+    let title: String
+    let primary: String
+    let secondary: String
+    let symbolName: String
+    let tone: MirmirProductStatusTone
+    let progress: Double?
+    let theme: MirmirThemeTokens
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+            HStack(spacing: theme.spacing.space2) {
+                Image(systemName: symbolName)
+                    .foregroundStyle(tone.color(theme: theme))
+                Text(title.uppercased())
+                    .font(theme.typography.micro)
+                    .foregroundStyle(theme.textTertiary)
+                Spacer(minLength: 0)
+            }
+            Text(primary)
+                .font(theme.typography.subtitle.monospacedDigit())
+                .foregroundStyle(theme.textPrimary)
+                .lineLimit(1)
+            Text(secondary)
+                .font(theme.typography.caption)
+                .foregroundStyle(theme.textSecondary)
+                .lineLimit(2)
+            if let progress {
+                ProgressView(value: min(max(progress, 0), 1))
+                    .tint(tone.color(theme: theme))
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(theme.spacing.space3)
+        .frame(
+            minWidth: 148,
+            maxWidth: .infinity,
+            minHeight: 114,
+            alignment: .leading
+        )
+        .background(
+            RoundedRectangle(cornerRadius: theme.radius.large)
+                .fill(theme.surfaceElevated)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: theme.radius.large)
+                .stroke(theme.borderSubtle, lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct MirmirProductProgressRow: View {
+    let title: String
+    let detail: String
+    let valueText: String
+    let symbolName: String
+    let fraction: Double?
+    let theme: MirmirThemeTokens
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: theme.spacing.space2) {
+            HStack(spacing: theme.spacing.space2) {
+                Image(systemName: symbolName)
+                    .foregroundStyle(theme.accentPrimary)
+                    .frame(width: 18)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(theme.typography.bodyEmphasis)
+                    Text(detail)
+                        .font(theme.typography.caption)
+                        .foregroundStyle(theme.textSecondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: theme.spacing.space3)
+                Text(valueText)
+                    .font(theme.typography.bodyEmphasis.monospacedDigit())
+                    .foregroundStyle(theme.textPrimary)
+            }
+
+            if let fraction {
+                ProgressView(value: min(max(fraction, 0), 1))
+                    .tint(theme.accentPrimary)
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+            }
         }
         .accessibilityElement(children: .combine)
     }

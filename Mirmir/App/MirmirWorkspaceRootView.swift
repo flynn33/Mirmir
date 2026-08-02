@@ -1,3 +1,4 @@
+import CoreMedia
 import SwiftUI
 
 struct MirmirWorkspaceRootView: View {
@@ -6,8 +7,9 @@ struct MirmirWorkspaceRootView: View {
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("mirmir.appearance") private var appearanceRawValue =
         MirmirAppearanceMode.system.rawValue
-    @State private var destination: MirmirProductDestination = .upscale
+    @State private var destination: MirmirProductDestination = .dashboard
     @State private var pendingMethodSelection: PendingMethodSelection?
+    @State private var dashboardTelemetry = MirmirDashboardTelemetry()
 
     var body: some View {
         GeometryReader { proxy in
@@ -15,6 +17,9 @@ struct MirmirWorkspaceRootView: View {
         }
         .frame(minWidth: 960, minHeight: 680)
         .preferredColorScheme(preferredColorScheme)
+        .task {
+            await dashboardTelemetry.monitor()
+        }
     }
 
     private func workspace(width: CGFloat) -> some View {
@@ -75,6 +80,7 @@ struct MirmirWorkspaceRootView: View {
         case .dashboard:
             MirmirProductDashboard(
                 viewModel: viewModel,
+                telemetry: dashboardTelemetry,
                 theme: theme,
                 openUpscale: { destination = .upscale }
             )
@@ -219,25 +225,13 @@ private struct MirmirProductSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: theme.spacing.space4) {
-            HStack(spacing: theme.spacing.space2) {
-                Image(systemName: "mountain.2.fill")
-                    .font(.system(size: 25, weight: .semibold))
-                    .foregroundStyle(theme.accentSecondary)
-                    .frame(width: 32)
-                if !compact {
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("MIRMIR")
-                            .font(.system(size: 17, weight: .bold))
-                            .tracking(3)
-                        Text("Deterministic Video Upscaler")
-                            .font(theme.typography.micro)
-                            .foregroundStyle(theme.textTertiary)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.72)
-                    }
-                }
-            }
+            MirmirBrandLockup(
+                layout: compact ? .markOnly : .horizontal,
+                iconSize: compact ? 38 : 36,
+                theme: theme
+            )
             .frame(height: 44, alignment: .leading)
+            .frame(maxWidth: .infinity, alignment: compact ? .center : .leading)
 
             VStack(spacing: theme.spacing.space1) {
                 ForEach(MirmirProductDestination.primary) { item in
@@ -382,17 +376,45 @@ private struct MirmirProductHeader: View {
 
 private struct MirmirProductDashboard: View {
     let viewModel: MirmirViewModel
+    let telemetry: MirmirDashboardTelemetry
     let theme: MirmirThemeTokens
     let openUpscale: () -> Void
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: theme.spacing.space5) {
-                Text("A focused workspace for one source and one verified output.")
-                    .font(theme.typography.subtitle)
-                    .foregroundStyle(theme.textSecondary)
+                HStack(alignment: .center, spacing: theme.spacing.space4) {
+                    VStack(alignment: .leading, spacing: theme.spacing.space1) {
+                        Text("Processing Overview")
+                            .font(theme.typography.display)
+                        Text(
+                            "Live job status, media configuration, and Mirmir process telemetry."
+                        )
+                        .font(theme.typography.body)
+                        .foregroundStyle(theme.textSecondary)
+                    }
+                    Spacer(minLength: theme.spacing.space4)
+                    Label(telemetryStatus.title, systemImage: telemetryStatus.symbol)
+                        .font(theme.typography.captionEmphasis)
+                        .foregroundStyle(telemetryStatus.tone.color(theme: theme))
+                        .padding(.horizontal, theme.spacing.space3)
+                        .padding(.vertical, theme.spacing.space2)
+                        .background(Capsule().fill(theme.surfaceElevated))
+                        .overlay {
+                            Capsule().stroke(theme.borderSubtle, lineWidth: 1)
+                        }
+                }
 
-                HStack(spacing: theme.spacing.space3) {
+                sectionLabel("Job Configuration", symbol: "slider.horizontal.3")
+                LazyVGrid(
+                    columns: [
+                        GridItem(
+                            .adaptive(minimum: 190, maximum: 320),
+                            spacing: theme.spacing.space3
+                        )
+                    ],
+                    spacing: theme.spacing.space3
+                ) {
                     MirmirProductStatusCard(
                         title: "Source",
                         primary: viewModel.currentVideoInfo?.filename ?? "No source",
@@ -423,17 +445,99 @@ private struct MirmirProductDashboard: View {
                     )
                 }
 
+                sectionLabel("Live Telemetry", symbol: "waveform.path.ecg")
+                LazyVGrid(
+                    columns: [
+                        GridItem(
+                            .adaptive(minimum: 165, maximum: 260),
+                            spacing: theme.spacing.space3
+                        )
+                    ],
+                    spacing: theme.spacing.space3
+                ) {
+                    MirmirProductMetricCard(
+                        title: "Mirmir CPU",
+                        primary: cpuText,
+                        secondary: "Activity Monitor scale · may exceed 100%",
+                        symbolName: "cpu",
+                        tone: telemetry.snapshot == nil ? .neutral : .active,
+                        progress: telemetry.snapshot?.processCPUPercent.map {
+                            $0 / 100
+                        },
+                        theme: theme
+                    )
+                    MirmirProductMetricCard(
+                        title: "Memory",
+                        primary: memoryText,
+                        secondary: residentMemoryText,
+                        symbolName: "memorychip",
+                        tone: telemetry.snapshot == nil ? .neutral : .active,
+                        progress: nil,
+                        theme: theme
+                    )
+                    MirmirProductMetricCard(
+                        title: "GPU Route",
+                        primary: gpuRoute.primary,
+                        secondary: gpuRoute.secondary,
+                        symbolName: "gauge.with.dots.needle.67percent",
+                        tone: gpuRoute.tone,
+                        progress: nil,
+                        theme: theme
+                    )
+                    .help(
+                        "Shows whether Mirmir is using an explicit Metal processing "
+                            + "route. This is not system GPU utilization."
+                    )
+                    MirmirProductMetricCard(
+                        title: "Disk I/O",
+                        primary: diskReadText,
+                        secondary: "Write \(diskWriteText)",
+                        symbolName: "externaldrive",
+                        tone: telemetry.snapshot == nil ? .neutral : .active,
+                        progress: nil,
+                        theme: theme
+                    )
+                }
+
+                sectionLabel("Progress", symbol: "chart.bar.doc.horizontal")
+                MirmirProductPanel(theme: theme) {
+                    VStack(spacing: theme.spacing.space4) {
+                        MirmirProductProgressRow(
+                            title: "Queue Progress",
+                            detail: queueDetail,
+                            valueText: queueValueText,
+                            symbolName: "list.bullet.rectangle",
+                            fraction: jobProgressFraction,
+                            theme: theme
+                        )
+                        Divider().overlay(theme.borderSubtle)
+                        MirmirProductProgressRow(
+                            title: "Video Progress",
+                            detail: videoProgressDetail,
+                            valueText: videoProgressValue,
+                            symbolName: "film.stack",
+                            fraction: videoProgressFraction,
+                            theme: theme
+                        )
+                    }
+                }
+
                 MirmirProductPanel(theme: theme) {
                     HStack(spacing: theme.spacing.space5) {
-                        Image(systemName: "mountain.2")
-                            .font(.system(size: 46, weight: .light))
-                            .foregroundStyle(theme.accentPrimary)
+                        MirmirBrandLockup(
+                            layout: .markOnly,
+                            iconSize: 50,
+                            theme: theme
+                        )
+                        .accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: theme.spacing.space2) {
-                            Text("Start an upscale")
+                            Text(viewModel.currentVideoInfo == nil
+                                ? "Start an upscale"
+                                : "Continue in the workspace")
                                 .font(theme.typography.title)
                             Text(
-                                "Choose a source, inspect exact method availability, "
-                                    + "and create an atomic QuickTime output."
+                                "Choose a source, inspect exact method availability, and "
+                                    + "create a validated QuickTime output."
                             )
                             .font(theme.typography.body)
                             .foregroundStyle(theme.textSecondary)
@@ -451,6 +555,12 @@ private struct MirmirProductDashboard: View {
         .background(theme.background)
     }
 
+    private func sectionLabel(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(theme.typography.headline)
+            .foregroundStyle(theme.textPrimary)
+    }
+
     private var targetText: String {
         guard viewModel.targetWidth > 0, viewModel.targetHeight > 0 else {
             return "Not configured"
@@ -461,6 +571,238 @@ private struct MirmirProductDashboard: View {
     private var selectedMethodTitle: String {
         BackendDescriptor.descriptor(for: viewModel.selectedBackendID)?.title
             ?? viewModel.selectedBackendID.rawValue
+    }
+
+    private var telemetryStatus: (
+        title: String,
+        symbol: String,
+        tone: MirmirProductStatusTone
+    ) {
+        if telemetry.errorDescription != nil {
+            return ("Telemetry unavailable", "exclamationmark.triangle", .warning)
+        }
+        if telemetry.snapshot == nil {
+            return ("Starting telemetry", "ellipsis.circle", .neutral)
+        }
+        return ("Live · 1 second", "dot.radiowaves.left.and.right", .success)
+    }
+
+    private var cpuText: String {
+        if telemetry.errorDescription != nil { return "Unavailable" }
+        return MirmirPresentation.percentageText(
+            telemetry.snapshot?.processCPUPercent
+        )
+    }
+
+    private var memoryText: String {
+        if telemetry.errorDescription != nil { return "Unavailable" }
+        return byteCountText(telemetry.snapshot?.physicalFootprintBytes)
+    }
+
+    private var residentMemoryText: String {
+        guard telemetry.errorDescription == nil else {
+            return "Process resource usage could not be sampled"
+        }
+        return "Resident \(byteCountText(telemetry.snapshot?.residentBytes))"
+    }
+
+    private var diskReadText: String {
+        if telemetry.errorDescription != nil { return "Unavailable" }
+        return "Read \(MirmirPresentation.byteRateText(telemetry.snapshot?.diskReadBytesPerSecond))"
+    }
+
+    private var diskWriteText: String {
+        if telemetry.errorDescription != nil { return "unavailable" }
+        return MirmirPresentation.byteRateText(
+            telemetry.snapshot?.diskWrittenBytesPerSecond
+        )
+    }
+
+    private func byteCountText(_ bytes: UInt64?) -> String {
+        guard let bytes, bytes <= UInt64(Int64.max) else {
+            return "Sampling…"
+        }
+        return MirmirPresentation.fileSizeText(Int64(bytes))
+    }
+
+    private var gpuRoute: (
+        primary: String,
+        secondary: String,
+        tone: MirmirProductStatusTone
+    ) {
+        guard let deviceName = telemetry.metalDeviceName else {
+            return ("Unavailable", "No Metal device reported", .warning)
+        }
+        guard case .processing(_, let progress) = viewModel.state else {
+            return ("Ready", deviceName, .neutral)
+        }
+        let backendID = progress.actualBackendID ?? viewModel.selectedBackendID
+        guard explicitMetalBackends.contains(backendID) else {
+            return ("Idle", "Current method is not an explicit Metal route", .neutral)
+        }
+        let method = BackendDescriptor.descriptor(for: backendID)?.title
+            ?? backendID.rawValue
+        switch progress.phase {
+        case .probing, .preparingBackend, .preparingReaderWriter:
+            return ("Preparing", "\(deviceName) · \(method)", .active)
+        case .processingVideo:
+            return ("Active", "\(deviceName) · \(method)", .success)
+        case .processingAudio:
+            return ("Selected", "\(deviceName) · \(method)", .active)
+        case .finalizing, .validatingOutput, .completed:
+            return ("Idle", "\(deviceName) · video pass complete", .neutral)
+        }
+    }
+
+    private var explicitMetalBackends: Set<UpscaleBackendID> {
+        [
+            .mirmirDeterministicMetal,
+            .metalFXSpatial,
+            .mpsLanczos,
+            .mpsBilinear
+        ]
+    }
+
+    private var jobProgressFraction: Double? {
+        switch viewModel.state {
+        case .probing:
+            return nil
+        case .processing(_, let progress):
+            return progress.fractionCompleted
+        case .completed:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    private var queueDetail: String {
+        switch viewModel.state {
+        case .probing:
+            return "Preparing one job · 0 waiting"
+        case .processing(_, let progress):
+            return "\(progress.phase.rawValue) · 1 active · 0 waiting"
+        case .completed:
+            return "1 of 1 completed · 0 waiting"
+        case .failed:
+            return "Job stopped · 0 waiting"
+        case .ready:
+            return "Ready to start · 0 waiting"
+        case .empty:
+            return "No active job · 0 waiting"
+        }
+    }
+
+    private var queueValueText: String {
+        switch viewModel.state {
+        case .processing(_, let progress):
+            return progress.fractionCompleted.map(percentText) ?? "Working"
+        case .probing:
+            return "Working"
+        case .completed:
+            return "100%"
+        case .failed:
+            return "Stopped"
+        default:
+            return "Idle"
+        }
+    }
+
+    private var videoProgressFraction: Double? {
+        switch viewModel.state {
+        case .probing:
+            return nil
+        case .processing(_, let progress):
+            if [.finalizing, .validatingOutput, .completed].contains(
+                progress.phase
+            ) {
+                return 1
+            }
+            if let fraction = progress.fractionCompleted { return fraction }
+            return timeFraction(
+                processed: progress.processedTime,
+                duration: progress.duration
+            )
+        case .completed:
+            return 1
+        default:
+            return 0
+        }
+    }
+
+    private var videoProgressDetail: String {
+        switch viewModel.state {
+        case .processing(_, let progress):
+            if [.finalizing, .validatingOutput, .completed].contains(
+                progress.phase
+            ) {
+                let duration = progress.duration.map(
+                    MirmirPresentation.durationText
+                ) ?? "Unknown"
+                return "\(duration) / \(duration) · "
+                    + "\(progress.processedFrameCount) frames"
+            }
+            if progress.phase == .processingAudio {
+                return "Copying audio · video progress resumes with the next frame update"
+            }
+            let elapsed = progress.processedTime.map(
+                MirmirPresentation.durationText
+            ) ?? "0:00"
+            let duration = progress.duration.map(
+                MirmirPresentation.durationText
+            ) ?? "Unknown"
+            return "\(elapsed) / \(duration) · \(progress.processedFrameCount) frames"
+        case .completed(let info, let result):
+            return "\(MirmirPresentation.durationText(info.duration)) · "
+                + "\(result.processedFrameCount) frames"
+        case .ready(let info):
+            return "0:00 / \(MirmirPresentation.durationText(info.duration))"
+        case .probing:
+            return "Reading source timing and frame information"
+        case .failed:
+            return "Progress is unavailable after the stopped job"
+        case .empty:
+            return "Choose a source to establish the video timeline"
+        }
+    }
+
+    private var videoProgressValue: String {
+        switch viewModel.state {
+        case .processing(_, let progress):
+            if [.finalizing, .validatingOutput, .completed].contains(
+                progress.phase
+            ) {
+                return "100%"
+            }
+            return progress.fractionCompleted.map(percentText) ?? "Working"
+        case .probing:
+            return "Working"
+        case .completed:
+            return "100%"
+        case .failed:
+            return "Stopped"
+        default:
+            return "0%"
+        }
+    }
+
+    private func percentText(_ fraction: Double) -> String {
+        "\(Int((min(max(fraction, 0), 1) * 100).rounded()))%"
+    }
+
+    private func timeFraction(processed: CMTime?, duration: CMTime?) -> Double? {
+        guard let processed, let duration else { return nil }
+        let elapsedSeconds = CMTimeGetSeconds(processed)
+        let durationSeconds = CMTimeGetSeconds(duration)
+        guard processed.isNumeric,
+              duration.isNumeric,
+              elapsedSeconds.isFinite,
+              durationSeconds.isFinite,
+              elapsedSeconds >= 0,
+              durationSeconds > 0 else {
+            return nil
+        }
+        return min(max(elapsedSeconds / durationSeconds, 0), 1)
     }
 }
 
@@ -645,34 +987,176 @@ private struct MirmirProductAbout: View {
     let theme: MirmirThemeTokens
 
     var body: some View {
-        VStack(spacing: theme.spacing.space5) {
-            MirmirProductPanel(theme: theme) {
-                VStack(spacing: theme.spacing.space3) {
-                    Image(systemName: "mountain.2.fill")
-                        .font(.system(size: 56, weight: .light))
-                        .foregroundStyle(theme.accentPrimary)
-                    Text("MIRMIR")
-                        .font(.system(size: 25, weight: .bold))
-                        .tracking(5)
-                    Text("Deterministic Video Upscaler")
-                        .font(theme.typography.subtitle)
-                        .foregroundStyle(theme.textSecondary)
-                    Text("macOS 15.4 or later · Sandboxed · One active job")
-                        .font(theme.typography.caption)
-                        .foregroundStyle(theme.textTertiary)
-                    if let licenseURL = Bundle.main.url(
-                        forResource: "ASH-Model-LICENSE",
-                        withExtension: "txt"
-                    ) {
-                        Link("ASH Model Acknowledgments", destination: licenseURL)
+        GeometryReader { proxy in
+            ScrollView {
+                Group {
+                    if proxy.size.width >= 800 {
+                        HStack(alignment: .top, spacing: theme.spacing.space5) {
+                            identityPanel.frame(width: 260)
+                            storyPanel.frame(maxWidth: .infinity)
+                        }
+                    } else {
+                        VStack(spacing: theme.spacing.space5) {
+                            identityPanel
+                            storyPanel
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity)
+                .padding(theme.spacing.space6)
             }
-            Spacer()
         }
-        .padding(theme.spacing.space6)
         .background(theme.background)
+    }
+
+    private var identityPanel: some View {
+        MirmirProductPanel(theme: theme) {
+            VStack(spacing: theme.spacing.space3) {
+                MirmirBrandLockup(
+                    layout: .vertical,
+                    iconSize: 108,
+                    theme: theme,
+                    showsTagline: true
+                )
+
+                Text(versionText)
+                    .font(theme.typography.captionEmphasis.monospacedDigit())
+                    .foregroundStyle(theme.textSecondary)
+                    .padding(.horizontal, theme.spacing.space3)
+                    .padding(.vertical, theme.spacing.space1)
+                    .background(Capsule().fill(theme.surfaceInset))
+
+                Divider().overlay(theme.borderSubtle)
+
+                VStack(spacing: theme.spacing.space1) {
+                    Text("RAVEN FORGE SOFTWARE")
+                        .font(theme.typography.micro)
+                        .tracking(1.4)
+                        .foregroundStyle(theme.textTertiary)
+                    Text("Developed by James Daley")
+                        .font(theme.typography.captionEmphasis)
+                        .foregroundStyle(theme.textSecondary)
+                }
+
+                Text("macOS 15.4 or later · Sandboxed")
+                    .font(theme.typography.caption)
+                    .foregroundStyle(theme.textTertiary)
+
+                if let licenseURL = Bundle.main.url(
+                    forResource: "ASH-Model-LICENSE",
+                    withExtension: "txt"
+                ) {
+                    Link("ASH Model Acknowledgments", destination: licenseURL)
+                        .font(theme.typography.captionEmphasis)
+                }
+
+                Text("© 2026 Raven Forge Software")
+                    .font(theme.typography.micro)
+                    .foregroundStyle(theme.textTertiary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var storyPanel: some View {
+        MirmirProductPanel(theme: theme) {
+            VStack(alignment: .leading, spacing: theme.spacing.space4) {
+                Text("About Mirmir")
+                    .font(theme.typography.display)
+
+                Text(
+                    "Mirmir is the first video upscaler to implement James Daley’s "
+                        + "ASH Model as a deterministic upscaling engine."
+                )
+                .font(theme.typography.subtitle)
+                .foregroundStyle(theme.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+
+                Divider().overlay(theme.borderSubtle)
+
+                aboutParagraph(
+                    Text("The ASH Model — the ")
+                        + Text("Adinkra-Stabilized Hypercube Model").bold()
+                        + Text(" — is a finite-state mathematical and computational ")
+                        + Text("framework developed by ")
+                        + Text("James Daley").bold()
+                        + Text(". Mirmir applies this research to video enhancement by ")
+                        + Text("using deterministic state logic, temporal persistence, ")
+                        + Text("branching, and artifact-aware decision making to guide the ")
+                        + Text("upscaling process.")
+                )
+
+                aboutParagraph(
+                    Text(
+                        "Unlike conventional upscalers that treat enhancement as a "
+                            + "single opaque reconstruction pass, Mirmir analyzes how "
+                            + "visual structure changes over time. Its ASH-based engine "
+                            + "is designed to make upscaling decisions repeatable, stable, "
+                            + "and explainable from frame to frame."
+                    )
+                )
+
+                aboutParagraph(
+                    Text(
+                        "Mirmir can also use Apple-native enhancement technologies, "
+                            + "including VideoToolbox Super Resolution and MetalFX, as "
+                            + "explicit processing choices alongside its ASH-based "
+                            + "deterministic routes. Apple provides powerful native "
+                            + "processing capabilities; Mirmir keeps each method’s "
+                            + "availability and selection explicit, while its ASH CPU and "
+                            + "Metal routes provide deterministic state-guided enhancement."
+                    )
+                )
+
+                HStack(spacing: theme.spacing.space3) {
+                    Link(destination: URL(string: "https://ashcosmology.net/")!) {
+                        Label("ASH Model Website", systemImage: "safari")
+                    }
+                    .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
+
+                    Link(
+                        destination: URL(
+                            string: "https://github.com/flynn33/ASH-Model"
+                        )!
+                    ) {
+                        Label("Reference Repository", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
+                }
+
+                Text(
+                    "Mirmir is published under the Raven Forge Software brand and "
+                        + "developed by James Daley."
+                )
+                .font(theme.typography.captionEmphasis)
+                .foregroundStyle(theme.textSecondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .textSelection(.enabled)
+    }
+
+    private func aboutParagraph(_ text: Text) -> some View {
+        text
+            .font(theme.typography.body)
+            .foregroundStyle(theme.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var versionText: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String
+        switch (version, build) {
+        case let (.some(version), .some(build)):
+            return "Version \(version) · Build \(build)"
+        case let (.some(version), .none):
+            return "Version \(version)"
+        default:
+            return "Development Build"
+        }
     }
 }
 

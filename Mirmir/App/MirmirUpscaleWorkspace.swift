@@ -774,14 +774,22 @@ private struct MirmirSourceDropSurface: View {
             }
             .overlay {
                 VStack(spacing: theme.spacing.space3) {
-                    Image(systemName: "arrow.down.doc")
-                        .font(.system(size: 38, weight: .light))
-                        .foregroundStyle(theme.accentPrimary)
-                    Text(isTargeted ? "Release to load" : "Drop a video here")
+                    MirmirBrandLockup(
+                        layout: .markOnly,
+                        iconSize: 68,
+                        theme: theme
+                    )
+                    .accessibilityHidden(true)
+                    .opacity(isTargeted ? 1 : 0.72)
+                    Text(isTargeted ? "Release to load" : "No video loaded")
                         .font(theme.typography.subtitle)
-                    Text("or choose a source file")
-                        .font(theme.typography.body)
-                        .foregroundStyle(theme.textSecondary)
+                    Text(
+                        isTargeted
+                            ? "Mirmir will inspect this source"
+                            : "Drop a video here or choose a source file"
+                    )
+                    .font(theme.typography.body)
+                    .foregroundStyle(theme.textSecondary)
                     Button("Choose Source") { viewModel.openVideo() }
                         .buttonStyle(MirmirProductSecondaryButtonStyle(theme: theme))
                 }
@@ -899,8 +907,18 @@ private struct MirmirCompletionViewer: View {
             )
 
             HStack(spacing: theme.spacing.space3) {
-                Image(systemName: "checkmark.seal.fill")
-                    .foregroundStyle(theme.success)
+                ZStack(alignment: .bottomTrailing) {
+                    MirmirBrandLockup(
+                        layout: .markOnly,
+                        iconSize: 38,
+                        theme: theme
+                    )
+                    .accessibilityHidden(true)
+                    Image(systemName: "checkmark.circle.fill")
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(Color.white, theme.success)
+                        .font(.system(size: 15, weight: .semibold))
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Upscale Complete")
                         .font(theme.typography.bodyEmphasis)
