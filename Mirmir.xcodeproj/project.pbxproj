@@ -7,1073 +7,692 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		320000000000000000000001 /* MirmirApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000001 /* MirmirApp.swift */; };
+		320000000000000000000002 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000002 /* RootView.swift */; };
+		320000000000000000000003 /* MirmirViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000003 /* MirmirViewModel.swift */; };
+		320000000000000000000004 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000004 /* AppState.swift */; };
+		320000000000000000000005 /* VideoInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000005 /* VideoInfo.swift */; };
+		320000000000000000000006 /* UpscaleRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000006 /* UpscaleRequest.swift */; };
+		320000000000000000000007 /* UpscaleBackendID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000007 /* UpscaleBackendID.swift */; };
+		320000000000000000000008 /* BackendAvailability.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000008 /* BackendAvailability.swift */; };
+		320000000000000000000009 /* UpscaleProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000009 /* UpscaleProgress.swift */; };
+		32000000000000000000000A /* UpscaleResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000A /* UpscaleResult.swift */; };
+		32000000000000000000000B /* MirmirError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000B /* MirmirError.swift */; };
+		32000000000000000000000C /* Log.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000C /* Log.swift */; };
+		32000000000000000000000D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000000D /* Assets.xcassets */; };
+		32000000000000000000000E /* MirmirTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000010 /* MirmirTests.swift */; };
+		32000000000000000000000F /* VideoColorInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000011 /* VideoColorInfo.swift */; };
+		320000000000000000000010 /* VideoGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000012 /* VideoGeometry.swift */; };
+		320000000000000000000011 /* VideoProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000013 /* VideoProbe.swift */; };
+		320000000000000000000012 /* SecurityScopedAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000014 /* SecurityScopedAccess.swift */; };
+		320000000000000000000013 /* FourCC.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000015 /* FourCC.swift */; };
+		320000000000000000000014 /* VideoProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000016 /* VideoProbeTests.swift */; };
+		320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000017 /* SecurityScopedAccessTests.swift */; };
+		320000000000000000000016 /* BackendDescriptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000018 /* BackendDescriptor.swift */; };
+		320000000000000000000017 /* RuntimeEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000019 /* RuntimeEnvironment.swift */; };
+		320000000000000000000018 /* FrameUpscaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001A /* FrameUpscaler.swift */; };
+			320000000000000000000019 /* AutomaticBackendSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001B /* AutomaticBackendSelector.swift */; };
+			32000000000000000000001A /* UpscaleBackendCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001C /* UpscaleBackendCatalog.swift */; };
+			32000000000000000000001B /* BackendCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001D /* BackendCatalogTests.swift */; };
+			32000000000000000000001C /* VImageScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001E /* VImageScaler.swift */; };
+			32000000000000000000001D /* VImageScalerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000001F /* VImageScalerTests.swift */; };
+			32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000020 /* SyntheticNV12PixelBuffer.swift */; };
+		320000000000000000000021 /* OutputSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000021 /* OutputSettings.swift */; };
+		320000000000000000000022 /* AtomicOutputFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000022 /* AtomicOutputFile.swift */; };
+		320000000000000000000023 /* OutputMediaValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000023 /* OutputMediaValidator.swift */; };
+		320000000000000000000024 /* VideoProcessingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000024 /* VideoProcessingSession.swift */; };
+		320000000000000000000025 /* UpscaleCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000025 /* UpscaleCoordinator.swift */; };
+		320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000026 /* VideoProcessingSessionTests.swift */; };
+		320000000000000000000027 /* NV12ScalerSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000027 /* NV12ScalerSupport.swift */; };
+		320000000000000000000028 /* MPSScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000028 /* MPSScaler.swift */; };
+		320000000000000000000029 /* CoreImageScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000029 /* CoreImageScaler.swift */; };
+		32000000000000000000002A /* VTPixelTransferScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002A /* VTPixelTransferScaler.swift */; };
+		32000000000000000000002B /* MetalFXScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002B /* MetalFXScaler.swift */; };
+		32000000000000000000002C /* VTHighQualitySuperResolutionScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002C /* VTHighQualitySuperResolutionScaler.swift */; };
+		32000000000000000000002D /* VTLowLatencySuperResolutionScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002D /* VTLowLatencySuperResolutionScaler.swift */; };
+		32000000000000000000002E /* VTInterpolationSpatialScaler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002E /* VTInterpolationSpatialScaler.swift */; };
+		32000000000000000000002F /* DeterministicCPUBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000002F /* DeterministicCPUBackend.swift */; };
+		320000000000000000000030 /* DeterministicReferenceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000030 /* DeterministicReferenceSupport.swift */; };
+		320000000000000000000031 /* ASHUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000031 /* ASHUpscaleBackend.swift */; };
+		320000000000000000000032 /* ASHDeterministicUpscaleBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000032 /* ASHDeterministicUpscaleBackend.swift */; };
+		320000000000000000000033 /* ASHNV12FrameCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000033 /* ASHNV12FrameCodec.swift */; };
+		320000000000000000000034 /* ASHSpatialReferencePipelineV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000034 /* ASHSpatialReferencePipelineV2.swift */; };
+		320000000000000000000035 /* ASHChromaSitingV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000035 /* ASHChromaSitingV2.swift */; };
+		320000000000000000000036 /* ASHCodePlaneNormalizerV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000036 /* ASHCodePlaneNormalizerV2.swift */; };
+		320000000000000000000037 /* ASHSpatialRuntimeConfigurationV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000037 /* ASHSpatialRuntimeConfigurationV2.swift */; };
+		320000000000000000000038 /* ASHSpatialOperatorBankV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000038 /* ASHSpatialOperatorBankV2.swift */; };
+		320000000000000000000039 /* ASHVideoAnalyzerV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000039 /* ASHVideoAnalyzerV2.swift */; };
+		32000000000000000000003A /* ASHAnalysisGridV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003A /* ASHAnalysisGridV2.swift */; };
+		32000000000000000000003B /* ASHSpatialDispatchV2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003B /* ASHSpatialDispatchV2.swift */; };
+		32000000000000000000003C /* ASHState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003C /* ASHState.swift */; };
+		32000000000000000000003D /* ASHCode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003D /* ASHCode.swift */; };
+		32000000000000000000003E /* ASH-Model-LICENSE.txt in Resources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003E /* ASH-Model-LICENSE.txt */; };
+		32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000003F /* DeterministicCPUBackendTests.swift */; };
+		320000000000000000000040 /* DeterministicMetalBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000040 /* DeterministicMetalBackend.swift */; };
+		320000000000000000000041 /* MetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000041 /* MetalRenderingService.swift */; };
+		320000000000000000000042 /* DefaultMetalRenderingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000042 /* DefaultMetalRenderingService.swift */; };
+		320000000000000000000043 /* MetalCommandBufferCompletionBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000043 /* MetalCommandBufferCompletionBridge.swift */; };
+		320000000000000000000044 /* ASHMetalDevelopmentRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000044 /* ASHMetalDevelopmentRuntimeV3.swift */; };
+		320000000000000000000045 /* ASHLUTTypesV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000045 /* ASHLUTTypesV3.swift */; };
+		320000000000000000000046 /* ASHLUTBinaryFormatV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000046 /* ASHLUTBinaryFormatV3.swift */; };
+		320000000000000000000047 /* ASHMetalSpatialRuntimeSupportV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000047 /* ASHMetalSpatialRuntimeSupportV3.swift */; };
+		320000000000000000000048 /* ASHMetalSpatialRuntimePreparationV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000048 /* ASHMetalSpatialRuntimePreparationV3.swift */; };
+		320000000000000000000049 /* ASHMetalFrameResourceRingV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000049 /* ASHMetalFrameResourceRingV3.swift */; };
+		32000000000000000000004A /* ASHMetalRuntimeMonitorV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004A /* ASHMetalRuntimeMonitorV3.swift */; };
+		32000000000000000000004B /* ASHMetalSpatialFrameEncoderV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004B /* ASHMetalSpatialFrameEncoderV3.swift */; };
+		32000000000000000000004C /* ASHMetalSpatialRuntimeV3.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004C /* ASHMetalSpatialRuntimeV3.swift */; };
+		32000000000000000000004D /* ASHMetalSpatialKernelsV3.metal in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004D /* ASHMetalSpatialKernelsV3.metal */; };
+		32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004E /* DeterministicMetalBackendTests.swift */; };
+		32000000000000000000004F /* MirmirWorkspaceSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31000000000000000000004F /* MirmirWorkspaceSupport.swift */; };
+		320000000000000000000050 /* MirmirWorkspaceRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000050 /* MirmirWorkspaceRootView.swift */; };
+		320000000000000000000051 /* MirmirUpscaleWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000051 /* MirmirUpscaleWorkspace.swift */; };
+		320000000000000000000052 /* MirmirTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310000000000000000000052 /* MirmirTheme.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		600000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 100000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 200000000000000000000001;
+			remoteInfo = Mirmir;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		0969BACD587742BADA8210D0 /* Release */ = {
+		300000000000000000000001 /* Mirmir.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Mirmir.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		300000000000000000000002 /* MirmirTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MirmirTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		310000000000000000000001 /* MirmirApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirApp.swift; sourceTree = "<group>"; };
+		310000000000000000000002 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		310000000000000000000003 /* MirmirViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirViewModel.swift; sourceTree = "<group>"; };
+		310000000000000000000004 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		310000000000000000000005 /* VideoInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoInfo.swift; sourceTree = "<group>"; };
+		310000000000000000000006 /* UpscaleRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleRequest.swift; sourceTree = "<group>"; };
+		310000000000000000000007 /* UpscaleBackendID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleBackendID.swift; sourceTree = "<group>"; };
+		310000000000000000000008 /* BackendAvailability.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendAvailability.swift; sourceTree = "<group>"; };
+		310000000000000000000009 /* UpscaleProgress.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleProgress.swift; sourceTree = "<group>"; };
+		31000000000000000000000A /* UpscaleResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleResult.swift; sourceTree = "<group>"; };
+		31000000000000000000000B /* MirmirError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirError.swift; sourceTree = "<group>"; };
+		31000000000000000000000C /* Log.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Log.swift; sourceTree = "<group>"; };
+		31000000000000000000000D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		31000000000000000000000E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		31000000000000000000000F /* Mirmir.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Mirmir.entitlements; sourceTree = "<group>"; };
+		310000000000000000000010 /* MirmirTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirTests.swift; sourceTree = "<group>"; };
+		310000000000000000000011 /* VideoColorInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoColorInfo.swift; sourceTree = "<group>"; };
+		310000000000000000000012 /* VideoGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoGeometry.swift; sourceTree = "<group>"; };
+		310000000000000000000013 /* VideoProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProbe.swift; sourceTree = "<group>"; };
+		310000000000000000000014 /* SecurityScopedAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedAccess.swift; sourceTree = "<group>"; };
+		310000000000000000000015 /* FourCC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FourCC.swift; sourceTree = "<group>"; };
+		310000000000000000000016 /* VideoProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProbeTests.swift; sourceTree = "<group>"; };
+		310000000000000000000017 /* SecurityScopedAccessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityScopedAccessTests.swift; sourceTree = "<group>"; };
+		310000000000000000000018 /* BackendDescriptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendDescriptor.swift; sourceTree = "<group>"; };
+		310000000000000000000019 /* RuntimeEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeEnvironment.swift; sourceTree = "<group>"; };
+		31000000000000000000001A /* FrameUpscaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameUpscaler.swift; sourceTree = "<group>"; };
+			31000000000000000000001B /* AutomaticBackendSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomaticBackendSelector.swift; sourceTree = "<group>"; };
+			31000000000000000000001C /* UpscaleBackendCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleBackendCatalog.swift; sourceTree = "<group>"; };
+			31000000000000000000001D /* BackendCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendCatalogTests.swift; sourceTree = "<group>"; };
+			31000000000000000000001E /* VImageScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VImageScaler.swift; sourceTree = "<group>"; };
+			31000000000000000000001F /* VImageScalerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VImageScalerTests.swift; sourceTree = "<group>"; };
+			310000000000000000000020 /* SyntheticNV12PixelBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyntheticNV12PixelBuffer.swift; sourceTree = "<group>"; };
+		310000000000000000000021 /* OutputSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputSettings.swift; sourceTree = "<group>"; };
+		310000000000000000000022 /* AtomicOutputFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtomicOutputFile.swift; sourceTree = "<group>"; };
+		310000000000000000000023 /* OutputMediaValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputMediaValidator.swift; sourceTree = "<group>"; };
+		310000000000000000000024 /* VideoProcessingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessingSession.swift; sourceTree = "<group>"; };
+		310000000000000000000025 /* UpscaleCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpscaleCoordinator.swift; sourceTree = "<group>"; };
+		310000000000000000000026 /* VideoProcessingSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoProcessingSessionTests.swift; sourceTree = "<group>"; };
+		310000000000000000000027 /* NV12ScalerSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NV12ScalerSupport.swift; sourceTree = "<group>"; };
+		310000000000000000000028 /* MPSScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MPSScaler.swift; sourceTree = "<group>"; };
+		310000000000000000000029 /* CoreImageScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreImageScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002A /* VTPixelTransferScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTPixelTransferScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002B /* MetalFXScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalFXScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002C /* VTHighQualitySuperResolutionScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTHighQualitySuperResolutionScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002D /* VTLowLatencySuperResolutionScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTLowLatencySuperResolutionScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002E /* VTInterpolationSpatialScaler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VTInterpolationSpatialScaler.swift; sourceTree = "<group>"; };
+		31000000000000000000002F /* DeterministicCPUBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicCPUBackend.swift; sourceTree = "<group>"; };
+		310000000000000000000030 /* DeterministicReferenceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicReferenceSupport.swift; sourceTree = "<group>"; };
+		310000000000000000000031 /* ASHUpscaleBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHUpscaleBackend.swift; sourceTree = "<group>"; };
+		310000000000000000000032 /* ASHDeterministicUpscaleBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHDeterministicUpscaleBackend.swift; sourceTree = "<group>"; };
+		310000000000000000000033 /* ASHNV12FrameCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHNV12FrameCodec.swift; sourceTree = "<group>"; };
+		310000000000000000000034 /* ASHSpatialReferencePipelineV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialReferencePipelineV2.swift; sourceTree = "<group>"; };
+		310000000000000000000035 /* ASHChromaSitingV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHChromaSitingV2.swift; sourceTree = "<group>"; };
+		310000000000000000000036 /* ASHCodePlaneNormalizerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCodePlaneNormalizerV2.swift; sourceTree = "<group>"; };
+		310000000000000000000037 /* ASHSpatialRuntimeConfigurationV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialRuntimeConfigurationV2.swift; sourceTree = "<group>"; };
+		310000000000000000000038 /* ASHSpatialOperatorBankV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialOperatorBankV2.swift; sourceTree = "<group>"; };
+		310000000000000000000039 /* ASHVideoAnalyzerV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHVideoAnalyzerV2.swift; sourceTree = "<group>"; };
+		31000000000000000000003A /* ASHAnalysisGridV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHAnalysisGridV2.swift; sourceTree = "<group>"; };
+		31000000000000000000003B /* ASHSpatialDispatchV2.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHSpatialDispatchV2.swift; sourceTree = "<group>"; };
+		31000000000000000000003C /* ASHState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHState.swift; sourceTree = "<group>"; };
+		31000000000000000000003D /* ASHCode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHCode.swift; sourceTree = "<group>"; };
+		31000000000000000000003E /* ASH-Model-LICENSE.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ASH-Model-LICENSE.txt"; sourceTree = "<group>"; };
+		31000000000000000000003F /* DeterministicCPUBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicCPUBackendTests.swift; sourceTree = "<group>"; };
+		310000000000000000000040 /* DeterministicMetalBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicMetalBackend.swift; sourceTree = "<group>"; };
+		310000000000000000000041 /* MetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalRenderingService.swift; sourceTree = "<group>"; };
+		310000000000000000000042 /* DefaultMetalRenderingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultMetalRenderingService.swift; sourceTree = "<group>"; };
+		310000000000000000000043 /* MetalCommandBufferCompletionBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalCommandBufferCompletionBridge.swift; sourceTree = "<group>"; };
+		310000000000000000000044 /* ASHMetalDevelopmentRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalDevelopmentRuntimeV3.swift; sourceTree = "<group>"; };
+		310000000000000000000045 /* ASHLUTTypesV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTTypesV3.swift; sourceTree = "<group>"; };
+		310000000000000000000046 /* ASHLUTBinaryFormatV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHLUTBinaryFormatV3.swift; sourceTree = "<group>"; };
+		310000000000000000000047 /* ASHMetalSpatialRuntimeSupportV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeSupportV3.swift; sourceTree = "<group>"; };
+		310000000000000000000048 /* ASHMetalSpatialRuntimePreparationV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimePreparationV3.swift; sourceTree = "<group>"; };
+		310000000000000000000049 /* ASHMetalFrameResourceRingV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalFrameResourceRingV3.swift; sourceTree = "<group>"; };
+		31000000000000000000004A /* ASHMetalRuntimeMonitorV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalRuntimeMonitorV3.swift; sourceTree = "<group>"; };
+		31000000000000000000004B /* ASHMetalSpatialFrameEncoderV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialFrameEncoderV3.swift; sourceTree = "<group>"; };
+		31000000000000000000004C /* ASHMetalSpatialRuntimeV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ASHMetalSpatialRuntimeV3.swift; sourceTree = "<group>"; };
+		31000000000000000000004D /* ASHMetalSpatialKernelsV3.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = ASHMetalSpatialKernelsV3.metal; sourceTree = "<group>"; };
+		31000000000000000000004E /* DeterministicMetalBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicMetalBackendTests.swift; sourceTree = "<group>"; };
+		31000000000000000000004F /* MirmirWorkspaceSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceSupport.swift; sourceTree = "<group>"; };
+		310000000000000000000050 /* MirmirWorkspaceRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirWorkspaceRootView.swift; sourceTree = "<group>"; };
+		310000000000000000000051 /* MirmirUpscaleWorkspace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MirmirUpscaleWorkspace.swift; sourceTree = "<group>"; };
+		310000000000000000000052 /* MirmirTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MirmirTheme.swift; path = ../Modules/UI/Theme/MirmirTheme.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		400000000000000000000002 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		400000000000000000000005 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000002 = {
 			isa = PBXGroup;
 			children = (
-				29645878A9366E3A9DBFF336 /* MirmirPendingWorkQueue.swift */,
-				9850BCECDECBAAEBA9F6BBAC /* MirmirPendingWorkQueueModels.swift */,
-				3CF87511D36639EFCE654031 /* MirmirPendingWorkQueueValidation.swift */,
-				243C7EAC209ECFEB440F058C /* MirmirWorkHistoryStore.swift */,
-				014304381B202E6F353CF642 /* R13CacheLocation.swift */,
-				1E437DE61F8A3DF0E546AC0A /* R13FaultInjection.swift */,
-				E85FEF260B3F4D3F98E126C8 /* R13RecoverableJobs.swift */,
-				CAC6662D092BDBD2950F07EA /* R13ReleaseDiagnostics.swift */,
-				4DF4099E3189B674F58200CF /* R13ReleaseEnvironment.swift */,
-				620BA372ABE2012512D6EABE /* R13ReleaseHardeningAttempt.swift */,
-				548F69B4C911BBBD295B1C01 /* R13ReleaseHardeningCalculations.swift */,
-				B1136666F4F6EA8BADFA2597 /* R13ReleaseHardeningDiagnostics.swift */,
-				7DF5F74CA649219BC9EC5871 /* R13ReleaseHardeningRuntime.swift */,
-				F6B51B7B3E19633D0AA0739E /* R13ReleaseHardeningRuntime+Production.swift */,
-				25FB8D957283222352E2B8BF /* R13ReleaseIdentity.swift */,
-				329358467C2D7788C646F437 /* R13ResourceGovernance.swift */,
-				7B0EA761DDDCB17B4C1E5236 /* R13ResourceGovernanceValidation.swift */,
-				8EA684E15945BB492BCA13AB /* R13SourceSnapshot.swift */,
+				100000000000000000000004 /* Mirmir */,
+				100000000000000000000008 /* MirmirTests */,
+				100000000000000000000003 /* Products */,
 			);
-			path = Release;
 			sourceTree = "<group>";
 		};
-		098C5BEC784652B77DE38D56 /* UpscalerEngine */ = {
+		100000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DB89075B23760832B37F915E /* AppleUpscaleCapabilityCompileProbe.swift */,
-				3277CBCD4AE7CFED824AF3FA /* AppleUpscaleCapabilityExecutor.swift */,
-				B85F6B7D4C72F5BEEC34C057 /* AppleUpscaleCapabilityFixtureContract.swift */,
-				96B809DF7BB40D0236FBDB1B /* AppleUpscaleCapabilityLegacyAdapters.swift */,
-				2B7C63339DECCFCDED19ABE9 /* AppleUpscaleCapabilityLiveContext.swift */,
-				B9E7738087E5B1AB4AA431C8 /* AppleUpscaleCapabilityLiveErrors.swift */,
-				EAD72F7A538AAFC2C0B929F0 /* AppleUpscaleCapabilityLiveProducer.swift */,
-				050C25AE56DC5648EF2EA402 /* AppleUpscaleCapabilityNativeAdapters.swift */,
-				43ACAB8AB30019FF40451E21 /* AppleUpscaleCapabilityProbe.swift */,
-				5CC9992B6CBA1E08031A0459 /* AppleUpscaleCapabilityRawReport.swift */,
-				B890FF40EAAE7560AC093BA6 /* AppleUpscaleCapabilityReportModels.swift */,
-				ABB78655C14833B4F81D1084 /* AppleUpscaleCapabilityReportWriter.swift */,
-				58142C4BDA8A00D1843B897A /* AppleUpscaleCapabilitySupportProbe.swift */,
-				6A28245796CF46D6746515B4 /* AppleUpscaleCapabilityWorker.swift */,
-				0ACA35D5BF8FE518081B2A7F /* AppleUpscaleContracts.swift */,
-				EA58B049AB357CB1F4488272 /* AppleUpscaleFIFOSession.swift */,
-				20E3334CEA941A7026904B3B /* DefaultUpscalerEngineService.swift */,
-				EDBA284613549F60A756F635 /* EnhancementPipelineContracts.swift */,
-				D10539589FFEF318BF0AA591 /* LanczosPolishPass.swift */,
-				D152220FE3CB5BC3D86C7998 /* R03A11ProductAdmission.swift */,
-				DA994E8113587B05BD50C04C /* R03ASHComparatorScaling.swift */,
-				16E14230358F4CD93863C659 /* R03CoreImageScaling.swift */,
-				1C0C398C58417DAF43E736AC /* R03DeterministicBackend.swift */,
-				5A9441EE881EF6BB4B71B6BC /* R03DeterministicBackendCatalog.swift */,
-				756DA742AE4866C5DEA00111 /* R03GuidedSupportStages.swift */,
-				0E39A5FE99B1C886AC4F46D0 /* R03MPSScaling.swift */,
-				45652C536BF3DD0F8A9CA150 /* R03NV12Scaling.swift */,
-				1F94BF89E7788407BFB63D5E /* R03VImageScaling.swift */,
-				A37267EE8D222ADE35C143C2 /* R03VTPixelTransferScaling.swift */,
-				45C428FDD2CFED85419F850E /* R04VideoToolboxContracts.swift */,
-				C6EE4B50B6D3CAC9D9F95CBE /* R04VideoToolboxSessionAdapter.swift */,
-				A3AACEE17E79A48FEF8F7B00 /* R05MetalFXColorBridge.swift */,
-				87A2D10F701125D55E41E172 /* R05MetalFXContracts.swift */,
-				8479EE600CC854106CCE1FEE /* R05MetalFXSpatialBackend.swift */,
-				F9E1F2D77CF585D67296E29F /* R05MetalFXSpatialDriver.swift */,
-				1F46C67CDF4C2B235AFA4423 /* R06ASHDecisionContext.swift */,
-				E6E7CB645A9BD589B54FF4BA /* R06ASHMasksAndAblations.swift */,
-				05F827F7CB2222BBD1BF7981 /* R06ASHOrchestrator.swift */,
-				BE7311437F5C9690BFF6CEA6 /* R06ASHPolicyCatalog.swift */,
-				D8CAD10E6E962789F9A32F77 /* R07ArtifactGovernance.swift */,
-				14465357CF20EEEC2CF92B5A /* R07FunctionalCoordinator.swift */,
-				F512C5A3BE91109A123432E9 /* R07FunctionalCoordinatorAnalysis.swift */,
-				F9DBAFD8B9902551CF3DA1EF /* R07FunctionalCoordinatorRuntime.swift */,
-				90F508F69118B04F43B2FCC8 /* R07FunctionalCoordinatorValidation.swift */,
-				924628EB6E4DA3633257DF7B /* R07FunctionalSupportExecutor.swift */,
-				9264E985F5E36818D3608D72 /* R07PostflightGovernance.swift */,
-				08F18698AFE5FEC3ABDA5C38 /* R07ProtectedRegionPolicy.swift */,
-				BE4AA770369CA77C5833B127 /* R07SupportStagePolicy.swift */,
-				40E0E36563FD44220A347449 /* R07TemporalGovernanceContracts.swift */,
-				361DB51CD0B47DF7580337BE /* R07TemporalHistory.swift */,
-				96F3B22B8255D77893332FD3 /* R08ASHAnalysisBridge.swift */,
-				9AC402570E884246F237CBA6 /* R09ASHResidualAuthorization.swift */,
-				7DD41F72A25FFD100EA97B34 /* R09ASHResidualAuthorizationContracts.swift */,
-				A93CF0C587312227AE5A26EF /* R09BoundedResidualStage.swift */,
-				E28312A49884E8A911267C2B /* R09NV12PlanarCodec.swift */,
-				59F8235F46FA29D421C8A0C7 /* R12MediaFormatContractV2.swift */,
-				A460A8860E4ECC3EAC83A5F4 /* R12RouteAndHardwareResolver.swift */,
-				8963E15A75B11CA724C97E60 /* R13A11ProductSessionFactory.swift */,
-				0257BA42D78DEB76A3381B52 /* R13AdaptiveASHRoutingScaler.swift */,
-				35DF8B614B4D6E141262C4EB /* R13ConfigurableCacheUpscalerEngine.swift */,
-				70102FCE938BF55640BA0FE0 /* R13FormatPreservingDeinterlacer.swift */,
-				B46992AB5BD06379314C3747 /* R13FormatPreservingEnhancementProcessor.swift */,
-				E42879518BA35888C4DB051B /* R13FormatPreservingMPSScaling.swift */,
-				BA4035BC45E8F15B9D64DC2E /* R13FormatPreservingScaling.swift */,
-				6F2FA70007396A576F514669 /* R13FullFrameEnhancementProcessor.swift */,
-				90455B209820CC54A168F139 /* R13NV12FrameCache.swift */,
-				A6163A21AE6B257612A540D0 /* R13NV12FrameNormalizer.swift */,
-				483ADD8FD0269F09E239A534 /* R13NV12FramePixelBuffer.swift */,
-				C4852FE82C12CF5F3181D8F0 /* R13PixelBufferAccess.swift */,
-				D1EFD434317393CE886655FD /* R13PixelLayout.swift */,
-				B93EC4885B86E7529BF35F1A /* R13PixelLayoutAnalysis.swift */,
-				A9B3CAE96FBB9D394E543F11 /* R13PixelLayoutBlend.swift */,
-				DA5AC513181002CA4BE40ED2 /* R13PixelLayoutCopyScale.swift */,
-				16BBD051C3AB929CF1095684 /* R13PixelLayoutEnhancement.swift */,
-				BE28A76158AC5A10D8A49166 /* R13PixelLayoutRegistry.swift */,
-				3F445435916E4CA0F2EB0F53 /* R13PixelLayoutVerticalFilter.swift */,
-				CC35F5C5EAFA918CBAD6D9CD /* R13ProductASHAnalyzer.swift */,
-				1C3B1693FF880FBFA82712C5 /* R13ProductASHRoutingSession.swift */,
-				C1F4039A9BC103EEEDCF7021 /* R13ReleaseFrameProcessing.swift */,
-				C7876C4579EEF452766E0024 /* R13ReleaseJobContracts.swift */,
-				CB719A8C991D796EF0ED2632 /* R13ReleaseTaskStartGate.swift */,
-				C616CA4BC24EEC81094A7A9B /* R13ReleaseUpscalerEngineService.swift */,
-				897EFE836B22EEEDE152095C /* R13ReleaseUpscalerEngineService+Lifecycle.swift */,
-				B5B537B4145C4027F441DE4D /* R13RestartInfrastructure.swift */,
-				B8ACACE9ECC6BD1818A191CE /* R13RestartJobContracts.swift */,
-				F2F422D19C2DF4BC4EDCD61B /* R13RestartJobStore.swift */,
-				A67CD3AE3859B9A617567A8B /* R13SecurityScopedBookmarks.swift */,
-				C12606F2E7C0831DBB9DAB0D /* R13SmoothMotionIntegration.swift */,
-				F4E27320B73A05683ED0C2F1 /* R13StoragePreflight.swift */,
-				39451DE2A1D5F858EAF65399 /* R13TightPixelFrame.swift */,
-				3A66D2B1BFF9484620BE4FFC /* SmoothMotionConfiguration.swift */,
-				1054B0710EBB7BC864E778E0 /* SmoothMotionInterpolation.swift */,
-				013D5EFB36E1874558A5E076 /* SmoothMotionMediaSession.swift */,
-				608B2F04EEA7C558F01EC687 /* SmoothMotionTiming.swift */,
-				938994D6EFB25CAFCD085160 /* SmoothMotionVideoToolboxInterpolator.swift */,
-				684A15CD919FDE6B15E6251D /* UnavailableUpscalerEngineService.swift */,
-				EF7C909B925C5E765D352A19 /* UpscaleJob.swift */,
-				F58EF26E079148CBCD9719AA /* UpscaleMode.swift */,
-				37C7508FCFCDABD204E8E6A0 /* UpscalerEngineService.swift */,
-				691A83D064AD17546C19CB6E /* UpscalerEngineServiceModule.swift */,
-				D533425C38B2F2B6A230D4C4 /* UpscaleStrategy.swift */,
-				D6768B6D07C5494C49FFA784 /* VTSuperResolutionDriver.swift */,
-				80299E697170F7C16E59C345 /* ASH */,
+				300000000000000000000001 /* Mirmir.app */,
+				300000000000000000000002 /* MirmirTests.xctest */,
 			);
-			path = UpscalerEngine;
+			name = Products;
 			sourceTree = "<group>";
 		};
-		17392895A6B286AA06640027 /* App */ = {
+		100000000000000000000004 /* Mirmir */ = {
 			isa = PBXGroup;
 			children = (
-				F211265C8C19173941BE3ACA /* ContentView.swift */,
-				61D3BF1665450FC60B415F7B /* MirmirApp.swift */,
-				0EF0B1E4D46DFE85D292CB6A /* MirmirAppBootstrap.swift */,
-				405834D0A69C90DF27250265 /* MirmirDeploymentMode.swift */,
-				0B52B9856E2998D64D7ADD72 /* MirmirDeveloperRootView.swift */,
-				40B8415DE71480E1D8CCE3D7 /* MirmirModuleRegistry.swift */,
-				7A17C9A5E074FCBCE64F136F /* MirmirProductionRootView.swift */,
-			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		1E2DD6E376600031743D6578 /* Telemetry */ = {
-			isa = PBXGroup;
-			children = (
-				BFD66B1F959DAFD165D1DAAB /* ASHTelemetryCatalog.swift */,
-				8F2965CABCD89EC8A784FBE7 /* ASHTelemetryModels.swift */,
-				BA107385702BF53A069FF30E /* ASHTelemetryRecorder.swift */,
-			);
-			path = Telemetry;
-			sourceTree = "<group>";
-		};
-		1EF9122E974D73C35C087F15 /* Legal */ = {
-			isa = PBXGroup;
-			children = (
-				33CAC80510940C6CFC23BF89 /* ASH-Model-LICENSE.txt */,
-			);
-			path = Legal;
-			sourceTree = "<group>";
-		};
-		22C0B9D429B46777730F6AAA /* Fixtures */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Fixtures;
-			sourceTree = "<group>";
-		};
-		2327D6582830206709A3ABAC /* Runtime */ = {
-			isa = PBXGroup;
-			children = (
-				6E2F2E5D47D655887BBF17D1 /* MirmirModule.swift */,
-				9FBB0CF92A94EDD544CCCDCA /* MirmirModuleCatalog.swift */,
-				A478ADA5DFA921E2E19C8841 /* MirmirModuleContext.swift */,
-				428B95153FE086CD77B9E519 /* MirmirModuleDescriptor.swift */,
-				05E8ACD3B2084FF71CC2D335 /* MirmirModuleFactoryRegistry.swift */,
-				B2CC9557DBF61489334B7F15 /* MirmirModuleHost.swift */,
-				A408281A4476DE4B7D064304 /* MirmirViewRegistry.swift */,
-			);
-			path = Runtime;
-			sourceTree = "<group>";
-		};
-		2DB2668FBF096F685AAE1E48 /* UpscalerEngine */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = UpscalerEngine;
-			sourceTree = "<group>";
-		};
-		300DD123FB8D9AD9C26BB2FD /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				DDFC3324F9653825E96ACF71 /* MirmirCompletedComparisonPlaybackView.swift */,
-				9833C96F05E187004E393DAD /* MirmirRootView.swift */,
-				471CCDCACBBD6036BCA6922D /* MirmirSettingsViews.swift */,
-				178F691B1AF5C0C3A9DF80E3 /* MirmirStatusStripView.swift */,
-				3DAF0FB76E7BBB1C0A27ED65 /* MirmirUpscaleWorkspaceView.swift */,
-				F9724DE408753BC67E59A216 /* MirmirWorkflowViews.swift */,
-				D0EADB883C8A8EEDAF497076 /* MirmirWorkspaceComponents.swift */,
-				1907B21FBCEDBDD657B13EDD /* MirmirWorkspaceScreens.swift */,
-				C23BDA1373F45AE968FEB0EE /* ProgressPanelView.swift */,
-				1670F66A1AB02A3C99D9CBF3 /* R13UpscaleActionPanel.swift */,
-				EA4147E3A1D84817378CB37D /* UpscaleControlsView.swift */,
-				EB78127C9A179C01254F2C51 /* VideoSelectionView.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
-		41DDB5DA39D8CE7069159BAB /* ModelAssets */ = {
-			isa = PBXGroup;
-			children = (
-				1D9180EBE9167C4C09D7E1A0 /* DefaultModelAssetsService.swift */,
-				254DD249B73CC33EB04C9F15 /* DefaultModelAssetsService+Operations.swift */,
-				F72F8693BBBC8E98B7AC4777 /* ModelAssetsService.swift */,
-				C5F2EBBD4EAA4F7D042C8598 /* ModelAssetsServiceModule.swift */,
-				AD518B9915CB23119DFA5263 /* NotRequiredModelAssetsService.swift */,
-				A1539D13E24D235B6A598609 /* R08CoreAIAnalysisContracts.swift */,
-				A5BC6209BB1F84B5B825EBCD /* R08CoreAIAnalysisHeads.swift */,
-				30F162C409E4CBB2CB51490F /* R08DeterministicAnalysisService.swift */,
-				8F467339424553F1EA48873D /* R09CoreAIResidualContracts.swift */,
-				A83305C041A789247BBA0505 /* R09DeterministicResidualService.swift */,
-				4B1DFC27961E6347F73A32E0 /* R09ResidualIdentityContracts.swift */,
-				1AA59BFA8E51BBD799721246 /* R09ResidualNumericContracts.swift */,
-				F1382A42CC798D1A65DE052E /* R09ResidualServiceContracts.swift */,
-				B7E34D1DE318D4B65605AE66 /* R09ResidualValidation.swift */,
-				D1C3BE8FFF2C0D5C3C85B71B /* RoadmapTransitionModelAssetsService.swift */,
-				31BCFC6CCD3BEF181134EC35 /* VTModelStager.swift */,
-			);
-			path = ModelAssets;
-			sourceTree = "<group>";
-		};
-		50E3FE83D97A4E37C0627F13 /* Mirmir */ = {
-			isa = PBXGroup;
-			children = (
-				E391EBE193D62E60BF842DC1 /* Assets.xcassets */,
-				E75DA9BCC8A62F7A944297A8 /* Info.plist */,
-				901542B4B8F037EACFD2EFD8 /* Mirmir.entitlements */,
-				17392895A6B286AA06640027 /* App */,
-				932AABCCFB7945CFB26C311B /* Modules */,
-				FBF76D81FC8B5D2A4A396DAD /* Resources */,
-				2327D6582830206709A3ABAC /* Runtime */,
+				100000000000000000000005 /* App */,
+				100000000000000000000006 /* Domain */,
+				100000000000000000000009 /* MediaIO */,
+				10000000000000000000000B /* Upscaling */,
+				10000000000000000000000A /* Platform */,
+				100000000000000000000007 /* Support */,
+				100000000000000000000010 /* Resources */,
+				31000000000000000000000D /* Assets.xcassets */,
+				31000000000000000000000E /* Info.plist */,
+				31000000000000000000000F /* Mirmir.entitlements */,
 			);
 			path = Mirmir;
 			sourceTree = "<group>";
 		};
-		5E754813020FDDB7D47EC2E4 /* Theme */ = {
+		100000000000000000000005 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				71C73B4CDDEA9B083EDDF4EF /* MirmirTheme.swift */,
+				310000000000000000000001 /* MirmirApp.swift */,
+				310000000000000000000002 /* RootView.swift */,
+				310000000000000000000003 /* MirmirViewModel.swift */,
+				310000000000000000000050 /* MirmirWorkspaceRootView.swift */,
+				310000000000000000000051 /* MirmirUpscaleWorkspace.swift */,
+				31000000000000000000004F /* MirmirWorkspaceSupport.swift */,
+				310000000000000000000052 /* MirmirTheme.swift */,
 			);
-			path = Theme;
+			path = App;
 			sourceTree = "<group>";
 		};
-		6CF1564C6FE2DBF92C1B9006 /* MetalRendering */ = {
+		100000000000000000000006 /* Domain */ = {
 			isa = PBXGroup;
 			children = (
-				743805FD7D50D92BAEBC4039 /* DefaultMetalRenderingService.swift */,
-				6CF99AA5A6053A85F0AD23B4 /* MetalCommandBufferCompletionBridge.swift */,
-				A24461DB7E24A4434349B337 /* MetalRenderingService.swift */,
-				90507704954C16E5AFFE5B38 /* MetalRenderingServiceModule.swift */,
+				310000000000000000000004 /* AppState.swift */,
+				310000000000000000000005 /* VideoInfo.swift */,
+				310000000000000000000011 /* VideoColorInfo.swift */,
+				310000000000000000000012 /* VideoGeometry.swift */,
+				310000000000000000000006 /* UpscaleRequest.swift */,
+				310000000000000000000007 /* UpscaleBackendID.swift */,
+				310000000000000000000008 /* BackendAvailability.swift */,
+				310000000000000000000018 /* BackendDescriptor.swift */,
+				310000000000000000000009 /* UpscaleProgress.swift */,
+				31000000000000000000000A /* UpscaleResult.swift */,
+				310000000000000000000021 /* OutputSettings.swift */,
 			);
-			path = MetalRendering;
+			path = Domain;
 			sourceTree = "<group>";
 		};
-		6D29F3C519ACD20777122E82 /* MediaPipeline */ = {
+		100000000000000000000009 /* MediaIO */ = {
 			isa = PBXGroup;
 			children = (
-				73CC087A5C6660FBD9F95802 /* AtomicMediaOutput.swift */,
-				7E668D38C0B05F0AEE655EDE /* AtomicMediaVerifiedTemporaryFile.swift */,
-				0DBCA146B8F08717CA6A309E /* AVFoundationMediaPipeline.swift */,
-				814EE3B7BF7DBC7EB2BB153C /* AVFoundationMediaSessionConfiguration.swift */,
-				7E7BE6977BC5DBD600E88B21 /* AVFoundationMediaSessionFinalization.swift */,
-				CEB6A19D5367B059782D8102 /* HEVCFormatIdentityReader.swift */,
-				BAD9C963F2EE04075E9D7A0A /* LocalAtomicMediaFileSystem.swift */,
-				70F6E2F216BD132F9C5116FD /* MediaPipelineService.swift */,
-				CB539B8BF3FAEDBBB347A0E3 /* MediaPipelineServiceModule.swift */,
-				87DF56556BD38E52A6939975 /* MediaTypes.swift */,
-				8E6AEBF2C8E41FB8F8A97762 /* MediaVideoScanStructure.swift */,
-				C4B451FD724E11A64180DCBB /* MirmirTimedMetadataMigration.swift */,
-				D6FE074E5A06BC1629355C31 /* MirmirTimedMetadataPolicy.swift */,
-				ED3718FDB8CEE0250780473B /* OutputMediaAACIdentityReader.swift */,
-				6605AD95330D6A177C749485 /* OutputMediaAppleLosslessIdentityReader.swift */,
-				9A139790BF475A04FDC6AB7A /* OutputMediaIdentityVerification.swift */,
-				05C6BBA23477F2364375750D /* OutputMediaLinearPCMIdentityReader.swift */,
-				F2462674E65B8FE067AACF16 /* OutputMediaVerificationTypes.swift */,
-				32F04B20C3E6772FCD3E1E33 /* OutputMediaVerifier.swift */,
-				50ABA0CD49C4399244703BBF /* PixelBufferBridge.swift */,
-				7CEC0A3E47126AC7DE6C35E2 /* R12ChunkCheckpointLedger.swift */,
+				310000000000000000000013 /* VideoProbe.swift */,
+				310000000000000000000022 /* AtomicOutputFile.swift */,
+				310000000000000000000023 /* OutputMediaValidator.swift */,
+				310000000000000000000024 /* VideoProcessingSession.swift */,
 			);
-			path = MediaPipeline;
+			path = MediaIO;
 			sourceTree = "<group>";
 		};
-		80299E697170F7C16E59C345 /* ASH */ = {
+		10000000000000000000000A /* Platform */ = {
 			isa = PBXGroup;
 			children = (
-				CDBDF33FB1700F8451971484 /* ASHAnalysisGridV2.swift */,
-				FE03E89C4215AC3E1C1D01C2 /* ASHAssets.swift */,
-				31426777560BC1F74C23D422 /* ASHBranchTree.swift */,
-				F945A189C8ED77D084129D3F /* ASHChromaSitingV2.swift */,
-				A3BF7D031CCAF8ED3B117560 /* ASHCode.swift */,
-				07B74594AEA95A5FF73A6C85 /* ASHCodePlaneNormalizerV2.swift */,
-				4444573C99DD7948CD688864 /* ASHCoordinateDiagnosticRuntimeV3.swift */,
-				730DE64225D23C3A54C33491 /* ASHCoordinateModelContractV3.swift */,
-				26A625BAC19E969885282117 /* ASHCoreConformance.swift */,
-				5CA4B940C2921372F5F6DC38 /* ASHDeterministicUpscaleBackend.swift */,
-				2D181F4BC9C1B11D842F54E2 /* ASHDevelopmentAssetTypes.swift */,
-				55D35E5AC50EE7E8056467A3 /* ASHGenericPhaseCompilerDiagnosticV3.swift */,
-				0C1A4D7CC37F2566B844559C /* ASHImageFeatures.swift */,
-				B28FFFD7F0FB65554A8E0CE5 /* ASHImmutableLUTLoaderV2.swift */,
-				56A323D8BA1BD4E89139A1EF /* ASHImmutableLUTLoaderV3.swift */,
-				AD60E4323EA8CCF726775EDD /* ASHImmutableLUTValidationV2.swift */,
-				30F545DFA734A6565A169DFE /* ASHImmutableLUTValidationV3.swift */,
-				FF581D823FC9A8EED0470932 /* ASHLockedArtifactStoreV3.swift */,
-				6C755E90259CC097BF3C2903 /* ASHLockedCandidateLUTManifestV1.swift */,
-				D2B464F053C0B02B9554F661 /* ASHLockedControlResamplerV2.swift */,
-				C49D87C134298A1D7EABAC14 /* ASHLockedControlRuntimeV2.swift */,
-				CC7E35BBB7AF4A4A6ECE5A3B /* ASHLockedControlRuntimeV3.swift */,
-				C3320B058C01D8990E73DF4A /* ASHLockedFramePipelineV3.swift */,
-				B90A2330153007D328DE4840 /* ASHLockedLUTManifestRouteV2.swift */,
-				B1CF6C028E41DDFD20D482E3 /* ASHLockedNonASHOutputCacheV2.swift */,
-				189FA8DD9CF0D0CDFAB0BA30 /* ASHLockedOperatorBankV2.swift */,
-				DA1F2583461FD19C526AAABC /* ASHLockedPlanePolicyDiagnosticV3.swift */,
-				2521C8130E241C22C63608BC /* ASHLockedReferencePipelineV2.swift */,
-				D80EEEF7AE537B763EF5D0D3 /* ASHLockedReferencePipelineV2+DispatchProjection.swift */,
-				3FA2FFF4DC0F20B4CDE6B8E0 /* ASHLockedReferencePipelineV2+NonASHCache.swift */,
-				1095F73BBA5EFBF0F47F8993 /* ASHLockedReferenceTypesV2.swift */,
-				60113B1A6BA79BD5C6250626 /* ASHLockedReleaseLUTManifestV2.swift */,
-				38C16FB2959B32009A457C67 /* ASHLockedReleaseLUTManifestV3.swift */,
-				0B4C8014A91668B9F9DF75B6 /* ASHLockedRuntimeTypesV2.swift */,
-				6A1292E6DEE822B1B77362AC /* ASHLockedRuntimeTypesV3.swift */,
-				EAEE766FD957BCF6E36F94C9 /* ASHLockedRuntimeV2.swift */,
-				0AB7D62D8C7DD0E558E2C9A4 /* ASHLockedRuntimeV3.swift */,
-				BEBCCABCEDA2577D2D0C57A2 /* ASHLockedSampleRuntimeV2.swift */,
-				452C763D3991A19EE5361937 /* ASHLockedSampleRuntimeV3.swift */,
-				0ED8EEE445AFDB0998B7AE2A /* ASHLockedUpscaleBackendV3.swift */,
-				15242EE2017761A3031ED013 /* ASHLockedVideoMappingV2.swift */,
-				5194FC496DF1C9B270EA5D53 /* ASHLockedVideoMappingV2+ConfigurationValidation.swift */,
-				E1A8566F05A034BB4454F4FE /* ASHLockedVideoMappingV2Validation.swift */,
-				D64D77EB74F69251DAC68E19 /* ASHLumaSpatialOperator.swift */,
-				AC3217667A614E484108F8CA /* ASHLUTBinaryFormatV2.swift */,
-				31D674DA2B790BE3D7A01FCF /* ASHLUTBinaryFormatV3.swift */,
-				210E72A419D2583898D96C8B /* ASHLUTBinaryValidationSupportV2.swift */,
-				DB428F99A6264256D700AE32 /* ASHLUTBinaryValidationSupportV3.swift */,
-				48241D2B7EFA5200FECF0B28 /* ASHLUTCompilerSemanticsV2.swift */,
-				6CBE6C1B136F6D2ADB5891B5 /* ASHLUTCompilerSemanticsV3.swift */,
-				FB8ABFB23733CE5C0F36E29F /* ASHLUTCompilerV2.swift */,
-				36BAF7326DBE08A930E61AC6 /* ASHLUTCompilerV3.swift */,
-				98AC75F856E0D985EF3E8D49 /* ASHLUTLockedConfigurationJSONV2.swift */,
-				59B607C63B4275FB2AF8EC92 /* ASHLUTLockedConfigurationJSONV3.swift */,
-				0C04D5E766F69E05567F00F4 /* ASHLUTTypesV2.swift */,
-				8BBB565FAC827BFD2EAE6C32 /* ASHLUTTypesV3.swift */,
-				E7516142A6192691C69B7DA4 /* ASHMetalFrameResourceRingV3.swift */,
-				C69C7F4320B73812C4F233A2 /* ASHMetalRuntimeMonitorV3.swift */,
-				F164D8A587E6933BB2BF3632 /* ASHMetalSpatialFrameEncoderV3.swift */,
-				73437DCE9E7DC1F3D8CAB459 /* ASHMetalSpatialKernelsV3.metal */,
-				445486593D8713F9A75B7FFA /* ASHMetalSpatialRuntimePreparationV3.swift */,
-				52FA0AAD51D4C541CA33A509 /* ASHMetalSpatialRuntimeSupportV3.swift */,
-				A1B36EA28A06FFD3EB403121 /* ASHMetalSpatialRuntimeV3.swift */,
-				D9248888702ECE5B7D229B93 /* ASHNV12FrameCodec.swift */,
-				6DD06BABA4536E3E92BE3F91 /* ASHP08DescriptorParityRuntime.swift */,
-				F062B2740352CAC48F7D3831 /* ASHP08FixedControlRuntimeV3.swift */,
-				0158FCB56F360A4A3ACDDBA9 /* ASHP08NativeSupport.swift */,
-				3A49C992377E26D447A79EE8 /* ASHP08PerformanceProfileRuntime.swift */,
-				347A64D3B3552787D88B4DCF /* ASHP08PerformanceRuntime.swift */,
-				ED63166A8BA84FF2BED2E3CB /* ASHP08ProductionEvidenceRunner.swift */,
-				4C40D1FEF04763A6CAE004E2 /* ASHP08WriterSession.swift */,
-				4801DEFC16B5D24FD1C6D529 /* ASHReconstruction.swift */,
-				67B372D4E6B823A8DE3ACE95 /* ASHReconstructionHelpers.swift */,
-				BDA70A85DAE0C772B3B6E953 /* ASHReferencePipeline.swift */,
-				AAE7BC59E00212787A4BE603 /* ASHRiskStateDiagnosticV3.swift */,
-				3A932C98B8380D14BB5584E2 /* ASHRuntimeConfiguration.swift */,
-				5CA2419717E346F88ABFE2C4 /* ASHSpatialDispatchV2.swift */,
-				2419792A30D1E3ED55291DF4 /* ASHSpatialOperatorBankV2.swift */,
-				DBF87D2D34EEE56328850BF4 /* ASHSpatialReferencePipelineV2.swift */,
-				0FD33793C33FDD6545F97DC5 /* ASHSpatialRuntimeConfigurationV2.swift */,
-				BF916B54CEB678B518E99197 /* ASHState.swift */,
-				4E10E40DE830A79C6A060B73 /* ASHStrictJSONV2.swift */,
-				237097304935D47E8209DF5C /* ASHStrictJSONV3.swift */,
-				0BC6A02B2893142326862987 /* ASHTileProcessing.swift */,
-				FB15D19D6B0858B3C1A0E73B /* ASHUpscaleBackend.swift */,
-				652F0A8810D609AC2796020F /* ASHUpscaleBackendFactory.swift */,
-				7740B412333DCABCD736E48A /* ASHVideoAnalyzerV2.swift */,
-				2E367E8EFF1AE8A286201CA5 /* ASHVideoProfileContractV1.swift */,
+				310000000000000000000014 /* SecurityScopedAccess.swift */,
+				310000000000000000000019 /* RuntimeEnvironment.swift */,
 			);
-			path = ASH;
+			path = Platform;
 			sourceTree = "<group>";
 		};
-		932AABCCFB7945CFB26C311B /* Modules */ = {
+			10000000000000000000000B /* Upscaling */ = {
+				isa = PBXGroup;
+				children = (
+					31000000000000000000001A /* FrameUpscaler.swift */,
+					31000000000000000000001B /* AutomaticBackendSelector.swift */,
+					31000000000000000000001C /* UpscaleBackendCatalog.swift */,
+					310000000000000000000025 /* UpscaleCoordinator.swift */,
+					10000000000000000000000C /* Backends */,
+					10000000000000000000000E /* Deterministic */,
+					100000000000000000000012 /* Metal Rendering */,
+					10000000000000000000000F /* Extracted ASH Reference */,
+				);
+				path = Upscaling;
+				sourceTree = "<group>";
+			};
+			10000000000000000000000C /* Backends */ = {
+				isa = PBXGroup;
+				children = (
+					31000000000000000000001E /* VImageScaler.swift */,
+					310000000000000000000027 /* NV12ScalerSupport.swift */,
+					310000000000000000000028 /* MPSScaler.swift */,
+					310000000000000000000029 /* CoreImageScaler.swift */,
+					31000000000000000000002A /* VTPixelTransferScaler.swift */,
+					31000000000000000000002B /* MetalFXScaler.swift */,
+					31000000000000000000002C /* VTHighQualitySuperResolutionScaler.swift */,
+					31000000000000000000002D /* VTLowLatencySuperResolutionScaler.swift */,
+					31000000000000000000002E /* VTInterpolationSpatialScaler.swift */,
+				);
+				path = Backends;
+				sourceTree = "<group>";
+			};
+		10000000000000000000000E /* Deterministic */ = {
 			isa = PBXGroup;
 			children = (
-				EA05BC52EE6C1367652DBDA6 /* Diagnostics */,
-				6D29F3C519ACD20777122E82 /* MediaPipeline */,
-				6CF1564C6FE2DBF92C1B9006 /* MetalRendering */,
-				41DDB5DA39D8CE7069159BAB /* ModelAssets */,
-				0969BACD587742BADA8210D0 /* Release */,
-				1E2DD6E376600031743D6578 /* Telemetry */,
-				FA21B8BDB013F1DBD46F6EB9 /* UI */,
-				098C5BEC784652B77DE38D56 /* UpscalerEngine */,
+				31000000000000000000002F /* DeterministicCPUBackend.swift */,
+				310000000000000000000040 /* DeterministicMetalBackend.swift */,
+				310000000000000000000030 /* DeterministicReferenceSupport.swift */,
 			);
-			path = Modules;
+			path = Deterministic;
 			sourceTree = "<group>";
 		};
-		A6D231BC59A5A91BBE159B44 = {
+		100000000000000000000012 /* Metal Rendering */ = {
 			isa = PBXGroup;
 			children = (
-				50E3FE83D97A4E37C0627F13 /* Mirmir */,
-				014C65A0E7683259859CCAD9 /* Products */,
+				310000000000000000000041 /* MetalRenderingService.swift */,
+				310000000000000000000042 /* DefaultMetalRenderingService.swift */,
+				310000000000000000000043 /* MetalCommandBufferCompletionBridge.swift */,
 			);
+			name = "Metal Rendering";
+			path = ../Modules/MetalRendering;
 			sourceTree = "<group>";
 		};
-		B4833E8A9D22A44963A7B4B7 /* ASH */ = {
+		10000000000000000000000F /* Extracted ASH Reference */ = {
 			isa = PBXGroup;
 			children = (
-				C9241A19E7B79A65AFEEB750 /* ash_mapping_v1.json */,
-				293AD3C18542FA491256F860 /* ash_video_mapping_v2.seed.json */,
-				9652114C08D1C3A28932E156 /* ash-asset-manifest.json */,
-				F491320002D06F19FC9A8B3D /* ash-state-reference.csv */,
-				DCAB5DB5687A70683BCEFADD /* branch-topology.json */,
-				1CC00CCC5D596A5E02408508 /* codewords.csv */,
-				5F5E1414611EE7E10C74392B /* computational-certificate.json */,
-				7111AEC9F75CCA9B8F736847 /* operator_bank_v2.seed.json */,
+				310000000000000000000031 /* ASHUpscaleBackend.swift */,
+				310000000000000000000032 /* ASHDeterministicUpscaleBackend.swift */,
+				310000000000000000000033 /* ASHNV12FrameCodec.swift */,
+				310000000000000000000034 /* ASHSpatialReferencePipelineV2.swift */,
+				310000000000000000000035 /* ASHChromaSitingV2.swift */,
+				310000000000000000000036 /* ASHCodePlaneNormalizerV2.swift */,
+				310000000000000000000037 /* ASHSpatialRuntimeConfigurationV2.swift */,
+				310000000000000000000038 /* ASHSpatialOperatorBankV2.swift */,
+				310000000000000000000039 /* ASHVideoAnalyzerV2.swift */,
+				31000000000000000000003A /* ASHAnalysisGridV2.swift */,
+				31000000000000000000003B /* ASHSpatialDispatchV2.swift */,
+				31000000000000000000003C /* ASHState.swift */,
+				31000000000000000000003D /* ASHCode.swift */,
+				310000000000000000000044 /* ASHMetalDevelopmentRuntimeV3.swift */,
+				310000000000000000000045 /* ASHLUTTypesV3.swift */,
+				310000000000000000000046 /* ASHLUTBinaryFormatV3.swift */,
+				310000000000000000000047 /* ASHMetalSpatialRuntimeSupportV3.swift */,
+				310000000000000000000048 /* ASHMetalSpatialRuntimePreparationV3.swift */,
+				310000000000000000000049 /* ASHMetalFrameResourceRingV3.swift */,
+				31000000000000000000004A /* ASHMetalRuntimeMonitorV3.swift */,
+				31000000000000000000004B /* ASHMetalSpatialFrameEncoderV3.swift */,
+				31000000000000000000004C /* ASHMetalSpatialRuntimeV3.swift */,
+				31000000000000000000004D /* ASHMetalSpatialKernelsV3.metal */,
 			);
-			path = ASH;
+			name = "Extracted ASH Reference";
+			path = ../Modules/UpscalerEngine/ASH;
 			sourceTree = "<group>";
 		};
-		B87253AB7004877756DB7EEA /* Diagnostics */ = {
+		100000000000000000000010 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-			);
-			path = Diagnostics;
-			sourceTree = "<group>";
-		};
-		EA05BC52EE6C1367652DBDA6 /* Diagnostics */ = {
-			isa = PBXGroup;
-			children = (
-				5922B4287DF91435EF737448 /* MirmirDiagnosticConfiguration.swift */,
-				537C35F23F465263B71C9BE8 /* MirmirDiagnosticExport.swift */,
-				F605D3D351EA86095B1B7FF3 /* MirmirDiagnosticFileSystem.swift */,
-				2474A2F9BDEF0D64049A1412 /* MirmirDiagnosticJournalModels.swift */,
-				4AF20B6BC4D41DB9433A644E /* MirmirDiagnosticRecord.swift */,
-				5AB0123E1A140D211A4F3D53 /* MirmirDiagnosticStore.swift */,
-				70313EA3472867865833D81B /* MirmirDiagnosticStore+Logging.swift */,
-				1184C807B9D111C7F9AD4748 /* MirmirDiagnosticStore+Persistence.swift */,
-				016FBB9E59B679DAA3889E4C /* MirmirDiagnosticValues.swift */,
-			);
-			path = Diagnostics;
-			sourceTree = "<group>";
-		};
-		FA21B8BDB013F1DBD46F6EB9 /* UI */ = {
-			isa = PBXGroup;
-			children = (
-				B159A0791093AC43C8E08CE2 /* MirmirCompletedPlaybackTypes.swift */,
-				7E9DB2B289DF8B063B885525 /* MirmirPreferencesStore.swift */,
-				A752D5BC138578AC8B0D22DF /* MirmirReleasePresentation.swift */,
-				271694C26EE74F0CB92AAC12 /* MirmirSynchronizedPlaybackController.swift */,
-				80F9320D4FEC736801E2A181 /* MirmirSynchronizedPlaybackTimeline.swift */,
-				D7DE186CCA165F7EF7BB7A45 /* MirmirUIConstants.swift */,
-				FB53D4BF657FC48DA4F31974 /* MirmirUIModule.swift */,
-				2B48824A24D7BF02F158A804 /* MirmirViewModel.swift */,
-				733E9F5DA39D7E2DC49F98F2 /* MirmirViewModel+CacheLocation.swift */,
-				D259C92623089BED06FB4F15 /* MirmirViewModel+R13Diagnostics.swift */,
-				CF71B1B64A956F1475256633 /* MirmirViewModel+R13Errors.swift */,
-				9590C1AC9D2C350B523F09DA /* MirmirViewModel+R13Recovery.swift */,
-				5E754813020FDDB7D47EC2E4 /* Theme */,
-				300DD123FB8D9AD9C26BB2FD /* Views */,
-			);
-			path = UI;
-			sourceTree = "<group>";
-		};
-		FBF76D81FC8B5D2A4A396DAD /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				B4833E8A9D22A44963A7B4B7 /* ASH */,
-				1EF9122E974D73C35C087F15 /* Legal */,
+				100000000000000000000011 /* Legal */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		100000000000000000000011 /* Legal */ = {
+			isa = PBXGroup;
+			children = (
+				31000000000000000000003E /* ASH-Model-LICENSE.txt */,
+			);
+			path = Legal;
+			sourceTree = "<group>";
+		};
+		100000000000000000000007 /* Support */ = {
+			isa = PBXGroup;
+			children = (
+				31000000000000000000000B /* MirmirError.swift */,
+				31000000000000000000000C /* Log.swift */,
+				310000000000000000000015 /* FourCC.swift */,
+			);
+			path = Support;
+			sourceTree = "<group>";
+		};
+			100000000000000000000008 /* MirmirTests */ = {
+				isa = PBXGroup;
+				children = (
+					310000000000000000000010 /* MirmirTests.swift */,
+					310000000000000000000016 /* VideoProbeTests.swift */,
+					310000000000000000000017 /* SecurityScopedAccessTests.swift */,
+					31000000000000000000001D /* BackendCatalogTests.swift */,
+					31000000000000000000001F /* VImageScalerTests.swift */,
+					310000000000000000000026 /* VideoProcessingSessionTests.swift */,
+					31000000000000000000003F /* DeterministicCPUBackendTests.swift */,
+					31000000000000000000004E /* DeterministicMetalBackendTests.swift */,
+					10000000000000000000000D /* Support */,
+				);
+				path = MirmirTests;
+				sourceTree = "<group>";
+			};
+			10000000000000000000000D /* Support */ = {
+				isa = PBXGroup;
+				children = (
+					310000000000000000000020 /* SyntheticNV12PixelBuffer.swift */,
+				);
+				path = Support;
+				sourceTree = "<group>";
+			};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		AAB58EF4B52C8A77279FE17C /* Mirmir */ = {
+		200000000000000000000001 /* Mirmir */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = BB6156B5490A89CEDBD39CE6 /* Build configuration list for PBXNativeTarget "Mirmir" */;
+			buildConfigurationList = 500000000000000000000006 /* Build configuration list for PBXNativeTarget "Mirmir" */;
 			buildPhases = (
-				990527538CF3A079568C4936 /* Sources */,
-				E44241DB2D2A48F1740693FF /* Resources */,
+				400000000000000000000001 /* Sources */,
+				400000000000000000000002 /* Frameworks */,
+				400000000000000000000003 /* Resources */,
 			);
-			buildRules = (
-			);
-			dependencies = (
-			);
+			buildRules = ();
+			dependencies = ();
 			name = Mirmir;
-			packageProductDependencies = (
-			);
+			packageProductDependencies = ();
 			productName = Mirmir;
-			productReference = 44C397D85806DEA084B8D3D0 /* Mirmir.app */;
+			productReference = 300000000000000000000001 /* Mirmir.app */;
 			productType = "com.apple.product-type.application";
+		};
+		200000000000000000000002 /* MirmirTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 500000000000000000000009 /* Build configuration list for PBXNativeTarget "MirmirTests" */;
+			buildPhases = (
+				400000000000000000000004 /* Sources */,
+				400000000000000000000005 /* Frameworks */,
+				400000000000000000000006 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = (
+				600000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = MirmirTests;
+			packageProductDependencies = ();
+			productName = MirmirTests;
+			productReference = 300000000000000000000002 /* MirmirTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		4718DCAF0509158E807570DD /* Project object */ = {
+		100000000000000000000001 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
-				LastUpgradeCheck = 1430;
+				LastSwiftUpdateCheck = 2620;
+				LastUpgradeCheck = 2620;
 				TargetAttributes = {
-					AAB58EF4B52C8A77279FE17C = {
-						ProvisioningStyle = Automatic;
-					};
+					200000000000000000000001 = {ProvisioningStyle = Automatic;};
+					200000000000000000000002 = {ProvisioningStyle = Automatic; TestTargetID = 200000000000000000000001;};
 				};
 			};
-			buildConfigurationList = AC9AEBFDC20A9511C467FC90 /* Build configuration list for PBXProject "Mirmir" */;
+			buildConfigurationList = 500000000000000000000003 /* Build configuration list for PBXProject "Mirmir" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
-			knownRegions = (
-				Base,
-				en,
-			);
-			mainGroup = A6D231BC59A5A91BBE159B44;
+			knownRegions = (en, Base);
+			mainGroup = 100000000000000000000002;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 014C65A0E7683259859CCAD9 /* Products */;
+			productRefGroup = 100000000000000000000003 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				AAB58EF4B52C8A77279FE17C /* Mirmir */,
+				200000000000000000000001 /* Mirmir */,
+				200000000000000000000002 /* MirmirTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		E44241DB2D2A48F1740693FF /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4C67905CF5AF8DEEC224260C /* ASH-Model-LICENSE.txt in Resources */,
-				8908C47B11983D6E2EB326FF /* Assets.xcassets in Resources */,
-				3914A87ED28BF744D9FFE217 /* ash-asset-manifest.json in Resources */,
-				A5312DF3C589850628B42108 /* ash-state-reference.csv in Resources */,
-				C44025ACCDFE13A865F5FE71 /* ash_mapping_v1.json in Resources */,
-				BAEA954959C26C43C6FCFE46 /* ash_video_mapping_v2.seed.json in Resources */,
-				B36837451506196B3D814435 /* branch-topology.json in Resources */,
-				D32AB7401A5D9CDB64458DC4 /* codewords.csv in Resources */,
-				B45B26B799E915B915407047 /* computational-certificate.json in Resources */,
-				47663F09A09E676E9C81E557 /* operator_bank_v2.seed.json in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
+		400000000000000000000003 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000D /* Assets.xcassets in Resources */, 32000000000000000000003E /* ASH-Model-LICENSE.txt in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
+		400000000000000000000006 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		990527538CF3A079568C4936 /* Sources */ = {
+		400000000000000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				CE47B26A0295BF1E3E5CCFD4 /* ASHAnalysisGridV2.swift in Sources */,
-				617259996997C6320A194B96 /* ASHAssets.swift in Sources */,
-				C28BB22182A1854FBE4EDD2F /* ASHBranchTree.swift in Sources */,
-				9FF1B3CAC5EEFB3D98346EF4 /* ASHChromaSitingV2.swift in Sources */,
-				59BF30AD9813582AC7721470 /* ASHCode.swift in Sources */,
-				7409B20ADDD6490D37818C16 /* ASHCodePlaneNormalizerV2.swift in Sources */,
-				4969FFE15E02CDAADB1EB897 /* ASHCoordinateDiagnosticRuntimeV3.swift in Sources */,
-				6DC9AF61046502C9EDB4B1F4 /* ASHCoordinateModelContractV3.swift in Sources */,
-				7D0B5F8DEC9E058D10814A21 /* ASHCoreConformance.swift in Sources */,
-				D8A538BE9EC1806FE61DC81A /* ASHDeterministicUpscaleBackend.swift in Sources */,
-				DB2B03D9B32AA77480CD2560 /* ASHDevelopmentAssetTypes.swift in Sources */,
-				8C92C3B6639A30FA3D93FFE8 /* ASHGenericPhaseCompilerDiagnosticV3.swift in Sources */,
-				FE65A5A94A0752509BEDA17A /* ASHImageFeatures.swift in Sources */,
-				39C51FF20FC389E764F53177 /* ASHImmutableLUTLoaderV2.swift in Sources */,
-				C5CB94BC594880454865AE7E /* ASHImmutableLUTLoaderV3.swift in Sources */,
-				E64221377216A8DE9F171293 /* ASHImmutableLUTValidationV2.swift in Sources */,
-				87317B509FEB190A2F02FC83 /* ASHImmutableLUTValidationV3.swift in Sources */,
-				39905D4D95C93F32359A931D /* ASHLUTBinaryFormatV2.swift in Sources */,
-				814FB60CD0E41FA0122EA9FC /* ASHLUTBinaryFormatV3.swift in Sources */,
-				825B1799978CD5B499075D4A /* ASHLUTBinaryValidationSupportV2.swift in Sources */,
-				98ABA151871E98BB2971E83E /* ASHLUTBinaryValidationSupportV3.swift in Sources */,
-				C7E7CD625CCB3668443679DD /* ASHLUTCompilerSemanticsV2.swift in Sources */,
-				E631D38C0480BAF365D2A012 /* ASHLUTCompilerSemanticsV3.swift in Sources */,
-				1E731691AE3B62C02FD0E0F2 /* ASHLUTCompilerV2.swift in Sources */,
-				960DFE3E4DDD7A9C9F725781 /* ASHLUTCompilerV3.swift in Sources */,
-				B22E9F23FCF7E290FB8A3963 /* ASHLUTLockedConfigurationJSONV2.swift in Sources */,
-				81662417CCD1D974001320A0 /* ASHLUTLockedConfigurationJSONV3.swift in Sources */,
-				43CB281EAA375DB8508D0F7E /* ASHLUTTypesV2.swift in Sources */,
-				DD52AD1EA5890AAB00B743C3 /* ASHLUTTypesV3.swift in Sources */,
-				5E0CC9E28BB327B3093BD01B /* ASHLockedArtifactStoreV3.swift in Sources */,
-				D5BD22F9439D9FB6610137AD /* ASHLockedCandidateLUTManifestV1.swift in Sources */,
-				4694BEE8ABF015C8DA5043C1 /* ASHLockedControlResamplerV2.swift in Sources */,
-				FD3A32976F23A0FC731664D0 /* ASHLockedControlRuntimeV2.swift in Sources */,
-				E362DC7C7084138C82E60672 /* ASHLockedControlRuntimeV3.swift in Sources */,
-				B7FB6D3733FB9C6228E44691 /* ASHLockedFramePipelineV3.swift in Sources */,
-				11E205C2F903E10C756FED37 /* ASHLockedLUTManifestRouteV2.swift in Sources */,
-				870989D9970DA1ACE094F862 /* ASHLockedNonASHOutputCacheV2.swift in Sources */,
-				3E1ECFDDD0B6FD925BC01A6A /* ASHLockedOperatorBankV2.swift in Sources */,
-				E578B1569573C050C5C60153 /* ASHLockedPlanePolicyDiagnosticV3.swift in Sources */,
-				C732CD34332C01CECF8CAD54 /* ASHLockedReferencePipelineV2+DispatchProjection.swift in Sources */,
-				987D17B42F554A756ED751A2 /* ASHLockedReferencePipelineV2+NonASHCache.swift in Sources */,
-				29B23E1AC24F2B1C1267E9D5 /* ASHLockedReferencePipelineV2.swift in Sources */,
-				AF83460B3A418087D57008A7 /* ASHLockedReferenceTypesV2.swift in Sources */,
-				53C033FE2B934A22C937428F /* ASHLockedReleaseLUTManifestV2.swift in Sources */,
-				13A10BA001745C1F4BCA3157 /* ASHLockedReleaseLUTManifestV3.swift in Sources */,
-				B304EC8A8BC837C2C3FD79F4 /* ASHLockedRuntimeTypesV2.swift in Sources */,
-				45D1B5B6B62480235A785397 /* ASHLockedRuntimeTypesV3.swift in Sources */,
-				B8CDE196E28E6492074F16CA /* ASHLockedRuntimeV2.swift in Sources */,
-				00D967DA0D17C94EF593FF58 /* ASHLockedRuntimeV3.swift in Sources */,
-				2BE322B8A3F5C5D741752650 /* ASHLockedSampleRuntimeV2.swift in Sources */,
-				77EE40A17728838CB7B1AA50 /* ASHLockedSampleRuntimeV3.swift in Sources */,
-				8285DC75CA54BB60CF834504 /* ASHLockedUpscaleBackendV3.swift in Sources */,
-				C7CD670424FD34DEE1B1C1F9 /* ASHLockedVideoMappingV2+ConfigurationValidation.swift in Sources */,
-				38A020C2B824010ECD499AE7 /* ASHLockedVideoMappingV2.swift in Sources */,
-				CA89A8E19BDE47CE786559D5 /* ASHLockedVideoMappingV2Validation.swift in Sources */,
-				C7E3B863BFBFF6FA19B2632C /* ASHLumaSpatialOperator.swift in Sources */,
-				9C3D3240ABA4B4715FFCC0CA /* ASHMetalFrameResourceRingV3.swift in Sources */,
-				076AFD3C701678B126245564 /* ASHMetalRuntimeMonitorV3.swift in Sources */,
-				711A5180E80FB9DB18607B57 /* ASHMetalSpatialFrameEncoderV3.swift in Sources */,
-				51A802D66A3293C0A21E4B76 /* ASHMetalSpatialKernelsV3.metal in Sources */,
-				9FE8F71FB70F05757A2F0895 /* ASHMetalSpatialRuntimePreparationV3.swift in Sources */,
-				3AD609BA8490CF4A6E3CFD6D /* ASHMetalSpatialRuntimeSupportV3.swift in Sources */,
-				AA1707747FD08CE2162ACF23 /* ASHMetalSpatialRuntimeV3.swift in Sources */,
-				615E888266AA6D0BCDDFD348 /* ASHNV12FrameCodec.swift in Sources */,
-				7E2763A03106C8D79742E157 /* ASHP08DescriptorParityRuntime.swift in Sources */,
-				96EE61B6E33F70D2D7A9729A /* ASHP08FixedControlRuntimeV3.swift in Sources */,
-				CF3F2F178A8C798ACF63B3A1 /* ASHP08NativeSupport.swift in Sources */,
-				9E9E27F9781AC0D112D0C697 /* ASHP08PerformanceProfileRuntime.swift in Sources */,
-				E1BFC9EF33A0F28AF9669487 /* ASHP08PerformanceRuntime.swift in Sources */,
-				71D3191792AC6C9D8EC55157 /* ASHP08ProductionEvidenceRunner.swift in Sources */,
-				AA7D08BCD0C5240D9B4C6291 /* ASHP08WriterSession.swift in Sources */,
-				56ADDA68EF63F3F008D0454E /* ASHReconstruction.swift in Sources */,
-				0244ED7BC8040D2254839F2C /* ASHReconstructionHelpers.swift in Sources */,
-				C3E235657B060F0D70ECB9A1 /* ASHReferencePipeline.swift in Sources */,
-				E0FB986AB96E7A8748548BE9 /* ASHRiskStateDiagnosticV3.swift in Sources */,
-				BED239DCE7EFB07EE2C3E1E6 /* ASHRuntimeConfiguration.swift in Sources */,
-				6846EC665799FA6655BBDA26 /* ASHSpatialDispatchV2.swift in Sources */,
-				FD5B2E2A5DB8D39AB4F260AB /* ASHSpatialOperatorBankV2.swift in Sources */,
-				529103EF8FA22597BD7B70E1 /* ASHSpatialReferencePipelineV2.swift in Sources */,
-				7439BE01E41933F55A38404E /* ASHSpatialRuntimeConfigurationV2.swift in Sources */,
-				8D32DF2AFA4F991FE215F92C /* ASHState.swift in Sources */,
-				E51E6FC45749208D82FB755E /* ASHStrictJSONV2.swift in Sources */,
-				866F134074761039BB45AA79 /* ASHStrictJSONV3.swift in Sources */,
-				2A4A0516F34E316D81926F93 /* ASHTelemetryCatalog.swift in Sources */,
-				2B48F0AB0F0D491AC68CFA72 /* ASHTelemetryModels.swift in Sources */,
-				9B15D1E349D2519019E87098 /* ASHTelemetryRecorder.swift in Sources */,
-				3B0750EBC6A017F581BFD9F5 /* ASHTileProcessing.swift in Sources */,
-				F3BE7B9006D9C216CCDE2BEA /* ASHUpscaleBackend.swift in Sources */,
-				F75E67BE4D2D07E6711BB76A /* ASHUpscaleBackendFactory.swift in Sources */,
-				BB9D1D1F05348B33FEF145D4 /* ASHVideoAnalyzerV2.swift in Sources */,
-				B2AE315A982236C13858FFF4 /* ASHVideoProfileContractV1.swift in Sources */,
-				79D002D076ED67D735A51DBB /* AVFoundationMediaPipeline.swift in Sources */,
-				2F34C45B0ECC1BACD099C243 /* AVFoundationMediaSessionConfiguration.swift in Sources */,
-				7D5C77AD6BE2267F6158E8F5 /* AVFoundationMediaSessionFinalization.swift in Sources */,
-				5B5668DEF71AC0820A4C6AAF /* AppleUpscaleCapabilityCompileProbe.swift in Sources */,
-				3848DC9522BE05C5F3FCDD64 /* AppleUpscaleCapabilityExecutor.swift in Sources */,
-				32AECDB17AE7839CDAC797C1 /* AppleUpscaleCapabilityFixtureContract.swift in Sources */,
-				07B7BA8607E1880A4E39B3AC /* AppleUpscaleCapabilityLegacyAdapters.swift in Sources */,
-				7EE4F9F2188A3F8805B49B1A /* AppleUpscaleCapabilityLiveContext.swift in Sources */,
-				9A8A0D19EE54CB30D8363B39 /* AppleUpscaleCapabilityLiveErrors.swift in Sources */,
-				44A3B9571AEC108885940AB3 /* AppleUpscaleCapabilityLiveProducer.swift in Sources */,
-				E0DF08328424121F604853A8 /* AppleUpscaleCapabilityNativeAdapters.swift in Sources */,
-				1ECF65284D534739B8A12D23 /* AppleUpscaleCapabilityProbe.swift in Sources */,
-				B3A84A0D7DA3EC777868C8F6 /* AppleUpscaleCapabilityRawReport.swift in Sources */,
-				0FF16116ABFC2C489C7A8A5B /* AppleUpscaleCapabilityReportModels.swift in Sources */,
-				9605570F2605FBAA484975BA /* AppleUpscaleCapabilityReportWriter.swift in Sources */,
-				A7942EEE19F5F620E2B19D9E /* AppleUpscaleCapabilitySupportProbe.swift in Sources */,
-				5B2720F8D1371E42CB651B9F /* AppleUpscaleCapabilityWorker.swift in Sources */,
-				783B5CDBF49534635284FA23 /* AppleUpscaleContracts.swift in Sources */,
-				4D39E56B270570707F5CA888 /* AppleUpscaleFIFOSession.swift in Sources */,
-				A3EEEF258DD40AAAFF166858 /* AtomicMediaOutput.swift in Sources */,
-				931B4AD0574681666F5B43BB /* AtomicMediaVerifiedTemporaryFile.swift in Sources */,
-				61AEEE59567C316DF12E1E30 /* ContentView.swift in Sources */,
-				E8D3F54740F2D2FAC0CFDC4D /* DefaultMetalRenderingService.swift in Sources */,
-				BA469A91B17C9B695B197834 /* DefaultModelAssetsService+Operations.swift in Sources */,
-				04FBC1BA78166E5A4BFAFED6 /* DefaultModelAssetsService.swift in Sources */,
-				2D752A9307BEF58A7D006450 /* DefaultUpscalerEngineService.swift in Sources */,
-				B023E8B0D809733C561ED015 /* EnhancementPipelineContracts.swift in Sources */,
-				1FF3D9B6D820D2B62EAD8A73 /* HEVCFormatIdentityReader.swift in Sources */,
-				BC07B36784D69B5C41D81427 /* LanczosPolishPass.swift in Sources */,
-				3FB46E484D904E275780E51A /* LocalAtomicMediaFileSystem.swift in Sources */,
-				FBE8CB469C25A64753B00390 /* MediaPipelineService.swift in Sources */,
-				DBDD8694F97339F789AA8C9E /* MediaPipelineServiceModule.swift in Sources */,
-				A982D34185430DF0361EECDD /* MediaTypes.swift in Sources */,
-				892B6DB22274E23046E9E193 /* MediaVideoScanStructure.swift in Sources */,
-				42954C9C2C7A36381AB2C4D9 /* MetalCommandBufferCompletionBridge.swift in Sources */,
-				F69C503A060E5DC172EA22B9 /* MetalRenderingService.swift in Sources */,
-				D800AD9DE53D2E9D3B80BFED /* MetalRenderingServiceModule.swift in Sources */,
-				387B4CC0F0342248C471120C /* MirmirApp.swift in Sources */,
-				5889C655E2FB60975B5B4348 /* MirmirAppBootstrap.swift in Sources */,
-				28A4ADE2BA509C1F17463122 /* MirmirCompletedComparisonPlaybackView.swift in Sources */,
-				A5772D9CAE9FEFA441BB2842 /* MirmirCompletedPlaybackTypes.swift in Sources */,
-				3059E48F18F8422A6023035F /* MirmirDeploymentMode.swift in Sources */,
-				11231FA84EFC696F72F15B39 /* MirmirDeveloperRootView.swift in Sources */,
-				6AABB37E8928F41C0B2D0E1A /* MirmirDiagnosticConfiguration.swift in Sources */,
-				69A0895DE9989550F863F36C /* MirmirDiagnosticExport.swift in Sources */,
-				FE10CEA6E6591D25A5C1417C /* MirmirDiagnosticFileSystem.swift in Sources */,
-				92933EE981FE3280D523E8BB /* MirmirDiagnosticJournalModels.swift in Sources */,
-				723CCD8670047C7DE27D965E /* MirmirDiagnosticRecord.swift in Sources */,
-				916F34CBD673E3B53C993810 /* MirmirDiagnosticStore+Logging.swift in Sources */,
-				E3E03E69CFEC1433882A0463 /* MirmirDiagnosticStore+Persistence.swift in Sources */,
-				BD6650C900E9CE7B69DBD8EE /* MirmirDiagnosticStore.swift in Sources */,
-				7A4935AFDFB8BCB334016DFE /* MirmirDiagnosticValues.swift in Sources */,
-				316EC05E2F3E3AAF0340AB27 /* MirmirModule.swift in Sources */,
-				7F1382B36C08F1B58C6170B0 /* MirmirModuleCatalog.swift in Sources */,
-				C5D0C68A4C34A1D595F3FFD9 /* MirmirModuleContext.swift in Sources */,
-				F42BE0860DA22210CF94CFBF /* MirmirModuleDescriptor.swift in Sources */,
-				524D902413F6A7007F52971A /* MirmirModuleFactoryRegistry.swift in Sources */,
-				0969B51B10E0D71D96470CAD /* MirmirModuleHost.swift in Sources */,
-				FDC4F33E2DA4475E3CA01F9A /* MirmirModuleRegistry.swift in Sources */,
-				7B6115041358CFCC21AE169C /* MirmirPendingWorkQueue.swift in Sources */,
-				AA31F16D8391F99E10ECC1F5 /* MirmirPendingWorkQueueModels.swift in Sources */,
-				C8879197B2441D7868960836 /* MirmirPendingWorkQueueValidation.swift in Sources */,
-				85655603E276358B21E29B98 /* MirmirPreferencesStore.swift in Sources */,
-				51509B2671BBCD27410D6F3B /* MirmirProductionRootView.swift in Sources */,
-				726A294463D588F38C9128D8 /* MirmirReleasePresentation.swift in Sources */,
-				811E0B9920BC3D7517979548 /* MirmirRootView.swift in Sources */,
-				4E2F384F360AC28CF5A1535A /* MirmirSettingsViews.swift in Sources */,
-				A1495737841BB92E5B14840A /* MirmirStatusStripView.swift in Sources */,
-				0775DE001A1E9FD1FFC7DFE4 /* MirmirSynchronizedPlaybackController.swift in Sources */,
-				6865056B14BFCE0063B0CF64 /* MirmirSynchronizedPlaybackTimeline.swift in Sources */,
-				D669BA650C5E73AE4C94F977 /* MirmirTheme.swift in Sources */,
-				DF8BD8F30813ED7C58D51D8B /* MirmirTimedMetadataMigration.swift in Sources */,
-				F706219BDEC215F2D30861AA /* MirmirTimedMetadataPolicy.swift in Sources */,
-				9344B259E356DF731DEEB435 /* MirmirUIConstants.swift in Sources */,
-				0C9C74AC00F0965BF34D645D /* MirmirUIModule.swift in Sources */,
-				EE3C37FEE3DFB4171376669F /* MirmirUpscaleWorkspaceView.swift in Sources */,
-				BC4CB4A345D751A851158494 /* MirmirViewModel+CacheLocation.swift in Sources */,
-				FAA08B30BFCAA95CF4B37476 /* MirmirViewModel+R13Diagnostics.swift in Sources */,
-				29D999D0F19EA9CC90E4150A /* MirmirViewModel+R13Errors.swift in Sources */,
-				82372491C75582326B51AB67 /* MirmirViewModel+R13Recovery.swift in Sources */,
-				147CF6C4A86E943E24DCF740 /* MirmirViewModel.swift in Sources */,
-				C0E576956E54A15022B6EA40 /* MirmirViewRegistry.swift in Sources */,
-				57309299A60A706E5AF0B878 /* MirmirWorkHistoryStore.swift in Sources */,
-				04A700A1A99B35669B4DE5EC /* MirmirWorkflowViews.swift in Sources */,
-				95E4EF31D5FC320E157F1B94 /* MirmirWorkspaceComponents.swift in Sources */,
-				3F4F49B512FFA9A39BFF4790 /* MirmirWorkspaceScreens.swift in Sources */,
-				F5DEEDA5FF303A2EA93F253F /* ModelAssetsService.swift in Sources */,
-				E1017CBEB51D74891CA17F58 /* ModelAssetsServiceModule.swift in Sources */,
-				C098AEFA81215843C179FEB5 /* NotRequiredModelAssetsService.swift in Sources */,
-				75269361762F454C474CF4CD /* OutputMediaAACIdentityReader.swift in Sources */,
-				B1C9A3922E1E04A7027669AA /* OutputMediaAppleLosslessIdentityReader.swift in Sources */,
-				44B2F89A448709B8053C21F9 /* OutputMediaIdentityVerification.swift in Sources */,
-				339E3B771BF215A0B6CDA182 /* OutputMediaLinearPCMIdentityReader.swift in Sources */,
-				1D2332F485C69D043BDAB7C7 /* OutputMediaVerificationTypes.swift in Sources */,
-				BAEE6B910E1C5FC760AF04D8 /* OutputMediaVerifier.swift in Sources */,
-				B018B02D5E3258A3B32ED734 /* PixelBufferBridge.swift in Sources */,
-				3412B98E862E2ADFFFF1851D /* ProgressPanelView.swift in Sources */,
-				5AD0E29864237AB8C7A8AC25 /* R03A11ProductAdmission.swift in Sources */,
-				8ED5EF31CA1E3E95B0466965 /* R03ASHComparatorScaling.swift in Sources */,
-				E1C044CC3FA36DFB9B8B2536 /* R03CoreImageScaling.swift in Sources */,
-				FF898C1608A2B1EC7486C079 /* R03DeterministicBackend.swift in Sources */,
-				1B57816AA1BE763BCD3303B5 /* R03DeterministicBackendCatalog.swift in Sources */,
-				5007C99B669EEC5A54BE1F36 /* R03GuidedSupportStages.swift in Sources */,
-				4D24088421385E79A6F0ECEF /* R03MPSScaling.swift in Sources */,
-				48571457FFA4B1F4DB7909F1 /* R03NV12Scaling.swift in Sources */,
-				A152F3A41AC3F54B7A42AB0A /* R03VImageScaling.swift in Sources */,
-				74E387E0E9535BA9AAD5BC47 /* R03VTPixelTransferScaling.swift in Sources */,
-				43E9B833F5EEF24C8FC76597 /* R04VideoToolboxContracts.swift in Sources */,
-				0E1CA642F3817B5FA0CB9B69 /* R04VideoToolboxSessionAdapter.swift in Sources */,
-				28CD56D4E4C75E8C51715B5B /* R05MetalFXColorBridge.swift in Sources */,
-				FACE7D2689BFE78CFB031645 /* R05MetalFXContracts.swift in Sources */,
-				7AE3272E4F03EB0486627537 /* R05MetalFXSpatialBackend.swift in Sources */,
-				ABFB52E97399E48DCDE5202C /* R05MetalFXSpatialDriver.swift in Sources */,
-				0126335234DA5A26FBDFCBD0 /* R06ASHDecisionContext.swift in Sources */,
-				7ACFE61ADBA0A223ADAA9D20 /* R06ASHMasksAndAblations.swift in Sources */,
-				1666060857B56835FEB0B1E8 /* R06ASHOrchestrator.swift in Sources */,
-				75BE43A4BE830D685164AD66 /* R06ASHPolicyCatalog.swift in Sources */,
-				39BF440AD3A243AD919338B1 /* R07ArtifactGovernance.swift in Sources */,
-				E4B0A73B271E46785704AF25 /* R07FunctionalCoordinator.swift in Sources */,
-				2480AD980A475DCDF3D5B91E /* R07FunctionalCoordinatorAnalysis.swift in Sources */,
-				CD547485A5FD2A7FFA61A5BF /* R07FunctionalCoordinatorRuntime.swift in Sources */,
-				02A21EF305F54513321B06E1 /* R07FunctionalCoordinatorValidation.swift in Sources */,
-				4B1B760FE6D02CF7A54A799C /* R07FunctionalSupportExecutor.swift in Sources */,
-				6E0F4995F21FB9AE805B6FB1 /* R07PostflightGovernance.swift in Sources */,
-				E29B45FF92A73D04D122D60F /* R07ProtectedRegionPolicy.swift in Sources */,
-				1AC1165027847C7F1244835D /* R07SupportStagePolicy.swift in Sources */,
-				4734CAE09B9FE05C1D434346 /* R07TemporalGovernanceContracts.swift in Sources */,
-				9B8AF9FD78745CA2DCF6DE20 /* R07TemporalHistory.swift in Sources */,
-				FBD5FFC3BDF2AF21DE0F80E5 /* R08ASHAnalysisBridge.swift in Sources */,
-				C34E033545917CBCD7A89CEB /* R08CoreAIAnalysisContracts.swift in Sources */,
-				5A329E5A9608046ACD6446B1 /* R08CoreAIAnalysisHeads.swift in Sources */,
-				F1BD8B40CB88F10F825249C8 /* R08DeterministicAnalysisService.swift in Sources */,
-				52BAB99685EFC54160A6F696 /* R09ASHResidualAuthorization.swift in Sources */,
-				71C8C3CE24C7397A122ABC35 /* R09ASHResidualAuthorizationContracts.swift in Sources */,
-				5C4E8C3FAD765DEED06024FE /* R09BoundedResidualStage.swift in Sources */,
-				00CFE43610567F8A3EBAFF18 /* R09CoreAIResidualContracts.swift in Sources */,
-				94A6534D2F48221009C22F5A /* R09DeterministicResidualService.swift in Sources */,
-				6D3E425E4AE91CC2C5D450DE /* R09NV12PlanarCodec.swift in Sources */,
-				6710E743D7AA820685841DF1 /* R09ResidualIdentityContracts.swift in Sources */,
-				8B2D107829781C3DC32DC32C /* R09ResidualNumericContracts.swift in Sources */,
-				18CDC83FE59D94497A02E180 /* R09ResidualServiceContracts.swift in Sources */,
-				E4D619817B1289E964085D8A /* R09ResidualValidation.swift in Sources */,
-				18106E6712D7179E8BB37C12 /* R12ChunkCheckpointLedger.swift in Sources */,
-				924A03BDD41DD819F111219F /* R12MediaFormatContractV2.swift in Sources */,
-				1054E679780BBF4FB0AD32E8 /* R12RouteAndHardwareResolver.swift in Sources */,
-				33E98D50FFCB25AB8A072D1B /* R13A11ProductSessionFactory.swift in Sources */,
-				1A242D07C79BCDEB54676DD9 /* R13AdaptiveASHRoutingScaler.swift in Sources */,
-				4C24E87F0ECE5EC648027BE5 /* R13CacheLocation.swift in Sources */,
-				2854446B8B62FD95B5F2ED52 /* R13ConfigurableCacheUpscalerEngine.swift in Sources */,
-				5251FD81563F372758658570 /* R13FaultInjection.swift in Sources */,
-				217C62DEC0F92124B5FBA2C3 /* R13FormatPreservingDeinterlacer.swift in Sources */,
-				C911F59EE88CA461CBC93872 /* R13FormatPreservingEnhancementProcessor.swift in Sources */,
-				CFB268D2F79B4FCA9BA8AC67 /* R13FormatPreservingMPSScaling.swift in Sources */,
-				02163B1DEAA057B4EF2D9C5D /* R13FormatPreservingScaling.swift in Sources */,
-				FF4EEE8765BE70B8BD3AD366 /* R13FullFrameEnhancementProcessor.swift in Sources */,
-				7A1568B0A50C3BD3400AA84E /* R13NV12FrameCache.swift in Sources */,
-				96F504BDA84D6BFB7D61CC62 /* R13NV12FrameNormalizer.swift in Sources */,
-				2774931432179C30D230C63D /* R13NV12FramePixelBuffer.swift in Sources */,
-				70BB25DF2893F3040582A328 /* R13PixelBufferAccess.swift in Sources */,
-				10F070C2EC40D86DCD427EA4 /* R13PixelLayout.swift in Sources */,
-				58D0CC0A4B17AEE6F967F850 /* R13PixelLayoutAnalysis.swift in Sources */,
-				FA46F17EAE925BBF148D00FF /* R13PixelLayoutBlend.swift in Sources */,
-				D0D8EAFB4E01CA6AEDD019B8 /* R13PixelLayoutCopyScale.swift in Sources */,
-				710BA166258D19E99874AE07 /* R13PixelLayoutEnhancement.swift in Sources */,
-				891083DC3D18CAFD26A7440F /* R13PixelLayoutRegistry.swift in Sources */,
-				D051C682787031CAEA35F156 /* R13PixelLayoutVerticalFilter.swift in Sources */,
-				20943B7863574B14C8075D2D /* R13ProductASHAnalyzer.swift in Sources */,
-				AF49CB77ED85D3040478FC38 /* R13ProductASHRoutingSession.swift in Sources */,
-				4C4AC4E69CC8C3BF6E56D2E5 /* R13RecoverableJobs.swift in Sources */,
-				9BA73EFA3A202F1ADFAC292A /* R13ReleaseDiagnostics.swift in Sources */,
-				3BA58CCD2C3BC56A25ABA5F6 /* R13ReleaseEnvironment.swift in Sources */,
-				8AA8671F9AE7671BC8149498 /* R13ReleaseFrameProcessing.swift in Sources */,
-				E09BB61A378D3EF1A51D9CFD /* R13ReleaseHardeningAttempt.swift in Sources */,
-				11C2BAC014A7C0F4C5A162A9 /* R13ReleaseHardeningCalculations.swift in Sources */,
-				261A87170AE11A0E388E76E1 /* R13ReleaseHardeningDiagnostics.swift in Sources */,
-				8DFE033006E1C35962924E24 /* R13ReleaseHardeningRuntime+Production.swift in Sources */,
-				3A32078DF8323F255D51737F /* R13ReleaseHardeningRuntime.swift in Sources */,
-				3CA6A4A1ABC6B8803B23BF53 /* R13ReleaseIdentity.swift in Sources */,
-				E080A75FB0BB96B568B2CE9D /* R13ReleaseJobContracts.swift in Sources */,
-				F84258363C682F5669602019 /* R13ReleaseTaskStartGate.swift in Sources */,
-				80BBD07B85CDC41DB87A4B90 /* R13ReleaseUpscalerEngineService+Lifecycle.swift in Sources */,
-				297AC583AD6DE974C42EDBAF /* R13ReleaseUpscalerEngineService.swift in Sources */,
-				9825428B1C731CB96D964DA7 /* R13ResourceGovernance.swift in Sources */,
-				72DF8240DCD8B3DEA0381612 /* R13ResourceGovernanceValidation.swift in Sources */,
-				3F21D47D3A17FEA4F9B3C050 /* R13RestartInfrastructure.swift in Sources */,
-				87B0558519D5568FCE8E0D0D /* R13RestartJobContracts.swift in Sources */,
-				5F99D4B6070C1794B29BA331 /* R13RestartJobStore.swift in Sources */,
-				9DEEAF7C245E942B9C7A81C7 /* R13SecurityScopedBookmarks.swift in Sources */,
-				FF87AD36491FD088FDCB6EC3 /* R13SmoothMotionIntegration.swift in Sources */,
-				FFA590EA29C433D10228DEFA /* R13SourceSnapshot.swift in Sources */,
-				2215C6714DA0502B4D71E2BD /* R13StoragePreflight.swift in Sources */,
-				6BAD357131359D718DAE9B2F /* R13TightPixelFrame.swift in Sources */,
-				B70E5F9B3B76667E0D73C66E /* R13UpscaleActionPanel.swift in Sources */,
-				35D668799957500E13A16D3B /* RoadmapTransitionModelAssetsService.swift in Sources */,
-				852AAF7123FF53AA73DEDCA0 /* SmoothMotionConfiguration.swift in Sources */,
-				48EB9418ED5F1FD352710CCD /* SmoothMotionInterpolation.swift in Sources */,
-				B0FCC3E50242DBCB9DE60FE5 /* SmoothMotionMediaSession.swift in Sources */,
-				CF4E1366ABE8BA36FB4BD1B5 /* SmoothMotionTiming.swift in Sources */,
-				4EA10FE67076FC0D756D059B /* SmoothMotionVideoToolboxInterpolator.swift in Sources */,
-				3CB665CD5D619971B5D8B9E5 /* UnavailableUpscalerEngineService.swift in Sources */,
-				3E69B055BABC388F365A901C /* UpscaleControlsView.swift in Sources */,
-				FD440AB675F3EF7298C713C7 /* UpscaleJob.swift in Sources */,
-				822E886FFB6F9F25C5F38609 /* UpscaleMode.swift in Sources */,
-				99F3775B7B000E69E4BF1C9B /* UpscaleStrategy.swift in Sources */,
-				2E7D6BEB04B8C9E0A87DA7D3 /* UpscalerEngineService.swift in Sources */,
-				84EFA86B5C3A1D0C71F0E987 /* UpscalerEngineServiceModule.swift in Sources */,
-				CFAD0846AEB24B57BDC81837 /* VTModelStager.swift in Sources */,
-				EE8833246FB22AFE0D72A411 /* VTSuperResolutionDriver.swift in Sources */,
-				11C6CBDE9A57638B48FE8C14 /* VideoSelectionView.swift in Sources */,
-			);
+				320000000000000000000001 /* MirmirApp.swift in Sources */,
+				320000000000000000000002 /* RootView.swift in Sources */,
+				320000000000000000000003 /* MirmirViewModel.swift in Sources */,
+				320000000000000000000050 /* MirmirWorkspaceRootView.swift in Sources */,
+				320000000000000000000051 /* MirmirUpscaleWorkspace.swift in Sources */,
+				32000000000000000000004F /* MirmirWorkspaceSupport.swift in Sources */,
+				320000000000000000000052 /* MirmirTheme.swift in Sources */,
+				320000000000000000000004 /* AppState.swift in Sources */,
+				320000000000000000000005 /* VideoInfo.swift in Sources */,
+				32000000000000000000000F /* VideoColorInfo.swift in Sources */,
+				320000000000000000000010 /* VideoGeometry.swift in Sources */,
+				320000000000000000000006 /* UpscaleRequest.swift in Sources */,
+				320000000000000000000007 /* UpscaleBackendID.swift in Sources */,
+				320000000000000000000008 /* BackendAvailability.swift in Sources */,
+				320000000000000000000016 /* BackendDescriptor.swift in Sources */,
+				320000000000000000000009 /* UpscaleProgress.swift in Sources */,
+				32000000000000000000000A /* UpscaleResult.swift in Sources */,
+				32000000000000000000000B /* MirmirError.swift in Sources */,
+				32000000000000000000000C /* Log.swift in Sources */,
+				320000000000000000000011 /* VideoProbe.swift in Sources */,
+				320000000000000000000012 /* SecurityScopedAccess.swift in Sources */,
+				320000000000000000000013 /* FourCC.swift in Sources */,
+				320000000000000000000017 /* RuntimeEnvironment.swift in Sources */,
+					320000000000000000000018 /* FrameUpscaler.swift in Sources */,
+					320000000000000000000019 /* AutomaticBackendSelector.swift in Sources */,
+					32000000000000000000001A /* UpscaleBackendCatalog.swift in Sources */,
+					32000000000000000000001C /* VImageScaler.swift in Sources */,
+					320000000000000000000027 /* NV12ScalerSupport.swift in Sources */,
+					320000000000000000000028 /* MPSScaler.swift in Sources */,
+					320000000000000000000029 /* CoreImageScaler.swift in Sources */,
+					32000000000000000000002A /* VTPixelTransferScaler.swift in Sources */,
+					32000000000000000000002B /* MetalFXScaler.swift in Sources */,
+					32000000000000000000002C /* VTHighQualitySuperResolutionScaler.swift in Sources */,
+					32000000000000000000002D /* VTLowLatencySuperResolutionScaler.swift in Sources */,
+					32000000000000000000002E /* VTInterpolationSpatialScaler.swift in Sources */,
+					32000000000000000000002F /* DeterministicCPUBackend.swift in Sources */,
+					320000000000000000000030 /* DeterministicReferenceSupport.swift in Sources */,
+					320000000000000000000031 /* ASHUpscaleBackend.swift in Sources */,
+					320000000000000000000032 /* ASHDeterministicUpscaleBackend.swift in Sources */,
+					320000000000000000000033 /* ASHNV12FrameCodec.swift in Sources */,
+					320000000000000000000034 /* ASHSpatialReferencePipelineV2.swift in Sources */,
+					320000000000000000000035 /* ASHChromaSitingV2.swift in Sources */,
+					320000000000000000000036 /* ASHCodePlaneNormalizerV2.swift in Sources */,
+					320000000000000000000037 /* ASHSpatialRuntimeConfigurationV2.swift in Sources */,
+					320000000000000000000038 /* ASHSpatialOperatorBankV2.swift in Sources */,
+					320000000000000000000039 /* ASHVideoAnalyzerV2.swift in Sources */,
+					32000000000000000000003A /* ASHAnalysisGridV2.swift in Sources */,
+					32000000000000000000003B /* ASHSpatialDispatchV2.swift in Sources */,
+					32000000000000000000003C /* ASHState.swift in Sources */,
+					32000000000000000000003D /* ASHCode.swift in Sources */,
+					320000000000000000000040 /* DeterministicMetalBackend.swift in Sources */,
+					320000000000000000000041 /* MetalRenderingService.swift in Sources */,
+					320000000000000000000042 /* DefaultMetalRenderingService.swift in Sources */,
+					320000000000000000000043 /* MetalCommandBufferCompletionBridge.swift in Sources */,
+					320000000000000000000044 /* ASHMetalDevelopmentRuntimeV3.swift in Sources */,
+					320000000000000000000045 /* ASHLUTTypesV3.swift in Sources */,
+					320000000000000000000046 /* ASHLUTBinaryFormatV3.swift in Sources */,
+					320000000000000000000047 /* ASHMetalSpatialRuntimeSupportV3.swift in Sources */,
+					320000000000000000000048 /* ASHMetalSpatialRuntimePreparationV3.swift in Sources */,
+					320000000000000000000049 /* ASHMetalFrameResourceRingV3.swift in Sources */,
+					32000000000000000000004A /* ASHMetalRuntimeMonitorV3.swift in Sources */,
+					32000000000000000000004B /* ASHMetalSpatialFrameEncoderV3.swift in Sources */,
+					32000000000000000000004C /* ASHMetalSpatialRuntimeV3.swift in Sources */,
+					32000000000000000000004D /* ASHMetalSpatialKernelsV3.metal in Sources */,
+				320000000000000000000021 /* OutputSettings.swift in Sources */,
+				320000000000000000000022 /* AtomicOutputFile.swift in Sources */,
+				320000000000000000000023 /* OutputMediaValidator.swift in Sources */,
+				320000000000000000000024 /* VideoProcessingSession.swift in Sources */,
+				320000000000000000000025 /* UpscaleCoordinator.swift in Sources */,
+				);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+			400000000000000000000004 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (32000000000000000000000E /* MirmirTests.swift in Sources */, 320000000000000000000014 /* VideoProbeTests.swift in Sources */, 320000000000000000000015 /* SecurityScopedAccessTests.swift in Sources */, 32000000000000000000001B /* BackendCatalogTests.swift in Sources */, 32000000000000000000001D /* VImageScalerTests.swift in Sources */, 32000000000000000000001E /* SyntheticNV12PixelBuffer.swift in Sources */, 320000000000000000000026 /* VideoProcessingSessionTests.swift in Sources */, 32000000000000000000003F /* DeterministicCPUBackendTests.swift in Sources */, 32000000000000000000004E /* DeterministicMetalBackendTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		600000000000000000000002 /* PBXTargetDependency */ = {isa = PBXTargetDependency; target = 200000000000000000000001 /* Mirmir */; targetProxy = 600000000000000000000001 /* PBXContainerItemProxy */; };
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		7B3C8F82724FE1BBC9D99813 /* Debug */ = {
+		500000000000000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
-				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"$(inherited)",
-					"DEBUG=1",
-				);
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
-				MTL_FAST_MATH = YES;
+				MTL_FAST_MATH = NO;
 				ONLY_ACTIVE_ARCH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 5.10;
 			};
 			name = Debug;
 		};
-		90A6242299931428B6CB9087 /* Release */ = {
+		500000000000000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = arm64;
-				CLANG_ANALYZER_NONNULL = YES;
-				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
-				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_ENABLE_OBJC_WEAK = YES;
-				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
-				CLANG_WARN_BOOL_CONVERSION = YES;
-				CLANG_WARN_COMMA = YES;
-				CLANG_WARN_CONSTANT_CONVERSION = YES;
-				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
-				CLANG_WARN_EMPTY_BODY = YES;
-				CLANG_WARN_ENUM_CONVERSION = YES;
-				CLANG_WARN_INFINITE_RECURSION = YES;
-				CLANG_WARN_INT_CONVERSION = YES;
-				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
-				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
-				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
-				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
-				CLANG_WARN_STRICT_PROTOTYPES = YES;
-				CLANG_WARN_SUSPICIOUS_MOVE = YES;
-				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
-				CLANG_WARN_UNREACHABLE_CODE = YES;
-				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				COPY_PHASE_STRIP = NO;
-				DEAD_CODE_STRIPPING = YES;
+				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
-				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = NO;
-				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
-				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				GCC_WARN_UNDECLARED_SELECTOR = YES;
-				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
-				GCC_WARN_UNUSED_FUNCTION = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
-				MTL_FAST_MATH = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				MTL_FAST_MATH = NO;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
-				SWIFT_OPTIMIZATION_LEVEL = "-O";
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 5.10;
 			};
 			name = Release;
 		};
-		C6268DE8E8221D07D787AC8E /* Debug */ = {
+		500000000000000000000004 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Mirmir/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
-				SDKROOT = macosx;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		FB0D0F9AB1BDADB8FA9641A0 /* Release */ = {
+		500000000000000000000005 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Mirmir/Mirmir.entitlements;
-				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 2;
+				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Mirmir/Info.plist;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-				);
-				MACOSX_DEPLOYMENT_TARGET = 15.4;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks");
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app;
-				SDKROOT = macosx;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		500000000000000000000007 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks");
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir";
+			};
+			name = Debug;
+		};
+		500000000000000000000008 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 2;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks");
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mirmir.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Mirmir.app/Contents/MacOS/Mirmir";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		AC9AEBFDC20A9511C467FC90 /* Build configuration list for PBXProject "Mirmir" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				7B3C8F82724FE1BBC9D99813 /* Debug */,
-				90A6242299931428B6CB9087 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		BB6156B5490A89CEDBD39CE6 /* Build configuration list for PBXNativeTarget "Mirmir" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				C6268DE8E8221D07D787AC8E /* Debug */,
-				FB0D0F9AB1BDADB8FA9641A0 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
+		500000000000000000000003 /* Build configuration list for PBXProject "Mirmir" */ = {isa = XCConfigurationList; buildConfigurations = (500000000000000000000001 /* Debug */, 500000000000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		500000000000000000000006 /* Build configuration list for PBXNativeTarget "Mirmir" */ = {isa = XCConfigurationList; buildConfigurations = (500000000000000000000004 /* Debug */, 500000000000000000000005 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		500000000000000000000009 /* Build configuration list for PBXNativeTarget "MirmirTests" */ = {isa = XCConfigurationList; buildConfigurations = (500000000000000000000007 /* Debug */, 500000000000000000000008 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 /* End XCConfigurationList section */
 	};
-	rootObject = 4718DCAF0509158E807570DD /* Project object */;
+	rootObject = 100000000000000000000001 /* Project object */;
 }

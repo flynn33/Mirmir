@@ -16,13 +16,15 @@ DerivedData/
 *.dSYM.zip
 *.dSYM
 
-# Swift Package Manager
+# Swift Package Manager / local tool caches
 .build/
 .swiftpm/
 Packages/
 Package.pins
 Package.resolved
 *.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+.pytest_cache/
+.codex/
 
 # Coverage / profiling
 *.profraw

@@ -124,7 +124,8 @@ enum ASHP08PerformanceRuntime {
             let conditionsSHA256 = try ASHP08NativeSupport.canonicalSHA256(conditions)
             let runtime = try ASHMetalSpatialRuntimeV3(
                 route: route,
-                artifacts: context.artifacts,
+                lut: ASHMetalRuntimeLUTV3(context.artifacts.lut(for: route)),
+                mapping: context.artifacts.mapping.metalRuntimeMappingV3,
                 metal: context.metal
             )
             let destination = try ASHP08NativeSupport.makePixelBuffer(
@@ -279,7 +280,10 @@ private extension ASHP08PerformanceRuntime {
     ) async throws -> FullResult {
         let runtime = try ASHMetalSpatialRuntimeV3(
             route: fixture.route,
-            artifacts: context.artifacts,
+            lut: ASHMetalRuntimeLUTV3(
+                context.artifacts.lut(for: fixture.route)
+            ),
+            mapping: context.artifacts.mapping.metalRuntimeMappingV3,
             metal: context.metal
         )
         let warmupDestination = try ASHP08NativeSupport.makePixelBuffer(

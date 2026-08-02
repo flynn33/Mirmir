@@ -155,7 +155,7 @@ extension AVFoundationMediaSession {
             videoSettings[AVVideoAllowWideColorKey] = true
         }
         let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: videoSettings)
-        videoOutput.alwaysCopiesSampleData = false
+        videoOutput.alwaysCopiesSampleData = true
         guard reader.canAdd(videoOutput) else {
             throw MediaPipelineError.cannotAddReaderOutput("video")
         }

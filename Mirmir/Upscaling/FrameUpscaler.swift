@@ -1,0 +1,117 @@
+import CoreMedia
+import CoreVideo
+import Foundation
+
+struct PixelBufferAttributes: @unchecked Sendable {
+    // Core Video publishes immutable attribute dictionaries containing
+    // property-list values and immutable Core Foundation objects. Keeping the
+    // unchecked boundary in this wrapper prevents `[String: Any]` from being
+    // declared Sendable throughout the processing API.
+    let values: [String: Any]
+
+    init(_ values: [String: Any] = [:]) {
+        self.values = values
+    }
+}
+
+struct FramePixelBuffer: @unchecked Sendable {
+    // CVPixelBuffer is reference-counted but is not imported as Sendable. The
+    // coordinator transfers exclusive frame access to one prepared backend
+    // call at a time. This wrapper retains the buffer across that actor hop and
+    // keeps the unchecked boundary local to the frame-processing protocol.
+    let value: CVPixelBuffer
+
+    init(_ value: CVPixelBuffer) {
+        self.value = value
+    }
+}
+
+struct FrameTiming: Equatable, Sendable {
+    let frameIndex: Int
+    let presentationTime: CMTime
+    let duration: CMTime
+}
+
+struct BackendPreparationRequest: Equatable, Sendable {
+    let source: VideoInfo
+    let targetSize: CGSize
+}
+
+protocol UpscaleBackend: Sendable {
+    var descriptor: BackendDescriptor { get }
+
+    func availability(
+        for source: VideoInfo,
+        targetSize: CGSize,
+        environment: RuntimeEnvironment
+    ) async -> BackendAvailability
+
+    func prepare(
+        request: BackendPreparationRequest,
+        environment: RuntimeEnvironment
+    ) async throws -> any PreparedFrameUpscaler
+}
+
+protocol ModelDownloadableBackend: UpscaleBackend {
+    func downloadModel(
+        request: BackendPreparationRequest,
+        environment: RuntimeEnvironment,
+        progress: @escaping @Sendable (Double) -> Void
+    ) async throws
+}
+
+protocol PreparedFrameUpscaler: Sendable {
+    var sourcePixelBufferAttributes: PixelBufferAttributes { get }
+    var destinationPixelBufferAttributes: PixelBufferAttributes { get }
+    var actualBackendID: UpscaleBackendID { get }
+
+    func process(
+        source: FramePixelBuffer,
+        destination: FramePixelBuffer,
+        timing: FrameTiming
+    ) async throws
+
+    func finish() async throws
+}
+
+extension PreparedFrameUpscaler {
+    func process(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        timing: FrameTiming
+    ) async throws {
+        try await process(
+            source: FramePixelBuffer(source),
+            destination: FramePixelBuffer(destination),
+            timing: timing
+        )
+    }
+}
+
+struct TemporalOutputFrame: Sendable {
+    let pixelBuffer: FramePixelBuffer
+    let presentationTime: CMTime
+}
+
+protocol PreparedTemporalFrameUpscaler: PreparedFrameUpscaler {
+    var maximumOutputFramesPerInput: Int { get }
+
+    func processTemporal(
+        source: FramePixelBuffer,
+        destinations: [FramePixelBuffer],
+        timing: FrameTiming
+    ) async throws -> [TemporalOutputFrame]
+}
+
+enum BackendPreparationError: LocalizedError, Equatable, Sendable {
+    case unavailable(UpscaleBackendID, BackendUnavailableReason)
+
+    var errorDescription: String? {
+        switch self {
+        case .unavailable(let backendID, let reason):
+            let title = BackendDescriptor.descriptor(for: backendID)?.title
+                ?? backendID.rawValue
+            return "\(title) is unavailable. \(reason.userFacingDescription)"
+        }
+    }
+}

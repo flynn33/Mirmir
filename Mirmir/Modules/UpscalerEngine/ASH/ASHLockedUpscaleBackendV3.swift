@@ -200,7 +200,8 @@ final class ASHMetalUpscaleBackendV3: ASHUpscaleBackend, @unchecked Sendable {
         self.outputMetadata = identity.metadata
         self.runtime = try ASHMetalSpatialRuntimeV3(
             route: route,
-            artifacts: artifacts,
+            lut: ASHMetalRuntimeLUTV3(artifacts.lut(for: route)),
+            mapping: artifacts.mapping.metalRuntimeMappingV3,
             metal: metal,
             telemetry: telemetry
         )
