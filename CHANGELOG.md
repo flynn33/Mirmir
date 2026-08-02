@@ -7,6 +7,24 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-02
+
+### Added
+
+- In-app Mirmir brand lockups for the sidebar, empty workspace, completion
+  state, and About screen using the supplied application artwork.
+- A complete About Mirmir screen covering James Daley’s ASH Model, the
+  Apple-native supporting pipeline, and Raven Forge Software publication.
+- Live Dashboard cards for Mirmir CPU, physical-memory footprint, disk I/O,
+  explicit Metal-route activity, job progress, and video progress.
+
+### Changed
+
+- Made Dashboard the initial workspace and expanded its responsive layout while
+  preserving the locked Midnight Nordic and Arctic Indigo visual system.
+
+## [1.1.0] - 2026-08-02
+
 ### Added
 
 - Canonical `VERSION` tracking synchronized with the Xcode marketing version.
