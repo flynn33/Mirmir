@@ -7,6 +7,7 @@ struct MirmirWorkspaceRootView: View {
     @AppStorage("mirmir.appearance") private var appearanceRawValue =
         MirmirAppearanceMode.system.rawValue
     @State private var destination: MirmirProductDestination = .upscale
+    @State private var pendingMethodSelection: PendingMethodSelection?
 
     var body: some View {
         GeometryReader { proxy in
@@ -46,6 +47,23 @@ struct MirmirWorkspaceRootView: View {
         .background(theme.background)
         .foregroundStyle(theme.textPrimary)
         .tint(theme.accentPrimary)
+        .alert(item: $pendingMethodSelection) { pending in
+            Alert(
+                title: Text(pending.adjustment.alertTitle),
+                message: Text(pending.adjustment.message),
+                primaryButton: .default(
+                    Text(pending.adjustment.confirmationTitle)
+                ) {
+                    viewModel.applyBackendSelectionAdjustment(
+                        pending.adjustment
+                    )
+                    if pending.returnToUpscale {
+                        destination = .upscale
+                    }
+                },
+                secondaryButton: .cancel()
+            )
+        }
     }
 
     @ViewBuilder
@@ -71,7 +89,10 @@ struct MirmirWorkspaceRootView: View {
                 viewModel: viewModel,
                 theme: theme,
                 compact: compact,
-                showMethods: { destination = .methods }
+                showMethods: { destination = .methods },
+                selectMethod: { backendID in
+                    requestMethodSelection(backendID)
+                }
             )
         case .queue:
             MirmirProductQueue(viewModel: viewModel, theme: theme)
@@ -80,8 +101,10 @@ struct MirmirWorkspaceRootView: View {
                 viewModel: viewModel,
                 theme: theme,
                 selectAndReturn: { backendID in
-                    viewModel.selectBackend(backendID)
-                    destination = .upscale
+                    requestMethodSelection(
+                        backendID,
+                        returnToUpscale: true
+                    )
                 }
             )
         case .settings:
@@ -94,6 +117,23 @@ struct MirmirWorkspaceRootView: View {
             MirmirProductAbout(theme: theme)
         case .diagnostics:
             MirmirProductDiagnostics(viewModel: viewModel, theme: theme)
+        }
+    }
+
+    private func requestMethodSelection(
+        _ backendID: UpscaleBackendID,
+        returnToUpscale: Bool = false
+    ) {
+        if let adjustment = viewModel.targetAdjustmentForSelecting(backendID) {
+            pendingMethodSelection = PendingMethodSelection(
+                adjustment: adjustment,
+                returnToUpscale: returnToUpscale
+            )
+            return
+        }
+        viewModel.selectBackend(backendID)
+        if returnToUpscale {
+            destination = .upscale
         }
     }
 
@@ -115,6 +155,12 @@ struct MirmirWorkspaceRootView: View {
         case .arcticIndigo: .light
         }
     }
+}
+
+private struct PendingMethodSelection: Identifiable {
+    let id = UUID()
+    let adjustment: BackendSelectionTargetAdjustment
+    let returnToUpscale: Bool
 }
 
 enum MirmirProductDestination: String, CaseIterable, Identifiable {

@@ -1,0 +1,23 @@
+name: Check version tracking
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    name: Validate repository version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate version synchronization
+        run: python3 script/update_version.py --check
+
+      - name: Test version rules
+        run: python3 script/test_update_version.py
