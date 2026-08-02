@@ -111,14 +111,15 @@ private struct DeterministicPreparedConfiguration: Sendable {
     let publicConfiguration: DeterministicConfiguration
 }
 
-final class PreparedDeterministicCPUUpscaler: PreparedFrameUpscaler, @unchecked Sendable {
-    let sourcePixelBufferAttributes: PixelBufferAttributes
-    let destinationPixelBufferAttributes: PixelBufferAttributes
-    let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
-    let deterministicConfiguration: DeterministicConfiguration
+actor PreparedDeterministicCPUUpscaler: PreparedFrameUpscaler {
+    nonisolated let sourcePixelBufferAttributes: PixelBufferAttributes
+    nonisolated let destinationPixelBufferAttributes: PixelBufferAttributes
+    nonisolated let actualBackendID = UpscaleBackendID.mirmirDeterministicCPU
+    nonisolated let deterministicConfiguration: DeterministicConfiguration
 
     private let configuration: NV12ScalerConfiguration
     private let engine: ASHDeterministicUpscaleBackend
+    private var finished = false
 
     fileprivate init(configuration prepared: DeterministicPreparedConfiguration) {
         configuration = prepared.nv12
@@ -148,8 +149,14 @@ final class PreparedDeterministicCPUUpscaler: PreparedFrameUpscaler, @unchecked 
     ) async throws {
         let source = source.value
         let destination = destination.value
-        try Task.checkCancellation()
         do {
+            guard !finished else {
+                throw configuration.processingError(
+                    "the prepared deterministic CPU adapter is already finished",
+                    frameIndex: timing.frameIndex
+                )
+            }
+            try Task.checkCancellation()
             try configuration.validate(source, source: true)
             try configuration.validate(destination, source: false)
             try validateProgressiveChromaLocation(source)
@@ -175,7 +182,10 @@ final class PreparedDeterministicCPUUpscaler: PreparedFrameUpscaler, @unchecked 
     }
 
     func finish() async throws {
+        guard !finished else { return }
         try Task.checkCancellation()
+        engine.reset()
+        finished = true
     }
 
     private func validateProgressiveChromaLocation(_ buffer: CVPixelBuffer) throws {

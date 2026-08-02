@@ -7,6 +7,23 @@ do not publish, sign, notarize, or distribute the application automatically.
 
 ## [Unreleased]
 
+### Added
+
+- A research-backed deterministic engine v4 roadmap covering P06 release
+  locking, arbitrary and temporal ASH, CPU/Metal parity, expanded media and
+  track preservation, durable jobs, restart recovery, and measurable quality
+  and processing-time gates.
+- Exhaustive strict-decoder conformance for every nine-bit ASH state, every
+  two-bit codeword corruption, and every integrity-valid affine anchor with a
+  one-bit error.
+
+### Changed
+
+- Replaced per-decode canonical codeword scans with a behavior-equivalent
+  immutable 512-entry lookup table.
+- Made the prepared deterministic CPU adapter enforce idempotent finalization
+  and reject processing after finish.
+
 ## [1.2.0] - 2026-08-02
 
 ### Added

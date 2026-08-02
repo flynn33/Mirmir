@@ -16,6 +16,14 @@ struct ASHDecodeResult: Equatable, Sendable {
 }
 
 enum ASHCode {
+    private struct StrictDecodeEntry: Sendable {
+        let status: ASHDecodeStatus
+        let codeword: ASHState?
+        let message: ASHMessage?
+        let distance: Int
+        let nearestCount: Int
+    }
+
     static let generatorRows: [ASHState] = [
         ASHState(validatedRawValue: 0b111100000),
         ASHState(validatedRawValue: 0b110011000),
@@ -35,6 +43,49 @@ enum ASHCode {
 
     private static let messageByCodeword: [ASHState: ASHMessage] = {
         Dictionary(uniqueKeysWithValues: messageCodewordPairs.map { ($0.codeword, $0.message) })
+    }()
+
+    /// The strict ASH decoder has a finite nine-bit domain. Building its 512
+    /// entries once preserves the canonical radius-one semantics while avoiding
+    /// a 16-codeword nearest-neighbor search at every runtime decode site.
+    private static let strictDecodeTable: [StrictDecodeEntry] = {
+        (0..<(1 << ASHState.bitCount)).map { rawValue in
+            let received = ASHState(validatedRawValue: UInt16(rawValue))
+            var minimum = ASHState.bitCount
+            var nearestCodeword: ASHState?
+            var nearestCount = 0
+
+            for codeword in codewords {
+                let distance = received.hammingDistance(to: codeword)
+                if distance < minimum {
+                    minimum = distance
+                    nearestCodeword = codeword
+                    nearestCount = 1
+                } else if distance == minimum {
+                    nearestCount += 1
+                }
+            }
+
+            guard minimum <= 1,
+                  nearestCount == 1,
+                  let codeword = nearestCodeword else {
+                return StrictDecodeEntry(
+                    status: .uncorrectable,
+                    codeword: nil,
+                    message: nil,
+                    distance: minimum,
+                    nearestCount: nearestCount
+                )
+            }
+
+            return StrictDecodeEntry(
+                status: minimum == 0 ? .exact : .corrected,
+                codeword: codeword,
+                message: messageByCodeword[codeword],
+                distance: minimum,
+                nearestCount: 1
+            )
+        }
     }()
 
     static func encode(messageBits: [Int]) throws -> ASHState {
@@ -58,30 +109,14 @@ enum ASHCode {
     }
 
     static func decode(_ received: ASHState) -> ASHDecodeResult {
-        let distances = codewords.map { codeword in
-            (distance: received.hammingDistance(to: codeword), codeword: codeword)
-        }
-        let minimum = distances.map(\.distance).min() ?? ASHState.bitCount
-        let nearest = distances.filter { $0.distance == minimum }.map(\.codeword)
-
-        guard minimum <= 1, nearest.count == 1, let codeword = nearest.first else {
-            return ASHDecodeResult(
-                status: .uncorrectable,
-                received: received,
-                codeword: nil,
-                messageBits: nil,
-                distance: minimum,
-                nearestCount: nearest.count
-            )
-        }
-
+        let entry = strictDecodeTable[Int(received.rawValue)]
         return ASHDecodeResult(
-            status: minimum == 0 ? .exact : .corrected,
+            status: entry.status,
             received: received,
-            codeword: codeword,
-            messageBits: messageByCodeword[codeword]?.bits,
-            distance: minimum,
-            nearestCount: 1
+            codeword: entry.codeword,
+            messageBits: entry.message?.bits,
+            distance: entry.distance,
+            nearestCount: entry.nearestCount
         )
     }
 
