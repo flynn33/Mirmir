@@ -25,6 +25,14 @@
          <BuildableReference BuildableIdentifier = "primary" BlueprintIdentifier = "200000000000000000000001" BuildableName = "Mirmir.app" BlueprintName = "Mirmir" ReferencedContainer = "container:Mirmir.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <EnvironmentVariables>
+         <EnvironmentVariable key = "MIRMIR_V4_BASELINE_DIR" value = "$(MIRMIR_V4_BASELINE_DIR)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_V4_WARMUP_COUNT" value = "$(MIRMIR_V4_WARMUP_COUNT)" isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable key = "MIRMIR_V4_SAMPLE_COUNT" value = "$(MIRMIR_V4_SAMPLE_COUNT)" isEnabled = "YES">
+         </EnvironmentVariable>
+      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction buildConfiguration = "Release" shouldUseLaunchSchemeArgsEnv = "YES" savedToolIdentifier = "" useCustomWorkingDirectory = "NO" debugDocumentVersioning = "YES">
       <BuildableProductRunnable runnableDebuggingMode = "0">

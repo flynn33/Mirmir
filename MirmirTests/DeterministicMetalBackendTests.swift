@@ -1,5 +1,6 @@
 import CoreMedia
 import CoreVideo
+import Foundation
 import XCTest
 @testable import Mirmir
 
@@ -15,6 +16,68 @@ final class DeterministicMetalBackendTests: XCTestCase {
         let differingSamples: Int
         let maximumAbsoluteCodeDifference: Int
         let sampleCount: Int
+    }
+
+    private enum BaselinePattern: String, CaseIterable {
+        case constant
+        case horizontalRamp = "horizontal_ramp"
+        case diagonalEdge = "diagonal_edge"
+        case impulse
+        case checkerboard
+        case radialDetail = "radial_detail"
+        case movingEdge0 = "moving_edge_0"
+        case movingEdge1 = "moving_edge_1"
+        case movingEdge2 = "moving_edge_2"
+        case movingEdge3 = "moving_edge_3"
+
+        var movingEdgeThreshold: Double? {
+            switch self {
+            case .movingEdge0: 0.28
+            case .movingEdge1: 0.38
+            case .movingEdge2: 0.48
+            case .movingEdge3: 0.58
+            default: nil
+            }
+        }
+    }
+
+    private struct BaselineCaseRecord: Codable {
+        let id: String
+        let route: String
+        let pixelFormat: String
+        let pattern: String
+        let sourceWidth: Int
+        let sourceHeight: Int
+        let targetWidth: Int
+        let targetHeight: Int
+        let sourceLumaByteCount: Int
+        let sourceChromaByteCount: Int
+        let targetLumaByteCount: Int
+        let targetChromaByteCount: Int
+        let sourceFile: String
+        let referenceFile: String
+        let cpuFile: String
+        let metalFile: String
+    }
+
+    private struct BaselinePerformanceRecord: Codable {
+        let id: String
+        let route: String
+        let pixelFormat: String
+        let warmupCount: Int
+        let sampleCount: Int
+        let cpuMilliseconds: [Double]
+        let metalMilliseconds: [Double]
+    }
+
+    private struct BaselineCapture: Codable {
+        let schemaVersion: String
+        let cpuImplementationVersion: String
+        let metalImplementationVersion: String
+        let sourceWidth: Int
+        let sourceHeight: Int
+        let cases: [BaselineCaseRecord]
+        let performance: [BaselinePerformanceRecord]
     }
 
     func testPreviewLUTUsesSourceP05ValuesWithoutLockMetadata() throws {
@@ -210,6 +273,232 @@ final class DeterministicMetalBackendTests: XCTestCase {
         }
     }
 
+    func testCaptureV3BaselineWhenRequested() async throws {
+        guard let requestedDirectory = ProcessInfo.processInfo.environment[
+            "MIRMIR_V4_BASELINE_DIR"
+        ], !requestedDirectory.isEmpty else {
+            throw XCTSkip("Set MIRMIR_V4_BASELINE_DIR to capture the locked v3 corpus.")
+        }
+
+        let outputDirectory = URL(fileURLWithPath: requestedDirectory, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: outputDirectory,
+            withIntermediateDirectories: true
+        )
+        let warmupCount = max(
+            0,
+            Int(ProcessInfo.processInfo.environment["MIRMIR_V4_WARMUP_COUNT"] ?? "5")
+                ?? 5
+        )
+        let sampleCount = max(
+            1,
+            Int(ProcessInfo.processInfo.environment["MIRMIR_V4_SAMPLE_COUNT"] ?? "10")
+                ?? 10
+        )
+        let sourceWidth = 16
+        let sourceHeight = 12
+        var caseRecords: [BaselineCaseRecord] = []
+        var performanceRecords: [BaselinePerformanceRecord] = []
+        var cpuImplementationVersion: String?
+        var metalImplementationVersion: String?
+        var frameIndex = 0
+
+        for pixelFormat in [
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+        ] {
+            let formatName = FourCC.string(from: pixelFormat) ?? String(pixelFormat)
+            let sourceInfo = makeSourceInfo(pixelFormat: pixelFormat)
+
+            for route in ASHSpatialRouteV2.allCases {
+                let target = CGSize(
+                    width: try route.destinationExtent(for: sourceWidth),
+                    height: try route.destinationExtent(for: sourceHeight)
+                )
+                let request = BackendPreparationRequest(
+                    source: sourceInfo,
+                    targetSize: target
+                )
+                let cpu = try await makeCPUBackend().prepare(
+                    request: request,
+                    environment: deterministicMetalTestEnvironment
+                )
+                let metal = try await makeMetalBackend().prepare(
+                    request: request,
+                    environment: deterministicMetalTestEnvironment
+                )
+                if let concrete = cpu as? PreparedDeterministicCPUUpscaler {
+                    cpuImplementationVersion = concrete.deterministicConfiguration
+                        .implementationVersion
+                }
+                if let concrete = metal as? PreparedDeterministicMetalUpscaler {
+                    metalImplementationVersion = concrete.deterministicConfiguration
+                        .implementationVersion
+                }
+
+                for pattern in BaselinePattern.allCases {
+                    let source = try SyntheticNV12PixelBuffer.make(
+                        width: sourceWidth,
+                        height: sourceHeight,
+                        pixelFormat: pixelFormat
+                    )
+                    let reference = try makeOutput(target, pixelFormat: pixelFormat)
+                    let cpuOutput = try makeOutput(target, pixelFormat: pixelFormat)
+                    let metalOutput = try makeOutput(target, pixelFormat: pixelFormat)
+                    try writeBaseline(pattern: pattern, to: source)
+                    try writeBaseline(pattern: pattern, to: reference)
+                    attachProgressiveBT709(to: source)
+                    let timing = FrameTiming(
+                        frameIndex: frameIndex,
+                        presentationTime: CMTime(value: Int64(frameIndex), timescale: 30),
+                        duration: CMTime(value: 1, timescale: 30)
+                    )
+                    try await cpu.process(
+                        source: source,
+                        destination: cpuOutput,
+                        timing: timing
+                    )
+                    try await metal.process(
+                        source: source,
+                        destination: metalOutput,
+                        timing: timing
+                    )
+                    frameIndex += 1
+
+                    let caseID = [formatName, route.rawValue, pattern.rawValue]
+                        .joined(separator: "-")
+                    let sourcePlaneBytes = try planeBytes(source)
+                    let referencePlaneBytes = try planeBytes(reference)
+                    let sourceFile = "\(caseID)-source.bin"
+                    let referenceFile = "\(caseID)-reference.bin"
+                    let cpuFile = "\(caseID)-cpu.bin"
+                    let metalFile = "\(caseID)-metal.bin"
+                    try write(
+                        sourcePlaneBytes.luma + sourcePlaneBytes.chroma,
+                        named: sourceFile,
+                        to: outputDirectory
+                    )
+                    try write(
+                        referencePlaneBytes.luma + referencePlaneBytes.chroma,
+                        named: referenceFile,
+                        to: outputDirectory
+                    )
+                    try write(try visibleBytes(cpuOutput), named: cpuFile, to: outputDirectory)
+                    try write(
+                        try visibleBytes(metalOutput),
+                        named: metalFile,
+                        to: outputDirectory
+                    )
+                    caseRecords.append(BaselineCaseRecord(
+                        id: caseID,
+                        route: route.rawValue,
+                        pixelFormat: formatName,
+                        pattern: pattern.rawValue,
+                        sourceWidth: sourceWidth,
+                        sourceHeight: sourceHeight,
+                        targetWidth: Int(target.width),
+                        targetHeight: Int(target.height),
+                        sourceLumaByteCount: sourcePlaneBytes.luma.count,
+                        sourceChromaByteCount: sourcePlaneBytes.chroma.count,
+                        targetLumaByteCount: referencePlaneBytes.luma.count,
+                        targetChromaByteCount: referencePlaneBytes.chroma.count,
+                        sourceFile: sourceFile,
+                        referenceFile: referenceFile,
+                        cpuFile: cpuFile,
+                        metalFile: metalFile
+                    ))
+                }
+
+                let benchmarkSource = try SyntheticNV12PixelBuffer.make(
+                    width: sourceWidth,
+                    height: sourceHeight,
+                    pixelFormat: pixelFormat
+                )
+                try writeBaseline(pattern: .radialDetail, to: benchmarkSource)
+                attachProgressiveBT709(to: benchmarkSource)
+                let cpuBenchmarkOutput = try makeOutput(target, pixelFormat: pixelFormat)
+                let metalBenchmarkOutput = try makeOutput(target, pixelFormat: pixelFormat)
+
+                for iteration in 0..<warmupCount {
+                    let timing = FrameTiming(
+                        frameIndex: frameIndex + iteration,
+                        presentationTime: CMTime(
+                            value: Int64(frameIndex + iteration),
+                            timescale: 30
+                        ),
+                        duration: CMTime(value: 1, timescale: 30)
+                    )
+                    try await cpu.process(
+                        source: benchmarkSource,
+                        destination: cpuBenchmarkOutput,
+                        timing: timing
+                    )
+                    try await metal.process(
+                        source: benchmarkSource,
+                        destination: metalBenchmarkOutput,
+                        timing: timing
+                    )
+                }
+                frameIndex += warmupCount
+
+                var cpuSamples: [Double] = []
+                var metalSamples: [Double] = []
+                for iteration in 0..<sampleCount {
+                    let timing = FrameTiming(
+                        frameIndex: frameIndex + iteration,
+                        presentationTime: CMTime(
+                            value: Int64(frameIndex + iteration),
+                            timescale: 30
+                        ),
+                        duration: CMTime(value: 1, timescale: 30)
+                    )
+                    cpuSamples.append(try await measuredMilliseconds {
+                        try await cpu.process(
+                            source: benchmarkSource,
+                            destination: cpuBenchmarkOutput,
+                            timing: timing
+                        )
+                    })
+                    metalSamples.append(try await measuredMilliseconds {
+                        try await metal.process(
+                            source: benchmarkSource,
+                            destination: metalBenchmarkOutput,
+                            timing: timing
+                        )
+                    })
+                }
+                frameIndex += sampleCount
+                performanceRecords.append(BaselinePerformanceRecord(
+                    id: "\(formatName)-\(route.rawValue)-radial_detail",
+                    route: route.rawValue,
+                    pixelFormat: formatName,
+                    warmupCount: warmupCount,
+                    sampleCount: sampleCount,
+                    cpuMilliseconds: cpuSamples,
+                    metalMilliseconds: metalSamples
+                ))
+                try await cpu.finish()
+                try await metal.finish()
+            }
+        }
+
+        let capture = BaselineCapture(
+            schemaVersion: "mirmir-v4-baseline-v1",
+            cpuImplementationVersion: try XCTUnwrap(cpuImplementationVersion),
+            metalImplementationVersion: try XCTUnwrap(metalImplementationVersion),
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight,
+            cases: caseRecords.sorted { $0.id < $1.id },
+            performance: performanceRecords.sorted { $0.id < $1.id }
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(capture).write(
+            to: outputDirectory.appendingPathComponent("engine-results.json"),
+            options: .atomic
+        )
+    }
+
     private func makeMetalBackend() throws -> DeterministicMetalBackend {
         let descriptor = try XCTUnwrap(
             BackendDescriptor.descriptor(for: .mirmirDeterministicMetal)
@@ -342,6 +631,108 @@ final class DeterministicMetalBackendTests: XCTestCase {
                 }
             }
         }
+    }
+
+    private func writeBaseline(
+        pattern: BaselinePattern,
+        to buffer: CVPixelBuffer
+    ) throws {
+        CVPixelBufferLockBaseAddress(buffer, [])
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        for plane in 0..<2 {
+            let width = CVPixelBufferGetWidthOfPlane(buffer, plane)
+            let height = CVPixelBufferGetHeightOfPlane(buffer, plane)
+            let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, plane)
+            let channels = plane == 0 ? 1 : 2
+            let base = try XCTUnwrap(
+                CVPixelBufferGetBaseAddressOfPlane(buffer, plane)
+            ).assumingMemoryBound(to: UInt8.self)
+            for row in 0..<height {
+                let rowBase = base.advanced(by: row * stride)
+                for column in 0..<width {
+                    let x = (Double(column) + 0.5) / Double(width)
+                    let y = (Double(row) + 0.5) / Double(height)
+                    for channel in 0..<channels {
+                        rowBase[column * channels + channel] = baselineValue(
+                            pattern: pattern,
+                            x: x,
+                            y: y,
+                            plane: plane,
+                            channel: channel
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private func baselineValue(
+        pattern: BaselinePattern,
+        x: Double,
+        y: Double,
+        plane: Int,
+        channel: Int
+    ) -> UInt8 {
+        let neutral = plane == 0 ? 96.0 : (channel == 0 ? 112.0 : 144.0)
+        let low = plane == 0 ? 20.0 : (channel == 0 ? 72.0 : 88.0)
+        let high = plane == 0 ? 232.0 : (channel == 0 ? 184.0 : 208.0)
+        let value: Double
+        switch pattern {
+        case .constant:
+            value = neutral
+        case .horizontalRamp:
+            value = low + (high - low) * (0.82 * x + 0.18 * y)
+        case .diagonalEdge:
+            value = x + 0.42 * y < 0.69 ? low : high
+        case .impulse:
+            let dx = x - 0.5
+            let dy = y - 0.5
+            let gaussian = exp(-(dx * dx + dy * dy) / 0.006)
+            value = low + (high - low) * gaussian
+        case .checkerboard:
+            let cellX = Int(floor(x * 8.0))
+            let cellY = Int(floor(y * 6.0))
+            value = (cellX + cellY).isMultiple(of: 2) ? low : high
+        case .radialDetail:
+            let dx = x - 0.5
+            let dy = y - 0.5
+            let radius = sqrt(dx * dx + dy * dy)
+            let wave = 0.5 + 0.5 * sin(62.0 * radius + 7.0 * x - 5.0 * y)
+            value = low + (high - low) * wave
+        case .movingEdge0, .movingEdge1, .movingEdge2, .movingEdge3:
+            let threshold = pattern.movingEdgeThreshold ?? 0.5
+            value = x + 0.18 * y < threshold ? low : high
+        }
+        return UInt8(clamping: Int(value.rounded()))
+    }
+
+    private func planeBytes(
+        _ buffer: CVPixelBuffer
+    ) throws -> (luma: [UInt8], chroma: [UInt8]) {
+        (
+            try SyntheticNV12PixelBuffer.visibleBytes(buffer, plane: 0),
+            try SyntheticNV12PixelBuffer.visibleBytes(buffer, plane: 1)
+        )
+    }
+
+    private func write(
+        _ bytes: [UInt8],
+        named name: String,
+        to directory: URL
+    ) throws {
+        try Data(bytes).write(
+            to: directory.appendingPathComponent(name),
+            options: .atomic
+        )
+    }
+
+    private func measuredMilliseconds(
+        _ operation: () async throws -> Void
+    ) async throws -> Double {
+        let start = DispatchTime.now().uptimeNanoseconds
+        try await operation()
+        let end = DispatchTime.now().uptimeNanoseconds
+        return Double(end - start) / 1_000_000.0
     }
 
     private func visibleBytes(_ buffer: CVPixelBuffer) throws -> [UInt8] {
