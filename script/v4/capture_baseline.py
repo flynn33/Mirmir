@@ -35,6 +35,23 @@ def run_text(command: list[str], cwd: Path) -> str:
     ).strip()
 
 
+def redact_system_profile(raw_json: str) -> str:
+    private_key_fragments = ("serial_number", "serial-number", "uuid", "udid")
+
+    def redacted(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {
+                key: redacted(child)
+                for key, child in value.items()
+                if not any(fragment in key.lower() for fragment in private_key_fragments)
+            }
+        if isinstance(value, list):
+            return [redacted(child) for child in value]
+        return value
+
+    return json.dumps(redacted(json.loads(raw_json)), indent=2, sort_keys=True)
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -290,11 +307,14 @@ def environment_manifest(repository: Path) -> dict[str, Any]:
         "hardware": ["system_profiler", "SPHardwareDataType", "-json"],
         "graphics": ["system_profiler", "SPDisplaysDataType", "-json"],
         "power": ["pmset", "-g", "custom"],
+        "thermal": ["pmset", "-g", "therm"],
     }
     command_results: dict[str, str] = {}
     for name, command in commands.items():
         try:
             command_results[name] = run_text(command, repository)
+            if name in {"hardware", "graphics"}:
+                command_results[name] = redact_system_profile(command_results[name])
         except (OSError, subprocess.CalledProcessError) as error:
             command_results[name] = f"unavailable: {error}"
     return {
