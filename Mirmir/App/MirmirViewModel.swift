@@ -2,6 +2,117 @@ import AppKit
 import Foundation
 import Observation
 import UniformTypeIdentifiers
+import VideoToolbox
+
+typealias SuperResolutionScaleProvider = @Sendable (
+    UpscaleBackendID,
+    Int,
+    Int
+) -> [Int]
+
+struct BackendSelectionTargetAdjustment: Equatable, Sendable {
+    let backendID: UpscaleBackendID
+    let sourceURL: URL?
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let currentTargetWidth: Int
+    let currentTargetHeight: Int
+    let proposedTargetWidth: Int
+    let proposedTargetHeight: Int
+    let proposedScaleFactor: Int
+    let supportedScaleFactors: [Int]
+
+    var alertTitle: String {
+        "Change target for Apple Super Resolution?"
+    }
+
+    var confirmationTitle: String {
+        sourceURL == nil
+            ? "Use \(proposedScaleFactor)× & Select"
+            : "Change Target & Select"
+    }
+
+    var message: String {
+        let supported = supportedScaleFactors
+            .map { "\($0)×" }
+            .joined(separator: supportedScaleFactors.count == 2 ? " and " : ", ")
+        if sourceURL == nil {
+            return "This Mac reports \(supported) for VideoToolbox Quality. "
+                + "Mirmir normally starts each loaded video at 2×, which this "
+                + "method does not support here. Selecting Quality will use a "
+                + "\(proposedScaleFactor)× target after you choose a source. "
+                + "Apple may also require its quality model to be downloaded "
+                + "before processing."
+        }
+        let currentScale: String
+        if currentTargetWidth.isMultiple(of: sourceWidth),
+           currentTargetHeight.isMultiple(of: sourceHeight),
+           currentTargetWidth / sourceWidth == currentTargetHeight / sourceHeight {
+            currentScale = "\(currentTargetWidth / sourceWidth)×"
+        } else {
+            currentScale = "custom"
+        }
+        let dimensions = "\(currentTargetWidth) × \(currentTargetHeight) to "
+            + "\(proposedTargetWidth) × \(proposedTargetHeight)"
+
+        switch backendID {
+        case .videoToolboxSuperResolutionQuality:
+            return "This Mac reports \(supported) for VideoToolbox Quality. "
+                + "The current \(currentScale) target is not supported. "
+                + "Selecting Quality will change the target from \(dimensions). "
+                + "Apple may also require its quality model to be downloaded "
+                + "before processing."
+        case .videoToolboxSuperResolutionLowLatency:
+            return "This Mac reports \(supported) for VideoToolbox Low Latency. "
+                + "The current \(currentScale) target is not supported. "
+                + "Selecting Low Latency will change the target from \(dimensions) "
+                + "so VideoToolbox can create an exact output."
+        default:
+            return "Selecting this method will change the target from \(dimensions)."
+        }
+    }
+}
+
+private enum LiveSuperResolutionScaleSupport {
+    static let provider: SuperResolutionScaleProvider = {
+        backendID,
+        sourceWidth,
+        sourceHeight in
+        scaleFactors(
+            for: backendID,
+            sourceWidth: sourceWidth,
+            sourceHeight: sourceHeight
+        )
+    }
+
+    static func scaleFactors(
+        for backendID: UpscaleBackendID,
+        sourceWidth: Int,
+        sourceHeight: Int
+    ) -> [Int] {
+        guard #available(macOS 26.0, *) else { return [] }
+        let factors: [Int]
+        switch backendID {
+        case .videoToolboxSuperResolutionQuality:
+            factors = VTSuperResolutionScalerConfiguration.supportedScaleFactors
+        case .videoToolboxSuperResolutionLowLatency:
+            factors = VTLowLatencySuperResolutionScalerConfiguration
+                .supportedScaleFactors(
+                    frameWidth: sourceWidth,
+                    frameHeight: sourceHeight
+                )
+                .compactMap { value in
+                    let rounded = Int(value.rounded())
+                    return abs(value - Float(rounded)) <= 0.000_001
+                        ? rounded
+                        : nil
+                }
+        default:
+            factors = []
+        }
+        return Array(Set(factors.filter { $0 > 1 })).sorted()
+    }
+}
 
 @MainActor
 @Observable
@@ -27,6 +138,8 @@ final class MirmirViewModel {
     @ObservationIgnored private let backendCatalog: UpscaleBackendCatalog
     @ObservationIgnored private let runtimeEnvironment: RuntimeEnvironment
     @ObservationIgnored private let coordinator: UpscaleCoordinator
+    @ObservationIgnored private let superResolutionScaleProvider:
+        SuperResolutionScaleProvider
     @ObservationIgnored private var probeTask: Task<Void, Never>?
     @ObservationIgnored private var backendAvailabilityTask: Task<Void, Never>?
     @ObservationIgnored private var processingTask: Task<Void, Never>?
@@ -36,16 +149,20 @@ final class MirmirViewModel {
     @ObservationIgnored private var scopedInputAccess: SecurityScopedAccess?
     @ObservationIgnored private var scopedOutputAccess: SecurityScopedAccess?
     @ObservationIgnored private var sourceAspectRatio: Double?
+    @ObservationIgnored private var preferredInitialScaleFactor: Int?
 
     init(
         videoProbe: any VideoProbing = VideoProbe(),
         backendCatalog: UpscaleBackendCatalog = .live(),
         runtimeEnvironment: RuntimeEnvironment = .current(),
-        coordinator: UpscaleCoordinator? = nil
+        coordinator: UpscaleCoordinator? = nil,
+        superResolutionScaleProvider: SuperResolutionScaleProvider? = nil
     ) {
         self.videoProbe = videoProbe
         self.backendCatalog = backendCatalog
         self.runtimeEnvironment = runtimeEnvironment
+        self.superResolutionScaleProvider = superResolutionScaleProvider
+            ?? LiveSuperResolutionScaleSupport.provider
         self.coordinator = coordinator ?? UpscaleCoordinator(
             videoProbe: videoProbe,
             backendCatalog: backendCatalog,
@@ -173,7 +290,93 @@ final class MirmirViewModel {
     }
 
     func selectBackend(_ backendID: UpscaleBackendID) {
+        preferredInitialScaleFactor = nil
         selectedBackendID = backendID
+    }
+
+    func targetAdjustmentForSelecting(
+        _ backendID: UpscaleBackendID
+    ) -> BackendSelectionTargetAdjustment? {
+        guard backendID == .videoToolboxSuperResolutionQuality
+                || backendID == .videoToolboxSuperResolutionLowLatency else {
+            return nil
+        }
+        guard let source = currentVideoInfo else {
+            guard backendID == .videoToolboxSuperResolutionQuality else {
+                return nil
+            }
+            let supported = superResolutionScaleProvider(backendID, 0, 0)
+            guard !supported.isEmpty, !supported.contains(2) else { return nil }
+            let proposedScale = supported[0]
+            return BackendSelectionTargetAdjustment(
+                backendID: backendID,
+                sourceURL: nil,
+                sourceWidth: 0,
+                sourceHeight: 0,
+                currentTargetWidth: 0,
+                currentTargetHeight: 0,
+                proposedTargetWidth: 0,
+                proposedTargetHeight: 0,
+                proposedScaleFactor: proposedScale,
+                supportedScaleFactors: supported
+            )
+        }
+        guard
+              let encoded = integralEncodedSize(for: source),
+              let availability = backendSnapshot?
+                .entry(for: backendID)?.availability,
+              case .unavailable(let reason) = availability,
+              case .unsupportedScaleFactor = reason else {
+            return nil
+        }
+
+        let supported = superResolutionScaleProvider(
+            backendID,
+            encoded.width,
+            encoded.height
+        )
+        guard !supported.isEmpty else { return nil }
+        let proposedScale = backendID == .videoToolboxSuperResolutionLowLatency
+            && supported.contains(2)
+            ? 2
+            : supported[0]
+        let width = encoded.width.multipliedReportingOverflow(by: proposedScale)
+        let height = encoded.height.multipliedReportingOverflow(by: proposedScale)
+        guard !width.overflow, !height.overflow,
+              width.partialValue != targetWidth
+                || height.partialValue != targetHeight else {
+            return nil
+        }
+
+        return BackendSelectionTargetAdjustment(
+            backendID: backendID,
+            sourceURL: source.url,
+            sourceWidth: encoded.width,
+            sourceHeight: encoded.height,
+            currentTargetWidth: targetWidth,
+            currentTargetHeight: targetHeight,
+            proposedTargetWidth: width.partialValue,
+            proposedTargetHeight: height.partialValue,
+            proposedScaleFactor: proposedScale,
+            supportedScaleFactors: supported
+        )
+    }
+
+    func applyBackendSelectionAdjustment(
+        _ adjustment: BackendSelectionTargetAdjustment
+    ) {
+        if adjustment.sourceURL == nil {
+            guard currentVideoInfo == nil else { return }
+            selectedBackendID = adjustment.backendID
+            preferredInitialScaleFactor = adjustment.proposedScaleFactor
+            return
+        }
+        guard currentVideoInfo?.url == adjustment.sourceURL else { return }
+        selectedBackendID = adjustment.backendID
+        preferredInitialScaleFactor = nil
+        targetWidth = adjustment.proposedTargetWidth
+        targetHeight = adjustment.proposedTargetHeight
+        targetDidChange()
     }
 
     func setTargetWidth(_ value: Int, preservingAspectRatio: Bool = false) {
@@ -426,8 +629,9 @@ final class MirmirViewModel {
             return
         }
         sourceAspectRatio = Double(encoded.width) / Double(encoded.height)
-        let width = encoded.width.multipliedReportingOverflow(by: 2)
-        let height = encoded.height.multipliedReportingOverflow(by: 2)
+        let initialScale = preferredInitialScaleFactor ?? 2
+        let width = encoded.width.multipliedReportingOverflow(by: initialScale)
+        let height = encoded.height.multipliedReportingOverflow(by: initialScale)
         guard !width.overflow, !height.overflow else {
             targetWidth = 0
             targetHeight = 0

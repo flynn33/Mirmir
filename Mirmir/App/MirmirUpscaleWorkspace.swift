@@ -8,6 +8,7 @@ struct MirmirProductUpscaleWorkspace: View {
     let theme: MirmirThemeTokens
     let compact: Bool
     let showMethods: () -> Void
+    let selectMethod: (UpscaleBackendID) -> Void
 
     @State private var aspectLocked = true
 
@@ -264,7 +265,7 @@ struct MirmirProductUpscaleWorkspace: View {
                                 id: \.id
                             ) { descriptor in
                                 Button {
-                                    viewModel.selectBackend(descriptor.id)
+                                    selectMethod(descriptor.id)
                                 } label: {
                                     if descriptor.id == viewModel.selectedBackendID {
                                         Label(
@@ -275,7 +276,6 @@ struct MirmirProductUpscaleWorkspace: View {
                                         Text(descriptor.title)
                                     }
                                 }
-                                .disabled(!methodIsSelectable(descriptor.id))
                             }
                         }
                     }
@@ -298,7 +298,7 @@ struct MirmirProductUpscaleWorkspace: View {
                     }
                 }
                 .menuStyle(.borderlessButton)
-                .disabled(viewModel.currentVideoInfo == nil || viewModel.isProcessing)
+                .disabled(viewModel.isProcessing)
                 .accessibilityIdentifier("mirmir.backendPicker")
 
                 Text(selectedMethodSummary)
@@ -554,11 +554,6 @@ struct MirmirProductUpscaleWorkspace: View {
         }
     }
 
-    private func methodIsSelectable(_ id: UpscaleBackendID) -> Bool {
-        viewModel.backendSnapshot?.entry(for: id)?.availability.isSelectable
-            == true
-    }
-
     private var viewerBadge: String {
         switch viewModel.state {
         case .empty: "NO SOURCE"
@@ -637,8 +632,9 @@ struct MirmirBackendCatalogView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: theme.spacing.space5) {
                 Text(
-                    "Every method remains visible. Availability is evaluated for "
-                        + "the current source, exact target, OS, and hardware."
+                    "Every method remains visible and selectable. Availability is "
+                        + "evaluated for the current source, exact target, OS, and "
+                        + "hardware; unavailable selections retain their reason."
                 )
                 .font(theme.typography.body)
                 .foregroundStyle(theme.textSecondary)
@@ -666,8 +662,6 @@ struct MirmirBackendCatalogView: View {
         let availability = viewModel.backendSnapshot?
             .entry(for: descriptor.id)?.availability
         let selected = descriptor.id == viewModel.selectedBackendID
-        let selectable = availability?.isSelectable == true
-
         return Button {
             selectAndReturn(descriptor.id)
         } label: {
@@ -717,7 +711,7 @@ struct MirmirBackendCatalogView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(!selectable)
+        .disabled(viewModel.isProcessing)
         .accessibilityIdentifier("mirmir.backend.\(descriptor.id.rawValue)")
         .accessibilityValue(statusText(descriptor, availability: availability))
     }

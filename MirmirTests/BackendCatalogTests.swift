@@ -248,6 +248,130 @@ final class BackendCatalogTests: XCTestCase {
     }
 
     @MainActor
+    func testQualitySelectionWarnsBeforeChangingDefaultTargetToSupportedScale() async throws {
+        let url = URL(fileURLWithPath: "/tmp/catalog-quality-adjustment.mov")
+        let source = makeVideoInfo(
+            url: url,
+            encodedSize: CGSize(width: 320, height: 180)
+        )
+        var values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        values[.videoToolboxSuperResolutionQuality] = .unavailable(
+            reason: .unsupportedScaleFactor(
+                details: "requested 2×; this Mac reports [4]"
+            )
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            superResolutionScaleProvider: { backendID, _, _ in
+                backendID == .videoToolboxSuperResolutionQuality ? [4] : [2, 4]
+            }
+        )
+
+        viewModel.selectVideo(url)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+
+        let adjustment = try XCTUnwrap(
+            viewModel.targetAdjustmentForSelecting(
+                .videoToolboxSuperResolutionQuality
+            )
+        )
+        XCTAssertEqual(viewModel.targetWidth, 640)
+        XCTAssertEqual(viewModel.targetHeight, 360)
+        XCTAssertEqual(adjustment.proposedScaleFactor, 4)
+        XCTAssertEqual(adjustment.proposedTargetWidth, 1_280)
+        XCTAssertEqual(adjustment.proposedTargetHeight, 720)
+        XCTAssertTrue(adjustment.message.contains("current 2× target"))
+        XCTAssertTrue(adjustment.message.contains("quality model"))
+
+        viewModel.applyBackendSelectionAdjustment(adjustment)
+        await viewModel.waitForBackendAvailability()
+
+        XCTAssertEqual(
+            viewModel.selectedBackendID,
+            .videoToolboxSuperResolutionQuality
+        )
+        XCTAssertEqual(viewModel.targetWidth, 1_280)
+        XCTAssertEqual(viewModel.targetHeight, 720)
+    }
+
+    @MainActor
+    func testLowLatencyDefaultTwoXSelectionNeedsNoTargetWarning() async {
+        let url = URL(fileURLWithPath: "/tmp/catalog-low-latency-default.mov")
+        let source = makeVideoInfo(url: url)
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            superResolutionScaleProvider: { _, _, _ in [2, 4] }
+        )
+
+        viewModel.selectVideo(url)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+
+        XCTAssertNil(
+            viewModel.targetAdjustmentForSelecting(
+                .videoToolboxSuperResolutionLowLatency
+            )
+        )
+        viewModel.selectBackend(.videoToolboxSuperResolutionLowLatency)
+        XCTAssertEqual(viewModel.targetWidth, 640)
+        XCTAssertEqual(viewModel.targetHeight, 360)
+    }
+
+    @MainActor
+    func testQualitySelectionBeforeSourceWarnsAndChangesInitialDefaultAfterConsent() async {
+        let url = URL(fileURLWithPath: "/tmp/catalog-quality-presource.mov")
+        let source = makeVideoInfo(url: url)
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            runtimeEnvironment: testEnvironment,
+            superResolutionScaleProvider: { backendID, _, _ in
+                backendID == .videoToolboxSuperResolutionQuality ? [4] : [2, 4]
+            }
+        )
+
+        let adjustment = try? XCTUnwrap(
+            viewModel.targetAdjustmentForSelecting(
+                .videoToolboxSuperResolutionQuality
+            )
+        )
+        XCTAssertNil(adjustment?.sourceURL)
+        XCTAssertEqual(adjustment?.proposedScaleFactor, 4)
+        XCTAssertTrue(adjustment?.message.contains("normally starts") == true)
+        guard let adjustment else { return }
+
+        viewModel.applyBackendSelectionAdjustment(adjustment)
+        XCTAssertEqual(
+            viewModel.selectedBackendID,
+            .videoToolboxSuperResolutionQuality
+        )
+
+        viewModel.selectVideo(url)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+
+        XCTAssertEqual(viewModel.targetWidth, 1_280)
+        XCTAssertEqual(viewModel.targetHeight, 720)
+    }
+
+    @MainActor
     func testViewModelRejectsUnrepresentableAndRoundedZeroEncodedDimensions() async {
         let sizes = [
             CGSize(width: CGFloat(Int.max), height: 180),
