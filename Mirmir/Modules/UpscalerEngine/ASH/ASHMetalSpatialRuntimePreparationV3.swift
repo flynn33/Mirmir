@@ -34,9 +34,9 @@ struct ASHMetalUniformInputsV3 {
     let source: ASHNV12FrameGeometry
     let destination: ASHNV12FrameGeometry
     let route: ASHSpatialRouteV2
-    let lut: ASHLUTLoadedV3
-    let configuration: ASHLUTLockedConfigurationV3
-    let mapping: ASHLockedVideoMappingV2
+    let lut: ASHMetalRuntimeLUTV3
+    let configuration: ASHMetalRuntimeConfigurationV3
+    let mapping: ASHMetalRuntimeMappingV3
     let analysisColumns: Int
     let analysisRows: Int
 }
@@ -218,7 +218,7 @@ enum ASHMetalSpatialRuntimePreparationV3 {
         integer(21, Int(selection.chromaAnisotropyMode.rawValue))
         values[22] = ASHLUTLittleEndianV3.uint32(inputs.lut.immutableBytes, at: 40)
         values[23] = ASHLUTLittleEndianV3.uint32(inputs.lut.immutableBytes, at: 44)
-        values[24] = UInt32(inputs.lut.parameters.count)
+        values[24] = UInt32(inputs.lut.parameterCount)
         values[25] = UInt32(inputs.lut.immutableBytes.count)
         floating(30, inputs.mapping.analyzerConfiguration.riskWeights.laplacian)
         floating(31, inputs.mapping.analyzerConfiguration.riskWeights.alternatingDifference)

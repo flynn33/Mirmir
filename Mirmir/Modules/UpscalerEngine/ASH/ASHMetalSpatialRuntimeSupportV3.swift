@@ -4,6 +4,7 @@ import Foundation
 import os.lock
 
 enum ASHMetalSpatialRuntimeErrorV3: Error, Equatable, Sendable {
+    case configurationMismatch
     case defaultLibraryUnavailable
     case functionUnavailable(String)
     case pipelineCreationFailed(function: String, reason: String)
@@ -20,6 +21,171 @@ enum ASHMetalSpatialRuntimeErrorV3: Error, Equatable, Sendable {
     case encoderCreationFailed(stage: String)
     case commandExecutionFailed(status: String, reason: String?)
     case fatalNumericalFault(count: UInt32)
+}
+
+/// The small, runtime-only input surface consumed by the Metal kernels.
+/// Release-locked artifact loaders may adapt into this type, while the product
+/// preview constructs it directly from the checked-in P05 development values.
+struct ASHMetalRuntimeMappingV3: Equatable, Sendable {
+    let analyzerConfiguration: ASHVideoAnalyzerV2DevelopmentConfiguration
+    let codeRange: ASHVideoCodeRange8Bit
+    let chromaSiting: ASHChromaSitingV2
+    let boundaryMode: ASHSpatialBoundaryModeV2
+    let direct2xAnalysisGridSourceStep: UInt8
+    let direct3Over2AnalysisGridSourceStep: UInt8
+
+    func analysisGridSourceStep(for route: ASHSpatialRouteV2) -> UInt8 {
+        switch route {
+        case .direct2x: direct2xAnalysisGridSourceStep
+        case .direct3Over2: direct3Over2AnalysisGridSourceStep
+        }
+    }
+}
+
+struct ASHMetalRuntimeOperatorParametersV3: Equatable, Sendable {
+    let minimumAnisotropicMagnitudeUNorm15: UInt16
+    let minimumAnisotropicCoherenceUNorm15: UInt16
+    let detailGainQ12: UInt16
+    let relaxedLimiterAlphaQ12: UInt16
+    let riskSuppressionUNorm15: UInt16
+    let lowPassRadiusQ8x8: UInt16
+    let weightEpsilonF32Bits: UInt32
+
+    init(_ locked: ASHLUTLockedOperatorParametersV3) {
+        minimumAnisotropicMagnitudeUNorm15 =
+            locked.minimumAnisotropicMagnitudeUNorm15
+        minimumAnisotropicCoherenceUNorm15 =
+            locked.minimumAnisotropicCoherenceUNorm15
+        detailGainQ12 = locked.detailGainQ12
+        relaxedLimiterAlphaQ12 = locked.relaxedLimiterAlphaQ12
+        riskSuppressionUNorm15 = locked.riskSuppressionUNorm15
+        lowPassRadiusQ8x8 = locked.lowPassRadiusQ8x8
+        weightEpsilonF32Bits = locked.weightEpsilonF32Bits
+    }
+
+    init(
+        minimumAnisotropicMagnitudeUNorm15: UInt16,
+        minimumAnisotropicCoherenceUNorm15: UInt16,
+        detailGainQ12: UInt16,
+        relaxedLimiterAlphaQ12: UInt16,
+        riskSuppressionUNorm15: UInt16,
+        lowPassRadiusQ8x8: UInt16,
+        weightEpsilonF32Bits: UInt32
+    ) {
+        self.minimumAnisotropicMagnitudeUNorm15 =
+            minimumAnisotropicMagnitudeUNorm15
+        self.minimumAnisotropicCoherenceUNorm15 =
+            minimumAnisotropicCoherenceUNorm15
+        self.detailGainQ12 = detailGainQ12
+        self.relaxedLimiterAlphaQ12 = relaxedLimiterAlphaQ12
+        self.riskSuppressionUNorm15 = riskSuppressionUNorm15
+        self.lowPassRadiusQ8x8 = lowPassRadiusQ8x8
+        self.weightEpsilonF32Bits = weightEpsilonF32Bits
+    }
+}
+
+struct ASHMetalRuntimeRouteSelectionV3: Equatable, Sendable {
+    /// Nil means the development source has no release policy identifier.
+    let spatialPolicyID: UInt8?
+    let lumaAnisotropyMode: ASHLUTAnisotropyModeV3
+    let chromaAnisotropyMode: ASHLUTAnisotropyModeV3
+    let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+    let analysisGridSourceStep: UInt8
+
+    func anisotropyMode(
+        for planeRole: ASHLUTPlaneRoleV3
+    ) -> ASHLUTAnisotropyModeV3 {
+        switch planeRole {
+        case .luma: lumaAnisotropyMode
+        case .chroma: chromaAnisotropyMode
+        }
+    }
+}
+
+struct ASHMetalRuntimeConfigurationV3: Equatable, Sendable {
+    let boundaryMode: ASHSpatialBoundaryModeV2
+    let operatorParameters: ASHMetalRuntimeOperatorParametersV3
+    let direct2x: ASHMetalRuntimeRouteSelectionV3
+    let direct3Over2: ASHMetalRuntimeRouteSelectionV3
+
+    func routeSelection(
+        for route: ASHSpatialRouteV2
+    ) -> ASHMetalRuntimeRouteSelectionV3 {
+        switch route {
+        case .direct2x: direct2x
+        case .direct3Over2: direct3Over2
+        }
+    }
+}
+
+extension ASHLUTLockedConfigurationV3 {
+    var metalRuntimeConfigurationV3: ASHMetalRuntimeConfigurationV3 {
+        func selection(
+            _ locked: ASHLUTLockedRouteSelectionV3
+        ) -> ASHMetalRuntimeRouteSelectionV3 {
+            ASHMetalRuntimeRouteSelectionV3(
+                spatialPolicyID: locked.spatialPolicyID,
+                lumaAnisotropyMode: locked.lumaAnisotropyMode,
+                chromaAnisotropyMode: locked.chromaAnisotropyMode,
+                lumaCoordinatePolicy: locked.lumaCoordinatePolicy,
+                chromaCoordinatePolicy: locked.chromaCoordinatePolicy,
+                analysisGridSourceStep: locked.analysisGridSourceStep
+            )
+        }
+        return ASHMetalRuntimeConfigurationV3(
+            boundaryMode: boundaryMode,
+            operatorParameters: ASHMetalRuntimeOperatorParametersV3(
+                operatorParameters
+            ),
+            direct2x: selection(routes.direct2x),
+            direct3Over2: selection(routes.direct3Over2)
+        )
+    }
+}
+
+/// Immutable bytes and dimensions needed by the GPU. This deliberately does
+/// not imply that the bytes came from a release-lock package.
+struct ASHMetalRuntimeLUTV3: Equatable, Sendable {
+    let route: ASHSpatialRouteV2
+    let configuration: ASHMetalRuntimeConfigurationV3
+    let immutableBytes: Data
+    let parameterCount: Int
+    let runtimeTreeGenerationCount: Int
+
+    init(
+        route: ASHSpatialRouteV2,
+        configuration: ASHMetalRuntimeConfigurationV3,
+        immutableBytes: Data,
+        parameterCount: Int,
+        runtimeTreeGenerationCount: Int = 0
+    ) throws {
+        guard immutableBytes.count >= ASHLUTBinaryContractV3.headerSize,
+              parameterCount > 0,
+              ASHLUTLittleEndianV3.uint16(immutableBytes, at: 16)
+                == ASHLUTBinaryContractV3.routeID(route),
+              ASHLUTLittleEndianV3.uint32(immutableBytes, at: 36)
+                == UInt32(parameterCount),
+              ASHLUTLittleEndianV3.uint32(immutableBytes, at: 296)
+                == UInt32(immutableBytes.count) else {
+            throw ASHMetalSpatialRuntimeErrorV3.configurationMismatch
+        }
+        self.route = route
+        self.configuration = configuration
+        self.immutableBytes = immutableBytes
+        self.parameterCount = parameterCount
+        self.runtimeTreeGenerationCount = runtimeTreeGenerationCount
+    }
+
+    init(_ loaded: ASHLUTLoadedV3) throws {
+        try self.init(
+            route: loaded.route,
+            configuration: loaded.configuration.metalRuntimeConfigurationV3,
+            immutableBytes: loaded.immutableBytes,
+            parameterCount: loaded.parameters.count,
+            runtimeTreeGenerationCount: loaded.runtimeTreeGenerationCount
+        )
+    }
 }
 
 struct ASHMetalStateSampleABIV3: Equatable, Sendable {

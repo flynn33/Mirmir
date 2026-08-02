@@ -169,18 +169,97 @@ extension ASHLUTBinaryCodecV3 {
         let full: Data
     }
 
+    private struct HeaderMetadata {
+        let mappingSHA256: [UInt8]
+        let operatorBankSHA256: [UInt8]
+        let metricPolicySHA256: [UInt8]
+        let compilerInputsSHA256: [UInt8]
+        let calibrationPlanSHA256: [UInt8]
+        let corpusLockBundleSHA256: [UInt8]
+        let spatialPolicyID: UInt8
+        let lumaAnisotropyMode: ASHLUTAnisotropyModeV3
+        let chromaAnisotropyMode: ASHLUTAnisotropyModeV3
+        let lumaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+        let chromaCoordinatePolicy: ASHSpatialCoordinatePolicyV2
+        let analysisGridSourceStep: UInt8
+    }
+
+    static func serialize(
+        _ compilation: ASHLUTCompilationV3
+    ) throws -> ASHLUTBinaryArtifactV3 {
+        let configuration = compilation.configuration
+        let selection = configuration.routeSelection(for: compilation.route)
+        return try serialize(
+            route: compilation.route,
+            entries: compilation.entries,
+            metadata: HeaderMetadata(
+                mappingSHA256: configuration.mappingSHA256.bytes,
+                operatorBankSHA256: configuration.operatorBankSHA256.bytes,
+                metricPolicySHA256: configuration.metricPolicySHA256.bytes,
+                compilerInputsSHA256: configuration.compilerInputsSHA256.bytes,
+                calibrationPlanSHA256: configuration.calibrationPlanSHA256.bytes,
+                corpusLockBundleSHA256: configuration.corpusLockBundleSHA256.bytes,
+                spatialPolicyID: selection.spatialPolicyID,
+                lumaAnisotropyMode: selection.lumaAnisotropyMode,
+                chromaAnisotropyMode: selection.chromaAnisotropyMode,
+                lumaCoordinatePolicy: selection.lumaCoordinatePolicy,
+                chromaCoordinatePolicy: selection.chromaCoordinatePolicy,
+                analysisGridSourceStep: selection.analysisGridSourceStep
+            )
+        )
+    }
+
+    /// Serializes the runtime-consumed ABI without manufacturing the four
+    /// release-lock identities that do not exist for the P05 preview. Their
+    /// reserved header fields stay zero; the two checked-in seed identities,
+    /// payload SHA-256, CRCs, and all frame-math values remain explicit.
+    static func serializeDevelopmentRuntime(
+        route: ASHSpatialRouteV2,
+        entries: [ASHLUTCompiledEntryV3],
+        mappingSHA256: ASHLUTHashV3,
+        operatorBankSHA256: ASHLUTHashV3,
+        selection: ASHMetalRuntimeRouteSelectionV3
+    ) throws -> ASHLUTBinaryArtifactV3 {
+        let absentLockIdentity = [UInt8](
+            repeating: 0,
+            count: ASHLUTHashV3.byteCount
+        )
+        return try serialize(
+            route: route,
+            entries: entries,
+            metadata: HeaderMetadata(
+                mappingSHA256: mappingSHA256.bytes,
+                operatorBankSHA256: operatorBankSHA256.bytes,
+                metricPolicySHA256: absentLockIdentity,
+                compilerInputsSHA256: absentLockIdentity,
+                calibrationPlanSHA256: absentLockIdentity,
+                corpusLockBundleSHA256: absentLockIdentity,
+                spatialPolicyID: selection.spatialPolicyID ?? UInt8.max,
+                lumaAnisotropyMode: selection.lumaAnisotropyMode,
+                chromaAnisotropyMode: selection.chromaAnisotropyMode,
+                lumaCoordinatePolicy: selection.lumaCoordinatePolicy,
+                chromaCoordinatePolicy: selection.chromaCoordinatePolicy,
+                analysisGridSourceStep: selection.analysisGridSourceStep
+            )
+        )
+    }
+
     // swiftlint:disable:next function_body_length
-    static func serialize(_ compilation: ASHLUTCompilationV3) throws -> ASHLUTBinaryArtifactV3 {
-        let expectedEntryCount = compilation.route.phasePairCount
+    private static func serialize(
+        route: ASHSpatialRouteV2,
+        entries: [ASHLUTCompiledEntryV3],
+        metadata: HeaderMetadata
+    ) throws -> ASHLUTBinaryArtifactV3 {
+        let expectedEntryCount = route.phasePairCount
             * ASHLUTBinaryContractV3.planeCount
             * ASHLUTBinaryContractV3.contextCount
             * ASHLUTBinaryContractV3.validStateCount
-        guard compilation.entries.count == expectedEntryCount else {
+        guard entries.count == expectedEntryCount else {
             throw ASHLUTCompilerErrorV3.entryCountMismatch
         }
 
         var unique: [Data: ASHLUTParameterPairV3] = [:]
-        for entry in compilation.entries {
+        for entry in entries {
             let prefix = encodeParameterPrefix(entry.parameters)
             unique[prefix] = entry.parameters
         }
@@ -199,10 +278,10 @@ extension ASHLUTBinaryCodecV3 {
             parameterBytes.append(parameter.full)
         }
 
-        let routeID = ASHLUTBinaryContractV3.routeID(compilation.route)
+        let routeID = ASHLUTBinaryContractV3.routeID(route)
         var entryBytes = Data()
-        entryBytes.reserveCapacity(compilation.entries.count * ASHLUTBinaryContractV3.entryStride)
-        for entry in compilation.entries {
+        entryBytes.reserveCapacity(entries.count * ASHLUTBinaryContractV3.entryStride)
+        for entry in entries {
             let prefix = encodeParameterPrefix(entry.parameters)
             guard let parameterIndex = parameterIndexByPrefix[prefix] else {
                 throw ASHLUTCompilerErrorV3.invalidLockedConfiguration
@@ -234,13 +313,13 @@ extension ASHLUTBinaryCodecV3 {
         ASHLUTLittleEndianV3.write(ASHLUTBinaryContractV3.endianTag, at: 14, in: &header)
         ASHLUTLittleEndianV3.write(routeID, at: 16, in: &header)
         ASHLUTLittleEndianV3.write(ASHLUTBinaryContractV3.requiredHeaderFlags, at: 18, in: &header)
-        ASHLUTLittleEndianV3.write(UInt16(compilation.route.phasePairCount), at: 20, in: &header)
+        ASHLUTLittleEndianV3.write(UInt16(route.phasePairCount), at: 20, in: &header)
         ASHLUTLittleEndianV3.write(UInt16(ASHLUTBinaryContractV3.contextCount), at: 22, in: &header)
         ASHLUTLittleEndianV3.write(UInt16(ASHLUTBinaryContractV3.validStateCount), at: 24, in: &header)
         ASHLUTLittleEndianV3.write(UInt16(ASHLUTBinaryContractV3.entryStride), at: 26, in: &header)
         ASHLUTLittleEndianV3.write(UInt16(ASHLUTBinaryContractV3.parameterStride), at: 28, in: &header)
         ASHLUTLittleEndianV3.write(UInt16(ASHLUTBinaryContractV3.planeCount), at: 30, in: &header)
-        ASHLUTLittleEndianV3.write(UInt32(compilation.entries.count), at: 32, in: &header)
+        ASHLUTLittleEndianV3.write(UInt32(entries.count), at: 32, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(encodedParameters.count), at: 36, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(parameterOffset), at: 40, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(entryOffset), at: 44, in: &header)
@@ -248,29 +327,27 @@ extension ASHLUTBinaryCodecV3 {
         ASHLUTLittleEndianV3.write(UInt32(entryBytes.count), at: 52, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(ASHLUTBinaryContractV3.headerSize), at: 56, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(payload.count), at: 60, in: &header)
-        let configuration = compilation.configuration
-        ASHLUTLittleEndianV3.write(bytes: configuration.mappingSHA256.bytes, at: 64, in: &header)
-        ASHLUTLittleEndianV3.write(bytes: configuration.operatorBankSHA256.bytes, at: 96, in: &header)
-        ASHLUTLittleEndianV3.write(bytes: configuration.metricPolicySHA256.bytes, at: 128, in: &header)
-        ASHLUTLittleEndianV3.write(bytes: configuration.compilerInputsSHA256.bytes, at: 160, in: &header)
-        ASHLUTLittleEndianV3.write(bytes: configuration.calibrationPlanSHA256.bytes, at: 192, in: &header)
-        ASHLUTLittleEndianV3.write(bytes: configuration.corpusLockBundleSHA256.bytes, at: 224, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.mappingSHA256, at: 64, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.operatorBankSHA256, at: 96, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.metricPolicySHA256, at: 128, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.compilerInputsSHA256, at: 160, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.calibrationPlanSHA256, at: 192, in: &header)
+        ASHLUTLittleEndianV3.write(bytes: metadata.corpusLockBundleSHA256, at: 224, in: &header)
         ASHLUTLittleEndianV3.write(bytes: payloadHash.bytes, at: 256, in: &header)
         ASHLUTLittleEndianV3.write(payloadCRC, at: 292, in: &header)
         ASHLUTLittleEndianV3.write(UInt32(fileSize), at: 296, in: &header)
-        let routeSelection = configuration.routeSelection(for: compilation.route)
-        header[300] = routeSelection.spatialPolicyID
-        header[301] = routeSelection.lumaAnisotropyMode.rawValue
-        header[302] = routeSelection.chromaAnisotropyMode.rawValue
-        header[303] = routeSelection.lumaCoordinatePolicy == .halfPixelCenter ? 0 : 1
-        header[304] = routeSelection.chromaCoordinatePolicy == .halfPixelCenter ? 0 : 1
-        header[305] = 1
+        header[300] = metadata.spatialPolicyID
+        header[301] = metadata.lumaAnisotropyMode.rawValue
+        header[302] = metadata.chromaAnisotropyMode.rawValue
+        header[303] = metadata.lumaCoordinatePolicy == .halfPixelCenter ? 0 : 1
+        header[304] = metadata.chromaCoordinatePolicy == .halfPixelCenter ? 0 : 1
+        header[305] = metadata.analysisGridSourceStep
         let headerCRC = ASHLUTCRC32V3.checksum(header)
         ASHLUTLittleEndianV3.write(headerCRC, at: 288, in: &header)
         var data = header
         data.append(payload)
         return ASHLUTBinaryArtifactV3(
-            route: compilation.route,
+            route: route,
             data: data,
             parameterCount: encodedParameters.count,
             payloadSHA256: payloadHash,

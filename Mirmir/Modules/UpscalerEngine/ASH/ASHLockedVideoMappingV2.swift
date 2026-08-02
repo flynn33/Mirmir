@@ -240,6 +240,20 @@ struct ASHLockedVideoMappingV2: Equatable, Sendable {
     }
 }
 
+@available(macOS 15.4, *)
+extension ASHLockedVideoMappingV2 {
+    var metalRuntimeMappingV3: ASHMetalRuntimeMappingV3 {
+        ASHMetalRuntimeMappingV3(
+            analyzerConfiguration: analyzerConfiguration,
+            codeRange: codeRange,
+            chromaSiting: chromaSiting,
+            boundaryMode: boundaryMode,
+            direct2xAnalysisGridSourceStep: direct2xAnalysisGridSourceStep,
+            direct3Over2AnalysisGridSourceStep: direct3Over2AnalysisGridSourceStep
+        )
+    }
+}
+
 private extension ASHLockedVideoMappingV2 {
     static func candidateIdentity(
         _ root: [String: ASHLUTStrictJSONValueV2],

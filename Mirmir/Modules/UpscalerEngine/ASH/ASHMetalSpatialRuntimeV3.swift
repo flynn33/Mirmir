@@ -35,9 +35,9 @@ final class ASHMetalSpatialRuntimeV3: @unchecked Sendable {
     let route: ASHSpatialRouteV2
     let constructionCounters: ASHMetalRuntimeConstructionCountersV3
 
-    private let lut: ASHLUTLoadedV3
-    private let configuration: ASHLUTLockedConfigurationV3
-    private let mapping: ASHLockedVideoMappingV2
+    private let lut: ASHMetalRuntimeLUTV3
+    private let configuration: ASHMetalRuntimeConfigurationV3
+    private let mapping: ASHMetalRuntimeMappingV3
     private let device: MTLDevice
     private let commandQueue: MTLCommandQueue
     private let textureCache: CVMetalTextureCache
@@ -53,7 +53,8 @@ final class ASHMetalSpatialRuntimeV3: @unchecked Sendable {
 
     init(
         route: ASHSpatialRouteV2,
-        artifacts: ASHLockedArtifactSetV3,
+        lut: ASHMetalRuntimeLUTV3,
+        mapping: ASHMetalRuntimeMappingV3,
         metal: any MetalRenderingService,
         telemetry: any ASHTelemetryRecording = ASHNoopTelemetryRecorder.shared,
         ringCapacity: Int = ASHMetalFrameResourceRingV3.defaultCapacity,
@@ -62,15 +63,18 @@ final class ASHMetalSpatialRuntimeV3: @unchecked Sendable {
         commandBufferFactory: @escaping CommandBufferFactory = { $0.makeCommandBuffer() },
         commandCompleter: any ASHMetalCommandCompletingV3 = ASHDefaultMetalCommandCompleterV3()
     ) throws {
-        try artifacts.mapping.validate(configuration: artifacts.configuration)
-        let lut = artifacts.lut(for: route)
-        guard lut.route == route, lut.configuration == artifacts.configuration else {
-            throw ASHLockedFramePipelineErrorV3.configurationMismatch
+        let configuration = lut.configuration
+        let routeSelection = configuration.routeSelection(for: route)
+        guard lut.route == route,
+              mapping.boundaryMode == configuration.boundaryMode,
+              mapping.analysisGridSourceStep(for: route)
+                == routeSelection.analysisGridSourceStep else {
+            throw ASHMetalSpatialRuntimeErrorV3.configurationMismatch
         }
         self.route = route
         self.lut = lut
-        self.configuration = artifacts.configuration
-        self.mapping = artifacts.mapping
+        self.configuration = configuration
+        self.mapping = mapping
         self.device = metal.device
         self.commandQueue = metal.commandQueue
         self.textureCache = metal.textureCache

@@ -23,7 +23,8 @@ extension ASHP08PerformanceRuntime {
         telemetry.beginRun(id: "p08-profile-\(route.rawValue)")
         let runtime = try ASHMetalSpatialRuntimeV3(
             route: route,
-            artifacts: context.artifacts,
+            lut: ASHMetalRuntimeLUTV3(context.artifacts.lut(for: route)),
+            mapping: context.artifacts.mapping.metalRuntimeMappingV3,
             metal: context.metal,
             telemetry: telemetry
         )
