@@ -4,6 +4,85 @@ import XCTest
 @testable import Mirmir
 
 final class DeterministicCPUBackendTests: XCTestCase {
+    func testCanonicalASHCodeAndStrictDecoderExhaustivelyMatchTheFiniteContract() {
+        XCTAssertEqual(ASHCode.codewords.count, 16)
+        XCTAssertEqual(Set(ASHCode.codewords).count, 16)
+
+        for codeword in ASHCode.codewords {
+            XCTAssertTrue(codeword.hasValidIntegrity)
+            XCTAssertEqual(codeword.bit(coordinate: 8), 0)
+        }
+
+        for leftIndex in ASHCode.codewords.indices {
+            for rightIndex in ASHCode.codewords.indices where leftIndex < rightIndex {
+                XCTAssertGreaterThanOrEqual(
+                    ASHCode.codewords[leftIndex].hammingDistance(
+                        to: ASHCode.codewords[rightIndex]
+                    ),
+                    4
+                )
+            }
+        }
+
+        var exactCount = 0
+        var correctedCount = 0
+        var uncorrectableCount = 0
+        for rawValue in 0..<(1 << ASHState.bitCount) {
+            let received = ASHState(validatedRawValue: UInt16(rawValue))
+            let decoded = ASHCode.decode(received)
+            let bruteForce = bruteForceDecode(received)
+            XCTAssertEqual(decoded, bruteForce, "Mismatch for state \(received)")
+            switch decoded.status {
+            case .exact:
+                exactCount += 1
+            case .corrected:
+                correctedCount += 1
+            case .uncorrectable:
+                uncorrectableCount += 1
+            }
+        }
+        XCTAssertEqual(exactCount, 16)
+        XCTAssertEqual(correctedCount, 144)
+        XCTAssertEqual(uncorrectableCount, 352)
+    }
+
+    func testCanonicalASHStrictDecoderRejectsEveryTwoBitCodewordCorruption() {
+        for codeword in ASHCode.codewords {
+            for firstCoordinate in 1..<ASHState.bitCount {
+                for secondCoordinate in (firstCoordinate + 1)...ASHState.bitCount {
+                    let corrupted = codeword
+                        .toggled(coordinate: firstCoordinate)
+                        .toggled(coordinate: secondCoordinate)
+                    let decoded = ASHCode.decode(corrupted)
+                    XCTAssertEqual(decoded.status, .uncorrectable)
+                    XCTAssertNil(decoded.codeword)
+                    XCTAssertGreaterThanOrEqual(decoded.distance, 2)
+                }
+            }
+        }
+    }
+
+    func testCanonicalASHAffineDecoderCorrectsEverySingleBitError() {
+        for rawAnchor in 0..<(1 << ASHState.bitCount) {
+            let anchor = ASHState(validatedRawValue: UInt16(rawAnchor))
+            guard anchor.hasValidIntegrity else { continue }
+
+            for codeword in ASHCode.codewords {
+                let expected = anchor.xor(codeword)
+                for coordinate in 1...ASHState.bitCount {
+                    let decoded = ASHCode.decodeAffine(
+                        received: expected.toggled(coordinate: coordinate),
+                        anchor: anchor
+                    )
+                    XCTAssertEqual(decoded.status, .corrected)
+                    XCTAssertEqual(decoded.codeword, expected)
+                    XCTAssertEqual(decoded.distance, 1)
+                    XCTAssertEqual(decoded.nearestCount, 1)
+                }
+            }
+        }
+    }
+
     func testRouteAvailabilityAcceptsOnlyExistingReferenceRoutes() async throws {
         let backend = try makeBackend()
         let source = makeSourceInfo(pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange)
@@ -132,6 +211,75 @@ final class DeterministicCPUBackendTests: XCTestCase {
             XCTAssertEqual(backendID, .mirmirDeterministicCPU)
             XCTAssertTrue(details.contains("no explicit progressive chroma location"))
         }
+    }
+
+    func testFinishIsIdempotentAndPreventsFurtherCPUProcessing() async throws {
+        let sourceInfo = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let backend = try makeBackend()
+        let prepared = try await backend.prepare(
+            request: BackendPreparationRequest(
+                source: sourceInfo,
+                targetSize: CGSize(width: 32, height: 24)
+            ),
+            environment: deterministicTestEnvironment
+        )
+        let source = try SyntheticNV12PixelBuffer.make(width: 16, height: 12)
+        let destination = try SyntheticNV12PixelBuffer.make(width: 32, height: 24)
+        try SyntheticNV12PixelBuffer.fill(source, luma: 91, cb: 117, cr: 143)
+        attachProgressiveBT709(to: source)
+
+        try await prepared.finish()
+        try await prepared.finish()
+
+        do {
+            try await prepared.process(
+                source: source,
+                destination: destination,
+                timing: FrameTiming(
+                    frameIndex: 7,
+                    presentationTime: .zero,
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+            XCTFail("Expected processing after finish to fail.")
+        } catch let error as MirmirError {
+            guard case .backendProcessingFailed(let backendID, let frameIndex, let details) = error else {
+                return XCTFail("Unexpected error: \(error)")
+            }
+            XCTAssertEqual(backendID, .mirmirDeterministicCPU)
+            XCTAssertEqual(frameIndex, 7)
+            XCTAssertTrue(details.contains("already finished"))
+        }
+    }
+
+    private func bruteForceDecode(_ received: ASHState) -> ASHDecodeResult {
+        let distances = ASHCode.codewords.map { codeword in
+            (distance: received.hammingDistance(to: codeword), codeword: codeword)
+        }
+        let minimum = distances.map(\.distance).min() ?? ASHState.bitCount
+        let nearest = distances.filter { $0.distance == minimum }.map(\.codeword)
+
+        guard minimum <= 1, nearest.count == 1, let codeword = nearest.first else {
+            return ASHDecodeResult(
+                status: .uncorrectable,
+                received: received,
+                codeword: nil,
+                messageBits: nil,
+                distance: minimum,
+                nearestCount: nearest.count
+            )
+        }
+
+        return ASHDecodeResult(
+            status: minimum == 0 ? .exact : .corrected,
+            received: received,
+            codeword: codeword,
+            messageBits: ASHCode.messageBits(for: codeword),
+            distance: minimum,
+            nearestCount: 1
+        )
     }
 
     private func makeBackend() throws -> DeterministicCPUBackend {

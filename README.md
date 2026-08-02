@@ -28,6 +28,9 @@ packaging, signing, notarization, and publication remain manual operations.
 
 See [`PRODUCT_SUPPORT.md`](PRODUCT_SUPPORT.md) for exact backend contracts,
 availability requirements, media behavior, and current limitations.
+The [`DETERMINISTIC_ENGINE_V4_ROADMAP.md`](DETERMINISTIC_ENGINE_V4_ROADMAP.md)
+defines the researched v4 architecture, delivery sequence, and release gates
+for at least 5% higher quality and 20% lower processing time.
 The [Mirmir Wiki](https://github.com/flynn33/Mirmir/wiki) provides the complete
 product guide, architecture reference, ASH engine documentation, diagrams,
 testing procedures, and troubleshooting material.
