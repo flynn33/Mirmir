@@ -1,0 +1,127 @@
+{
+  "artifactSetSHA256": "62912343fdb7448a516cfc4b06527c5f0b4b3cd30371bfbf39098a97cfb62c0b",
+  "artifacts": [
+    {
+      "byteCount": 1013711,
+      "path": "time-profiler.trace.json",
+      "sha256": "964658a046e3a9cc10944a576be742f7a3e3574ff5b76318de0b1ad1fddf63a7"
+    },
+    {
+      "byteCount": 6029,
+      "path": "time-profiler-xcodebuild.log",
+      "sha256": "ad75a997901f90f4be18bd2d68908b5fe145e3c0d5dc7471325cd24eaa5d4c89"
+    },
+    {
+      "byteCount": 3221538,
+      "path": "allocations.trace.txt",
+      "sha256": "63d03d3668ec60480c8cf90feda7699cba7b9a80c2f1ebcdf10696bf999a386e"
+    },
+    {
+      "byteCount": 8046,
+      "path": "allocations-xcodebuild.log",
+      "sha256": "c56191283c37186fa9a1bba902bfb254ad38b884392a3730707e7d4bc19ccef1"
+    },
+    {
+      "byteCount": 3663,
+      "path": "allocation-launch-scheme.xcscheme",
+      "sha256": "ffad0ba20ea305d4e5b73df77d905d50f8b3709c79d19ee7923349be2a87aefc"
+    }
+  ],
+  "buildIdentity": {
+    "applicationExecutableSHA256": "80cae5ae8ad8e57e2cadd01c4a5cf86d6323329a0ee099674a3a579b4d658309",
+    "captureExecutableSHA256": "262a2cf2929e47bb1999b4d54b535a2a2a57ca23f435195cad9f2e94c0d25d90",
+    "manifestPath": "build-identity.json",
+    "manifestSHA256": "4e62aea07d3855262a0f480fc7002242a09251a87c64026b7053dfd5b3698b63"
+  },
+  "captures": {
+    "allocations": {
+      "profiler": "malloc_history high-water call tree",
+      "profilerCommandTemplate": [
+        "malloc_history",
+        "<TARGET_PID>",
+        "-callTree",
+        "-highWaterMark",
+        "-invert",
+        "-ignoreThreads",
+        "-collapseRecursion",
+        "-chargeSystemLibraries"
+      ],
+      "profilerExitStatus": 0,
+      "tracePath": "allocations.trace.txt",
+      "workloadEnvironment": {
+        "MallocStackLogging": "full",
+        "MallocStackLoggingDirectory": "<STACK_LOG_DIRECTORY>"
+      },
+      "workloadExitStatus": 0,
+      "workloadLogPath": "allocations-xcodebuild.log",
+      "workloadScheme": "Mirmir-P05-Allocations"
+    },
+    "timeProfiler": {
+      "profiler": "xctrace Time Profiler",
+      "profilerCommandTemplate": [
+        "xctrace",
+        "record",
+        "--template",
+        "Time Profiler",
+        "--output",
+        "<TRACE_PACKAGE>",
+        "--time-limit",
+        "10m",
+        "--no-prompt",
+        "--attach",
+        "<TARGET_PID>"
+      ],
+      "profilerExitStatus": 0,
+      "tracePath": "time-profiler.trace.json",
+      "workloadEnvironment": {},
+      "workloadExitStatus": 0,
+      "workloadLogPath": "time-profiler-xcodebuild.log",
+      "workloadScheme": "Mirmir"
+    }
+  },
+  "policy": {
+    "sampleCount": 10,
+    "testSelectors": [
+      "MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+      "MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested"
+    ],
+    "warmupCount": 5,
+    "workloadCommandTemplate": [
+      "xcodebuild",
+      "-project",
+      "Mirmir.xcodeproj",
+      "-scheme",
+      "Mirmir",
+      "-configuration",
+      "Release",
+      "-destination",
+      "platform=macOS",
+      "-derivedDataPath",
+      "<DERIVED_DATA>",
+      "-parallel-testing-enabled",
+      "NO",
+      "test-without-building",
+      "-only-testing:MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+      "-only-testing:MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
+      "CODE_SIGNING_ALLOWED=NO",
+      "ENABLE_TESTABILITY=YES",
+      "ONLY_ACTIVE_ARCH=YES",
+      "MIRMIR_V4_BASELINE_DIR=<PROFILE_OUTPUT>",
+      "MIRMIR_V4_WARMUP_COUNT=5",
+      "MIRMIR_V4_SAMPLE_COUNT=10"
+    ]
+  },
+  "schemaVersion": "mirmir-v4-p05-profiler-evidence-v1",
+  "sourceIdentity": {
+    "sourceManifestSHA256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69",
+    "sourceRevision": "d3a4de55c08391ea8a08c00beb766b5650dc9f58",
+    "sourceTreeIdentitySHA256": "d9b89f1ca31c0d076826651b250459773bea0de11d7b0ffd12ac40451af7b69c"
+  },
+  "toolIdentity": {
+    "mallocHistorySHA256": "e99e4ee3dc613916ed3f1bba50c956e6bd2c616466ede97426be6b5376bb13f6",
+    "manifestPath": "tool-identities.json",
+    "manifestSHA256": "d4c43204094780aa080a12ad651508d81dc277dfa8bb6064d736dc9781b8d443",
+    "psSHA256": "a1d8c4a0a96fb6159f09d8f520f54df829db5f2eae9b9f3448e18f0bee61115c",
+    "xctraceSHA256": "175b0d81fef2dfedde502e37dce2e1f10442ca739b470937febfe35c457b8ec8"
+  }
+}

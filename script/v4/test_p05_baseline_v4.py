@@ -76,6 +76,86 @@ class P05BaselineV4Tests(unittest.TestCase):
             ["tar", "-xf", str(archive), "-C", str(destination)], check=True
         )
 
+    def resealOuterEvidence(self, evidence: Path) -> None:
+        capture_path = evidence / "capture-manifest.json"
+        capture_manifest = json.loads(capture_path.read_text())
+        artifacts = capture.artifact_manifest(evidence)
+        capture_manifest["artifacts"] = artifacts
+        capture_manifest["artifactCount"] = len(artifacts)
+        capture_manifest["artifactSetSHA256"] = capture.artifact_set_identity(
+            artifacts
+        )
+        capture.write_json(capture_path, capture_manifest)
+        capture.write_json(
+            evidence / "evidence-manifest.json",
+            capture.evidence_manifest(evidence),
+        )
+
+    def resealProfilerManifest(self, evidence: Path) -> None:
+        profiler_path = evidence / "profiler-manifest.json"
+        profiler = json.loads(profiler_path.read_text())
+        capture_path = evidence / "capture-manifest.json"
+        capture_manifest = json.loads(capture_path.read_text())
+        capture_manifest["profilerIdentity"] = {
+            "manifestPath": "profiler-manifest.json",
+            "manifestSHA256": capture.sha256(profiler_path),
+            "artifactSetSHA256": profiler["artifactSetSHA256"],
+        }
+        capture.write_json(capture_path, capture_manifest)
+        self.resealOuterEvidence(evidence)
+
+    def resealProfilerArtifacts(self, evidence: Path) -> None:
+        profiler_path = evidence / "profiler-manifest.json"
+        profiler = json.loads(profiler_path.read_text())
+        profiler["artifacts"] = [
+            capture.descriptor(evidence / row["path"], evidence)
+            for row in profiler["artifacts"]
+        ]
+        profiler["artifactSetSHA256"] = capture.artifact_set_identity(
+            profiler["artifacts"]
+        )
+        capture.write_json(profiler_path, profiler)
+        self.resealProfilerManifest(evidence)
+
+    def testProfilerWorkloadWaitReturnsActualExitStatus(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-wait-") as temporary:
+            root = Path(temporary)
+            raw_log = root / "raw.log"
+            sealed_log = root / "sealed.log"
+            stream = raw_log.open("w")
+            process = subprocess.Popen(
+                ["/usr/bin/true"],
+                text=True,
+                stdout=stream,
+                stderr=subprocess.STDOUT,
+            )
+            self.assertEqual(
+                capture.finish_profile_workload(
+                    process,
+                    stream,
+                    raw_log,
+                    sealed_log,
+                ),
+                0,
+            )
+
+    def testHostedProfilerWorkloadMarkerIsAccepted(self) -> None:
+        transcript = "\n".join(
+            (
+                "Test Case '-[MirmirTests.DeterministicMetalBackendTests testCaptureV3BaselineWhenRequested]' passed (1.0 seconds).",
+                "Test Case '-[MirmirTests.VideoProcessingSessionTests testCaptureV3EndToEndBaselineWhenRequested]' passed (1.0 seconds).",
+                "Test Suite 'Selected tests' passed at 2026-08-03 00:00:00.000.",
+                "Executed 2 tests, with 0 failures (0 unexpected) in 2.0 seconds",
+                "** TEST EXECUTE SUCCEEDED **",
+            )
+        )
+        self.assertTrue(capture.profile_workload_log_succeeded(transcript))
+        self.assertFalse(
+            capture.profile_workload_log_succeeded(
+                transcript.replace("0 failures", "1 failure")
+            )
+        )
+
     def testCheckedManifestReproducesFromTwoCleanGitArchives(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-p05-source-") as temporary:
             root = Path(temporary)
@@ -112,6 +192,98 @@ class P05BaselineV4Tests(unittest.TestCase):
             verified["sourceIdentity"]["sourceRevision"],
             p05.FROZEN_SOURCE_REVISION,
         )
+        profiler = json.loads(
+            (self.evidence_path / "profiler-manifest.json").read_text()
+        )
+        self.assertEqual(
+            verified["profilerIdentity"]["artifactSetSHA256"],
+            profiler["artifactSetSHA256"],
+        )
+
+    def testProfilerTraceOmissionFailsAfterOuterReseal(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            (evidence / "allocations.trace.txt").unlink()
+            self.resealOuterEvidence(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 profiler artifact .* is absent",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
+
+    def testProfilerTraceTamperFailsAfterOuterReseal(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            trace = evidence / "allocations.trace.txt"
+            trace.write_bytes(trace.read_bytes() + b"tamper\n")
+            self.resealOuterEvidence(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 profiler artifact .* identity differs",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
+
+    def testFullyResealedProfilerSourceSubstitutionFails(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            path = evidence / "profiler-manifest.json"
+            profiler = json.loads(path.read_text())
+            profiler["sourceIdentity"]["sourceTreeIdentitySHA256"] = "a" * 64
+            capture.write_json(path, profiler)
+            self.resealProfilerManifest(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 profiler source binding differs",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
+
+    def testFullyResealedProfilerBuildSubstitutionFails(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            path = evidence / "profiler-manifest.json"
+            profiler = json.loads(path.read_text())
+            profiler["buildIdentity"]["applicationExecutableSHA256"] = "b" * 64
+            capture.write_json(path, profiler)
+            self.resealProfilerManifest(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 profiler build binding differs",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
+
+    def testFullyResealedProfilerToolSubstitutionFails(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            path = evidence / "profiler-manifest.json"
+            profiler = json.loads(path.read_text())
+            profiler["toolIdentity"]["xctraceSHA256"] = "c" * 64
+            capture.write_json(path, profiler)
+            self.resealProfilerManifest(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 profiler tool binding differs",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
+
+    def testFullyResealedProfilerTargetExitSubstitutionFails(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mirmir-p05-profiler-") as temporary:
+            evidence = Path(temporary) / "evidence"
+            shutil.copytree(self.evidence_path, evidence)
+            path = evidence / "time-profiler.trace.json"
+            trace = json.loads(path.read_text())
+            trace["targetExitStatus"] = 1
+            capture.write_json(path, trace)
+            self.resealProfilerArtifacts(evidence)
+            with self.assertRaisesRegex(
+                ValueError,
+                "P05 Time Profiler trace contract differs",
+            ):
+                capture.verify_baseline_evidence(evidence, REPOSITORY)
 
     def testFullyResealedDirtyM0SourceClaimFails(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mirmir-p05-evidence-") as temporary:

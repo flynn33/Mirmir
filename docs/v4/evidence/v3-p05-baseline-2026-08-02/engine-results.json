@@ -728,15 +728,15 @@
       "cpuMemoryDeltas" : [
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 48,
+          "mallocSizeInUseBytes" : 176,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 81392,
-          "physicalFootprintBytes" : 49152,
-          "residentBytes" : 98304
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
         },
         {
           "mallocSizeAllocatedBytes" : 0,
@@ -770,7 +770,174 @@
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 128,
+          "mallocSizeInUseBytes" : 78944,
+          "physicalFootprintBytes" : 65536,
+          "residentBytes" : 81920
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        10.85525,
+        10.394125,
+        10.807333,
+        10.358666,
+        10.390459,
+        10.37975,
+        10.604542,
+        10.726417,
+        10.682583,
+        10.71075
+      ],
+      "id" : "420f-direct_2x-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15201328,
+        "physicalFootprintBytes" : 133497744,
+        "residentBytes" : 122126336
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15111056,
+        "physicalFootprintBytes" : 133432208,
+        "residentBytes" : 122044416
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -144,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -176,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -160,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -208,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -272,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        2.1075,
+        2.03125,
+        6.774875,
+        2.167209,
+        6.802084,
+        2.050583,
+        6.784208,
+        2.090958,
+        2.1205,
+        1.981334
+      ],
+      "pixelFormat" : "420f",
+      "route" : "direct_2x",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
@@ -788,29 +955,363 @@
         }
       ],
       "cpuMilliseconds" : [
-        12.814541,
-        12.2995,
-        11.943625,
-        12.225792,
-        12.070541,
-        11.401083,
-        12.049875,
-        11.876625,
-        12.102375,
-        12.100917
+        10.92375,
+        10.903667,
+        11.055375,
+        11.087583,
+        11.104375,
+        11.024791,
+        10.799792,
+        10.62,
+        10.843291,
+        11.320667
       ],
-      "id" : "420f-direct_2x-radial_detail",
+      "id" : "420f-direct_3_over_2-radial_detail",
       "memoryAfterSamples" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15291648,
-        "physicalFootprintBytes" : 134792104,
-        "residentBytes" : 123060224
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15522880,
+        "physicalFootprintBytes" : 133809040,
+        "residentBytes" : 122388480
       },
       "memoryBeforeWarmups" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15198192,
-        "physicalFootprintBytes" : 134742952,
-        "residentBytes" : 122961920
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15509184,
+        "physicalFootprintBytes" : 133809040,
+        "residentBytes" : 122388480
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -144,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -208,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        1.850583,
+        6.147208,
+        1.8865,
+        1.827167,
+        6.124292,
+        1.895042,
+        6.189792,
+        1.900458,
+        6.07425,
+        1.886834
+      ],
+      "pixelFormat" : "420f",
+      "route" : "direct_3_over_2",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 16384,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32672,
+          "physicalFootprintBytes" : 32768,
+          "residentBytes" : 32768
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16400,
+          "physicalFootprintBytes" : 32768,
+          "residentBytes" : 32768
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        6.31325,
+        6.040708,
+        6.246583,
+        6.318542,
+        6.427167,
+        6.227958,
+        6.324917,
+        6.3585,
+        6.288125,
+        6.380959
+      ],
+      "id" : "420v-direct_2x-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 14948992,
+        "physicalFootprintBytes" : 130007952,
+        "residentBytes" : 118587392
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 14886352,
+        "physicalFootprintBytes" : 129876880,
+        "residentBytes" : 118456320
+      },
+      "metalMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 16384
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 4192,
+          "physicalFootprintBytes" : 16384,
+          "residentBytes" : 16384
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -192,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : -80,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "metalMilliseconds" : [
+        3.016167,
+        2.541834,
+        2.517375,
+        2.244083,
+        2.262875,
+        2.039625,
+        2.019041,
+        5.846667,
+        2.012958,
+        2.022083
+      ],
+      "pixelFormat" : "420v",
+      "route" : "direct_2x",
+      "sampleCount" : 10,
+      "warmupCount" : 5
+    },
+    {
+      "cpuMemoryDeltas" : [
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 48,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 16,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 32,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 64,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        },
+        {
+          "mallocSizeAllocatedBytes" : 0,
+          "mallocSizeInUseBytes" : 0,
+          "physicalFootprintBytes" : 0,
+          "residentBytes" : 0
+        }
+      ],
+      "cpuMilliseconds" : [
+        6.291125,
+        6.30475,
+        6.267917,
+        6.390042,
+        6.081125,
+        6.198584,
+        6.249416,
+        6.244416,
+        6.195792,
+        6.06875
+      ],
+      "id" : "420v-direct_3_over_2-radial_detail",
+      "memoryAfterSamples" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15384560,
+        "physicalFootprintBytes" : 133694352,
+        "residentBytes" : 122257408
+      },
+      "memoryBeforeWarmups" : {
+        "mallocSizeAllocatedBytes" : 58720256,
+        "mallocSizeInUseBytes" : 15340208,
+        "physicalFootprintBytes" : 133661584,
+        "residentBytes" : 122224640
       },
       "metalMemoryDeltas" : [
         {
@@ -833,347 +1334,25 @@
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -160,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -272,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
           "mallocSizeInUseBytes" : -192,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
+          "mallocSizeInUseBytes" : -240,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -208,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "metalMilliseconds" : [
-        3.0915,
-        4.566625,
-        4.176125,
-        5.193459,
-        6.732958,
-        1.727459,
-        6.82325,
-        1.990833,
-        7.244667,
-        2.086
-      ],
-      "pixelFormat" : "420f",
-      "route" : "direct_2x",
-      "sampleCount" : 10,
-      "warmupCount" : 5
-    },
-    {
-      "cpuMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 48,
+          "mallocSizeInUseBytes" : 128,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
         {
           "mallocSizeAllocatedBytes" : 0,
           "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 336,
-          "physicalFootprintBytes" : -16384,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 32,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "cpuMilliseconds" : [
-        11.867125,
-        11.76025,
-        11.588959,
-        11.694208,
-        12.305209,
-        12.150583,
-        11.940792,
-        11.76475,
-        11.814834,
-        12.079375
-      ],
-      "id" : "420f-direct_3_over_2-radial_detail",
-      "memoryAfterSamples" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15596752,
-        "physicalFootprintBytes" : 135545768,
-        "residentBytes" : 123781120
-      },
-      "memoryBeforeWarmups" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15582720,
-        "physicalFootprintBytes" : 135562152,
-        "residentBytes" : 123781120
-      },
-      "metalMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 48,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 480,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 16,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -272,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -160,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -272,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -272,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 64,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "metalMilliseconds" : [
-        6.423792,
-        6.442417,
-        1.994375,
-        1.61,
-        6.124667,
-        5.664958,
-        1.648625,
-        6.072708,
-        1.848,
-        6.504292
-      ],
-      "pixelFormat" : "420f",
-      "route" : "direct_3_over_2",
-      "sampleCount" : 10,
-      "warmupCount" : 5
-    },
-    {
-      "cpuMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 320,
-          "physicalFootprintBytes" : 16384,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 208,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -16,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -672,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 16720,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 4194304,
-          "mallocSizeInUseBytes" : 208,
-          "physicalFootprintBytes" : 49176,
-          "residentBytes" : 32768
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 208,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 464,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "cpuMilliseconds" : [
-        7.178209,
-        7.427875,
-        7.223041,
-        7.328083,
-        7.070291,
-        7.200583,
-        7.390625,
-        7.857583,
-        7.528583,
-        7.924416
-      ],
-      "id" : "420v-direct_2x-radial_detail",
-      "memoryAfterSamples" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 14920992,
-        "physicalFootprintBytes" : 130630568,
-        "residentBytes" : 118816768
-      },
-      "memoryBeforeWarmups" : {
-        "mallocSizeAllocatedBytes" : 71303168,
-        "mallocSizeInUseBytes" : 14890960,
-        "physicalFootprintBytes" : 130515856,
-        "residentBytes" : 118718464
-      },
-      "metalMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -160,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 16384
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -208,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 16,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -176,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         },
@@ -1191,201 +1370,22 @@
         },
         {
           "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -400,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 64,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -208,
+          "mallocSizeInUseBytes" : -192,
           "physicalFootprintBytes" : 0,
           "residentBytes" : 0
         }
       ],
       "metalMilliseconds" : [
-        3.212166,
-        2.911958,
-        2.394291,
-        2.075084,
-        3.845084,
-        1.856583,
-        2.043792,
-        6.189708,
-        1.993041,
-        2.035125
-      ],
-      "pixelFormat" : "420v",
-      "route" : "direct_2x",
-      "sampleCount" : 10,
-      "warmupCount" : 5
-    },
-    {
-      "cpuMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 176,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 16,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 64,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 32,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 32672,
-          "physicalFootprintBytes" : 32768,
-          "residentBytes" : 32768
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 64,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "cpuMilliseconds" : [
-        7.047,
-        6.856041,
-        6.932958,
-        7.31375,
-        7.229167,
-        7.17375,
-        7.059416,
-        6.966209,
-        7.197125,
-        7.05175
-      ],
-      "id" : "420v-direct_3_over_2-radial_detail",
-      "memoryAfterSamples" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15437552,
-        "physicalFootprintBytes" : 134972328,
-        "residentBytes" : 123142144
-      },
-      "memoryBeforeWarmups" : {
-        "mallocSizeAllocatedBytes" : 75497472,
-        "mallocSizeInUseBytes" : 15391376,
-        "physicalFootprintBytes" : 134939560,
-        "residentBytes" : 123109376
-      },
-      "metalMemoryDeltas" : [
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 48,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 80,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 32,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : -192,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 64,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        },
-        {
-          "mallocSizeAllocatedBytes" : 0,
-          "mallocSizeInUseBytes" : 0,
-          "physicalFootprintBytes" : 0,
-          "residentBytes" : 0
-        }
-      ],
-      "metalMilliseconds" : [
-        1.473917,
-        1.446917,
-        6.644208,
-        1.831917,
-        1.428458,
-        1.422334,
-        5.863625,
-        1.811875,
-        1.528583,
-        5.813042
+        1.878541,
+        1.861833,
+        1.902708,
+        6.112292,
+        6.123166,
+        1.854458,
+        1.935291,
+        1.867083,
+        1.80675,
+        1.845042
       ],
       "pixelFormat" : "420v",
       "route" : "direct_3_over_2",

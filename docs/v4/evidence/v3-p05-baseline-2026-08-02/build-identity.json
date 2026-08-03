@@ -1,13 +1,13 @@
 {
   "applicationExecutable": {
-    "byteCount": 4395672,
+    "byteCount": 4398360,
     "path": "Mirmir.app/Contents/MacOS/Mirmir",
-    "sha256": "eec8a8789d141d4dcf078d70b9bf2de42e7f257baf3538f650715dd7c27b035d"
+    "sha256": "80cae5ae8ad8e57e2cadd01c4a5cf86d6323329a0ee099674a3a579b4d658309"
   },
   "captureExecutable": {
-    "byteCount": 1410024,
+    "byteCount": 1410440,
     "path": "Mirmir.app/Contents/PlugIns/MirmirTests.xctest/Contents/MacOS/MirmirTests",
-    "sha256": "ca93afeae55cef4968e6ac6c344a002566ad413a7f346cae2309bd599fb45c88"
+    "sha256": "262a2cf2929e47bb1999b4d54b535a2a2a57ca23f435195cad9f2e94c0d25d90"
   },
   "commandTemplate": [
     "xcodebuild",

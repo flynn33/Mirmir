@@ -1,6 +1,6 @@
 {
-  "artifactCount": 298,
-  "artifactSetSHA256": "37ffbb434ee4d4471ef1bda30df572172d9c007a1ee3e551e1c664ad6cacc450",
+  "artifactCount": 304,
+  "artifactSetSHA256": "27479b4785f2a82bf9b44c5b2d36f0e00ccb5301d62c52e274bb0215050f9ef9",
   "artifacts": [
     {
       "byteCount": 2304,
@@ -1403,29 +1403,44 @@
       "sha256": "87dc513caa392105a02425704e15b9fbd0fa81f92c1a552daa37550822225024"
     },
     {
-      "byteCount": 10561,
+      "byteCount": 3663,
+      "path": "allocation-launch-scheme.xcscheme",
+      "sha256": "ffad0ba20ea305d4e5b73df77d905d50f8b3709c79d19ee7923349be2a87aefc"
+    },
+    {
+      "byteCount": 10511,
       "path": "allocation-profile.json",
-      "sha256": "e3a15f5ed8bdabb0ea7f76bfcf9df38db263d21b206abd185460db4a0c5f4cae"
+      "sha256": "8ba364d948796bc011a2d9258f92de1a52b00ec3246bfe576f1dc39e8622d284"
+    },
+    {
+      "byteCount": 8046,
+      "path": "allocations-xcodebuild.log",
+      "sha256": "c56191283c37186fa9a1bba902bfb254ad38b884392a3730707e7d4bc19ccef1"
+    },
+    {
+      "byteCount": 3221538,
+      "path": "allocations.trace.txt",
+      "sha256": "63d03d3668ec60480c8cf90feda7699cba7b9a80c2f1ebcdf10696bf999a386e"
     },
     {
       "byteCount": 1491,
       "path": "build-identity.json",
-      "sha256": "252012a5bcc00716a04cd954787a3e4b5dca755bd4821459593d1ea8e37f9574"
+      "sha256": "4e62aea07d3855262a0f480fc7002242a09251a87c64026b7053dfd5b3698b63"
     },
     {
-      "byteCount": 56270,
+      "byteCount": 57521,
       "path": "capture-manifest.json",
-      "sha256": "31e104d741ea377852218796254f5356a4a98d64c80d8e2ee0d2be17c4989fed"
+      "sha256": "cb2cd51b818d9944f7554d69e54c5a8b74a2b24382a661adcb8e5602a363b792"
     },
     {
-      "byteCount": 48611,
+      "byteCount": 89157,
       "path": "capture_baseline.py",
-      "sha256": "ebdaf57629eda3622eaee0da62e88142aabf720a8f0cba7ae1758c80afcbf4f3"
+      "sha256": "4d631cf1ce0f8371af350407e07bebd3da59258a206a499d566b94abc8c5092f"
     },
     {
       "byteCount": 14808,
       "path": "corpus-manifest.json",
-      "sha256": "824c786996b2efb63a77adb48728147ecbcc6a520c8cf693bb47bca50f091dbb"
+      "sha256": "596728fe40a22388a9bdc4a6d308eb057241f4ae7032eeceab1e9ca245dd6af0"
     },
     {
       "byteCount": 42076,
@@ -1433,29 +1448,29 @@
       "sha256": "9c1ed6ee9a7eeaed5c0e28395a367bd8598019af2b58809fa7364a10ba0ef54b"
     },
     {
-      "byteCount": 2883,
+      "byteCount": 2877,
       "path": "end-to-end-baseline.json",
-      "sha256": "cd67d9dd0c5f305e70c7542933e94cef77688e7786100940bc8411c97f50bbb9"
+      "sha256": "12bb5f2606fd4784f75bc5cc876ee999ad43c75bcf40d776d1274989d75671f8"
     },
     {
       "byteCount": 1158,
       "path": "end-to-end-input.mov",
-      "sha256": "7052c34287019b43d7e2c9984cc2b434e1fa344ff806e581e756bad22629fe0e"
+      "sha256": "1e2d65c2702dc3e47768293cf566ecd105282cb7d4ae58874dc313a77b53182d"
     },
     {
-      "byteCount": 17686,
+      "byteCount": 17656,
       "path": "end-to-end-results.json",
-      "sha256": "ed19483cff53278904858c8bb3083f20e7fdf9f52b8c26a8de7c13b17ca2e796"
+      "sha256": "723bf24b87e058f0dfc2f8ea5c43705d29613d014c9dd3250089552dbb95091f"
     },
     {
-      "byteCount": 45169,
+      "byteCount": 45147,
       "path": "engine-results.json",
-      "sha256": "4b42263cb97366290747f1a03ab567a55e28bb08cc8233217085741d585db116"
+      "sha256": "8cb39b82008e465f6f79d21f366faed1879bffea7abcafc7e27fe87cf4e05ba7"
     },
     {
-      "byteCount": 4363,
+      "byteCount": 4471,
       "path": "environment.json",
-      "sha256": "86810b4c2f585547d77440571d53e9632bf2ebd8adf811e1d7b1312ff708e7ad"
+      "sha256": "d87009520731132ec2b41d4a6e521413fee5500bfa51e97d0f56ec2e6abd6a80"
     },
     {
       "byteCount": 126437,
@@ -1468,9 +1483,14 @@
       "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
     },
     {
-      "byteCount": 1477,
+      "byteCount": 1457,
       "path": "performance-baseline.json",
-      "sha256": "bd9e92d6e306a08fc033f125b45b24f72ffcb4e4058ac007143c9344251c43c4"
+      "sha256": "f0f8af5939d4c5f80bcbb061ffd461e30305bf8863598adbf31f0c4635a3325a"
+    },
+    {
+      "byteCount": 4410,
+      "path": "profiler-manifest.json",
+      "sha256": "996568b17ae577c3d4fa406d7649d556e47eca7f10528057eac6bc2ebbadf1e6"
     },
     {
       "byteCount": 1178,
@@ -1483,15 +1503,25 @@
       "sha256": "880609bc2b4460814c63f2963042bee4fdb562eaa0b6376f84eb6aeb6a73ee69"
     },
     {
-      "byteCount": 1840,
-      "path": "tool-identities.json",
-      "sha256": "f0b8492b66adf7b7c246e61479764d45c421c3979f9fdf3cf3c6109113dba3c8"
+      "byteCount": 6029,
+      "path": "time-profiler-xcodebuild.log",
+      "sha256": "ad75a997901f90f4be18bd2d68908b5fe145e3c0d5dc7471325cd24eaa5d4c89"
     },
     {
-      "byteCount": 145654,
+      "byteCount": 1013711,
+      "path": "time-profiler.trace.json",
+      "sha256": "964658a046e3a9cc10944a576be742f7a3e3574ff5b76318de0b1ad1fddf63a7"
+    },
+    {
+      "byteCount": 2549,
+      "path": "tool-identities.json",
+      "sha256": "d4c43204094780aa080a12ad651508d81dc277dfa8bb6064d736dc9781b8d443"
+    },
+    {
+      "byteCount": 161544,
       "path": "xcodebuild.log",
-      "sha256": "c6226a2fba8adcf350bc026777436b553376e4d5cb5e3100cb1d3ce529cfbe6e"
+      "sha256": "713933519ebfc728c66fb358b78b9fef948c9e7c0a73ee07447a5f34edb7d2c2"
     }
   ],
-  "schemaVersion": "mirmir-v4-p05-evidence-manifest-v2"
+  "schemaVersion": "mirmir-v4-p05-evidence-manifest-v3"
 }
