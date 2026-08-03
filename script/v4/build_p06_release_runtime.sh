@@ -1,0 +1,208 @@
+#!/bin/zsh
+set -euo pipefail
+
+script_directory="${0:A:h}"
+repository_root="${script_directory:h:h}"
+
+artifact_output=""
+bundle_output=""
+while (( $# > 0 )); do
+    case "$1" in
+        --artifacts)
+            (( $# >= 2 )) || {
+                print -u2 "Missing value for --artifacts"
+                exit 64
+            }
+            artifact_output="$2"
+            shift 2
+            ;;
+        --output)
+            (( $# >= 2 )) || {
+                print -u2 "Missing value for --output"
+                exit 64
+            }
+            bundle_output="$2"
+            shift 2
+            ;;
+        *)
+            print -u2 "Unknown option: $1"
+            exit 64
+            ;;
+    esac
+done
+if [[ -z "${artifact_output}" || -z "${bundle_output}" ]]; then
+    print -u2 \
+        "usage: $0 --artifacts <new-input-directory> --output <new-bundle-directory>"
+    exit 64
+fi
+artifact_output="${artifact_output:A}"
+bundle_output="${bundle_output:A}"
+if [[ "${artifact_output}" == "${bundle_output}" ]]; then
+    print -u2 "Artifact input and runtime bundle outputs must differ"
+    exit 64
+fi
+for destination in "${artifact_output}" "${bundle_output}"; do
+    if [[ -e "${destination}" ]]; then
+        print -u2 "Output already exists: ${destination}"
+        exit 64
+    fi
+    if [[ ! -d "${destination:h}" ]]; then
+        print -u2 "Output parent is not a directory: ${destination:h}"
+        exit 64
+    fi
+done
+
+release_temporary_directory="$(
+    mktemp -d "${TMPDIR:-/tmp}/mirmir-p06-release.XXXXXX"
+)"
+cleanup_release_temporary_directory() {
+    case "${release_temporary_directory}" in
+        */mirmir-p06-release.*)
+            rm -rf -- "${release_temporary_directory}"
+            ;;
+        *)
+            print -u2 \
+                "Refusing to clean unexpected temporary path: ${release_temporary_directory}"
+            ;;
+    esac
+}
+trap cleanup_release_temporary_directory EXIT
+
+first_artifacts="${release_temporary_directory}/first-artifacts"
+first_candidate="${release_temporary_directory}/first-candidate"
+second_artifacts="${release_temporary_directory}/second-artifacts"
+second_candidate="${release_temporary_directory}/second-candidate"
+
+"${script_directory}/build_p06_semantic_candidate.sh" \
+    --artifacts "${first_artifacts}" \
+    --output "${first_candidate}" \
+    >"${release_temporary_directory}/first-build.log"
+"${script_directory}/build_p06_semantic_candidate.sh" \
+    --artifacts "${second_artifacts}" \
+    --output "${second_candidate}" \
+    >"${release_temporary_directory}/second-build.log"
+
+if ! diff -rq -- "${first_artifacts}" "${second_artifacts}" \
+    >"${release_temporary_directory}/artifact-diff.log"; then
+    print -u2 "Independent P06 artifact builds were not byte-identical"
+    cat "${release_temporary_directory}/artifact-diff.log" >&2
+    exit 65
+fi
+
+# This is the complete, ordered implementation set whose bytes define the P06
+# engine. Deployment-only trust-root constants are intentionally outside this
+# set because they authenticate the resulting manifest and would otherwise
+# create a circular identity.
+production_sources=(
+    "Mirmir/Domain/CanonicalMediaStateV4.swift"
+    "Mirmir/Domain/MediaTrackGraphV4.swift"
+    "Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift"
+    "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift"
+    "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift"
+    "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift"
+    "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal"
+    "Mirmir/Modules/UpscalerEngine/P010BufferAccessV4.swift"
+    "Mirmir/Modules/UpscalerEngine/HDRMetadataV4.swift"
+    "Mirmir/Modules/UpscalerEngine/AVFoundationHDRMetadataAdapterV4.swift"
+    "Mirmir/Modules/UpscalerEngine/DeterministicDeinterlacerV4.swift"
+    "Mirmir/Modules/UpscalerEngine/FixedPointPixelBufferScalerV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASHTemporalReconstructionV4.swift"
+    "Mirmir/Modules/UpscalerEngine/Alpha4444FixedPointScalerV4.swift"
+    "Mirmir/Modules/UpscalerEngine/PixelBufferSignalCodecV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCode.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCoreCertificateV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHCanonicalJSONV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHRuntimeManifestV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMetalLibraryValidatorV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementContractV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHMeasurementExtractorV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDepthFourBranchProgramV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHP06RuntimeBundleV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift"
+    "Mirmir/Modules/UpscalerEngine/ASH/ASHDiagnosticEnvelopeV4.swift"
+    "Mirmir/Upscaling/Deterministic/PreparedDeterministicV4Upscaler.swift"
+    "Mirmir/Upscaling/Deterministic/DeterministicCPUBackend.swift"
+    "Mirmir/Upscaling/Deterministic/DeterministicMetalBackend.swift"
+    "Mirmir/MediaIO/CanonicalMediaAVFoundationSupportV4.swift"
+    "Mirmir/MediaIO/AVCanonicalMediaStateAdapterV4.swift"
+    "Mirmir/MediaIO/AVFoundationTrackMigrationExecutorV4.swift"
+    "Mirmir/MediaIO/PreparedFrameUpscalerTrackHookV4.swift"
+    "Mirmir/MediaIO/VideoWriterFormatContractV4.swift"
+    "Mirmir/MediaIO/AlphaVideoWriterContractV4.swift"
+    "Mirmir/MediaIO/AVFoundationVideoFormatCalibratorV4.swift"
+    "Mirmir/MediaIO/AVFoundationSegmentAssemblerV4.swift"
+    "Mirmir/MediaIO/DeterministicV4WholeAssetPlanner.swift"
+    "Mirmir/MediaIO/DeterministicV4MediaProcessingSession.swift"
+)
+builder_sources=(
+    "script/v4/P06RuntimeInputGeneratorMain.swift"
+    "script/v4/P06RuntimeBuilderMain.swift"
+    "script/v4/build_p06_runtime.sh"
+    "script/v4/build_p06_semantic_candidate.sh"
+    "script/v4/build_p06_release_runtime.sh"
+)
+
+for relative_path in "${production_sources[@]}" "${builder_sources[@]}"; do
+    if [[ ! -f "${repository_root}/${relative_path}" ]]; then
+        print -u2 "Missing locked P06 source: ${relative_path}"
+        exit 66
+    fi
+done
+
+source_revision="$({
+    cd "${repository_root}"
+    shasum -a 256 "${production_sources[@]}"
+} | shasum -a 256 | awk '{print $1}')"
+builder_source_sha256="$({
+    cd "${repository_root}"
+    shasum -a 256 "${builder_sources[@]}"
+} | shasum -a 256 | awk '{print $1}')"
+artifact_set_sha256="$({
+    cd "${first_artifacts}"
+    find . -type f -print0 | sort -z | xargs -0 shasum -a 256
+} | shasum -a 256 | awk '{print $1}')"
+
+metal_language="metal3.2"
+deployment_target="macos-15.4"
+target_triple="$(uname -m)-apple-macos15.4"
+swift_compiler_identity="$(xcrun swiftc --version 2>&1 | head -n 1)"
+metal_compiler_identity="$(
+    xcrun -sdk macosx metal --version 2>&1 | head -n 1
+)"
+sdk_build_identity="macosx$(xcrun --sdk macosx --show-sdk-version)-$(
+    xcrun --sdk macosx --show-sdk-build-version
+)"
+build_parameters_sha256="$(print -r -- \
+    "status=release_qualified
+metal_language=${metal_language}
+deployment_target=${deployment_target}
+target_triple=${target_triple}
+sdk=${sdk_build_identity}
+artifact_set_sha256=${artifact_set_sha256}
+source_revision=${source_revision}" \
+    | shasum -a 256 | awk '{print $1}')"
+
+release_bundle="${release_temporary_directory}/release-runtime"
+"${script_directory}/build_p06_runtime.sh" \
+    --input "${first_artifacts}" \
+    --output "${release_bundle}" \
+    --status release_qualified \
+    --source-revision "${source_revision}" \
+    --builder-id ash-p06-release-builder-v4-1 \
+    --builder-source-sha256 "${builder_source_sha256}" \
+    --build-parameters-sha256 "${build_parameters_sha256}" \
+    --swift-compiler "${swift_compiler_identity}" \
+    --metal-compiler "${metal_compiler_identity}" \
+    --metal-language "${metal_language}" \
+    --sdk-build "${sdk_build_identity}" \
+    --deployment-target "${deployment_target}" \
+    --target-triple "${target_triple}"
+
+diff -rq -- "${first_artifacts}" "${second_artifacts}" >/dev/null
+mv -- "${first_artifacts}" "${artifact_output}"
+mv -- "${release_bundle}" "${bundle_output}"
+print -r -- "source_revision=${source_revision}"
+print -r -- "builder_source_sha256=${builder_source_sha256}"
+print -r -- "artifact_set_sha256=${artifact_set_sha256}"
