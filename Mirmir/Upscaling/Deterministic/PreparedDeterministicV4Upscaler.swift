@@ -565,9 +565,60 @@ actor PreparedDeterministicV4Upscaler:
             source,
             storage: configuration.storage
         )
-        let measurementHistory: ASHMeasurementHistoryV4
+        let exactPTS = try ExactRationalV4(
+            presentationTime.value,
+            Int64(presentationTime.timescale)
+        )
+        let sourceTemporalPlane = try temporalLumaPlane(from: sourceSignal)
+        let neutralState = try ASHState(rawValue: 0)
+        let sourceTemporalFrame = try ASHTemporalFrameV4(
+            frameID: "v4-measurement-\(outputOrdinal)",
+            streamID: "primary-video-measurement",
+            formatIdentity: formatIdentity,
+            ordinal: outputOrdinal,
+            presentationTime: exactPTS,
+            luma: sourceTemporalPlane,
+            tileStateRawValues: [
+                previousMeasurementState?.rawValue ?? neutralState.rawValue
+            ],
+            cadenceID: cadenceID
+        )
+        var measurementMotion: ASHTemporalMotionAnalysisV4?
+        if resetTrigger == nil,
+           outputOrdinal > 0,
+           lastOutputPresentationTime < exactPTS,
+           let previousMeasurementFrame {
+            let previousSourceFrame = try ASHTemporalFrameV4(
+                frameID: "v4-measurement-\(outputOrdinal - 1)",
+                streamID: sourceTemporalFrame.streamID,
+                formatIdentity: sourceTemporalFrame.formatIdentity,
+                ordinal: outputOrdinal - 1,
+                presentationTime: lastOutputPresentationTime,
+                luma: try temporalLumaPlane(
+                    from: previousMeasurementFrame
+                ),
+                tileStateRawValues: [
+                    previousMeasurementState?.rawValue
+                        ?? neutralState.rawValue
+                ],
+                cadenceID: cadenceID
+            )
+            measurementMotion = try ASHTemporalMotionAnalyzerV4.analyze(
+                current: sourceTemporalFrame,
+                previous: previousSourceFrame
+            )
+        }
+        let effectiveMeasurementReset: ASHMeasurementResetTriggerV4?
         if let resetTrigger {
-            measurementHistory = .reset(resetTrigger)
+            effectiveMeasurementReset = resetTrigger
+        } else if measurementMotion?.sceneCut == true {
+            effectiveMeasurementReset = .sceneCut
+        } else {
+            effectiveMeasurementReset = nil
+        }
+        let measurementHistory: ASHMeasurementHistoryV4
+        if let effectiveMeasurementReset {
+            measurementHistory = .reset(effectiveMeasurementReset)
         } else if let previousMeasurementState {
             measurementHistory = .continuous(
                 previousState: previousMeasurementState
@@ -575,11 +626,22 @@ actor PreparedDeterministicV4Upscaler:
         } else {
             measurementHistory = .reset(.streamStart)
         }
+        let canonicalTemporalEvidenceQ16: UInt32?
+        if let measurementMotion {
+            canonicalTemporalEvidenceQ16
+                = measurementMotion.temporalEvidenceQ16
+        } else if effectiveMeasurementReset != nil {
+            canonicalTemporalEvidenceQ16 = 0
+        } else {
+            canonicalTemporalEvidenceQ16 = nil
+        }
         let measurement = try ASHMeasurementExtractorV4.extract(
             frame: sourceSignal,
             previousFrame: previousMeasurementFrame,
             contract: measurementContract,
-            history: measurementHistory
+            history: measurementHistory,
+            motionCompensatedTemporalEvidenceQ16:
+                canonicalTemporalEvidenceQ16
         )
 
         try await scaler.process(source: source, destination: destination)
@@ -596,10 +658,6 @@ actor PreparedDeterministicV4Upscaler:
             maximumCode: bounds.maximum,
             samples: try lumaPlane.component(0)
         )
-        let exactPTS = try ExactRationalV4(
-            presentationTime.value,
-            Int64(presentationTime.timescale)
-        )
         let frame = try ASHTemporalFrameV4(
             frameID: "v4-frame-\(outputOrdinal)",
             streamID: "primary-video",
@@ -611,7 +669,7 @@ actor PreparedDeterministicV4Upscaler:
             cadenceID: cadenceID
         )
 
-        var resetReason = resetTrigger.map(temporalResetReason)
+        var resetReason = effectiveMeasurementReset.map(temporalResetReason)
         var motionAnalysis: ASHTemporalMotionAnalysisV4?
         let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: source)
@@ -675,6 +733,23 @@ actor PreparedDeterministicV4Upscaler:
         return TemporalOutputFrame(
             pixelBuffer: FramePixelBuffer(destination),
             presentationTime: presentationTime
+        )
+    }
+
+    private func temporalLumaPlane(
+        from frame: PixelBufferSignalFrameV4
+    ) throws -> ASHTemporalPlaneV4 {
+        guard let luma = frame.planes.first,
+              luma.componentsPerElement == 1,
+              let bounds = luma.componentBounds.first else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        return try ASHTemporalPlaneV4(
+            width: luma.width,
+            height: luma.height,
+            minimumCode: bounds.minimum,
+            maximumCode: bounds.maximum,
+            samples: try luma.component(0)
         )
     }
 

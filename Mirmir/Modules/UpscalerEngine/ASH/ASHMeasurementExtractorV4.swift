@@ -5,6 +5,7 @@ enum ASHMeasurementExtractorV4Error: Error, Equatable, Sendable {
     case missingPlane(Int)
     case invalidPlaneLayout(Int)
     case incompatibleHistory
+    case invalidTemporalEvidence(UInt32)
     case arithmeticOverflow
 }
 
@@ -31,9 +32,17 @@ enum ASHMeasurementExtractorV4 {
         frame: PixelBufferSignalFrameV4,
         previousFrame: PixelBufferSignalFrameV4?,
         contract: ASHMeasurementContractV4,
-        history: ASHMeasurementHistoryV4
+        history: ASHMeasurementHistoryV4,
+        motionCompensatedTemporalEvidenceQ16: UInt32? = nil
     ) throws -> ASHExtractedMeasurementV4 {
         try contract.validateCanonical()
+        if let motionCompensatedTemporalEvidenceQ16,
+           motionCompensatedTemporalEvidenceQ16
+            > ASHNormalizedQ16V4.scale {
+            throw ASHMeasurementExtractorV4Error.invalidTemporalEvidence(
+                motionCompensatedTemporalEvidenceQ16
+            )
+        }
         guard frame.planes.count == 2 else {
             throw ASHMeasurementExtractorV4Error.missingPlane(1)
         }
@@ -131,7 +140,13 @@ enum ASHMeasurementExtractorV4 {
         )
         let chroma = try meanQ16(chromaValues)
         let temporal: UInt32
-        if let previousYValues {
+        if let motionCompensatedTemporalEvidenceQ16 {
+            // Production supplies the residual from the canonical block-motion
+            // analysis. The colocated window below remains the deterministic
+            // fallback used by standalone measurement tooling and legacy
+            // fixtures that do not own temporal motion state.
+            temporal = motionCompensatedTemporalEvidenceQ16
+        } else if let previousYValues {
             var total: UInt64 = 0
             for index in yValues.indices {
                 total = try checkedSum(

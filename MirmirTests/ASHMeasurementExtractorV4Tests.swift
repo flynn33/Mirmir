@@ -106,6 +106,80 @@ final class ASHMeasurementExtractorV4Tests: XCTestCase {
         XCTAssertTrue(changed.projection.state.hasValidIntegrity)
     }
 
+    func testMotionCompensatedTemporalEvidenceOverridesColocatedFallback() throws {
+        let previous = try makeFrame(
+            storage: .nv12FullRange8Bit,
+            width: 8,
+            height: 8,
+            luma: { x, y in UInt16((x * 29 + y * 17) & 0xff) },
+            cb: { _, _ in 128 },
+            cr: { _, _ in 128 }
+        )
+        let current = try makeFrame(
+            storage: .nv12FullRange8Bit,
+            width: 8,
+            height: 8,
+            luma: { x, y in UInt16(((x + 1) * 29 + y * 17) & 0xff) },
+            cb: { _, _ in 128 },
+            cr: { _, _ in 128 }
+        )
+        let prior = try ASHMeasurementExtractorV4.extract(
+            frame: previous,
+            previousFrame: nil,
+            contract: .canonicalP06,
+            history: .reset(.streamStart)
+        )
+        let fallback = try ASHMeasurementExtractorV4.extract(
+            frame: current,
+            previousFrame: previous,
+            contract: .canonicalP06,
+            history: .continuous(previousState: prior.projection.state)
+        )
+        let declaredMotionResidual: UInt32 = 2_048
+        let compensated = try ASHMeasurementExtractorV4.extract(
+            frame: current,
+            previousFrame: previous,
+            contract: .canonicalP06,
+            history: .continuous(previousState: prior.projection.state),
+            motionCompensatedTemporalEvidenceQ16: declaredMotionResidual
+        )
+
+        XCTAssertNotEqual(
+            fallback.projection.evidence.temporalChange.rawValue,
+            declaredMotionResidual
+        )
+        XCTAssertEqual(
+            compensated.projection.evidence.temporalChange.rawValue,
+            declaredMotionResidual
+        )
+    }
+
+    func testOutOfRangeMotionCompensatedTemporalEvidenceFailsClosed() throws {
+        let frame = try makeFrame(
+            storage: .nv12FullRange8Bit,
+            width: 4,
+            height: 4,
+            luma: { _, _ in 128 },
+            cb: { _, _ in 128 },
+            cr: { _, _ in 128 }
+        )
+        XCTAssertThrowsError(
+            try ASHMeasurementExtractorV4.extract(
+                frame: frame,
+                previousFrame: nil,
+                contract: .canonicalP06,
+                history: .reset(.streamStart),
+                motionCompensatedTemporalEvidenceQ16:
+                    ASHNormalizedQ16V4.scale + 1
+            )
+        ) { error in
+            XCTAssertEqual(
+                error as? ASHMeasurementExtractorV4Error,
+                .invalidTemporalEvidence(ASHNormalizedQ16V4.scale + 1)
+            )
+        }
+    }
+
     func testHistoryGeometryMismatchFailsClosed() throws {
         let first = try makeFrame(
             storage: .nv12VideoRange8Bit,
