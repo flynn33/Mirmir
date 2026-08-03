@@ -1,0 +1,133 @@
+{
+  "buildConfiguration": "Release",
+  "captureSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-capture-v1",
+  "cases": [
+    {
+      "association": "none",
+      "coverage": [
+        "nv12_video_range",
+        "odd_legal_dimensions",
+        "stride_padding_adversary",
+        "arbitrary_rational_phase",
+        "temporal_history",
+        "temporal_reset",
+        "scene_cut",
+        "cross_process",
+        "tile_schedule"
+      ],
+      "framePatterns": [
+        "moving_edge_0",
+        "moving_edge_1",
+        "scene_cut_white"
+      ],
+      "id": "nv12-video-temporal-odd-7x5-to-13x9",
+      "kind": "pixel_temporal",
+      "sourceHeight": 5,
+      "sourceWidth": 7,
+      "storage": "nv12_video_range_8",
+      "targetHeight": 9,
+      "targetWidth": 13
+    },
+    {
+      "association": "none",
+      "coverage": [
+        "nv12_full_range"
+      ],
+      "framePatterns": [
+        "rational_detail"
+      ],
+      "id": "nv12-full-rational-5x3-to-11x7",
+      "kind": "pixel_spatial",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "storage": "nv12_full_range_8",
+      "targetHeight": 7,
+      "targetWidth": 11
+    },
+    {
+      "association": "none",
+      "coverage": [
+        "p010_video_range"
+      ],
+      "framePatterns": [
+        "rational_detail"
+      ],
+      "id": "p010-video-hdr-rational-5x3-to-9x7",
+      "kind": "pixel_spatial",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "storage": "p010_video_range_10",
+      "targetHeight": 7,
+      "targetWidth": 9
+    },
+    {
+      "association": "straight",
+      "coverage": [
+        "alpha_straight"
+      ],
+      "framePatterns": [
+        "transparent_edge"
+      ],
+      "id": "alpha-straight-bgra8-5x3-to-11x7",
+      "kind": "alpha_spatial",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "storage": "bgra8",
+      "targetHeight": 7,
+      "targetWidth": 11
+    },
+    {
+      "association": "premultiplied",
+      "coverage": [
+        "alpha_premultiplied"
+      ],
+      "framePatterns": [
+        "transparent_edge"
+      ],
+      "id": "alpha-premultiplied-argb16-5x3-to-9x7",
+      "kind": "alpha_spatial",
+      "sourceHeight": 3,
+      "sourceWidth": 5,
+      "storage": "argb16_big_endian",
+      "targetHeight": 7,
+      "targetWidth": 9
+    }
+  ],
+  "comparison": "exact_visible_plane_and_attachment_bytes",
+  "crossProcessCaptureCount": 2,
+  "gateID": "deterministic-engine-v4-cpu-metal-byte-parity",
+  "parityCoverage": [
+    "nv12_video_range",
+    "nv12_full_range",
+    "p010_video_range",
+    "alpha_straight",
+    "alpha_premultiplied",
+    "odd_legal_dimensions",
+    "stride_padding_adversary",
+    "arbitrary_rational_phase",
+    "temporal_history",
+    "temporal_reset",
+    "scene_cut",
+    "cross_process",
+    "tile_schedule"
+  ],
+  "releaseRuntime": {
+    "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
+    "requiredReleaseStatus": "release_qualified",
+    "runtimeID": "ash-p06-deterministic-v4",
+    "trustRootSourceRepositoryPath": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+  },
+  "repeatExecutionCount": 2,
+  "reportSchemaVersion": "mirmir-ash-v4-cpu-metal-parity-report-v1",
+  "schemaVersion": "mirmir-ash-v4-cpu-metal-parity-contract-v1",
+  "tileSchedules": [
+    "row_major",
+    "reverse",
+    "even_then_odd"
+  ],
+  "tools": {
+    "captureSourceSHA256": "9137b54696cccc1b0a26577f9fbace9a87dcd7b717e3564662fab82d6adefef3",
+    "evaluatorSHA256": "7b4be3b0d9dede6e4258bb39ba2a42309380b6041eaa6bc618e27be30a4aa4fb",
+    "runnerSHA256": "63670e47645affc776f6047c2567ed18e26f043e12356d059667c625007cf7ef"
+  }
+}
