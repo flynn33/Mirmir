@@ -27,6 +27,14 @@ assert PERFORMANCE_SPEC is not None and PERFORMANCE_SPEC.loader is not None
 performance_gate = importlib.util.module_from_spec(PERFORMANCE_SPEC)
 PERFORMANCE_SPEC.loader.exec_module(performance_gate)
 
+SUPPORT_FIXTURE_SPEC = importlib.util.spec_from_file_location(
+    "support_matrix_fixture_for_release_tests",
+    SCRIPT_DIRECTORY / "test_support_matrix_v4.py",
+)
+assert SUPPORT_FIXTURE_SPEC is not None and SUPPORT_FIXTURE_SPEC.loader is not None
+support_fixture_module = importlib.util.module_from_spec(SUPPORT_FIXTURE_SPEC)
+SUPPORT_FIXTURE_SPEC.loader.exec_module(support_fixture_module)
+
 
 def identity(label: str) -> str:
     return qualification.sha256_bytes(label.encode("utf-8"))
@@ -50,7 +58,7 @@ class EvidenceFixture:
         self.root = root
         self.contract_path = SCRIPT_DIRECTORY / "release-qualification-contract-v1.json"
         self.contract = json.loads(self.contract_path.read_text())
-        runtime_revision = "b" * 40
+        runtime_revision = "b" * 64
         self.builder_bytes = b"#!/bin/sh\n# locked production P06 builder\n"
         self.toolchain_bytes = qualification.canonical_bytes(
             {"xcode": "locked-release", "metal": "locked-release"}
@@ -98,6 +106,9 @@ class EvidenceFixture:
             },
             "artifacts": runtime_declarations,
         }
+        self.toolchain_bytes = qualification.canonical_bytes(
+            runtime_manifest["provenance"]["toolchain"]
+        )
         runtime_bytes = qualification.canonical_bytes(runtime_manifest)
         release_bytes = b'CONFIGURATION=Release\nSWIFT_OPTIMIZATION_LEVEL=-O\n'
         app_bytes = b"notarized-and-stapled-mirmir-app-archive"
@@ -189,7 +200,11 @@ class EvidenceFixture:
             "schemaVersion": (
                 qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
                 if role == "recovery"
-                else "mirmir-test-sealed-evidence-v1"
+                else (
+                    support_fixture_module.support.EVIDENCE_SCHEMA
+                    if role == "support_matrix"
+                    else "mirmir-test-sealed-evidence-v1"
+                )
             ),
             "artifacts": sealed_artifacts,
         }
@@ -608,6 +623,37 @@ class EvidenceFixture:
                     for pointer, path in binding_sources
                 ],
             }
+        )
+
+    def _build_support_actual(self) -> None:
+        role = "support_matrix"
+        role_dir = self.root / role
+        support_fixture_module.SupportEvidenceFixture(
+            role_dir,
+            runtime_manifest=json.loads(self.runtime_bytes),
+            candidate=self.candidate,
+            release_bytes=self.release_bytes,
+            archive_bytes=self.app_bytes,
+        )
+        report = json.loads((role_dir / "report.json").read_text())
+        self._seal_and_add(
+            role,
+            report,
+            role_dir / "suite-contract.json",
+            role_dir / "runtime-manifest.json",
+            role_dir / "Release.xcconfig",
+            [
+                ("/candidate/appBundleSHA256", role_dir / "application-archive.zip"),
+                ("/identities/captureSourceSHA256", role_dir / "capture-tool.py"),
+                (
+                    "/identities/evaluatorSHA256",
+                    role_dir / "support-matrix-evaluator.py",
+                ),
+                (
+                    "/identities/runnerSHA256",
+                    role_dir / "support-matrix-runner.sh",
+                ),
+            ],
         )
 
     def _build_media_preservation(
@@ -1297,6 +1343,9 @@ class EvidenceFixture:
             if role == "same_scope_performance":
                 self._build_performance_actual()
                 continue
+            if role == "support_matrix":
+                self._build_support_actual()
+                continue
             role_dir = self.root / role
             if role == "media_preservation":
                 suite_contract = {"schemaVersion": qualification.SCHEMA_CONTRACT}
@@ -1304,6 +1353,72 @@ class EvidenceFixture:
                 suite_contract = json.loads(
                     (SCRIPT_DIRECTORY / "recovery-qualification-contract-v1.json").read_text()
                 )
+            elif role == "p06_reproduction":
+                role_dir.mkdir(parents=True, exist_ok=True)
+                source_contract = {
+                    "schemaVersion": "mirmir-ash-v4-p06-source-provenance-contract-v1",
+                    "identityDomain": "ash-p06-production-source-v1",
+                    "normalizedDeploymentTrustRoot": {
+                        "path": "Sources/TrustV4.swift",
+                        "assignments": [
+                            "builderSourceSHA256",
+                            "manifestSHA256",
+                            "sourceRevision",
+                        ],
+                    },
+                    "sources": ["Sources/TrustV4.swift"],
+                }
+                p06_tool_bytes = {
+                    "captureSourceSHA256": ("capture-tool.py", b"capture\n"),
+                    "evaluatorSHA256": ("evaluator.py", b"evaluator\n"),
+                    "runnerSHA256": ("runner.sh", b"runner\n"),
+                    "runtimeLoadCheckRunnerSHA256": (
+                        "runtime-load-check-runner.sh",
+                        b"load runner\n",
+                    ),
+                    "runtimeLoadCheckSourceSHA256": (
+                        "runtime-load-check.swift",
+                        b"load source\n",
+                    ),
+                    "sourceIdentityToolSHA256": (
+                        "source-identity-tool.py",
+                        b"source identity\n",
+                    ),
+                    "sourceProvenanceContractSHA256": (
+                        "source-provenance-contract.json",
+                        qualification.canonical_bytes(source_contract),
+                    ),
+                }
+                p06_capture: dict[str, str] = {}
+                for key, (relative, contents) in p06_tool_bytes.items():
+                    path = role_dir / relative
+                    path.write_bytes(contents)
+                    p06_capture[key] = qualification.sha256(path)
+                suite_contract = {
+                    "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v1",
+                    "suiteID": "mirmir-ash-v4-p06-reproduction-v1",
+                    "buildConfiguration": "Release",
+                    "sourceCheckoutState": "clean",
+                    "cleanBuildCount": 2,
+                    "cleanBuildIDs": ["clean-build-a", "clean-build-b"],
+                    "productionSourceCount": 1,
+                    "requiredRuntimeArtifactRoles": self.contract[
+                        "p06RuntimeArtifactRoles"
+                    ],
+                    "runtimeID": "ash-p06-deterministic-v4",
+                    "runtimeReleaseStatus": "release_qualified",
+                    "canonicalManifestIdentityDomain": "ash-p06-runtime-manifest-v4",
+                    "developmentArtifactDependencyCount": 0,
+                    "p05ProductionDependencyCount": 0,
+                    "capture": p06_capture,
+                    "verification": {
+                        "byteIdenticalToShippingBundle": True,
+                        "productionLoaderAcceptanceRequired": True,
+                        "sameLengthArtifactTamperRejectionRequired": True,
+                        "sealedClosureRequired": True,
+                        "toolchainProvenanceEqualityRequired": True,
+                    },
+                }
             else:
                 suite_contract = {
                     "schemaVersion": f"mirmir-{role}-contract-v1",
@@ -1451,8 +1566,13 @@ class EvidenceFixture:
                     extra_bindings,
                 )
             elif role == "p06_reproduction":
+                assert isinstance(suite_contract, dict)
+                source_contract = json.loads(
+                    (role_dir / "source-provenance-contract.json").read_text()
+                )
+                source_bytes = b"normalized deployment trust source\n"
                 builds = []
-                for build_id in ("clean-build-a", "clean-build-b"):
+                for build_id in suite_contract["cleanBuildIDs"]:
                     build_dir = role_dir / build_id
                     build_dir.mkdir(parents=True, exist_ok=True)
                     build_runtime = build_dir / "runtime-manifest.json"
@@ -1467,6 +1587,60 @@ class EvidenceFixture:
                         runtime_artifact_paths.append(artifact_path)
                     builder.write_bytes(self.builder_bytes)
                     toolchain.write_bytes(self.toolchain_bytes)
+                    production_source = build_dir / "production-source-manifest.json"
+                    production_source.write_bytes(
+                        qualification.canonical_bytes(
+                            {
+                                "schemaVersion": "mirmir-ash-v4-p06-production-source-manifest-v1",
+                                "contractSemanticSHA256": qualification.sha256_bytes(
+                                    qualification.canonical_bytes(source_contract)
+                                ),
+                                "identityDomain": "ash-p06-production-source-v1",
+                                "sourceCount": 1,
+                                "sourceRevision": self.candidate[
+                                    "runtimeSourceRevision"
+                                ],
+                                "sources": [
+                                    {
+                                        "path": "Sources/TrustV4.swift",
+                                        "byteCount": len(source_bytes),
+                                        "sha256": qualification.sha256_bytes(
+                                            source_bytes
+                                        ),
+                                        "normalizedByteCount": len(source_bytes),
+                                        "normalizedSHA256": qualification.sha256_bytes(
+                                            source_bytes
+                                        ),
+                                        "normalizations": [
+                                            "builderSourceSHA256",
+                                            "manifestSHA256",
+                                            "sourceRevision",
+                                        ],
+                                    }
+                                ],
+                            }
+                        )
+                    )
+                    loader = build_dir / "runtime-load-and-tamper-check.log"
+                    loader.write_text(
+                        "\n".join(
+                            (
+                                "runtime_id=ash-p06-deterministic-v4",
+                                "manifest_sha256="
+                                + self.candidate["runtimeManifestSHA256"],
+                                "source_revision="
+                                + self.candidate["runtimeSourceRevision"],
+                                "builder_source_sha256="
+                                + qualification.sha256(builder),
+                                "artifact_count="
+                                + str(len(self.contract["p06RuntimeArtifactRoles"])),
+                                "production_loader_acceptance=pass",
+                                "same_length_artifact_tamper_rejection=pass",
+                            )
+                        )
+                        + "\n",
+                        encoding="utf-8",
+                    )
                     artifact_manifest = build_dir / "artifact-manifest.json"
                     write_json(
                         artifact_manifest,
@@ -1487,11 +1661,21 @@ class EvidenceFixture:
                             "runtimeArtifactSetSHA256": self.candidate["runtimeArtifactSetSHA256"],
                             "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
                             "builderSHA256": qualification.sha256(builder),
+                            "productionSourceRevision": self.candidate[
+                                "runtimeSourceRevision"
+                            ],
+                            "productionSourceManifestSHA256": qualification.sha256(
+                                production_source
+                            ),
                             "toolchainImageSHA256": qualification.sha256(toolchain),
                             "artifactManifest": descriptor(artifact_manifest, self.root),
                             "runtimeManifestArtifact": descriptor(build_runtime, self.root),
                             "builderArtifact": descriptor(builder, self.root),
+                            "productionSourceArtifact": descriptor(
+                                production_source, self.root
+                            ),
                             "toolchainImageArtifact": descriptor(toolchain, self.root),
+                            "loaderEvidenceArtifact": descriptor(loader, self.root),
                             "releaseQualifiedStatus": True,
                             "developmentArtifactDependencyCount": 0,
                             "p05ProductionDependencyCount": 0,
@@ -1499,6 +1683,7 @@ class EvidenceFixture:
                     )
                 report.update(
                     {
+                        "identities": suite_contract["capture"],
                         "buildConfiguration": "Release",
                         "sourceCheckoutState": "clean",
                         "builds": builds,
@@ -1507,6 +1692,18 @@ class EvidenceFixture:
                         "p06ReproductionGatePass": True,
                     }
                 )
+                for identity_name, relative in {
+                    "captureSourceSHA256": "capture-tool.py",
+                    "evaluatorSHA256": "evaluator.py",
+                    "runnerSHA256": "runner.sh",
+                    "runtimeLoadCheckRunnerSHA256": "runtime-load-check-runner.sh",
+                    "runtimeLoadCheckSourceSHA256": "runtime-load-check.swift",
+                    "sourceIdentityToolSHA256": "source-identity-tool.py",
+                    "sourceProvenanceContractSHA256": "source-provenance-contract.json",
+                }.items():
+                    extra_bindings.append(
+                        (f"/identities/{identity_name}", role_dir / relative)
+                    )
             elif role == "support_matrix":
                 app_archive = role_dir / "Mirmir-notarized.zip"
                 app_archive.write_bytes(self.app_bytes)
@@ -1729,7 +1926,11 @@ class EvidenceFixture:
             "schemaVersion": (
                 qualification.RECOVERY_SUITE_MANIFEST_SCHEMA
                 if role == "recovery"
-                else "mirmir-test-sealed-evidence-v1"
+                else (
+                    support_fixture_module.support.EVIDENCE_SCHEMA
+                    if role == "support_matrix"
+                    else "mirmir-test-sealed-evidence-v1"
+                )
             ),
             "artifacts": sealed_artifacts,
         }
@@ -1770,6 +1971,55 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                 report_path, self.fixture.index_path, self.root, self.fixture.contract_path
             ),
         )
+
+    def testP06NestedLoaderToolchainAndSourceTamperAreRecomputed(self) -> None:
+        for mutation in ("loader", "toolchain", "source"):
+            with self.subTest(mutation=mutation), tempfile.TemporaryDirectory(
+                prefix=f"mirmir-p06-{mutation}-"
+            ) as temporary:
+                root = Path(temporary)
+                fixture = EvidenceFixture(root)
+                report_path = root / "p06_reproduction/report.json"
+                report = json.loads(report_path.read_text())
+                build = report["builds"][0]
+                if mutation == "loader":
+                    path = root / build["loaderEvidenceArtifact"]["path"]
+                    path.write_text(
+                        path.read_text().replace(
+                            "same_length_artifact_tamper_rejection=pass",
+                            "same_length_artifact_tamper_rejection=fail",
+                        ),
+                        encoding="utf-8",
+                    )
+                    build["loaderEvidenceArtifact"] = descriptor(path, root)
+                elif mutation == "toolchain":
+                    path = root / build["toolchainImageArtifact"]["path"]
+                    path.write_bytes(
+                        qualification.canonical_bytes(
+                            {"sdk": "resealed-but-not-runtime-provenance"}
+                        )
+                    )
+                    build["toolchainImageSHA256"] = qualification.sha256(path)
+                    build["toolchainImageArtifact"] = descriptor(path, root)
+                else:
+                    path = root / build["productionSourceArtifact"]["path"]
+                    document = json.loads(path.read_text())
+                    document["sourceRevision"] = "f" * 64
+                    path.write_bytes(qualification.canonical_bytes(document))
+                    build["productionSourceRevision"] = "f" * 64
+                    build["productionSourceManifestSHA256"] = qualification.sha256(
+                        path
+                    )
+                    build["productionSourceArtifact"] = descriptor(path, root)
+                write_json(report_path, report)
+                fixture.reseal_role("p06_reproduction")
+                with self.assertRaisesRegex(
+                    qualification.QualificationError,
+                    "loader/tamper|toolchain artifact differs|source revision/count",
+                ):
+                    qualification.evaluate_candidate(
+                        fixture.index_path, root, fixture.contract_path
+                    )
 
     def testPublishedJSONSchemaAcceptsBindingAndRejectsExtraProperty(self) -> None:
         try:
@@ -1987,7 +2237,9 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         self.fixture.mutate_report(
             "support_matrix", lambda report: report["rows"].pop()
         )
-        with self.assertRaisesRegex(qualification.QualificationError, "does not cover"):
+        with self.assertRaisesRegex(
+            qualification.QualificationError, "row count differs|does not cover"
+        ):
             self.evaluate()
         self.fixture = EvidenceFixture(self.root / "smoke")
         self.root = self.root / "smoke"

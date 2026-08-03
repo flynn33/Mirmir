@@ -12,6 +12,7 @@ import argparse
 from datetime import datetime
 from fractions import Fraction
 import hashlib
+import importlib.util
 import json
 import math
 from pathlib import Path, PurePosixPath
@@ -49,6 +50,15 @@ RECOVERY_SCENARIO_SCHEMA = "mirmir-v4-recovery-scenario-evidence-v1"
 RECOVERY_SEMANTIC_SCHEMA = "mirmir-v4-recovery-semantic-output-v1"
 RECOVERY_SUITE_MANIFEST_SCHEMA = "mirmir-v4-recovery-evidence-manifest-v1"
 RECOVERY_TRANSCRIPT_SCHEMA = "mirmir-v4-recovery-fault-transcript-v1"
+
+SUPPORT_REPLAY_SPEC = importlib.util.spec_from_file_location(
+    "support_matrix_v4_for_release_qualification",
+    SCRIPT_DIRECTORY / "support_matrix_v4.py",
+)
+if SUPPORT_REPLAY_SPEC is None or SUPPORT_REPLAY_SPEC.loader is None:
+    raise RuntimeError("support-matrix replay evaluator cannot be loaded")
+support_replay = importlib.util.module_from_spec(SUPPORT_REPLAY_SPEC)
+SUPPORT_REPLAY_SPEC.loader.exec_module(support_replay)
 
 
 class QualificationError(ValueError):
@@ -2947,14 +2957,120 @@ def validate_p06(
 ) -> dict[str, Any]:
     label = "p06_reproduction"
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    require_exact_keys(
+        report,
+        {
+            "schemaVersion",
+            "contractSHA256",
+            "candidate",
+            "releaseEligible",
+            "identities",
+            "buildConfiguration",
+            "sourceCheckoutState",
+            "builds",
+            "productionLoaderAcceptancePass",
+            "tamperRejectionPass",
+            "p06ReproductionGatePass",
+        },
+        "p06 report",
+    )
+    report_path = checked_path(evidence_root, entry["path"], "p06 report path")
+    lane_root = report_path.parent
+    lane_contract_path = checked_path(
+        lane_root, "suite-contract.json", "p06 suite contract"
+    )
+    if lane_contract_path not in sealed_paths or sha256(lane_contract_path) != contract_sha:
+        raise QualificationError("P06 suite contract is absent, unsealed, or stale")
+    lane_contract = require_mapping(load_json(lane_contract_path), "p06 suite contract")
+    if lane_contract.get("schemaVersion") != "mirmir-ash-v4-p06-reproduction-contract-v1":
+        raise QualificationError("P06 suite contract schema mismatch")
+    if lane_contract.get("suiteID") != "mirmir-ash-v4-p06-reproduction-v1":
+        raise QualificationError("P06 suite identity mismatch")
+    if lane_contract.get("buildConfiguration") != "Release" or lane_contract.get("sourceCheckoutState") != "clean":
+        raise QualificationError("P06 suite does not require clean Release builds")
+    clean_build_count = require_integer(
+        lane_contract.get("cleanBuildCount"), "p06 suite cleanBuildCount"
+    )
+    if clean_build_count < 2:
+        raise QualificationError("P06 suite requires fewer than two clean builds")
+    clean_build_ids = require_list(
+        lane_contract.get("cleanBuildIDs"), "p06 suite cleanBuildIDs"
+    )
+    if (
+        len(clean_build_ids) != clean_build_count
+        or len(set(clean_build_ids)) != len(clean_build_ids)
+        or any(not isinstance(value, str) or not value for value in clean_build_ids)
+    ):
+        raise QualificationError("P06 clean-build identities are incomplete or repeated")
+    production_source_count = require_integer(
+        lane_contract.get("productionSourceCount"),
+        "p06 suite productionSourceCount",
+    )
+    if production_source_count < 1:
+        raise QualificationError("P06 production source inventory is empty")
+    lane_roles = require_list(
+        lane_contract.get("requiredRuntimeArtifactRoles"),
+        "p06 suite requiredRuntimeArtifactRoles",
+    )
+    if lane_roles != contract["p06RuntimeArtifactRoles"]:
+        raise QualificationError("P06 lane and release runtime artifact roles differ")
+
+    identity_artifacts = {
+        "captureSourceSHA256": "capture-tool.py",
+        "evaluatorSHA256": "evaluator.py",
+        "runnerSHA256": "runner.sh",
+        "runtimeLoadCheckRunnerSHA256": "runtime-load-check-runner.sh",
+        "runtimeLoadCheckSourceSHA256": "runtime-load-check.swift",
+        "sourceIdentityToolSHA256": "source-identity-tool.py",
+        "sourceProvenanceContractSHA256": "source-provenance-contract.json",
+    }
+    report_identities = require_mapping(report.get("identities"), "p06 identities")
+    require_exact_keys(report_identities, set(identity_artifacts), "p06 identities")
+    lane_capture = require_mapping(lane_contract.get("capture"), "p06 suite capture")
+    require_exact_keys(lane_capture, set(identity_artifacts), "p06 suite capture")
+    for identity_name, relative in identity_artifacts.items():
+        artifact_path = checked_path(lane_root, relative, f"p06 {identity_name} artifact")
+        if artifact_path not in sealed_paths:
+            raise QualificationError(f"P06 identity artifact is unsealed: {relative}")
+        actual_identity = sha256(artifact_path)
+        if (
+            require_hex(report_identities[identity_name], 64, f"p06 {identity_name}")
+            != actual_identity
+            or lane_capture.get(identity_name) != actual_identity
+        ):
+            raise QualificationError(f"P06 qualification identity mismatch: {identity_name}")
+    source_contract_path = checked_path(
+        lane_root,
+        "source-provenance-contract.json",
+        "p06 source provenance contract",
+    )
+    source_contract = require_mapping(
+        load_json(source_contract_path), "p06 source provenance contract"
+    )
+    if (
+        source_contract.get("schemaVersion")
+        != "mirmir-ash-v4-p06-source-provenance-contract-v1"
+        or source_contract.get("identityDomain")
+        != "ash-p06-production-source-v1"
+    ):
+        raise QualificationError("P06 source provenance contract is unsupported")
+    source_contract_paths = require_list(
+        source_contract.get("sources"), "p06 source provenance sources"
+    )
+    if (
+        len(source_contract_paths) != production_source_count
+        or source_contract_paths != sorted(set(source_contract_paths))
+    ):
+        raise QualificationError("P06 source provenance contract is not a closed ordered inventory")
     if report.get("buildConfiguration") != "Release" or report.get("sourceCheckoutState") != "clean":
         raise QualificationError("P06 reproduction was not built cleanly in Release")
     builds = require_list(report.get("builds"), "p06.builds")
-    if len(builds) < 2:
-        raise QualificationError("P06 reproduction requires at least two clean builds")
+    if len(builds) != clean_build_count:
+        raise QualificationError("P06 reproduction clean-build count differs from its contract")
     artifact_sets: set[str] = set()
     manifests: set[str] = set()
     builders: set[str] = set()
+    source_manifests: set[str] = set()
     toolchains: set[str] = set()
     build_ids: set[str] = set()
     for index, item in enumerate(builds):
@@ -2966,11 +3082,15 @@ def validate_p06(
                 "runtimeArtifactSetSHA256",
                 "runtimeManifestSHA256",
                 "builderSHA256",
+                "productionSourceRevision",
+                "productionSourceManifestSHA256",
                 "toolchainImageSHA256",
                 "artifactManifest",
                 "runtimeManifestArtifact",
                 "builderArtifact",
+                "productionSourceArtifact",
                 "toolchainImageArtifact",
+                "loaderEvidenceArtifact",
                 "releaseQualifiedStatus",
                 "developmentArtifactDependencyCount",
                 "p05ProductionDependencyCount",
@@ -2980,6 +3100,8 @@ def validate_p06(
         build_id = require_string(build["id"], f"p06 build[{index}].id")
         if build_id in build_ids:
             raise QualificationError(f"P06 reproduction repeats build identity: {build_id}")
+        if build_id != clean_build_ids[index]:
+            raise QualificationError(f"P06 reproduction build identity/order mismatch: {build_id}")
         build_ids.add(build_id)
         claimed_artifact_set = require_hex(
             build["runtimeArtifactSetSHA256"], 64, f"p06 build[{index}].artifact set"
@@ -2988,6 +3110,16 @@ def validate_p06(
             build["runtimeManifestSHA256"], 64, f"p06 build[{index}].manifest"
         )
         claimed_builder = require_hex(build["builderSHA256"], 64, f"p06 build[{index}].builder")
+        claimed_source_revision = require_hex(
+            build["productionSourceRevision"],
+            64,
+            f"p06 build[{index}].production source revision",
+        )
+        claimed_source_manifest = require_hex(
+            build["productionSourceManifestSHA256"],
+            64,
+            f"p06 build[{index}].production source manifest",
+        )
         claimed_toolchain = require_hex(
             build["toolchainImageSHA256"], 64, f"p06 build[{index}].toolchain"
         )
@@ -3052,13 +3184,19 @@ def validate_p06(
         )
         if provenance.get("sourceRevision") != candidate["runtimeSourceRevision"]:
             raise QualificationError(f"p06 build[{index}] runtime source revision mismatch")
-        _, builder_identity = validate_sealed_artifact(
+        builder_path, builder_identity = validate_sealed_artifact(
             evidence_root,
             build["builderArtifact"],
             sealed_paths,
             f"p06 build[{index}].builderArtifact",
         )
-        _, toolchain_identity = validate_sealed_artifact(
+        source_manifest_path, source_manifest_identity = validate_sealed_artifact(
+            evidence_root,
+            build["productionSourceArtifact"],
+            sealed_paths,
+            f"p06 build[{index}].productionSourceArtifact",
+        )
+        toolchain_path, toolchain_identity = validate_sealed_artifact(
             evidence_root,
             build["toolchainImageArtifact"],
             sealed_paths,
@@ -3068,6 +3206,134 @@ def validate_p06(
             raise QualificationError(f"p06 build[{index}] builder/toolchain identity mismatch")
         if provenance.get("builderSourceSHA256") != builder_identity:
             raise QualificationError(f"p06 build[{index}] provenance builder identity mismatch")
+        if builder_path.stat().st_size == 0:
+            raise QualificationError(f"p06 build[{index}] builder source manifest is empty")
+        if claimed_source_manifest != source_manifest_identity:
+            raise QualificationError(f"p06 build[{index}] production source manifest identity mismatch")
+        production_source_manifest = require_mapping(
+            load_json(source_manifest_path),
+            f"p06 build[{index}] production source manifest",
+        )
+        require_exact_keys(
+            production_source_manifest,
+            {
+                "schemaVersion",
+                "contractSemanticSHA256",
+                "identityDomain",
+                "sourceCount",
+                "sourceRevision",
+                "sources",
+            },
+            f"p06 build[{index}] production source manifest",
+        )
+        if source_manifest_path.read_bytes() != canonical_bytes(production_source_manifest):
+            raise QualificationError(f"p06 build[{index}] production source manifest is not canonical JSON")
+        if (
+            production_source_manifest.get("schemaVersion")
+            != "mirmir-ash-v4-p06-production-source-manifest-v1"
+            or production_source_manifest.get("identityDomain")
+            != "ash-p06-production-source-v1"
+            or production_source_manifest.get("contractSemanticSHA256")
+            != sha256_bytes(canonical_bytes(source_contract))
+        ):
+            raise QualificationError(f"p06 build[{index}] production source provenance binding mismatch")
+        if (
+            require_integer(
+                production_source_manifest.get("sourceCount"),
+                f"p06 build[{index}] production source count",
+            )
+            != production_source_count
+            or production_source_manifest.get("sourceRevision")
+            != claimed_source_revision
+            or claimed_source_revision != candidate["runtimeSourceRevision"]
+        ):
+            raise QualificationError(f"p06 build[{index}] production source revision/count mismatch")
+        production_sources = require_list(
+            production_source_manifest.get("sources"),
+            f"p06 build[{index}] production sources",
+        )
+        if len(production_sources) != production_source_count:
+            raise QualificationError(f"p06 build[{index}] production source entries are incomplete")
+        observed_source_paths: list[str] = []
+        normalized_trust_root = require_mapping(
+            source_contract.get("normalizedDeploymentTrustRoot"),
+            "p06 normalized deployment trust root",
+        ).get("path")
+        for source_index, source_value in enumerate(production_sources):
+            source = require_mapping(
+                source_value,
+                f"p06 build[{index}] production source[{source_index}]",
+            )
+            require_exact_keys(
+                source,
+                {
+                    "path",
+                    "byteCount",
+                    "sha256",
+                    "normalizedByteCount",
+                    "normalizedSHA256",
+                    "normalizations",
+                },
+                f"p06 build[{index}] production source[{source_index}]",
+            )
+            source_path_label = (
+                f"p06 build[{index}] production source[{source_index}].path"
+            )
+            relative_source = require_string(source["path"], source_path_label)
+            parsed_source_path = PurePosixPath(relative_source)
+            if (
+                parsed_source_path.is_absolute()
+                or ".." in parsed_source_path.parts
+                or parsed_source_path.as_posix() != relative_source
+            ):
+                raise QualificationError(
+                    f"{source_path_label} is not a safe canonical relative path"
+                )
+            observed_source_paths.append(relative_source)
+            byte_count = require_integer(
+                source["byteCount"],
+                f"p06 build[{index}] production source[{source_index}].byteCount",
+            )
+            normalized_count = require_integer(
+                source["normalizedByteCount"],
+                f"p06 build[{index}] production source[{source_index}].normalizedByteCount",
+            )
+            source_identity = require_hex(
+                source["sha256"],
+                64,
+                f"p06 build[{index}] production source[{source_index}].sha256",
+            )
+            normalized_identity = require_hex(
+                source["normalizedSHA256"],
+                64,
+                f"p06 build[{index}] production source[{source_index}].normalizedSHA256",
+            )
+            normalizations = require_list(
+                source["normalizations"],
+                f"p06 build[{index}] production source[{source_index}].normalizations",
+            )
+            if relative_source == normalized_trust_root:
+                if normalizations != [
+                    "builderSourceSHA256",
+                    "manifestSHA256",
+                    "sourceRevision",
+                ]:
+                    raise QualificationError("P06 deployment trust-root normalization is incomplete")
+            elif (
+                normalizations
+                or byte_count != normalized_count
+                or source_identity != normalized_identity
+            ):
+                raise QualificationError(f"P06 source was unexpectedly normalized: {relative_source}")
+        if observed_source_paths != source_contract_paths:
+            raise QualificationError(f"p06 build[{index}] production source inventory differs from contract")
+        toolchain_document = require_mapping(
+            load_json(toolchain_path), f"p06 build[{index}] toolchain image"
+        )
+        if toolchain_path.read_bytes() != canonical_bytes(toolchain_document):
+            raise QualificationError(f"p06 build[{index}] toolchain image is not canonical JSON")
+        if toolchain_document != provenance.get("toolchain"):
+            raise QualificationError(f"p06 build[{index}] toolchain artifact differs from runtime provenance")
         declared_runtime_artifacts = require_list(
             runtime_manifest.get("artifacts"), f"p06 build[{index}] runtime artifacts"
         )
@@ -3127,9 +3393,60 @@ def validate_p06(
         forbidden_runtime_text = json.dumps(runtime_manifest, sort_keys=True).lower()
         if any(token in forbidden_runtime_text for token in ("p05", "preview", "development", "dev-runtime")):
             raise QualificationError(f"p06 build[{index}] retains a forbidden preview identity")
+        loader_path, _ = validate_sealed_artifact(
+            evidence_root,
+            build["loaderEvidenceArtifact"],
+            sealed_paths,
+            f"p06 build[{index}].loaderEvidenceArtifact",
+        )
+        try:
+            loader_lines = loader_path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeError) as error:
+            raise QualificationError(
+                f"cannot read p06 build[{index}] loader transcript: {error}"
+            ) from error
+        loader_values: dict[str, str] = {}
+        for line in loader_lines:
+            if "=" not in line:
+                raise QualificationError(
+                    f"p06 build[{index}] loader transcript contains an unstructured line"
+                )
+            key, value = line.split("=", 1)
+            if not key or not value or key in loader_values:
+                raise QualificationError(
+                    f"p06 build[{index}] loader transcript repeats or empties {key!r}"
+                )
+            loader_values[key] = value
+        require_exact_keys(
+            loader_values,
+            {
+                "runtime_id",
+                "manifest_sha256",
+                "source_revision",
+                "builder_source_sha256",
+                "artifact_count",
+                "production_loader_acceptance",
+                "same_length_artifact_tamper_rejection",
+            },
+            f"p06 build[{index}] loader transcript",
+        )
+        expected_loader_values = {
+            "runtime_id": "ash-p06-deterministic-v4",
+            "manifest_sha256": semantic_manifest_identity,
+            "source_revision": claimed_source_revision,
+            "builder_source_sha256": builder_identity,
+            "artifact_count": str(len(declared_runtime_artifacts)),
+            "production_loader_acceptance": "pass",
+            "same_length_artifact_tamper_rejection": "pass",
+        }
+        if loader_values != expected_loader_values:
+            raise QualificationError(
+                f"p06 build[{index}] production loader/tamper transcript differs"
+            )
         artifact_sets.add(computed_artifact_set)
         manifests.add(semantic_manifest_identity)
         builders.add(builder_identity)
+        source_manifests.add(source_manifest_identity)
         toolchains.add(toolchain_identity)
         require_bool(build["releaseQualifiedStatus"], f"p06 build[{index}].releaseQualifiedStatus", True)
         if require_integer(build["developmentArtifactDependencyCount"], f"p06 build[{index}].development deps") != 0:
@@ -3140,8 +3457,10 @@ def validate_p06(
         raise QualificationError("P06 clean builds are not byte-identical to the candidate artifact set")
     if manifests != {candidate["runtimeManifestSHA256"]}:
         raise QualificationError("P06 clean builds do not reproduce the candidate manifest")
-    if len(builders) != 1 or len(toolchains) != 1:
-        raise QualificationError("P06 clean reproduction changed builder or toolchain image")
+    if len(builders) != 1 or len(source_manifests) != 1 or len(toolchains) != 1:
+        raise QualificationError(
+            "P06 clean reproduction changed builder, production source manifest, or toolchain image"
+        )
     require_bool(report.get("productionLoaderAcceptancePass"), "p06.productionLoaderAcceptancePass", True)
     require_bool(report.get("tamperRejectionPass"), "p06.tamperRejectionPass", True)
     require_bool(report.get("p06ReproductionGatePass"), "p06.p06ReproductionGatePass", True)
@@ -3150,6 +3469,8 @@ def validate_p06(
         "runtimeArtifactSetSHA256": next(iter(artifact_sets)),
         "runtimeManifestSHA256": next(iter(manifests)),
         "builderSHA256": next(iter(builders)),
+        "productionSourceManifestSHA256": next(iter(source_manifests)),
+        "productionSourceCount": production_source_count,
         "toolchainImageSHA256": next(iter(toolchains)),
     }
 
@@ -3165,6 +3486,15 @@ def validate_support(
 ) -> dict[str, Any]:
     label = "support_matrix"
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    report_path = checked_path(evidence_root, entry["path"], "support report path")
+    try:
+        replayed_report = support_replay.replay_evidence(report_path.parent)
+    except support_replay.SupportEvidenceError as error:
+        raise QualificationError(
+            f"support matrix independent replay failed: {error}"
+        ) from error
+    if canonical_bytes(replayed_report) != canonical_bytes(report):
+        raise QualificationError("support matrix report differs from independent replay")
     declared = set(require_list(report.get("declaredSupportedMachineClassIDs"), "support declared classes"))
     rows = require_list(report.get("rows"), "support.rows")
     seen: set[str] = set()
@@ -3201,19 +3531,26 @@ def validate_support(
         require_bool(row["fullQualificationMatrixPass"], f"support row[{index}].fullQualificationMatrixPass", True)
         if require_integer(row["unexpectedSkipCount"], f"support row[{index}].unexpectedSkipCount") != 0:
             raise QualificationError(f"support row contains unexpected skips: {identifier}")
-        validate_sealed_artifact(
-            evidence_root,
+        external_path, _ = validate_artifact(
+            report_path.parent,
             row["externalEvidenceArtifact"],
-            sealed_paths,
             f"support row[{index}].externalEvidenceArtifact",
         )
+        if external_path not in sealed_paths:
+            raise QualificationError(
+                f"support row[{index}] external evidence is outside the lane seal"
+            )
     if classes != declared:
         raise QualificationError("support matrix does not cover every declared supported machine class")
     required_classes = set(contract["supportMatrixRequiredClasses"])
     if not required_classes.issubset(classes):
         raise QualificationError(f"support matrix misses required classes: {sorted(required_classes-classes)}")
     require_bool(report.get("supportMatrixGatePass"), "support.supportMatrixGatePass", True)
-    return {"rowCount": len(rows), "machineClasses": sorted(classes)}
+    return {
+        "rowCount": len(rows),
+        "machineClasses": sorted(classes),
+        "replayedRows": replayed_report["rows"],
+    }
 
 
 def validate_smoke(

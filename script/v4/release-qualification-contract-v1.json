@@ -54,6 +54,18 @@
       "/candidate/releaseConfigurationSHA256",
       "/candidate/appBundleSHA256"
     ],
+    "p06_reproduction": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/runtimeLoadCheckRunnerSHA256",
+      "/identities/runtimeLoadCheckSourceSHA256",
+      "/identities/sourceIdentityToolSHA256",
+      "/identities/sourceProvenanceContractSHA256"
+    ],
     "quality": [
       "/identities/contractSHA256",
       "/identities/metricToolSHA256",
@@ -80,7 +92,10 @@
       "/contractSHA256",
       "/candidate/runtimeManifestFileSHA256",
       "/candidate/releaseConfigurationSHA256",
-      "/candidate/appBundleSHA256"
+      "/candidate/appBundleSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256"
     ]
   },
   "mediaPreservationCoverage": [

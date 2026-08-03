@@ -25,9 +25,17 @@ def write_json(path: Path, value: object) -> None:
 
 
 class SupportEvidenceFixture:
-    def __init__(self, root: Path):
+    def __init__(
+        self,
+        root: Path,
+        *,
+        runtime_manifest: dict[str, object] | None = None,
+        candidate: dict[str, object] | None = None,
+        release_bytes: bytes | None = None,
+        archive_bytes: bytes | None = None,
+    ):
         self.root = root
-        root.mkdir(parents=True)
+        root.mkdir(parents=True, exist_ok=True)
         shutil.copy2(
             SCRIPT_DIRECTORY / "support-matrix-contract-v1.json",
             root / "suite-contract.json",
@@ -45,7 +53,7 @@ class SupportEvidenceFixture:
             root / "support-matrix-runner.sh",
         )
         self.contract = support.load_json(root / "suite-contract.json")
-        self.runtime_manifest = {
+        default_runtime_manifest = {
             "provenance": {
                 "builderSourceSHA256": support.sha256_bytes(b"builder"),
                 "sourceRevision": "2" * 40,
@@ -60,13 +68,14 @@ class SupportEvidenceFixture:
             "runtimeID": support.RUNTIME_ID,
             "schemaID": support.RUNTIME_SCHEMA,
         }
+        self.runtime_manifest = runtime_manifest or default_runtime_manifest
         runtime_bytes = support.canonical_bytes(self.runtime_manifest)
         (root / "runtime-manifest.json").write_bytes(runtime_bytes)
-        release_bytes = b"SWIFT_OPTIMIZATION_LEVEL = -O\n"
-        archive_bytes = b"fixture-notarized-application-archive"
+        release_bytes = release_bytes or b"SWIFT_OPTIMIZATION_LEVEL = -O\n"
+        archive_bytes = archive_bytes or b"fixture-notarized-application-archive"
         (root / "Release.xcconfig").write_bytes(release_bytes)
         (root / "application-archive.zip").write_bytes(archive_bytes)
-        self.candidate = {
+        default_candidate = {
             "sourceCommit": "1" * 40,
             "sourceTreeIdentitySHA256": support.sha256_bytes(b"source-tree"),
             "runtimeManifestSHA256": support.sha256_bytes(
@@ -81,6 +90,7 @@ class SupportEvidenceFixture:
             "productVersion": "4.0",
             "productBuild": "400",
         }
+        self.candidate = candidate or default_candidate
         write_json(root / "candidate.json", self.candidate)
         self.runtime_summary = {
             "runtimeID": support.RUNTIME_ID,
