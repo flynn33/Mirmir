@@ -317,6 +317,8 @@ private actor StubWorkflowApplicationControllerV4:
         self.failureMessage = failureMessage
     }
 
+    func installObserver(_ observer: WorkflowApplicationObserverV4) async {}
+
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
         if let failureMessage {
             throw LaunchFailure(message: failureMessage)
@@ -335,6 +337,13 @@ private actor StubWorkflowApplicationControllerV4:
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
         throw LaunchFailure(message: "Unexpected workflow submission.")
+    }
+
+    func enqueue(
+        request _: UpscaleRequest,
+        priority _: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        throw LaunchFailure(message: "Unexpected workflow enqueue.")
     }
 
     func requestPause() async throws {
@@ -360,5 +369,16 @@ private actor StubWorkflowApplicationControllerV4:
             throw LaunchFailure(message: "Unexpected workflow snapshot.")
         }
         return launch.queue
+    }
+
+    func setPriority(jobID _: WorkflowJobID, value _: Int32) async throws {
+        throw LaunchFailure(message: "Unexpected workflow priority change.")
+    }
+
+    func move(
+        jobID _: WorkflowJobID,
+        direction _: WorkflowApplicationQueueMoveV4
+    ) async throws {
+        throw LaunchFailure(message: "Unexpected workflow reorder.")
     }
 }

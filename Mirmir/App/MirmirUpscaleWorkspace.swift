@@ -428,15 +428,31 @@ struct MirmirProductUpscaleWorkspace: View {
                     .accessibilityIdentifier("mirmir.cancelProcessing")
                 }
             } else {
-                Button {
-                    viewModel.startUpscale()
-                } label: {
-                    Label("Start Upscale", systemImage: "play.fill")
+                HStack(spacing: theme.spacing.space2) {
+                    Button {
+                        viewModel.startUpscale()
+                    } label: {
+                        Label("Start Upscale", systemImage: "play.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(MirmirProductPrimaryButtonStyle(theme: theme))
+                    .disabled(!viewModel.canStart)
+                    .keyboardShortcut(.defaultAction)
+                    .accessibilityIdentifier("mirmir.startUpscale")
+
+                    if viewModel.canEnqueueWorkflow {
+                        Button {
+                            viewModel.enqueueUpscale()
+                        } label: {
+                            Label("Add to Queue", systemImage: "text.badge.plus")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(
+                            MirmirProductSecondaryButtonStyle(theme: theme)
+                        )
+                        .accessibilityIdentifier("mirmir.enqueueUpscale")
+                    }
                 }
-                .buttonStyle(MirmirProductPrimaryButtonStyle(theme: theme))
-                .disabled(!viewModel.canStart)
-                .keyboardShortcut(.defaultAction)
-                .accessibilityIdentifier("mirmir.startUpscale")
             }
 
             Text(viewModel.startValidationMessage ?? "Ready to process.")

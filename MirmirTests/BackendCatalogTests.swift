@@ -454,6 +454,66 @@ final class BackendCatalogTests: XCTestCase {
             XCTAssertNil(viewModel.backendSnapshot)
         }
     }
+
+    @MainActor
+    func testDurableQueueKeepsEnqueueAvailableWhileDisablingImmediateStart()
+        async throws {
+        let sourceURL = URL(fileURLWithPath: "/tmp/catalog-queued-source.mov")
+        let source = makeVideoInfo(url: sourceURL)
+        let generatedAt = WorkflowWallClockInstantV4(
+            nanosecondsSinceUnixEpoch: 42
+        )
+        let emptyQueue = WorkflowApplicationQueueSnapshotV4(
+            generatedAt: generatedAt,
+            items: []
+        )
+        let controller = CatalogQueueStateControllerV4(
+            queue: emptyQueue,
+            recovery: WorkflowLaunchRecoverySnapshotV4(
+                generatedAt: generatedAt,
+                items: []
+            )
+        )
+        let values = Dictionary(
+            uniqueKeysWithValues: BackendDescriptor.concrete.map {
+                ($0.id, BackendAvailability.available)
+            }
+        )
+        let viewModel = MirmirViewModel(
+            videoProbe: ImmediateCatalogVideoProbe(info: source),
+            backendCatalog: UpscaleBackendCatalog(
+                backends: makeStubBackends(values: values)
+            ),
+            runtimeEnvironment: testEnvironment,
+            workflowController: controller
+        )
+        await viewModel.initializeWorkflow()
+        viewModel.selectBackend(.mirmirDeterministicCPU)
+        viewModel.selectVideo(sourceURL)
+        await viewModel.waitForCurrentProbe()
+        await viewModel.waitForBackendAvailability()
+        viewModel.setOutputURL(
+            URL(fileURLWithPath: "/tmp/catalog-queued-output.mov")
+        )
+
+        XCTAssertTrue(viewModel.canStart)
+        XCTAssertTrue(viewModel.canEnqueueWorkflow)
+
+        let activeQueue = WorkflowApplicationQueueSnapshotV4(
+            generatedAt: generatedAt,
+            items: [try catalogQueueItem(lifecycle: .running)]
+        )
+        await controller.publish(activeQueue)
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertTrue(viewModel.isWorkflowProcessing)
+        XCTAssertFalse(viewModel.canStart)
+        XCTAssertTrue(viewModel.canEnqueueWorkflow)
+        XCTAssertEqual(
+            viewModel.startValidationMessage,
+            "A durable job is active. Add this request to the queue."
+        )
+    }
 }
 
 private let testEnvironment = RuntimeEnvironment(
@@ -553,6 +613,114 @@ private struct ImmediateCatalogVideoProbe: VideoProbing {
     func probe(url: URL) async throws -> VideoInfo {
         info
     }
+}
+
+private enum CatalogQueueStateControllerErrorV4: Error {
+    case unsupported
+}
+
+private actor CatalogQueueStateControllerV4:
+    WorkflowApplicationControllingV4
+{
+    private var queue: WorkflowApplicationQueueSnapshotV4
+    private let recovery: WorkflowLaunchRecoverySnapshotV4
+    private var observer = WorkflowApplicationObserverV4.none
+
+    init(
+        queue: WorkflowApplicationQueueSnapshotV4,
+        recovery: WorkflowLaunchRecoverySnapshotV4
+    ) {
+        self.queue = queue
+        self.recovery = recovery
+    }
+
+    func installObserver(_ observer: WorkflowApplicationObserverV4) async {
+        self.observer = observer
+    }
+
+    func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
+        WorkflowApplicationLaunchSnapshotV4(
+            queue: queue,
+            recovery: recovery
+        )
+    }
+
+    func enqueue(
+        request _: UpscaleRequest,
+        priority _: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func submit(
+        request _: UpscaleRequest,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func requestPause() async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func cancelActive() async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func resume(
+        jobID _: WorkflowJobID,
+        progress _: @escaping @Sendable (UpscaleProgress) -> Void,
+        snapshot _: @escaping @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void
+    ) async throws -> WorkflowApplicationRunOutcomeV4 {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
+        queue
+    }
+
+    func setPriority(jobID _: WorkflowJobID, value _: Int32) async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func move(
+        jobID _: WorkflowJobID,
+        direction _: WorkflowApplicationQueueMoveV4
+    ) async throws {
+        throw CatalogQueueStateControllerErrorV4.unsupported
+    }
+
+    func publish(_ queue: WorkflowApplicationQueueSnapshotV4) {
+        self.queue = queue
+        observer.snapshot(queue)
+    }
+}
+
+private func catalogQueueItem(
+    lifecycle: WorkflowJobLifecycle
+) throws -> WorkflowApplicationQueueItemV4 {
+    let digest = String(repeating: "a", count: 64)
+    return WorkflowApplicationQueueItemV4(
+        jobID: try WorkflowJobID("catalog-active-job"),
+        lifecycle: lifecycle,
+        queueOrdinal: nil,
+        priority: 0,
+        binding: WorkflowJobBinding(
+            jobID: try WorkflowJobID("catalog-active-job"),
+            requestID: try WorkflowRequestID(digest),
+            sourceIdentityID: try WorkflowSourceIdentityID(digest),
+            outputContractID: try WorkflowOutputContractID(digest),
+            planID: try WorkflowPlanID(digest),
+            runtimeBindingID: try WorkflowRuntimeBindingID(digest)
+        ),
+        requestRecordStatus: .missing,
+        request: nil
+    )
 }
 
 private func makeStubBackends(

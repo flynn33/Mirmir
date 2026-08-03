@@ -9,8 +9,14 @@ enum WorkflowApplicationRequestDocumentDigestPurposeV4:
     WorkflowDigestPurpose
 {}
 
+enum WorkflowApplicationPriorityDocumentDigestPurposeV4:
+    WorkflowDigestPurpose
+{}
+
 typealias WorkflowApplicationRequestDocumentHashV4 =
     WorkflowDigest<WorkflowApplicationRequestDocumentDigestPurposeV4>
+typealias WorkflowApplicationPriorityDocumentHashV4 =
+    WorkflowDigest<WorkflowApplicationPriorityDocumentDigestPurposeV4>
 
 enum WorkflowApplicationRequestEnvelopeSchemaV4 {
     static let legacy: UInt16 = 1
@@ -44,6 +50,8 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
     case terminalCheckpointMissing(WorkflowJobID)
     case workingArtifactConflict(String)
     case unsafeWorkingArtifact(String)
+    case priorityDocumentCorrupt
+    case jobNotQueued(WorkflowJobID)
 
     var errorDescription: String? {
         switch self {
@@ -85,7 +93,62 @@ enum WorkflowApplicationQueueErrorV4: Error, Equatable, LocalizedError {
             "A durable working artifact already exists at \(path)."
         case .unsafeWorkingArtifact(let path):
             "A durable working artifact is unsafe: \(path)."
+        case .priorityDocumentCorrupt:
+            "The durable application queue priority document is noncanonical or hash-invalid."
+        case .jobNotQueued(let jobID):
+            "The durable workflow job \(jobID) is not currently queued."
         }
+    }
+}
+
+enum WorkflowApplicationQueueMoveV4: Sendable {
+    case earlier
+    case later
+}
+
+private struct WorkflowApplicationPriorityEntryV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    let jobID: WorkflowJobID
+    let value: Int32
+}
+
+private struct WorkflowApplicationPriorityBodyV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let entries: [WorkflowApplicationPriorityEntryV4]
+
+    init(entries: [WorkflowApplicationPriorityEntryV4]) {
+        schemaVersion = Self.currentSchemaVersion
+        self.entries = entries
+    }
+}
+
+private struct WorkflowApplicationPriorityDocumentV4:
+    Codable,
+    Equatable,
+    Sendable
+{
+    static let currentSchemaVersion: UInt16 = 1
+
+    let schemaVersion: UInt16
+    let bodyHash: WorkflowApplicationPriorityDocumentHashV4
+    let body: WorkflowApplicationPriorityBodyV4
+
+    init(
+        bodyHash: WorkflowApplicationPriorityDocumentHashV4,
+        body: WorkflowApplicationPriorityBodyV4
+    ) {
+        schemaVersion = Self.currentSchemaVersion
+        self.bodyHash = bodyHash
+        self.body = body
     }
 }
 
@@ -567,6 +630,7 @@ struct WorkflowApplicationQueueItemV4: Codable, Equatable, Sendable {
     let jobID: WorkflowJobID
     let lifecycle: WorkflowJobLifecycle
     let queueOrdinal: Int?
+    let priority: Int32
     let binding: WorkflowJobBinding
     let requestRecordStatus: WorkflowApplicationRequestRecordStatusV4
     let request: WorkflowApplicationRequestSummaryV4?
@@ -596,6 +660,7 @@ struct WorkflowApplicationLaunchSnapshotV4: Equatable, Sendable {
 
 struct WorkflowApplicationEnqueueReceiptV4: Equatable, Sendable {
     let specification: WorkflowJobSpecification
+    let priority: Int32
     let requestDocumentHash: WorkflowApplicationRequestDocumentHashV4
     let bookmarkSetHash: WorkflowBookmarkSetHashV4
     let journalReceipt: WorkflowAppliedEventReceipt
@@ -665,8 +730,11 @@ actor WorkflowApplicationQueueV4 {
     let cacheDirectoryURL: URL
 
     private static let maximumRequestDocumentBytes = 1 * 1_024 * 1_024
+    private static let maximumPriorityDocumentBytes = 4 * 1_024 * 1_024
     private static let maximumTargetDimension = 131_072
     private static let requestDocumentName = "request-v1.json"
+    private static let priorityDocumentName = "application-priorities-v1.json"
+    private static let priorityLockName = "application-priorities.lock"
 
     private let fileSystem: any WorkflowDurableFileSystem
     private let resolver: any WorkflowSecurityScopedBookmarkResolvingV4
@@ -797,8 +865,13 @@ actor WorkflowApplicationQueueV4 {
     @discardableResult
     func enqueue(
         request: UpscaleRequest,
-        preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4
+        preparedPlanBinding: WorkflowVerifiedPreparedPlanBindingV4,
+        priority: Int32 = 0
     ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        guard priority >= WorkflowQueuePriorityV4.minimum,
+              priority <= WorkflowQueuePriorityV4.maximum else {
+            throw WorkflowQueueDispatcherErrorV4.invalidPriority(priority)
+        }
         let binding = try preparedPlanBinding.revalidated()
         try Self.validate(request: request, preparedBinding: binding)
         let outputFileName = try Self.outputFileName(for: request.outputURL)
@@ -885,6 +958,12 @@ actor WorkflowApplicationQueueV4 {
             resolver: resolver
         )
         try persistRequestDocument(requestDocument)
+        // Priority is committed before the enqueue event. Therefore any job
+        // visible in the journal already has its requested dispatch priority,
+        // even if the process is killed at the next instruction. A priority
+        // entry whose enqueue never becomes visible is harmless and is pruned
+        // during launch reconciliation.
+        try persistPriority(jobID: jobID, value: priority)
         let append = try await coordinator.append(
             WorkflowEventDraft(
                 eventID: WorkflowEventID("enqueue-event-\(token)"),
@@ -897,6 +976,7 @@ actor WorkflowApplicationQueueV4 {
         )
         return WorkflowApplicationEnqueueReceiptV4(
             specification: specification,
+            priority: priority,
             requestDocumentHash: requestDocument.bodyHash,
             bookmarkSetHash: bookmarkDocument.bodyHash,
             journalReceipt: append.receipt
@@ -905,6 +985,7 @@ actor WorkflowApplicationQueueV4 {
 
     func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
         let state = try await coordinator.open().state
+        let priorities = try loadPriorities()
         let ordinals = Dictionary(
             uniqueKeysWithValues: state.queueOrder.enumerated().map {
                 ($0.element, $0.offset)
@@ -915,6 +996,17 @@ actor WorkflowApplicationQueueV4 {
             let right = ordinals[rhs.specification.jobID]
             switch (left, right) {
             case (.some(let left), .some(let right)):
+                let leftPriority = priorities[
+                    lhs.specification.jobID,
+                    default: 0
+                ]
+                let rightPriority = priorities[
+                    rhs.specification.jobID,
+                    default: 0
+                ]
+                if leftPriority != rightPriority {
+                    return leftPriority > rightPriority
+                }
                 return left < right
             case (.some, .none):
                 return true
@@ -925,7 +1017,11 @@ actor WorkflowApplicationQueueV4 {
             }
         }
         let items = orderedJobs.map { job in
-            queueItem(job: job, queueOrdinal: ordinals[job.specification.jobID])
+            queueItem(
+                job: job,
+                queueOrdinal: ordinals[job.specification.jobID],
+                priority: priorities[job.specification.jobID, default: 0]
+            )
         }
         return WorkflowApplicationQueueSnapshotV4(
             generatedAt: clock.now(),
@@ -952,6 +1048,9 @@ actor WorkflowApplicationQueueV4 {
         let recovery = await recoverAtLaunch(
             commandKey: commandKey,
             policy: policy
+        )
+        try pruneOrphanPriorities(
+            retaining: Set(try await coordinator.open().state.jobs.keys)
         )
         let queue = try await queueSnapshot()
         return WorkflowApplicationLaunchSnapshotV4(
@@ -1156,7 +1255,85 @@ extension WorkflowApplicationQueueV4 {
     func claimNextApplicationJob(
         cycleID: WorkflowDispatchCycleIDV4
     ) async throws -> WorkflowQueueDispatchResultV4 {
-        try await dispatcher.claimNext(cycleID: cycleID)
+        let state = try await coordinator.open().state
+        let persisted = try loadPriorities()
+        let priorities = try state.queueOrder.map { jobID in
+            try WorkflowQueuePriorityV4(
+                jobID: jobID,
+                value: persisted[jobID, default: 0]
+            )
+        }
+        return try await dispatcher.claimNext(
+            cycleID: cycleID,
+            priorities: priorities
+        )
+    }
+
+    func setApplicationJobPriority(
+        jobID: WorkflowJobID,
+        value: Int32
+    ) async throws {
+        guard value >= WorkflowQueuePriorityV4.minimum,
+              value <= WorkflowQueuePriorityV4.maximum else {
+            throw WorkflowQueueDispatcherErrorV4.invalidPriority(value)
+        }
+        let state = try await coordinator.open().state
+        guard state.job(id: jobID)?.lifecycle == .queued else {
+            throw WorkflowApplicationQueueErrorV4.jobNotQueued(jobID)
+        }
+        try persistPriority(jobID: jobID, value: value)
+    }
+
+    func reorderApplicationQueue(
+        _ orderedJobIDs: [WorkflowJobID]
+    ) async throws {
+        let state = try await coordinator.open().state
+        guard Set(orderedJobIDs) == Set(state.queueOrder),
+              Set(orderedJobIDs).count == orderedJobIDs.count else {
+            throw WorkflowReducerError.queueMembershipMismatch
+        }
+        guard orderedJobIDs != state.queueOrder else { return }
+        let token = tokenFactory().uuidString.lowercased()
+        _ = try await coordinator.append(
+            WorkflowEventDraft(
+                eventID: try WorkflowEventID(
+                    "application-reorder-event-\(token)"
+                ),
+                commandID: try WorkflowCommandID(
+                    "application-reorder-command-\(token)"
+                ),
+                scope: .queue,
+                jobBinding: nil,
+                attemptID: nil,
+                event: .queueReordered(orderedJobIDs)
+            )
+        )
+    }
+
+    func moveApplicationJob(
+        jobID: WorkflowJobID,
+        direction: WorkflowApplicationQueueMoveV4
+    ) async throws {
+        var order = try await coordinator.open().state.queueOrder
+        guard let index = order.firstIndex(of: jobID) else {
+            throw WorkflowApplicationQueueErrorV4.jobNotQueued(jobID)
+        }
+        let priorities = try loadPriorities()
+        let priority = priorities[jobID, default: 0]
+        let destination: Int?
+        switch direction {
+        case .earlier:
+            destination = order[..<index].lastIndex {
+                priorities[$0, default: 0] == priority
+            }
+        case .later:
+            destination = order[order.index(after: index)...].firstIndex {
+                priorities[$0, default: 0] == priority
+            }
+        }
+        guard let destination else { return }
+        order.swapAt(index, destination)
+        try await reorderApplicationQueue(order)
     }
 
     func transitionApplicationJob(
@@ -1853,7 +2030,8 @@ private extension WorkflowApplicationQueueV4 {
 
     func queueItem(
         job: WorkflowJobState,
-        queueOrdinal: Int?
+        queueOrdinal: Int?,
+        priority: Int32
     ) -> WorkflowApplicationQueueItemV4 {
         do {
             let document = try loadVerifiedRequestDocument(
@@ -1864,6 +2042,7 @@ private extension WorkflowApplicationQueueV4 {
                 jobID: job.specification.jobID,
                 lifecycle: job.lifecycle,
                 queueOrdinal: queueOrdinal,
+                priority: priority,
                 binding: job.specification.binding,
                 requestRecordStatus: .ready,
                 request: WorkflowApplicationRequestSummaryV4(
@@ -1881,18 +2060,21 @@ private extension WorkflowApplicationQueueV4 {
             return blockedQueueItem(
                 job: job,
                 queueOrdinal: queueOrdinal,
+                priority: priority,
                 status: .missing
             )
         } catch WorkflowApplicationQueueErrorV4.requestDocumentBindingMismatch {
             return blockedQueueItem(
                 job: job,
                 queueOrdinal: queueOrdinal,
+                priority: priority,
                 status: .bindingMismatch
             )
         } catch {
             return blockedQueueItem(
                 job: job,
                 queueOrdinal: queueOrdinal,
+                priority: priority,
                 status: .corrupt
             )
         }
@@ -1901,16 +2083,135 @@ private extension WorkflowApplicationQueueV4 {
     func blockedQueueItem(
         job: WorkflowJobState,
         queueOrdinal: Int?,
+        priority: Int32,
         status: WorkflowApplicationRequestRecordStatusV4
     ) -> WorkflowApplicationQueueItemV4 {
         WorkflowApplicationQueueItemV4(
             jobID: job.specification.jobID,
             lifecycle: job.lifecycle,
             queueOrdinal: queueOrdinal,
+            priority: priority,
             binding: job.specification.binding,
             requestRecordStatus: status,
             request: nil
         )
+    }
+
+    func makePriorityDocument(
+        _ priorities: [WorkflowJobID: Int32]
+    ) throws -> WorkflowApplicationPriorityDocumentV4 {
+        let entries = priorities.map {
+            WorkflowApplicationPriorityEntryV4(
+                jobID: $0.key,
+                value: $0.value
+            )
+        }.sorted { $0.jobID < $1.jobID }
+        let body = WorkflowApplicationPriorityBodyV4(entries: entries)
+        let hash = try WorkflowApplicationPriorityDocumentHashV4(
+            WorkflowV4Validation.domainSeparatedSHA256(
+                domain: "Mirmir.WorkflowApplication.Priorities.v1\u{0}",
+                data: codec.canonicalData(body)
+            )
+        )
+        return WorkflowApplicationPriorityDocumentV4(
+            bodyHash: hash,
+            body: body
+        )
+    }
+
+    func verifiedPriorities(
+        _ document: WorkflowApplicationPriorityDocumentV4
+    ) throws -> [WorkflowJobID: Int32] {
+        guard document.schemaVersion
+                == WorkflowApplicationPriorityDocumentV4.currentSchemaVersion,
+              document.body.schemaVersion
+                == WorkflowApplicationPriorityBodyV4.currentSchemaVersion else {
+            throw WorkflowApplicationQueueErrorV4.priorityDocumentCorrupt
+        }
+        var result: [WorkflowJobID: Int32] = [:]
+        for entry in document.body.entries {
+            guard entry.value >= WorkflowQueuePriorityV4.minimum,
+                  entry.value <= WorkflowQueuePriorityV4.maximum,
+                  result.updateValue(entry.value, forKey: entry.jobID) == nil
+            else {
+                throw WorkflowApplicationQueueErrorV4
+                    .priorityDocumentCorrupt
+            }
+        }
+        guard try makePriorityDocument(result) == document else {
+            throw WorkflowApplicationQueueErrorV4.priorityDocumentCorrupt
+        }
+        return result
+    }
+
+    func loadPriorities() throws -> [WorkflowJobID: Int32] {
+        try fileSystem.withExclusiveLock(at: priorityLockURL()) {
+            transaction in
+            try loadPriorities(transaction: transaction)
+        }
+    }
+
+    func loadPriorities(
+        transaction: any WorkflowDurableFileSystem
+    ) throws -> [WorkflowJobID: Int32] {
+        let url = priorityDocumentURL()
+        guard try transaction.regularFileExists(url) else { return [:] }
+        do {
+            let data = try transaction.readRegularFile(
+                url,
+                maximumBytes: Self.maximumPriorityDocumentBytes
+            )
+            let document = try codec.decodeCanonical(
+                WorkflowApplicationPriorityDocumentV4.self,
+                from: data
+            )
+            return try verifiedPriorities(document)
+        } catch let error as WorkflowApplicationQueueErrorV4 {
+            throw error
+        } catch {
+            throw WorkflowApplicationQueueErrorV4.priorityDocumentCorrupt
+        }
+    }
+
+    func persistPriority(jobID: WorkflowJobID, value: Int32) throws {
+        try fileSystem.withExclusiveLock(at: priorityLockURL()) {
+            transaction in
+            var priorities = try loadPriorities(transaction: transaction)
+            priorities[jobID] = value
+            let document = try makePriorityDocument(priorities)
+            let data = try codec.canonicalData(document)
+            let url = priorityDocumentURL()
+            if try transaction.regularFileExists(url) {
+                try transaction.replaceAtomically(data, at: url)
+            } else {
+                try transaction.writeNewAtomically(data, to: url)
+            }
+        }
+    }
+
+    func pruneOrphanPriorities(retaining jobIDs: Set<WorkflowJobID>) throws {
+        try fileSystem.withExclusiveLock(at: priorityLockURL()) {
+            transaction in
+            let priorities = try loadPriorities(transaction: transaction)
+            let retained = priorities.filter { jobIDs.contains($0.key) }
+            guard retained.count != priorities.count else { return }
+            let document = try makePriorityDocument(retained)
+            let data = try codec.canonicalData(document)
+            let url = priorityDocumentURL()
+            if try transaction.regularFileExists(url) {
+                try transaction.replaceAtomically(data, at: url)
+            } else if !retained.isEmpty {
+                try transaction.writeNewAtomically(data, to: url)
+            }
+        }
+    }
+
+    func priorityDocumentURL() -> URL {
+        rootURL.appendingPathComponent(Self.priorityDocumentName)
+    }
+
+    func priorityLockURL() -> URL {
+        rootURL.appendingPathComponent(Self.priorityLockName)
     }
 
     func requestDirectoryURL(jobID: WorkflowJobID) -> URL {

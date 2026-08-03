@@ -74,6 +74,26 @@ enum WorkflowApplicationRunOutcomeV4: Sendable {
     case paused(jobID: WorkflowJobID, source: VideoInfo)
 }
 
+enum WorkflowApplicationExecutionEventV4: Sendable {
+    case finished(
+        jobID: WorkflowJobID,
+        outcome: WorkflowApplicationRunOutcomeV4
+    )
+    case failed(jobID: WorkflowJobID, message: String)
+}
+
+struct WorkflowApplicationObserverV4: Sendable {
+    let progress: @Sendable (WorkflowJobID, UpscaleProgress) -> Void
+    let snapshot: @Sendable (WorkflowApplicationQueueSnapshotV4) -> Void
+    let execution: @Sendable (WorkflowApplicationExecutionEventV4) -> Void
+
+    static let none = WorkflowApplicationObserverV4(
+        progress: { _, _ in },
+        snapshot: { _ in },
+        execution: { _ in }
+    )
+}
+
 protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
     func prepareSubmission(
         request: UpscaleRequest
@@ -121,7 +141,13 @@ protocol WorkflowApplicationDeterministicExecutingV4: Sendable {
 }
 
 protocol WorkflowApplicationControllingV4: Sendable {
+    func installObserver(_ observer: WorkflowApplicationObserverV4) async
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4
+
+    func enqueue(
+        request: UpscaleRequest,
+        priority: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4
 
     func submit(
         request: UpscaleRequest,
@@ -143,6 +169,12 @@ protocol WorkflowApplicationControllingV4: Sendable {
     ) async throws -> WorkflowApplicationRunOutcomeV4
 
     func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4
+
+    func setPriority(jobID: WorkflowJobID, value: Int32) async throws
+    func move(
+        jobID: WorkflowJobID,
+        direction: WorkflowApplicationQueueMoveV4
+    ) async throws
 }
 
 actor WorkflowDeterministicApplicationEngineV4:
@@ -628,6 +660,24 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     private let maximumInputFramesPerBoundary: Int
     private var active: ActiveExecution?
     private var heartbeatTask: Task<Void, Never>?
+    private var drainTask: Task<Void, Never>?
+    private var observer = WorkflowApplicationObserverV4.none
+    private var currentDrainJobID: WorkflowJobID?
+    private var completionWaiters: [
+        WorkflowJobID:
+            [CheckedContinuation<WorkflowApplicationRunOutcomeV4, Error>]
+    ] = [:]
+    private var waiterProgressHandlers: [
+        WorkflowJobID: @Sendable (UpscaleProgress) -> Void
+    ] = [:]
+    private var waiterSnapshotHandlers: [
+        WorkflowJobID:
+            @Sendable (WorkflowApplicationQueueSnapshotV4) -> Void
+    ] = [:]
+    private var drainRescheduleRequested = false
+
+    private static let dispatchCapacityRetryNanoseconds: UInt64 =
+        1_000_000_000
 
     init(
         queue: WorkflowApplicationQueueV4,
@@ -660,13 +710,48 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
     }
 
     func launch() async throws -> WorkflowApplicationLaunchSnapshotV4 {
-        try await queue.launchSnapshot(
+        let snapshot = try await queue.launchSnapshot(
             commandKey: try Self.commandKey(stage: "launch-recovery")
         )
+        observer.snapshot(snapshot.queue)
+        scheduleDrain()
+        return snapshot
+    }
+
+    func installObserver(_ observer: WorkflowApplicationObserverV4) async {
+        self.observer = observer
     }
 
     func queueSnapshot() async throws -> WorkflowApplicationQueueSnapshotV4 {
         try await queue.queueSnapshot()
+    }
+
+    func enqueue(
+        request: UpscaleRequest,
+        priority: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        let receipt = try await enqueuePrepared(
+            request: request,
+            priority: priority
+        )
+        scheduleDrain()
+        return receipt
+    }
+
+    func setPriority(jobID: WorkflowJobID, value: Int32) async throws {
+        try await queue.setApplicationJobPriority(jobID: jobID, value: value)
+        await emitSnapshot(to: observer.snapshot)
+    }
+
+    func move(
+        jobID: WorkflowJobID,
+        direction: WorkflowApplicationQueueMoveV4
+    ) async throws {
+        try await queue.moveApplicationJob(
+            jobID: jobID,
+            direction: direction
+        )
+        await emitSnapshot(to: observer.snapshot)
     }
 
     func submit(
@@ -676,22 +761,16 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> WorkflowApplicationRunOutcomeV4 {
-        let prepared = try await engine.prepareSubmission(request: request)
-        let enqueue = try await queue.enqueue(
-            request: prepared.request,
-            preparedPlanBinding: prepared.binding
+        let receipt = try await enqueuePrepared(
+            request: request,
+            priority: 0
         )
-        await emitSnapshot(to: snapshot)
-
-        while true {
-            let outcome = try await runNext(
-                observedJobID: enqueue.specification.jobID,
-                progress: progress,
-                snapshot: snapshot
-            )
-            if outcome.jobID == enqueue.specification.jobID {
-                return outcome.outcome
-            }
+        let jobID = receipt.specification.jobID
+        waiterProgressHandlers[jobID] = progress
+        waiterSnapshotHandlers[jobID] = snapshot
+        return try await withCheckedThrowingContinuation { continuation in
+            completionWaiters[jobID, default: []].append(continuation)
+            scheduleDrain()
         }
     }
 
@@ -827,12 +906,14 @@ actor WorkflowApplicationCoordinatorV4: WorkflowApplicationControllingV4 {
             stopHeartbeat()
             active = nil
             await emitSnapshot(to: snapshot)
+            scheduleDrain()
             return outcome
         } catch {
             await terminateActive(
                 error: error,
                 containmentRequired: Self.requiresContainment(error)
             )
+            scheduleDrain()
             throw error
         }
     }
@@ -844,10 +925,126 @@ private extension WorkflowApplicationCoordinatorV4 {
         let outcome: WorkflowApplicationRunOutcomeV4
     }
 
+    func enqueuePrepared(
+        request: UpscaleRequest,
+        priority: Int32
+    ) async throws -> WorkflowApplicationEnqueueReceiptV4 {
+        let prepared = try await engine.prepareSubmission(request: request)
+        let receipt = try await queue.enqueue(
+            request: prepared.request,
+            preparedPlanBinding: prepared.binding,
+            priority: priority
+        )
+        await emitSnapshot(to: observer.snapshot)
+        return receipt
+    }
+
+    func scheduleDrain() {
+        if drainTask != nil {
+            drainRescheduleRequested = true
+            return
+        }
+        drainRescheduleRequested = false
+        drainTask = Task { [weak self] in
+            await self?.drainQueue()
+        }
+    }
+
+    func drainQueue() async {
+        while !Task.isCancelled {
+            guard active == nil else { break }
+            currentDrainJobID = nil
+            do {
+                let outcome = try await runNext(
+                    progress: { [weak self] jobID, progress in
+                        Task {
+                            await self?.forwardProgress(
+                                jobID: jobID,
+                                progress: progress
+                            )
+                        }
+                    },
+                    snapshot: { [weak self] jobID, snapshot in
+                        Task {
+                            await self?.forwardSnapshot(
+                                jobID: jobID,
+                                snapshot: snapshot
+                            )
+                        }
+                    }
+                )
+                currentDrainJobID = outcome.jobID
+                finish(
+                    jobID: outcome.jobID,
+                    result: .success(outcome.outcome)
+                )
+            } catch WorkflowApplicationControllerErrorV4.noDispatchableJob {
+                break
+            } catch WorkflowApplicationControllerErrorV4
+                .dispatchCapacityExhausted {
+                do {
+                    try await Task.sleep(
+                        nanoseconds: Self.dispatchCapacityRetryNanoseconds
+                    )
+                } catch {
+                    break
+                }
+                continue
+            } catch {
+                guard let jobID = currentDrainJobID else { break }
+                finish(jobID: jobID, result: .failure(error))
+            }
+        }
+        currentDrainJobID = nil
+        drainTask = nil
+        if drainRescheduleRequested {
+            drainRescheduleRequested = false
+            scheduleDrain()
+        }
+    }
+
+    func forwardProgress(
+        jobID: WorkflowJobID,
+        progress: UpscaleProgress
+    ) {
+        observer.progress(jobID, progress)
+        waiterProgressHandlers[jobID]?(progress)
+    }
+
+    func forwardSnapshot(
+        jobID: WorkflowJobID,
+        snapshot: WorkflowApplicationQueueSnapshotV4
+    ) {
+        observer.snapshot(snapshot)
+        waiterSnapshotHandlers[jobID]?(snapshot)
+    }
+
+    func finish(
+        jobID: WorkflowJobID,
+        result: Result<WorkflowApplicationRunOutcomeV4, Error>
+    ) {
+        let waiters = completionWaiters.removeValue(forKey: jobID) ?? []
+        waiterProgressHandlers.removeValue(forKey: jobID)
+        waiterSnapshotHandlers.removeValue(forKey: jobID)
+        switch result {
+        case .success(let outcome):
+            observer.execution(.finished(jobID: jobID, outcome: outcome))
+            waiters.forEach { $0.resume(returning: outcome) }
+        case .failure(let error):
+            observer.execution(
+                .failed(jobID: jobID, message: error.localizedDescription)
+            )
+            waiters.forEach { $0.resume(throwing: error) }
+        }
+    }
+
     func runNext(
-        observedJobID: WorkflowJobID,
-        progress: @escaping @Sendable (UpscaleProgress) -> Void,
+        progress: @escaping @Sendable (
+            WorkflowJobID,
+            UpscaleProgress
+        ) -> Void,
         snapshot: @escaping @Sendable (
+            WorkflowJobID,
             WorkflowApplicationQueueSnapshotV4
         ) -> Void
     ) async throws -> ClaimedOutcome {
@@ -869,20 +1066,29 @@ private extension WorkflowApplicationCoordinatorV4 {
                 .dispatchCapacityExhausted
         }
         let jobID = dispatch.claim.jobID
+        currentDrainJobID = jobID
+        let jobProgress: @Sendable (UpscaleProgress) -> Void = {
+            progress(jobID, $0)
+        }
+        let jobSnapshot: @Sendable (
+            WorkflowApplicationQueueSnapshotV4
+        ) -> Void = {
+            snapshot(jobID, $0)
+        }
         let attemptID = try Self.attemptID(jobID: jobID)
         let cancellation = ProcessingCancellation()
         active = ActiveExecution(
             dispatch: dispatch,
             cancellation: cancellation,
             attemptID: attemptID,
-            snapshotHandler: snapshot,
+            snapshotHandler: jobSnapshot,
             lifecycle: .probing,
             pauseRequested: false,
             cancelRequested: false,
             heartbeatFailure: nil
         )
         startHeartbeat(jobID: jobID)
-        await emitSnapshot(to: snapshot)
+        await emitSnapshot(to: jobSnapshot)
 
         let activation = await queue.activate(jobID: jobID)
         guard case .active(let activated) = activation else {
@@ -927,7 +1133,7 @@ private extension WorkflowApplicationCoordinatorV4 {
                     )
                 )
                 active?.lifecycle = .pausing
-                await emitSnapshot(to: snapshot)
+                await emitSnapshot(to: jobSnapshot)
             }
             try throwIfActiveControlFailed()
 
@@ -939,12 +1145,12 @@ private extension WorkflowApplicationCoordinatorV4 {
                 checkpoint: nil,
                 startingInputFrameIndex: 0,
                 processingDurationSeconds: 0,
-                progress: progress,
-                snapshot: snapshot
+                progress: jobProgress,
+                snapshot: jobSnapshot
             )
             stopHeartbeat()
             active = nil
-            await emitSnapshot(to: snapshot)
+            await emitSnapshot(to: jobSnapshot)
             return ClaimedOutcome(
                 jobID: jobID,
                 outcome: outcome

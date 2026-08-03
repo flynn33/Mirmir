@@ -876,7 +876,7 @@ private struct MirmirProductQueue: View {
                                     )
                                 )
                         }
-                        if viewModel.isProcessing {
+                        if viewModel.isWorkflowProcessing {
                             Button("Cancel", role: .destructive) {
                                 viewModel.cancelProcessing()
                             }
@@ -967,11 +967,55 @@ private struct MirmirProductQueue: View {
                     Text(
                         "\(item.lifecycle.rawValue) · "
                             + "\(item.request?.backendID.rawValue ?? "request unavailable")"
+                            + " · priority \(item.priority)"
                     )
                     .font(theme.typography.caption)
                     .foregroundStyle(theme.textSecondary)
                 }
                 Spacer()
+                if item.lifecycle == .queued {
+                    HStack(spacing: theme.spacing.space1) {
+                        Button {
+                            viewModel.moveWorkflowJob(
+                                item.jobID,
+                                direction: .earlier
+                            )
+                        } label: {
+                            Image(systemName: "arrow.up")
+                        }
+                        .help("Move earlier among jobs at this priority")
+                        Button {
+                            viewModel.moveWorkflowJob(
+                                item.jobID,
+                                direction: .later
+                            )
+                        } label: {
+                            Image(systemName: "arrow.down")
+                        }
+                        .help("Move later among jobs at this priority")
+                        Button {
+                            viewModel.adjustWorkflowPriority(
+                                item.jobID,
+                                delta: 10
+                            )
+                        } label: {
+                            Image(systemName: "plus")
+                        }
+                        .help("Increase dispatch priority")
+                        Button {
+                            viewModel.adjustWorkflowPriority(
+                                item.jobID,
+                                delta: -10
+                            )
+                        } label: {
+                            Image(systemName: "minus")
+                        }
+                        .help("Decrease dispatch priority")
+                    }
+                    .buttonStyle(
+                        MirmirProductSecondaryButtonStyle(theme: theme)
+                    )
+                }
                 if item.lifecycle == .paused {
                     Button("Resume") {
                         viewModel.resumeWorkflowJob(item.jobID)
@@ -979,7 +1023,10 @@ private struct MirmirProductQueue: View {
                     .buttonStyle(
                         MirmirProductSecondaryButtonStyle(theme: theme)
                     )
-                    .disabled(viewModel.isProcessing)
+                    .disabled(
+                        viewModel.isProcessing
+                            || viewModel.isWorkflowProcessing
+                    )
                 }
             }
         }

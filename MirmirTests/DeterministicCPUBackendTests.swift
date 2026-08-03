@@ -286,6 +286,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         )
     }
 
+    #if DEBUG
     func testFusedPreparedPathReusesBoundedWorkspacesWithoutAlignedImages()
         async throws {
         let backend = try makeBackend()
@@ -358,6 +359,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         XCTAssertEqual(final.lastSourceMaterializedAlignedSampleCount, 0)
         XCTAssertEqual(final.lastOutputMaterializedAlignedSampleCount, 0)
     }
+    #endif
 
     func testFusedPreparedPathChangesOnlyVisibleLumaAfterCanonicalScale()
         async throws {
@@ -425,6 +427,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         )
     }
 
+    #if DEBUG
     func testInterlacedNormalizationPreservesTopChromaAndRemovesBottomChroma()
         async throws {
         let backend = try makeBackend()
@@ -492,6 +495,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             initialDiagnostics.interlacedNormalizedSourceIdentities
         )
     }
+    #endif
 
     func testMissingChromaLocationDoesNotInventOrRequireAHiddenFallback() async throws {
         let sourceInfo = makeSourceInfo(
@@ -1601,6 +1605,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         XCTAssertEqual(dominanceState.history.frames.count, 1)
     }
 
+    #if DEBUG
     func testInterlacedFailureAndCancellationRollbackForByteIdenticalRetry()
         async throws {
         let sourceInfo = makeSourceInfo(
@@ -1760,6 +1765,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
             )
         }
     }
+    #endif
 
     func testInterlacedDestinationAliasingFailsBeforeCallerMutation()
         async throws {
@@ -1829,6 +1835,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         XCTAssertEqual(aliased.bytes, aliasedBefore)
     }
 
+    #if DEBUG
     func testInFlightGuardRejectsEveryReentrantLifecycleOperation()
         async throws {
         let sourceInfo = makeSourceInfo(
@@ -1956,6 +1963,7 @@ final class DeterministicCPUBackendTests: XCTestCase {
         )
         XCTAssertEqual(subjectCheckpoint, cleanCheckpoint)
     }
+    #endif
 
     private func bruteForceDecode(_ received: ASHState) -> ASHDecodeResult {
         let distances = ASHCode.codewords.map { codeword in
