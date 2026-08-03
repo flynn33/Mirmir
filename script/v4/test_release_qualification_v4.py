@@ -10,6 +10,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 import unittest
 
@@ -21,6 +22,30 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None
 qualification = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(qualification)
+
+P05_SPEC = importlib.util.spec_from_file_location(
+    "p05_baseline_v4", SCRIPT_DIRECTORY / "p05_baseline_v4.py"
+)
+assert P05_SPEC is not None and P05_SPEC.loader is not None
+p05_replay = importlib.util.module_from_spec(P05_SPEC)
+sys.modules["p05_baseline_v4"] = p05_replay
+P05_SPEC.loader.exec_module(p05_replay)
+
+QUALITY_SPEC = importlib.util.spec_from_file_location(
+    "quality_gate_v4_for_release_tests",
+    SCRIPT_DIRECTORY / "quality_gate_v4.py",
+)
+assert QUALITY_SPEC is not None and QUALITY_SPEC.loader is not None
+quality_replay = importlib.util.module_from_spec(QUALITY_SPEC)
+QUALITY_SPEC.loader.exec_module(quality_replay)
+
+TRUST_SPEC = importlib.util.spec_from_file_location(
+    "release_qualification_trust_v4_for_tests",
+    SCRIPT_DIRECTORY / "release_qualification_trust_v4.py",
+)
+assert TRUST_SPEC is not None and TRUST_SPEC.loader is not None
+trust_builder = importlib.util.module_from_spec(TRUST_SPEC)
+TRUST_SPEC.loader.exec_module(trust_builder)
 
 PERFORMANCE_SPEC = importlib.util.spec_from_file_location(
     "performance_gate_v4_for_release_tests",
@@ -244,7 +269,7 @@ class EvidenceFixture:
     def _build_quality(self) -> None:
         role = "quality"
         role_dir = self.root / role
-        quality_gate = qualification.quality_replay
+        quality_gate = quality_replay
         quality_contract = copy.deepcopy(
             json.loads(
                 (SCRIPT_DIRECTORY / "quality-gate-contract-v1.json").read_text()
@@ -2133,13 +2158,37 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix="mirmir-release-qualification-")
         self.root = Path(self.temporary.name)
         self.fixture = EvidenceFixture(self.root)
+        self.trust_temporary = tempfile.TemporaryDirectory(
+            prefix="mirmir-release-trust-"
+        )
+        self.trust_root_path, self.trust_root_sha256 = self.make_trust_root(
+            self.fixture.contract_path,
+            "release-trust-root.json",
+        )
 
     def tearDown(self) -> None:
+        self.trust_temporary.cleanup()
         self.temporary.cleanup()
+
+    def make_trust_root(
+        self,
+        contract_path: Path,
+        name: str,
+    ) -> tuple[Path, str]:
+        path = Path(self.trust_temporary.name) / name
+        trust_builder.write_json(
+            path,
+            trust_builder.build_trust_root(SCRIPT_DIRECTORY, contract_path),
+        )
+        return path, trust_builder.sha256(path)
 
     def evaluate(self) -> dict[str, object]:
         return qualification.evaluate_candidate(
-            self.fixture.index_path, self.root, self.fixture.contract_path
+            self.fixture.index_path,
+            self.root,
+            self.fixture.contract_path,
+            trust_root_path=self.trust_root_path,
+            expected_trust_root_sha256=self.trust_root_sha256,
         )
 
     def testCompleteCandidateEvaluatesAndVerifiesDeterministically(self) -> None:
@@ -2153,9 +2202,57 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         self.assertEqual(
             first,
             qualification.verify_report(
-                report_path, self.fixture.index_path, self.root, self.fixture.contract_path
+                report_path,
+                self.fixture.index_path,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=self.trust_root_path,
+                expected_trust_root_sha256=self.trust_root_sha256,
             ),
         )
+
+    def testExternalTrustRootFailsClosedBeforeReplayHelperExecution(self) -> None:
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "external trust-root SHA-256 mismatch",
+        ):
+            qualification.evaluate_candidate(
+                self.fixture.index_path,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=self.trust_root_path,
+                expected_trust_root_sha256="0" * 64,
+            )
+
+        original = json.loads(self.trust_root_path.read_text())
+        mutations = {
+            "evaluator": lambda root: root["evaluator"].__setitem__(
+                "sha256", "1" * 64
+            ),
+            "helper": lambda root: root["helpers"][0].__setitem__(
+                "sha256", "2" * 64
+            ),
+            "dispatch": lambda root: root["roleDispatch"][0].__setitem__(
+                "validator", "accept_everything"
+            ),
+            "tool-set": lambda root: root.__setitem__(
+                "trustedToolSetSHA256", "3" * 64
+            ),
+        }
+        for name, mutate in mutations.items():
+            with self.subTest(name=name):
+                root = copy.deepcopy(original)
+                mutate(root)
+                path = Path(self.trust_temporary.name) / f"forged-{name}.json"
+                trust_builder.write_json(path, root)
+                with self.assertRaises(qualification.QualificationError):
+                    qualification.evaluate_candidate(
+                        self.fixture.index_path,
+                        self.root,
+                        self.fixture.contract_path,
+                        trust_root_path=path,
+                        expected_trust_root_sha256=trust_builder.sha256(path),
+                    )
 
     def testP06NestedLoaderToolchainAndSourceTamperAreRecomputed(self) -> None:
         for mutation in ("loader", "toolchain", "source"):
@@ -2203,7 +2300,11 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                     "loader/tamper|toolchain artifact differs|source revision/count",
                 ):
                     qualification.evaluate_candidate(
-                        fixture.index_path, root, fixture.contract_path
+                        fixture.index_path,
+                        root,
+                        fixture.contract_path,
+                        trust_root_path=self.trust_root_path,
+                        expected_trust_root_sha256=self.trust_root_sha256,
                     )
 
     def testPublishedJSONSchemaAcceptsBindingAndRejectsExtraProperty(self) -> None:
@@ -2352,6 +2453,10 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         weakened["parityCoverage"].pop()
         weakened_path = self.root / "weakened-release-contract.json"
         write_json(weakened_path, weakened)
+        weakened_trust_path, weakened_trust_sha256 = self.make_trust_root(
+            weakened_path,
+            "weakened-release-trust-root.json",
+        )
         with self.assertRaisesRegex(
             qualification.QualificationError,
             "release contract parity coverage is weakened",
@@ -2360,6 +2465,8 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
                 self.fixture.index_path,
                 self.root,
                 weakened_path,
+                trust_root_path=weakened_trust_path,
+                expected_trust_root_sha256=weakened_trust_sha256,
             )
 
     def testPreservationNestedVerifierIsIndependentlyRecomputed(self) -> None:
@@ -2539,7 +2646,12 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         write_json(path, report)
         with self.assertRaisesRegex(qualification.QualificationError, "differs from recomputed"):
             qualification.verify_report(
-                path, self.fixture.index_path, self.root, self.fixture.contract_path
+                path,
+                self.fixture.index_path,
+                self.root,
+                self.fixture.contract_path,
+                trust_root_path=self.trust_root_path,
+                expected_trust_root_sha256=self.trust_root_sha256,
             )
 
 

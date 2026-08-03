@@ -1,0 +1,102 @@
+{
+  "contract": {
+    "byteCount": 8745,
+    "repositoryRelativePath": "script/v4/release-qualification-contract-v1.json",
+    "sha256": "6e6731c3f58f083b380638c2ead5cdd76855ce72a948e0095096a4e6b4909979"
+  },
+  "evaluator": {
+    "byteCount": 234786,
+    "repositoryRelativePath": "script/v4/release_qualification_v4.py",
+    "sha256": "d976c068e26fea42933ff184560e75a162860433fe168672efa5810b331a79bd"
+  },
+  "hashAlgorithm": "sha256",
+  "helpers": [
+    {
+      "byteCount": 39104,
+      "moduleName": "support_matrix_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/support_matrix_v4.py",
+      "role": "support_matrix_replay",
+      "sha256": "23c0d874e27b7eb37702d18612a969ede2cfda61ed0f968e7c078fd402511403"
+    },
+    {
+      "byteCount": 65823,
+      "moduleName": "cpu_metal_parity_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/cpu_metal_parity_v4.py",
+      "role": "cpu_metal_parity_replay",
+      "sha256": "74e25019715796216dc979e649a154a9ad6df4ce7557067ee9dd63bed2f03dce"
+    },
+    {
+      "byteCount": 11337,
+      "moduleName": "p05_baseline_v4",
+      "repositoryRelativePath": "script/v4/p05_baseline_v4.py",
+      "role": "p05_baseline_replay",
+      "sha256": "d79eff3f6bd7057460546b910cfa7654c9e846d4ff524e7b4ce78be78f6c929f"
+    },
+    {
+      "byteCount": 70519,
+      "moduleName": "quality_gate_v4_for_release_qualification",
+      "repositoryRelativePath": "script/v4/quality_gate_v4.py",
+      "role": "quality_raw_plane_replay",
+      "sha256": "4ebc8357f6d6373a5ae74c2e4a4a2576c8ee6062ccc2cb96b06fa9874d5fa198"
+    }
+  ],
+  "roleDispatch": [
+    {
+      "evidenceSchema": "mirmir-ash-v4-quality-report-v1",
+      "replayHelperRoles": [
+        "p05_baseline_replay",
+        "quality_raw_plane_replay"
+      ],
+      "role": "quality",
+      "validator": "validate_quality"
+    },
+    {
+      "evidenceSchema": "mirmir-v4-performance-gate-report-v1",
+      "replayHelperRoles": [],
+      "role": "same_scope_performance",
+      "validator": "validate_performance"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-cpu-metal-parity-report-v2",
+      "replayHelperRoles": [
+        "cpu_metal_parity_replay"
+      ],
+      "role": "cpu_metal_parity",
+      "validator": "validate_parity"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-media-preservation-report-v1",
+      "replayHelperRoles": [],
+      "role": "media_preservation",
+      "validator": "validate_preservation"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-recovery-report-v1",
+      "replayHelperRoles": [],
+      "role": "recovery",
+      "validator": "validate_recovery"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-p06-reproduction-report-v1",
+      "replayHelperRoles": [],
+      "role": "p06_reproduction",
+      "validator": "validate_p06"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-support-matrix-report-v1",
+      "replayHelperRoles": [
+        "support_matrix_replay"
+      ],
+      "role": "support_matrix",
+      "validator": "validate_support"
+    },
+    {
+      "evidenceSchema": "mirmir-ash-v4-notarized-smoke-report-v1",
+      "replayHelperRoles": [],
+      "role": "notarized_smoke",
+      "validator": "validate_smoke"
+    }
+  ],
+  "schemaVersion": "mirmir-ash-v4-release-qualification-trust-root-v1",
+  "trustedToolSetSHA256": "e47e4019139ebbd33f47586c33abb762e471993dc1b6e0ba78dcb4e271eff38a"
+}

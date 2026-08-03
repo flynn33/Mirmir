@@ -19,6 +19,7 @@ from pathlib import Path, PurePosixPath
 import random
 import statistics
 import sys
+import types
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 
@@ -84,43 +85,57 @@ PARITY_REQUIRED_COVERAGE = (
     "cross_process",
     "tile_schedule",
 )
-
-SUPPORT_REPLAY_SPEC = importlib.util.spec_from_file_location(
-    "support_matrix_v4_for_release_qualification",
-    SCRIPT_DIRECTORY / "support_matrix_v4.py",
+TRUST_ROOT_SCHEMA = "mirmir-ash-v4-release-qualification-trust-root-v1"
+TRUSTED_HELPER_CONTRACT: tuple[tuple[str, str, str], ...] = (
+    (
+        "support_matrix_replay",
+        "support_matrix_v4.py",
+        "support_matrix_v4_for_release_qualification",
+    ),
+    (
+        "cpu_metal_parity_replay",
+        "cpu_metal_parity_v4.py",
+        "cpu_metal_parity_v4_for_release_qualification",
+    ),
+    (
+        "p05_baseline_replay",
+        "p05_baseline_v4.py",
+        "p05_baseline_v4",
+    ),
+    (
+        "quality_raw_plane_replay",
+        "quality_gate_v4.py",
+        "quality_gate_v4_for_release_qualification",
+    ),
 )
-if SUPPORT_REPLAY_SPEC is None or SUPPORT_REPLAY_SPEC.loader is None:
-    raise RuntimeError("support-matrix replay evaluator cannot be loaded")
-support_replay = importlib.util.module_from_spec(SUPPORT_REPLAY_SPEC)
-SUPPORT_REPLAY_SPEC.loader.exec_module(support_replay)
+ROLE_VALIDATOR_NAMES: Mapping[str, str] = {
+    "quality": "validate_quality",
+    "same_scope_performance": "validate_performance",
+    "cpu_metal_parity": "validate_parity",
+    "media_preservation": "validate_preservation",
+    "recovery": "validate_recovery",
+    "p06_reproduction": "validate_p06",
+    "support_matrix": "validate_support",
+    "notarized_smoke": "validate_smoke",
+}
+ROLE_REPLAY_HELPERS: Mapping[str, tuple[str, ...]] = {
+    "quality": ("p05_baseline_replay", "quality_raw_plane_replay"),
+    "same_scope_performance": (),
+    "cpu_metal_parity": ("cpu_metal_parity_replay",),
+    "media_preservation": (),
+    "recovery": (),
+    "p06_reproduction": (),
+    "support_matrix": ("support_matrix_replay",),
+    "notarized_smoke": (),
+}
 
-PARITY_REPLAY_SPEC = importlib.util.spec_from_file_location(
-    "cpu_metal_parity_v4_for_release_qualification",
-    SCRIPT_DIRECTORY / "cpu_metal_parity_v4.py",
-)
-if PARITY_REPLAY_SPEC is None or PARITY_REPLAY_SPEC.loader is None:
-    raise RuntimeError("CPU/Metal parity replay evaluator cannot be loaded")
-parity_replay = importlib.util.module_from_spec(PARITY_REPLAY_SPEC)
-PARITY_REPLAY_SPEC.loader.exec_module(parity_replay)
-
-P05_REPLAY_SPEC = importlib.util.spec_from_file_location(
-    "p05_baseline_v4",
-    SCRIPT_DIRECTORY / "p05_baseline_v4.py",
-)
-if P05_REPLAY_SPEC is None or P05_REPLAY_SPEC.loader is None:
-    raise RuntimeError("P05 baseline identity evaluator cannot be loaded")
-p05_replay = importlib.util.module_from_spec(P05_REPLAY_SPEC)
-sys.modules["p05_baseline_v4"] = p05_replay
-P05_REPLAY_SPEC.loader.exec_module(p05_replay)
-
-QUALITY_REPLAY_SPEC = importlib.util.spec_from_file_location(
-    "quality_gate_v4_for_release_qualification",
-    SCRIPT_DIRECTORY / "quality_gate_v4.py",
-)
-if QUALITY_REPLAY_SPEC is None or QUALITY_REPLAY_SPEC.loader is None:
-    raise RuntimeError("quality raw-plane replay evaluator cannot be loaded")
-quality_replay = importlib.util.module_from_spec(QUALITY_REPLAY_SPEC)
-QUALITY_REPLAY_SPEC.loader.exec_module(quality_replay)
+# These modules are deliberately absent until the externally pinned trust root
+# authenticates every byte. Importing a live working-tree helper before that
+# check would let the verifier execute the very evidence it is meant to judge.
+support_replay: types.ModuleType | None = None
+parity_replay: types.ModuleType | None = None
+p05_replay: types.ModuleType | None = None
+quality_replay: types.ModuleType | None = None
 
 
 class QualificationError(ValueError):
@@ -321,6 +336,209 @@ def validate_artifact(
     if sha256(path) != identity:
         raise QualificationError(f"{label} SHA-256 mismatch")
     return path, identity
+
+
+def trusted_tool_set_sha(entries: Sequence[Mapping[str, Any]]) -> str:
+    return sha256_bytes(
+        b"mirmir-release-qualification-tool-set-v1\0"
+        + canonical_bytes(list(entries))
+    )
+
+
+def trusted_file_descriptor(
+    value: Any,
+    label: str,
+    *,
+    expected_repository_path: str,
+    actual_path: Path,
+    extra_keys: set[str] | None = None,
+) -> dict[str, Any]:
+    descriptor = require_mapping(value, label)
+    require_exact_keys(
+        descriptor,
+        {"repositoryRelativePath", "byteCount", "sha256"}
+        | (extra_keys or set()),
+        label,
+    )
+    if descriptor["repositoryRelativePath"] != expected_repository_path:
+        raise QualificationError(f"{label} repository path differs")
+    try:
+        resolved = actual_path.expanduser().resolve(strict=True)
+    except OSError as error:
+        raise QualificationError(f"{label} file is missing") from error
+    if actual_path.is_symlink() or not resolved.is_file():
+        raise QualificationError(f"{label} must be a regular non-symlink file")
+    expected_count = require_integer(
+        descriptor["byteCount"], f"{label}.byteCount", 1
+    )
+    expected_identity = require_hex(
+        descriptor["sha256"], 64, f"{label}.sha256"
+    )
+    if resolved.stat().st_size != expected_count or sha256(resolved) != expected_identity:
+        raise QualificationError(f"{label} bytes differ from the external trust root")
+    return descriptor
+
+
+def expected_role_dispatch(
+    contract: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    schemas = require_mapping(contract.get("evidenceSchemas"), "evidenceSchemas")
+    roles = require_list(contract.get("requiredEvidenceRoles"), "requiredEvidenceRoles")
+    return [
+        {
+            "role": role,
+            "validator": ROLE_VALIDATOR_NAMES[role],
+            "evidenceSchema": schemas[role],
+            "replayHelperRoles": list(ROLE_REPLAY_HELPERS[role]),
+        }
+        for role in roles
+    ]
+
+
+def load_trusted_replay_module(
+    path: Path,
+    module_name: str,
+    label: str,
+) -> types.ModuleType:
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise QualificationError(f"{label} cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.modules.get(module_name)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception as error:
+        if previous is None:
+            sys.modules.pop(module_name, None)
+        else:
+            sys.modules[module_name] = previous
+        raise QualificationError(f"{label} failed to load: {error}") from error
+    return module
+
+
+def establish_external_trust(
+    trust_root_path: Path,
+    expected_trust_root_sha256: str,
+    contract_path: Path,
+) -> dict[str, str]:
+    expected_identity = require_hex(
+        expected_trust_root_sha256,
+        64,
+        "expected external trust-root SHA-256",
+    )
+    try:
+        root_path = trust_root_path.expanduser().resolve(strict=True)
+    except OSError as error:
+        raise QualificationError("external trust root is missing") from error
+    if trust_root_path.is_symlink() or not root_path.is_file():
+        raise QualificationError("external trust root must be a regular non-symlink file")
+    actual_identity = sha256(root_path)
+    if actual_identity != expected_identity:
+        raise QualificationError("external trust-root SHA-256 mismatch")
+    trust_root = require_mapping(load_json(root_path), "external trust root")
+    require_exact_keys(
+        trust_root,
+        {
+            "schemaVersion",
+            "hashAlgorithm",
+            "evaluator",
+            "contract",
+            "helpers",
+            "roleDispatch",
+            "trustedToolSetSHA256",
+        },
+        "external trust root",
+    )
+    if trust_root["schemaVersion"] != TRUST_ROOT_SCHEMA:
+        raise QualificationError("external trust-root schema differs")
+    if trust_root["hashAlgorithm"] != "sha256":
+        raise QualificationError("external trust-root hash algorithm differs")
+
+    evaluator = trusted_file_descriptor(
+        trust_root["evaluator"],
+        "external trust root evaluator",
+        expected_repository_path="script/v4/release_qualification_v4.py",
+        actual_path=Path(__file__),
+    )
+    contract_descriptor = trusted_file_descriptor(
+        trust_root["contract"],
+        "external trust root contract",
+        expected_repository_path="script/v4/release-qualification-contract-v1.json",
+        actual_path=contract_path,
+    )
+    contract = validate_contract(load_json(contract_path))
+
+    helper_rows = require_list(trust_root["helpers"], "external trust root helpers")
+    if len(helper_rows) != len(TRUSTED_HELPER_CONTRACT):
+        raise QualificationError("external trust-root helper set is incomplete")
+    normalized_helpers: list[dict[str, Any]] = []
+    loaded: dict[str, types.ModuleType] = {}
+    for index, (expected_role, filename, module_name) in enumerate(
+        TRUSTED_HELPER_CONTRACT
+    ):
+        label = f"external trust root helpers[{index}]"
+        row = trusted_file_descriptor(
+            helper_rows[index],
+            label,
+            expected_repository_path=f"script/v4/{filename}",
+            actual_path=SCRIPT_DIRECTORY / filename,
+            extra_keys={"role", "moduleName"},
+        )
+        if row["role"] != expected_role or row["moduleName"] != module_name:
+            raise QualificationError(f"{label} role/module differs")
+        normalized_helpers.append(row)
+
+    dispatch = require_list(
+        trust_root["roleDispatch"], "external trust root roleDispatch"
+    )
+    if dispatch != expected_role_dispatch(contract):
+        raise QualificationError(
+            "external trust-root role dispatch differs from exhaustive handlers"
+        )
+    for row in dispatch:
+        role = row["role"]
+        validator = VALIDATORS.get(role)
+        if validator is None or validator.__name__ != row["validator"]:
+            raise QualificationError(
+                f"external trust-root handler is not callable: {role}"
+            )
+
+    tool_entries = [
+        {"role": "qualification_evaluator", **evaluator},
+        {"role": "release_contract", **contract_descriptor},
+        *normalized_helpers,
+    ]
+    tool_set_identity = require_hex(
+        trust_root["trustedToolSetSHA256"],
+        64,
+        "external trust root trustedToolSetSHA256",
+    )
+    if tool_set_identity != trusted_tool_set_sha(tool_entries):
+        raise QualificationError("external trust-root tool-set identity differs")
+
+    # Loading happens only after every descriptor, dispatch row, and the
+    # operator-supplied root identity has passed. p05 is installed first under
+    # its canonical import name because the quality evaluator imports it.
+    for (role, filename, module_name), row in zip(
+        TRUSTED_HELPER_CONTRACT, normalized_helpers
+    ):
+        loaded[role] = load_trusted_replay_module(
+            SCRIPT_DIRECTORY / filename,
+            module_name,
+            f"trusted helper {row['repositoryRelativePath']}",
+        )
+
+    global support_replay, parity_replay, p05_replay, quality_replay
+    support_replay = loaded["support_matrix_replay"]
+    parity_replay = loaded["cpu_metal_parity_replay"]
+    p05_replay = loaded["p05_baseline_replay"]
+    quality_replay = loaded["quality_raw_plane_replay"]
+    return {
+        "trustRootSHA256": actual_identity,
+        "qualificationEvaluatorSHA256": evaluator["sha256"],
+        "trustedToolSetSHA256": tool_set_identity,
+    }
 
 
 def json_pointer(document: Any, pointer: Any, label: str) -> Any:
@@ -4443,11 +4661,23 @@ def validate_contract(value: Any) -> dict[str, Any]:
     return contract
 
 
-def evaluate_candidate(candidate_path: Path, evidence_root: Path, contract_path: Path = DEFAULT_CONTRACT) -> dict[str, Any]:
+def evaluate_candidate(
+    candidate_path: Path,
+    evidence_root: Path,
+    contract_path: Path = DEFAULT_CONTRACT,
+    *,
+    trust_root_path: Path,
+    expected_trust_root_sha256: str,
+) -> dict[str, Any]:
     evidence_root = evidence_root.expanduser().resolve(strict=True)
     if not evidence_root.is_dir():
         raise QualificationError("evidence root is not a directory")
     contract_path = contract_path.expanduser().resolve(strict=True)
+    trust = establish_external_trust(
+        trust_root_path,
+        expected_trust_root_sha256,
+        contract_path,
+    )
     contract = validate_contract(load_json(contract_path))
     contract_identity = sha256(contract_path)
     index_path = candidate_path.expanduser().resolve(strict=True)
@@ -4542,6 +4772,7 @@ def evaluate_candidate(candidate_path: Path, evidence_root: Path, contract_path:
                 "candidateIdentitySHA256": candidate_identity,
                 "contractSHA256": contract_identity,
                 "evidenceSetSHA256": evidence_set_identity,
+                "externalTrust": trust,
                 "summaries": summaries,
             }
         )
@@ -4555,6 +4786,7 @@ def evaluate_candidate(candidate_path: Path, evidence_root: Path, contract_path:
             "candidateIndexSHA256": sha256(index_path),
             "candidateIdentitySHA256": candidate_identity,
             "evidenceSetSHA256": evidence_set_identity,
+            **trust,
             "qualificationSHA256": qualification_identity,
         },
         "evidence": evidence_identities,
@@ -4574,9 +4806,18 @@ def verify_report(
     candidate_path: Path,
     evidence_root: Path,
     contract_path: Path = DEFAULT_CONTRACT,
+    *,
+    trust_root_path: Path,
+    expected_trust_root_sha256: str,
 ) -> dict[str, Any]:
     actual = require_mapping(load_json(report_path.expanduser().resolve(strict=True)), "qualification report")
-    recomputed = evaluate_candidate(candidate_path, evidence_root, contract_path)
+    recomputed = evaluate_candidate(
+        candidate_path,
+        evidence_root,
+        contract_path,
+        trust_root_path=trust_root_path,
+        expected_trust_root_sha256=expected_trust_root_sha256,
+    )
     if canonical_bytes(actual) != canonical_bytes(recomputed):
         raise QualificationError("qualification report differs from recomputed evidence decision")
     return recomputed
@@ -4590,6 +4831,8 @@ def parse_arguments() -> argparse.Namespace:
         subparser.add_argument("--candidate", type=Path, required=True)
         subparser.add_argument("--evidence-root", type=Path, required=True)
         subparser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT)
+        subparser.add_argument("--trust-root", type=Path, required=True)
+        subparser.add_argument("--trust-root-sha256", required=True)
         if name == "evaluate":
             subparser.add_argument("--output", type=Path, required=True)
         else:
@@ -4600,12 +4843,25 @@ def parse_arguments() -> argparse.Namespace:
 def main() -> int:
     arguments = parse_arguments()
     if arguments.command == "evaluate":
-        report = evaluate_candidate(arguments.candidate, arguments.evidence_root, arguments.contract)
+        report = evaluate_candidate(
+            arguments.candidate,
+            arguments.evidence_root,
+            arguments.contract,
+            trust_root_path=arguments.trust_root,
+            expected_trust_root_sha256=arguments.trust_root_sha256,
+        )
         write_json(arguments.output.expanduser().resolve(), report)
         print(arguments.output.expanduser().resolve())
         return 0
     if arguments.command == "verify":
-        verify_report(arguments.report, arguments.candidate, arguments.evidence_root, arguments.contract)
+        verify_report(
+            arguments.report,
+            arguments.candidate,
+            arguments.evidence_root,
+            arguments.contract,
+            trust_root_path=arguments.trust_root,
+            expected_trust_root_sha256=arguments.trust_root_sha256,
+        )
         print(arguments.report.expanduser().resolve())
         return 0
     raise AssertionError(arguments.command)

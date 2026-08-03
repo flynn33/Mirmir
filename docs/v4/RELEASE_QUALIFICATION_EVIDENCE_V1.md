@@ -6,6 +6,14 @@ turn an incomplete or failed suite into a release pass. It consumes the sealed
 reports produced by those suites and proves that they all describe the same
 candidate.
 
+Before importing a replay evaluator, M7 requires an external trust-root hash
+supplied by the release operator or CI control plane. The trust root binds the
+final evaluator itself, the release contract, the support/parity/P05/quality
+replay modules, and the exhaustive evidence-role-to-handler dispatch table.
+The expected trust-root SHA-256 is deliberately not read from the candidate,
+repository, or evidence suite. A mutated evaluator or helper therefore fails
+before its Python code can execute, even if an attacker reseals the evidence.
+
 The candidate index follows
 `script/v4/release-qualification-evidence-schema-v1.json`. Its candidate record
 binds the source commit and tree, semantic P06 manifest identity, raw manifest
@@ -58,12 +66,23 @@ The eight normative roles are:
 7. the declared reference and supported machine matrix; and
 8. notarized and stapled application smoke evidence.
 
-Run an evaluation with:
+Construct the reviewed tool manifest and record the printed SHA-256 in the
+external release control plane:
+
+```sh
+python3 script/v4/release_qualification_trust_v4.py \
+  --contract script/v4/release-qualification-contract-v1.json \
+  --output /release-control/release-qualification-trust-root.json
+```
+
+Run an evaluation with that independently pinned hash:
 
 ```sh
 python3 script/v4/release_qualification_v4.py evaluate \
   --candidate /path/to/release-candidate-evidence.json \
   --evidence-root /path/to/evidence \
+  --trust-root /release-control/release-qualification-trust-root.json \
+  --trust-root-sha256 "$PINNED_RELEASE_TRUST_ROOT_SHA256" \
   --output /path/to/release-qualification-report.json
 ```
 
@@ -73,6 +92,8 @@ Then reproduce the decision from the sealed inputs with:
 python3 script/v4/release_qualification_v4.py verify \
   --candidate /path/to/release-candidate-evidence.json \
   --evidence-root /path/to/evidence \
+  --trust-root /release-control/release-qualification-trust-root.json \
+  --trust-root-sha256 "$PINNED_RELEASE_TRUST_ROOT_SHA256" \
   --report /path/to/release-qualification-report.json
 ```
 
