@@ -20,8 +20,10 @@ cleanup_selftest_temporary_directory() {
 trap cleanup_selftest_temporary_directory EXIT
 
 production_sources=(
+    "${repository_root}/Mirmir/Domain/OutputSettings.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/RationalPresentationGeometryV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift"
+    "${repository_root}/Mirmir/Modules/UpscalerEngine/PixelLayoutV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift"
     "${repository_root}/Mirmir/Modules/UpscalerEngine/ASH/ASHState.swift"
