@@ -127,7 +127,7 @@ class EvidenceFixture:
             "runtimeSourceRevision": runtime_revision,
             "releaseConfigurationSHA256": qualification.sha256_bytes(release_bytes),
             "appBundleSHA256": qualification.sha256_bytes(app_bytes),
-            "bundleIdentifier": "com.example.Mirmir",
+            "bundleIdentifier": "com.mirmir.app",
             "productVersion": "4.0",
             "productBuild": "400",
         }
@@ -1336,6 +1336,245 @@ class EvidenceFixture:
         if lane_capture.get(key) != actual:
             raise AssertionError(f"committed recovery tool identity is stale: {key}")
 
+    def _build_notarized_smoke(
+        self,
+        role_dir: Path,
+        report: dict[str, object],
+        contract_path: Path,
+        extra_bindings: list[tuple[str, Path]],
+    ) -> None:
+        raw_root = role_dir / "raw"
+        bindings_root = raw_root / "bindings"
+        archives_root = raw_root / "archives"
+        commands_root = raw_root / "commands"
+        observer_source = bindings_root / "MirmirApp.swift"
+        evaluator_source = bindings_root / "notarized_smoke_v4.py"
+        runner_source = bindings_root / "run_notarized_smoke_v4.py"
+        observer_source.parent.mkdir(parents=True, exist_ok=True)
+        observer_source.write_bytes(
+            (SCRIPT_DIRECTORY.parent.parent / "Mirmir/App/MirmirApp.swift")
+            .read_bytes()
+        )
+        evaluator_source.write_bytes(
+            (SCRIPT_DIRECTORY / "notarized_smoke_v4.py").read_bytes()
+        )
+        runner_source.write_bytes(
+            (SCRIPT_DIRECTORY / "run_notarized_smoke_v4.py").read_bytes()
+        )
+
+        action_records = {
+            "notarization_ticket_acceptance": ["notary_info", "notary_log"],
+            "gatekeeper_assessment": ["gatekeeper_assessment"],
+            "stapled_ticket_validation": ["stapled_ticket_validation"],
+            "code_signature_validation": [
+                "code_signature_validation",
+                "code_signature_display",
+                "code_signature_entitlements",
+                "code_signature_requirements",
+                "submitted_signature_display",
+                "submitted_signature_requirements",
+            ],
+            "launch": ["observer_prepare"],
+            "p06_runtime_load": ["observer_prepare"],
+            "media_probe": ["observer_prepare"],
+            "deterministic_process": ["observer_prepare"],
+            "semantic_output_verify": ["observer_recover"],
+            "queue_relaunch_recovery": ["observer_recover"],
+        }
+        required_records = [
+            "notary_info",
+            "notary_log",
+            "gatekeeper_assessment",
+            "stapled_ticket_validation",
+            "code_signature_validation",
+            "code_signature_display",
+            "code_signature_entitlements",
+            "code_signature_requirements",
+            "submitted_signature_display",
+            "submitted_signature_requirements",
+            "observer_prepare",
+            "observer_recover",
+        ]
+        lane_contract_source = SCRIPT_DIRECTORY / "notarized-smoke-contract-v1.json"
+        lane_contract = json.loads(lane_contract_source.read_text())
+        if lane_contract["requiredCommandRecords"] != required_records:
+            raise AssertionError("committed notarized smoke command contract changed")
+        lane_contract_path = bindings_root / "notarized-smoke-contract-v1.json"
+        lane_contract_path.write_bytes(lane_contract_source.read_bytes())
+        release_contract_path = bindings_root / "release-qualification-contract-v1.json"
+        release_contract_path.write_bytes(contract_path.read_bytes())
+        candidate_path = bindings_root / "candidate.json"
+        write_json(candidate_path, self.candidate)
+
+        candidate_archive = archives_root / "Mirmir-notarized.zip"
+        submitted_archive = archives_root / "Mirmir-submitted.zip"
+        candidate_archive.parent.mkdir(parents=True, exist_ok=True)
+        candidate_archive.write_bytes(self.app_bytes)
+        submitted_archive.write_bytes(b"accepted-pre-staple-archive")
+        executable = bindings_root / "Mirmir-executable"
+        executable.write_bytes(b"shipping-app-executable")
+        tool_manifest = bindings_root / "tool-identities.json"
+        write_json(tool_manifest, {"schemaVersion": "mirmir-v4-notarized-smoke-tool-identities-v1", "tools": {"app": {"sha256": qualification.sha256(executable)}}})
+        notary_log = raw_root / "apple" / "notary-log.json"
+        write_json(notary_log, {"status": "Accepted", "statusCode": 0})
+
+        command_records: dict[str, dict[str, object]] = {}
+        record_paths: dict[str, Path] = {}
+        for record_id in required_records:
+            record_path = commands_root / f"{record_id}.json"
+            write_json(record_path, {"id": record_id, "exitStatus": 0})
+            record_paths[record_id] = record_path
+            command_records[record_id] = descriptor(record_path, raw_root)
+
+        created = "2026-08-02T12:00:00Z"
+        finished = "2026-08-02T12:00:02Z"
+        raw_identities = {
+            "observerSourceSHA256": qualification.sha256(observer_source),
+            "evaluatorSHA256": qualification.sha256(evaluator_source),
+            "runnerSHA256": qualification.sha256(runner_source),
+            "applicationExecutableSHA256": qualification.sha256(executable),
+            "submittedArchiveSHA256": qualification.sha256(submitted_archive),
+            "candidateArchiveSHA256": qualification.sha256(candidate_archive),
+            "toolManifestSHA256": qualification.sha256(tool_manifest),
+        }
+        raw_artifacts = {
+            "candidateJSON": descriptor(candidate_path, raw_root),
+            "laneContract": descriptor(lane_contract_path, raw_root),
+            "releaseContract": descriptor(release_contract_path, raw_root),
+            "observerSource": descriptor(observer_source, raw_root),
+            "evaluator": descriptor(evaluator_source, raw_root),
+            "runner": descriptor(runner_source, raw_root),
+            "candidateArchive": descriptor(candidate_archive, raw_root),
+            "submittedArchive": descriptor(submitted_archive, raw_root),
+            "candidateExecutable": descriptor(executable, raw_root),
+            "toolManifest": descriptor(tool_manifest, raw_root),
+            "notaryLog": descriptor(notary_log, raw_root),
+        }
+        raw_capture = {
+            "schemaVersion": "mirmir-ash-v4-notarized-smoke-capture-v1",
+            "suiteID": lane_contract["suiteID"],
+            "createdAtUTC": created,
+            "finishedAtUTC": finished,
+            "laneContractSHA256": qualification.sha256(lane_contract_path),
+            "releaseContractSHA256": qualification.sha256(contract_path),
+            "candidate": self.candidate,
+            "identities": raw_identities,
+            "notarySubmission": {
+                "id": "11111111-1111-4111-8111-111111111111",
+                "submittedArchiveName": submitted_archive.name,
+            },
+            "artifacts": raw_artifacts,
+            "commandRecords": command_records,
+            "observerInvocations": [{"phase": "prepare"}, {"phase": "recover"}],
+        }
+        raw_capture_path = raw_root / "capture.json"
+        write_json(raw_capture_path, raw_capture)
+        receipt = {
+            "schemaVersion": "mirmir-ash-v4-notarized-smoke-replay-v1",
+            "captureSHA256": qualification.sha256(raw_capture_path),
+            "evaluationSHA256": identity("notarized-smoke-evaluation"),
+            "verifiedActionIDs": self.contract["notarizedSmokeActions"],
+            "verifiedAtUTC": finished,
+            "nestedEvidenceReplayPass": True,
+        }
+        receipt_path = role_dir / "replay-receipt.json"
+        write_json(receipt_path, receipt)
+
+        action_rows = []
+        for action in self.contract["notarizedSmokeActions"]:
+            transcript_path = role_dir / "transcripts" / f"{action}.json"
+            write_json(
+                transcript_path,
+                {
+                    "schemaVersion": "mirmir-ash-v4-notarized-smoke-transcript-v1",
+                    "actionID": action,
+                    "evidenceKind": self.contract["notarizedSmokeEvidenceKinds"][action],
+                    "sourceRecordIDs": action_records[action],
+                    "claims": {
+                        "candidateArchiveSHA256": self.candidate["appBundleSHA256"],
+                        "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+                    },
+                    "rawArtifacts": [
+                        descriptor(record_paths[record_id], role_dir)
+                        for record_id in action_records[action]
+                    ],
+                },
+            )
+            command = ["mirmir-v4-external-observer", "--action", action]
+            attestation_path = role_dir / "attestations" / f"{action}.json"
+            write_json(
+                attestation_path,
+                {
+                    "schemaVersion": "mirmir-ash-v4-external-execution-evidence-v1",
+                    "actionID": action,
+                    "evidenceKind": self.contract["notarizedSmokeEvidenceKinds"][action],
+                    "command": command,
+                    "invocationSHA256": qualification.sha256_bytes(qualification.canonical_bytes(command)),
+                    "exitStatus": 0,
+                    "startedAtUTC": created,
+                    "finishedAtUTC": finished,
+                    "observedAppBundleSHA256": self.candidate["appBundleSHA256"],
+                    "observedRuntimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+                    "transcriptArtifact": descriptor(transcript_path, role_dir),
+                },
+            )
+            action_rows.append(
+                {
+                    "id": action,
+                    "pass": True,
+                    "externalEvidenceArtifact": descriptor(attestation_path, role_dir),
+                }
+            )
+
+        report.update(
+            {
+                "identities": {
+                    "laneContractSHA256": qualification.sha256(lane_contract_path),
+                    "observerSourceSHA256": qualification.sha256(observer_source),
+                    "evaluatorSHA256": qualification.sha256(evaluator_source),
+                    "runnerSHA256": qualification.sha256(runner_source),
+                    "rawCaptureSHA256": qualification.sha256(raw_capture_path),
+                    "applicationExecutableSHA256": qualification.sha256(executable),
+                    "submittedArchiveSHA256": qualification.sha256(submitted_archive),
+                    "toolManifestSHA256": qualification.sha256(tool_manifest),
+                    "replayReceiptSHA256": qualification.sha256(receipt_path),
+                },
+                "appBundleSHA256": self.candidate["appBundleSHA256"],
+                "bundleIdentifier": self.candidate["bundleIdentifier"],
+                "productVersion": self.candidate["productVersion"],
+                "productBuild": self.candidate["productBuild"],
+                "notarizationAccepted": True,
+                "ticketStapled": True,
+                "gatekeeperAccepted": True,
+                "codeSignatureValid": True,
+                "hardenedRuntimeEnabled": True,
+                "productionP06Loaded": True,
+                "actions": action_rows,
+                "capture": {
+                    "createdAtUTC": created,
+                    "finishedAtUTC": finished,
+                    "rawCaptureArtifact": descriptor(raw_capture_path, role_dir),
+                    "replayReceiptArtifact": descriptor(receipt_path, role_dir),
+                    "nestedEvidenceReplayPass": True,
+                },
+                "notarizedSmokeGatePass": True,
+            }
+        )
+        extra_bindings.extend(
+            [
+                ("/candidate/appBundleSHA256", candidate_archive),
+                ("/identities/laneContractSHA256", lane_contract_path),
+                ("/identities/observerSourceSHA256", observer_source),
+                ("/identities/evaluatorSHA256", evaluator_source),
+                ("/identities/runnerSHA256", runner_source),
+                ("/identities/rawCaptureSHA256", raw_capture_path),
+                ("/identities/applicationExecutableSHA256", executable),
+                ("/identities/submittedArchiveSHA256", submitted_archive),
+                ("/identities/toolManifestSHA256", tool_manifest),
+                ("/identities/replayReceiptSHA256", receipt_path),
+            ]
+        )
+
     def _build_common_reports(self) -> None:
         for role in self.contract["requiredEvidenceRoles"]:
             if role == "quality":
@@ -1353,6 +1592,8 @@ class EvidenceFixture:
                 suite_contract = json.loads(
                     (SCRIPT_DIRECTORY / "recovery-qualification-contract-v1.json").read_text()
                 )
+            elif role == "notarized_smoke":
+                suite_contract = self.contract
             elif role == "p06_reproduction":
                 role_dir.mkdir(parents=True, exist_ok=True)
                 source_contract = {
@@ -1736,64 +1977,11 @@ class EvidenceFixture:
                     }
                 )
             elif role == "notarized_smoke":
-                app_archive = role_dir / "Mirmir-notarized.zip"
-                app_archive.write_bytes(self.app_bytes)
-                extra_bindings.append(("/candidate/appBundleSHA256", app_archive))
-                smoke_evidence = {}
-                for action in self.contract["notarizedSmokeActions"]:
-                    transcript = role_dir / "external-evidence" / f"{action}.log"
-                    path = role_dir / "external-evidence" / f"{action}.json"
-                    transcript.parent.mkdir(parents=True, exist_ok=True)
-                    transcript.write_text(
-                        f"external observer completed {action} for the notarized candidate\n",
-                        encoding="utf-8",
-                    )
-                    command = ["mirmir-v4-external-observer", "--action", action]
-                    write_json(
-                        path,
-                        {
-                            "schemaVersion": "mirmir-ash-v4-external-execution-evidence-v1",
-                            "actionID": action,
-                            "evidenceKind": self.contract["notarizedSmokeEvidenceKinds"][action],
-                            "command": command,
-                            "invocationSHA256": qualification.sha256_bytes(
-                                qualification.canonical_bytes(command)
-                            ),
-                            "exitStatus": 0,
-                            "startedAtUTC": "2026-08-02T12:00:00Z",
-                            "finishedAtUTC": "2026-08-02T12:00:01Z",
-                            "observedAppBundleSHA256": self.candidate["appBundleSHA256"],
-                            "observedRuntimeManifestSHA256": self.candidate[
-                                "runtimeManifestSHA256"
-                            ],
-                            "transcriptArtifact": descriptor(transcript, self.root),
-                        },
-                    )
-                    smoke_evidence[action] = path
-                report.update(
-                    {
-                        "appBundleSHA256": self.candidate["appBundleSHA256"],
-                        "bundleIdentifier": self.candidate["bundleIdentifier"],
-                        "productVersion": self.candidate["productVersion"],
-                        "productBuild": self.candidate["productBuild"],
-                        "notarizationAccepted": True,
-                        "ticketStapled": True,
-                        "gatekeeperAccepted": True,
-                        "codeSignatureValid": True,
-                        "hardenedRuntimeEnabled": True,
-                        "productionP06Loaded": True,
-                        "actions": [
-                            {
-                                "id": action,
-                                "pass": True,
-                                "externalEvidenceArtifact": descriptor(
-                                    smoke_evidence[action], self.root
-                                ),
-                            }
-                            for action in self.contract["notarizedSmokeActions"]
-                        ],
-                        "notarizedSmokeGatePass": True,
-                    }
+                self._build_notarized_smoke(
+                    role_dir,
+                    report,
+                    contract_path,
+                    extra_bindings,
                 )
             else:
                 raise AssertionError(role)
@@ -1836,6 +2024,44 @@ class EvidenceFixture:
         write_json(sealed_path, sealed)
         sealed_descriptor.update(descriptor(sealed_path, self.root))
         self.save_index()
+
+    def refresh_notarized_smoke_nested_bindings(self) -> None:
+        role = "notarized_smoke"
+        role_dir = self.root / role
+        raw_capture_path = role_dir / "raw" / "capture.json"
+        receipt_path = role_dir / "replay-receipt.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["captureSHA256"] = qualification.sha256(raw_capture_path)
+        write_json(receipt_path, receipt)
+
+        report_path = role_dir / "report.json"
+        report = json.loads(report_path.read_text())
+        report["identities"]["rawCaptureSHA256"] = qualification.sha256(
+            raw_capture_path
+        )
+        report["identities"]["replayReceiptSHA256"] = qualification.sha256(
+            receipt_path
+        )
+        report["capture"]["rawCaptureArtifact"] = descriptor(
+            raw_capture_path, role_dir
+        )
+        report["capture"]["replayReceiptArtifact"] = descriptor(
+            receipt_path, role_dir
+        )
+        write_json(report_path, report)
+
+        entry = self.entry(role)
+        for pointer, path in (
+            ("/identities/rawCaptureSHA256", raw_capture_path),
+            ("/identities/replayReceiptSHA256", receipt_path),
+        ):
+            binding = next(
+                item
+                for item in entry["identityBindings"]
+                if item["jsonPointer"] == pointer
+            )
+            binding.update(descriptor(path, self.root))
+        self.reseal_role(role)
 
     def refresh_recovery_evidence(self) -> None:
         role_dir = self.root / "recovery"
@@ -2251,7 +2477,8 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         self.fixture = EvidenceFixture(self.root / "placeholder")
         self.root = self.root / "placeholder"
         contract_artifact = descriptor(
-            self.root / "notarized_smoke" / "suite-contract.json", self.root
+            self.root / "notarized_smoke" / "suite-contract.json",
+            self.root / "notarized_smoke",
         )
         self.fixture.mutate_report(
             "notarized_smoke",
@@ -2261,6 +2488,37 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
         )
         with self.assertRaisesRegex(
             qualification.QualificationError, "attestation.*key set mismatch"
+        ):
+            self.evaluate()
+
+    def testNotarizedSmokeNestedCaptureAndReplayAreRecomputed(self) -> None:
+        raw_root = self.root / "raw-capture-forgery"
+        self.fixture = EvidenceFixture(raw_root)
+        self.root = raw_root
+        raw_capture_path = (
+            self.root / "notarized_smoke" / "raw" / "capture.json"
+        )
+        raw_capture = json.loads(raw_capture_path.read_text())
+        raw_capture["candidate"]["bundleIdentifier"] = "forged.mirmir.app"
+        write_json(raw_capture_path, raw_capture)
+        self.fixture.refresh_notarized_smoke_nested_bindings()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "raw capture belongs to another candidate",
+        ):
+            self.evaluate()
+
+        receipt_root = self.root / "replay-forgery"
+        self.fixture = EvidenceFixture(receipt_root)
+        self.root = receipt_root
+        receipt_path = self.root / "notarized_smoke" / "replay-receipt.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["nestedEvidenceReplayPass"] = False
+        write_json(receipt_path, receipt)
+        self.fixture.refresh_notarized_smoke_nested_bindings()
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "replay nestedEvidenceReplayPass",
         ):
             self.evaluate()
 

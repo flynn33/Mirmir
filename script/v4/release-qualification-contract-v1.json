@@ -52,7 +52,16 @@
       "/contractSHA256",
       "/candidate/runtimeManifestFileSHA256",
       "/candidate/releaseConfigurationSHA256",
-      "/candidate/appBundleSHA256"
+      "/candidate/appBundleSHA256",
+      "/identities/laneContractSHA256",
+      "/identities/observerSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/rawCaptureSHA256",
+      "/identities/applicationExecutableSHA256",
+      "/identities/submittedArchiveSHA256",
+      "/identities/toolManifestSHA256",
+      "/identities/replayReceiptSHA256"
     ],
     "p06_reproduction": [
       "/contractSHA256",
@@ -148,6 +157,12 @@
     "queue_relaunch_recovery": "notarized_app_observer",
     "semantic_output_verify": "notarized_app_observer",
     "stapled_ticket_validation": "system_stapler_validation"
+  },
+  "notarizedSmokeLaneContractSHA256": "4c7588f3c895c86171d4cd54716d7a2175383e6a190b5379821f6d861fead9a8",
+  "notarizedSmokeLockedSources": {
+    "evaluatorSHA256": "d561acd0ef789a616308d0ca1afd4ef06441f850dcf44ad2c4ba240e13a0b441",
+    "observerSourceSHA256": "517e9133a2996039448d4a37a27aaf368a8388f8215985741782b1c316a58a08",
+    "runnerSHA256": "c6c785d88c076ebc7591f246e95fb37817e5b3e53b9cd023d92ac93fc859dbd8"
   },
   "parityCoverage": [
     "nv12_video_range",

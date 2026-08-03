@@ -31,6 +31,14 @@ configuration, and application-oriented roles also bind the notarized archive.
 This prevents an otherwise valid report from a prior candidate or qualification
 toolchain from being reused.
 
+The notarized-smoke role additionally binds the release-locked lane contract,
+shipping-app observer source, evaluator, runner, raw two-process capture,
+application executable, pre-staple submitted archive, tool manifest, and nested
+replay receipt. The aggregator resolves the lane's suite-relative artifacts
+inside its recursive seal, independently replays every command-record and
+action-transcript relationship, and rejects a weakened signing, entitlement,
+observer, or recovery contract even when report pass booleans remain true.
+
 The eight normative roles are:
 
 1. locked natural-corpus quality with a production P06 runtime;

@@ -3563,7 +3563,58 @@ def validate_smoke(
     sealed_paths: set[Path],
 ) -> dict[str, Any]:
     label = "notarized_smoke"
+    require_exact_keys(
+        report,
+        {
+            "schemaVersion",
+            "contractSHA256",
+            "candidate",
+            "releaseEligible",
+            "identities",
+            "appBundleSHA256",
+            "bundleIdentifier",
+            "productVersion",
+            "productBuild",
+            "notarizationAccepted",
+            "ticketStapled",
+            "gatekeeperAccepted",
+            "codeSignatureValid",
+            "hardenedRuntimeEnabled",
+            "productionP06Loaded",
+            "actions",
+            "capture",
+            "notarizedSmokeGatePass",
+        },
+        "notarized smoke report",
+    )
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    report_path = checked_path(evidence_root, entry["path"], "notarized smoke report path")
+    suite_root = report_path.parent.resolve()
+
+    def suite_artifact(value: Any, artifact_label: str) -> tuple[Path, str]:
+        path, artifact_identity = validate_artifact(suite_root, value, artifact_label)
+        if path not in sealed_paths:
+            raise QualificationError(f"{artifact_label} is outside the notarized smoke seal")
+        return path, artifact_identity
+
+    def bound_path(pointer: str, *, sealed: bool = True) -> Path:
+        matches = [
+            item
+            for item in require_list(entry["identityBindings"], "notarized smoke identity bindings")
+            if isinstance(item, dict) and item.get("jsonPointer") == pointer
+        ]
+        if len(matches) != 1:
+            raise QualificationError(f"notarized smoke binding is absent or repeated: {pointer}")
+        path, _ = validate_artifact(
+            evidence_root,
+            matches[0],
+            f"notarized smoke binding {pointer}",
+            allowed_extra_keys={"jsonPointer"},
+        )
+        if sealed and path not in sealed_paths:
+            raise QualificationError(f"notarized smoke binding is outside the lane seal: {pointer}")
+        return path
+
     if report.get("appBundleSHA256") != candidate["appBundleSHA256"]:
         raise QualificationError("notarized smoke used another app bundle")
     if report.get("bundleIdentifier") != candidate["bundleIdentifier"]:
@@ -3579,14 +3630,439 @@ def validate_smoke(
         "productionP06Loaded",
     ):
         require_bool(report.get(key), f"notarized smoke.{key}", True)
+
+    identities = require_mapping(report["identities"], "notarized smoke.identities")
+    identity_keys = {
+        "laneContractSHA256",
+        "observerSourceSHA256",
+        "evaluatorSHA256",
+        "runnerSHA256",
+        "rawCaptureSHA256",
+        "applicationExecutableSHA256",
+        "submittedArchiveSHA256",
+        "toolManifestSHA256",
+        "replayReceiptSHA256",
+    }
+    require_exact_keys(identities, identity_keys, "notarized smoke.identities")
+    for key in identity_keys:
+        require_hex(identities[key], 64, f"notarized smoke.identities.{key}")
+
+    lane_contract_path = bound_path("/identities/laneContractSHA256")
+    lane_contract = require_mapping(load_json(lane_contract_path), "notarized smoke lane contract")
+    require_exact_keys(
+        lane_contract,
+        {
+            "schemaVersion",
+            "suiteID",
+            "releaseQualificationContractPath",
+            "candidate",
+            "codeSigning",
+            "tools",
+            "capture",
+            "requiredCommandRecords",
+            "requiredObserverChecks",
+            "actions",
+        },
+        "notarized smoke lane contract",
+    )
+    if lane_contract["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-contract-v1":
+        raise QualificationError("notarized smoke lane contract schema differs")
+    if lane_contract["suiteID"] != "mirmir-ash-v4-notarized-smoke-v1":
+        raise QualificationError("notarized smoke lane suite identity differs")
+    if identities["laneContractSHA256"] != require_hex(
+        contract.get("notarizedSmokeLaneContractSHA256"),
+        64,
+        "release contract.notarizedSmokeLaneContractSHA256",
+    ):
+        raise QualificationError("notarized smoke lane contract is not the release-locked contract")
+    locked_sources = require_mapping(
+        contract.get("notarizedSmokeLockedSources"),
+        "release contract.notarizedSmokeLockedSources",
+    )
+    require_exact_keys(
+        locked_sources,
+        {"observerSourceSHA256", "evaluatorSHA256", "runnerSHA256"},
+        "release contract.notarizedSmokeLockedSources",
+    )
+    for key, expected in locked_sources.items():
+        if identities.get(key) != require_hex(
+            expected,
+            64,
+            f"release contract.notarizedSmokeLockedSources.{key}",
+        ):
+            raise QualificationError(f"notarized smoke source is not release-locked: {key}")
+
+    if lane_contract["releaseQualificationContractPath"] != "script/v4/release-qualification-contract-v1.json":
+        raise QualificationError("notarized smoke release-contract path differs")
+    lane_candidate = require_mapping(lane_contract["candidate"], "notarized smoke lane candidate")
+    require_exact_keys(
+        lane_candidate,
+        {"requiredBundleIdentifier", "requiredRuntimeID", "requiredRuntimeStatus"},
+        "notarized smoke lane candidate",
+    )
+    if (
+        lane_candidate["requiredBundleIdentifier"] != candidate["bundleIdentifier"]
+        or lane_candidate["requiredRuntimeID"] != "ash-p06-deterministic-v4"
+        or lane_candidate["requiredRuntimeStatus"] != "release_qualified"
+    ):
+        raise QualificationError("notarized smoke lane candidate policy differs")
+    lane_signing = require_mapping(lane_contract["codeSigning"], "notarized smoke lane signing")
+    require_exact_keys(
+        lane_signing,
+        {
+            "requiredCertificateClass",
+            "requiredTeamIdentifier",
+            "requiredHardenedRuntimeFlag",
+            "secureTimestampRequired",
+            "requiredEntitlements",
+            "forbiddenEntitlement",
+        },
+        "notarized smoke lane signing",
+    )
+    if (
+        lane_signing["requiredCertificateClass"] != "Developer ID Application"
+        or lane_signing["requiredTeamIdentifier"] != "9AQ2C2838M"
+        or lane_signing["requiredHardenedRuntimeFlag"] != "runtime"
+        or lane_signing["forbiddenEntitlement"] != "com.apple.security.get-task-allow"
+    ):
+        raise QualificationError("notarized smoke lane signing identity policy differs")
+    require_bool(
+        lane_signing["secureTimestampRequired"],
+        "notarized smoke lane signing.secureTimestampRequired",
+        True,
+    )
+    if lane_signing["requiredEntitlements"] != [
+        "com.apple.security.app-sandbox",
+        "com.apple.security.files.bookmarks.app-scope",
+    ]:
+        raise QualificationError("notarized smoke lane required entitlements differ")
+    lane_tools = require_mapping(lane_contract["tools"], "notarized smoke lane tools")
+    if lane_tools != {
+        "codesign": "/usr/bin/codesign",
+        "ditto": "/usr/bin/ditto",
+        "spctl": "/usr/sbin/spctl",
+        "xcrun": "/usr/bin/xcrun",
+    }:
+        raise QualificationError("notarized smoke lane tool paths differ")
+    lane_actions = require_list(lane_contract["actions"], "notarized smoke lane actions")
+    lane_action_ids = [
+        require_string(require_mapping(item, f"notarized smoke lane action[{index}]").get("id"), f"notarized smoke lane action[{index}].id")
+        for index, item in enumerate(lane_actions)
+    ]
+    if lane_action_ids != contract["notarizedSmokeActions"]:
+        raise QualificationError("notarized smoke lane action order differs from release contract")
+    for index, item in enumerate(lane_actions):
+        action = require_mapping(item, f"notarized smoke lane action[{index}]")
+        require_exact_keys(
+            action,
+            {"id", "evidenceKind", "producer"},
+            f"notarized smoke lane action[{index}]",
+        )
+        identifier = lane_action_ids[index]
+        if action["evidenceKind"] != contract["notarizedSmokeEvidenceKinds"][identifier]:
+            raise QualificationError(f"notarized smoke lane evidence kind differs: {identifier}")
+    expected_producers = {
+        "notarization_ticket_acceptance": "notarytool",
+        "gatekeeper_assessment": "spctl",
+        "stapled_ticket_validation": "stapler",
+        "code_signature_validation": "codesign",
+        "launch": "shipping_app",
+        "p06_runtime_load": "shipping_app",
+        "media_probe": "shipping_app",
+        "deterministic_process": "shipping_app",
+        "semantic_output_verify": "shipping_app",
+        "queue_relaunch_recovery": "shipping_app",
+    }
+    if {
+        lane_action_ids[index]: require_string(
+            require_mapping(item, f"notarized smoke lane action[{index}]")["producer"],
+            f"notarized smoke lane action[{index}].producer",
+        )
+        for index, item in enumerate(lane_actions)
+    } != expected_producers:
+        raise QualificationError("notarized smoke lane action producers differ")
+    lane_capture = require_mapping(lane_contract["capture"], "notarized smoke lane capture")
+    require_exact_keys(
+        lane_capture,
+        {
+            "buildConfiguration",
+            "observerSourcePath",
+            "observerSourceSHA256",
+            "evaluatorSHA256",
+            "runnerSHA256",
+            "qualificationNamespace",
+            "maximumCaptureAgeSeconds",
+            "maximumNotarySubmissionAgeSeconds",
+            "maximumSandboxEvidenceBytes",
+            "appInvocationTimeoutSeconds",
+        },
+        "notarized smoke lane capture",
+    )
+    if (
+        lane_capture["buildConfiguration"] != "Release"
+        or lane_capture["observerSourcePath"] != "Mirmir/App/MirmirApp.swift"
+        or lane_capture["qualificationNamespace"] != "MirmirQualificationV4/notarized-smoke"
+        or lane_capture["maximumCaptureAgeSeconds"] != 3600
+        or lane_capture["maximumNotarySubmissionAgeSeconds"] != 604800
+        or lane_capture["maximumSandboxEvidenceBytes"] != 536870912
+        or lane_capture["appInvocationTimeoutSeconds"] != 900
+    ):
+        raise QualificationError("notarized smoke lane capture policy differs")
+    for report_key, lane_key in (
+        ("observerSourceSHA256", "observerSourceSHA256"),
+        ("evaluatorSHA256", "evaluatorSHA256"),
+        ("runnerSHA256", "runnerSHA256"),
+    ):
+        if lane_capture.get(lane_key) != identities[report_key]:
+            raise QualificationError(f"notarized smoke lane source lock differs: {report_key}")
+        bound_path(f"/identities/{report_key}")
+
+    for pointer in (
+        "/identities/rawCaptureSHA256",
+        "/identities/applicationExecutableSHA256",
+        "/identities/submittedArchiveSHA256",
+        "/identities/toolManifestSHA256",
+        "/identities/replayReceiptSHA256",
+        "/candidate/appBundleSHA256",
+        "/contractSHA256",
+    ):
+        bound_path(pointer)
+
+    capture_summary = require_mapping(report["capture"], "notarized smoke.capture")
+    require_exact_keys(
+        capture_summary,
+        {
+            "createdAtUTC",
+            "finishedAtUTC",
+            "rawCaptureArtifact",
+            "replayReceiptArtifact",
+            "nestedEvidenceReplayPass",
+        },
+        "notarized smoke.capture",
+    )
+    require_bool(
+        capture_summary["nestedEvidenceReplayPass"],
+        "notarized smoke.capture.nestedEvidenceReplayPass",
+        True,
+    )
+    raw_capture_path, raw_capture_identity = suite_artifact(
+        capture_summary["rawCaptureArtifact"],
+        "notarized smoke.capture.rawCaptureArtifact",
+    )
+    if raw_capture_identity != identities["rawCaptureSHA256"]:
+        raise QualificationError("notarized smoke raw capture identity differs")
+    raw_capture = require_mapping(load_json(raw_capture_path), "notarized smoke raw capture")
+    require_exact_keys(
+        raw_capture,
+        {
+            "schemaVersion",
+            "suiteID",
+            "createdAtUTC",
+            "finishedAtUTC",
+            "laneContractSHA256",
+            "releaseContractSHA256",
+            "candidate",
+            "identities",
+            "notarySubmission",
+            "artifacts",
+            "commandRecords",
+            "observerInvocations",
+        },
+        "notarized smoke raw capture",
+    )
+    if raw_capture["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-capture-v1":
+        raise QualificationError("notarized smoke raw capture schema differs")
+    if raw_capture["suiteID"] != lane_contract["suiteID"]:
+        raise QualificationError("notarized smoke raw capture suite differs")
+    if raw_capture["candidate"] != candidate:
+        raise QualificationError("notarized smoke raw capture belongs to another candidate")
+    if raw_capture["laneContractSHA256"] != identities["laneContractSHA256"]:
+        raise QualificationError("notarized smoke raw lane contract identity differs")
+    if raw_capture["releaseContractSHA256"] != contract_sha:
+        raise QualificationError("notarized smoke raw release contract identity differs")
+    if (
+        raw_capture["createdAtUTC"] != capture_summary["createdAtUTC"]
+        or raw_capture["finishedAtUTC"] != capture_summary["finishedAtUTC"]
+    ):
+        raise QualificationError("notarized smoke capture interval summary differs")
+
+    raw_identities = require_mapping(raw_capture["identities"], "notarized smoke raw identities")
+    raw_identity_keys = {
+        "observerSourceSHA256",
+        "evaluatorSHA256",
+        "runnerSHA256",
+        "applicationExecutableSHA256",
+        "submittedArchiveSHA256",
+        "candidateArchiveSHA256",
+        "toolManifestSHA256",
+    }
+    require_exact_keys(raw_identities, raw_identity_keys, "notarized smoke raw identities")
+    for key in raw_identity_keys:
+        require_hex(raw_identities[key], 64, f"notarized smoke raw identities.{key}")
+    for key in raw_identity_keys - {"candidateArchiveSHA256"}:
+        if raw_identities[key] != identities[key]:
+            raise QualificationError(f"notarized smoke raw identity differs: {key}")
+    if raw_identities["candidateArchiveSHA256"] != candidate["appBundleSHA256"]:
+        raise QualificationError("notarized smoke raw candidate archive identity differs")
+
+    raw_root = raw_capture_path.parent.resolve()
+    raw_artifacts = require_mapping(raw_capture["artifacts"], "notarized smoke raw artifacts")
+    expected_raw_artifacts = {
+        "candidateJSON",
+        "laneContract",
+        "releaseContract",
+        "observerSource",
+        "evaluator",
+        "runner",
+        "candidateArchive",
+        "submittedArchive",
+        "candidateExecutable",
+        "toolManifest",
+        "notaryLog",
+    }
+    require_exact_keys(raw_artifacts, expected_raw_artifacts, "notarized smoke raw artifacts")
+    raw_artifact_paths: dict[str, Path] = {}
+    raw_artifact_identities: dict[str, str] = {}
+    for artifact_name in sorted(expected_raw_artifacts):
+        path, artifact_identity = validate_artifact(
+            raw_root,
+            raw_artifacts[artifact_name],
+            f"notarized smoke raw artifact {artifact_name}",
+        )
+        if path not in sealed_paths:
+            raise QualificationError(f"notarized smoke raw artifact is outside the lane seal: {artifact_name}")
+        raw_artifact_paths[artifact_name] = path
+        raw_artifact_identities[artifact_name] = artifact_identity
+    expected_artifact_identities = {
+        "laneContract": identities["laneContractSHA256"],
+        "releaseContract": contract_sha,
+        "observerSource": identities["observerSourceSHA256"],
+        "evaluator": identities["evaluatorSHA256"],
+        "runner": identities["runnerSHA256"],
+        "candidateArchive": candidate["appBundleSHA256"],
+        "submittedArchive": identities["submittedArchiveSHA256"],
+        "candidateExecutable": identities["applicationExecutableSHA256"],
+        "toolManifest": identities["toolManifestSHA256"],
+    }
+    for artifact_name, expected_identity in expected_artifact_identities.items():
+        if raw_artifact_identities[artifact_name] != expected_identity:
+            raise QualificationError(f"notarized smoke raw artifact identity differs: {artifact_name}")
+    if require_mapping(load_json(raw_artifact_paths["candidateJSON"]), "notarized smoke candidate artifact") != candidate:
+        raise QualificationError("notarized smoke candidate artifact differs")
+
+    required_record_ids = [
+        require_string(value, "notarized smoke required command record")
+        for value in require_list(lane_contract["requiredCommandRecords"], "notarized smoke required command records")
+    ]
+    expected_record_ids = [
+        "notary_info",
+        "notary_log",
+        "gatekeeper_assessment",
+        "stapled_ticket_validation",
+        "code_signature_validation",
+        "code_signature_display",
+        "code_signature_entitlements",
+        "code_signature_requirements",
+        "submitted_signature_display",
+        "submitted_signature_requirements",
+        "observer_prepare",
+        "observer_recover",
+    ]
+    if required_record_ids != expected_record_ids:
+        raise QualificationError("notarized smoke required command record order differs")
+    observer_checks = require_mapping(
+        lane_contract["requiredObserverChecks"],
+        "notarized smoke required observer checks",
+    )
+    if observer_checks != {
+        "prepare": [
+            "shippingExecutableIdentity",
+            "sandboxIsolation",
+            "productionP06Load",
+            "realMediaProbe",
+            "deterministicCPUProcess",
+            "durableCheckpointPause",
+            "userQueueUntouched",
+        ],
+        "recover": [
+            "shippingExecutableIdentity",
+            "sandboxIsolation",
+            "productionP06Load",
+            "phaseOneSealReplayVerified",
+            "durableQueueReopened",
+            "checkpointResumeCompleted",
+            "decodedSemanticEquality",
+            "userQueueUntouched",
+        ],
+    }:
+        raise QualificationError("notarized smoke required observer checks differ")
+    command_records = require_mapping(raw_capture["commandRecords"], "notarized smoke command records")
+    if (
+        len(required_record_ids) != len(set(required_record_ids))
+        or set(command_records) != set(required_record_ids)
+    ):
+        raise QualificationError("notarized smoke command record set differs")
+    for record_id in required_record_ids:
+        record_path, _ = validate_artifact(
+            raw_root,
+            command_records[record_id],
+            f"notarized smoke command record {record_id}",
+        )
+        if record_path not in sealed_paths:
+            raise QualificationError(f"notarized smoke command record is outside the lane seal: {record_id}")
+
+    observer_invocations = require_list(raw_capture["observerInvocations"], "notarized smoke observer invocations")
+    if [
+        require_mapping(item, f"notarized smoke observer invocation[{index}]").get("phase")
+        for index, item in enumerate(observer_invocations)
+    ] != ["prepare", "recover"]:
+        raise QualificationError("notarized smoke observer phase order differs")
+
+    replay_path, replay_identity = suite_artifact(
+        capture_summary["replayReceiptArtifact"],
+        "notarized smoke.capture.replayReceiptArtifact",
+    )
+    if replay_identity != identities["replayReceiptSHA256"]:
+        raise QualificationError("notarized smoke replay receipt identity differs")
+    receipt = require_mapping(load_json(replay_path), "notarized smoke replay receipt")
+    require_exact_keys(
+        receipt,
+        {
+            "schemaVersion",
+            "captureSHA256",
+            "evaluationSHA256",
+            "verifiedActionIDs",
+            "verifiedAtUTC",
+            "nestedEvidenceReplayPass",
+        },
+        "notarized smoke replay receipt",
+    )
+    if receipt["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-replay-v1":
+        raise QualificationError("notarized smoke replay receipt schema differs")
+    if receipt["captureSHA256"] != raw_capture_identity:
+        raise QualificationError("notarized smoke replay receipt captures another input")
+    require_hex(receipt["evaluationSHA256"], 64, "notarized smoke replay evaluation identity")
+    if receipt["verifiedActionIDs"] != contract["notarizedSmokeActions"]:
+        raise QualificationError("notarized smoke replay action order differs")
+    if receipt["verifiedAtUTC"] != raw_capture["finishedAtUTC"]:
+        raise QualificationError("notarized smoke replay time differs")
+    require_bool(
+        receipt["nestedEvidenceReplayPass"],
+        "notarized smoke replay nestedEvidenceReplayPass",
+        True,
+    )
+
     actions = require_list(report.get("actions"), "notarized smoke.actions")
-    required = set(contract["notarizedSmokeActions"])
+    required_order = contract["notarizedSmokeActions"]
+    required = set(required_order)
     evidence_kinds = require_mapping(
         contract.get("notarizedSmokeEvidenceKinds"), "notarized smoke evidence-kind contract"
     )
     if set(evidence_kinds) != required:
         raise QualificationError("notarized smoke evidence-kind contract is incomplete")
     seen: set[str] = set()
+    if len(actions) != len(required_order):
+        raise QualificationError("notarized smoke action count differs")
     for index, item in enumerate(actions):
         action = require_mapping(item, f"notarized smoke.actions[{index}]")
         require_exact_keys(
@@ -3599,10 +4075,10 @@ def validate_smoke(
             raise QualificationError(f"notarized smoke unexpected/duplicate action: {identifier}")
         seen.add(identifier)
         require_bool(action["pass"], f"notarized smoke action {identifier}", True)
-        evidence_path, _ = validate_sealed_artifact(
-            evidence_root,
+        if identifier != required_order[index]:
+            raise QualificationError("notarized smoke action order differs")
+        evidence_path, _ = suite_artifact(
             action["externalEvidenceArtifact"],
-            sealed_paths,
             f"notarized smoke action {identifier}.externalEvidenceArtifact",
         )
         if evidence_path.stat().st_size == 0:
@@ -3654,14 +4130,57 @@ def validate_smoke(
             raise QualificationError(f"notarized smoke action has invalid UTC timestamps: {identifier}") from error
         if started.tzinfo is None or finished.tzinfo is None or finished < started:
             raise QualificationError(f"notarized smoke action time interval is invalid: {identifier}")
-        transcript_path, _ = validate_sealed_artifact(
-            evidence_root,
+        transcript_path, _ = suite_artifact(
             attestation["transcriptArtifact"],
-            sealed_paths,
             f"notarized smoke action {identifier}.transcriptArtifact",
         )
         if transcript_path.stat().st_size == 0:
             raise QualificationError(f"notarized smoke action transcript is empty: {identifier}")
+        transcript = require_mapping(
+            load_json(transcript_path),
+            f"notarized smoke action {identifier} transcript",
+        )
+        require_exact_keys(
+            transcript,
+            {
+                "schemaVersion",
+                "actionID",
+                "evidenceKind",
+                "sourceRecordIDs",
+                "claims",
+                "rawArtifacts",
+            },
+            f"notarized smoke action {identifier} transcript",
+        )
+        if transcript["schemaVersion"] != "mirmir-ash-v4-notarized-smoke-transcript-v1":
+            raise QualificationError(f"notarized smoke action transcript schema differs: {identifier}")
+        if transcript["actionID"] != identifier or transcript["evidenceKind"] != evidence_kinds[identifier]:
+            raise QualificationError(f"notarized smoke action transcript identity differs: {identifier}")
+        source_record_ids = require_list(
+            transcript["sourceRecordIDs"],
+            f"notarized smoke action {identifier}.sourceRecordIDs",
+        )
+        if not source_record_ids or any(
+            not isinstance(record_id, str) or record_id not in command_records
+            for record_id in source_record_ids
+        ):
+            raise QualificationError(f"notarized smoke action has invalid source records: {identifier}")
+        claims = require_mapping(transcript["claims"], f"notarized smoke action {identifier}.claims")
+        if claims.get("candidateArchiveSHA256") != candidate["appBundleSHA256"]:
+            raise QualificationError(f"notarized smoke transcript observed another app: {identifier}")
+        if claims.get("runtimeManifestSHA256") != candidate["runtimeManifestSHA256"]:
+            raise QualificationError(f"notarized smoke transcript observed another runtime: {identifier}")
+        transcript_artifacts = require_list(
+            transcript["rawArtifacts"],
+            f"notarized smoke action {identifier}.rawArtifacts",
+        )
+        if not transcript_artifacts:
+            raise QualificationError(f"notarized smoke action has no raw artifacts: {identifier}")
+        for artifact_index, artifact in enumerate(transcript_artifacts):
+            suite_artifact(
+                artifact,
+                f"notarized smoke action {identifier}.rawArtifacts[{artifact_index}]",
+            )
     if seen != required:
         raise QualificationError(f"notarized smoke misses actions: {sorted(required-seen)}")
     require_bool(report.get("notarizedSmokeGatePass"), "notarized smoke.notarizedSmokeGatePass", True)
