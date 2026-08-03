@@ -497,14 +497,14 @@ enum ASHP06LockedPerformanceGateV4 {
         "mirmir-deterministic-engine-v4-same-scope-performance-v1"
     static let lockedInputByteCount: Int64 = 1_158
     static let lockedInputSHA256 = try! ASHSHA256V4(
-        "8049c0bbd4e9e67796cea3e68767208715f4672cbe3e1db0dadc5db51da3eced"
+        "1e2d65c2702dc3e47768293cf566ecd105282cb7d4ae58874dc313a77b53182d"
     )
 
     static func contract() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/performance-gate-contract-v1.json",
             3_869,
-            "605b53a02ca19d574c24422663178ee4e8596e84316a17dfea60a34b8ce24286"
+            "03a51fec79269f2df023e33866d955b8eb7ff110bae3309d3ae1e141f391142b"
         )
     }
 
@@ -513,7 +513,7 @@ enum ASHP06LockedPerformanceGateV4 {
         try identity(
             "script/v4/PerformanceGateCaptureTests.swift",
             30_219,
-            "c2406a7a8d96c9df8d24d956619ffbfe866638bff47585d64c7177174b91906c"
+            "180a97cdd6e9cc3277db738c95261e85161ac48bde5336ccfd37089fbb8e6d39"
         )
     }
 
@@ -521,8 +521,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/performance_gate_v4.py",
-            40_041,
-            "2c3c915c0ea235619e3f17474aae697fe27c5c47f7c3e274bbabd8d5e6978949"
+            50_801,
+            "97199617f75e5009aaed0e13f84bf070e8fff6bddec65f57a9df9d21bfdd33d8"
         )
     }
 
@@ -530,8 +530,8 @@ enum ASHP06LockedPerformanceGateV4 {
         -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/run_performance_gate_v4.sh",
-            22_932,
-            "354224dbade28480a89f765ed1131713cc75e1d489eb73e9619b920c7d0ef6ff"
+            26_853,
+            "91ec923eff8e5246445bf20d97b804a774732751355288da03bed54b71f2aaa7"
         )
     }
 
@@ -576,7 +576,7 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static let corpusID = "ash-v4-seven-cohort-locked-natural-v1"
     static let manifestByteCount: Int64 = 192_662
     static let manifestSHA256 = try! ASHSHA256V4(
-        "97e47b3a8dafd0dbf959edfa61105904ca220569a017893bfb8bc4a654163aac"
+        "f999e0607dfac799ee0531804d14c4e6333db3bee20328898498e6a5e9a96896"
     )
     static let artifactSetSHA256 = try! ASHSHA256V4(
         "750cab4072c635f30a925dd7715c1729213f14601855a841fb6d3f32cf1db66e"
@@ -595,7 +595,7 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
         try identity(
             "script/v4/natural-quality-corpus-lock-v1.json",
             1_401,
-            "eb2c0b22f060eab70c953512d1e68dc1cb9a2e3939868b3cb85dc5b847b4c372"
+            "cd4742a52abddc86f2c998802e768c16d0a9bffdb97d49f5e6b3cfcdcdf9c12f"
         )
     }
 
@@ -610,8 +610,8 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func qualityContract() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/quality-gate-release-contract-v1.json",
-            5_156,
-            "3c91d22280e56c66608a7bf214c4064c74aa12459bdd17f989359259462fbf21"
+            5_997,
+            "0b0beceb0a62a5fc1a022adff890b9c546075d03451a4f2cc448521a1cd62a88"
         )
     }
 
@@ -626,24 +626,24 @@ enum ASHP06LockedNaturalQualityEvidenceV4 {
     static func metricImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/quality_gate_v4.py",
-            55_414,
-            "2fce2cac184560126e8649e744c6942a9021755e6599aa6937725dff1bb0bdce"
+            80_068,
+            "7ccd36727d705420b007203cb281acde37058b1f94fef8d8be3e06c8bc0a03eb"
         )
     }
 
     static func captureImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
-            "script/v4/QualityGateCaptureTests.swift",
-            33_635,
-            "5e30952f5be733d330bd46a93b9dddc13c0c92b0db5011f2d62ec760180dee7f"
+            "Mirmir/App/MirmirApp.swift",
+            251_182,
+            "1e2da33aeca0faf51e193e112f4828d885a38b1630d9bb5a5c9156eb3776d65c"
         )
     }
 
     static func runnerImplementation() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "script/v4/run_quality_gate_v4.sh",
-            8_589,
-            "62a2fff31cd112103f05d3a12a5c574908eab5f0f5415312b855aee037c05ee5"
+            14_630,
+            "d4d06e4a72a506421307a6f0963a44abc157c1cf1bc80101536a13b25600e3cb"
         )
     }
 
@@ -998,8 +998,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func fixedPointKernel() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
-            33_564,
-            "0fc893f9c73d96b9f3f82a4ab8ad1cfadcd6b9c6245ec756738f1e45194240c4"
+            57_083,
+            "90945c453c81d8b2422b9b708f14a0b2882f0837442b88bd7b525766287f0a91"
         )
     }
 
@@ -1014,8 +1014,8 @@ enum ASHP06FixedPointSourceIdentityV4 {
     static func metalExecutor() throws -> ASHP06LockedFileIdentityV4 {
         try identity(
             "Mirmir/Modules/UpscalerEngine/FixedPointMetalExecutorV4.swift",
-            23_196,
-            "e6e2bcca424a120bc2363e5ad431368c43835e53797e05e3b40190a4bf4d4f42"
+            37_622,
+            "96589e1d3c7c53780f56af05cd0c8f9782fc942d8a6f8ac1e902ebe5258fc157"
         )
     }
 
@@ -1137,9 +1137,9 @@ enum ASHP06VerificationSourceIdentityV4 {
         ASHP06LockedFileIdentityV4(
             repositoryRelativePath:
                 "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
-            byteCount: 19_744,
+            byteCount: 20_377,
             contentSHA256: try ASHSHA256V4(
-                "ac15cbea15bb6d1c434d8284ec35a310a0ea4f7caf08b387e51915c9cbf6794a"
+                "f84ef84e038ecade76a550f9ca235913b109c8b9d47bbefff9e7578d9e50a0f2"
             )
         )
     }
