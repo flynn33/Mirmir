@@ -5,6 +5,23 @@ import XCTest
 @testable import Mirmir
 
 final class BackendCatalogTests: XCTestCase {
+    func testDeterministicReleaseDescriptorsContainNoPreviewIdentity() {
+        for id in [
+            UpscaleBackendID.mirmirDeterministicCPU,
+            .mirmirDeterministicMetal
+        ] {
+            let descriptor = BackendDescriptor.descriptor(for: id)
+            let releaseText = [descriptor?.title, descriptor?.summary]
+                .compactMap { $0 }
+                .joined(separator: " ")
+                .lowercased()
+            XCTAssertFalse(releaseText.contains("preview"))
+            XCTAssertFalse(releaseText.contains("p05"))
+            XCTAssertFalse(releaseText.contains("development"))
+            XCTAssertTrue(releaseText.contains("p06"))
+        }
+    }
+
     func testDescriptorsContainEveryStablePickerIdentity() {
         XCTAssertEqual(BackendDescriptor.all.count, 14)
         XCTAssertEqual(

@@ -1,37 +1,111 @@
 # Mirmir product support
 
-Mirmir is a sandboxed macOS 15.4-or-later app. It reads one enabled local video track, writes a QuickTime movie atomically, and exposes each processing backend explicitly. A backend failure never invokes a different scaler under the same selection.
+Mirmir is a sandboxed macOS 15.4-or-later application. It reads local media
+through security-scoped bookmarks, builds an explicit whole-asset plan, and
+publishes a semantically verified QuickTime movie atomically. An explicit
+backend selection is never replaced by a different scaler after failure.
 
 ## Implemented backends
 
 | Backend | Current contract |
 | --- | --- |
-| Mirmir Deterministic — CPU Reference (Preview) | Explicit selection only. Exact ASH 2× and 3:2 routes, progressive 8-bit `420v`/`420f` NV12, recognized chroma siting, sequential processing, and no Apple fallback. |
-| Mirmir Deterministic — Metal Accelerated (Preview) | Explicit selection only. Exact ASH 2× and 3:2 routes, progressive 8-bit `420v`/`420f` NV12, recognized chroma siting, and no backend fallback. The checked-in P05 definitions are serialized into the existing Metal ABI in memory during preparation, so no external runtime files are required. This development input is not represented as a release-locked artifact. |
+| Mirmir Deterministic — CPU Reference | Explicit ASH P06 selection. Shared fixed-point spatial and temporal reconstruction, arbitrary integral upscale geometry, supported opaque and alpha formats, verified runtime assets, and no Apple fallback. |
+| Mirmir Deterministic — Metal Accelerated | Explicit ASH P06 selection. Executes the same canonical plan, coefficient tables, rounding, clamps, and temporal policy as CPU; preparation fails closed if the bundled runtime or Metal library does not verify. It never substitutes CPU execution. |
 | VideoToolbox Super Resolution — Quality | macOS 26 or later, dimensions/factors reported by the current API, and an explicit system-model download when VideoToolbox reports it is required. |
 | VideoToolbox Super Resolution — Low Latency | macOS 26 or later and only dimensions/factors/pixel formats accepted by the current API. |
-| VideoToolbox Smooth Motion + Spatial Upscale | macOS 26 or later, 2× spatial scale and the API-supported midpoint phase, producing 2× cadence without changing normal playback duration. The first reference frame uses a disclosed VideoToolbox pixel-transfer boundary scale. |
+| VideoToolbox Smooth Motion + Spatial Upscale | macOS 26 or later, 2× spatial scale and the API-supported midpoint phase, producing 2× cadence without changing normal playback duration. The first reference uses a disclosed VideoToolbox pixel-transfer boundary scale. |
 | MetalFX Spatial | MetalFX-capable GPU, video-range 8-bit NV12, and explicit BT.709 primaries/transfer/matrix. Uses an audited NV12 ↔ linear RGBA16Float bridge. |
 | MPS Lanczos / Bilinear | Metal Performance Shaders with progressive SDR 8-bit NV12 and explicit range. |
 | Core Image Lanczos / Bicubic | Progressive SDR 8-bit NV12 with explicit range. This is a filter conversion/resampling path, not code-value preservation. |
 | Accelerate/vImage High Quality / Standard | Progressive SDR 8-bit NV12 with explicit video/full range. |
 | VideoToolbox Pixel Transfer | Progressive SDR 8-bit NV12 with explicit range. |
 
-Automatic uses one fixed documented order and considers spatial-only Apple backends. It excludes Deterministic and Smooth Motion.
+Automatic uses one fixed documented order and considers spatial-only Apple
+backends. It excludes both Deterministic routes and Smooth Motion.
 
-## Deterministic Metal preview validation
+## Deterministic ASH P06 contract
 
-The preview runs the six checked-in Metal kernels through the product backend and preserves the exact `mirmirDeterministicMetal` identity on success or failure. It never substitutes the CPU reference backend. Metal fast math is disabled, and FP32 functions are compiled in precise mode. On the validated Apple-silicon Mac, repeated Metal executions produced byte-identical output for both routes, both supported NV12 ranges, and constant, ramp, impulse, and directional-edge patterns.
+- The bundled P06 manifest authenticates the measurement contract, ASH branch
+  program/operator controls, fixed-point kernel and Metal library, algebra
+  certificate, quality and benchmark corpus identities, builder provenance,
+  and production-source revision. Missing, stale, or modified assets cannot
+  prepare an engine.
+- Target width and height may use independent rational scale factors. Both axes
+  must be at least the source raster, and the canonical executor limit is
+  32,768 samples per axis.
+- Opaque input supports video-range and full-range 8-bit bi-planar NV12 and
+  10-bit bi-planar P010. HDR remains 10-bit end to end; there is no implicit
+  SDR conversion or tone map.
+- Progressive input and explicitly identified top-field-first or
+  bottom-field-first interlaced input are supported. Interlaced frames produce
+  two deterministic progressive output samples, with cadence/dominance changes
+  resetting incompatible temporal evidence.
+- Straight and premultiplied packed-alpha input is resolved in a typed straight
+  domain and reassociated after scaling. BGRA8 and big-endian ARGB16 working
+  layouts are supported. Exact decoded alpha verification uses ProRes 4444 or
+  ProRes 4444 XQ; HEVC-with-alpha remains a codec-dependent, non-byte-exact
+  alpha option.
+- Sample aspect ratio, clean aperture, preferred transform, and encoded raster
+  scale are composed with rational arithmetic. Representations that cannot be
+  emitted exactly are rejected rather than rounded silently.
+- State-conditioned spatial reconstruction precedes a bounded three-frame,
+  block-matched temporal history. Scene cuts, seeks, discontinuities, format or
+  color changes, field-cadence changes, and dynamic HDR frame metadata trigger
+  the declared spatial fallback/reset behavior.
+- CPU and Metal consume one fixed-point semantic contract. Release evidence
+  requires byte equality for visible output planes across NV12, P010, arbitrary
+  geometry, temporal, interlaced, and alpha conformance cases.
 
-Metal output is not advertised as bit-identical to the CPU reference. In that bounded pattern matrix, constant frames matched exactly; non-constant frames had maximum absolute code-value differences from 4 through 19, with an overall observed maximum of 19. These measurements describe the tested preview contract, not a general error bound or a release-lock certification.
+## Media and track preservation
 
-## Media behavior and limitations
+- Output is a `.mov` file. Opaque video supports HEVC, H.264, and Apple ProRes
+  422. Alpha delivery uses an alpha-capable codec contract, including Apple
+  ProRes 4444/4444 XQ.
+- Every enabled video track receives an ordered, explicit process, transcode,
+  pass-through, or consent-bound drop action. There is no implicit
+  “first-video-track only” rule.
+- Compatible audio and non-video samples pass through. Incompatible audio is
+  decoded and encoded as AAC under the declared transcode action. Alternate
+  audio, subtitles, captions, chapters, timecode, timed metadata, and auxiliary
+  tracks remain represented in the migration plan; unsupported loss cannot be
+  hidden as a successful migration.
+- Track ordering, enabled state, language, role/association, edit lists, sample
+  timing, format transitions, asset metadata, creation date, and compatible
+  selection groups are migrated and checked by the semantic verifier. Scaled
+  edit rates are rebuilt into the output media-time table.
+- HDR mastering-display, content-light, ambient-viewing, static color, and
+  frame-bound dynamic metadata are carried under typed contracts and verified
+  after reopening the output.
+- Existing destinations require explicit replacement. Work is written to
+  registered sibling artifacts, validated, and linked into place atomically.
 
-- Output codecs: HEVC, H.264, and Apple ProRes 422 in a `.mov` container.
-- One audio track is passed through when compatible; otherwise it is decoded to PCM and encoded as AAC. Silent input remains silent. Alternate audio, subtitles, captions, chapters, timecode, and auxiliary tracks are not copied.
-- Source PTS is preserved for spatial processing, including variable-rate input. Smooth Motion synthesizes midpoint PTS and retains source playback duration/audio timing.
-- The encoded raster is scaled and the source preferred transform is retained, so portrait display orientation remains correct.
-- Color primaries, transfer function, YCbCr matrix, chroma location, and range are propagated under the supported 8-bit contracts.
-- No implemented path preserves P010/10-bit HDR end to end. HDR inputs are marked unavailable; Mirmir does not silently tone-map them to SDR.
-- One enabled video track is supported. Interlaced video, non-square pixels, explicit clean-aperture rescaling, alpha, and arbitrary Deterministic geometry are unavailable with specific reasons.
-- Existing destinations require explicit replacement. Work is written to a sibling temporary file, validated, and published atomically; cancellation and failure discard the temporary output.
+## Durable workflow and recovery
+
+- The deterministic batch queue is append-only, snapshot-backed, ordered, and
+  durable across application restarts. Records bind the canonical request,
+  verified plan/runtime identities, priority, attempts, bookmarks, terminal
+  history, and registered artifacts.
+- Pause closes a deterministic segment boundary and persists media progress,
+  ASH measurement/hysteresis state, temporal history, alpha state, and track
+  checkpoints. Resume revalidates input identity and plan/runtime compatibility
+  before continuing; cancellation remains a distinct terminal action.
+- Launch recovery scans durable records and registered/legacy partial files.
+  Compatible jobs become resumable, confirmed orphans are removed, and corrupt
+  or foreign artifacts are quarantined or reported rather than adopted.
+- Canonical migrations cover older queue, journal, coordinator, dispatcher,
+  recovery-decision, artifact-registry, bookmark, and checkpoint documents.
+  Interrupted writes, disk-full failures, and faults at durable boundaries are
+  required to produce either an identical resumed result or an explicit
+  contained failure with no unowned artifact.
+
+## Boundaries
+
+- Deterministic v4 is an upscaler; downscaling either axis is outside its
+  product contract.
+- Unknown range, transfer, field dominance, alpha association, pixel layout,
+  or contradictory media declarations fail availability checks explicitly.
+- Packed-alpha interlaced normalization is not admitted because its association
+  and field-temporal policy would be ambiguous.
+- Apple-native backends retain the narrower contracts in the table above; they
+  do not inherit P010/HDR, alpha, deinterlacing, or fixed-point parity merely
+  because the Deterministic engine supports them.

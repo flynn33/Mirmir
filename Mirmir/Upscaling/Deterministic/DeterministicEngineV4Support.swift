@@ -29,9 +29,22 @@ enum ASHProductionP06TrustRootV4 {
 
     static var isConfigured: Bool {
         manifestSHA256.rawValue != String(repeating: "0", count: 64)
-            && sourceRevision != String(repeating: "0", count: 40)
+            && isConfiguredSourceRevision(sourceRevision)
             && builderSourceSHA256.rawValue
                 != String(repeating: "0", count: 64)
+    }
+
+    /// Provenance accepts Git SHA-1 and SHA-256 spellings, but neither all-zero
+    /// sentinel is a deployable trust root. Keeping this check independent of
+    /// the checked-in constant makes both accepted lengths testable.
+    static func isConfiguredSourceRevision(_ value: String) -> Bool {
+        guard value.utf8.count == 40 || value.utf8.count == 64,
+              value.utf8.allSatisfy({
+                  (0x30...0x39).contains($0) || (0x61...0x66).contains($0)
+              }) else {
+            return false
+        }
+        return value.utf8.contains { $0 != 0x30 }
     }
 }
 

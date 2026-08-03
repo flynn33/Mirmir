@@ -2,6 +2,29 @@ import XCTest
 @testable import Mirmir
 
 final class ASHCoreV4Tests: XCTestCase {
+    func testProductionSourceTrustRootRejectsBothZeroRevisionWidths() {
+        XCTAssertFalse(
+            ASHProductionP06TrustRootV4.isConfiguredSourceRevision(
+                String(repeating: "0", count: 40)
+            )
+        )
+        XCTAssertFalse(
+            ASHProductionP06TrustRootV4.isConfiguredSourceRevision(
+                String(repeating: "0", count: 64)
+            )
+        )
+        XCTAssertTrue(
+            ASHProductionP06TrustRootV4.isConfiguredSourceRevision(
+                String(repeating: "0", count: 63) + "1"
+            )
+        )
+        XCTAssertFalse(
+            ASHProductionP06TrustRootV4.isConfiguredSourceRevision(
+                String(repeating: "A", count: 64)
+            )
+        )
+    }
+
     func testExhaustiveCoreCertificateMatchesTheCurrentASHModel() {
         let certificate = ASHCoreCertificateV4.generate()
 

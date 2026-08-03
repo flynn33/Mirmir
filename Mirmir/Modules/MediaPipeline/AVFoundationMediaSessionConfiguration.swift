@@ -395,9 +395,7 @@ extension AVFoundationMediaSession {
     }
 
     static func makeASHMetadataItems(
-        _ metadata: [String: String] = ASHSpatialRuntimeConfigurationV2
-            .developmentP05
-            .outputMetadata
+        _ metadata: [String: String]
     ) -> [AVMetadataItem] {
         metadata
             .sorted { $0.key < $1.key }

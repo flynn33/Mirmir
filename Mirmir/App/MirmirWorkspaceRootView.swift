@@ -1310,10 +1310,11 @@ private struct MirmirProductDiagnostics: View {
                     )
                     Divider().overlay(theme.borderSubtle)
                     Text(
-                        "The deterministic Metal preview creates its P05 runtime ABI "
-                            + "in memory, compiles with precise FP32 functions, and never "
-                            + "substitutes the CPU backend. It is not represented as a "
-                            + "release-locked artifact."
+                        "Both deterministic routes load the verified bundled ASH P06 "
+                            + "runtime and consume one canonical fixed-point execution "
+                            + "plan. Trust, format, or preservation mismatches fail "
+                            + "closed, and the selected CPU or Metal identity is never "
+                            + "silently substituted."
                     )
                     .font(theme.typography.body)
                     .foregroundStyle(theme.textSecondary)
