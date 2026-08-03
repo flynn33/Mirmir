@@ -1,0 +1,2038 @@
+{
+  "contract": {
+    "ablationRequirements": [
+      "uniform_priors",
+      "randomized_state_message",
+      "temporal_hysteresis_off",
+      "motion_history_off"
+    ],
+    "aggregate": {
+      "baselineError": 1.0,
+      "cohortAggregation": "equal_weight_mean",
+      "componentAggregation": "weighted_sum",
+      "qualityIndexFormula": "100*(2-E_candidate)",
+      "releaseThreshold": 105.0
+    },
+    "bootstrap": {
+      "confidenceLevel": 0.95,
+      "lowerBoundOrderStatistic": "sorted[floor(0.025*replicate_count)]",
+      "prng": "splitmix64-rejection-v1",
+      "replicateCount": 10000,
+      "resamplingUnit": "clip",
+      "seedUnsignedDecimal": 1095977012,
+      "stratification": "resample_with_replacement_within_each_cohort"
+    },
+    "cohortConstraints": {
+      "contentCohorts": [
+        "natural_detail",
+        "text_graphics",
+        "animation",
+        "faces",
+        "low_light_noise",
+        "high_motion",
+        "scene_cuts"
+      ],
+      "lumaStructuralMaximumCandidateToBaselineRatio": 1.01,
+      "minimumClipsPerCohort": 4,
+      "minimumFramesPerClip": 6,
+      "temporalNonRegressionCohorts": [
+        "high_motion",
+        "scene_cuts"
+      ],
+      "temporalStructuralMaximumCandidateToBaselineRatio": 1.0
+    },
+    "comparisonPopulation": {
+      "admittedDynamicRange": "sdr",
+      "admittedScanMode": "progressive",
+      "admittedStorage": [
+        "nv12_video_range_8_bit",
+        "nv12_full_range_8_bit"
+      ],
+      "candidateBackend": "mirmir_deterministic_cpu",
+      "forbidBackendSubstitution": true,
+      "nativeHighResolutionSourcesRequiredForRelease": true,
+      "primaryScale": "2/1"
+    },
+    "components": [
+      {
+        "crop": "four target-luma samples per edge before both scales",
+        "id": "luma_multiscale_structural_error",
+        "implementation": "one_minus_local_ssim; 7x7 valid windows; scales 1 and 2 weighted 0.6 and 0.4; scale-2 uses exact 2x2 arithmetic mean",
+        "lowerIsBetter": true,
+        "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+        "weight": 0.35
+      },
+      {
+        "crop": "two target-chroma samples per edge before both scales",
+        "id": "chroma_multiscale_structural_error",
+        "implementation": "mean Cb/Cr one_minus_local_ssim; 5x5 valid windows; scales 1 and 2 weighted 0.6 and 0.4; scale-2 uses exact 2x2 arithmetic mean",
+        "lowerIsBetter": true,
+        "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+        "weight": 0.15
+      },
+      {
+        "crop": "four target-luma samples per edge",
+        "id": "perceptual_feature_distance",
+        "implementation": "analytic-pfd-v1: mean absolute difference of normalized horizontal gradient, vertical gradient, and Laplacian features weighted 0.375, 0.375, and 0.25",
+        "lowerIsBetter": true,
+        "model": "no learned model; executable metric source is the model",
+        "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+        "weight": 0.2
+      },
+      {
+        "crop": "four target-luma samples per edge after reference-domain motion admission",
+        "id": "motion_compensated_temporal_flicker_error",
+        "implementation": "reference-domain exhaustive 8x8 block matching with radius 4; tie order SAD, Manhattan distance, dy, dx; compare reference and observed aligned frame differences; histogram scene cuts use colocated differences",
+        "lowerIsBetter": true,
+        "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+        "weight": 0.2
+      },
+      {
+        "crop": "four target-luma samples per edge",
+        "id": "edge_displacement_ringing_overshoot_error",
+        "implementation": "analytic-edge-v1: 0.40 nearest dominant-gradient displacement within radius 2 plus 0.35 normalized Laplacian difference plus 0.25 observed overshoot beyond the reference 5x5 local envelope",
+        "lowerIsBetter": true,
+        "normalization": "candidate cohort mean divided by frozen-baseline cohort mean",
+        "weight": 0.1
+      }
+    ],
+    "corpusConstruction": {
+      "chromaSiting": "left",
+      "declaredDownsampling": "independent visible-plane 2x2 box average with nearest-ties-to-even integer rounding",
+      "referenceHeight": 48,
+      "referenceWidth": 64,
+      "sourceHeight": 24,
+      "sourceWidth": 32,
+      "syntheticDiagnosticClipCountPerCohort": 4,
+      "syntheticDiagnosticFramesPerClip": 6,
+      "syntheticDiagnosticReleaseEligible": false,
+      "transferAndMatrix": "BT.709"
+    },
+    "identityPolicy": {
+      "hash": "sha256",
+      "hashesRequired": [
+        "contract",
+        "metric_tool",
+        "capture_test_source",
+        "corpus_manifest",
+        "corpus_artifact_set",
+        "baseline_output_set",
+        "candidate_output_set",
+        "each_ablation_output_set",
+        "runtime_manifest",
+        "source_revision",
+        "crop_rule",
+        "metric_model"
+      ],
+      "rejectMissingOrUnexpectedCases": true,
+      "rejectNonFiniteMetric": true,
+      "rejectNonPositiveBaselineNormalizer": true
+    },
+    "schemaVersion": "mirmir-ash-v4-quality-gate-contract-v1"
+  },
+  "corpus": {
+    "caseCount": 168,
+    "clipCount": 28,
+    "cohorts": [
+      "natural_detail",
+      "text_graphics",
+      "animation",
+      "faces",
+      "low_light_noise",
+      "high_motion",
+      "scene_cuts"
+    ],
+    "corpusID": "ash-v4-seven-cohort-synthetic-diagnostic-v1",
+    "corpusKind": "synthetic_diagnostic",
+    "limitations": [
+      "Every source is deterministic procedural imagery; the natural-detail and faces cohorts are synthetic approximations, not camera-native natural media.",
+      "The 64x48 raster is suitable for deterministic regression and calibration diagnostics, not final perceptual release qualification.",
+      "The corpus contains progressive 8-bit SDR only, matching the baseline comparison population but not newly supported formats."
+    ],
+    "releaseEligible": false
+  },
+  "identities": {
+    "captureTestSourceSHA256": "05fedf9ec5d0a2cf952a431d784d4de7e475bd6eec285148cf4f319d3ee80d60",
+    "contractSHA256": "08aac234c7507172d5db8b398d3d65dfdf4d0e68d03a9d270386405b139f0fa1",
+    "corpusArtifactSetSHA256": "b2ae781b4902fbc4db98280576dcaadd0461924ec3821ff51a364f5f8c256231",
+    "corpusManifestSHA256": "cb26e240aebec44eea9b6755aae2d7d47c3a1c553435e907875e6ed9218ac749",
+    "cropRuleSHA256": "9f9494e7439f2173ec9309cd5fb8531e1f8b65c3c0f4ce7d6d6d1fcfbb0f189c",
+    "metricModelSHA256": "799773535cb4ed1a61df010c07243c8521eec3a8df56d5e27efc119c57841a4a",
+    "metricToolSHA256": "317788fa6d108807bab5e9b966e02078a3ed14bd5fa2b73d50c786cffa15afdd",
+    "outputSetSHA256": {
+      "baseline_p05": "4d6d5da785e6c07841c38b0c9625006907e734fda8d872ffc3c3d524d261780a",
+      "candidate_v4": "b09eb2ab6295d43e2d45ae207df861138dadcdf8efd2558de6fb4da9718b0e80",
+      "motion_history_off": "fa5417e4e922f6e2d57bdce8556298d1f3d1e8c4a38502c7bac2e782e3ae11a9",
+      "randomized_state_message": "3011557839420a71229e0b44de33e3b41bbd244845b23fb95b9edb58bc7f5790",
+      "temporal_hysteresis_off": "c58dbceb02e1a1a39c0efa0cb565a55d5c437a5ecaa3079f125e02d047443d03",
+      "uniform_priors": "151aadc9068508fe7ac06406469ef7aafe5d2f9ab2a15dd3a2843f4315b91285"
+    },
+    "runtimeManifestSHA256": "0505f540a8d82a2994e1e8497f843e2a969398d2f8823bf67fd70cad7afed05f",
+    "runtimeSourceRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sourceCommit": "ec141c0e99155f47b00f675144fa70eb07459ecb",
+    "sourceTreeIdentitySHA256": "fe0a03af4ff5bcdba35bdf8beb31965aff7993caf244420f1a319bc46f98de4d"
+  },
+  "perClip": [
+    {
+      "clipID": "animation-c00-420v",
+      "cohort": "animation",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.0995724852058862,
+          "edge_displacement_ringing_overshoot_error": 0.25879367181105833,
+          "luma_multiscale_structural_error": 0.1632047096784473,
+          "motion_compensated_temporal_flicker_error": 0.02984099804305284,
+          "perceptual_feature_distance": 0.04609898342239952
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05436306351882419,
+          "edge_displacement_ringing_overshoot_error": 0.2540542630249651,
+          "luma_multiscale_structural_error": 0.08679073670105658,
+          "motion_compensated_temporal_flicker_error": 0.02764187866927593,
+          "perceptual_feature_distance": 0.04129301515645694
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05436306351882419,
+          "edge_displacement_ringing_overshoot_error": 0.24747626359668792,
+          "luma_multiscale_structural_error": 0.086737276416042,
+          "motion_compensated_temporal_flicker_error": 0.027994536855838227,
+          "perceptual_feature_distance": 0.04140510246032506
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05436306351882419,
+          "edge_displacement_ringing_overshoot_error": 0.2601869327923947,
+          "luma_multiscale_structural_error": 0.08707238734626989,
+          "motion_compensated_temporal_flicker_error": 0.02735771363339856,
+          "perceptual_feature_distance": 0.041298968048218906
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05436306351882419,
+          "edge_displacement_ringing_overshoot_error": 0.24824963911574574,
+          "luma_multiscale_structural_error": 0.08695365354442731,
+          "motion_compensated_temporal_flicker_error": 0.02801247553816047,
+          "perceptual_feature_distance": 0.04139076005567872
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05436306351882419,
+          "edge_displacement_ringing_overshoot_error": 0.250876683262974,
+          "luma_multiscale_structural_error": 0.08706711596858459,
+          "motion_compensated_temporal_flicker_error": 0.028000652315720808,
+          "perceptual_feature_distance": 0.04137589644706511
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "animation-c01-420f",
+      "cohort": "animation",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.10055450013722735,
+          "edge_displacement_ringing_overshoot_error": 0.2573117895206826,
+          "luma_multiscale_structural_error": 0.1653724237793403,
+          "motion_compensated_temporal_flicker_error": 0.03240196078431372,
+          "perceptual_feature_distance": 0.04715983648704237
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05540902380106569,
+          "edge_displacement_ringing_overshoot_error": 0.2575257100076227,
+          "luma_multiscale_structural_error": 0.089324346637016,
+          "motion_compensated_temporal_flicker_error": 0.028802521008403366,
+          "perceptual_feature_distance": 0.0418866000727214
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05540902380106569,
+          "edge_displacement_ringing_overshoot_error": 0.24738092382729707,
+          "luma_multiscale_structural_error": 0.08854290839153685,
+          "motion_compensated_temporal_flicker_error": 0.029368347338935574,
+          "perceptual_feature_distance": 0.041966226073762845
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05540902380106569,
+          "edge_displacement_ringing_overshoot_error": 0.25765290613950664,
+          "luma_multiscale_structural_error": 0.08928742452612448,
+          "motion_compensated_temporal_flicker_error": 0.028832633053221292,
+          "perceptual_feature_distance": 0.04188291880709161
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05540902380106569,
+          "edge_displacement_ringing_overshoot_error": 0.24955351995443786,
+          "luma_multiscale_structural_error": 0.0889566505436462,
+          "motion_compensated_temporal_flicker_error": 0.029337885154061626,
+          "perceptual_feature_distance": 0.04196451026506173
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05540902380106569,
+          "edge_displacement_ringing_overshoot_error": 0.25452131368566816,
+          "luma_multiscale_structural_error": 0.08914325230462274,
+          "motion_compensated_temporal_flicker_error": 0.02919047619047619,
+          "perceptual_feature_distance": 0.04194768283187401
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "animation-c02-420v",
+      "cohort": "animation",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.1002988715973905,
+          "edge_displacement_ringing_overshoot_error": 0.26090893789391306,
+          "luma_multiscale_structural_error": 0.16489854292604975,
+          "motion_compensated_temporal_flicker_error": 0.0359780658838878,
+          "perceptual_feature_distance": 0.047225448341137545
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.053841075051883576,
+          "edge_displacement_ringing_overshoot_error": 0.2599382156338558,
+          "luma_multiscale_structural_error": 0.089515370591158,
+          "motion_compensated_temporal_flicker_error": 0.031225945857795173,
+          "perceptual_feature_distance": 0.041898014110128834
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.053841075051883576,
+          "edge_displacement_ringing_overshoot_error": 0.24998775803956022,
+          "luma_multiscale_structural_error": 0.08855821468328774,
+          "motion_compensated_temporal_flicker_error": 0.031662997390737115,
+          "perceptual_feature_distance": 0.042010178154227806
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.053841075051883576,
+          "edge_displacement_ringing_overshoot_error": 0.25215039832218156,
+          "luma_multiscale_structural_error": 0.08894020404596069,
+          "motion_compensated_temporal_flicker_error": 0.03162304305283757,
+          "perceptual_feature_distance": 0.041972730822259934
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.053841075051883576,
+          "edge_displacement_ringing_overshoot_error": 0.25213955104927327,
+          "luma_multiscale_structural_error": 0.0890400801091833,
+          "motion_compensated_temporal_flicker_error": 0.03172537508153946,
+          "perceptual_feature_distance": 0.04200895987336484
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.053841075051883576,
+          "edge_displacement_ringing_overshoot_error": 0.2520420180823158,
+          "luma_multiscale_structural_error": 0.08929627748772206,
+          "motion_compensated_temporal_flicker_error": 0.03171681343770384,
+          "perceptual_feature_distance": 0.04198718905001011
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "animation-c03-420f",
+      "cohort": "animation",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.10007808291579999,
+          "edge_displacement_ringing_overshoot_error": 0.25769614598953283,
+          "luma_multiscale_structural_error": 0.1584541038956838,
+          "motion_compensated_temporal_flicker_error": 0.034926120448179276,
+          "perceptual_feature_distance": 0.04507976133343781
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05538855997444799,
+          "edge_displacement_ringing_overshoot_error": 0.25602921497390796,
+          "luma_multiscale_structural_error": 0.0865174436032347,
+          "motion_compensated_temporal_flicker_error": 0.030969537815126052,
+          "perceptual_feature_distance": 0.040396452097738865
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05538855997444799,
+          "edge_displacement_ringing_overshoot_error": 0.2459877467075846,
+          "luma_multiscale_structural_error": 0.08569112105078418,
+          "motion_compensated_temporal_flicker_error": 0.03143627450980392,
+          "perceptual_feature_distance": 0.04047723023504274
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05538855997444799,
+          "edge_displacement_ringing_overshoot_error": 0.25611076240362657,
+          "luma_multiscale_structural_error": 0.08655849599601269,
+          "motion_compensated_temporal_flicker_error": 0.031013655462184875,
+          "perceptual_feature_distance": 0.040418340340215346
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05538855997444799,
+          "edge_displacement_ringing_overshoot_error": 0.24829822447403094,
+          "luma_multiscale_structural_error": 0.08610656058661054,
+          "motion_compensated_temporal_flicker_error": 0.03143452380952381,
+          "perceptual_feature_distance": 0.040476216185775016
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05538855997444799,
+          "edge_displacement_ringing_overshoot_error": 0.25617632204143503,
+          "luma_multiscale_structural_error": 0.08643970920964687,
+          "motion_compensated_temporal_flicker_error": 0.03127591036414566,
+          "perceptual_feature_distance": 0.04042923957170281
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "faces-c00-420f",
+      "cohort": "faces",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.11309842601660629,
+          "edge_displacement_ringing_overshoot_error": 0.28298626325788756,
+          "luma_multiscale_structural_error": 0.18741221181696344,
+          "motion_compensated_temporal_flicker_error": 0.013577380952380952,
+          "perceptual_feature_distance": 0.04120783597529921
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.054333112182875364,
+          "edge_displacement_ringing_overshoot_error": 0.3003078429352691,
+          "luma_multiscale_structural_error": 0.11923069681914648,
+          "motion_compensated_temporal_flicker_error": 0.012252450980392156,
+          "perceptual_feature_distance": 0.03816726645495028
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.054333112182875364,
+          "edge_displacement_ringing_overshoot_error": 0.30020787096831275,
+          "luma_multiscale_structural_error": 0.11935567144905888,
+          "motion_compensated_temporal_flicker_error": 0.012439075630252101,
+          "perceptual_feature_distance": 0.03819288615795969
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.054333112182875364,
+          "edge_displacement_ringing_overshoot_error": 0.3004564068934083,
+          "luma_multiscale_structural_error": 0.11918694763972988,
+          "motion_compensated_temporal_flicker_error": 0.012106442577030812,
+          "perceptual_feature_distance": 0.03815230653741684
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.054333112182875364,
+          "edge_displacement_ringing_overshoot_error": 0.3003078429352691,
+          "luma_multiscale_structural_error": 0.11923069681914648,
+          "motion_compensated_temporal_flicker_error": 0.012252450980392156,
+          "perceptual_feature_distance": 0.03816726645495028
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.054333112182875364,
+          "edge_displacement_ringing_overshoot_error": 0.3001631113725807,
+          "luma_multiscale_structural_error": 0.1191231099086834,
+          "motion_compensated_temporal_flicker_error": 0.012085434173669468,
+          "perceptual_feature_distance": 0.038134773825031186
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "faces-c01-420v",
+      "cohort": "faces",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.11499505212274337,
+          "edge_displacement_ringing_overshoot_error": 0.28628549699754596,
+          "luma_multiscale_structural_error": 0.18840790117093217,
+          "motion_compensated_temporal_flicker_error": 0.01330724070450098,
+          "perceptual_feature_distance": 0.040914194906596445
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05470015710848034,
+          "edge_displacement_ringing_overshoot_error": 0.3105855963665138,
+          "luma_multiscale_structural_error": 0.11982858068341978,
+          "motion_compensated_temporal_flicker_error": 0.011878261578604044,
+          "perceptual_feature_distance": 0.03828380345396613
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05470015710848034,
+          "edge_displacement_ringing_overshoot_error": 0.3106676871481895,
+          "luma_multiscale_structural_error": 0.11996845157477566,
+          "motion_compensated_temporal_flicker_error": 0.01202707110241357,
+          "perceptual_feature_distance": 0.038308472468361165
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05470015710848034,
+          "edge_displacement_ringing_overshoot_error": 0.310604236215376,
+          "luma_multiscale_structural_error": 0.11970982020533283,
+          "motion_compensated_temporal_flicker_error": 0.01174779843444227,
+          "perceptual_feature_distance": 0.038249073094428404
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05470015710848034,
+          "edge_displacement_ringing_overshoot_error": 0.3105855963665138,
+          "luma_multiscale_structural_error": 0.11982858068341978,
+          "motion_compensated_temporal_flicker_error": 0.011878261578604044,
+          "perceptual_feature_distance": 0.03828380345396613
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05470015710848034,
+          "edge_displacement_ringing_overshoot_error": 0.3108951754917441,
+          "luma_multiscale_structural_error": 0.11965879997494104,
+          "motion_compensated_temporal_flicker_error": 0.011755544683626875,
+          "perceptual_feature_distance": 0.03823603384819138
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "faces-c02-420f",
+      "cohort": "faces",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.11432524530563652,
+          "edge_displacement_ringing_overshoot_error": 0.28089263090607025,
+          "luma_multiscale_structural_error": 0.18605826630885688,
+          "motion_compensated_temporal_flicker_error": 0.013264705882352939,
+          "perceptual_feature_distance": 0.04103058802920935
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05406289997883198,
+          "edge_displacement_ringing_overshoot_error": 0.2994666521633271,
+          "luma_multiscale_structural_error": 0.11860708098040436,
+          "motion_compensated_temporal_flicker_error": 0.012109943977591037,
+          "perceptual_feature_distance": 0.038128518234216764
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05406289997883198,
+          "edge_displacement_ringing_overshoot_error": 0.2994286030785402,
+          "luma_multiscale_structural_error": 0.1186138138149891,
+          "motion_compensated_temporal_flicker_error": 0.01225,
+          "perceptual_feature_distance": 0.03814465558950853
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05406289997883198,
+          "edge_displacement_ringing_overshoot_error": 0.2996669289545664,
+          "luma_multiscale_structural_error": 0.1185379354544369,
+          "motion_compensated_temporal_flicker_error": 0.012000700280112044,
+          "perceptual_feature_distance": 0.038095827375239144
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05406289997883198,
+          "edge_displacement_ringing_overshoot_error": 0.2994666521633271,
+          "luma_multiscale_structural_error": 0.11860708098040436,
+          "motion_compensated_temporal_flicker_error": 0.012109943977591037,
+          "perceptual_feature_distance": 0.038128518234216764
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05406289997883198,
+          "edge_displacement_ringing_overshoot_error": 0.29925354494875095,
+          "luma_multiscale_structural_error": 0.11850059709924793,
+          "motion_compensated_temporal_flicker_error": 0.011969187675070029,
+          "perceptual_feature_distance": 0.03807949689199689
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "faces-c03-420v",
+      "cohort": "faces",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.11352833047363625,
+          "edge_displacement_ringing_overshoot_error": 0.2878930798528246,
+          "luma_multiscale_structural_error": 0.18665372829587923,
+          "motion_compensated_temporal_flicker_error": 0.013175146771037182,
+          "perceptual_feature_distance": 0.04060375204371352
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05431792209306663,
+          "edge_displacement_ringing_overshoot_error": 0.3083636095603787,
+          "luma_multiscale_structural_error": 0.11977076764459975,
+          "motion_compensated_temporal_flicker_error": 0.012009947814742334,
+          "perceptual_feature_distance": 0.03824542965596048
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05431792209306663,
+          "edge_displacement_ringing_overshoot_error": 0.3086156175653085,
+          "luma_multiscale_structural_error": 0.11990288644715337,
+          "motion_compensated_temporal_flicker_error": 0.012179957599478148,
+          "perceptual_feature_distance": 0.03827224989147079
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05431792209306663,
+          "edge_displacement_ringing_overshoot_error": 0.30898914073771416,
+          "luma_multiscale_structural_error": 0.11964498917497719,
+          "motion_compensated_temporal_flicker_error": 0.011780006523157208,
+          "perceptual_feature_distance": 0.03819212893271112
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05431792209306663,
+          "edge_displacement_ringing_overshoot_error": 0.3083636095603787,
+          "luma_multiscale_structural_error": 0.11977076764459975,
+          "motion_compensated_temporal_flicker_error": 0.012009947814742334,
+          "perceptual_feature_distance": 0.03824542965596048
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05431792209306663,
+          "edge_displacement_ringing_overshoot_error": 0.3091761288293939,
+          "luma_multiscale_structural_error": 0.11968772117773131,
+          "motion_compensated_temporal_flicker_error": 0.011848907371167644,
+          "perceptual_feature_distance": 0.03820900382437198
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "high_motion-c00-420f",
+      "cohort": "high_motion",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09873198278506194,
+          "edge_displacement_ringing_overshoot_error": 0.27841308579594976,
+          "luma_multiscale_structural_error": 0.22615113201059764,
+          "motion_compensated_temporal_flicker_error": 0.05081827731092438,
+          "perceptual_feature_distance": 0.12170731224453651
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.055260200147174,
+          "edge_displacement_ringing_overshoot_error": 0.31256958108346306,
+          "luma_multiscale_structural_error": 0.13490243891432638,
+          "motion_compensated_temporal_flicker_error": 0.04638410364145658,
+          "perceptual_feature_distance": 0.12264930178073562
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.055260200147174,
+          "edge_displacement_ringing_overshoot_error": 0.31015712570173887,
+          "luma_multiscale_structural_error": 0.13290967818754784,
+          "motion_compensated_temporal_flicker_error": 0.04577766106442577,
+          "perceptual_feature_distance": 0.12283761535645726
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.055260200147174,
+          "edge_displacement_ringing_overshoot_error": 0.3132752124290233,
+          "luma_multiscale_structural_error": 0.13578185092016648,
+          "motion_compensated_temporal_flicker_error": 0.04681162464985994,
+          "perceptual_feature_distance": 0.12260604581284729
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.055260200147174,
+          "edge_displacement_ringing_overshoot_error": 0.3137195482029254,
+          "luma_multiscale_structural_error": 0.13909582158479408,
+          "motion_compensated_temporal_flicker_error": 0.047839635854341735,
+          "perceptual_feature_distance": 0.12255113172162806
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.055260200147174,
+          "edge_displacement_ringing_overshoot_error": 0.31363346905741335,
+          "luma_multiscale_structural_error": 0.13663458766714534,
+          "motion_compensated_temporal_flicker_error": 0.04695098039215686,
+          "perceptual_feature_distance": 0.12258238774093554
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "high_motion-c01-420v",
+      "cohort": "high_motion",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.0995112004924742,
+          "edge_displacement_ringing_overshoot_error": 0.29787533620584655,
+          "luma_multiscale_structural_error": 0.22513290986280118,
+          "motion_compensated_temporal_flicker_error": 0.08381482387475538,
+          "perceptual_feature_distance": 0.12222408311342386
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.054792100138309326,
+          "edge_displacement_ringing_overshoot_error": 0.30984326847606036,
+          "luma_multiscale_structural_error": 0.13589981068905016,
+          "motion_compensated_temporal_flicker_error": 0.08642816373124593,
+          "perceptual_feature_distance": 0.12054412630985833
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.054792100138309326,
+          "edge_displacement_ringing_overshoot_error": 0.3087348275067355,
+          "luma_multiscale_structural_error": 0.13507619573832627,
+          "motion_compensated_temporal_flicker_error": 0.0862434768427919,
+          "perceptual_feature_distance": 0.12058025141715212
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.054792100138309326,
+          "edge_displacement_ringing_overshoot_error": 0.31055946038409205,
+          "luma_multiscale_structural_error": 0.13657315309291537,
+          "motion_compensated_temporal_flicker_error": 0.08619210697977821,
+          "perceptual_feature_distance": 0.12043884643467263
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.054792100138309326,
+          "edge_displacement_ringing_overshoot_error": 0.31069958044841334,
+          "luma_multiscale_structural_error": 0.13681233595026257,
+          "motion_compensated_temporal_flicker_error": 0.08594300391389433,
+          "perceptual_feature_distance": 0.12035801764825738
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.054792100138309326,
+          "edge_displacement_ringing_overshoot_error": 0.31028410858864214,
+          "luma_multiscale_structural_error": 0.13615960922883247,
+          "motion_compensated_temporal_flicker_error": 0.08622268427919114,
+          "perceptual_feature_distance": 0.12040671609592841
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "high_motion-c02-420f",
+      "cohort": "high_motion",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09836718584058902,
+          "edge_displacement_ringing_overshoot_error": 0.27467293124882014,
+          "luma_multiscale_structural_error": 0.22479409310862242,
+          "motion_compensated_temporal_flicker_error": 0.08592927170868347,
+          "perceptual_feature_distance": 0.11671765234357145
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05469870564462841,
+          "edge_displacement_ringing_overshoot_error": 0.31105423545376215,
+          "luma_multiscale_structural_error": 0.13677350204858782,
+          "motion_compensated_temporal_flicker_error": 0.10091806722689076,
+          "perceptual_feature_distance": 0.11753335237066855
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05469870564462841,
+          "edge_displacement_ringing_overshoot_error": 0.30685431035663435,
+          "luma_multiscale_structural_error": 0.13339268088667294,
+          "motion_compensated_temporal_flicker_error": 0.101203081232493,
+          "perceptual_feature_distance": 0.11761179256813448
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05469870564462841,
+          "edge_displacement_ringing_overshoot_error": 0.3115836213283918,
+          "luma_multiscale_structural_error": 0.14227065796147598,
+          "motion_compensated_temporal_flicker_error": 0.10131862745098039,
+          "perceptual_feature_distance": 0.11755119788299935
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05469870564462841,
+          "edge_displacement_ringing_overshoot_error": 0.31213366620196653,
+          "luma_multiscale_structural_error": 0.14586183025151375,
+          "motion_compensated_temporal_flicker_error": 0.1012202380952381,
+          "perceptual_feature_distance": 0.11755349526902835
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05469870564462841,
+          "edge_displacement_ringing_overshoot_error": 0.31128960540246814,
+          "luma_multiscale_structural_error": 0.14065007928062548,
+          "motion_compensated_temporal_flicker_error": 0.10096778711484593,
+          "perceptual_feature_distance": 0.11754246254154342
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "high_motion-c03-420v",
+      "cohort": "high_motion",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.0973272594719321,
+          "edge_displacement_ringing_overshoot_error": 0.2892390705534944,
+          "luma_multiscale_structural_error": 0.21626061938982014,
+          "motion_compensated_temporal_flicker_error": 0.08786570450097847,
+          "perceptual_feature_distance": 0.11549910396871012
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05468362039772543,
+          "edge_displacement_ringing_overshoot_error": 0.3088382246416691,
+          "luma_multiscale_structural_error": 0.13098302243222237,
+          "motion_compensated_temporal_flicker_error": 0.09126590019569472,
+          "perceptual_feature_distance": 0.1147992657314147
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05468362039772543,
+          "edge_displacement_ringing_overshoot_error": 0.3064533873764371,
+          "luma_multiscale_structural_error": 0.12955897526457266,
+          "motion_compensated_temporal_flicker_error": 0.09108039791258968,
+          "perceptual_feature_distance": 0.11476169402325224
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05468362039772543,
+          "edge_displacement_ringing_overshoot_error": 0.3087982856020775,
+          "luma_multiscale_structural_error": 0.13168447869135724,
+          "motion_compensated_temporal_flicker_error": 0.09077217873450749,
+          "perceptual_feature_distance": 0.11469131283718186
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05468362039772543,
+          "edge_displacement_ringing_overshoot_error": 0.311056053341894,
+          "luma_multiscale_structural_error": 0.13406447180796754,
+          "motion_compensated_temporal_flicker_error": 0.0899779843444227,
+          "perceptual_feature_distance": 0.11461091313081895
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05468362039772543,
+          "edge_displacement_ringing_overshoot_error": 0.3087325120813497,
+          "luma_multiscale_structural_error": 0.13194360630277688,
+          "motion_compensated_temporal_flicker_error": 0.09034205805609916,
+          "perceptual_feature_distance": 0.11464414420482487
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "low_light_noise-c00-420v",
+      "cohort": "low_light_noise",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.29729090678428516,
+          "edge_displacement_ringing_overshoot_error": 0.28708177155585585,
+          "luma_multiscale_structural_error": 0.3587445642076334,
+          "motion_compensated_temporal_flicker_error": 0.0389921722113503,
+          "perceptual_feature_distance": 0.04646468418140079
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.26976681715658607,
+          "edge_displacement_ringing_overshoot_error": 0.2899525075397614,
+          "luma_multiscale_structural_error": 0.2985527827396703,
+          "motion_compensated_temporal_flicker_error": 0.0359197651663405,
+          "perceptual_feature_distance": 0.044892006656775486
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.26976681715658607,
+          "edge_displacement_ringing_overshoot_error": 0.2899525075397614,
+          "luma_multiscale_structural_error": 0.2985527827396703,
+          "motion_compensated_temporal_flicker_error": 0.0359197651663405,
+          "perceptual_feature_distance": 0.044892006656775486
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.26976681715658607,
+          "edge_displacement_ringing_overshoot_error": 0.2899525075397614,
+          "luma_multiscale_structural_error": 0.2985527827396703,
+          "motion_compensated_temporal_flicker_error": 0.0359197651663405,
+          "perceptual_feature_distance": 0.044892006656775486
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.26976681715658607,
+          "edge_displacement_ringing_overshoot_error": 0.2899525075397614,
+          "luma_multiscale_structural_error": 0.2985527827396703,
+          "motion_compensated_temporal_flicker_error": 0.0359197651663405,
+          "perceptual_feature_distance": 0.044892006656775486
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.26976681715658607,
+          "edge_displacement_ringing_overshoot_error": 0.2899525075397614,
+          "luma_multiscale_structural_error": 0.2985527827396703,
+          "motion_compensated_temporal_flicker_error": 0.0359197651663405,
+          "perceptual_feature_distance": 0.044892006656775486
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "low_light_noise-c01-420f",
+      "cohort": "low_light_noise",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.29355382227778587,
+          "edge_displacement_ringing_overshoot_error": 0.2895260423157842,
+          "luma_multiscale_structural_error": 0.35792730598938644,
+          "motion_compensated_temporal_flicker_error": 0.039197829131652664,
+          "perceptual_feature_distance": 0.04656832408808512
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.265194464317744,
+          "edge_displacement_ringing_overshoot_error": 0.2882430559393365,
+          "luma_multiscale_structural_error": 0.29570773141610834,
+          "motion_compensated_temporal_flicker_error": 0.0358406862745098,
+          "perceptual_feature_distance": 0.04463940104013634
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.265194464317744,
+          "edge_displacement_ringing_overshoot_error": 0.2882430559393365,
+          "luma_multiscale_structural_error": 0.29570773141610834,
+          "motion_compensated_temporal_flicker_error": 0.0358406862745098,
+          "perceptual_feature_distance": 0.04463940104013634
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.265194464317744,
+          "edge_displacement_ringing_overshoot_error": 0.2882430559393365,
+          "luma_multiscale_structural_error": 0.29570773141610834,
+          "motion_compensated_temporal_flicker_error": 0.0358406862745098,
+          "perceptual_feature_distance": 0.04463940104013634
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.265194464317744,
+          "edge_displacement_ringing_overshoot_error": 0.2882430559393365,
+          "luma_multiscale_structural_error": 0.29570773141610834,
+          "motion_compensated_temporal_flicker_error": 0.0358406862745098,
+          "perceptual_feature_distance": 0.04463940104013634
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.265194464317744,
+          "edge_displacement_ringing_overshoot_error": 0.2882430559393365,
+          "luma_multiscale_structural_error": 0.29570773141610834,
+          "motion_compensated_temporal_flicker_error": 0.0358406862745098,
+          "perceptual_feature_distance": 0.04463940104013634
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "low_light_noise-c02-420v",
+      "cohort": "low_light_noise",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.2993483679113691,
+          "edge_displacement_ringing_overshoot_error": 0.2880702371356653,
+          "luma_multiscale_structural_error": 0.3644842799108268,
+          "motion_compensated_temporal_flicker_error": 0.03916055120678408,
+          "perceptual_feature_distance": 0.04731289341841568
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.2683522467899074,
+          "edge_displacement_ringing_overshoot_error": 0.29101692727813905,
+          "luma_multiscale_structural_error": 0.30171183627915826,
+          "motion_compensated_temporal_flicker_error": 0.03582558708414872,
+          "perceptual_feature_distance": 0.045497256619902164
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.2683522467899074,
+          "edge_displacement_ringing_overshoot_error": 0.29101692727813905,
+          "luma_multiscale_structural_error": 0.30171183627915826,
+          "motion_compensated_temporal_flicker_error": 0.03582558708414872,
+          "perceptual_feature_distance": 0.045497256619902164
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.2683522467899074,
+          "edge_displacement_ringing_overshoot_error": 0.29101692727813905,
+          "luma_multiscale_structural_error": 0.30171183627915826,
+          "motion_compensated_temporal_flicker_error": 0.03582558708414872,
+          "perceptual_feature_distance": 0.045497256619902164
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.2683522467899074,
+          "edge_displacement_ringing_overshoot_error": 0.29101692727813905,
+          "luma_multiscale_structural_error": 0.30171183627915826,
+          "motion_compensated_temporal_flicker_error": 0.03582558708414872,
+          "perceptual_feature_distance": 0.045497256619902164
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.2683522467899074,
+          "edge_displacement_ringing_overshoot_error": 0.29101692727813905,
+          "luma_multiscale_structural_error": 0.30171183627915826,
+          "motion_compensated_temporal_flicker_error": 0.03582558708414872,
+          "perceptual_feature_distance": 0.045497256619902164
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "low_light_noise-c03-420f",
+      "cohort": "low_light_noise",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.3083925216189297,
+          "edge_displacement_ringing_overshoot_error": 0.29232233670676194,
+          "luma_multiscale_structural_error": 0.35838715040124414,
+          "motion_compensated_temporal_flicker_error": 0.038444327731092444,
+          "perceptual_feature_distance": 0.04627148709134004
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.2728872420616335,
+          "edge_displacement_ringing_overshoot_error": 0.292158627864159,
+          "luma_multiscale_structural_error": 0.30195318524715764,
+          "motion_compensated_temporal_flicker_error": 0.03557598039215687,
+          "perceptual_feature_distance": 0.044639355232186116
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.2728872420616335,
+          "edge_displacement_ringing_overshoot_error": 0.292158627864159,
+          "luma_multiscale_structural_error": 0.30195318524715764,
+          "motion_compensated_temporal_flicker_error": 0.03557598039215687,
+          "perceptual_feature_distance": 0.044639355232186116
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.2728872420616335,
+          "edge_displacement_ringing_overshoot_error": 0.292158627864159,
+          "luma_multiscale_structural_error": 0.30195318524715764,
+          "motion_compensated_temporal_flicker_error": 0.03557598039215687,
+          "perceptual_feature_distance": 0.044639355232186116
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.2728872420616335,
+          "edge_displacement_ringing_overshoot_error": 0.292158627864159,
+          "luma_multiscale_structural_error": 0.30195318524715764,
+          "motion_compensated_temporal_flicker_error": 0.03557598039215687,
+          "perceptual_feature_distance": 0.044639355232186116
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.2728872420616335,
+          "edge_displacement_ringing_overshoot_error": 0.292158627864159,
+          "luma_multiscale_structural_error": 0.30195318524715764,
+          "motion_compensated_temporal_flicker_error": 0.03557598039215687,
+          "perceptual_feature_distance": 0.044639355232186116
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "natural_detail-c00-420v",
+      "cohort": "natural_detail",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09892821518368057,
+          "edge_displacement_ringing_overshoot_error": 0.33854030262876017,
+          "luma_multiscale_structural_error": 0.5674233530575581,
+          "motion_compensated_temporal_flicker_error": 0.01690883887801696,
+          "perceptual_feature_distance": 0.20839500212734374
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05375502500375956,
+          "edge_displacement_ringing_overshoot_error": 0.33787718569124064,
+          "luma_multiscale_structural_error": 0.4547857435213764,
+          "motion_compensated_temporal_flicker_error": 0.015023646444879324,
+          "perceptual_feature_distance": 0.2021687176503101
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05375502500375956,
+          "edge_displacement_ringing_overshoot_error": 0.33787718569124064,
+          "luma_multiscale_structural_error": 0.4547857435213764,
+          "motion_compensated_temporal_flicker_error": 0.015023646444879324,
+          "perceptual_feature_distance": 0.2021687176503101
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05375502500375956,
+          "edge_displacement_ringing_overshoot_error": 0.33776191083608254,
+          "luma_multiscale_structural_error": 0.4548196572585734,
+          "motion_compensated_temporal_flicker_error": 0.015044031311154598,
+          "perceptual_feature_distance": 0.2021647317318336
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05375502500375956,
+          "edge_displacement_ringing_overshoot_error": 0.33787718569124064,
+          "luma_multiscale_structural_error": 0.4547857435213764,
+          "motion_compensated_temporal_flicker_error": 0.015023646444879324,
+          "perceptual_feature_distance": 0.2021687176503101
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05375502500375956,
+          "edge_displacement_ringing_overshoot_error": 0.33797201456811293,
+          "luma_multiscale_structural_error": 0.45480326790203995,
+          "motion_compensated_temporal_flicker_error": 0.0150220156555773,
+          "perceptual_feature_distance": 0.2021714410969548
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "natural_detail-c01-420f",
+      "cohort": "natural_detail",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.10003614921429495,
+          "edge_displacement_ringing_overshoot_error": 0.3375453503551979,
+          "luma_multiscale_structural_error": 0.5662425824082992,
+          "motion_compensated_temporal_flicker_error": 0.016592086834733892,
+          "perceptual_feature_distance": 0.20793158108231638
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05569364629462221,
+          "edge_displacement_ringing_overshoot_error": 0.3407126391857067,
+          "luma_multiscale_structural_error": 0.4374375952549572,
+          "motion_compensated_temporal_flicker_error": 0.01501575630252101,
+          "perceptual_feature_distance": 0.20028803743233892
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05569364629462221,
+          "edge_displacement_ringing_overshoot_error": 0.3407126391857067,
+          "luma_multiscale_structural_error": 0.4374375952549572,
+          "motion_compensated_temporal_flicker_error": 0.01501575630252101,
+          "perceptual_feature_distance": 0.20028803743233892
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05569364629462221,
+          "edge_displacement_ringing_overshoot_error": 0.3414983313537144,
+          "luma_multiscale_structural_error": 0.4375284934232633,
+          "motion_compensated_temporal_flicker_error": 0.01506057422969188,
+          "perceptual_feature_distance": 0.200299105153425
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05569364629462221,
+          "edge_displacement_ringing_overshoot_error": 0.3407126391857067,
+          "luma_multiscale_structural_error": 0.4374375952549572,
+          "motion_compensated_temporal_flicker_error": 0.01501575630252101,
+          "perceptual_feature_distance": 0.20028803743233892
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05569364629462221,
+          "edge_displacement_ringing_overshoot_error": 0.3407716994575427,
+          "luma_multiscale_structural_error": 0.43743032076082305,
+          "motion_compensated_temporal_flicker_error": 0.015021008403361347,
+          "perceptual_feature_distance": 0.20028632646969044
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "natural_detail-c02-420v",
+      "cohort": "natural_detail",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.10233061285754504,
+          "edge_displacement_ringing_overshoot_error": 0.3310213914581585,
+          "luma_multiscale_structural_error": 0.5602200432609966,
+          "motion_compensated_temporal_flicker_error": 0.016417971298108285,
+          "perceptual_feature_distance": 0.2066149214180036
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05350808045449548,
+          "edge_displacement_ringing_overshoot_error": 0.3338053300597998,
+          "luma_multiscale_structural_error": 0.45544319465648303,
+          "motion_compensated_temporal_flicker_error": 0.014615949119373778,
+          "perceptual_feature_distance": 0.20106932225403973
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05350808045449548,
+          "edge_displacement_ringing_overshoot_error": 0.3338053300597998,
+          "luma_multiscale_structural_error": 0.45544319465648303,
+          "motion_compensated_temporal_flicker_error": 0.014615949119373778,
+          "perceptual_feature_distance": 0.20106932225403973
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05350808045449548,
+          "edge_displacement_ringing_overshoot_error": 0.33388240690121096,
+          "luma_multiscale_structural_error": 0.45546602390217306,
+          "motion_compensated_temporal_flicker_error": 0.014628180039138943,
+          "perceptual_feature_distance": 0.2010709686052152
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05350808045449548,
+          "edge_displacement_ringing_overshoot_error": 0.3338053300597998,
+          "luma_multiscale_structural_error": 0.45544319465648303,
+          "motion_compensated_temporal_flicker_error": 0.014615949119373778,
+          "perceptual_feature_distance": 0.20106932225403973
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05350808045449548,
+          "edge_displacement_ringing_overshoot_error": 0.3338053895156597,
+          "luma_multiscale_structural_error": 0.45544796994657233,
+          "motion_compensated_temporal_flicker_error": 0.014614726027397263,
+          "perceptual_feature_distance": 0.2010693628218243
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "natural_detail-c03-420f",
+      "cohort": "natural_detail",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09918108912169088,
+          "edge_displacement_ringing_overshoot_error": 0.3425587608888169,
+          "luma_multiscale_structural_error": 0.5596527840057917,
+          "motion_compensated_temporal_flicker_error": 0.01645763305322129,
+          "perceptual_feature_distance": 0.20392940443951477
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05559698150562926,
+          "edge_displacement_ringing_overshoot_error": 0.3277278431670825,
+          "luma_multiscale_structural_error": 0.4297598378999126,
+          "motion_compensated_temporal_flicker_error": 0.014802170868347342,
+          "perceptual_feature_distance": 0.19674681910205807
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05559698150562926,
+          "edge_displacement_ringing_overshoot_error": 0.3277278431670825,
+          "luma_multiscale_structural_error": 0.4297598378999126,
+          "motion_compensated_temporal_flicker_error": 0.014802170868347342,
+          "perceptual_feature_distance": 0.19674681910205807
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05559698150562926,
+          "edge_displacement_ringing_overshoot_error": 0.3277772723641735,
+          "luma_multiscale_structural_error": 0.4297702828999717,
+          "motion_compensated_temporal_flicker_error": 0.01484138655462185,
+          "perceptual_feature_distance": 0.1967464306016696
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05559698150562926,
+          "edge_displacement_ringing_overshoot_error": 0.3277278431670825,
+          "luma_multiscale_structural_error": 0.4297598378999126,
+          "motion_compensated_temporal_flicker_error": 0.014802170868347342,
+          "perceptual_feature_distance": 0.19674681910205807
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05559698150562926,
+          "edge_displacement_ringing_overshoot_error": 0.32784709332958073,
+          "luma_multiscale_structural_error": 0.4297651590243284,
+          "motion_compensated_temporal_flicker_error": 0.014808123249299721,
+          "perceptual_feature_distance": 0.19674807708631237
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "scene_cuts-c00-420v",
+      "cohort": "scene_cuts",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09488870654468266,
+          "edge_displacement_ringing_overshoot_error": 0.24978402735925517,
+          "luma_multiscale_structural_error": 0.14237084614098047,
+          "motion_compensated_temporal_flicker_error": 0.03401977671776473,
+          "perceptual_feature_distance": 0.07183138594900154
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05385265299020453,
+          "edge_displacement_ringing_overshoot_error": 0.29211352666694723,
+          "luma_multiscale_structural_error": 0.057149062330839884,
+          "motion_compensated_temporal_flicker_error": 0.02720621160850185,
+          "perceptual_feature_distance": 0.06019911351728561
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05385265299020453,
+          "edge_displacement_ringing_overshoot_error": 0.29211597285090024,
+          "luma_multiscale_structural_error": 0.05713402501220885,
+          "motion_compensated_temporal_flicker_error": 0.027210585861056753,
+          "perceptual_feature_distance": 0.06020260507899635
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05385265299020453,
+          "edge_displacement_ringing_overshoot_error": 0.29221922890344604,
+          "luma_multiscale_structural_error": 0.057325587593780175,
+          "motion_compensated_temporal_flicker_error": 0.027232881808545335,
+          "perceptual_feature_distance": 0.06017719901388566
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05385265299020453,
+          "edge_displacement_ringing_overshoot_error": 0.2922911429751926,
+          "luma_multiscale_structural_error": 0.05730678057563349,
+          "motion_compensated_temporal_flicker_error": 0.02721593688845401,
+          "perceptual_feature_distance": 0.060173873168308106
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05385265299020453,
+          "edge_displacement_ringing_overshoot_error": 0.29224990652852056,
+          "luma_multiscale_structural_error": 0.05723210306537929,
+          "motion_compensated_temporal_flicker_error": 0.02720811419602087,
+          "perceptual_feature_distance": 0.060183922040193454
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "scene_cuts-c01-420f",
+      "cohort": "scene_cuts",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09618271756828345,
+          "edge_displacement_ringing_overshoot_error": 0.2873758814073432,
+          "luma_multiscale_structural_error": 0.14068184031345277,
+          "motion_compensated_temporal_flicker_error": 0.07315301120448178,
+          "perceptual_feature_distance": 0.06563949372726947
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05574031911871891,
+          "edge_displacement_ringing_overshoot_error": 0.2841603047890034,
+          "luma_multiscale_structural_error": 0.06810796567525253,
+          "motion_compensated_temporal_flicker_error": 0.06842136437908497,
+          "perceptual_feature_distance": 0.06071181259508465
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05574031911871891,
+          "edge_displacement_ringing_overshoot_error": 0.28419162020427485,
+          "luma_multiscale_structural_error": 0.06794368877461661,
+          "motion_compensated_temporal_flicker_error": 0.06846602911998133,
+          "perceptual_feature_distance": 0.06075831608138594
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05574031911871891,
+          "edge_displacement_ringing_overshoot_error": 0.284724114963337,
+          "luma_multiscale_structural_error": 0.06829062125212017,
+          "motion_compensated_temporal_flicker_error": 0.06840382819794585,
+          "perceptual_feature_distance": 0.0607082828833748
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05574031911871891,
+          "edge_displacement_ringing_overshoot_error": 0.28496686606950894,
+          "luma_multiscale_structural_error": 0.0686812690231443,
+          "motion_compensated_temporal_flicker_error": 0.06841462418300653,
+          "perceptual_feature_distance": 0.06071751058377897
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05574031911871891,
+          "edge_displacement_ringing_overshoot_error": 0.2842542970788187,
+          "luma_multiscale_structural_error": 0.06846818919964223,
+          "motion_compensated_temporal_flicker_error": 0.06844448091736695,
+          "perceptual_feature_distance": 0.06073555070338158
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "scene_cuts-c02-420v",
+      "cohort": "scene_cuts",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09594621306720191,
+          "edge_displacement_ringing_overshoot_error": 0.256982344180484,
+          "luma_multiscale_structural_error": 0.13699831642405064,
+          "motion_compensated_temporal_flicker_error": 0.06251082946020874,
+          "perceptual_feature_distance": 0.05948957239250476
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05357203826389939,
+          "edge_displacement_ringing_overshoot_error": 0.28083618949074446,
+          "luma_multiscale_structural_error": 0.057868992166122596,
+          "motion_compensated_temporal_flicker_error": 0.04838215508806262,
+          "perceptual_feature_distance": 0.05283213326342607
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05357203826389939,
+          "edge_displacement_ringing_overshoot_error": 0.2805136175783839,
+          "luma_multiscale_structural_error": 0.057663074251957,
+          "motion_compensated_temporal_flicker_error": 0.048351322977821264,
+          "perceptual_feature_distance": 0.05287789063581016
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05357203826389939,
+          "edge_displacement_ringing_overshoot_error": 0.28111455006330627,
+          "luma_multiscale_structural_error": 0.05820033823946629,
+          "motion_compensated_temporal_flicker_error": 0.04845678917971298,
+          "perceptual_feature_distance": 0.05283493065866782
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05357203826389939,
+          "edge_displacement_ringing_overshoot_error": 0.28124669376010064,
+          "luma_multiscale_structural_error": 0.05853928660014023,
+          "motion_compensated_temporal_flicker_error": 0.04842256808545336,
+          "perceptual_feature_distance": 0.05284742737760718
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05357203826389939,
+          "edge_displacement_ringing_overshoot_error": 0.28170284286789177,
+          "luma_multiscale_structural_error": 0.05828390779820803,
+          "motion_compensated_temporal_flicker_error": 0.048431698806805826,
+          "perceptual_feature_distance": 0.0528434422312847
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "scene_cuts-c03-420f",
+      "cohort": "scene_cuts",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09573411711760062,
+          "edge_displacement_ringing_overshoot_error": 0.27103021105786246,
+          "luma_multiscale_structural_error": 0.13274673009074903,
+          "motion_compensated_temporal_flicker_error": 0.0620406891923436,
+          "perceptual_feature_distance": 0.05684533874009978
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.055582627505853015,
+          "edge_displacement_ringing_overshoot_error": 0.2754769065860279,
+          "luma_multiscale_structural_error": 0.06612713103965749,
+          "motion_compensated_temporal_flicker_error": 0.052381317110177406,
+          "perceptual_feature_distance": 0.05390825728601464
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.055582627505853015,
+          "edge_displacement_ringing_overshoot_error": 0.2758688106755301,
+          "luma_multiscale_structural_error": 0.06566470680954205,
+          "motion_compensated_temporal_flicker_error": 0.05231495098039216,
+          "perceptual_feature_distance": 0.05394398641595333
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.055582627505853015,
+          "edge_displacement_ringing_overshoot_error": 0.2759527588078179,
+          "luma_multiscale_structural_error": 0.06657965076008125,
+          "motion_compensated_temporal_flicker_error": 0.05245195057189543,
+          "perceptual_feature_distance": 0.05388370769345035
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.055582627505853015,
+          "edge_displacement_ringing_overshoot_error": 0.2760179265794867,
+          "luma_multiscale_structural_error": 0.06650886234163204,
+          "motion_compensated_temporal_flicker_error": 0.05245036035247432,
+          "perceptual_feature_distance": 0.05388744348992511
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.055582627505853015,
+          "edge_displacement_ringing_overshoot_error": 0.27587488939961363,
+          "luma_multiscale_structural_error": 0.06634315493660678,
+          "motion_compensated_temporal_flicker_error": 0.052403412406629324,
+          "perceptual_feature_distance": 0.05388955295113384
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "text_graphics-c00-420f",
+      "cohort": "text_graphics",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.1029850886258085,
+          "edge_displacement_ringing_overshoot_error": 0.3056241912457314,
+          "luma_multiscale_structural_error": 0.265051808440846,
+          "motion_compensated_temporal_flicker_error": 0.08030427170868346,
+          "perceptual_feature_distance": 0.146858691247478
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05522430965918806,
+          "edge_displacement_ringing_overshoot_error": 0.30697626355168434,
+          "luma_multiscale_structural_error": 0.17562557705685344,
+          "motion_compensated_temporal_flicker_error": 0.07325385154061624,
+          "perceptual_feature_distance": 0.1266711511017577
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05522430965918806,
+          "edge_displacement_ringing_overshoot_error": 0.30664496154245174,
+          "luma_multiscale_structural_error": 0.17624472920014433,
+          "motion_compensated_temporal_flicker_error": 0.07591526610644257,
+          "perceptual_feature_distance": 0.1268846241585212
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05522430965918806,
+          "edge_displacement_ringing_overshoot_error": 0.3066448296473074,
+          "luma_multiscale_structural_error": 0.17586110222336582,
+          "motion_compensated_temporal_flicker_error": 0.07387114845938375,
+          "perceptual_feature_distance": 0.12676211967158657
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05522430965918806,
+          "edge_displacement_ringing_overshoot_error": 0.30686832895787247,
+          "luma_multiscale_structural_error": 0.17568721270135304,
+          "motion_compensated_temporal_flicker_error": 0.07308438375350139,
+          "perceptual_feature_distance": 0.12666659540418732
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05522430965918806,
+          "edge_displacement_ringing_overshoot_error": 0.30700032517850045,
+          "luma_multiscale_structural_error": 0.17580765209095564,
+          "motion_compensated_temporal_flicker_error": 0.07393557422969187,
+          "perceptual_feature_distance": 0.1267061785232741
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "text_graphics-c01-420v",
+      "cohort": "text_graphics",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.1019111189499689,
+          "edge_displacement_ringing_overshoot_error": 0.30679324682503667,
+          "luma_multiscale_structural_error": 0.2508642965529629,
+          "motion_compensated_temporal_flicker_error": 0.07835534898891064,
+          "perceptual_feature_distance": 0.14132652390892975
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05454449928423593,
+          "edge_displacement_ringing_overshoot_error": 0.3083904625098743,
+          "luma_multiscale_structural_error": 0.1641824462181736,
+          "motion_compensated_temporal_flicker_error": 0.07462736464448792,
+          "perceptual_feature_distance": 0.12336524562766
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05454449928423593,
+          "edge_displacement_ringing_overshoot_error": 0.3090792119061401,
+          "luma_multiscale_structural_error": 0.1648538478455982,
+          "motion_compensated_temporal_flicker_error": 0.07762271689497716,
+          "perceptual_feature_distance": 0.12359212883292507
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05454449928423593,
+          "edge_displacement_ringing_overshoot_error": 0.30838544346919455,
+          "luma_multiscale_structural_error": 0.1644973111736371,
+          "motion_compensated_temporal_flicker_error": 0.07497309197651662,
+          "perceptual_feature_distance": 0.12342566014655056
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05454449928423593,
+          "edge_displacement_ringing_overshoot_error": 0.30866406167603855,
+          "luma_multiscale_structural_error": 0.16422101703517572,
+          "motion_compensated_temporal_flicker_error": 0.07446183953033267,
+          "perceptual_feature_distance": 0.12334484496192544
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05454449928423593,
+          "edge_displacement_ringing_overshoot_error": 0.30885843195385215,
+          "luma_multiscale_structural_error": 0.16440969214251808,
+          "motion_compensated_temporal_flicker_error": 0.07533471950424005,
+          "perceptual_feature_distance": 0.1234337473314357
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    },
+    {
+      "clipID": "text_graphics-c02-420f",
+      "cohort": "text_graphics",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.10220320232094844,
+          "edge_displacement_ringing_overshoot_error": 0.30188539335899217,
+          "luma_multiscale_structural_error": 0.24208229039154894,
+          "motion_compensated_temporal_flicker_error": 0.07683508403361344,
+          "perceptual_feature_distance": 0.1323748160030329
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.05466915999939145,
+          "edge_displacement_ringing_overshoot_error": 0.30211085270902727,
+          "luma_multiscale_structural_error": 0.1585226085967899,
+          "motion_compensated_temporal_flicker_error": 0.07260994397759103,
+          "perceptual_feature_distance": 0.11478136763155145
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.05466915999939145,
+          "edge_displacement_ringing_overshoot_error": 0.3026153634753383,
+          "luma_multiscale_structural_error": 0.15912620555225798,
+          "motion_compensated_temporal_flicker_error": 0.07534173669467786,
+          "perceptual_feature_distance": 0.11499524688954836
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.05466915999939145,
+          "edge_displacement_ringing_overshoot_error": 0.3026567277291011,
+          "luma_multiscale_structural_error": 0.15864652410716987,
+          "motion_compensated_temporal_flicker_error": 0.07374579831932773,
+          "perceptual_feature_distance": 0.11488909686106376
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.05466915999939145,
+          "edge_displacement_ringing_overshoot_error": 0.3020046377573527,
+          "luma_multiscale_structural_error": 0.15860173553809773,
+          "motion_compensated_temporal_flicker_error": 0.07244327731092437,
+          "perceptual_feature_distance": 0.11477081507136654
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.05466915999939145,
+          "edge_displacement_ringing_overshoot_error": 0.30267957643877924,
+          "luma_multiscale_structural_error": 0.15870553733737955,
+          "motion_compensated_temporal_flicker_error": 0.0732142857142857,
+          "perceptual_feature_distance": 0.11481261533605282
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420f"
+    },
+    {
+      "clipID": "text_graphics-c03-420v",
+      "cohort": "text_graphics",
+      "components": {
+        "baseline_p05": {
+          "chroma_multiscale_structural_error": 0.09872046520860907,
+          "edge_displacement_ringing_overshoot_error": 0.29751987726023055,
+          "luma_multiscale_structural_error": 0.23659880825241478,
+          "motion_compensated_temporal_flicker_error": 0.07071673189823875,
+          "perceptual_feature_distance": 0.12411940745470285
+        },
+        "candidate_v4": {
+          "chroma_multiscale_structural_error": 0.054499614273127266,
+          "edge_displacement_ringing_overshoot_error": 0.3001308735306219,
+          "luma_multiscale_structural_error": 0.1528716990523069,
+          "motion_compensated_temporal_flicker_error": 0.0670221787345075,
+          "perceptual_feature_distance": 0.10840853044406128
+        },
+        "motion_history_off": {
+          "chroma_multiscale_structural_error": 0.054499614273127266,
+          "edge_displacement_ringing_overshoot_error": 0.29893329598007,
+          "luma_multiscale_structural_error": 0.1534928302721336,
+          "motion_compensated_temporal_flicker_error": 0.06977372798434442,
+          "perceptual_feature_distance": 0.10863905263305947
+        },
+        "randomized_state_message": {
+          "chroma_multiscale_structural_error": 0.054499614273127266,
+          "edge_displacement_ringing_overshoot_error": 0.2994635242490029,
+          "luma_multiscale_structural_error": 0.15286949877569664,
+          "motion_compensated_temporal_flicker_error": 0.06806139921722112,
+          "perceptual_feature_distance": 0.10844820983573124
+        },
+        "temporal_hysteresis_off": {
+          "chroma_multiscale_structural_error": 0.054499614273127266,
+          "edge_displacement_ringing_overshoot_error": 0.30021747789608455,
+          "luma_multiscale_structural_error": 0.15293885827548545,
+          "motion_compensated_temporal_flicker_error": 0.06687133072407045,
+          "perceptual_feature_distance": 0.10838581711762363
+        },
+        "uniform_priors": {
+          "chroma_multiscale_structural_error": 0.054499614273127266,
+          "edge_displacement_ringing_overshoot_error": 0.30071179494017625,
+          "luma_multiscale_structural_error": 0.15314790227555772,
+          "motion_compensated_temporal_flicker_error": 0.06772912589693411,
+          "perceptual_feature_distance": 0.10850389972232866
+        }
+      },
+      "frameCount": 6,
+      "pixelFormat": "420v"
+    }
+  ],
+  "quality": {
+    "gates": {
+      "allCohortLumaNonRegressionPass": true,
+      "candidateBackendIdentityPass": true,
+      "fullMirrorIdentityPass": true,
+      "identityPass": true,
+      "naturalCorpusEligibilityPass": false,
+      "productionRuntimeLockPass": false,
+      "qualityLowerConfidenceBoundPass": true,
+      "qualityPointEstimatePass": true,
+      "releaseQualityGatePass": false,
+      "requiredAblationsPresentPass": true,
+      "temporalCohortNonRegressionPass": false
+    },
+    "perCohortLumaCandidateToBaselineRatio": {
+      "animation": 0.5401623122377972,
+      "faces": 0.6378311915878465,
+      "high_motion": 0.6035362371583908,
+      "low_light_noise": 0.8321566536126085,
+      "natural_detail": 0.7887267797326096,
+      "scene_cuts": 0.45089394609681804,
+      "text_graphics": 0.6547397564987408
+    },
+    "summaries": {
+      "baseline_p05": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 1.0,
+          "edge_displacement_ringing_overshoot_error": 1.0,
+          "luma_multiscale_structural_error": 1.0,
+          "motion_compensated_temporal_flicker_error": 1.0,
+          "perceptual_feature_distance": 1.0
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 1.0,
+            "edge_displacement_ringing_overshoot_error": 1.0,
+            "luma_multiscale_structural_error": 1.0,
+            "motion_compensated_temporal_flicker_error": 1.0,
+            "perceptual_feature_distance": 1.0
+          }
+        },
+        "qualityIndex": 100.0,
+        "weightedError": 0.9999999999999999
+      },
+      "candidate_v4": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 0.5907599395957671,
+          "edge_displacement_ringing_overshoot_error": 1.0311827148312884,
+          "luma_multiscale_structural_error": 0.6440066967035445,
+          "motion_compensated_temporal_flicker_error": 0.9215346988735196,
+          "perceptual_feature_distance": 0.9314338280147113
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 0.5468154006794456,
+            "edge_displacement_ringing_overshoot_error": 0.9930771541780842,
+            "luma_multiscale_structural_error": 0.5401623122377972,
+            "motion_compensated_temporal_flicker_error": 0.8910433881893468,
+            "perceptual_feature_distance": 0.8917357626259396
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 0.47684065396342806,
+            "edge_displacement_ringing_overshoot_error": 1.0708806295513917,
+            "luma_multiscale_structural_error": 0.6378311915878465,
+            "motion_compensated_temporal_flicker_error": 0.9048491330749961,
+            "perceptual_feature_distance": 0.9332462420119159
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 0.5570288553373689,
+            "edge_displacement_ringing_overshoot_error": 1.089549945535177,
+            "luma_multiscale_structural_error": 0.6035362371583908,
+            "motion_compensated_temporal_flicker_error": 1.0537180581607986,
+            "perceptual_feature_distance": 0.9986934623700995
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 0.8978922770571628,
+            "edge_displacement_ringing_overshoot_error": 1.003777639967748,
+            "luma_multiscale_structural_error": 0.8321566536126085,
+            "motion_compensated_temporal_flicker_error": 0.9189135012591682,
+            "perceptual_feature_distance": 0.9627614056991107
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 0.5457348181517772,
+            "edge_displacement_ringing_overshoot_error": 0.9929295035931033,
+            "luma_multiscale_structural_error": 0.7887267797326096,
+            "motion_compensated_temporal_flicker_error": 0.8957612378610436,
+            "perceptual_feature_distance": 0.9678329321581313
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 0.5715130902012723,
+            "edge_displacement_ringing_overshoot_error": 1.0632897167415558,
+            "luma_multiscale_structural_error": 0.45089394609681804,
+            "motion_compensated_temporal_flicker_error": 0.8475202756618597,
+            "perceptual_feature_distance": 0.8969508376317552
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 0.5394944817799155,
+            "edge_displacement_ringing_overshoot_error": 1.004774414251959,
+            "luma_multiscale_structural_error": 0.6547397564987408,
+            "motion_compensated_temporal_flicker_error": 0.9389372979074241,
+            "perceptual_feature_distance": 0.8688161536060274
+          }
+        },
+        "pairedBootstrap95PercentCI": {
+          "lower": 120.74525627904987,
+          "lowerOrderStatisticIndex": 250,
+          "replicateCount": 10000,
+          "upper": 121.72108121090307
+        },
+        "qualityIndex": 121.22716883536194,
+        "weightedError": 0.7877283116463807
+      },
+      "motion_history_off": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 0.5907599395957671,
+          "edge_displacement_ringing_overshoot_error": 1.0248464282723455,
+          "luma_multiscale_structural_error": 0.6424320924482754,
+          "motion_compensated_temporal_flicker_error": 0.9300663436584955,
+          "perceptual_feature_distance": 0.9321969592391233
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 0.5468154006794456,
+            "edge_displacement_ringing_overshoot_error": 0.9575940795742719,
+            "luma_multiscale_structural_error": 0.5361459640511999,
+            "motion_compensated_temporal_flicker_error": 0.9047295452791762,
+            "perceptual_feature_distance": 0.8938086615987346
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 0.47684065396342806,
+            "edge_displacement_ringing_overshoot_error": 1.0710529211446165,
+            "luma_multiscale_structural_error": 0.6383705100142865,
+            "motion_compensated_temporal_flicker_error": 0.916954268459142,
+            "perceptual_feature_distance": 0.9338156629612374
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 0.5570288553373689,
+            "edge_displacement_ringing_overshoot_error": 1.0806868908454648,
+            "luma_multiscale_structural_error": 0.5949954851516802,
+            "motion_compensated_temporal_flicker_error": 1.0514756626278488,
+            "perceptual_feature_distance": 0.9992506569562557
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 0.8978922770571628,
+            "edge_displacement_ringing_overshoot_error": 1.003777639967748,
+            "luma_multiscale_structural_error": 0.8321566536126085,
+            "motion_compensated_temporal_flicker_error": 0.9189135012591682,
+            "perceptual_feature_distance": 0.9627614056991107
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 0.5457348181517772,
+            "edge_displacement_ringing_overshoot_error": 0.9929295035931033,
+            "luma_multiscale_structural_error": 0.7887267797326096,
+            "motion_compensated_temporal_flicker_error": 0.8957612378610436,
+            "perceptual_feature_distance": 0.9678329321581313
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 0.5715130902012723,
+            "edge_displacement_ringing_overshoot_error": 1.0633865027361717,
+            "luma_multiscale_structural_error": 0.4493605527542025,
+            "motion_compensated_temporal_flicker_error": 0.8473124457311667,
+            "perceptual_feature_distance": 0.897468877625704
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 0.5394944817799155,
+            "edge_displacement_ringing_overshoot_error": 1.0044974600450431,
+            "luma_multiscale_structural_error": 0.6572687018213403,
+            "motion_compensated_temporal_flicker_error": 0.9753177443919236,
+            "perceptual_feature_distance": 0.8704405176746891
+          }
+        },
+        "qualityIndex": 121.15974732969804,
+        "weightedError": 0.7884025267030197
+      },
+      "randomized_state_message": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 0.5907599395957671,
+          "edge_displacement_ringing_overshoot_error": 1.031568445766155,
+          "luma_multiscale_structural_error": 0.645517957461821,
+          "motion_compensated_temporal_flicker_error": 0.9219419519098865,
+          "perceptual_feature_distance": 0.9313732257537151
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 0.5468154006794456,
+            "edge_displacement_ringing_overshoot_error": 0.9916792714665078,
+            "luma_multiscale_structural_error": 0.5397184214586807,
+            "motion_compensated_temporal_flicker_error": 0.8924490649751139,
+            "perceptual_feature_distance": 0.8922686060922159
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 0.47684065396342806,
+            "edge_displacement_ringing_overshoot_error": 1.0717531793134798,
+            "luma_multiscale_structural_error": 0.6373536788005285,
+            "motion_compensated_temporal_flicker_error": 0.8933036552329644,
+            "perceptual_feature_distance": 0.9324176827411711
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 0.5570288553373689,
+            "edge_displacement_ringing_overshoot_error": 1.0912262035409874,
+            "luma_multiscale_structural_error": 0.6122228111122308,
+            "motion_compensated_temporal_flicker_error": 1.0540367808292022,
+            "perceptual_feature_distance": 0.9981922670506617
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 0.8978922770571628,
+            "edge_displacement_ringing_overshoot_error": 1.003777639967748,
+            "luma_multiscale_structural_error": 0.8321566536126085,
+            "motion_compensated_temporal_flicker_error": 0.9189135012591682,
+            "perceptual_feature_distance": 0.9627614056991107
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 0.5457348181517772,
+            "edge_displacement_ringing_overshoot_error": 0.9935199633559602,
+            "luma_multiscale_structural_error": 0.7887969299132351,
+            "motion_compensated_temporal_flicker_error": 0.897518627097468,
+            "perceptual_feature_distance": 0.9678430179566581
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 0.5715130902012723,
+            "edge_displacement_ringing_overshoot_error": 1.0646263314713726,
+            "luma_multiscale_structural_error": 0.4529616945071376,
+            "motion_compensated_temporal_flicker_error": 0.8481865914858449,
+            "perceptual_feature_distance": 0.8967648828027424
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 0.5394944817799155,
+            "edge_displacement_ringing_overshoot_error": 1.004396531247029,
+            "luma_multiscale_structural_error": 0.6554155128283257,
+            "motion_compensated_temporal_flicker_error": 0.9491854424894438,
+            "perceptual_feature_distance": 0.8693647179334453
+          }
+        },
+        "qualityIndex": 121.16348438396618,
+        "weightedError": 0.7883651561603382
+      },
+      "temporal_hysteresis_off": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 0.5907599395957671,
+          "edge_displacement_ringing_overshoot_error": 1.0280778361542897,
+          "luma_multiscale_structural_error": 0.6470295418303396,
+          "motion_compensated_temporal_flicker_error": 0.9232992600457777,
+          "perceptual_feature_distance": 0.9315507399979289
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 0.5468154006794456,
+            "edge_displacement_ringing_overshoot_error": 0.9647538040562692,
+            "luma_multiscale_structural_error": 0.5384888916001785,
+            "motion_compensated_temporal_flicker_error": 0.9050908259353474,
+            "perceptual_feature_distance": 0.8937100943089471
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 0.47684065396342806,
+            "edge_displacement_ringing_overshoot_error": 1.0708806295513917,
+            "luma_multiscale_structural_error": 0.6378311915878465,
+            "motion_compensated_temporal_flicker_error": 0.9048491330749961,
+            "perceptual_feature_distance": 0.9332462420119159
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 0.5570288553373689,
+            "edge_displacement_ringing_overshoot_error": 1.094201354558996,
+            "luma_multiscale_structural_error": 0.62289624525589,
+            "motion_compensated_temporal_flicker_error": 1.0536682164358786,
+            "perceptual_feature_distance": 0.9977431522169313
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 0.8978922770571628,
+            "edge_displacement_ringing_overshoot_error": 1.003777639967748,
+            "luma_multiscale_structural_error": 0.8321566536126085,
+            "motion_compensated_temporal_flicker_error": 0.9189135012591682,
+            "perceptual_feature_distance": 0.9627614056991107
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 0.5457348181517772,
+            "edge_displacement_ringing_overshoot_error": 0.9929295035931033,
+            "luma_multiscale_structural_error": 0.7887267797326096,
+            "motion_compensated_temporal_flicker_error": 0.8957612378610436,
+            "perceptual_feature_distance": 0.9678329321581313
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 0.5715130902012723,
+            "edge_displacement_ringing_overshoot_error": 1.0651069828810578,
+            "luma_multiscale_structural_error": 0.4541194429147957,
+            "motion_compensated_temporal_flicker_error": 0.8480055131633694,
+            "perceptual_feature_distance": 0.8968520926736053
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 0.5394944817799155,
+            "edge_displacement_ringing_overshoot_error": 1.0048949384714616,
+            "luma_multiscale_structural_error": 0.6549875881084484,
+            "motion_compensated_temporal_flicker_error": 0.9368063925906399,
+            "perceptual_feature_distance": 0.8687092609168602
+          }
+        },
+        "qualityIndex": 121.11478857958457,
+        "weightedError": 0.7888521142041542
+      },
+      "uniform_priors": {
+        "normalizedComponents": {
+          "chroma_multiscale_structural_error": 0.5907599395957671,
+          "edge_displacement_ringing_overshoot_error": 1.0299829871673756,
+          "luma_multiscale_structural_error": 0.6453703478201963,
+          "motion_compensated_temporal_flicker_error": 0.9227064283213474,
+          "perceptual_feature_distance": 0.9314502909299875
+        },
+        "normalizedComponentsByCohort": {
+          "animation": {
+            "chroma_multiscale_structural_error": 0.5468154006794456,
+            "edge_displacement_ringing_overshoot_error": 0.9796134211250288,
+            "luma_multiscale_structural_error": 0.5398531645841916,
+            "motion_compensated_temporal_flicker_error": 0.902639348099694,
+            "perceptual_feature_distance": 0.8931688338100593
+          },
+          "faces": {
+            "chroma_multiscale_structural_error": 0.47684065396342806,
+            "edge_displacement_ringing_overshoot_error": 1.0715521770228036,
+            "luma_multiscale_structural_error": 0.6372074401652545,
+            "motion_compensated_temporal_flicker_error": 0.8937560945510025,
+            "perceptual_feature_distance": 0.9322343155229739
+          },
+          "high_motion": {
+            "chroma_multiscale_structural_error": 0.5570288553373689,
+            "edge_displacement_ringing_overshoot_error": 1.0909833649944207,
+            "luma_multiscale_structural_error": 0.6111892818813007,
+            "motion_compensated_temporal_flicker_error": 1.0520556772345067,
+            "perceptual_feature_distance": 0.9979576921939137
+          },
+          "low_light_noise": {
+            "chroma_multiscale_structural_error": 0.8978922770571628,
+            "edge_displacement_ringing_overshoot_error": 1.003777639967748,
+            "luma_multiscale_structural_error": 0.8321566536126085,
+            "motion_compensated_temporal_flicker_error": 0.9189135012591682,
+            "perceptual_feature_distance": 0.9627614056991107
+          },
+          "natural_detail": {
+            "chroma_multiscale_structural_error": 0.5457348181517772,
+            "edge_displacement_ringing_overshoot_error": 0.9931319231594785,
+            "luma_multiscale_structural_error": 0.7887358083330362,
+            "motion_compensated_temporal_flicker_error": 0.8958870443849175,
+            "perceptual_feature_distance": 0.967835727075705
+          },
+          "scene_cuts": {
+            "chroma_multiscale_structural_error": 0.5715130902012723,
+            "edge_displacement_ringing_overshoot_error": 1.0646932531571525,
+            "luma_multiscale_structural_error": 0.4528371591816366,
+            "motion_compensated_temporal_flicker_error": 0.8479374012643693,
+            "perceptual_feature_distance": 0.8969553736361503
+          },
+          "text_graphics": {
+            "chroma_multiscale_structural_error": 0.5394944817799155,
+            "edge_displacement_ringing_overshoot_error": 1.0061291307449969,
+            "luma_multiscale_structural_error": 0.655612926983346,
+            "motion_compensated_temporal_flicker_error": 0.9477559314557745,
+            "perceptual_feature_distance": 0.869238688572
+          }
+        },
+        "qualityIndex": 121.16767447565616,
+        "weightedError": 0.7883232552434384
+      }
+    },
+    "temporalCandidateToBaselineRatio": {
+      "high_motion": 1.0537180581607986,
+      "scene_cuts": 0.8475202756618597
+    }
+  },
+  "runtime": {
+    "baselineImplementationVersion": "ash-p05-cpu-reference-preview",
+    "candidateBackendID": "mirmir_deterministic_cpu",
+    "candidateImplementationVersion": "ash-p06-deterministic-v4",
+    "fullMirrorIdentityPass": true,
+    "productionRuntimeLocked": false
+  },
+  "schemaVersion": "mirmir-ash-v4-quality-report-v1",
+  "timingDiagnostic": {
+    "releasePerformanceGateEligible": false,
+    "scope": "engine calls on the synthetic quality corpus; no decode, encode, or end-to-end wall measurement",
+    "variants": {
+      "baseline_p05": {
+        "medianMilliseconds": 32.0435415,
+        "p95Milliseconds": 40.8912501,
+        "sampleCount": 168,
+        "totalMilliseconds": 5424.247249000001
+      },
+      "candidate_v4": {
+        "medianMilliseconds": 0.487229,
+        "medianRatioVersusP05": 0.015205216938957886,
+        "p95Milliseconds": 0.54661075,
+        "p95RatioVersusP05": 0.013367425761336654,
+        "sampleCount": 168,
+        "totalMilliseconds": 77.097703
+      },
+      "motion_history_off": {
+        "medianMilliseconds": 0.1967505,
+        "p95Milliseconds": 0.23346875,
+        "sampleCount": 168,
+        "totalMilliseconds": 33.188584000000006
+      },
+      "randomized_state_message": {
+        "medianMilliseconds": 0.4209795,
+        "p95Milliseconds": 0.46243565000000003,
+        "sampleCount": 168,
+        "totalMilliseconds": 65.03566900000001
+      },
+      "temporal_hysteresis_off": {
+        "medianMilliseconds": 0.42083349999999997,
+        "p95Milliseconds": 0.46450175,
+        "sampleCount": 168,
+        "totalMilliseconds": 64.91586799999999
+      },
+      "uniform_priors": {
+        "medianMilliseconds": 0.438875,
+        "p95Milliseconds": 0.48481830000000004,
+        "sampleCount": 168,
+        "totalMilliseconds": 67.796455
+      }
+    },
+    "warmupCount": 5
+  }
+}
