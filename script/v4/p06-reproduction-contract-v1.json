@@ -2,16 +2,44 @@
   "buildConfiguration": "Release",
   "builderID": "ash-p06-release-builder-v4-1",
   "canonicalManifestIdentityDomain": "ash-p06-runtime-manifest-v4",
+  "capture": {
+    "captureSourceSHA256": "00af7bda48e643dbc76b9f0b95a435a5d6033d2af699c03fc1283a64c49c81ae",
+    "evaluatorSHA256": "ac7c7754e79da4d736e1bc12c59e4bdb8098816f74bc8bbe2531774905a7181a",
+    "runnerSHA256": "9fcce0ef62e1e4a2801e66ffd349ff334788ecea714c9cddd210f09745ba441d",
+    "runtimeLoadCheckRunnerSHA256": "85bd88ff2726e9f32a4443f93ce30c5a61a2686be55c5cd27044f0aff5c890bd",
+    "runtimeLoadCheckSourceSHA256": "cefd336a6504aeae8074c8a8a01ec6a0fda21116cd05a5b67b5b614549fac0d6"
+  },
   "cleanBuildCount": 2,
+  "cleanBuildIDs": [
+    "clean-build-a",
+    "clean-build-b"
+  ],
   "developmentArtifactDependencyCount": 0,
   "p05ProductionDependencyCount": 0,
+  "requiredRuntimeArtifactRoles": [
+    "benchmark_corpus_identity",
+    "branch_aggregation",
+    "codeword_tables",
+    "core_certificate",
+    "measurement_contract",
+    "metal_compiler_contract",
+    "metal_library",
+    "metric_contract",
+    "operator_bank",
+    "phase_coefficient_procedure",
+    "quality_corpus_identity",
+    "verification_contract"
+  ],
   "runtimeID": "ash-p06-deterministic-v4",
   "runtimeReleaseStatus": "release_qualified",
   "schemaVersion": "mirmir-ash-v4-p06-reproduction-contract-v1",
   "sourceCheckoutState": "clean",
+  "suiteID": "mirmir-ash-v4-p06-reproduction-v1",
   "verification": {
     "byteIdenticalToShippingBundle": true,
     "productionLoaderAcceptanceRequired": true,
-    "sameLengthArtifactTamperRejectionRequired": true
+    "sameLengthArtifactTamperRejectionRequired": true,
+    "sealedClosureRequired": true,
+    "toolchainProvenanceEqualityRequired": true
   }
 }

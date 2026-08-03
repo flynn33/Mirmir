@@ -384,10 +384,40 @@ def capture(arguments: argparse.Namespace) -> Path:
         raise CaptureError(f"output parent is not a directory: {output.parent}")
 
     candidate = parse_candidate(candidate_path)
+    contract = load_json(contract_path)
+    if (
+        not isinstance(contract, dict)
+        or contract.get("schemaVersion")
+        != "mirmir-ash-v4-p06-reproduction-contract-v1"
+    ):
+        raise CaptureError("unsupported P06 reproduction contract")
+    capture_contract = contract.get("capture")
+    required_capture_identities = {
+        "captureSourceSHA256": Path(__file__).resolve(),
+        "evaluatorSHA256": repository / "script/v4/p06_reproduction_v4.py",
+        "runnerSHA256": repository / "script/v4/run_p06_reproduction_v4.sh",
+        "runtimeLoadCheckRunnerSHA256": repository
+        / "script/v4/run_p06_runtime_load_check.sh",
+        "runtimeLoadCheckSourceSHA256": repository
+        / "script/v4/P06RuntimeLoadCheckMain.swift",
+    }
+    if not isinstance(capture_contract, dict) or set(capture_contract) != set(
+        required_capture_identities
+    ):
+        raise CaptureError("P06 reproduction contract capture identities are incomplete")
+    for key, local_path in required_capture_identities.items():
+        if not local_path.is_file() or local_path.is_symlink():
+            raise CaptureError(f"P06 qualification tool is missing or unsafe: {local_path}")
+        if sha256(local_path) != capture_contract.get(key):
+            raise CaptureError(f"P06 qualification tool identity mismatch: {key}")
     if source_tree_identity(repository, candidate["sourceCommit"]) != candidate["sourceTreeIdentitySHA256"]:
         raise CaptureError("candidate source-tree identity does not match its source commit")
     locked_tools = {
         "script/v4/capture_p06_reproduction_v4.py": Path(__file__).resolve(),
+        "script/v4/p06_reproduction_v4.py": repository
+        / "script/v4/p06_reproduction_v4.py",
+        "script/v4/run_p06_reproduction_v4.sh": repository
+        / "script/v4/run_p06_reproduction_v4.sh",
         "script/v4/run_p06_runtime_load_check.sh": repository
         / "script/v4/run_p06_runtime_load_check.sh",
         "script/v4/P06RuntimeLoadCheckMain.swift": repository
@@ -400,17 +430,23 @@ def capture(arguments: argparse.Namespace) -> Path:
     if sha256(release_configuration) != candidate["releaseConfigurationSHA256"]:
         raise CaptureError("candidate Release configuration identity mismatch")
     runtime = validate_runtime(candidate_runtime, candidate)
-    contract = load_json(contract_path)
-    if not isinstance(contract, dict) or contract.get("schemaVersion") != "mirmir-ash-v4-p06-reproduction-contract-v1":
-        raise CaptureError("unsupported P06 reproduction contract")
 
     staging = Path(tempfile.mkdtemp(prefix=f".{output.name}.", dir=output.parent))
     temporary_root = Path(tempfile.mkdtemp(prefix="mirmir-p06-reproduction."))
     try:
         shutil.copy2(contract_path, staging / "suite-contract.json")
         shutil.copy2(candidate_runtime / "runtime-manifest.json", staging / "runtime-manifest.json")
+        shutil.copytree(candidate_runtime / "artifacts", staging / "artifacts")
         shutil.copy2(release_configuration, staging / "Release.xcconfig")
         shutil.copy2(Path(__file__).resolve(), staging / "capture-tool.py")
+        shutil.copy2(
+            repository / "script/v4/p06_reproduction_v4.py",
+            staging / "evaluator.py",
+        )
+        shutil.copy2(
+            repository / "script/v4/run_p06_reproduction_v4.sh",
+            staging / "runner.sh",
+        )
         shutil.copy2(
             repository / "script/v4/run_p06_runtime_load_check.sh",
             staging / "runtime-load-check-runner.sh",
@@ -430,8 +466,10 @@ def capture(arguments: argparse.Namespace) -> Path:
                 candidate_runtime=candidate_runtime,
                 candidate=candidate,
             )
-            for identifier in ("clean-build-a", "clean-build-b")
+            for identifier in contract.get("cleanBuildIDs", ())
         ]
+        if len(builds) != contract.get("cleanBuildCount"):
+            raise CaptureError("P06 contract clean-build count or identities are invalid")
         if {build["builderSHA256"] for build in builds} != {runtime["builderSHA256"]}:
             raise CaptureError("clean builds changed the P06 builder identity")
         if len({build["toolchainImageSHA256"] for build in builds}) != 1:
@@ -444,6 +482,8 @@ def capture(arguments: argparse.Namespace) -> Path:
             "releaseEligible": True,
             "identities": {
                 "captureSourceSHA256": sha256(staging / "capture-tool.py"),
+                "evaluatorSHA256": sha256(staging / "evaluator.py"),
+                "runnerSHA256": sha256(staging / "runner.sh"),
                 "runtimeLoadCheckRunnerSHA256": sha256(
                     staging / "runtime-load-check-runner.sh"
                 ),
