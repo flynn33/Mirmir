@@ -311,6 +311,679 @@ final class DeterministicMetalBackendTests: XCTestCase {
         }
     }
 
+    func testCPUAndMetalApplyEveryTypedResetBeforeReadingHistory()
+        async throws {
+        let sourceInfo = makeSourceInfo(
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let request = BackendPreparationRequest(
+            source: sourceInfo,
+            targetSize: CGSize(width: 32, height: 24)
+        )
+        let preparedCPU = try await makeCPUBackend().prepare(
+            request: request,
+            environment: deterministicMetalTestEnvironment
+        )
+        let preparedMetal = try await makeMetalBackend().prepare(
+            request: request,
+            environment: deterministicMetalTestEnvironment
+        )
+        let cpu = try XCTUnwrap(
+            preparedCPU as? PreparedDeterministicV4Upscaler
+        )
+        let metal = try XCTUnwrap(
+            preparedMetal as? PreparedDeterministicV4Upscaler
+        )
+        let declared: [ASHTemporalResetReasonV4] = [
+            .seek,
+            .discontinuity,
+            .editBoundary,
+            .formatChange,
+            .geometryChange,
+            .pixelFormatChange,
+            .colorDomainChange,
+            .hdrMetadataChange,
+            .fieldCadenceChange,
+            .contractChange,
+            .explicitReset,
+        ]
+        var expectedGeneration: UInt64 = 0
+        for frameIndex in 0...(declared.count + 1) {
+            let source = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12,
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            try write(pattern: .directionalEdges, to: source)
+            attachProgressiveBT709(to: source)
+            let cpuOutput = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            let metalOutput = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            let declaredReason: ASHTemporalResetReasonV4?
+            let expectedReason: ASHTemporalResetReasonV4
+            let presentationValue: Int64
+            if frameIndex == 0 {
+                declaredReason = nil
+                expectedReason = .streamStart
+                presentationValue = 0
+            } else if frameIndex <= declared.count {
+                declaredReason = declared[frameIndex - 1]
+                expectedReason = declared[frameIndex - 1]
+                presentationValue = Int64(frameIndex)
+            } else {
+                declaredReason = nil
+                expectedReason = .presentationTimeDiscontinuity
+                presentationValue = Int64(frameIndex + 1)
+            }
+            let timing = FrameTiming(
+                frameIndex: frameIndex,
+                presentationTime: CMTime(
+                    value: presentationValue,
+                    timescale: 30
+                ),
+                duration: CMTime(value: 1, timescale: 30),
+                temporalResetReason: declaredReason
+            )
+            let cpuFrames = try await cpu.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: [FramePixelBuffer(cpuOutput)],
+                timing: timing
+            )
+            let metalFrames = try await metal.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: [FramePixelBuffer(metalOutput)],
+                timing: timing
+            )
+            let cpuFrame = try XCTUnwrap(cpuFrames.first)
+            let metalFrame = try XCTUnwrap(metalFrames.first)
+            expectedGeneration += 1
+            XCTAssertEqual(cpuFrame.temporalResetReason, expectedReason)
+            XCTAssertEqual(metalFrame.temporalResetReason, expectedReason)
+            XCTAssertEqual(cpuFrame.temporalGeneration, expectedGeneration)
+            XCTAssertEqual(metalFrame.temporalGeneration, expectedGeneration)
+            XCTAssertEqual(
+                try visibleBytes(cpuOutput),
+                try visibleBytes(metalOutput),
+                "typed reset parity failed for \(expectedReason.rawValue)"
+            )
+        }
+    }
+
+    func testPreparedDispatcherSelectsCanonicalBoundedPathFor8K()
+        async throws {
+        let configuration = DeterministicPreparedConfigurationV4(
+            backendID: .mirmirDeterministicCPU,
+            executionBackend: .cpu,
+            storage: .nv12VideoRange8Bit,
+            sourceWidth: 4_096,
+            sourceHeight: 2_160,
+            targetWidth: 8_192,
+            targetHeight: 4_320,
+            scanMode: .progressive
+        )
+        let prepared = try PreparedDeterministicV4Upscaler(
+            configuration: configuration,
+            runtime: verifiedRuntime
+        )
+        XCTAssertTrue(prepared.usesBoundedTiledTemporalPath)
+        XCTAssertEqual(prepared.temporalTilePolicy, .canonical)
+        let contract = try XCTUnwrap(prepared.tiledAllocationContract)
+        XCTAssertEqual(
+            contract.policyID,
+            ASHTemporalTilePolicyV4.canonical.policyID
+        )
+        XCTAssertEqual(contract.sourceFullFrameSampleCount, 4_096 * 2_160)
+        XCTAssertEqual(contract.sourceTileCount, 16 * 9)
+        XCTAssertEqual(contract.targetFullFrameSampleCount, 8_192 * 4_320)
+        XCTAssertEqual(contract.targetTileCount, 32 * 17)
+        XCTAssertGreaterThan(
+            contract.targetFullFrameSampleCount,
+            ASHTemporalPlaneV4.maximumSampleCount
+        )
+        XCTAssertEqual(contract.fullFrameSampleArrayAllocationCap, 0)
+        XCTAssertEqual(
+            contract.maximumRetainedTileSampleCount,
+            ASHTemporalTilePolicyV4.canonical
+                .maximumRetainedTileSampleCount
+        )
+        XCTAssertEqual(contract.maximumOutputTileSampleCount, 256 * 256)
+        XCTAssertLessThan(
+            contract.maximumRetainedTileSampleCount,
+            contract.targetFullFrameSampleCount
+        )
+        let diagnostics = await prepared.workspaceDiagnostics()
+        XCTAssertEqual(
+            diagnostics.scalerFullPlaneSwiftArrayStagingSampleCount,
+            0
+        )
+        XCTAssertTrue(diagnostics.scalerUsesDirectPixelBufferIO)
+        XCTAssertEqual(
+            diagnostics.scalerCPUReusableHorizontalSampleCount,
+            4 * 8_192 + 4 * 4_096
+        )
+        XCTAssertLessThan(
+            diagnostics.scalerCPUReusableHorizontalSampleCount,
+            contract.targetFullFrameSampleCount
+        )
+        let misalignedPolicy = try ASHTemporalTilePolicyV4(
+            policyID: "ash.test.misaligned-production-tiles",
+            tileWidth: 10,
+            tileHeight: 8,
+            searchHalo: 5,
+            maximumFrameWidth: 32_768,
+            maximumFrameHeight: 32_768
+        )
+        XCTAssertThrowsError(try PreparedDeterministicV4Upscaler(
+            configuration: configuration,
+            runtime: verifiedRuntime,
+            temporalTilePolicy: misalignedPolicy
+        )) { error in
+            XCTAssertEqual(
+                error as? ASHTemporalV4Error,
+                .invalidConfiguration
+            )
+        }
+    }
+
+    func testCanonical8KEndToEndAllocationGateWhenRequested()
+        async throws {
+        guard ProcessInfo.processInfo.environment[
+            "MIRMIR_RUN_8K_ALLOCATION_GATE"
+        ] == "1" else {
+            throw XCTSkip(
+                "Set MIRMIR_RUN_8K_ALLOCATION_GATE=1 for the physical 8K gate."
+            )
+        }
+        let configuration = DeterministicPreparedConfigurationV4(
+            backendID: .mirmirDeterministicCPU,
+            executionBackend: .cpu,
+            storage: .nv12VideoRange8Bit,
+            sourceWidth: 4_096,
+            sourceHeight: 2_160,
+            targetWidth: 8_192,
+            targetHeight: 4_320,
+            scanMode: .progressive
+        )
+        let prepared = try PreparedDeterministicV4Upscaler(
+            configuration: configuration,
+            runtime: verifiedRuntime
+        )
+        let source = try PixelBufferSignalCodecV4.makeBuffer(
+            storage: configuration.storage,
+            width: configuration.sourceWidth,
+            height: configuration.sourceHeight,
+            metalCompatible: false
+        )
+        let destination = try PixelBufferSignalCodecV4.makeBuffer(
+            storage: configuration.storage,
+            width: configuration.targetWidth,
+            height: configuration.targetHeight,
+            metalCompatible: false
+        )
+        try write(pattern: .ramp, to: source)
+        attachProgressiveBT709(to: source)
+        let outputs = try await prepared.processTemporal(
+            source: FramePixelBuffer(source),
+            destinations: [FramePixelBuffer(destination)],
+            timing: FrameTiming(
+                frameIndex: 0,
+                presentationTime: .zero,
+                duration: CMTime(value: 1, timescale: 30)
+            )
+        )
+        XCTAssertEqual(outputs.count, 1)
+        XCTAssertEqual(outputs[0].temporalResetReason, .streamStart)
+        let diagnostics = await prepared.workspaceDiagnostics()
+        let contract = try XCTUnwrap(prepared.tiledAllocationContract)
+        XCTAssertEqual(diagnostics.tiledTemporalHistoryCount, 1)
+        XCTAssertEqual(
+            diagnostics.tiledSourceFullFrameSampleArrayAllocationCount,
+            contract.fullFrameSampleArrayAllocationCap
+        )
+        XCTAssertEqual(
+            diagnostics.tiledOutputFullFrameSampleArrayAllocationCount,
+            contract.fullFrameSampleArrayAllocationCap
+        )
+        XCTAssertEqual(
+            diagnostics.tiledReconstructionFullFrameSampleArrayAllocationCount,
+            contract.fullFrameSampleArrayAllocationCap
+        )
+        XCTAssertEqual(
+            diagnostics.tiledMotionFullFrameVectorArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(diagnostics.tiledMaterializedAlignedSampleCount, 0)
+        XCTAssertEqual(
+            diagnostics.scalerFullPlaneSwiftArrayStagingSampleCount,
+            0
+        )
+        XCTAssertTrue(diagnostics.scalerUsesDirectPixelBufferIO)
+        XCTAssertLessThanOrEqual(
+            diagnostics.tiledLargestContiguousSampleAllocation,
+            contract.maximumRetainedTileSampleCount
+        )
+    }
+
+    func testForcedTiledPreparedPathIsCPUAndMetalExactAndResumable()
+        async throws {
+        let policy = try forcedPreparedTilePolicy()
+        let reference = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: nil
+        )
+        let tiledCPU = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy
+        )
+        let tiledMetal = try makeDirectPrepared(
+            executionBackend: .metal,
+            tilePolicy: policy
+        )
+        let resumedCPU = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy
+        )
+        let plan = ASHSHA256V4(rawData: Data(
+            "forced-tiled-prepared-plan".utf8
+        ))
+
+        var checkpoint: Data?
+        for frameIndex in 0..<3 {
+            let source = try SyntheticNV12PixelBuffer.make(
+                width: 16,
+                height: 12,
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            try write(pattern: .ramp, to: source)
+            attachProgressiveBT709(to: source)
+            let timing = FrameTiming(
+                frameIndex: frameIndex,
+                presentationTime: CMTime(
+                    value: Int64(frameIndex),
+                    timescale: 30
+                ),
+                duration: CMTime(value: 1, timescale: 30)
+            )
+            let referenceOutput = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            let cpuOutput = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            let metalOutput = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            let referenceFrames = try await reference.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: [FramePixelBuffer(referenceOutput)],
+                timing: timing
+            )
+            let cpuFrames = try await tiledCPU.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: [FramePixelBuffer(cpuOutput)],
+                timing: timing
+            )
+            let metalFrames = try await tiledMetal.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: [FramePixelBuffer(metalOutput)],
+                timing: timing
+            )
+            let referenceFrame = try XCTUnwrap(referenceFrames.first)
+            let cpuFrame = try XCTUnwrap(cpuFrames.first)
+            let metalFrame = try XCTUnwrap(metalFrames.first)
+            XCTAssertEqual(
+                try visibleBytes(cpuOutput),
+                try visibleBytes(referenceOutput),
+                "tiled/contiguous mismatch at frame \(frameIndex)"
+            )
+            XCTAssertEqual(
+                try visibleBytes(metalOutput),
+                try visibleBytes(cpuOutput),
+                "tiled CPU/Metal mismatch at frame \(frameIndex)"
+            )
+            XCTAssertEqual(cpuFrame.temporalResetReason,
+                           referenceFrame.temporalResetReason)
+            XCTAssertEqual(metalFrame.temporalResetReason,
+                           cpuFrame.temporalResetReason)
+            XCTAssertEqual(metalFrame.temporalGeneration,
+                           cpuFrame.temporalGeneration)
+
+            if frameIndex == 1 {
+                let encoded = try await tiledCPU.makeTemporalCheckpoint(
+                    planSHA256: plan,
+                    lastCompletedInputOrdinal: 1
+                )
+                let repeated = try await tiledCPU.makeTemporalCheckpoint(
+                    planSHA256: plan,
+                    lastCompletedInputOrdinal: 1
+                )
+                XCTAssertEqual(encoded, repeated)
+                let parsedValue = try ASHCanonicalJSONV4.parse(encoded)
+                guard case .object(let parsed) = parsedValue,
+                      case .string(let schemaID)? = parsed["schemaID"],
+                      case .object(let durableHistory)? = parsed["history"],
+                      case .integer(let durableCapacity)? =
+                        durableHistory["capacity"],
+                      case .array(let durableEntries)? =
+                        durableHistory["entries"] else {
+                    return XCTFail("tiled checkpoint root was not canonical")
+                }
+                XCTAssertEqual(
+                    schemaID,
+                    ASHPreparedTiledTemporalCheckpointV4.currentSchemaID
+                )
+                XCTAssertEqual(durableCapacity, 1)
+                XCTAssertEqual(durableEntries.count, 1)
+                checkpoint = encoded
+                try await resumedCPU.restoreTemporalCheckpoint(
+                    encoded,
+                    planSHA256: plan
+                )
+                do {
+                    try await resumedCPU.restoreTemporalCheckpoint(
+                        encoded,
+                        planSHA256: ASHSHA256V4(rawData: Data(
+                            "different-forced-tiled-plan".utf8
+                        ))
+                    )
+                    XCTFail("identity-mismatched tiled checkpoint was accepted")
+                } catch {
+                    XCTAssertEqual(
+                        error as? ASHPreparedTemporalCheckpointV4Error,
+                        .identityMismatch
+                    )
+                }
+                var nonCanonical = encoded
+                nonCanonical.append(0x0a)
+                do {
+                    try await resumedCPU.restoreTemporalCheckpoint(
+                        nonCanonical,
+                        planSHA256: plan
+                    )
+                    XCTFail("non-canonical tiled checkpoint was accepted")
+                } catch {
+                    XCTAssertEqual(
+                        error as? ASHPreparedTemporalCheckpointV4Error,
+                        .nonCanonicalEncoding
+                    )
+                }
+            } else if frameIndex == 2 {
+                let resumedOutput = try makeOutput(
+                    CGSize(width: 32, height: 24),
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                )
+                _ = try await resumedCPU.processTemporal(
+                    source: FramePixelBuffer(source),
+                    destinations: [FramePixelBuffer(resumedOutput)],
+                    timing: timing
+                )
+                XCTAssertEqual(
+                    try visibleBytes(resumedOutput),
+                    try visibleBytes(cpuOutput),
+                    "checkpoint resume changed the next tiled pixel"
+                )
+            }
+        }
+        XCTAssertNotNil(checkpoint)
+        let diagnostics = await tiledCPU.workspaceDiagnostics()
+        XCTAssertTrue(diagnostics.usesBoundedTiledTemporalPath)
+        XCTAssertEqual(diagnostics.temporalHistoryCount, 0)
+        XCTAssertEqual(diagnostics.tiledTemporalHistoryCapacity, 2)
+        XCTAssertEqual(diagnostics.tiledTemporalHistoryCount, 2)
+        XCTAssertEqual(
+            diagnostics.tiledSourceFullFrameSampleArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(
+            diagnostics.tiledOutputFullFrameSampleArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(
+            diagnostics.tiledMotionFullFrameVectorArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(
+            diagnostics.tiledReconstructionFullFrameSampleArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(diagnostics.tiledMaterializedAlignedSampleCount, 0)
+        XCTAssertEqual(
+            diagnostics.scalerFullPlaneSwiftArrayStagingSampleCount,
+            0
+        )
+        XCTAssertTrue(diagnostics.scalerUsesDirectPixelBufferIO)
+        XCTAssertLessThanOrEqual(
+            diagnostics.tiledLargestContiguousSampleAllocation,
+            policy.maximumRetainedTileSampleCount
+        )
+    }
+
+    func testTiledCancellationLeavesCanonicalStateAndSeekRetryExact()
+        async throws {
+        let policy = try forcedPreparedTilePolicy()
+        let cancelled = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy
+        )
+        let clean = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy
+        )
+        let plan = ASHSHA256V4(rawData: Data(
+            "forced-tiled-cancellation-plan".utf8
+        ))
+        let firstSource = try SyntheticNV12PixelBuffer.make(
+            width: 16,
+            height: 12,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        try write(pattern: .directionalEdges, to: firstSource)
+        attachProgressiveBT709(to: firstSource)
+        let firstTiming = FrameTiming(
+            frameIndex: 0,
+            presentationTime: .zero,
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        for subject in [cancelled, clean] {
+            let output = try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            )
+            _ = try await subject.processTemporal(
+                source: FramePixelBuffer(firstSource),
+                destinations: [FramePixelBuffer(output)],
+                timing: firstTiming
+            )
+        }
+        let checkpointBefore = try await cancelled.makeTemporalCheckpoint(
+            planSHA256: plan,
+            lastCompletedInputOrdinal: 0
+        )
+        await cancelled.setTiledTileBoundaryTestHook { tileIndex in
+            if tileIndex == 2 { throw CancellationError() }
+        }
+        let seekSource = try SyntheticNV12PixelBuffer.make(
+            width: 16,
+            height: 12,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        try write(pattern: .ramp, to: seekSource)
+        attachProgressiveBT709(to: seekSource)
+        let seekTiming = FrameTiming(
+            frameIndex: 1,
+            presentationTime: CMTime(value: 1, timescale: 30),
+            duration: CMTime(value: 1, timescale: 30),
+            temporalResetReason: .seek
+        )
+        let interruptedOutput = try makeOutput(
+            CGSize(width: 32, height: 24),
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        do {
+            _ = try await cancelled.processTemporal(
+                source: FramePixelBuffer(seekSource),
+                destinations: [FramePixelBuffer(interruptedOutput)],
+                timing: seekTiming
+            )
+            XCTFail("injected tiled cancellation did not escape")
+        } catch {
+            XCTAssertTrue(error is CancellationError)
+        }
+        await cancelled.setTiledTileBoundaryTestHook(nil)
+        let checkpointAfterCancellation = try await cancelled
+            .makeTemporalCheckpoint(
+                planSHA256: plan,
+                lastCompletedInputOrdinal: 0
+            )
+        XCTAssertEqual(
+            checkpointBefore,
+            checkpointAfterCancellation,
+            "cancelled tiled work committed temporal state"
+        )
+        let retryOutput = try makeOutput(
+            CGSize(width: 32, height: 24),
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let cleanOutput = try makeOutput(
+            CGSize(width: 32, height: 24),
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        let retryFrames = try await cancelled.processTemporal(
+            source: FramePixelBuffer(seekSource),
+            destinations: [FramePixelBuffer(retryOutput)],
+            timing: seekTiming
+        )
+        let cleanFrames = try await clean.processTemporal(
+            source: FramePixelBuffer(seekSource),
+            destinations: [FramePixelBuffer(cleanOutput)],
+            timing: seekTiming
+        )
+        let retryFrame = try XCTUnwrap(retryFrames.first)
+        let cleanFrame = try XCTUnwrap(cleanFrames.first)
+        XCTAssertEqual(retryFrame.temporalResetReason, .seek)
+        XCTAssertEqual(retryFrame.temporalGeneration, 2)
+        XCTAssertEqual(retryFrame.temporalGeneration,
+                       cleanFrame.temporalGeneration)
+        XCTAssertEqual(
+            try visibleBytes(retryOutput),
+            try visibleBytes(cleanOutput)
+        )
+    }
+
+    func testForcedTiledInterlacedStateDoesNotRestartAndResumesExactly()
+        async throws {
+        let policy = try forcedPreparedTilePolicy()
+        let uninterrupted = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy,
+            scanMode: .interlaced(.topFieldFirst)
+        )
+        let resumed = try makeDirectPrepared(
+            executionBackend: .cpu,
+            tilePolicy: policy,
+            scanMode: .interlaced(.topFieldFirst)
+        )
+        let plan = ASHSHA256V4(rawData: Data(
+            "forced-tiled-interlaced-plan".utf8
+        ))
+        var secondInputFrames: [TemporalOutputFrame] = []
+        for frameIndex in 0..<2 {
+            let source = try makeInterlacedSource()
+            let destinations = try (0..<2).map { _ in
+                FramePixelBuffer(try makeOutput(
+                    CGSize(width: 32, height: 24),
+                    pixelFormat:
+                        kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+                ))
+            }
+            let frames = try await uninterrupted.processTemporal(
+                source: FramePixelBuffer(source),
+                destinations: destinations,
+                timing: FrameTiming(
+                    frameIndex: frameIndex,
+                    presentationTime: CMTime(
+                        value: Int64(frameIndex),
+                        timescale: 30
+                    ),
+                    duration: CMTime(value: 1, timescale: 30)
+                )
+            )
+            XCTAssertEqual(frames.count, 2)
+            if frameIndex == 0 {
+                XCTAssertEqual(frames[0].temporalResetReason, .streamStart)
+            } else {
+                XCTAssertNotEqual(frames[0].temporalResetReason, .streamStart)
+                secondInputFrames = frames
+            }
+        }
+        let checkpoint = try await uninterrupted.makeTemporalCheckpoint(
+            planSHA256: plan,
+            lastCompletedInputOrdinal: 1
+        )
+        try await resumed.restoreTemporalCheckpoint(
+            checkpoint,
+            planSHA256: plan
+        )
+        XCTAssertEqual(secondInputFrames.count, 2)
+        let source = try makeInterlacedSource()
+        let uninterruptedDestinations = try (0..<2).map { _ in
+            FramePixelBuffer(try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            ))
+        }
+        let resumedDestinations = try (0..<2).map { _ in
+            FramePixelBuffer(try makeOutput(
+                CGSize(width: 32, height: 24),
+                pixelFormat:
+                    kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+            ))
+        }
+        let timing = FrameTiming(
+            frameIndex: 2,
+            presentationTime: CMTime(value: 2, timescale: 30),
+            duration: CMTime(value: 1, timescale: 30)
+        )
+        let uninterruptedFrames = try await uninterrupted.processTemporal(
+            source: FramePixelBuffer(source),
+            destinations: uninterruptedDestinations,
+            timing: timing
+        )
+        let resumedFrames = try await resumed.processTemporal(
+            source: FramePixelBuffer(source),
+            destinations: resumedDestinations,
+            timing: timing
+        )
+        XCTAssertEqual(
+            uninterruptedFrames.map(\.temporalResetReason),
+            resumedFrames.map(\.temporalResetReason)
+        )
+        for index in 0..<2 {
+            XCTAssertEqual(
+                try visibleBytes(uninterruptedDestinations[index].value),
+                try visibleBytes(resumedDestinations[index].value)
+            )
+        }
+    }
+
     func testCaptureV3BaselineWhenRequested() async throws {
         guard let requestedDirectory = ProcessInfo.processInfo.environment[
             "MIRMIR_V4_BASELINE_DIR"
@@ -575,6 +1248,86 @@ final class DeterministicMetalBackendTests: XCTestCase {
             descriptor: descriptor,
             runtimeProvider: .fixed(verifiedRuntime)
         ))
+    }
+
+    private func forcedPreparedTilePolicy() throws
+        -> ASHTemporalTilePolicyV4 {
+        try ASHTemporalTilePolicyV4(
+            policyID: "ash.test.prepared.tiles.8x8-motion4-spatial1",
+            tileWidth: 8,
+            tileHeight: 8,
+            searchHalo: 5,
+            maximumFrameWidth: 64,
+            maximumFrameHeight: 64
+        )
+    }
+
+    private func makeDirectPrepared(
+        executionBackend: FixedPointExecutionBackendV4,
+        tilePolicy: ASHTemporalTilePolicyV4?,
+        scanMode: DeterministicScanModeV4 = .progressive
+    ) throws -> PreparedDeterministicV4Upscaler {
+        let backendID: UpscaleBackendID = executionBackend == .cpu
+            ? .mirmirDeterministicCPU
+            : .mirmirDeterministicMetal
+        let configuration = DeterministicPreparedConfigurationV4(
+            backendID: backendID,
+            executionBackend: executionBackend,
+            storage: .nv12VideoRange8Bit,
+            sourceWidth: 16,
+            sourceHeight: 12,
+            targetWidth: 32,
+            targetHeight: 24,
+            scanMode: scanMode
+        )
+        if executionBackend == .cpu {
+            return try PreparedDeterministicV4Upscaler(
+                configuration: configuration,
+                runtime: verifiedRuntime,
+                temporalTilePolicy: tilePolicy
+            )
+        }
+        let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
+        let library = try ASHP06MetalLibraryFactoryV4.makeLibrary(
+            runtime: verifiedRuntime,
+            device: device
+        )
+        return try PreparedDeterministicV4Upscaler(
+            configuration: configuration,
+            runtime: verifiedRuntime,
+            temporalTilePolicy: tilePolicy,
+            metalDevice: device,
+            metalLibrary: library
+        )
+    }
+
+    private func makeInterlacedSource() throws -> CVPixelBuffer {
+        let source = try SyntheticNV12PixelBuffer.make(
+            width: 16,
+            height: 12,
+            pixelFormat: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        )
+        try write(pattern: .ramp, to: source)
+        attachProgressiveBT709(to: source)
+        CVBufferSetAttachment(
+            source,
+            kCVImageBufferFieldCountKey,
+            NSNumber(value: 2),
+            .shouldPropagate
+        )
+        CVBufferSetAttachment(
+            source,
+            kCVImageBufferFieldDetailKey,
+            kCVImageBufferFieldDetailTemporalTopFirst,
+            .shouldPropagate
+        )
+        CVBufferSetAttachment(
+            source,
+            kCVImageBufferChromaLocationBottomFieldKey,
+            kCVImageBufferChromaLocation_Left,
+            .shouldPropagate
+        )
+        return source
     }
 
     private func makeSourceInfo(

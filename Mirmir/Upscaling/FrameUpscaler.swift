@@ -30,6 +30,23 @@ struct FrameTiming: Equatable, Sendable {
     let frameIndex: Int
     let presentationTime: CMTime
     let duration: CMTime
+    /// A caller-observed semantic boundary that must clear temporal evidence
+    /// before this frame. PTS gaps are also detected by the deterministic v4
+    /// adapter; this field carries boundaries such as seeks and edit changes
+    /// that cannot be inferred from a pixel buffer alone.
+    let temporalResetReason: ASHTemporalResetReasonV4?
+
+    init(
+        frameIndex: Int,
+        presentationTime: CMTime,
+        duration: CMTime,
+        temporalResetReason: ASHTemporalResetReasonV4? = nil
+    ) {
+        self.frameIndex = frameIndex
+        self.presentationTime = presentationTime
+        self.duration = duration
+        self.temporalResetReason = temporalResetReason
+    }
 }
 
 struct BackendPreparationRequest: Equatable, Sendable {
@@ -101,6 +118,7 @@ struct TemporalOutputFrame: Sendable {
     let sourceField: TemporalOutputSourceFieldV4
     let cadenceID: String
     let temporalGeneration: UInt64
+    let temporalResetReason: ASHTemporalResetReasonV4?
 
     init(
         pixelBuffer: FramePixelBuffer,
@@ -108,7 +126,8 @@ struct TemporalOutputFrame: Sendable {
         duration: CMTime = .invalid,
         sourceField: TemporalOutputSourceFieldV4 = .progressive,
         cadenceID: String = "unspecified",
-        temporalGeneration: UInt64 = 0
+        temporalGeneration: UInt64 = 0,
+        temporalResetReason: ASHTemporalResetReasonV4? = nil
     ) {
         self.pixelBuffer = pixelBuffer
         self.presentationTime = presentationTime
@@ -116,6 +135,7 @@ struct TemporalOutputFrame: Sendable {
         self.sourceField = sourceField
         self.cadenceID = cadenceID
         self.temporalGeneration = temporalGeneration
+        self.temporalResetReason = temporalResetReason
     }
 }
 

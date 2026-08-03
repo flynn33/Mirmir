@@ -365,6 +365,322 @@ struct ASHPreparedTemporalCheckpointV4: Codable, Equatable, Hashable,
     }
 }
 
+/// Durable state for the bounded tiled production path. This is intentionally
+/// separate from the legacy contiguous checkpoint schema: decoding must never
+/// guess which allocation contract a payload was produced under.
+struct ASHPreparedTiledTemporalCheckpointV4: Codable, Equatable, Hashable,
+    Sendable {
+    static let currentSchemaID = "ash.prepared-tiled-temporal-checkpoint.v4.1"
+
+    let schemaID: String
+    let planSHA256: ASHSHA256V4
+    let runtimeManifestSHA256: ASHSHA256V4
+    let formatIdentity: ASHSHA256V4
+    let sourceStorage: PixelStorageV4
+    let sourceWidth: Int
+    let sourceHeight: Int
+    let targetWidth: Int
+    let targetHeight: Int
+    let scanModeID: String
+    let tilePolicy: ASHTemporalTilePolicyV4
+    let lastCompletedInputOrdinal: Int64
+    let nextOutputOrdinal: Int64
+    let lastCompletedOutputPresentationTime: ExactRationalV4
+    let history: ASHTemporalTiledHistoryV4
+    let previousMeasurementHistory: ASHCompactMeasurementHistoryV4
+    let previousSourceTiledFrame: ASHTemporalTiledFrameV4
+    let previousMeasurementStateRawValue: UInt16
+    let previousInterlacedFrame: PixelBufferSignalFrameV4?
+    let fieldCadenceState: DeterministicFieldCadenceStateV4?
+
+    init(
+        planSHA256: ASHSHA256V4,
+        runtimeManifestSHA256: ASHSHA256V4,
+        formatIdentity: ASHSHA256V4,
+        sourceStorage: PixelStorageV4,
+        sourceWidth: Int,
+        sourceHeight: Int,
+        targetWidth: Int,
+        targetHeight: Int,
+        scanModeID: String,
+        tilePolicy: ASHTemporalTilePolicyV4,
+        lastCompletedInputOrdinal: Int64,
+        nextOutputOrdinal: Int64,
+        lastCompletedOutputPresentationTime: ExactRationalV4,
+        history: ASHTemporalTiledHistoryV4,
+        previousMeasurementHistory: ASHCompactMeasurementHistoryV4,
+        previousSourceTiledFrame: ASHTemporalTiledFrameV4,
+        previousMeasurementStateRawValue: UInt16,
+        previousInterlacedFrame: PixelBufferSignalFrameV4?,
+        fieldCadenceState: DeterministicFieldCadenceStateV4?
+    ) throws {
+        schemaID = Self.currentSchemaID
+        self.planSHA256 = planSHA256
+        self.runtimeManifestSHA256 = runtimeManifestSHA256
+        self.formatIdentity = formatIdentity
+        self.sourceStorage = sourceStorage
+        self.sourceWidth = sourceWidth
+        self.sourceHeight = sourceHeight
+        self.targetWidth = targetWidth
+        self.targetHeight = targetHeight
+        self.scanModeID = scanModeID
+        self.tilePolicy = tilePolicy
+        self.lastCompletedInputOrdinal = lastCompletedInputOrdinal
+        self.nextOutputOrdinal = nextOutputOrdinal
+        self.lastCompletedOutputPresentationTime
+            = lastCompletedOutputPresentationTime
+        self.history = history
+        self.previousMeasurementHistory = previousMeasurementHistory
+        self.previousSourceTiledFrame = previousSourceTiledFrame
+        self.previousMeasurementStateRawValue
+            = previousMeasurementStateRawValue
+        self.previousInterlacedFrame = previousInterlacedFrame
+        self.fieldCadenceState = fieldCadenceState
+        try validate()
+    }
+
+    func validate() throws {
+        guard schemaID == Self.currentSchemaID else {
+            throw ASHPreparedTemporalCheckpointV4Error.unsupportedSchema(
+                schemaID
+            )
+        }
+        guard sourceWidth > 0,
+              sourceHeight > 0,
+              targetWidth > 0,
+              targetHeight > 0,
+              lastCompletedInputOrdinal >= 0,
+              nextOutputOrdinal > 0,
+              lastCompletedOutputPresentationTime >= .zero,
+              ASHTemporalFrameV4.validIdentifier(scanModeID) else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        do {
+            try tilePolicy.validate()
+            try history.validate()
+            try previousMeasurementHistory.validate()
+            try previousSourceTiledFrame.validate()
+            try previousInterlacedFrame?.validate()
+        } catch {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let sourceGrid: ASHTemporalTileGridV4
+        let targetGrid: ASHTemporalTileGridV4
+        do {
+            sourceGrid = try ASHTemporalTileGridV4(
+                frameWidth: sourceWidth,
+                frameHeight: sourceHeight,
+                policy: tilePolicy
+            )
+            targetGrid = try ASHTemporalTileGridV4(
+                frameWidth: targetWidth,
+                frameHeight: targetHeight,
+                policy: tilePolicy
+            )
+        } catch {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let completedInputCount = lastCompletedInputOrdinal
+            .addingReportingOverflow(1)
+        guard !completedInputCount.overflow,
+              completedInputCount.partialValue > 0,
+              let completedInputCountUnsigned = UInt64(
+                exactly: completedInputCount.partialValue
+              ) else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let outputsPerInput: Int64
+        switch scanModeID {
+        case "progressive":
+            outputsPerInput = 1
+        case "interlaced_tff_double_rate", "interlaced_bff_double_rate":
+            outputsPerInput = 2
+        default:
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let expectedOutputCount = completedInputCount.partialValue
+            .multipliedReportingOverflow(by: outputsPerInput)
+        let nextInputOrdinal = lastCompletedInputOrdinal
+            .addingReportingOverflow(1)
+        let outputHeadroom = nextOutputOrdinal
+            .addingReportingOverflow(outputsPerInput)
+        guard !expectedOutputCount.overflow,
+              expectedOutputCount.partialValue == nextOutputOrdinal,
+              !nextInputOrdinal.overflow,
+              !outputHeadroom.overflow,
+              // Only the immediately preceding reconstructed frame can affect
+              // the next pixel. Persisting the diagnostic second entry would
+              // make an 8K JSON checkpoint exceed the durable 256 MiB limit.
+              history.capacity == 1,
+              history.generation > 0,
+              history.generation < UInt64.max,
+              history.lastResetReason == nil,
+              history.entries.count == 1,
+              let latest = history.entries.last?.frame,
+              latest.ordinal == nextOutputOrdinal - 1,
+              latest.presentationTime
+                == lastCompletedOutputPresentationTime,
+              latest.grid == targetGrid,
+              latest.frameID == "v4-frame-\(latest.ordinal)",
+              latest.streamID == "primary-video",
+              latest.formatIdentity == formatIdentity else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let state: ASHState
+        do {
+            state = try ASHState(rawValue: previousMeasurementStateRawValue)
+        } catch {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        guard state.hasValidIntegrity,
+              latest.tiles.allSatisfy({
+                  $0.ashStateRawValue == previousMeasurementStateRawValue
+              }),
+              previousSourceTiledFrame.grid == sourceGrid,
+              previousSourceTiledFrame.ordinal == nextOutputOrdinal - 1,
+              previousSourceTiledFrame.presentationTime
+                == lastCompletedOutputPresentationTime,
+              previousSourceTiledFrame.frameID
+                == "v4-measurement-\(nextOutputOrdinal - 1)",
+              previousSourceTiledFrame.streamID
+                == "primary-video-measurement",
+              previousSourceTiledFrame.formatIdentity == formatIdentity,
+              previousSourceTiledFrame.tiles.allSatisfy({
+                  $0.ashStateRawValue == previousMeasurementStateRawValue
+              }),
+              previousMeasurementHistory.storage == sourceStorage,
+              previousMeasurementHistory.sourceWidth == sourceWidth,
+              previousMeasurementHistory.sourceHeight == sourceHeight,
+              previousMeasurementHistory.windowWidth == 32,
+              previousMeasurementHistory.windowHeight == 32,
+              previousSourceTiledFrame.cadenceID == latest.cadenceID else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let lumaBounds = PixelLayoutV4(storage: sourceStorage)
+            .planes[0].signalCodeBounds[0]
+        guard previousSourceTiledFrame.tiles.allSatisfy({
+                  $0.minimumCode == lumaBounds.minimum
+                      && $0.maximumCode == lumaBounds.maximum
+              }),
+              (try normalizedMeasurementWindowQ16(
+                  from: previousSourceTiledFrame
+              )) == previousMeasurementHistory.normalizedLumaWindowQ16 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let expectedCadenceID: String
+        if scanModeID == "progressive" {
+            guard previousInterlacedFrame == nil,
+                  fieldCadenceState == nil else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            expectedCadenceID = "progressive"
+        } else {
+            guard let previousInterlacedFrame,
+                  previousInterlacedFrame.storage == sourceStorage,
+                  previousInterlacedFrame.width == sourceWidth,
+                  previousInterlacedFrame.height == sourceHeight,
+                  let luma = previousInterlacedFrame.planes.first,
+                  let bounds = luma.componentBounds.first,
+                  let expectedRepeatThresholdQ16 = try?
+                    DeterministicFieldCadenceClassifierV4
+                        .normalizedRepeatThresholdQ16(
+                            minimumCode: bounds.minimum,
+                            maximumCode: bounds.maximum,
+                            repeatCodeDifference:
+                                sourceStorage.signalBitDepth == 10 ? 16 : 4
+                        ),
+                  let fieldCadenceState,
+                  (try? fieldCadenceState.validate()) != nil,
+                  fieldCadenceState.streamInputFrameCount
+                    == completedInputCountUnsigned,
+                  fieldCadenceState.observations.allSatisfy({
+                      $0.normalizedRepeatThresholdQ16
+                        == expectedRepeatThresholdQ16
+                  }) else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            expectedCadenceID = fieldCadenceState.cadenceID
+        }
+        guard latest.cadenceID == expectedCadenceID,
+              previousSourceTiledFrame.cadenceID == expectedCadenceID else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+    }
+
+    var canonicalData: Data {
+        get throws {
+            try validate()
+            return try ASHCanonicalJSONV4.encode(self)
+        }
+    }
+
+    static func decodeCanonical(
+        _ data: Data,
+        expectedPlanSHA256: ASHSHA256V4,
+        expectedRuntimeManifestSHA256: ASHSHA256V4,
+        expectedFormatIdentity: ASHSHA256V4,
+        expectedTilePolicy: ASHTemporalTilePolicyV4
+    ) throws -> Self {
+        let decoded = try JSONDecoder().decode(Self.self, from: data)
+        try decoded.validate()
+        guard decoded.planSHA256 == expectedPlanSHA256,
+              decoded.runtimeManifestSHA256
+                == expectedRuntimeManifestSHA256,
+              decoded.formatIdentity == expectedFormatIdentity,
+              decoded.tilePolicy == expectedTilePolicy else {
+            throw ASHPreparedTemporalCheckpointV4Error.identityMismatch
+        }
+        guard try ASHCanonicalJSONV4.encode(decoded) == data else {
+            throw ASHPreparedTemporalCheckpointV4Error.nonCanonicalEncoding
+        }
+        return decoded
+    }
+
+    private func normalizedMeasurementWindowQ16(
+        from frame: ASHTemporalTiledFrameV4
+    ) throws -> [UInt32] {
+        let scale = UInt64(ASHNormalizedQ16V4.scale)
+        guard let first = frame.tiles.first else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let range = UInt64(first.maximumCode - first.minimumCode)
+        guard range > 0 else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        var result = Array(repeating: UInt32(0), count: 32 * 32)
+        for y in 0..<32 {
+            let sourceY = min(y, frame.grid.frameHeight - 1)
+            for x in 0..<32 {
+                let sourceX = min(x, frame.grid.frameWidth - 1)
+                let column = sourceX / frame.grid.policy.tileWidth
+                let row = sourceY / frame.grid.policy.tileHeight
+                let tileIndex = row * frame.grid.columns + column
+                guard frame.tiles.indices.contains(tileIndex) else {
+                    throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                }
+                let code = try frame.tiles[tileIndex].sample(
+                    x: sourceX,
+                    y: sourceY
+                )
+                let numerator = UInt64(code - first.minimumCode) * scale
+                let quotient = numerator / range
+                let remainder = numerator % range
+                let complement = range - remainder
+                let rounded = remainder > complement
+                    || (remainder == complement && quotient & 1 == 1)
+                    ? quotient + 1
+                    : quotient
+                guard let value = UInt32(exactly: rounded),
+                      value <= ASHNormalizedQ16V4.scale else {
+                    throw ASHPreparedTemporalCheckpointV4Error.invalidState
+                }
+                result[y * 32 + x] = value
+            }
+        }
+        return result
+    }
+}
+
 private final class ASHPreparedProcessingWorkspaceV4 {
     var sourceLuma = PixelBufferLumaWorkspaceV4()
     var outputLuma = PixelBufferLumaWorkspaceV4()
@@ -372,10 +688,28 @@ private final class ASHPreparedProcessingWorkspaceV4 {
     var spatial = ASHSpatialReconstructionWorkspaceV4()
 }
 
+/// Immutable proof of the allocation shape selected during preparation. The
+/// media pixel buffers themselves necessarily cover the full raster; this
+/// contract is specifically for ASH temporal/spatial Swift sample storage,
+/// where no single allocation may scale with the full frame.
+struct ASHPreparedTiledAllocationContractV4: Equatable, Sendable {
+    let policyID: String
+    let sourceFullFrameSampleCount: Int
+    let sourceTileCount: Int
+    let targetFullFrameSampleCount: Int
+    let targetTileCount: Int
+    let maximumRetainedTileSampleCount: Int
+    let maximumOutputTileSampleCount: Int
+    let fullFrameSampleArrayAllocationCap: Int
+}
+
 #if DEBUG
 struct ASHPreparedWorkspaceDiagnosticsV4: Equatable, Sendable {
+    let usesBoundedTiledTemporalPath: Bool
     let temporalHistoryCapacity: Int
     let temporalHistoryCount: Int
+    let tiledTemporalHistoryCapacity: Int
+    let tiledTemporalHistoryCount: Int
     let measurementHistorySampleCount: Int
     let sourceLumaAllocationCounts: [Int]
     let sourceLumaStorageIdentities: [UInt]
@@ -390,6 +724,17 @@ struct ASHPreparedWorkspaceDiagnosticsV4: Equatable, Sendable {
     let spatialStorageIdentities: [UInt]
     let lastSourceMaterializedAlignedSampleCount: Int
     let lastOutputMaterializedAlignedSampleCount: Int
+    let tiledSourceFullFrameSampleArrayAllocationCount: Int
+    let tiledOutputFullFrameSampleArrayAllocationCount: Int
+    let tiledMotionFullFrameVectorArrayAllocationCount: Int
+    let tiledReconstructionFullFrameSampleArrayAllocationCount: Int
+    let tiledLargestContiguousSampleAllocation: Int
+    let tiledLargestContiguousMotionVectorAllocation: Int
+    let tiledMaterializedAlignedSampleCount: Int
+    let scalerFullPlaneSwiftArrayStagingSampleCount: Int
+    let scalerUsesDirectPixelBufferIO: Bool
+    let scalerCPUReusableHorizontalSampleCount: Int
+    let scalerMetalRetainedPlanarSampleCount: Int
     let interlacedNormalizedSourceIdentities: [UInt]
 }
 #endif
@@ -404,6 +749,10 @@ actor PreparedDeterministicV4Upscaler:
     nonisolated let deterministicStorage: PixelStorageV4
     nonisolated let deterministicExecutor: ASHExecutorV4
     nonisolated let maximumOutputFramesPerInput: Int
+    nonisolated let usesBoundedTiledTemporalPath: Bool
+    nonisolated let temporalTilePolicy: ASHTemporalTilePolicyV4?
+    nonisolated let tiledAllocationContract:
+        ASHPreparedTiledAllocationContractV4?
 
     private let configuration: DeterministicPreparedConfigurationV4
     private let runtime: ASHVerifiedRuntimeBundleV4
@@ -416,23 +765,37 @@ actor PreparedDeterministicV4Upscaler:
     private let processingWorkspaces: [ASHPreparedProcessingWorkspaceV4]
 
     private var temporalHistory: ASHTemporalHistoryV4
+    private var tiledTemporalHistory: ASHTemporalTiledHistoryV4
     private var previousMeasurementHistory: ASHCompactMeasurementHistoryV4?
     private var previousSourceLumaFrame: ASHTemporalFrameV4?
+    private var previousSourceTiledFrame: ASHTemporalTiledFrameV4?
     private var previousMeasurementState: ASHState?
     private var previousInterlacedFrame: PixelBufferSignalFrameV4?
     private var fieldCadenceState: DeterministicFieldCadenceStateV4?
     private var outputOrdinal: Int64 = 0
     private var lastCompletedInputOrdinal: Int64 = -1
     private var lastOutputPresentationTime = ExactRationalV4.zero
+    private var lastInputPresentationTime: ExactRationalV4?
+    private var lastInputDuration: ExactRationalV4?
     private var finished = false
     private var operationInFlight = false
 #if DEBUG
     private var interlacedOutputBoundaryTestHook:
         (@Sendable (Int) async throws -> Void)?
+    private var tiledTileBoundaryTestHook:
+        (@Sendable (Int) async throws -> Void)?
     private var lastSourceMotionAllocationDiagnostics:
         ASHTemporalMotionAllocationDiagnosticsV4?
     private var lastOutputMotionAllocationDiagnostics:
         ASHTemporalMotionAllocationDiagnosticsV4?
+    private var lastTiledSourceCaptureDiagnostics:
+        ASHTemporalTileAllocationDiagnosticsV4?
+    private var lastTiledOutputCaptureDiagnostics:
+        ASHTemporalTileAllocationDiagnosticsV4?
+    private var lastTiledMotionAllocationDiagnostics:
+        ASHTemporalTiledMotionAllocationDiagnosticsV4?
+    private var lastTiledReconstructionDiagnostics:
+        ASHTemporalTiledReconstructionDiagnosticsV4?
 #endif
 
     private var scanModeIdentity: String {
@@ -450,6 +813,8 @@ actor PreparedDeterministicV4Upscaler:
         configuration: DeterministicPreparedConfigurationV4,
         runtime: ASHVerifiedRuntimeBundleV4,
         executionSchedule: FixedPointExecutionScheduleV4 = .productionFullFrame,
+        temporalTilePolicy requestedTemporalTilePolicy:
+            ASHTemporalTilePolicyV4? = nil,
         metalDevice: MTLDevice? = nil,
         metalLibrary: MTLLibrary? = nil
     ) throws {
@@ -470,7 +835,74 @@ actor PreparedDeterministicV4Upscaler:
             : .metalFixedPoint
         self.maximumOutputFramesPerInput = configuration.scanMode
             == .progressive ? 1 : 2
+        let sourceSampleCount = configuration.sourceWidth
+            .multipliedReportingOverflow(by: configuration.sourceHeight)
+        let targetSampleCount = configuration.targetWidth
+            .multipliedReportingOverflow(by: configuration.targetHeight)
+        let requiresTiling = sourceSampleCount.overflow
+            || targetSampleCount.overflow
+            || sourceSampleCount.partialValue
+                > ASHTemporalPlaneV4.maximumSampleCount
+            || targetSampleCount.partialValue
+                > ASHTemporalPlaneV4.maximumSampleCount
+        let selectedTemporalTilePolicy = requestedTemporalTilePolicy
+            ?? (requiresTiling ? .canonical : nil)
+        let sourceTemporalGrid: ASHTemporalTileGridV4?
+        let targetTemporalGrid: ASHTemporalTileGridV4?
+        if let selectedTemporalTilePolicy {
+            let motionConfiguration =
+                ASHTemporalBlockMatchingConfigurationV4.canonical
+            guard selectedTemporalTilePolicy.tileWidth
+                    % motionConfiguration.blockWidth == 0,
+                  selectedTemporalTilePolicy.tileHeight
+                    % motionConfiguration.blockHeight == 0,
+                  selectedTemporalTilePolicy.searchHalo
+                    >= ASHTemporalBlockMatchingConfigurationV4.canonical
+                        .searchRadius + 1 else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            sourceTemporalGrid = try ASHTemporalTileGridV4(
+                frameWidth: configuration.sourceWidth,
+                frameHeight: configuration.sourceHeight,
+                policy: selectedTemporalTilePolicy
+            )
+            targetTemporalGrid = try ASHTemporalTileGridV4(
+                frameWidth: configuration.targetWidth,
+                frameHeight: configuration.targetHeight,
+                policy: selectedTemporalTilePolicy
+            )
+        } else {
+            sourceTemporalGrid = nil
+            targetTemporalGrid = nil
+        }
+        self.temporalTilePolicy = selectedTemporalTilePolicy
+        self.usesBoundedTiledTemporalPath
+            = selectedTemporalTilePolicy != nil
+        if let selectedTemporalTilePolicy,
+           let sourceTemporalGrid,
+           let targetTemporalGrid {
+            self.tiledAllocationContract =
+                ASHPreparedTiledAllocationContractV4(
+                    policyID: selectedTemporalTilePolicy.policyID,
+                    sourceFullFrameSampleCount:
+                        sourceTemporalGrid.fullFrameSampleCount,
+                    sourceTileCount: sourceTemporalGrid.tileCount,
+                    targetFullFrameSampleCount:
+                        targetTemporalGrid.fullFrameSampleCount,
+                    targetTileCount: targetTemporalGrid.tileCount,
+                    maximumRetainedTileSampleCount:
+                        selectedTemporalTilePolicy
+                            .maximumRetainedTileSampleCount,
+                    maximumOutputTileSampleCount:
+                        selectedTemporalTilePolicy.tileWidth
+                            * selectedTemporalTilePolicy.tileHeight,
+                    fullFrameSampleArrayAllocationCap: 0
+                )
+        } else {
+            self.tiledAllocationContract = nil
+        }
         self.temporalHistory = try ASHTemporalHistoryV4(capacity: 1)
+        self.tiledTemporalHistory = try ASHTemporalTiledHistoryV4(capacity: 2)
         self.processingWorkspaces = (0..<3).map { _ in
             ASHPreparedProcessingWorkspaceV4()
         }
@@ -588,8 +1020,15 @@ actor PreparedDeterministicV4Upscaler:
             let inputOrdinal = try validatedNextInputOrdinal(timing.frameIndex)
             try validateOutputOrdinalHeadroom()
             try Task.checkCancellation()
+            let inputResetReason = try temporalBoundaryReason(for: timing)
             switch configuration.scanMode {
             case .progressive:
+                let hasPreviousSource = usesBoundedTiledTemporalPath
+                    ? previousSourceTiledFrame != nil
+                    : previousSourceLumaFrame != nil
+                let resetReason = !hasPreviousSource
+                    ? ASHTemporalResetReasonV4.streamStart
+                    : inputResetReason
                 let output = try await processProgressive(
                     source: source.value,
                     destination: destinations[0].value,
@@ -598,18 +1037,20 @@ actor PreparedDeterministicV4Upscaler:
                     sourceField: .progressive,
                     sourceFrameIndex: timing.frameIndex,
                     cadenceID: "progressive",
-                    resetTrigger: previousSourceLumaFrame == nil
-                        ? .streamStart : nil,
+                    resetTrigger: resetReason?.measurementTrigger,
+                    typedResetReason: resetReason,
                     suppressAutomaticSceneCutReset: false
                 )
                 lastCompletedInputOrdinal = inputOrdinal
+                recordCompletedInputTiming(timing)
                 return [output]
             case .interlaced(let dominance):
                 return try await processInterlaced(
                     source: source.value,
                     destinations: destinations,
                     timing: timing,
-                    dominance: dominance
+                    dominance: dominance,
+                    inputResetReason: inputResetReason
                 )
             }
         } catch is CancellationError {
@@ -632,11 +1073,15 @@ actor PreparedDeterministicV4Upscaler:
         guard !finished else { return }
         try Task.checkCancellation()
         try temporalHistory.reset(reason: .explicitReset)
+        try tiledTemporalHistory.reset(reason: .explicitReset)
         previousMeasurementHistory = nil
         previousSourceLumaFrame = nil
+        previousSourceTiledFrame = nil
         previousMeasurementState = nil
         previousInterlacedFrame = nil
         fieldCadenceState = nil
+        lastInputPresentationTime = nil
+        lastInputDuration = nil
         finished = true
     }
 
@@ -650,10 +1095,22 @@ actor PreparedDeterministicV4Upscaler:
         interlacedOutputBoundaryTestHook = hook
     }
 
+    /// Deterministic failure injection after a retained tile is spatially
+    /// conditioned but before any temporal state is committed.
+    func setTiledTileBoundaryTestHook(
+        _ hook: (@Sendable (Int) async throws -> Void)?
+    ) {
+        tiledTileBoundaryTestHook = hook
+    }
+
     func workspaceDiagnostics() -> ASHPreparedWorkspaceDiagnosticsV4 {
-        ASHPreparedWorkspaceDiagnosticsV4(
+        let scalerDiagnostics = scaler.hotPathDiagnostics()
+        return ASHPreparedWorkspaceDiagnosticsV4(
+            usesBoundedTiledTemporalPath: usesBoundedTiledTemporalPath,
             temporalHistoryCapacity: temporalHistory.capacity,
             temporalHistoryCount: temporalHistory.frames.count,
+            tiledTemporalHistoryCapacity: tiledTemporalHistory.capacity,
+            tiledTemporalHistoryCount: tiledTemporalHistory.entries.count,
             measurementHistorySampleCount: previousMeasurementHistory?
                 .normalizedLumaWindowQ16.count ?? 0,
             sourceLumaAllocationCounts: processingWorkspaces.map {
@@ -695,6 +1152,42 @@ actor PreparedDeterministicV4Upscaler:
             lastOutputMaterializedAlignedSampleCount:
                 lastOutputMotionAllocationDiagnostics?
                     .materializedAlignedSampleCount ?? 0,
+            tiledSourceFullFrameSampleArrayAllocationCount:
+                lastTiledSourceCaptureDiagnostics?
+                    .fullFrameSampleArrayAllocationCount ?? 0,
+            tiledOutputFullFrameSampleArrayAllocationCount:
+                lastTiledOutputCaptureDiagnostics?
+                    .fullFrameSampleArrayAllocationCount ?? 0,
+            tiledMotionFullFrameVectorArrayAllocationCount:
+                lastTiledMotionAllocationDiagnostics?
+                    .fullFrameMotionVectorArrayAllocationCount ?? 0,
+            tiledReconstructionFullFrameSampleArrayAllocationCount:
+                lastTiledReconstructionDiagnostics?
+                    .fullFrameSampleArrayAllocationCount ?? 0,
+            tiledLargestContiguousSampleAllocation: max(
+                lastTiledSourceCaptureDiagnostics?
+                    .largestContiguousSampleAllocation ?? 0,
+                max(
+                    lastTiledOutputCaptureDiagnostics?
+                        .largestContiguousSampleAllocation ?? 0,
+                    lastTiledReconstructionDiagnostics?
+                        .largestContiguousSampleAllocation ?? 0
+                )
+            ),
+            tiledLargestContiguousMotionVectorAllocation:
+                lastTiledMotionAllocationDiagnostics?
+                    .largestContiguousMotionVectorAllocation ?? 0,
+            tiledMaterializedAlignedSampleCount:
+                lastTiledReconstructionDiagnostics?
+                    .materializedAlignedSampleCount ?? 0,
+            scalerFullPlaneSwiftArrayStagingSampleCount:
+                scalerDiagnostics.fullPlaneSwiftArrayStagingSampleCount,
+            scalerUsesDirectPixelBufferIO:
+                scalerDiagnostics.usesDirectPixelBufferIO,
+            scalerCPUReusableHorizontalSampleCount:
+                scalerDiagnostics.cpuReusableHorizontalSampleCount,
+            scalerMetalRetainedPlanarSampleCount:
+                scalerDiagnostics.metalRetainedPlanarSampleCount,
             interlacedNormalizedSourceIdentities:
                 interlacedNormalizedSources.map {
                     UInt(bitPattern: Unmanaged.passUnretained($0).toOpaque())
@@ -719,6 +1212,47 @@ actor PreparedDeterministicV4Upscaler:
                 expected: lastCompletedInputOrdinal,
                 actual: requestedInputOrdinal
             )
+        }
+        if usesBoundedTiledTemporalPath {
+            guard let tilePolicy = temporalTilePolicy,
+                  let previousMeasurementHistory,
+                  let previousSourceTiledFrame,
+                  let previousMeasurementState,
+                  let latestEntry = tiledTemporalHistory.entries.last else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            let durableHistory = try ASHTemporalTiledHistoryV4(
+                generation: tiledTemporalHistory.generation,
+                capacity: 1,
+                entries: [ASHTemporalTiledHistoryEntryV4(
+                    frame: latestEntry.frame,
+                    motionFromPrevious: nil
+                )],
+                lastResetReason: nil
+            )
+            return try ASHPreparedTiledTemporalCheckpointV4(
+                planSHA256: planSHA256,
+                runtimeManifestSHA256: runtime.manifestSHA256,
+                formatIdentity: formatIdentity,
+                sourceStorage: configuration.storage,
+                sourceWidth: configuration.sourceWidth,
+                sourceHeight: configuration.sourceHeight,
+                targetWidth: configuration.targetWidth,
+                targetHeight: configuration.targetHeight,
+                scanModeID: scanModeIdentity,
+                tilePolicy: tilePolicy,
+                lastCompletedInputOrdinal: lastCompletedInputOrdinal,
+                nextOutputOrdinal: outputOrdinal,
+                lastCompletedOutputPresentationTime:
+                    lastOutputPresentationTime,
+                history: durableHistory,
+                previousMeasurementHistory: previousMeasurementHistory,
+                previousSourceTiledFrame: previousSourceTiledFrame,
+                previousMeasurementStateRawValue:
+                    previousMeasurementState.rawValue,
+                previousInterlacedFrame: previousInterlacedFrame,
+                fieldCadenceState: fieldCadenceState
+            ).canonicalData
         }
         return try ASHPreparedTemporalCheckpointV4(
             planSHA256: planSHA256,
@@ -752,6 +1286,51 @@ actor PreparedDeterministicV4Upscaler:
                 "a finished engine cannot restore a checkpoint"
             )
         }
+        if usesBoundedTiledTemporalPath {
+            guard let tilePolicy = temporalTilePolicy else {
+                throw ASHPreparedTemporalCheckpointV4Error.invalidState
+            }
+            let checkpoint = try ASHPreparedTiledTemporalCheckpointV4
+                .decodeCanonical(
+                    data,
+                    expectedPlanSHA256: planSHA256,
+                    expectedRuntimeManifestSHA256: runtime.manifestSHA256,
+                    expectedFormatIdentity: formatIdentity,
+                    expectedTilePolicy: tilePolicy
+                )
+            guard checkpoint.sourceStorage == configuration.storage,
+                  checkpoint.sourceWidth == configuration.sourceWidth,
+                  checkpoint.sourceHeight == configuration.sourceHeight,
+                  checkpoint.targetWidth == configuration.targetWidth,
+                  checkpoint.targetHeight == configuration.targetHeight,
+                  checkpoint.scanModeID == scanModeIdentity else {
+                throw ASHPreparedTemporalCheckpointV4Error.identityMismatch
+            }
+            tiledTemporalHistory = try ASHTemporalTiledHistoryV4(
+                generation: checkpoint.history.generation,
+                capacity: 2,
+                entries: checkpoint.history.entries,
+                lastResetReason: checkpoint.history.lastResetReason
+            )
+            temporalHistory = try ASHTemporalHistoryV4(capacity: 1)
+            outputOrdinal = checkpoint.nextOutputOrdinal
+            lastCompletedInputOrdinal = checkpoint
+                .lastCompletedInputOrdinal
+            lastOutputPresentationTime = checkpoint
+                .lastCompletedOutputPresentationTime
+            previousMeasurementHistory = checkpoint
+                .previousMeasurementHistory
+            previousSourceTiledFrame = checkpoint.previousSourceTiledFrame
+            previousSourceLumaFrame = nil
+            previousMeasurementState = try ASHState(
+                rawValue: checkpoint.previousMeasurementStateRawValue
+            )
+            previousInterlacedFrame = checkpoint.previousInterlacedFrame
+            fieldCadenceState = checkpoint.fieldCadenceState
+            lastInputPresentationTime = nil
+            lastInputDuration = nil
+            return
+        }
         let checkpoint = try ASHPreparedTemporalCheckpointV4.decodeCanonical(
             data,
             expectedPlanSHA256: planSHA256,
@@ -765,45 +1344,61 @@ actor PreparedDeterministicV4Upscaler:
             throw ASHPreparedTemporalCheckpointV4Error.identityMismatch
         }
         temporalHistory = checkpoint.history
+        tiledTemporalHistory = try ASHTemporalTiledHistoryV4(capacity: 2)
         outputOrdinal = checkpoint.nextOutputOrdinal
         lastCompletedInputOrdinal = checkpoint.lastCompletedInputOrdinal
         lastOutputPresentationTime = checkpoint
             .lastCompletedOutputPresentationTime
         previousMeasurementHistory = checkpoint.previousMeasurementHistory
         previousSourceLumaFrame = checkpoint.previousSourceLumaFrame
+        previousSourceTiledFrame = nil
         previousMeasurementState = try checkpoint
             .previousMeasurementStateRawValue.map(ASHState.init(rawValue:))
         previousInterlacedFrame = checkpoint.previousInterlacedFrame
         fieldCadenceState = checkpoint.fieldCadenceState
+        // The media cursor owns source-duration continuity across a durable
+        // boundary. Require its first resumed frame to carry an explicit
+        // discontinuity when applicable instead of guessing from output PTS.
+        lastInputPresentationTime = nil
+        lastInputDuration = nil
     }
 
     private func processInterlaced(
         source: CVPixelBuffer,
         destinations: [FramePixelBuffer],
         timing: FrameTiming,
-        dominance: FieldDominanceV4
+        dominance: FieldDominanceV4,
+        inputResetReason: ASHTemporalResetReasonV4?
     ) async throws -> [TemporalOutputFrame] {
         let initialTemporalHistory = temporalHistory
+        let initialTiledTemporalHistory = tiledTemporalHistory
         let initialPreviousMeasurementHistory = previousMeasurementHistory
         let initialPreviousSourceLumaFrame = previousSourceLumaFrame
+        let initialPreviousSourceTiledFrame = previousSourceTiledFrame
         let initialPreviousMeasurementState = previousMeasurementState
         let initialPreviousInterlacedFrame = previousInterlacedFrame
         let initialFieldCadenceState = fieldCadenceState
         let initialOutputOrdinal = outputOrdinal
         let initialLastCompletedInputOrdinal = lastCompletedInputOrdinal
         let initialLastOutputPresentationTime = lastOutputPresentationTime
+        let initialLastInputPresentationTime = lastInputPresentationTime
+        let initialLastInputDuration = lastInputDuration
         var completedTransaction = false
         defer {
             if !completedTransaction {
                 temporalHistory = initialTemporalHistory
+                tiledTemporalHistory = initialTiledTemporalHistory
                 previousMeasurementHistory = initialPreviousMeasurementHistory
                 previousSourceLumaFrame = initialPreviousSourceLumaFrame
+                previousSourceTiledFrame = initialPreviousSourceTiledFrame
                 previousMeasurementState = initialPreviousMeasurementState
                 previousInterlacedFrame = initialPreviousInterlacedFrame
                 fieldCadenceState = initialFieldCadenceState
                 outputOrdinal = initialOutputOrdinal
                 lastCompletedInputOrdinal = initialLastCompletedInputOrdinal
                 lastOutputPresentationTime = initialLastOutputPresentationTime
+                lastInputPresentationTime = initialLastInputPresentationTime
+                lastInputDuration = initialLastInputDuration
             }
         }
         try preflightInterlacedCallerDestinations(
@@ -937,6 +1532,9 @@ actor PreparedDeterministicV4Upscaler:
         }
         var outputs: [TemporalOutputFrame] = []
         outputs.reserveCapacity(2)
+        let hadPreviousTemporalSource = usesBoundedTiledTemporalPath
+            ? previousSourceTiledFrame != nil
+            : previousSourceLumaFrame != nil
         for outputIndex in 0..<2 {
 #if DEBUG
             try await interlacedOutputBoundaryTestHook?(outputIndex)
@@ -987,9 +1585,18 @@ actor PreparedDeterministicV4Upscaler:
                 sourceFrameIndex: timing.frameIndex,
                 cadenceID: cadenceID,
                 resetTrigger: outputIndex == 0
-                    ? (previousSourceLumaFrame == nil
-                        ? .streamStart
-                        : (cadenceChanged ? .fieldCadenceChange : nil))
+                    ? (!hadPreviousTemporalSource
+                        ? ASHMeasurementResetTriggerV4.streamStart
+                        : (inputResetReason?.measurementTrigger
+                            ?? (cadenceChanged
+                                ? .fieldCadenceChange : nil)))
+                    : nil,
+                typedResetReason: outputIndex == 0
+                    ? (!hadPreviousTemporalSource
+                        ? ASHTemporalResetReasonV4.streamStart
+                        : (inputResetReason
+                            ?? (cadenceChanged
+                                ? .fieldCadenceChange : nil)))
                     : nil,
                 suppressAutomaticSceneCutReset:
                     cadenceChanged && outputIndex == 1
@@ -1008,6 +1615,7 @@ actor PreparedDeterministicV4Upscaler:
             throw ASHPreparedTemporalCheckpointV4Error.ordinalOverflow
         }
         lastCompletedInputOrdinal = completedInputOrdinal
+        recordCompletedInputTiming(timing)
         completedTransaction = true
         return outputs.enumerated().map { index, output in
             TemporalOutputFrame(
@@ -1016,7 +1624,8 @@ actor PreparedDeterministicV4Upscaler:
                 duration: output.duration,
                 sourceField: output.sourceField,
                 cadenceID: output.cadenceID,
-                temporalGeneration: output.temporalGeneration
+                temporalGeneration: output.temporalGeneration,
+                temporalResetReason: output.temporalResetReason
             )
         }
     }
@@ -1370,12 +1979,29 @@ actor PreparedDeterministicV4Upscaler:
         sourceFrameIndex: Int,
         cadenceID: String,
         resetTrigger: ASHMeasurementResetTriggerV4?,
+        typedResetReason: ASHTemporalResetReasonV4?,
         suppressAutomaticSceneCutReset: Bool
     ) async throws -> TemporalOutputFrame {
         let exactPTS = try ExactRationalV4(
             presentationTime.value,
             Int64(presentationTime.timescale)
         )
+        if usesBoundedTiledTemporalPath {
+            return try await processProgressiveTiled(
+                source: source,
+                destination: destination,
+                presentationTime: presentationTime,
+                duration: duration,
+                sourceField: sourceField,
+                sourceFrameIndex: sourceFrameIndex,
+                cadenceID: cadenceID,
+                resetTrigger: resetTrigger,
+                typedResetReason: typedResetReason,
+                suppressAutomaticSceneCutReset:
+                    suppressAutomaticSceneCutReset,
+                exactPTS: exactPTS
+            )
+        }
         guard !processingWorkspaces.isEmpty else {
             throw ASHPreparedTemporalCheckpointV4Error.invalidState
         }
@@ -1492,7 +2118,8 @@ actor PreparedDeterministicV4Upscaler:
             )
         }
 
-        var resetReason = effectiveMeasurementReset.map(temporalResetReason)
+        var resetReason = typedResetReason
+            ?? effectiveMeasurementReset.map(temporalResetReason)
         var motionField: ASHTemporalMotionFieldV4?
         let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
             .probeDynamicMetadata(from: source)
@@ -1500,7 +2127,7 @@ actor PreparedDeterministicV4Upscaler:
         // the spatial path for that frame rather than blending content under
         // metadata that the engine cannot regenerate.
         if dynamicMetadata != nil {
-            resetReason = .colorDomainChange
+            resetReason = .hdrMetadataChange
         } else if forceSpatialFallbackForSuppressedPairedFieldCut {
             // Output zero already established the new cadence generation.
             // A cut between the paired fields must not blend old evidence or
@@ -1550,15 +2177,6 @@ actor PreparedDeterministicV4Upscaler:
                 program: branchProgram
             )
         }
-        try PixelBufferSignalCodecV4.writeLuma(
-            from: workspace.outputLuma,
-            to: destination,
-            storage: configuration.storage
-        )
-
-        if let resetReason {
-            try temporalHistory.reset(reason: resetReason)
-        }
         let emittedFrame = try ASHTemporalFrameV4(
             frameID: "v4-frame-\(outputOrdinal)",
             streamID: "primary-video",
@@ -1569,7 +2187,17 @@ actor PreparedDeterministicV4Upscaler:
             tileStateRawValues: [measurement.projection.state.rawValue],
             cadenceID: cadenceID
         )
-        try temporalHistory.append(emittedFrame)
+        var nextTemporalHistory = temporalHistory
+        if let resetReason {
+            try nextTemporalHistory.reset(reason: resetReason)
+        }
+        try nextTemporalHistory.append(emittedFrame)
+        try PixelBufferSignalCodecV4.writeLuma(
+            from: workspace.outputLuma,
+            to: destination,
+            storage: configuration.storage
+        )
+        temporalHistory = nextTemporalHistory
         previousMeasurementHistory = directMeasurement.compactHistory
         previousSourceLumaFrame = retainedSourceFrame
         previousMeasurementState = measurement.projection.state
@@ -1581,7 +2209,284 @@ actor PreparedDeterministicV4Upscaler:
             duration: duration,
             sourceField: sourceField,
             cadenceID: cadenceID,
-            temporalGeneration: temporalHistory.generation
+            temporalGeneration: temporalHistory.generation,
+            temporalResetReason: resetReason
+        )
+    }
+
+    /// Resolution-independent temporal path. Source/output samples, spatial
+    /// conditioning, motion fields, history, and emitted pixels are all
+    /// partitioned by the selected canonical tile policy. The fixed-point
+    /// scaler itself already uses direct CVPixelBuffer I/O.
+    private func processProgressiveTiled(
+        source: CVPixelBuffer,
+        destination: CVPixelBuffer,
+        presentationTime: CMTime,
+        duration: CMTime,
+        sourceField: TemporalOutputSourceFieldV4,
+        sourceFrameIndex: Int,
+        cadenceID: String,
+        resetTrigger: ASHMeasurementResetTriggerV4?,
+        typedResetReason: ASHTemporalResetReasonV4?,
+        suppressAutomaticSceneCutReset: Bool,
+        exactPTS: ExactRationalV4
+    ) async throws -> TemporalOutputFrame {
+        guard let policy = temporalTilePolicy,
+              !processingWorkspaces.isEmpty else {
+            throw ASHPreparedTemporalCheckpointV4Error.invalidState
+        }
+        let workspaceIndex = Int(
+            outputOrdinal % Int64(processingWorkspaces.count)
+        )
+        let workspace = processingWorkspaces[workspaceIndex]
+        let neutralState = try ASHState(rawValue: 0)
+        let sourceCapture = try PixelBufferSignalCodecV4.readTiledLuma(
+            source,
+            storage: configuration.storage,
+            frameID: "v4-measurement-\(outputOrdinal)",
+            streamID: "primary-video-measurement",
+            formatIdentity: formatIdentity,
+            ordinal: outputOrdinal,
+            presentationTime: exactPTS,
+            cadenceID: cadenceID,
+            policy: policy,
+            stateForTile: { _ in neutralState }
+        )
+        var measurementMotion: ASHTemporalTiledMotionResultV4?
+        if resetTrigger == nil,
+           outputOrdinal > 0,
+           lastOutputPresentationTime < exactPTS,
+           let previousSourceTiledFrame {
+            measurementMotion = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                current: sourceCapture.frame,
+                previous: previousSourceTiledFrame
+            )
+        }
+        let effectiveMeasurementReset: ASHMeasurementResetTriggerV4?
+        if let resetTrigger {
+            effectiveMeasurementReset = resetTrigger
+        } else if measurementMotion?.field.sceneCut == true,
+                  !suppressAutomaticSceneCutReset {
+            effectiveMeasurementReset = .sceneCut
+        } else {
+            effectiveMeasurementReset = nil
+        }
+        let forceSpatialFallbackForSuppressedPairedFieldCut =
+            suppressAutomaticSceneCutReset
+                && measurementMotion?.field.sceneCut == true
+        let measurementHistory: ASHMeasurementHistoryV4
+        if let effectiveMeasurementReset {
+            measurementHistory = .reset(effectiveMeasurementReset)
+        } else if let previousMeasurementState {
+            measurementHistory = .continuous(
+                previousState: previousMeasurementState
+            )
+        } else {
+            measurementHistory = .reset(.streamStart)
+        }
+        let canonicalTemporalEvidenceQ16: UInt32?
+        if let measurementMotion {
+            canonicalTemporalEvidenceQ16
+                = measurementMotion.field.temporalEvidenceQ16
+        } else if effectiveMeasurementReset != nil {
+            canonicalTemporalEvidenceQ16 = 0
+        } else {
+            canonicalTemporalEvidenceQ16 = nil
+        }
+        let directMeasurement = try ASHMeasurementExtractorV4.extractDirect(
+            buffer: source,
+            storage: configuration.storage,
+            previousHistory: previousMeasurementHistory,
+            contract: measurementContract,
+            history: measurementHistory,
+            motionCompensatedTemporalEvidenceQ16:
+                canonicalTemporalEvidenceQ16,
+            workspace: &workspace.measurement
+        )
+        let measurement = directMeasurement.extracted
+        let retainedSourceFrame = ASHTemporalTiledFrameV4(
+            frameID: sourceCapture.frame.frameID,
+            streamID: sourceCapture.frame.streamID,
+            formatIdentity: sourceCapture.frame.formatIdentity,
+            ordinal: sourceCapture.frame.ordinal,
+            presentationTime: sourceCapture.frame.presentationTime,
+            cadenceID: sourceCapture.frame.cadenceID,
+            grid: sourceCapture.frame.grid,
+            tiles: sourceCapture.frame.tiles.map { tile in
+                ASHTemporalTileHistoryStateV4(
+                    descriptor: tile.descriptor,
+                    minimumCode: tile.minimumCode,
+                    maximumCode: tile.maximumCode,
+                    retainedSamples: tile.retainedSamples,
+                    ashStateRawValue: measurement.projection.state.rawValue
+                )
+            }
+        )
+        try retainedSourceFrame.validate()
+
+        try await scaler.process(source: source, destination: destination)
+        let scaledCapture = try PixelBufferSignalCodecV4.readTiledLuma(
+            destination,
+            storage: configuration.storage,
+            frameID: "v4-frame-\(outputOrdinal)",
+            streamID: "primary-video",
+            formatIdentity: formatIdentity,
+            ordinal: outputOrdinal,
+            presentationTime: exactPTS,
+            cadenceID: cadenceID,
+            policy: policy,
+            stateForTile: { _ in measurement.projection.state }
+        )
+        var spatialTiles: [ASHTemporalTileHistoryStateV4] = []
+        spatialTiles.reserveCapacity(scaledCapture.frame.grid.tileCount)
+        for tile in scaledCapture.frame.tiles {
+            try Task.checkCancellation()
+            var samples = tile.retainedSamples
+            _ = try ASHSpatialReconstructorV4.reconstructInPlace(
+                samples: &samples,
+                width: tile.descriptor.retained.width,
+                height: tile.descriptor.retained.height,
+                minimumCode: tile.minimumCode,
+                maximumCode: tile.maximumCode,
+                sourceState: measurement.projection.state,
+                program: branchProgram,
+                workspace: &workspace.spatial
+            )
+            spatialTiles.append(ASHTemporalTileHistoryStateV4(
+                descriptor: tile.descriptor,
+                minimumCode: tile.minimumCode,
+                maximumCode: tile.maximumCode,
+                retainedSamples: samples,
+                ashStateRawValue: measurement.projection.state.rawValue
+            ))
+#if DEBUG
+            try await tiledTileBoundaryTestHook?(
+                tile.descriptor.tileIndex
+            )
+#endif
+        }
+        let spatialFrame = ASHTemporalTiledFrameV4(
+            frameID: scaledCapture.frame.frameID,
+            streamID: scaledCapture.frame.streamID,
+            formatIdentity: scaledCapture.frame.formatIdentity,
+            ordinal: scaledCapture.frame.ordinal,
+            presentationTime: scaledCapture.frame.presentationTime,
+            cadenceID: scaledCapture.frame.cadenceID,
+            grid: scaledCapture.frame.grid,
+            tiles: spatialTiles
+        )
+        try spatialFrame.validate()
+
+        var resetReason = typedResetReason
+            ?? effectiveMeasurementReset.map(temporalResetReason)
+        let dynamicMetadata = try AVFoundationHDRMetadataAdapterV4
+            .probeDynamicMetadata(from: source)
+        if dynamicMetadata != nil {
+            resetReason = .hdrMetadataChange
+        }
+        let previousOutput = tiledTemporalHistory.entries.last?.frame
+        var outputMotion: ASHTemporalTiledMotionResultV4?
+        if resetReason == nil,
+           !forceSpatialFallbackForSuppressedPairedFieldCut,
+           let previousOutput {
+            outputMotion = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+                current: spatialFrame,
+                previous: previousOutput
+            )
+            if outputMotion?.field.sceneCut == true,
+               !suppressAutomaticSceneCutReset {
+                resetReason = .sceneCut
+            }
+        } else if forceSpatialFallbackForSuppressedPairedFieldCut {
+            resetReason = .sceneCut
+        }
+        let reconstruction = try ASHTemporalTiledReconstructorV4.reconstruct(
+            currentSpatial: spatialFrame,
+            previousHistory: previousOutput,
+            motionField: outputMotion?.field,
+            resetReason: resetReason,
+            program: branchProgram,
+            executor: deterministicExecutor,
+            schedule: .raster
+        )
+        // Rebuild retained history directly from the already preflighted
+        // active outputs. Re-reading the destination would scan the full 8K
+        // luma twice (validation plus capture) without adding evidence.
+        let emittedCapture = try ASHTemporalTiledFrameBuilderV4.capture(
+            frameID: spatialFrame.frameID,
+            streamID: spatialFrame.streamID,
+            formatIdentity: spatialFrame.formatIdentity,
+            ordinal: spatialFrame.ordinal,
+            presentationTime: spatialFrame.presentationTime,
+            cadenceID: spatialFrame.cadenceID,
+            frameWidth: spatialFrame.grid.frameWidth,
+            frameHeight: spatialFrame.grid.frameHeight,
+            minimumCode: spatialFrame.tiles[0].minimumCode,
+            maximumCode: spatialFrame.tiles[0].maximumCode,
+            policy: policy,
+            stateForTile: { _ in measurement.projection.state },
+            sampleAt: { x, y in
+                let column = x / policy.tileWidth
+                let row = y / policy.tileHeight
+                let tileIndex = row * spatialFrame.grid.columns + column
+                guard reconstruction.tiles.indices.contains(tileIndex) else {
+                    throw ASHTemporalV4Error.invalidTileState
+                }
+                let output = reconstruction.tiles[tileIndex]
+                let localX = x - output.active.x
+                let localY = y - output.active.y
+                guard localX >= 0,
+                      localX < output.active.width,
+                      localY >= 0,
+                      localY < output.active.height else {
+                    throw ASHTemporalV4Error.invalidTileState
+                }
+                return output.samples[
+                    localY * output.active.width + localX
+                ]
+            }
+        )
+        var nextTiledTemporalHistory = tiledTemporalHistory
+        if let resetReason {
+            try nextTiledTemporalHistory.reset(reason: resetReason)
+        }
+        try nextTiledTemporalHistory.append(
+            emittedCapture.frame,
+            motionFromPrevious: resetReason == nil
+                ? outputMotion?.field : nil
+        )
+        try PixelBufferSignalCodecV4.writeTiledLuma(
+            reconstruction.tiles,
+            grid: spatialFrame.grid,
+            to: destination,
+            storage: configuration.storage
+        )
+        tiledTemporalHistory = nextTiledTemporalHistory
+        previousMeasurementHistory = directMeasurement.compactHistory
+        previousSourceTiledFrame = retainedSourceFrame
+        previousSourceLumaFrame = nil
+        previousMeasurementState = measurement.projection.state
+        outputOrdinal += 1
+        lastOutputPresentationTime = exactPTS
+#if DEBUG
+        lastTiledSourceCaptureDiagnostics = sourceCapture
+            .allocationDiagnostics
+        lastTiledOutputCaptureDiagnostics = emittedCapture
+            .allocationDiagnostics
+        lastTiledMotionAllocationDiagnostics = outputMotion?
+            .allocationDiagnostics
+        lastTiledReconstructionDiagnostics = reconstruction.diagnostics
+        lastSourceMotionAllocationDiagnostics = nil
+        lastOutputMotionAllocationDiagnostics = nil
+#endif
+        return TemporalOutputFrame(
+            pixelBuffer: FramePixelBuffer(destination),
+            presentationTime: presentationTime,
+            duration: duration,
+            sourceField: sourceField,
+            cadenceID: cadenceID,
+            temporalGeneration: tiledTemporalHistory.generation,
+            temporalResetReason: resetReason
         )
     }
 
@@ -1623,6 +2528,55 @@ actor PreparedDeterministicV4Upscaler:
         case .contractChange: .contractChange
         case .explicitReset: .explicitReset
         }
+    }
+
+    /// Detects a source-timeline gap before any temporal evidence is read.
+    /// Explicit semantic boundaries win because seeks and edit transitions may
+    /// preserve a numerically continuous PTS sequence.
+    private func temporalBoundaryReason(
+        for timing: FrameTiming
+    ) throws -> ASHTemporalResetReasonV4? {
+        if let declared = timing.temporalResetReason {
+            return declared
+        }
+        guard lastCompletedInputOrdinal >= 0,
+              let lastInputPresentationTime,
+              let lastInputDuration,
+              timing.presentationTime.isNumeric,
+              timing.presentationTime.timescale > 0,
+              timing.duration.isNumeric,
+              timing.duration.timescale > 0,
+              timing.duration.value > 0 else {
+            return nil
+        }
+        let current = try ExactRationalV4(
+            timing.presentationTime.value,
+            Int64(timing.presentationTime.timescale)
+        )
+        let expected = try lastInputPresentationTime.adding(lastInputDuration)
+        return current == expected ? nil : .presentationTimeDiscontinuity
+    }
+
+    private func recordCompletedInputTiming(_ timing: FrameTiming) {
+        guard timing.presentationTime.isNumeric,
+              timing.presentationTime.timescale > 0,
+              timing.duration.isNumeric,
+              timing.duration.timescale > 0,
+              timing.duration.value > 0,
+              let presentation = try? ExactRationalV4(
+                timing.presentationTime.value,
+                Int64(timing.presentationTime.timescale)
+              ),
+              let duration = try? ExactRationalV4(
+                timing.duration.value,
+                Int64(timing.duration.timescale)
+              ) else {
+            lastInputPresentationTime = nil
+            lastInputDuration = nil
+            return
+        }
+        lastInputPresentationTime = presentation
+        lastInputDuration = duration
     }
 
     private func exactInterlacedTiming(

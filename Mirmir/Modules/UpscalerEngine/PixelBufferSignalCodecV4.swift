@@ -593,6 +593,158 @@ enum PixelBufferSignalCodecV4 {
         workspace.finishWrite()
     }
 
+    /// Captures luma as independently allocated retained tiles. The pixel
+    /// buffer remains locked for one validation/capture pass, but no visible
+    /// plane-sized Swift array is ever formed.
+    static func readTiledLuma(
+        _ buffer: CVPixelBuffer,
+        storage: PixelStorageV4,
+        frameID: String,
+        streamID: String,
+        formatIdentity: ASHSHA256V4,
+        ordinal: Int64,
+        presentationTime: ExactRationalV4,
+        cadenceID: String,
+        policy: ASHTemporalTilePolicyV4,
+        stateForTile: (Int) throws -> ASHState
+    ) throws -> ASHTemporalTiledFrameCaptureResultV4 {
+        try Task.checkCancellation()
+        let layout = PixelLayoutV4(storage: storage)
+        try layout.validateStructure(of: buffer)
+        let plane = layout.planes[0]
+        let width = CVPixelBufferGetWidth(buffer)
+        let height = CVPixelBufferGetHeight(buffer)
+        _ = try ASHTemporalTileGridV4(
+            frameWidth: width,
+            frameHeight: height,
+            policy: policy
+        )
+        let status = CVPixelBufferLockBaseAddress(buffer, .readOnly)
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferSignalCodecV4Error.lockFailed(
+                destination: false,
+                status: status
+            )
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, 0) else {
+            throw PixelBufferSignalCodecV4Error.inaccessiblePlane(0)
+        }
+        let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0)
+        for y in 0..<height {
+            let row = base.advanced(by: try checkedProduct(y, stride))
+                .assumingMemoryBound(to: UInt8.self)
+            for x in 0..<width {
+                _ = try layout.validateStoredCode(
+                    storedCode(
+                        row: row,
+                        element: x,
+                        bytesPerComponent: plane.bytesPerComponent
+                    ),
+                    plane: 0,
+                    component: 0
+                )
+            }
+        }
+        try Task.checkCancellation()
+        return try ASHTemporalTiledFrameBuilderV4.capture(
+            frameID: frameID,
+            streamID: streamID,
+            formatIdentity: formatIdentity,
+            ordinal: ordinal,
+            presentationTime: presentationTime,
+            cadenceID: cadenceID,
+            frameWidth: width,
+            frameHeight: height,
+            minimumCode: plane.signalCodeBounds[0].minimum,
+            maximumCode: plane.signalCodeBounds[0].maximum,
+            policy: policy,
+            stateForTile: stateForTile,
+            sampleAt: { x, y in
+                let row = base.advanced(by: y * stride)
+                    .assumingMemoryBound(to: UInt8.self)
+                return storedCode(
+                    row: row,
+                    element: x,
+                    bytesPerComponent: plane.bytesPerComponent
+                ) >> UInt16(plane.storedCodeShift)
+            }
+        )
+    }
+
+    /// Commits canonical active-tile luma without materializing their union.
+    /// Every tile and code is preflighted before the destination lock mutates
+    /// its first visible byte.
+    static func writeTiledLuma(
+        _ outputs: [ASHTemporalTileOutputV4],
+        grid: ASHTemporalTileGridV4,
+        to buffer: CVPixelBuffer,
+        storage: PixelStorageV4
+    ) throws {
+        try Task.checkCancellation()
+        try grid.validate()
+        let layout = PixelLayoutV4(storage: storage)
+        try layout.validateStructure(of: buffer)
+        guard grid.frameWidth == CVPixelBufferGetWidth(buffer),
+              grid.frameHeight == CVPixelBufferGetHeight(buffer),
+              outputs.count == grid.tileCount else {
+            throw PixelBufferSignalCodecV4Error.invalidSignalGeometry(plane: 0)
+        }
+        let plane = layout.planes[0]
+        let bounds = plane.signalCodeBounds[0]
+        for (index, output) in outputs.enumerated() {
+            let expected = try grid.descriptor(at: index)
+            guard output.tileIndex == index,
+                  output.active == expected.active,
+                  output.samples.count == expected.active.sampleCount,
+                  output.samples.allSatisfy({ bounds.contains($0) }) else {
+                throw PixelBufferSignalCodecV4Error.invalidSampleCount(
+                    plane: 0,
+                    expected: expected.active.sampleCount,
+                    actual: output.samples.count
+                )
+            }
+        }
+        try Task.checkCancellation()
+        let status = CVPixelBufferLockBaseAddress(buffer, [])
+        guard status == kCVReturnSuccess else {
+            throw PixelBufferSignalCodecV4Error.lockFailed(
+                destination: true,
+                status: status
+            )
+        }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(buffer, 0) else {
+            throw PixelBufferSignalCodecV4Error.inaccessiblePlane(0)
+        }
+        let stride = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0)
+        for output in outputs {
+            for localY in 0..<output.active.height {
+                let row = base.advanced(
+                    by: (output.active.y + localY) * stride
+                ).assumingMemoryBound(to: UInt8.self)
+                for localX in 0..<output.active.width {
+                    let sample = output.samples[
+                        localY * output.active.width + localX
+                    ]
+                    // The complete code range and fixed layout shift were
+                    // preflighted above, leaving this commit loop nonthrowing.
+                    let stored = sample << UInt16(plane.storedCodeShift)
+                    let element = output.active.x + localX
+                    if plane.bytesPerComponent == 1 {
+                        row[element] = UInt8(stored)
+                    } else {
+                        let offset = element * 2
+                        row[offset] = UInt8(truncatingIfNeeded: stored)
+                        row[offset + 1] = UInt8(
+                            truncatingIfNeeded: stored >> 8
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     /// Writes visible luma only. Geometry, every signal code, cancellation,
     /// and the destination base address are checked before the first byte is
     /// changed. Chroma and row-padding bytes are therefore preserved exactly.

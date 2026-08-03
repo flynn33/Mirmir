@@ -789,6 +789,332 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
         }
     }
 
+    func testTypedContinuityContractDistinguishesEveryResetBoundary()
+        throws {
+        let previous = try makeContinuity(frameOrdinal: 0)
+
+        func primary(
+            _ current: ASHTemporalContinuityDescriptorV4
+        ) throws -> ASHTemporalResetReasonV4? {
+            try ASHTemporalContinuityEvaluatorV4.evaluate(
+                previous: previous,
+                current: current
+            ).primaryReason
+        }
+
+        XCTAssertEqual(
+            try ASHTemporalContinuityEvaluatorV4.evaluate(
+                previous: nil,
+                current: previous
+            ).reasons,
+            [.streamStart]
+        )
+        XCTAssertNil(try primary(makeContinuity(frameOrdinal: 1)))
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                presentationTime: try ExactRationalV4(2, 30)
+            )),
+            .presentationTimeDiscontinuity
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(frameOrdinal: 2)),
+            .seek
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                edit: identity("d")
+            )),
+            .editBoundary
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                geometry: identity("e")
+            )),
+            .geometryChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                pixelFormat: identity("f")
+            )),
+            .pixelFormatChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                format: identity("1")
+            )),
+            .formatChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                color: identity("2")
+            )),
+            .colorDomainChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                hdr: identity("3")
+            )),
+            .hdrMetadataChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                cadence: identity("4")
+            )),
+            .fieldCadenceChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                contract: identity("5")
+            )),
+            .contractChange
+        )
+        XCTAssertEqual(
+            try primary(makeContinuity(
+                frameOrdinal: 1,
+                declaredReset: .explicitReset
+            )),
+            .explicitReset
+        )
+        let simultaneous = try ASHTemporalContinuityEvaluatorV4.evaluate(
+            previous: previous,
+            current: makeContinuity(
+                frameOrdinal: 1,
+                edit: identity("d"),
+                color: identity("2"),
+                hdr: identity("3")
+            )
+        )
+        XCTAssertEqual(
+            simultaneous.reasons,
+            [.editBoundary, .colorDomainChange, .hdrMetadataChange]
+        )
+        XCTAssertEqual(
+            ASHTemporalResetReasonV4.presentationTimeDiscontinuity
+                .measurementTrigger,
+            .discontinuity
+        )
+        XCTAssertEqual(
+            ASHTemporalResetReasonV4.hdrMetadataChange.measurementTrigger,
+            .colorDomainChange
+        )
+    }
+
+    func testCanonical8KCaptureUsesOnlyBoundedTileAllocations() throws {
+        let capture = try ASHTemporalTiledFrameBuilderV4.capture(
+            frameID: "8k-frame-0",
+            streamID: "primary-video",
+            formatIdentity: formatIdentity,
+            ordinal: 0,
+            presentationTime: .zero,
+            cadenceID: "progressive",
+            frameWidth: 8_192,
+            frameHeight: 4_320,
+            minimumCode: 64,
+            maximumCode: 940,
+            stateForTile: { _ in try ASHState(rawValue: 0) },
+            sampleAt: { x, y in
+                UInt16(64 + ((x * 13 + y * 17) % 877))
+            }
+        )
+        let diagnostics = capture.allocationDiagnostics
+        XCTAssertEqual(diagnostics.fullFrameSampleCount, 8_192 * 4_320)
+        XCTAssertGreaterThan(
+            diagnostics.fullFrameSampleCount,
+            ASHTemporalPlaneV4.maximumSampleCount
+        )
+        XCTAssertEqual(diagnostics.tileCount, 32 * 17)
+        XCTAssertEqual(diagnostics.fullFrameSampleArrayAllocationCount, 0)
+        XCTAssertLessThanOrEqual(
+            diagnostics.largestContiguousSampleAllocation,
+            ASHTemporalTilePolicyV4.canonical
+                .maximumRetainedTileSampleCount
+        )
+        XCTAssertTrue(capture.frame.tiles.allSatisfy {
+            $0.retainedSamples.count
+                <= ASHTemporalTilePolicyV4.canonical
+                    .maximumRetainedTileSampleCount
+        })
+    }
+
+    func testTiledMotionAndReconstructionAreScheduleAndExecutorIdentical()
+        throws {
+        let previous = try makeTiledFrame(
+            id: "tile-0",
+            ordinal: 0
+        ) { x, y in
+            self.tiledPatternSample(x: x, y: y)
+        }
+        let current = try makeTiledFrame(
+            id: "tile-1",
+            ordinal: 1
+        ) { x, y in
+            self.tiledPatternSample(x: min(x + 2, 31), y: y)
+        }
+        let motion = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+            current: current,
+            previous: previous
+        )
+        XCTAssertFalse(motion.field.sceneCut)
+        XCTAssertEqual(
+            motion.field.tileStates[0].vectors[0].dx,
+            2
+        )
+        XCTAssertEqual(
+            motion.allocationDiagnostics
+                .fullFrameMotionVectorArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(
+            motion.allocationDiagnostics.materializedAlignedSampleCount,
+            0
+        )
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        let cpu = try ASHTemporalTiledReconstructorV4.reconstruct(
+            currentSpatial: current,
+            previousHistory: previous,
+            motionField: motion.field,
+            resetReason: nil,
+            program: program,
+            executor: .cpuFixedPoint,
+            schedule: .raster
+        )
+        let metal = try ASHTemporalTiledReconstructorV4.reconstruct(
+            currentSpatial: current,
+            previousHistory: previous,
+            motionField: motion.field,
+            resetReason: nil,
+            program: program,
+            executor: .metalFixedPoint,
+            schedule: .reverseRaster
+        )
+        let interleaved = try ASHTemporalTiledReconstructorV4.reconstruct(
+            currentSpatial: current,
+            previousHistory: previous,
+            motionField: motion.field,
+            resetReason: nil,
+            program: program,
+            executor: .metalFixedPoint,
+            schedule: .evenThenOdd
+        )
+        XCTAssertEqual(cpu.tiles, metal.tiles)
+        XCTAssertEqual(cpu.tiles, interleaved.tiles)
+        XCTAssertEqual(
+            cpu.diagnostics.fullFrameSampleArrayAllocationCount,
+            0
+        )
+        XCTAssertEqual(cpu.diagnostics.materializedAlignedSampleCount, 0)
+        XCTAssertTrue(cpu.tiles.contains { $0.historyWeightQ16 > 0 })
+        let currentActive = try current.tiles.map { try $0.activeSamples() }
+        XCTAssertNotEqual(cpu.tiles.map(\.samples), currentActive)
+
+        for reason in [
+            ASHTemporalResetReasonV4.presentationTimeDiscontinuity,
+            .seek, .editBoundary, .formatChange, .colorDomainChange,
+            .hdrMetadataChange
+        ] {
+            let reset = try ASHTemporalTiledReconstructorV4.reconstruct(
+                currentSpatial: current,
+                previousHistory: previous,
+                motionField: motion.field,
+                resetReason: reason,
+                program: program,
+                executor: .cpuFixedPoint,
+                schedule: .evenThenOdd
+            )
+            XCTAssertEqual(reset.tiles.map(\.samples), currentActive)
+            XCTAssertTrue(reset.tiles.allSatisfy {
+                $0.historyWeightQ16 == 0
+            })
+        }
+    }
+
+    func testTiledHistoryCheckpointRoundTripRestoresMotionAndPixels()
+        throws {
+        let previous = try makeTiledFrame(
+            id: "resume-tile-0",
+            ordinal: 0
+        ) { x, y in
+            self.tiledPatternSample(x: x, y: y)
+        }
+        let current = try makeTiledFrame(
+            id: "resume-tile-1",
+            ordinal: 1
+        ) { x, y in
+            self.tiledPatternSample(x: min(x + 1, 31), y: y)
+        }
+        let motion = try ASHTemporalTiledMotionAnalyzerV4.analyze(
+            current: current,
+            previous: previous
+        ).field
+        var history = try ASHTemporalTiledHistoryV4(capacity: 2)
+        try history.append(previous, motionFromPrevious: nil)
+        try history.append(current, motionFromPrevious: motion)
+        let checkpoint = try ASHTemporalTiledCheckpointV4(
+            planSHA256: planIdentity,
+            runtimeManifestSHA256: runtimeIdentity,
+            lastCompletedInputOrdinal: 1,
+            lastCompletedOutputPresentationTime: try ExactRationalV4(1, 30),
+            history: history
+        )
+        let data = try checkpoint.canonicalData
+        let decoded = try ASHTemporalTiledCheckpointV4.decodeCanonical(
+            data,
+            expectedPlanSHA256: planIdentity,
+            expectedRuntimeManifestSHA256: runtimeIdentity
+        )
+        XCTAssertEqual(decoded, checkpoint)
+        let restoredPrevious = try XCTUnwrap(
+            decoded.history.entries.first?.frame
+        )
+        let restoredCurrent = try XCTUnwrap(
+            decoded.history.entries.last?.frame
+        )
+        let restoredMotion = try XCTUnwrap(
+            decoded.history.entries.last?.motionFromPrevious
+        )
+        let program = try ASHDepthFourBranchCompilerV4.compileCanonical()
+        XCTAssertEqual(
+            try ASHTemporalTiledReconstructorV4.reconstruct(
+                currentSpatial: restoredCurrent,
+                previousHistory: restoredPrevious,
+                motionField: restoredMotion,
+                resetReason: nil,
+                program: program,
+                executor: .cpuFixedPoint
+            ).tiles,
+            try ASHTemporalTiledReconstructorV4.reconstruct(
+                currentSpatial: current,
+                previousHistory: previous,
+                motionField: motion,
+                resetReason: nil,
+                program: program,
+                executor: .metalFixedPoint,
+                schedule: .reverseRaster
+            ).tiles
+        )
+        var nonCanonical = data
+        nonCanonical.append(0x0a)
+        XCTAssertThrowsError(try ASHTemporalTiledCheckpointV4.decodeCanonical(
+            nonCanonical,
+            expectedPlanSHA256: planIdentity,
+            expectedRuntimeManifestSHA256: runtimeIdentity
+        )) { error in
+            XCTAssertEqual(
+                error as? ASHTemporalV4Error,
+                .nonCanonicalCheckpoint
+            )
+        }
+    }
+
     func testInvalidPlaneAndIntegrityStateFailClosed() throws {
         XCTAssertThrowsError(
             try ASHTemporalPlaneV4(
@@ -843,6 +1169,80 @@ final class ASHTemporalReconstructionV4Tests: XCTestCase {
             tileStateRawValues: [],
             cadenceID: "progressive"
         )
+    }
+
+    private func identity(_ character: Character) -> ASHSHA256V4 {
+        try! ASHSHA256V4(
+            String(repeating: String(character), count: 64)
+        )
+    }
+
+    private func makeContinuity(
+        frameOrdinal: Int64,
+        presentationTime: ExactRationalV4? = nil,
+        edit: ASHSHA256V4? = nil,
+        format: ASHSHA256V4? = nil,
+        geometry: ASHSHA256V4? = nil,
+        pixelFormat: ASHSHA256V4? = nil,
+        color: ASHSHA256V4? = nil,
+        hdr: ASHSHA256V4? = nil,
+        cadence: ASHSHA256V4? = nil,
+        contract: ASHSHA256V4? = nil,
+        declaredReset: ASHTemporalResetReasonV4? = nil
+    ) throws -> ASHTemporalContinuityDescriptorV4 {
+        try ASHTemporalContinuityDescriptorV4(
+            frameOrdinal: frameOrdinal,
+            presentationTime: presentationTime
+                ?? ExactRationalV4(frameOrdinal, 30),
+            duration: ExactRationalV4(1, 30),
+            editIdentity: edit ?? identity("6"),
+            formatIdentity: format ?? identity("7"),
+            geometryIdentity: geometry ?? identity("8"),
+            pixelFormatIdentity: pixelFormat ?? identity("9"),
+            colorIdentity: color ?? identity("a"),
+            hdrMetadataIdentity: hdr,
+            cadenceIdentity: cadence ?? identity("b"),
+            contractIdentity: contract ?? identity("c"),
+            declaredReset: declaredReset
+        )
+    }
+
+    private func makeTiledFrame(
+        id: String,
+        ordinal: Int64,
+        generator: (Int, Int) -> UInt16
+    ) throws -> ASHTemporalTiledFrameV4 {
+        let policy = try ASHTemporalTilePolicyV4(
+            policyID: "ash.test.tiles.16x16-halo4",
+            tileWidth: 16,
+            tileHeight: 16,
+            searchHalo: 4,
+            maximumFrameWidth: 64,
+            maximumFrameHeight: 32
+        )
+        return try ASHTemporalTiledFrameBuilderV4.capture(
+            frameID: id,
+            streamID: "video-main",
+            formatIdentity: formatIdentity,
+            ordinal: ordinal,
+            presentationTime: ExactRationalV4(ordinal, 30),
+            cadenceID: "progressive",
+            frameWidth: 32,
+            frameHeight: 16,
+            minimumCode: 64,
+            maximumCode: 940,
+            policy: policy,
+            stateForTile: { index in
+                try ASHState(payloadBits: (0..<8).map { bit in
+                    (index >> bit) & 1
+                })
+            },
+            sampleAt: generator
+        ).frame
+    }
+
+    private func tiledPatternSample(x: Int, y: Int) -> UInt16 {
+        UInt16(64 + ((x * 71 + y * 43 + x * y * 5) % 877))
     }
 
     private func replacingVectors(
