@@ -60,12 +60,17 @@ class SupportMatrixCaptureTests(unittest.TestCase):
                     "runtimeMode": "rosetta_2_compatibility",
                 },
             ],
-            "expectedSkippedTests": [],
+            "expectedSkippedTests": list(support.EXPECTED_SKIPPED_TESTS),
             "minimumPassingTestCount": 300,
             "project": "Mirmir.xcodeproj",
             "releaseConfigurationPath": "script/v4/release-candidate-v4.xcconfig",
             "runtimeResourcePath": "Mirmir/Resources/ASH-P06.bundle",
             "scheme": "Mirmir",
+            "tools": {
+                "captureSourceSHA256": "1" * 64,
+                "evaluatorSHA256": "2" * 64,
+                "runnerSHA256": "3" * 64,
+            },
             "unexpectedSkipAllowance": 0,
         }
         self.assertEqual(support.validate_contract(valid), valid)

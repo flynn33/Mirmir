@@ -17,6 +17,12 @@ from typing import Any, Mapping
 
 SCRIPT_DIRECTORY = Path(__file__).resolve().parent
 DEFAULT_CONTRACT = SCRIPT_DIRECTORY / "support-matrix-contract-v1.json"
+DEFAULT_EVALUATOR = SCRIPT_DIRECTORY / "support_matrix_v4.py"
+DEFAULT_RUNNER = SCRIPT_DIRECTORY / "run_support_matrix_v4.sh"
+EXPECTED_SKIPPED_TESTS = [
+    "DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested()",
+    "VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested()",
+]
 P06_SPEC = importlib.util.spec_from_file_location(
     "capture_p06_reproduction_v4_for_support",
     SCRIPT_DIRECTORY / "capture_p06_reproduction_v4.py",
@@ -175,7 +181,7 @@ def seal(root: Path, manifest_path: Path) -> None:
     )
 
 
-def validate_contract(document: Any) -> dict[str, Any]:
+def validate_contract(document: Any, *, verify_tools: bool = False) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise SupportCaptureError("support contract must be an object")
     expected_keys = {
@@ -189,6 +195,7 @@ def validate_contract(document: Any) -> dict[str, Any]:
         "releaseConfigurationPath",
         "runtimeResourcePath",
         "scheme",
+        "tools",
         "unexpectedSkipAllowance",
     }
     if set(document) != expected_keys:
@@ -205,52 +212,63 @@ def validate_contract(document: Any) -> dict[str, Any]:
         or development_team != development_team.upper()
     ):
         raise SupportCaptureError("support contract has invalid Apple development team")
-    for key in (
-        "project",
-        "releaseConfigurationPath",
-        "runtimeResourcePath",
-        "scheme",
-    ):
-        if not isinstance(document.get(key), str) or not document[key]:
+    expected_paths = {
+        "project": "Mirmir.xcodeproj",
+        "releaseConfigurationPath": "script/v4/release-candidate-v4.xcconfig",
+        "runtimeResourcePath": "Mirmir/Resources/ASH-P06.bundle",
+        "scheme": "Mirmir",
+    }
+    for key, expected in expected_paths.items():
+        if document.get(key) != expected:
             raise SupportCaptureError(f"support contract has invalid {key}")
     minimum = document.get("minimumPassingTestCount")
-    if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 300:
-        raise SupportCaptureError("support contract weakens minimum test coverage")
+    if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum != 300:
+        raise SupportCaptureError("support contract changes the locked minimum test coverage")
     rows = document.get("machineClasses")
-    if not isinstance(rows, list) or len(rows) != 2:
-        raise SupportCaptureError("support contract must define exactly two machine classes")
-    identifiers = {row.get("id") for row in rows if isinstance(row, dict)}
-    if identifiers != {"reference", "supported"}:
-        raise SupportCaptureError("support contract omits reference or supported class")
-    expected_rows = {
-        (
-            "reference",
-            "arm64",
-            "native_apple_silicon",
-        ),
-        (
-            "supported",
-            "x86_64",
-            "rosetta_2_compatibility",
-        ),
-    }
-    observed_rows = set()
-    for row in rows:
-        if not isinstance(row, dict) or set(row) != {
-            "id",
-            "destinationArchitecture",
-            "runtimeMode",
-        }:
-            raise SupportCaptureError("support machine-class row is not canonical")
-        observed_rows.add(
-            (row["id"], row["destinationArchitecture"], row["runtimeMode"])
-        )
-    if observed_rows != expected_rows:
+    expected_rows = [
+        {
+            "destinationArchitecture": "arm64",
+            "id": "reference",
+            "runtimeMode": "native_apple_silicon",
+        },
+        {
+            "destinationArchitecture": "x86_64",
+            "id": "supported",
+            "runtimeMode": "rosetta_2_compatibility",
+        },
+    ]
+    if rows != expected_rows:
         raise SupportCaptureError("support architecture matrix was narrowed or changed")
     expected_skips = document.get("expectedSkippedTests")
-    if not isinstance(expected_skips, list) or len(expected_skips) != len(set(expected_skips)):
+    if (
+        not isinstance(expected_skips, list)
+        or expected_skips != sorted(set(expected_skips))
+        or expected_skips != EXPECTED_SKIPPED_TESTS
+    ):
         raise SupportCaptureError("support contract expected-skip set is invalid")
-    if document.get("unexpectedSkipAllowance") != 0:
+    tools = document.get("tools")
+    if not isinstance(tools, dict) or set(tools) != {
+        "captureSourceSHA256",
+        "evaluatorSHA256",
+        "runnerSHA256",
+    }:
+        raise SupportCaptureError("support contract tool binding set is invalid")
+    for key, value in tools.items():
+        try:
+            p06.require_hex(value, (64,), f"support contract tools.{key}")
+        except p06.CaptureError as error:
+            raise SupportCaptureError(str(error)) from error
+    if verify_tools:
+        actual = {
+            "captureSourceSHA256": p06.sha256(Path(__file__).resolve()),
+            "evaluatorSHA256": p06.sha256(DEFAULT_EVALUATOR),
+            "runnerSHA256": p06.sha256(DEFAULT_RUNNER),
+        }
+        for key, identity in actual.items():
+            if tools[key] != identity:
+                raise SupportCaptureError(f"support contract tool identity differs: {key}")
+    allowance = document.get("unexpectedSkipAllowance")
+    if isinstance(allowance, bool) or not isinstance(allowance, int) or allowance != 0:
         raise SupportCaptureError("support contract must fail on every unexpected skip")
     return document
 
@@ -263,6 +281,7 @@ def capture_row(
     staging: Path,
     temporary: Path,
     candidate: Mapping[str, Any],
+    runtime_summary: Mapping[str, Any],
 ) -> dict[str, Any]:
     machine_class = row_contract.get("id")
     architecture = row_contract.get("destinationArchitecture")
@@ -422,6 +441,57 @@ def capture_row(
     software_path = row_root / "software.json"
     p06.write_json(hardware_path, hardware)
     p06.write_json(software_path, software)
+    semantic_summary_path = row_root / "semantic-summary.json"
+    p06.write_json(
+        semantic_summary_path,
+        {
+            "schemaVersion": "mirmir-ash-v4-support-matrix-row-summary-v1",
+            "row": {
+                "id": f"{machine_class}-{architecture}",
+                "machineClass": machine_class,
+                "runtimeMode": runtime_mode,
+                "executionArchitecture": architecture,
+            },
+            "candidate": {
+                "sourceCommit": candidate["sourceCommit"],
+                "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
+                "appBundleSHA256": candidate["appBundleSHA256"],
+                "releaseConfigurationSHA256": candidate["releaseConfigurationSHA256"],
+            },
+            "runtime": dict(runtime_summary),
+            "build": {
+                "buildConfiguration": "Release",
+                "command": command,
+                "invocationSHA256": canonical_command_identity(command),
+                "transcriptSHA256": p06.sha256(transcript),
+            },
+            "signing": {
+                "developmentTeam": contract["developmentTeam"],
+                "app": app_identity,
+                "testBundle": test_identity,
+                "sameTeamIdentity": True,
+                "codeSignatureVerificationSHA256": p06.sha256(signature_verification),
+                "codeSignatureVerificationPass": True,
+            },
+            "tests": {
+                "result": result,
+                "passedTestCount": passed,
+                "failedTestCount": failed,
+                "skippedTestCount": skipped,
+                "minimumPassingTestCount": contract["minimumPassingTestCount"],
+                "expectedSkippedTests": sorted(expected_skips),
+                "observedSkippedTests": sorted(observed_skips),
+                "unexpectedSkippedTests": unexpected_skips,
+                "summarySHA256": p06.sha256(summary_path),
+                "testTreeSHA256": p06.sha256(tests_path),
+            },
+            "environment": {
+                "hardwareSHA256": p06.sha256(hardware_path),
+                "softwareSHA256": p06.sha256(software_path),
+            },
+            "allRequiredChecksPassed": True,
+        },
+    )
     attestation_path = row_root / "attestation.json"
     p06.write_json(
         attestation_path,
@@ -455,6 +525,7 @@ def capture_row(
             "appSignatureArtifact": descriptor(app_signature_path, staging),
             "testSignatureArtifact": descriptor(test_signature_path, staging),
             "signingSummaryArtifact": descriptor(signing_summary_path, staging),
+            "semanticSummaryArtifact": descriptor(semantic_summary_path, staging),
             "fullQualificationMatrixPass": True,
         },
     )
@@ -479,10 +550,12 @@ def capture(arguments: argparse.Namespace) -> Path:
     output = arguments.output.expanduser().resolve()
     if output.exists() or not output.parent.is_dir():
         raise SupportCaptureError("support output must be a new path under an existing parent")
+    if not application_archive.is_file() or application_archive.is_symlink():
+        raise SupportCaptureError("support matrix application archive is not a regular file")
     candidate = p06.parse_candidate(candidate_path)
     if p06.sha256(application_archive) != candidate["appBundleSHA256"]:
         raise SupportCaptureError("support matrix application archive differs from candidate")
-    contract = validate_contract(p06.load_json(contract_path))
+    contract = validate_contract(p06.load_json(contract_path), verify_tools=True)
     if p06.source_tree_identity(repository, candidate["sourceCommit"]) != candidate[
         "sourceTreeIdentitySHA256"
     ]:
@@ -490,6 +563,8 @@ def capture(arguments: argparse.Namespace) -> Path:
     for relative, local in {
         "script/v4/capture_support_matrix_v4.py": Path(__file__).resolve(),
         "script/v4/support-matrix-contract-v1.json": contract_path,
+        "script/v4/support_matrix_v4.py": DEFAULT_EVALUATOR,
+        "script/v4/run_support_matrix_v4.sh": DEFAULT_RUNNER,
     }.items():
         if p06.committed_bytes(repository, candidate["sourceCommit"], relative) != local.read_bytes():
             raise SupportCaptureError(f"support qualification input is not committed: {relative}")
@@ -514,11 +589,22 @@ def capture(arguments: argparse.Namespace) -> Path:
         if p06.sha256(release_path) != candidate["releaseConfigurationSHA256"]:
             raise SupportCaptureError("support matrix Release configuration differs from candidate")
 
+        runtime_summary = {
+            "runtimeID": runtime["document"]["runtimeID"],
+            "releaseStatus": runtime["document"]["releaseStatus"],
+            "semanticManifestSHA256": candidate["runtimeManifestSHA256"],
+            "manifestFileSHA256": candidate["runtimeManifestFileSHA256"],
+            "sourceRevision": candidate["runtimeSourceRevision"],
+        }
+
         shutil.copy2(contract_path, staging / "suite-contract.json")
+        shutil.copy2(candidate_path, staging / "candidate.json")
         shutil.copy2(runtime_path / "runtime-manifest.json", staging / "runtime-manifest.json")
         shutil.copy2(release_path, staging / "Release.xcconfig")
-        shutil.copy2(application_archive, staging / application_archive.name)
+        shutil.copy2(application_archive, staging / "application-archive.zip")
         shutil.copy2(Path(__file__).resolve(), staging / "capture-tool.py")
+        shutil.copy2(DEFAULT_EVALUATOR, staging / "support-matrix-evaluator.py")
+        shutil.copy2(DEFAULT_RUNNER, staging / "support-matrix-runner.sh")
         rows = [
             capture_row(
                 row_contract=row,
@@ -527,6 +613,7 @@ def capture(arguments: argparse.Namespace) -> Path:
                 staging=staging,
                 temporary=temporary,
                 candidate=candidate,
+                runtime_summary=runtime_summary,
             )
             for row in contract["machineClasses"]
         ]
@@ -542,8 +629,14 @@ def capture(arguments: argparse.Namespace) -> Path:
                 "contractSHA256": p06.sha256(staging / "suite-contract.json"),
                 "candidate": candidate,
                 "releaseEligible": True,
-                "identities": {"captureSourceSHA256": p06.sha256(staging / "capture-tool.py")},
-                "declaredSupportedMachineClassIDs": ["reference", "supported"],
+                "identities": {
+                    "captureSourceSHA256": p06.sha256(staging / "capture-tool.py"),
+                    "evaluatorSHA256": p06.sha256(staging / "support-matrix-evaluator.py"),
+                    "runnerSHA256": p06.sha256(staging / "support-matrix-runner.sh"),
+                },
+                "declaredSupportedMachineClassIDs": [
+                    row["id"] for row in contract["machineClasses"]
+                ],
                 "rows": rows,
                 "supportMatrixGatePass": True,
             },
