@@ -9,17 +9,10 @@ struct ASHV4FixtureMetalValidator: ASHMetalLibraryValidatingV4 {
     }
 }
 
-struct ASHV4FixtureArtifactDocument: Codable {
-    let schemaID: String
-    let artifactRole: String
-    let contractID: String
-    let payloadSHA256: ASHSHA256V4
-}
-
 enum ASHV4SemanticArtifactTestSupport {
     static let sourceRevision = String(repeating: "a", count: 40)
     static let expectedPlanSHA256 =
-        "99fabf6c4f3efde96c29376af66ff95738765c0a2972d0739942589fe658f819"
+        "873ce5a685a6e8eb1dbef4f61baeb88563ed13d5d3855efe197c45dd959e745e"
     static let builderHash = ASHSHA256V4(
         rawData: Data("ash-p06-builder-source-v1".utf8)
     )
@@ -28,83 +21,19 @@ enum ASHV4SemanticArtifactTestSupport {
         releaseStatus: ASHRuntimeReleaseStatusV4 = .releaseQualified
     ) throws -> ASHP06RuntimeBuildRequestV4 {
         let metalData = Data("MTLB-fixture-executable-v1".utf8)
-        let metalHash = ASHSHA256V4(rawData: metalData)
         let toolchain = ASHRuntimeToolchainV4(
             swiftCompilerIdentity: "apple-swift-6.2.0",
             metalCompilerIdentity: "apple-metal-32023.98",
-            metalLanguageVersion: "metal-3.2",
+            metalLanguageVersion: "metal3.2",
             sdkBuildIdentity: "macosx26.2-25C52",
             deploymentTarget: "macos-15.4",
             targetTriple: "arm64-apple-macos15.4"
         )
 
-        let codewords = ASHP06CodewordTablesArtifactV4.canonical()
-        let codewordData = try ASHCanonicalJSONV4.encode(codewords)
-        let certificate = ASHP06CoreCertificateArtifactV4.canonical(
-            codewordTablesSHA256: ASHSHA256V4(rawData: codewordData)
+        var artifacts = try ASHP06CanonicalRuntimeArtifactsV4.make(
+            metalLibrary: metalData,
+            toolchain: toolchain
         )
-        let measurement = try ASHP06MeasurementContractArtifactV4.canonical()
-        let branchAggregation = try ASHP06BranchAggregationArtifactV4
-            .canonical()
-        let operatorBank = ASHP06OperatorBankArtifactV4.canonical(
-            branchProgramSHA256: branchAggregation.canonicalBinarySHA256
-        )
-        let metalContract = ASHP06MetalCompilerContractArtifactV4(
-            schemaID: ASHRuntimeArtifactRoleV4.metalCompilerContract
-                .expectedSchemaID,
-            artifactRole: ASHRuntimeArtifactRoleV4.metalCompilerContract.rawValue,
-            metalLibrarySHA256: metalHash,
-            compilerIdentity: toolchain.metalCompilerIdentity,
-            languageVersion: toolchain.metalLanguageVersion,
-            sdkBuildIdentity: toolchain.sdkBuildIdentity,
-            targetTriple: toolchain.targetTriple
-        )
-
-        var artifacts: [ASHP06RuntimeArtifactInputV4] = [
-            ASHP06RuntimeArtifactInputV4(role: .metalLibrary, data: metalData),
-            try .init(
-                role: .codewordTables,
-                data: ASHCanonicalJSONV4.encode(codewords)
-            ),
-            try .init(
-                role: .coreCertificate,
-                data: ASHCanonicalJSONV4.encode(certificate)
-            ),
-            try .init(
-                role: .measurementContract,
-                data: ASHCanonicalJSONV4.encode(measurement)
-            ),
-            try .init(
-                role: .branchAggregation,
-                data: ASHCanonicalJSONV4.encode(branchAggregation)
-            ),
-            try .init(
-                role: .operatorBank,
-                data: ASHCanonicalJSONV4.encode(operatorBank)
-            ),
-            try .init(
-                role: .metalCompilerContract,
-                data: ASHCanonicalJSONV4.encode(metalContract)
-            )
-        ]
-        let specialized = Set(artifacts.map(\.role))
-        for role in ASHRuntimeArtifactRoleV4.allCases
-            where !specialized.contains(role) {
-            let document = ASHV4FixtureArtifactDocument(
-                schemaID: role.expectedSchemaID,
-                artifactRole: role.rawValue,
-                contractID: "ash-p06-\(role.rawValue)-contract-v1",
-                payloadSHA256: ASHSHA256V4(
-                    rawData: Data("payload:\(role.rawValue):v1".utf8)
-                )
-            )
-            artifacts.append(
-                ASHP06RuntimeArtifactInputV4(
-                    role: role,
-                    data: try ASHCanonicalJSONV4.encode(document)
-                )
-            )
-        }
         // Deliberately reverse input order. Bundle order comes only from the
         // locked role order, never caller or filesystem enumeration order.
         artifacts.reverse()

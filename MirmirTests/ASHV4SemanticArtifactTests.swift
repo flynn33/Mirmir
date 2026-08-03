@@ -69,6 +69,33 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
             try first.branchProgram(),
             try ASHDepthFourBranchCompilerV4.compileCanonical()
         )
+        XCTAssertEqual(
+            try first.benchmarkCorpusIdentity().routes.count,
+            4
+        )
+        XCTAssertEqual(
+            try first.qualityCorpusIdentity().caseCount,
+            40
+        )
+        XCTAssertEqual(
+            try first.metricContract().minimumQualityIndex,
+            105
+        )
+        XCTAssertEqual(
+            try first.metricContract().maximumProcessingTimeRatio,
+            try ExactRationalV4(4, 5)
+        )
+        XCTAssertEqual(
+            try first.phaseCoefficientProcedure().kernelContractID,
+            FixedPointCoefficientCompilerV4.procedureID
+        )
+        XCTAssertTrue(
+            try first.verificationContract().cpuMetalByteIdentityRequired
+        )
+        XCTAssertEqual(
+            Set(try first.verificationContract().requiredRules.map(\.rawValue)),
+            Set(ASHVerificationRuleV4.allCases.map(\.rawValue))
+        )
         let firstPlanHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: first)
         let secondPlanHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: second)
         XCTAssertEqual(firstPlanHash, secondPlanHash)
@@ -209,6 +236,82 @@ final class ASHV4SemanticArtifactTests: XCTestCase {
                 XCTAssertEqual(
                     error as? ASHExecutionPlanV4Error,
                     .runtimeIdentityMismatch
+                )
+            }
+        }
+    }
+
+    func testTypedCorpusMetricKernelAndVerificationTamperFailClosed() throws {
+        let cases: [(
+            role: ASHRuntimeArtifactRoleV4,
+            original: String,
+            replacement: String,
+            expected: ASHP06RuntimeBundleV4Error
+        )] = [
+            (
+                .benchmarkCorpusIdentity,
+                "\"measuredSampleCount\":10",
+                "\"measuredSampleCount\":11",
+                .benchmarkCorpusIdentityMismatch
+            ),
+            (
+                .qualityCorpusIdentity,
+                "\"caseCount\":40",
+                "\"caseCount\":41",
+                .qualityCorpusIdentityMismatch
+            ),
+            (
+                .metricContract,
+                "\"minimumQualityIndex\":105",
+                "\"minimumQualityIndex\":104",
+                .metricContractMismatch
+            ),
+            (
+                .phaseCoefficientProcedure,
+                "\"fractionalBits\":14",
+                "\"fractionalBits\":13",
+                .phaseCoefficientProcedureMismatch
+            ),
+            (
+                .verificationContract,
+                "\"visiblePixelMismatchAllowance\":0",
+                "\"visiblePixelMismatchAllowance\":1",
+                .verificationContractMismatch
+            )
+        ]
+        for (index, testCase) in cases.enumerated() {
+            let original = try ASHV4SemanticArtifactTestSupport
+                .completeRequest()
+            let artifacts = original.artifacts.map { artifact in
+                guard artifact.role == testCase.role else { return artifact }
+                let text = String(decoding: artifact.data, as: UTF8.self)
+                let replaced = text.replacingOccurrences(
+                    of: testCase.original,
+                    with: testCase.replacement
+                )
+                XCTAssertNotEqual(text, replaced)
+                return ASHP06RuntimeArtifactInputV4(
+                    role: artifact.role,
+                    data: Data(replaced.utf8)
+                )
+            }
+            let request = ASHP06RuntimeBuildRequestV4(
+                releaseStatus: original.releaseStatus,
+                provenance: original.provenance,
+                artifacts: artifacts
+            )
+            XCTAssertThrowsError(
+                try ASHP06RuntimeBundleBuilderV4.build(
+                    request,
+                    at: temporaryDirectory.appendingPathComponent(
+                        "typed-tamper-\(index)"
+                    ),
+                    metalLibraryValidator: ASHV4FixtureMetalValidator()
+                )
+            ) { error in
+                XCTAssertEqual(
+                    error as? ASHP06RuntimeBundleV4Error,
+                    testCase.expected
                 )
             }
         }

@@ -38,6 +38,11 @@ enum ASHP06RuntimeBundleV4Error: Error, Equatable, Sendable {
     case operatorBankMismatch
     case branchOperatorBindingMismatch
     case metalCompilerBindingMismatch
+    case benchmarkCorpusIdentityMismatch
+    case qualityCorpusIdentityMismatch
+    case metricContractMismatch
+    case phaseCoefficientProcedureMismatch
+    case verificationContractMismatch
     case verifiedBindingInvalid
 }
 
@@ -146,6 +151,85 @@ struct ASHVerifiedRuntimeBundleV4: @unchecked Sendable {
             from: artifactData(for: .branchAggregation)
         )
         return try artifact.validatedProgram()
+    }
+
+    func benchmarkCorpusIdentity()
+        throws -> ASHP06BenchmarkCorpusIdentityArtifactV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06BenchmarkCorpusIdentityArtifactV4.self,
+            from: artifactData(for: .benchmarkCorpusIdentity)
+        )
+        try artifact.validate()
+        return artifact
+    }
+
+    func qualityCorpusIdentity()
+        throws -> ASHP06QualityCorpusIdentityArtifactV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06QualityCorpusIdentityArtifactV4.self,
+            from: artifactData(for: .qualityCorpusIdentity)
+        )
+        try artifact.validate()
+        return artifact
+    }
+
+    func metricContract() throws -> ASHP06MetricContractArtifactV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06MetricContractArtifactV4.self,
+            from: artifactData(for: .metricContract)
+        )
+        try artifact.validate(
+            qualityCorpusIdentitySHA256: manifest.artifact(
+                for: .qualityCorpusIdentity
+            ).contentSHA256,
+            benchmarkCorpusIdentitySHA256: manifest.artifact(
+                for: .benchmarkCorpusIdentity
+            ).contentSHA256,
+            measurementContractSHA256: manifest.artifact(
+                for: .measurementContract
+            ).contentSHA256
+        )
+        return artifact
+    }
+
+    func phaseCoefficientProcedure()
+        throws -> ASHP06PhaseCoefficientProcedureArtifactV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06PhaseCoefficientProcedureArtifactV4.self,
+            from: artifactData(for: .phaseCoefficientProcedure)
+        )
+        try artifact.validate()
+        return artifact
+    }
+
+    func verificationContract()
+        throws -> ASHP06VerificationContractArtifactV4 {
+        let artifact = try ASHCanonicalJSONV4.decode(
+            ASHP06VerificationContractArtifactV4.self,
+            from: artifactData(for: .verificationContract)
+        )
+        try artifact.validate(
+            benchmarkCorpusIdentitySHA256: manifest.artifact(
+                for: .benchmarkCorpusIdentity
+            ).contentSHA256,
+            qualityCorpusIdentitySHA256: manifest.artifact(
+                for: .qualityCorpusIdentity
+            ).contentSHA256,
+            metricContractSHA256: manifest.artifact(
+                for: .metricContract
+            ).contentSHA256,
+            measurementContractSHA256: manifest.artifact(
+                for: .measurementContract
+            ).contentSHA256,
+            phaseCoefficientProcedureSHA256: manifest.artifact(
+                for: .phaseCoefficientProcedure
+            ).contentSHA256,
+            operatorBankSHA256: manifest.artifact(for: .operatorBank)
+                .contentSHA256,
+            metalLibrarySHA256: manifest.artifact(for: .metalLibrary)
+                .contentSHA256
+        )
+        return artifact
     }
 
     func verifyBinding() throws {
@@ -392,28 +476,765 @@ struct ASHP06OperatorBankArtifactV4: Codable, Equatable, Sendable {
     }
 }
 
+struct ASHP06LockedFileIdentityV4: Codable, Equatable, Sendable {
+    let repositoryRelativePath: String
+    let byteCount: Int64
+    let contentSHA256: ASHSHA256V4
+}
+
+enum ASHP06LockedV3EvidenceV4 {
+    static let baselineID = "mirmir-v3-p05-baseline-2026-08-02"
+    static let captureSourceRevision =
+        "d3a4de55c08391ea8a08c00beb766b5650dc9f58"
+
+    static func evidenceManifest() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/evidence-manifest.json",
+            62_591,
+            "5d7ab2674663fede08978888083b436a733b7bd112f6277dfb29c7a6d9991b37"
+        )
+    }
+
+    static func captureManifest() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/capture-manifest.json",
+            53_805,
+            "902971d4102cd361a4791e275630f518cfbab53293c0c3ceb46d3e103ffe1dbd"
+        )
+    }
+
+    static func qualityBaseline() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/quality-baseline.json",
+            1_178,
+            "6a019b338fd17ab0299161b0eea9a0493939fe783c2d6bf10ba1cfe51fe84b8e"
+        )
+    }
+
+    static func performanceBaseline() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/performance-baseline.json",
+            1_444,
+            "144eae7c39c97e37662308dba095786c2bc14c06403825133fed847d1f88ece8"
+        )
+    }
+
+    static func endToEndBaseline() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-baseline.json",
+            2_876,
+            "2cd70eaa74f3245c4fa6a8c899391ef843c745fbf3c74dffce76d133b479ded0"
+        )
+    }
+
+    static func engineResults() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/engine-results.json",
+            45_104,
+            "2852efbc144c9bafacd9e699f4383c6db726ea53c7c214f003ee7a398972c4ee"
+        )
+    }
+
+    static func endToEndResults() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "docs/v4/evidence/v3-p05-baseline-2026-08-02/end-to-end-results.json",
+            17_663,
+            "68e3311dc9bdf7ae874f8f851e122e20e86e8a6378d7a226f8ec6f5b0c43015d"
+        )
+    }
+
+    static func metricImplementationSource() throws
+        -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "script/v4/capture_baseline.py",
+            21_109,
+            "9ed3497962e09c5e40a7639f5e97ad2d36ac40070ec6dca1ef3b1402aedbbecb"
+        )
+    }
+
+    static var allLockedFiles: [ASHP06LockedFileIdentityV4] {
+        get throws {
+            try [
+                evidenceManifest(),
+                captureManifest(),
+                qualityBaseline(),
+                performanceBaseline(),
+                endToEndBaseline(),
+                engineResults(),
+                endToEndResults(),
+                metricImplementationSource()
+            ]
+        }
+    }
+
+    private static func identity(
+        _ path: String,
+        _ byteCount: Int64,
+        _ sha256: String
+    ) throws -> ASHP06LockedFileIdentityV4 {
+        ASHP06LockedFileIdentityV4(
+            repositoryRelativePath: path,
+            byteCount: byteCount,
+            contentSHA256: try ASHSHA256V4(sha256)
+        )
+    }
+}
+
+struct ASHP06BenchmarkRouteIdentityV4: Codable, Equatable, Sendable {
+    let caseID: String
+    let pixelFormatID: String
+    let scaleNumerator: Int
+    let scaleDenominator: Int
+    let patternID: String
+    let warmupCount: Int
+    let measuredSampleCount: Int
+}
+
+struct ASHP06BenchmarkCorpusIdentityArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let corpusID: String
+    let baselineID: String
+    let baselineSourceRevision: String
+    let evidenceManifest: ASHP06LockedFileIdentityV4
+    let captureManifest: ASHP06LockedFileIdentityV4
+    let performanceBaseline: ASHP06LockedFileIdentityV4
+    let endToEndBaseline: ASHP06LockedFileIdentityV4
+    let engineResults: ASHP06LockedFileIdentityV4
+    let endToEndResults: ASHP06LockedFileIdentityV4
+    let routes: [ASHP06BenchmarkRouteIdentityV4]
+    let requiredStatistics: [String]
+    let comparabilityRuleID: String
+
+    static func canonical() throws -> Self {
+        let routes = [
+            ("420f-direct_2x-radial_detail", "420f", 2, 1),
+            ("420f-direct_3_over_2-radial_detail", "420f", 3, 2),
+            ("420v-direct_2x-radial_detail", "420v", 2, 1),
+            ("420v-direct_3_over_2-radial_detail", "420v", 3, 2)
+        ].map { id, format, numerator, denominator in
+            ASHP06BenchmarkRouteIdentityV4(
+                caseID: id,
+                pixelFormatID: format,
+                scaleNumerator: numerator,
+                scaleDenominator: denominator,
+                patternID: "radial_detail",
+                warmupCount: 5,
+                measuredSampleCount: 10
+            )
+        }
+        return Self(
+            schemaID: ASHRuntimeArtifactRoleV4.benchmarkCorpusIdentity
+                .expectedSchemaID,
+            artifactRole:
+                ASHRuntimeArtifactRoleV4.benchmarkCorpusIdentity.rawValue,
+            corpusID: "ash-p06-locked-benchmark-corpus-v1",
+            baselineID: ASHP06LockedV3EvidenceV4.baselineID,
+            baselineSourceRevision:
+                ASHP06LockedV3EvidenceV4.captureSourceRevision,
+            evidenceManifest: try ASHP06LockedV3EvidenceV4.evidenceManifest(),
+            captureManifest: try ASHP06LockedV3EvidenceV4.captureManifest(),
+            performanceBaseline:
+                try ASHP06LockedV3EvidenceV4.performanceBaseline(),
+            endToEndBaseline:
+                try ASHP06LockedV3EvidenceV4.endToEndBaseline(),
+            engineResults: try ASHP06LockedV3EvidenceV4.engineResults(),
+            endToEndResults: try ASHP06LockedV3EvidenceV4.endToEndResults(),
+            routes: routes,
+            requiredStatistics: [
+                "aggregate-wall-median",
+                "engine-frame-median",
+                "engine-frame-p95"
+            ],
+            comparabilityRuleID:
+                "identical-input-target-codec-hardware-toolchain-warmup-thermal-v1"
+        )
+    }
+
+    func validate() throws {
+        guard self == (try Self.canonical()) else {
+            throw ASHP06RuntimeBundleV4Error
+                .benchmarkCorpusIdentityMismatch
+        }
+    }
+}
+
+struct ASHP06QualityCorpusIdentityArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let corpusID: String
+    let baselineID: String
+    let baselineSourceRevision: String
+    let evidenceManifest: ASHP06LockedFileIdentityV4
+    let captureManifest: ASHP06LockedFileIdentityV4
+    let qualityBaseline: ASHP06LockedFileIdentityV4
+    let engineResults: ASHP06LockedFileIdentityV4
+    let pixelFormatIDs: [String]
+    let routeIDs: [String]
+    let orderedPatternIDs: [String]
+    let caseCount: Int
+    let temporalPairCount: Int
+    let acceptedByBothEnginesOnly: Bool
+
+    static func canonical() throws -> Self {
+        Self(
+            schemaID: ASHRuntimeArtifactRoleV4.qualityCorpusIdentity
+                .expectedSchemaID,
+            artifactRole: ASHRuntimeArtifactRoleV4.qualityCorpusIdentity.rawValue,
+            corpusID: "ash-p06-locked-quality-corpus-v1",
+            baselineID: ASHP06LockedV3EvidenceV4.baselineID,
+            baselineSourceRevision:
+                ASHP06LockedV3EvidenceV4.captureSourceRevision,
+            evidenceManifest: try ASHP06LockedV3EvidenceV4.evidenceManifest(),
+            captureManifest: try ASHP06LockedV3EvidenceV4.captureManifest(),
+            qualityBaseline: try ASHP06LockedV3EvidenceV4.qualityBaseline(),
+            engineResults: try ASHP06LockedV3EvidenceV4.engineResults(),
+            pixelFormatIDs: ["420f", "420v"],
+            routeIDs: ["direct_2x", "direct_3_over_2"],
+            orderedPatternIDs: [
+                "checkerboard",
+                "constant",
+                "diagonal_edge",
+                "horizontal_ramp",
+                "impulse",
+                "moving_edge_0",
+                "moving_edge_1",
+                "moving_edge_2",
+                "moving_edge_3",
+                "radial_detail"
+            ],
+            caseCount: 40,
+            temporalPairCount: 12,
+            acceptedByBothEnginesOnly: true
+        )
+    }
+
+    func validate() throws {
+        guard self == (try Self.canonical()) else {
+            throw ASHP06RuntimeBundleV4Error.qualityCorpusIdentityMismatch
+        }
+    }
+}
+
+enum ASHP06QualityMetricComponentV4: String, Codable, CaseIterable,
+    Sendable {
+    case chromaMultiscaleStructuralError =
+        "chroma_multiscale_structural_error"
+    case edgeRingingError = "edge_ringing_error"
+    case lumaMultiscaleStructuralError = "luma_multiscale_structural_error"
+    case perceptualFeatureError = "perceptual_feature_error"
+    case temporalFlickerError = "temporal_flicker_error"
+}
+
+struct ASHP06QualityMetricWeightV4: Codable, Equatable, Sendable {
+    let component: ASHP06QualityMetricComponentV4
+    let weight: ExactRationalV4
+}
+
+struct ASHP06MetricContractArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let contractID: String
+    let qualityCorpusIdentitySHA256: ASHSHA256V4
+    let benchmarkCorpusIdentitySHA256: ASHSHA256V4
+    let measurementContractSHA256: ASHSHA256V4
+    let metricImplementationSource: ASHP06LockedFileIdentityV4
+    let qualityWeights: [ASHP06QualityMetricWeightV4]
+    let qualityIndexFormulaID: String
+    let baselineQualityIndex: Int
+    let minimumQualityIndex: Int
+    let pairedBootstrapConfidence: ExactRationalV4
+    let minimumQualityConfidenceLowerBound: Int
+    let maximumLumaCohortRegression: ExactRationalV4
+    let temporalCohortRegressionAllowed: Bool
+    let maximumProcessingTimeRatio: ExactRationalV4
+    let requiredTimeStatistics: [String]
+    let exactConformanceDomains: [String]
+
+    static func canonical(
+        qualityCorpusIdentitySHA256: ASHSHA256V4,
+        benchmarkCorpusIdentitySHA256: ASHSHA256V4,
+        measurementContractSHA256: ASHSHA256V4
+    ) throws -> Self {
+        Self(
+            schemaID: ASHRuntimeArtifactRoleV4.metricContract.expectedSchemaID,
+            artifactRole: ASHRuntimeArtifactRoleV4.metricContract.rawValue,
+            contractID: "ash-p06-quality-performance-metric-contract-v1",
+            qualityCorpusIdentitySHA256: qualityCorpusIdentitySHA256,
+            benchmarkCorpusIdentitySHA256: benchmarkCorpusIdentitySHA256,
+            measurementContractSHA256: measurementContractSHA256,
+            metricImplementationSource:
+                try ASHP06LockedV3EvidenceV4.metricImplementationSource(),
+            qualityWeights: [
+                ASHP06QualityMetricWeightV4(
+                    component: .chromaMultiscaleStructuralError,
+                    weight: try ExactRationalV4(15, 100)
+                ),
+                ASHP06QualityMetricWeightV4(
+                    component: .edgeRingingError,
+                    weight: try ExactRationalV4(10, 100)
+                ),
+                ASHP06QualityMetricWeightV4(
+                    component: .lumaMultiscaleStructuralError,
+                    weight: try ExactRationalV4(35, 100)
+                ),
+                ASHP06QualityMetricWeightV4(
+                    component: .perceptualFeatureError,
+                    weight: try ExactRationalV4(20, 100)
+                ),
+                ASHP06QualityMetricWeightV4(
+                    component: .temporalFlickerError,
+                    weight: try ExactRationalV4(20, 100)
+                )
+            ],
+            qualityIndexFormulaID:
+                "q-ash-equals-100-times-open-2-minus-normalized-error-close-v1",
+            baselineQualityIndex: 100,
+            minimumQualityIndex: 105,
+            pairedBootstrapConfidence: try ExactRationalV4(95, 100),
+            minimumQualityConfidenceLowerBound: 105,
+            maximumLumaCohortRegression: try ExactRationalV4(1, 100),
+            temporalCohortRegressionAllowed: false,
+            maximumProcessingTimeRatio: try ExactRationalV4(80, 100),
+            requiredTimeStatistics: [
+                "aggregate-wall-median",
+                "engine-frame-median",
+                "engine-frame-p95"
+            ],
+            exactConformanceDomains: [
+                "alpha",
+                "geometry",
+                "metadata",
+                "pixel-range"
+            ]
+        )
+    }
+
+    func validate(
+        qualityCorpusIdentitySHA256: ASHSHA256V4,
+        benchmarkCorpusIdentitySHA256: ASHSHA256V4,
+        measurementContractSHA256: ASHSHA256V4
+    ) throws {
+        guard self == (try Self.canonical(
+            qualityCorpusIdentitySHA256: qualityCorpusIdentitySHA256,
+            benchmarkCorpusIdentitySHA256: benchmarkCorpusIdentitySHA256,
+            measurementContractSHA256: measurementContractSHA256
+        )) else {
+            throw ASHP06RuntimeBundleV4Error.metricContractMismatch
+        }
+    }
+}
+
+enum ASHP06FixedPointSourceIdentityV4 {
+    static func spatialScalePlan() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "Mirmir/Modules/UpscalerEngine/SpatialScalePlanV4.swift",
+            10_953,
+            "04eb8a6d960e8cbf95ab98d3b3f1baf5bb3826741dfb2dc242de1bda9ca5774e"
+        )
+    }
+
+    static func fixedPointKernel() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "Mirmir/Modules/UpscalerEngine/FixedPointKernelV4.swift",
+            22_290,
+            "f12a426c609c12c4b0001ac6122f594f4f589b65ae8d2f81558f839f12ca0bf6"
+        )
+    }
+
+    static func metalKernel() throws -> ASHP06LockedFileIdentityV4 {
+        try identity(
+            "Mirmir/Modules/UpscalerEngine/FixedPointMetalKernelsV4.metal",
+            3_938,
+            "38952b9387b440adc5857c0b1f5f915a723aec776bf16f4338eb78c7e2dcc8f8"
+        )
+    }
+
+    static var allLockedFiles: [ASHP06LockedFileIdentityV4] {
+        get throws { try [spatialScalePlan(), fixedPointKernel(), metalKernel()] }
+    }
+
+    private static func identity(
+        _ path: String,
+        _ byteCount: Int64,
+        _ sha256: String
+    ) throws -> ASHP06LockedFileIdentityV4 {
+        ASHP06LockedFileIdentityV4(
+            repositoryRelativePath: path,
+            byteCount: byteCount,
+            contentSHA256: try ASHSHA256V4(sha256)
+        )
+    }
+}
+
+struct ASHP06PhaseCoefficientProcedureArtifactV4: Codable, Equatable,
+    Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let kernelContractID: String
+    let coordinateProcedureID: String
+    let coefficientProcedureID: String
+    let spatialScalePlanSource: ASHP06LockedFileIdentityV4
+    let fixedPointKernelSource: ASHP06LockedFileIdentityV4
+    let metalKernelSource: ASHP06LockedFileIdentityV4
+    let tapOffsets: [Int]
+    let fractionalBits: Int
+    let normalization: Int32
+    let coefficientRoundingRuleID: String
+    let equalRemainderTapOrderLeftHalf: [Int]
+    let equalRemainderTapOrderRightHalf: [Int]
+    let separableIntermediateRounding: Bool
+    let finalAccumulatorFractionalBits: Int
+    let finalRoundingRule: FixedPointRoundingRuleV4
+    let accumulatorBitWidth: Int
+    let clampStageID: String
+    let admittedBorderRules: [SpatialBorderRuleV4]
+    let metalEntryPoint: String
+
+    static func canonical() throws -> Self {
+        Self(
+            schemaID: ASHRuntimeArtifactRoleV4.phaseCoefficientProcedure
+                .expectedSchemaID,
+            artifactRole:
+                ASHRuntimeArtifactRoleV4.phaseCoefficientProcedure.rawValue,
+            kernelContractID: FixedPointCoefficientCompilerV4.procedureID,
+            coordinateProcedureID:
+                "pixel-center-2j-plus-1-times-s-minus-t-over-2t-v1",
+            coefficientProcedureID: FixedPointCoefficientCompilerV4.procedureID,
+            spatialScalePlanSource:
+                try ASHP06FixedPointSourceIdentityV4.spatialScalePlan(),
+            fixedPointKernelSource:
+                try ASHP06FixedPointSourceIdentityV4.fixedPointKernel(),
+            metalKernelSource:
+                try ASHP06FixedPointSourceIdentityV4.metalKernel(),
+            tapOffsets: FixedPointPhaseKernelV4.tapOffsets,
+            fractionalBits: FixedPointCoefficientCompilerV4.fractionalBits,
+            normalization: FixedPointCoefficientCompilerV4.normalization,
+            coefficientRoundingRuleID:
+                "largest-remainder-descending-fraction-phase-half-total-tie-v1",
+            equalRemainderTapOrderLeftHalf: [1, 2, 0, 3],
+            equalRemainderTapOrderRightHalf: [2, 1, 3, 0],
+            separableIntermediateRounding: false,
+            finalAccumulatorFractionalBits:
+                FixedPointCoefficientCompilerV4.fractionalBits * 2,
+            finalRoundingRule: .nearestTiesToEven,
+            accumulatorBitWidth: 64,
+            clampStageID: "after-final-q28-reduction",
+            admittedBorderRules: [.clamp, .reflect101],
+            metalEntryPoint: "ashFixedPointScaleV4"
+        )
+    }
+
+    func validate() throws {
+        guard self == (try Self.canonical()) else {
+            throw ASHP06RuntimeBundleV4Error
+                .phaseCoefficientProcedureMismatch
+        }
+    }
+}
+
+enum ASHP06VerificationRuleContractV4: String, Codable, CaseIterable,
+    Sendable {
+    case alphaIdentity = "alpha_identity"
+    case attachmentSemantics = "attachment_semantics"
+    case approvedDropRecord = "approved_drop_record"
+    case colorSemantics = "color_semantics"
+    case containerReadability = "container_readability"
+    case duration
+    case encodedSampleIdentity = "encoded_sample_identity"
+    case exactPresentationGeometry = "exact_presentation_geometry"
+    case metadataSemantics = "metadata_semantics"
+    case noUnplannedDrops = "no_unplanned_drops"
+    case pixelLayout = "pixel_layout"
+    case runtimeIdentity = "runtime_identity"
+    case scanSemantics = "scan_semantics"
+    case timingAndEditLists = "timing_and_edit_lists"
+    case trackIdentityAndOrdering = "track_identity_and_ordering"
+    case visiblePixelBytes = "visible_pixel_bytes"
+}
+
+enum ASHP06VerificationSourceIdentityV4 {
+    static func executionPlan() throws -> ASHP06LockedFileIdentityV4 {
+        ASHP06LockedFileIdentityV4(
+            repositoryRelativePath:
+                "Mirmir/Modules/UpscalerEngine/ASH/ASHExecutionPlanV4.swift",
+            byteCount: 18_800,
+            contentSHA256: try ASHSHA256V4(
+                "fe2b402fc0b18a4f8b199744026973988522bd3db132d1f3ea7a53ec4ee54977"
+            )
+        )
+    }
+}
+
+struct ASHP06VerificationContractArtifactV4: Codable, Equatable, Sendable {
+    let schemaID: String
+    let artifactRole: String
+    let contractID: String
+    let benchmarkCorpusIdentitySHA256: ASHSHA256V4
+    let qualityCorpusIdentitySHA256: ASHSHA256V4
+    let metricContractSHA256: ASHSHA256V4
+    let measurementContractSHA256: ASHSHA256V4
+    let phaseCoefficientProcedureSHA256: ASHSHA256V4
+    let operatorBankSHA256: ASHSHA256V4
+    let metalLibrarySHA256: ASHSHA256V4
+    let verificationImplementationSource: ASHP06LockedFileIdentityV4
+    let requiredRules: [ASHP06VerificationRuleContractV4]
+    let visiblePixelMismatchAllowance: Int
+    let cpuMetalByteIdentityRequired: Bool
+    let repeatedRunIdentityRequired: Bool
+    let crossProcessIdentityRequired: Bool
+    let everyEnabledTrackRequiresDisposition: Bool
+    let unapprovedDropsAllowed: Bool
+    let verificationFailureDispositionID: String
+
+    static func canonical(
+        benchmarkCorpusIdentitySHA256: ASHSHA256V4,
+        qualityCorpusIdentitySHA256: ASHSHA256V4,
+        metricContractSHA256: ASHSHA256V4,
+        measurementContractSHA256: ASHSHA256V4,
+        phaseCoefficientProcedureSHA256: ASHSHA256V4,
+        operatorBankSHA256: ASHSHA256V4,
+        metalLibrarySHA256: ASHSHA256V4
+    ) throws -> Self {
+        Self(
+            schemaID: ASHRuntimeArtifactRoleV4.verificationContract
+                .expectedSchemaID,
+            artifactRole:
+                ASHRuntimeArtifactRoleV4.verificationContract.rawValue,
+            contractID: "ash-p06-fail-closed-verification-contract-v1",
+            benchmarkCorpusIdentitySHA256: benchmarkCorpusIdentitySHA256,
+            qualityCorpusIdentitySHA256: qualityCorpusIdentitySHA256,
+            metricContractSHA256: metricContractSHA256,
+            measurementContractSHA256: measurementContractSHA256,
+            phaseCoefficientProcedureSHA256:
+                phaseCoefficientProcedureSHA256,
+            operatorBankSHA256: operatorBankSHA256,
+            metalLibrarySHA256: metalLibrarySHA256,
+            verificationImplementationSource:
+                try ASHP06VerificationSourceIdentityV4.executionPlan(),
+            requiredRules: ASHP06VerificationRuleContractV4.allCases.sorted {
+                $0.rawValue < $1.rawValue
+            },
+            visiblePixelMismatchAllowance: 0,
+            cpuMetalByteIdentityRequired: true,
+            repeatedRunIdentityRequired: true,
+            crossProcessIdentityRequired: true,
+            everyEnabledTrackRequiresDisposition: true,
+            unapprovedDropsAllowed: false,
+            verificationFailureDispositionID: "fail-job-before-commit"
+        )
+    }
+
+    func validate(
+        benchmarkCorpusIdentitySHA256: ASHSHA256V4,
+        qualityCorpusIdentitySHA256: ASHSHA256V4,
+        metricContractSHA256: ASHSHA256V4,
+        measurementContractSHA256: ASHSHA256V4,
+        phaseCoefficientProcedureSHA256: ASHSHA256V4,
+        operatorBankSHA256: ASHSHA256V4,
+        metalLibrarySHA256: ASHSHA256V4
+    ) throws {
+        guard self == (try Self.canonical(
+            benchmarkCorpusIdentitySHA256: benchmarkCorpusIdentitySHA256,
+            qualityCorpusIdentitySHA256: qualityCorpusIdentitySHA256,
+            metricContractSHA256: metricContractSHA256,
+            measurementContractSHA256: measurementContractSHA256,
+            phaseCoefficientProcedureSHA256:
+                phaseCoefficientProcedureSHA256,
+            operatorBankSHA256: operatorBankSHA256,
+            metalLibrarySHA256: metalLibrarySHA256
+        )) else {
+            throw ASHP06RuntimeBundleV4Error.verificationContractMismatch
+        }
+    }
+}
+
 struct ASHP06MetalCompilerContractArtifactV4: Codable, Equatable, Sendable {
     let schemaID: String
     let artifactRole: String
     let metalLibrarySHA256: ASHSHA256V4
+    let compilerExecutableID: String
+    let linkerExecutableID: String
     let compilerIdentity: String
     let languageVersion: String
     let sdkBuildIdentity: String
+    let deploymentTarget: String
     let targetTriple: String
+    let metalSourceSHA256: ASHSHA256V4
+    let compilerArgumentTemplate: [String]
+    let linkerArgumentTemplate: [String]
+    let entryPointNames: [String]
+
+    static func canonical(
+        metalLibrarySHA256: ASHSHA256V4,
+        phaseProcedure: ASHP06PhaseCoefficientProcedureArtifactV4,
+        toolchain: ASHRuntimeToolchainV4
+    ) -> Self {
+        let minimumOSVersion = toolchain.deploymentTarget.hasPrefix("macos-")
+            ? String(toolchain.deploymentTarget.dropFirst("macos-".count))
+            : toolchain.deploymentTarget
+        return Self(
+            schemaID: ASHRuntimeArtifactRoleV4.metalCompilerContract
+                .expectedSchemaID,
+            artifactRole:
+                ASHRuntimeArtifactRoleV4.metalCompilerContract.rawValue,
+            metalLibrarySHA256: metalLibrarySHA256,
+            compilerExecutableID: "xcrun-sdk-macosx-metal",
+            linkerExecutableID: "xcrun-sdk-macosx-metallib",
+            compilerIdentity: toolchain.metalCompilerIdentity,
+            languageVersion: toolchain.metalLanguageVersion,
+            sdkBuildIdentity: toolchain.sdkBuildIdentity,
+            deploymentTarget: toolchain.deploymentTarget,
+            targetTriple: toolchain.targetTriple,
+            metalSourceSHA256: phaseProcedure.metalKernelSource.contentSHA256,
+            compilerArgumentTemplate: [
+                "-c",
+                "-mmacosx-version-min=\(minimumOSVersion)",
+                "-std=\(toolchain.metalLanguageVersion)",
+                "{source}",
+                "-o",
+                "{air}"
+            ],
+            linkerArgumentTemplate: ["{air}", "-o", "{metallib}"],
+            entryPointNames: [phaseProcedure.metalEntryPoint]
+        )
+    }
 
     func validate(
-        provenance: ASHRuntimeProvenanceV4
+        provenance: ASHRuntimeProvenanceV4,
+        phaseProcedure: ASHP06PhaseCoefficientProcedureArtifactV4
     ) throws {
-        guard schemaID
-                == ASHRuntimeArtifactRoleV4.metalCompilerContract.expectedSchemaID,
-              artifactRole == ASHRuntimeArtifactRoleV4.metalCompilerContract.rawValue,
-              metalLibrarySHA256 == provenance.metalLibrarySHA256,
-              compilerIdentity == provenance.toolchain.metalCompilerIdentity,
-              languageVersion == provenance.toolchain.metalLanguageVersion,
-              sdkBuildIdentity == provenance.toolchain.sdkBuildIdentity,
-              targetTriple == provenance.toolchain.targetTriple else {
+        guard self == Self.canonical(
+            metalLibrarySHA256: provenance.metalLibrarySHA256,
+            phaseProcedure: phaseProcedure,
+            toolchain: provenance.toolchain
+        ) else {
             throw ASHP06RuntimeBundleV4Error.metalCompilerBindingMismatch
         }
+    }
+}
+
+enum ASHP06CanonicalRuntimeArtifactsV4 {
+    static func make(
+        metalLibrary: Data,
+        toolchain: ASHRuntimeToolchainV4
+    ) throws -> [ASHP06RuntimeArtifactInputV4] {
+        let codewords = ASHP06CodewordTablesArtifactV4.canonical()
+        let codewordInput = try input(.codewordTables, codewords)
+        let certificate = ASHP06CoreCertificateArtifactV4.canonical(
+            codewordTablesSHA256: ASHSHA256V4(rawData: codewordInput.data)
+        )
+        let measurement = try ASHP06MeasurementContractArtifactV4.canonical()
+        let measurementInput = try input(.measurementContract, measurement)
+        let branch = try ASHP06BranchAggregationArtifactV4.canonical()
+        let branchInput = try input(.branchAggregation, branch)
+        let operatorBank = ASHP06OperatorBankArtifactV4.canonical(
+            branchProgramSHA256: branch.canonicalBinarySHA256
+        )
+        let operatorInput = try input(.operatorBank, operatorBank)
+        let benchmark = try ASHP06BenchmarkCorpusIdentityArtifactV4.canonical()
+        let benchmarkInput = try input(.benchmarkCorpusIdentity, benchmark)
+        let quality = try ASHP06QualityCorpusIdentityArtifactV4.canonical()
+        let qualityInput = try input(.qualityCorpusIdentity, quality)
+        let phase = try ASHP06PhaseCoefficientProcedureArtifactV4.canonical()
+        let phaseInput = try input(.phaseCoefficientProcedure, phase)
+        let metric = try ASHP06MetricContractArtifactV4.canonical(
+            qualityCorpusIdentitySHA256: ASHSHA256V4(
+                rawData: qualityInput.data
+            ),
+            benchmarkCorpusIdentitySHA256: ASHSHA256V4(
+                rawData: benchmarkInput.data
+            ),
+            measurementContractSHA256: ASHSHA256V4(
+                rawData: measurementInput.data
+            )
+        )
+        let metricInput = try input(.metricContract, metric)
+        let metalHash = ASHSHA256V4(rawData: metalLibrary)
+        let metalContract = ASHP06MetalCompilerContractArtifactV4.canonical(
+            metalLibrarySHA256: metalHash,
+            phaseProcedure: phase,
+            toolchain: toolchain
+        )
+        let metalContractInput = try input(
+            .metalCompilerContract,
+            metalContract
+        )
+        let verification = try ASHP06VerificationContractArtifactV4.canonical(
+            benchmarkCorpusIdentitySHA256: ASHSHA256V4(
+                rawData: benchmarkInput.data
+            ),
+            qualityCorpusIdentitySHA256: ASHSHA256V4(
+                rawData: qualityInput.data
+            ),
+            metricContractSHA256: ASHSHA256V4(rawData: metricInput.data),
+            measurementContractSHA256: ASHSHA256V4(
+                rawData: measurementInput.data
+            ),
+            phaseCoefficientProcedureSHA256: ASHSHA256V4(
+                rawData: phaseInput.data
+            ),
+            operatorBankSHA256: ASHSHA256V4(rawData: operatorInput.data),
+            metalLibrarySHA256: metalHash
+        )
+        return [
+            benchmarkInput,
+            branchInput,
+            codewordInput,
+            try input(.coreCertificate, certificate),
+            measurementInput,
+            metalContractInput,
+            ASHP06RuntimeArtifactInputV4(
+                role: .metalLibrary,
+                data: metalLibrary
+            ),
+            metricInput,
+            operatorInput,
+            phaseInput,
+            qualityInput,
+            try input(.verificationContract, verification)
+        ].sorted { $0.role < $1.role }
+    }
+
+    static func validateLockedRepositoryInputs(
+        repositoryRoot: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let identities = try ASHP06LockedV3EvidenceV4.allLockedFiles
+            + ASHP06FixedPointSourceIdentityV4.allLockedFiles
+            + [ASHP06VerificationSourceIdentityV4.executionPlan()]
+        for identity in identities {
+            let url = repositoryRoot.appendingPathComponent(
+                identity.repositoryRelativePath,
+                isDirectory: false
+            )
+            let values = try url.resourceValues(
+                forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey]
+            )
+            guard values.isRegularFile == true,
+                  values.isSymbolicLink != true,
+                  Int64(values.fileSize ?? -1) == identity.byteCount else {
+                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                    "locked input size/type mismatch: \(identity.repositoryRelativePath)"
+                )
+            }
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            guard ASHSHA256V4(rawData: data) == identity.contentSHA256 else {
+                throw ASHP06RuntimeBundleV4Error.invalidBuildInput(
+                    "locked input hash mismatch: \(identity.repositoryRelativePath)"
+                )
+            }
+        }
+    }
+
+    private static func input<T: Encodable>(
+        _ role: ASHRuntimeArtifactRoleV4,
+        _ document: T
+    ) throws -> ASHP06RuntimeArtifactInputV4 {
+        ASHP06RuntimeArtifactInputV4(
+            role: role,
+            data: try ASHCanonicalJSONV4.encode(document)
+        )
     }
 }
 
@@ -588,11 +1409,14 @@ enum ASHP06RuntimeBundleBuilderV4 {
             throw ASHP06RuntimeBundleV4Error.artifactEnvelopeMismatch(role)
         }
         if releaseStatus == .releaseQualified,
-           let text = String(data: data, encoding: .utf8)?.lowercased(),
-           text.contains("p05")
-            || text.contains("preview")
-            || text.contains("development") {
-            throw ASHP06RuntimeBundleV4Error.forbiddenPreviewArtifact(role)
+           let text = String(data: data, encoding: .utf8)?.lowercased() {
+            let isBaselineIdentity = role == .benchmarkCorpusIdentity
+                || role == .qualityCorpusIdentity
+            if (!isBaselineIdentity && text.contains("p05"))
+                || text.contains("preview")
+                || text.contains("development") {
+                throw ASHP06RuntimeBundleV4Error.forbiddenPreviewArtifact(role)
+            }
         }
     }
 
@@ -619,6 +1443,36 @@ enum ASHP06RuntimeBundleBuilderV4 {
             from: byRole[.measurementContract]!
         )
         try measurement.validate()
+        let benchmarkData = byRole[.benchmarkCorpusIdentity]!
+        let benchmark = try ASHCanonicalJSONV4.decode(
+            ASHP06BenchmarkCorpusIdentityArtifactV4.self,
+            from: benchmarkData
+        )
+        try benchmark.validate()
+        let qualityData = byRole[.qualityCorpusIdentity]!
+        let quality = try ASHCanonicalJSONV4.decode(
+            ASHP06QualityCorpusIdentityArtifactV4.self,
+            from: qualityData
+        )
+        try quality.validate()
+        let phaseData = byRole[.phaseCoefficientProcedure]!
+        let phase = try ASHCanonicalJSONV4.decode(
+            ASHP06PhaseCoefficientProcedureArtifactV4.self,
+            from: phaseData
+        )
+        try phase.validate()
+        let metricData = byRole[.metricContract]!
+        let metric = try ASHCanonicalJSONV4.decode(
+            ASHP06MetricContractArtifactV4.self,
+            from: metricData
+        )
+        try metric.validate(
+            qualityCorpusIdentitySHA256: ASHSHA256V4(rawData: qualityData),
+            benchmarkCorpusIdentitySHA256: ASHSHA256V4(rawData: benchmarkData),
+            measurementContractSHA256: ASHSHA256V4(
+                rawData: byRole[.measurementContract]!
+            )
+        )
         let branch = try ASHCanonicalJSONV4.decode(
             ASHP06BranchAggregationArtifactV4.self,
             from: byRole[.branchAggregation]!
@@ -636,7 +1490,27 @@ enum ASHP06RuntimeBundleBuilderV4 {
             ASHP06MetalCompilerContractArtifactV4.self,
             from: byRole[.metalCompilerContract]!
         )
-        try metalContract.validate(provenance: manifest.provenance)
+        try metalContract.validate(
+            provenance: manifest.provenance,
+            phaseProcedure: phase
+        )
+        let verification = try ASHCanonicalJSONV4.decode(
+            ASHP06VerificationContractArtifactV4.self,
+            from: byRole[.verificationContract]!
+        )
+        try verification.validate(
+            benchmarkCorpusIdentitySHA256: ASHSHA256V4(rawData: benchmarkData),
+            qualityCorpusIdentitySHA256: ASHSHA256V4(rawData: qualityData),
+            metricContractSHA256: ASHSHA256V4(rawData: metricData),
+            measurementContractSHA256: ASHSHA256V4(
+                rawData: byRole[.measurementContract]!
+            ),
+            phaseCoefficientProcedureSHA256: ASHSHA256V4(rawData: phaseData),
+            operatorBankSHA256: ASHSHA256V4(
+                rawData: byRole[.operatorBank]!
+            ),
+            metalLibrarySHA256: manifest.provenance.metalLibrarySHA256
+        )
     }
 }
 

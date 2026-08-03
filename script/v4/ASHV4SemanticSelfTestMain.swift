@@ -43,6 +43,37 @@ private enum ASHV4SemanticSelfTestMain {
             firstFiles == secondFiles,
             "bundle bytes changed between builds"
         )
+        try require(
+            try first.benchmarkCorpusIdentity().routes.count == 4,
+            "benchmark corpus contract is not canonical"
+        )
+        try require(
+            try first.qualityCorpusIdentity().caseCount == 40,
+            "quality corpus contract is not canonical"
+        )
+        try require(
+            try first.metricContract().minimumQualityIndex == 105,
+            "quality metric gate changed"
+        )
+        try require(
+            try first.metricContract().maximumProcessingTimeRatio
+                == ExactRationalV4(4, 5),
+            "performance metric gate changed"
+        )
+        try require(
+            try first.phaseCoefficientProcedure().kernelContractID
+                == FixedPointCoefficientCompilerV4.procedureID,
+            "fixed-point kernel contract changed"
+        )
+        try require(
+            try first.verificationContract().cpuMetalByteIdentityRequired,
+            "byte-parity verification is not mandatory"
+        )
+        try require(
+            Set(try first.verificationContract().requiredRules.map(\.rawValue))
+                == Set(ASHVerificationRuleV4.allCases.map(\.rawValue)),
+            "runtime verification rules differ from the execution planner"
+        )
         let localHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: first)
         let secondHash = try ASHV4SemanticArtifactTestSupport.planHash(runtime: second)
         try require(
@@ -54,11 +85,11 @@ private enum ASHV4SemanticSelfTestMain {
         let childTwo = try childPlanHash()
         try require(childOne == childTwo, "plan identity changed across processes")
         try require(childOne == localHash, "child plan identity differs from parent")
+        print("plan_sha256=\(localHash)")
         try require(
             localHash == ASHV4SemanticArtifactTestSupport.expectedPlanSHA256,
             "plan identity differs from the locked fixture"
         )
-        print("plan_sha256=\(localHash)")
 
         var incomplete = try ASHV4SemanticArtifactTestSupport.completeRequest()
         incomplete = ASHP06RuntimeBuildRequestV4(
@@ -77,6 +108,82 @@ private enum ASHV4SemanticSelfTestMain {
             )
         } catch ASHP06RuntimeBundleV4Error.incompleteBuildInput {
             // Expected.
+        }
+
+        let typedTamperCases: [(
+            ASHRuntimeArtifactRoleV4,
+            String,
+            String,
+            ASHP06RuntimeBundleV4Error
+        )] = [
+            (
+                .benchmarkCorpusIdentity,
+                "\"measuredSampleCount\":10",
+                "\"measuredSampleCount\":11",
+                .benchmarkCorpusIdentityMismatch
+            ),
+            (
+                .qualityCorpusIdentity,
+                "\"caseCount\":40",
+                "\"caseCount\":41",
+                .qualityCorpusIdentityMismatch
+            ),
+            (
+                .metricContract,
+                "\"minimumQualityIndex\":105",
+                "\"minimumQualityIndex\":104",
+                .metricContractMismatch
+            ),
+            (
+                .phaseCoefficientProcedure,
+                "\"fractionalBits\":14",
+                "\"fractionalBits\":13",
+                .phaseCoefficientProcedureMismatch
+            ),
+            (
+                .verificationContract,
+                "\"visiblePixelMismatchAllowance\":0",
+                "\"visiblePixelMismatchAllowance\":1",
+                .verificationContractMismatch
+            )
+        ]
+        for (index, testCase) in typedTamperCases.enumerated() {
+            let original = try ASHV4SemanticArtifactTestSupport
+                .completeRequest()
+            var replacedRole = false
+            let artifacts = original.artifacts.map { artifact in
+                guard artifact.role == testCase.0 else { return artifact }
+                let text = String(decoding: artifact.data, as: UTF8.self)
+                let replaced = text.replacingOccurrences(
+                    of: testCase.1,
+                    with: testCase.2
+                )
+                replacedRole = replaced != text
+                return ASHP06RuntimeArtifactInputV4(
+                    role: artifact.role,
+                    data: Data(replaced.utf8)
+                )
+            }
+            try require(replacedRole, "typed tamper fixture did not mutate")
+            do {
+                _ = try ASHP06RuntimeBundleBuilderV4.build(
+                    ASHP06RuntimeBuildRequestV4(
+                        releaseStatus: original.releaseStatus,
+                        provenance: original.provenance,
+                        artifacts: artifacts
+                    ),
+                    at: root.appendingPathComponent("typed-tamper-\(index)"),
+                    metalLibraryValidator: ASHV4FixtureMetalValidator()
+                )
+                throw ASHV4SemanticSelfTestError.assertion(
+                    "typed artifact tamper unexpectedly built"
+                )
+            } catch let error as ASHP06RuntimeBundleV4Error {
+                try require(
+                    error == testCase.3,
+                    "typed artifact tamper returned the wrong error"
+                )
+            }
         }
 
         let operatorURL = firstURL.appendingPathComponent(
@@ -151,8 +258,11 @@ private enum ASHV4SemanticSelfTestMain {
         return url
     }
 
-    private static func require(_ condition: @autoclosure () -> Bool, _ message: String) throws {
-        guard condition() else {
+    private static func require(
+        _ condition: @autoclosure () throws -> Bool,
+        _ message: String
+    ) throws {
+        guard try condition() else {
             throw ASHV4SemanticSelfTestError.assertion(message)
         }
     }
