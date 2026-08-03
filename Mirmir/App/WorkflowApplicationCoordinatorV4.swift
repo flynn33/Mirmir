@@ -179,6 +179,136 @@ protocol WorkflowApplicationControllingV4: Sendable {
     ) async throws
 }
 
+struct WorkflowSourceTrackProgressObservationV4: Equatable, Sendable {
+    let count: UInt64
+    let lastEnd: WorkflowMediaTimeV4?
+}
+
+/// Keeps one encoded source-track reader alive for the lifetime of a prepared
+/// durable job. A boundary advances this cursor only across newly reached
+/// samples; the first sample at or beyond the boundary remains pending for the
+/// next call. This makes checkpoint accounting linear in source samples rather
+/// than rereading each track from time zero at every segment.
+final class WorkflowSourceTrackProgressCursorV4: @unchecked Sendable {
+    private let reader: AVAssetReader
+    private let output: AVAssetReaderTrackOutput
+    private var pendingSample: CMSampleBuffer?
+    private var count: UInt64 = 0
+    private var lastEnd: WorkflowMediaTimeV4?
+    private var lastBoundary: CMTime?
+    private var reachedEnd = false
+
+    private(set) var copiedSampleCount: UInt64 = 0
+    private(set) var nonTimedSampleBufferCount: UInt64 = 0
+    let readerCreationCount: UInt64 = 1
+
+    init(asset: AVAsset, track: AVAssetTrack) throws {
+        reader = try AVAssetReader(asset: asset)
+        output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
+        output.alwaysCopiesSampleData = false
+        guard reader.canAdd(output) else {
+            throw WorkflowApplicationControllerErrorV4.invalidAssembledOutput(
+                "source progress reader rejected a track"
+            )
+        }
+        reader.add(output)
+        guard reader.startReading() else {
+            throw WorkflowApplicationControllerErrorV4.invalidAssembledOutput(
+                "source progress reader failed"
+            )
+        }
+    }
+
+    func progress(
+        through boundary: WorkflowMediaTimeV4
+    ) throws -> WorkflowSourceTrackProgressObservationV4 {
+        let end = CMTime(value: boundary.value, timescale: boundary.timescale)
+        guard end.isNumeric,
+              lastBoundary.map({ CMTimeCompare(end, $0) >= 0 }) ?? true else {
+            throw WorkflowApplicationControllerErrorV4.invalidAssembledOutput(
+                "source progress boundary moved backwards"
+            )
+        }
+        if !reachedEnd {
+            while true {
+                let sample: CMSampleBuffer?
+                if let pendingSample {
+                    sample = pendingSample
+                    self.pendingSample = nil
+                } else {
+                    sample = output.copyNextSampleBuffer()
+                    if sample != nil {
+                        let increment = copiedSampleCount.addingReportingOverflow(1)
+                        guard !increment.overflow else {
+                            throw WorkflowApplicationControllerErrorV4
+                                .invalidAssembledOutput(
+                                    "source progress sample count overflowed"
+                                )
+                        }
+                        copiedSampleCount = increment.partialValue
+                    }
+                }
+                guard let sample else {
+                    if reader.status == .failed {
+                        throw WorkflowApplicationControllerErrorV4
+                            .invalidAssembledOutput(
+                                "source progress reader failed while advancing"
+                            )
+                    }
+                    reachedEnd = true
+                    break
+                }
+                let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+                guard presentation.isNumeric else {
+                    let increment = nonTimedSampleBufferCount
+                        .addingReportingOverflow(1)
+                    guard !increment.overflow else {
+                        throw WorkflowApplicationControllerErrorV4
+                            .invalidAssembledOutput(
+                                "source progress marker count overflowed"
+                            )
+                    }
+                    nonTimedSampleBufferCount = increment.partialValue
+                    continue
+                }
+                if CMTimeCompare(presentation, end) >= 0 {
+                    pendingSample = sample
+                    break
+                }
+                let increment = count.addingReportingOverflow(1)
+                guard !increment.overflow else {
+                    throw WorkflowApplicationControllerErrorV4
+                        .invalidAssembledOutput(
+                            "source progress sample count overflowed"
+                        )
+                }
+                count = increment.partialValue
+                let duration = CMSampleBufferGetDuration(sample)
+                let sampleEnd = duration.isNumeric && duration.value > 0
+                    ? CMTimeAdd(presentation, duration) : presentation
+                lastEnd = try WorkflowMediaTimeV4(
+                    value: sampleEnd.value,
+                    timescale: sampleEnd.timescale
+                )
+            }
+        }
+        lastBoundary = end
+        return WorkflowSourceTrackProgressObservationV4(
+            count: count,
+            lastEnd: lastEnd
+        )
+    }
+
+    func cancel() {
+        reader.cancelReading()
+        pendingSample = nil
+    }
+
+    deinit {
+        cancel()
+    }
+}
+
 actor WorkflowDeterministicApplicationEngineV4:
     WorkflowApplicationDeterministicExecutingV4
 {
@@ -186,6 +316,13 @@ actor WorkflowDeterministicApplicationEngineV4:
         let source: VideoInfo
         let backend: any PreparedDeterministicV4RuntimePlanningBackend
         let plan: DeterministicV4PreparedAssetPlan
+        let sourceProgressCursors: [
+            MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
+        ]
+
+        func cancelSourceProgress() {
+            sourceProgressCursors.values.forEach { $0.cancel() }
+        }
     }
 
     private let videoProbe: any VideoProbing
@@ -265,7 +402,12 @@ actor WorkflowDeterministicApplicationEngineV4:
                 throw WorkflowApplicationControllerErrorV4
                     .preparedPlanChanged(jobID)
             }
+            let sourceProgressCursors = try await makeSourceProgressCursors(
+                sourceURL: request.inputURL,
+                plan: plan
+            )
             if let previous = preparedByJobID.removeValue(forKey: jobID) {
+                previous.cancelSourceProgress()
                 await previous.plan.finishProcessingBackend(
                     planningBackend: previous.backend
                 )
@@ -273,7 +415,8 @@ actor WorkflowDeterministicApplicationEngineV4:
             preparedByJobID[jobID] = PreparedExecution(
                 source: source,
                 backend: backend,
-                plan: plan
+                plan: plan,
+                sourceProgressCursors: sourceProgressCursors
             )
             return source
         } catch {
@@ -469,6 +612,7 @@ actor WorkflowDeterministicApplicationEngineV4:
         guard let prepared = preparedByJobID.removeValue(forKey: jobID) else {
             return
         }
+        prepared.cancelSourceProgress()
         await prepared.plan.finishProcessingBackend(
             planningBackend: prepared.backend
         )
@@ -485,25 +629,13 @@ private extension WorkflowDeterministicApplicationEngineV4 {
             uniqueKeysWithValues: (previousCheckpoint?.body.trackProgress ?? [])
                 .map { ($0.trackID, $0) }
         )
-        let asset = AVURLAsset(
-            url: prepared.source.url,
-            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
-        )
-        let assetTracks = try await asset.load(.tracks)
-        guard assetTracks.count == prepared.plan.sourceGraph.tracks.count else {
-            throw WorkflowApplicationControllerErrorV4
-                .invalidAssembledOutput("source track inventory changed")
-        }
         let plannedByID = Dictionary(
             uniqueKeysWithValues: prepared.plan.trackPlan.plan.tracks.map {
                 ($0.source.identity.stableID, $0)
             }
         )
         var result: [WorkflowTrackProgressV4] = []
-        for (node, track) in zip(
-            prepared.plan.sourceGraph.tracks,
-            assetTracks
-        ) {
+        for node in prepared.plan.sourceGraph.tracks {
             let id = node.identity.stableID.rawValue
             let kind = checkpointKind(node.kind)
             if node.identity.stableID
@@ -524,9 +656,15 @@ private extension WorkflowDeterministicApplicationEngineV4 {
                 ))
                 continue
             }
-            let observed = try await sourceProgress(
-                asset: asset,
-                track: track,
+            guard let cursor = prepared.sourceProgressCursors[
+                node.identity.stableID
+            ] else {
+                throw WorkflowApplicationControllerErrorV4
+                    .invalidAssembledOutput(
+                        "source progress cursor inventory changed"
+                    )
+            }
+            let observed = try cursor.progress(
                 through: segment.endTimeExclusive
             )
             let action = plannedByID[node.identity.stableID]?.action
@@ -543,41 +681,47 @@ private extension WorkflowDeterministicApplicationEngineV4 {
         return result
     }
 
-    func sourceProgress(
-        asset: AVAsset,
-        track: AVAssetTrack,
-        through boundary: WorkflowMediaTimeV4
-    ) async throws -> (count: UInt64, lastEnd: WorkflowMediaTimeV4?) {
-        let reader = try AVAssetReader(asset: asset)
-        let output = AVAssetReaderTrackOutput(track: track, outputSettings: nil)
-        output.alwaysCopiesSampleData = false
-        guard reader.canAdd(output) else {
+    func makeSourceProgressCursors(
+        sourceURL: URL,
+        plan: DeterministicV4PreparedAssetPlan
+    ) async throws -> [
+        MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
+    ] {
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let assetTracks = try await asset.load(.tracks)
+        guard assetTracks.count == plan.sourceGraph.tracks.count else {
             throw WorkflowApplicationControllerErrorV4
-                .invalidAssembledOutput("source progress reader rejected a track")
+                .invalidAssembledOutput("source track inventory changed")
         }
-        reader.add(output)
-        guard reader.startReading() else {
-            throw WorkflowApplicationControllerErrorV4
-                .invalidAssembledOutput("source progress reader failed")
+        var cursors: [
+            MediaTrackStableIDV4: WorkflowSourceTrackProgressCursorV4
+        ] = [:]
+        do {
+            for (node, track) in zip(plan.sourceGraph.tracks, assetTracks) {
+                guard node.identity.stableID
+                        != plan.primaryGraphTrack.identity.stableID else {
+                    continue
+                }
+                guard cursors[node.identity.stableID] == nil else {
+                    throw WorkflowApplicationControllerErrorV4
+                        .invalidAssembledOutput(
+                            "source progress track identity was duplicated"
+                        )
+                }
+                cursors[node.identity.stableID] = try
+                    WorkflowSourceTrackProgressCursorV4(
+                        asset: asset,
+                        track: track
+                    )
+            }
+            return cursors
+        } catch {
+            cursors.values.forEach { $0.cancel() }
+            throw error
         }
-        let end = CMTime(value: boundary.value, timescale: boundary.timescale)
-        var count: UInt64 = 0
-        var lastEnd: WorkflowMediaTimeV4?
-        while let sample = output.copyNextSampleBuffer() {
-            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
-            guard presentation.isNumeric else { continue }
-            if CMTimeCompare(presentation, end) >= 0 { break }
-            count += 1
-            let duration = CMSampleBufferGetDuration(sample)
-            let sampleEnd = duration.isNumeric && duration.value > 0
-                ? CMTimeAdd(presentation, duration) : presentation
-            lastEnd = try WorkflowMediaTimeV4(
-                value: sampleEnd.value,
-                timescale: sampleEnd.timescale
-            )
-        }
-        reader.cancelReading()
-        return (count, lastEnd)
     }
 
     nonisolated func checkpointKind(

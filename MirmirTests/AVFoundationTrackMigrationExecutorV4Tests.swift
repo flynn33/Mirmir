@@ -341,6 +341,68 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         )
     }
 
+    func testWorkflowSourceProgressCursorReadsTrackLinearlyAcrossBoundaries()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("linear-progress-source.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: sourceURL,
+            includeAudioGroup: true
+        )
+        let asset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        let audioTrack = try XCTUnwrap(audioTracks.first)
+        let duration = try await asset.load(.duration)
+        XCTAssertTrue(duration.isNumeric)
+        XCTAssertGreaterThan(duration.value, 0)
+        let cursor = try WorkflowSourceTrackProgressCursorV4(
+            asset: asset,
+            track: audioTrack
+        )
+        defer { cursor.cancel() }
+
+        var observations: [WorkflowSourceTrackProgressObservationV4] = []
+        for divisor in [4, 2, 1] {
+            let boundary = CMTimeMultiplyByRatio(
+                duration,
+                multiplier: 1,
+                divisor: Int32(divisor)
+            )
+            observations.append(try cursor.progress(
+                through: WorkflowMediaTimeV4(
+                    value: boundary.value,
+                    timescale: boundary.timescale
+                )
+            ))
+        }
+        XCTAssertEqual(cursor.readerCreationCount, 1)
+        let finalObservation = try XCTUnwrap(observations.last)
+        XCTAssertGreaterThan(finalObservation.count, 0)
+        XCTAssertTrue(zip(observations, observations.dropFirst()).allSatisfy {
+            $0.0.count <= $0.1.count
+        })
+        XCTAssertEqual(
+            cursor.copiedSampleCount,
+            finalObservation.count + cursor.nonTimedSampleBufferCount
+        )
+        let copiedAtEnd = cursor.copiedSampleCount
+        _ = try cursor.progress(
+            through: WorkflowMediaTimeV4(
+                value: duration.value,
+                timescale: duration.timescale
+            )
+        )
+        XCTAssertEqual(cursor.copiedSampleCount, copiedAtEnd)
+
+        XCTAssertThrowsError(try cursor.progress(
+            through: WorkflowMediaTimeV4(value: 0, timescale: 1)
+        ))
+    }
+
     func testPassThroughHDRVideoUsesExactFrameBoundMetadataLossGate()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
