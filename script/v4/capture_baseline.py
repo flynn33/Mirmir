@@ -329,6 +329,42 @@ def summarize_allocation_pressure(records: list[dict[str, Any]]) -> dict[str, An
         "cpu": {field: [] for field in fields},
         "metal": {field: [] for field in fields},
     }
+
+
+def summarize_end_to_end(capture: dict[str, Any]) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for run in capture["runs"]:
+        grouped.setdefault(run["backendID"], []).append(run)
+    backends: dict[str, Any] = {}
+    for backend, runs in sorted(grouped.items()):
+        wall = [float(run["wallMilliseconds"]) for run in runs]
+        session = [float(run["sessionMilliseconds"]) for run in runs]
+        stages: dict[str, dict[str, float]] = {}
+        for stage in sorted(runs[0]["stageMilliseconds"]):
+            values = [float(run["stageMilliseconds"][stage]) for run in runs]
+            stages[stage] = {
+                "medianMilliseconds": statistics.median(values),
+                "p95Milliseconds": percentile(values, 95),
+            }
+        backends[backend] = {
+            "sampleCount": len(runs),
+            "wallMedianMilliseconds": statistics.median(wall),
+            "wallP95Milliseconds": percentile(wall, 95),
+            "sessionMedianMilliseconds": statistics.median(session),
+            "sessionP95Milliseconds": percentile(session, 95),
+            "stages": stages,
+        }
+    return {
+        "schemaVersion": "mirmir-v4-end-to-end-summary-v1",
+        "inputFile": capture["inputFile"],
+        "inputByteCount": capture["inputByteCount"],
+        "targetWidth": capture["targetWidth"],
+        "targetHeight": capture["targetHeight"],
+        "outputCodec": capture["outputCodec"],
+        "warmupCount": capture["warmupCount"],
+        "sampleCount": capture["sampleCount"],
+        "backends": backends,
+    }
     cases: list[dict[str, Any]] = []
     for record in records:
         case: dict[str, Any] = {
@@ -451,8 +487,11 @@ def main() -> int:
         "platform=macOS",
         "-derivedDataPath",
         str(arguments.derived_data),
+        "-parallel-testing-enabled",
+        "NO",
         "test",
         "-only-testing:MirmirTests/DeterministicMetalBackendTests/testCaptureV3BaselineWhenRequested",
+        "-only-testing:MirmirTests/VideoProcessingSessionTests/testCaptureV3EndToEndBaselineWhenRequested",
         "CODE_SIGNING_ALLOWED=NO",
         "ENABLE_TESTABILITY=YES",
         "ONLY_ACTIVE_ARCH=YES",
@@ -477,7 +516,13 @@ def main() -> int:
     engine_results_path = output / "engine-results.json"
     if not engine_results_path.is_file():
         raise SystemExit("The baseline test succeeded without producing engine-results.json.")
+    end_to_end_results_path = output / "end-to-end-results.json"
+    if not end_to_end_results_path.is_file():
+        raise SystemExit(
+            "The baseline test succeeded without producing end-to-end-results.json."
+        )
     engine_results = json.loads(engine_results_path.read_text())
+    end_to_end_results = json.loads(end_to_end_results_path.read_text())
     write_json(
         output / "difference-maps.json",
         {
@@ -502,6 +547,10 @@ def main() -> int:
     write_json(
         output / "allocation-profile.json",
         summarize_allocation_pressure(engine_results["performance"]),
+    )
+    write_json(
+        output / "end-to-end-baseline.json",
+        summarize_end_to_end(end_to_end_results),
     )
     write_json(output / "environment.json", environment_manifest(repository))
     write_json(
