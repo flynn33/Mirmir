@@ -138,18 +138,69 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 source,
                 storage: storage
             )
+            let exactPTS = try ExactRationalV4(Int64(frameIndex), 30)
+            let sourcePlane = try temporalLumaPlane(from: sourceSignal)
+            let neutralState = try ASHState(rawValue: 0)
+            let sourceTemporalFrame = try ASHTemporalFrameV4(
+                frameID: "quality-measurement-\(frameIndex)",
+                streamID: "quality-measurement-stream",
+                formatIdentity: formatIdentity,
+                ordinal: Int64(frameIndex),
+                presentationTime: exactPTS,
+                luma: sourcePlane,
+                tileStateRawValues: [
+                    previousMeasurementState?.rawValue
+                        ?? neutralState.rawValue
+                ],
+                cadenceID: "progressive"
+            )
+            var measurementMotion: ASHTemporalMotionAnalysisV4?
+            if case .temporalHysteresisOff = mode {
+                measurementMotion = nil
+            } else if frameIndex > 0,
+                      let previousMeasurementFrame {
+                let previousSourceFrame = try ASHTemporalFrameV4(
+                    frameID: "quality-measurement-\(frameIndex - 1)",
+                    streamID: sourceTemporalFrame.streamID,
+                    formatIdentity: sourceTemporalFrame.formatIdentity,
+                    ordinal: Int64(frameIndex - 1),
+                    presentationTime: try ExactRationalV4(
+                        Int64(frameIndex - 1),
+                        30
+                    ),
+                    luma: try temporalLumaPlane(
+                        from: previousMeasurementFrame
+                    ),
+                    tileStateRawValues: [
+                        previousMeasurementState?.rawValue
+                            ?? neutralState.rawValue
+                    ],
+                    cadenceID: "progressive"
+                )
+                measurementMotion = try ASHTemporalMotionAnalyzerV4.analyze(
+                    current: sourceTemporalFrame,
+                    previous: previousSourceFrame
+                )
+            }
+            let measurementReset: ASHMeasurementResetTriggerV4?
+            if case .temporalHysteresisOff = mode {
+                measurementReset = .streamStart
+            } else if previousMeasurementFrame == nil {
+                measurementReset = .streamStart
+            } else if measurementMotion?.sceneCut == true {
+                measurementReset = .sceneCut
+            } else {
+                measurementReset = nil
+            }
             let measurementHistory: ASHMeasurementHistoryV4
-            switch mode {
-            case .temporalHysteresisOff:
+            if let measurementReset {
+                measurementHistory = .reset(measurementReset)
+            } else if let previousMeasurementState {
+                measurementHistory = .continuous(
+                    previousState: previousMeasurementState
+                )
+            } else {
                 measurementHistory = .reset(.streamStart)
-            default:
-                if let previousMeasurementState {
-                    measurementHistory = .continuous(
-                        previousState: previousMeasurementState
-                    )
-                } else {
-                    measurementHistory = .reset(.streamStart)
-                }
             }
             let measurement = try ASHMeasurementExtractorV4.extract(
                 frame: sourceSignal,
@@ -158,7 +209,10 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                     return previousMeasurementFrame
                 }(),
                 contract: measurementContract,
-                history: measurementHistory
+                history: measurementHistory,
+                motionCompensatedTemporalEvidenceQ16:
+                    measurementMotion?.temporalEvidenceQ16
+                        ?? (measurementReset != nil ? 0 : nil)
             )
             try await scaler.process(source: source, destination: destination)
             let outputSignal = try PixelBufferSignalCodecV4.read(
@@ -178,20 +232,34 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 measured: measurement.projection.state,
                 frameIndex: frameIndex
             )
-            let exactPTS = try ExactRationalV4(Int64(frameIndex), 30)
+            let conditionedSpatial: ASHTemporalPlaneV4
+            if case .uniformPriors = mode {
+                conditionedSpatial = try uniformSpatialReconstruction(
+                    spatial: spatial
+                )
+            } else {
+                conditionedSpatial = try ASHSpatialReconstructorV4.reconstruct(
+                    spatial: spatial,
+                    sourceState: state,
+                    program: program
+                ).output
+            }
             let frame = try ASHTemporalFrameV4(
                 frameID: "quality-frame-\(frameIndex)",
                 streamID: "quality-stream",
                 formatIdentity: formatIdentity,
                 ordinal: Int64(frameIndex),
                 presentationTime: exactPTS,
-                luma: spatial,
+                luma: conditionedSpatial,
                 tileStateRawValues: [state.rawValue],
                 cadenceID: "progressive"
             )
 
             var resetReason: ASHTemporalResetReasonV4?
                 = history.frames.isEmpty ? .streamStart : nil
+            if measurementMotion?.sceneCut == true {
+                resetReason = .sceneCut
+            }
             var motionAnalysis: ASHTemporalMotionAnalysisV4?
             if case .motionHistoryOff = mode {
                 motionAnalysis = nil
@@ -210,13 +278,13 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             let reconstructed: ASHTemporalPlaneV4
             if case .uniformPriors = mode {
                 reconstructed = try uniformReconstruction(
-                    spatial: spatial,
+                    spatial: conditionedSpatial,
                     motionAnalysis: motionAnalysis,
                     resetReason: resetReason
                 )
             } else {
                 reconstructed = try ASHTemporalReconstructorV4.reconstruct(
-                    spatial: spatial,
+                    spatial: conditionedSpatial,
                     motionAnalysis: motionAnalysis,
                     sourceState: state,
                     resetReason: resetReason,
@@ -252,6 +320,23 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             ))
             previousMeasurementFrame = sourceSignal
             previousMeasurementState = measurement.projection.state
+        }
+
+        private func temporalLumaPlane(
+            from frame: PixelBufferSignalFrameV4
+        ) throws -> ASHTemporalPlaneV4 {
+            guard let luma = frame.planes.first,
+                  luma.componentsPerElement == 1,
+                  let bounds = luma.componentBounds.first else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            return try ASHTemporalPlaneV4(
+                width: luma.width,
+                height: luma.height,
+                minimumCode: bounds.minimum,
+                maximumCode: bounds.maximum,
+                samples: try luma.component(0)
+            )
         }
 
         private func selectedState(
@@ -344,6 +429,92 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
             return try spatial.replacing(samples: samples)
         }
 
+        private func uniformSpatialReconstruction(
+            spatial: ASHTemporalPlaneV4
+        ) throws -> ASHTemporalPlaneV4 {
+            guard program.operatorManifest.basisIDs == [
+                "horizontal_detail",
+                "vertical_detail",
+                "isotropic_detail",
+                "regularization"
+            ] else {
+                throw ASHTemporalV4Error.invalidConfiguration
+            }
+            var numerators = Array(repeating: UInt64(0), count: 4)
+            for weight in program.baseWeightsByMessage {
+                let entry = try program.operatorManifest.entry(
+                    forMessage: weight.messageRawValue
+                )
+                guard entry.coefficients.count == numerators.count else {
+                    throw ASHTemporalV4Error.invalidConfiguration
+                }
+                for index in numerators.indices {
+                    let coefficient = entry.coefficients[index]
+                    guard coefficient >= 0 else {
+                        throw ASHTemporalV4Error.invalidConfiguration
+                    }
+                    numerators[index] += weight.massNumerator
+                        * UInt64(coefficient)
+                }
+            }
+            var gains = try numerators.map { numerator in
+                let expectationQ16 = try roundedFraction(
+                    numerator: numerator
+                        * UInt64(ASHNormalizedQ16V4.scale),
+                    denominator: program.baseMassDenominator
+                )
+                return try roundedFraction(
+                    numerator: expectationQ16
+                        * UInt64(
+                            ASHSpatialReconstructorV4.maximumDetailGainQ16
+                        ),
+                    denominator: UInt64(ASHNormalizedQ16V4.scale)
+                )
+            }
+            gains[3] = 0
+            let source = spatial.samples
+            var output = source
+            for y in 0..<spatial.height {
+                let upY = max(0, y - 1)
+                let downY = min(spatial.height - 1, y + 1)
+                for x in 0..<spatial.width {
+                    let leftX = max(0, x - 1)
+                    let rightX = min(spatial.width - 1, x + 1)
+                    let index = y * spatial.width + x
+                    let center = Int64(source[index])
+                    let left = Int64(source[y * spatial.width + leftX])
+                    let right = Int64(source[y * spatial.width + rightX])
+                    let up = Int64(source[upY * spatial.width + x])
+                    let down = Int64(source[downY * spatial.width + x])
+                    let horizontalAverage = try roundedSignedFraction(
+                        numerator: left + right,
+                        denominator: 2
+                    )
+                    let verticalAverage = try roundedSignedFraction(
+                        numerator: up + down,
+                        denominator: 2
+                    )
+                    let isotropicAverage = try roundedSignedFraction(
+                        numerator: left + right + up + down,
+                        denominator: 4
+                    )
+                    let weighted = (center - horizontalAverage)
+                            * Int64(gains[0])
+                        + (center - verticalAverage) * Int64(gains[1])
+                        + (center - isotropicAverage) * Int64(gains[2])
+                    let adjustment = try roundedSignedFraction(
+                        numerator: weighted,
+                        denominator: Int64(ASHNormalizedQ16V4.scale)
+                    )
+                    output[index] = UInt16(min(
+                        Int64(spatial.maximumCode),
+                        max(Int64(spatial.minimumCode), center + adjustment)
+                    ))
+                }
+            }
+            return try spatial.replacing(samples: output)
+        }
+
         private func roundedFraction(
             numerator: UInt64,
             denominator: UInt64
@@ -370,6 +541,23 @@ final class ASHV4QualityGateCaptureTests: XCTestCase {
                 numerator: value,
                 denominator: denominator
             )
+        }
+
+        private func roundedSignedFraction(
+            numerator: Int64,
+            denominator: Int64
+        ) throws -> Int64 {
+            guard denominator > 0 else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            let magnitude = try roundedFraction(
+                numerator: numerator.magnitude,
+                denominator: UInt64(denominator)
+            )
+            guard magnitude <= UInt64(Int64.max) else {
+                throw ASHTemporalV4Error.arithmeticOverflow
+            }
+            return numerator < 0 ? -Int64(magnitude) : Int64(magnitude)
         }
     }
 

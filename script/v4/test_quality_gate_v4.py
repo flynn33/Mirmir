@@ -25,6 +25,15 @@ class QualityGateV4Tests(unittest.TestCase):
     def setUp(self) -> None:
         self.contract = SCRIPT_DIRECTORY / "quality-gate-contract-v1.json"
 
+    def testCaptureMirrorIncludesCanonicalMotionAndSpatialPaths(self) -> None:
+        source = (SCRIPT_DIRECTORY / "QualityGateCaptureTests.swift").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("motionCompensatedTemporalEvidenceQ16:", source)
+        self.assertIn("ASHSpatialReconstructorV4.reconstruct(", source)
+        self.assertIn("uniformSpatialReconstruction(", source)
+        self.assertIn("fullMirrorIdentityPass", source)
+
     def testSyntheticCorpusReproducesByteForByte(self) -> None:
         with tempfile.TemporaryDirectory(prefix="ash-quality-test-") as temporary:
             root = Path(temporary)
