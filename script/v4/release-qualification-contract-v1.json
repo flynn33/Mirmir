@@ -37,6 +37,17 @@
       "/identities/evaluatorSHA256",
       "/identities/runnerSHA256"
     ],
+    "media_preservation": [
+      "/contractSHA256",
+      "/candidate/runtimeManifestFileSHA256",
+      "/candidate/releaseConfigurationSHA256",
+      "/identities/laneContractSHA256",
+      "/identities/captureSourceSHA256",
+      "/identities/fixtureSourceSHA256",
+      "/identities/evaluatorSHA256",
+      "/identities/runnerSHA256",
+      "/identities/captureSHA256"
+    ],
     "notarized_smoke": [
       "/contractSHA256",
       "/candidate/runtimeManifestFileSHA256",

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+from fractions import Fraction
 import hashlib
 import json
 import math
@@ -34,6 +35,13 @@ QUALITY_VARIANTS = (
     "temporal_hysteresis_off",
     "motion_history_off",
 )
+MEDIA_LANE_CONTRACT_SCHEMA = "mirmir-ash-v4-media-preservation-contract-v1"
+MEDIA_SIDE_MANIFEST_SCHEMA = "mirmir-ash-v4-media-side-manifest-v1"
+MEDIA_SEMANTIC_VERIFIER_SCHEMA = "mirmir-ash-v4-media-semantic-verifier-v1"
+MEDIA_TRACK_SCHEMA = "mirmir-ash-v4-track-observation-v1"
+MEDIA_TIMING_SCHEMA = "mirmir-ash-v4-timing-observation-v1"
+MEDIA_PIXEL_SCHEMA = "mirmir-ash-v4-pixel-observation-v1"
+MEDIA_ATTACHMENT_SCHEMA = "mirmir-ash-v4-attachment-observation-v1"
 
 
 class QualificationError(ValueError):
@@ -1489,6 +1497,426 @@ def validate_parity(
     return {"caseCount": len(cases), "coverage": sorted(covered), "maximumByteDifference": 0}
 
 
+def media_fraction(value: Any, label: str) -> Fraction:
+    text = require_string(value, label)
+    try:
+        result = Fraction(text)
+    except (ValueError, ZeroDivisionError) as error:
+        raise QualificationError(f"{label} is not an exact rational") from error
+    if str(result) != text and not (result.denominator == 1 and text == f"{result.numerator}/1"):
+        raise QualificationError(f"{label} is not a reduced exact rational")
+    return result
+
+
+def media_track_index(value: Mapping[str, Any], label: str) -> dict[int, dict[str, Any]]:
+    rows = require_list(value.get("tracks"), f"{label}.tracks")
+    indexed: dict[int, dict[str, Any]] = {}
+    for index, raw in enumerate(rows):
+        row = require_mapping(raw, f"{label}.tracks[{index}]")
+        ordinal = require_integer(row.get("ordinal"), f"{label}.tracks[{index}].ordinal")
+        if ordinal in indexed:
+            raise QualificationError(f"{label} repeats track ordinal {ordinal}")
+        indexed[ordinal] = row
+    if list(indexed) != sorted(indexed):
+        raise QualificationError(f"{label} track order is not canonical")
+    return indexed
+
+
+def validate_media_track_observation(value: Mapping[str, Any], label: str) -> dict[int, dict[str, Any]]:
+    require_exact_keys(
+        value,
+        {
+            "schemaVersion", "fixtureID", "side", "enabledTrackCount", "tracks",
+            "groups", "associations", "assetMetadataSHA256", "chapterMetadataSHA256",
+        },
+        label,
+    )
+    if value["schemaVersion"] != MEDIA_TRACK_SCHEMA:
+        raise QualificationError(f"{label} schema mismatch")
+    require_hex(value["assetMetadataSHA256"], 64, f"{label}.assetMetadataSHA256")
+    require_hex(value["chapterMetadataSHA256"], 64, f"{label}.chapterMetadataSHA256")
+    tracks = media_track_index(value, label)
+    enabled = 0
+    for ordinal, track in tracks.items():
+        track_label = f"{label}.track[{ordinal}]"
+        require_exact_keys(
+            track,
+            {
+                "ordinal", "kind", "enabled", "mediaTypeID", "codecID", "languageCode",
+                "extendedLanguageTag", "roleIDs", "timebase", "timeRangeSHA256",
+                "editsSHA256", "formatSHA256", "metadataSHA256",
+            },
+            track_label,
+        )
+        require_string(track["kind"], f"{track_label}.kind")
+        enabled += int(require_bool(track["enabled"], f"{track_label}.enabled"))
+        for key in ("mediaTypeID", "codecID", "timebase"):
+            require_string(track[key], f"{track_label}.{key}")
+        for key in ("timeRangeSHA256", "editsSHA256", "formatSHA256", "metadataSHA256"):
+            require_hex(track[key], 64, f"{track_label}.{key}")
+        for key in ("languageCode", "extendedLanguageTag"):
+            if track[key] is not None and not isinstance(track[key], str):
+                raise QualificationError(f"{track_label}.{key} is invalid")
+        roles = require_list(track["roleIDs"], f"{track_label}.roleIDs")
+        if roles != sorted(set(roles)) or any(not isinstance(role, str) or not role for role in roles):
+            raise QualificationError(f"{track_label}.roleIDs is noncanonical")
+    if require_integer(value["enabledTrackCount"], f"{label}.enabledTrackCount") != enabled:
+        raise QualificationError(f"{label} enabled-track count mismatch")
+    require_list(value["groups"], f"{label}.groups")
+    require_list(value["associations"], f"{label}.associations")
+    return tracks
+
+
+def validate_media_timing_observation(value: Mapping[str, Any], label: str) -> dict[int, dict[str, Any]]:
+    require_exact_keys(value, {"schemaVersion", "fixtureID", "side", "tracks"}, label)
+    if value["schemaVersion"] != MEDIA_TIMING_SCHEMA:
+        raise QualificationError(f"{label} schema mismatch")
+    tracks = media_track_index(value, label)
+    for ordinal, track in tracks.items():
+        track_label = f"{label}.track[{ordinal}]"
+        require_exact_keys(
+            track,
+            {"ordinal", "sampleCount", "timingSHA256", "encodedPayloadSHA256", "samples"},
+            track_label,
+        )
+        samples = require_list(track["samples"], f"{track_label}.samples")
+        if require_integer(track["sampleCount"], f"{track_label}.sampleCount") != len(samples):
+            raise QualificationError(f"{track_label} sample count mismatch")
+        timings: list[dict[str, Any]] = []
+        payloads: list[str] = []
+        for sample_index, raw_sample in enumerate(samples):
+            sample = require_mapping(raw_sample, f"{track_label}.samples[{sample_index}]")
+            require_exact_keys(
+                sample,
+                {"pts", "dts", "duration", "byteCount", "payloadSHA256"},
+                f"{track_label}.samples[{sample_index}]",
+            )
+            media_fraction(sample["pts"], f"{track_label}.samples[{sample_index}].pts")
+            if sample["dts"] != "invalid":
+                media_fraction(sample["dts"], f"{track_label}.samples[{sample_index}].dts")
+            media_fraction(sample["duration"], f"{track_label}.samples[{sample_index}].duration")
+            require_integer(sample["byteCount"], f"{track_label}.samples[{sample_index}].byteCount")
+            payloads.append(require_hex(sample["payloadSHA256"], 64, f"{track_label}.samples[{sample_index}].payloadSHA256"))
+            timings.append({key: sample[key] for key in ("pts", "dts", "duration")})
+        if require_hex(track["timingSHA256"], 64, f"{track_label}.timingSHA256") != sha256_bytes(canonical_bytes(timings)):
+            raise QualificationError(f"{track_label} timing identity mismatch")
+        if require_hex(track["encodedPayloadSHA256"], 64, f"{track_label}.encodedPayloadSHA256") != sha256_bytes(canonical_bytes(payloads)):
+            raise QualificationError(f"{track_label} payload-set identity mismatch")
+    return tracks
+
+
+def validate_media_pixel_observation(
+    value: Mapping[str, Any], pixel_path: Path, label: str
+) -> dict[int, dict[str, Any]]:
+    require_exact_keys(
+        value,
+        {"schemaVersion", "fixtureID", "side", "pixelArtifactSHA256", "pixelArtifactByteCount", "tracks"},
+        label,
+    )
+    if value["schemaVersion"] != MEDIA_PIXEL_SCHEMA:
+        raise QualificationError(f"{label} schema mismatch")
+    if require_hex(value["pixelArtifactSHA256"], 64, f"{label}.pixelArtifactSHA256") != sha256(pixel_path):
+        raise QualificationError(f"{label} pixel artifact identity mismatch")
+    if require_integer(value["pixelArtifactByteCount"], f"{label}.pixelArtifactByteCount") != pixel_path.stat().st_size:
+        raise QualificationError(f"{label} pixel artifact byte count mismatch")
+    tracks = media_track_index(value, label)
+    for ordinal, track in tracks.items():
+        track_label = f"{label}.track[{ordinal}]"
+        require_exact_keys(
+            track,
+            {
+                "ordinal", "kind", "pixelFormat", "bitDepth", "width", "height", "frameCount",
+                "visibleSHA256", "repeatVisibleSHA256", "alphaSHA256", "preEncodeAlphaSHA256",
+                "decodedAlphaSHA256", "uniqueSignalCodeCount", "lowPaddingBitViolationCount",
+            },
+            track_label,
+        )
+        require_string(track["kind"], f"{track_label}.kind")
+        require_string(track["pixelFormat"], f"{track_label}.pixelFormat")
+        for key in ("bitDepth", "width", "height", "frameCount", "uniqueSignalCodeCount", "lowPaddingBitViolationCount"):
+            require_integer(track[key], f"{track_label}.{key}")
+        for key in ("visibleSHA256", "repeatVisibleSHA256"):
+            require_hex(track[key], 64, f"{track_label}.{key}")
+        for key in ("alphaSHA256", "preEncodeAlphaSHA256", "decodedAlphaSHA256"):
+            if track[key] is not None:
+                require_hex(track[key], 64, f"{track_label}.{key}")
+    return tracks
+
+
+def validate_media_attachment_observation(value: Mapping[str, Any], label: str) -> dict[int, dict[str, Any]]:
+    require_exact_keys(value, {"schemaVersion", "fixtureID", "side", "tracks"}, label)
+    if value["schemaVersion"] != MEDIA_ATTACHMENT_SCHEMA:
+        raise QualificationError(f"{label} schema mismatch")
+    tracks = media_track_index(value, label)
+    keys = {
+        "ordinal", "kind", "fieldCount", "fieldDetail", "cadence", "pixelAspectRatio",
+        "cleanAperture", "preferredTransform", "colorPrimaries", "transferFunction",
+        "yCbCrMatrix", "masteringDisplaySHA256", "contentLightSHA256", "dynamicHDRSamples",
+        "alphaAssociation",
+    }
+    for ordinal, track in tracks.items():
+        track_label = f"{label}.track[{ordinal}]"
+        require_exact_keys(track, keys, track_label)
+        require_integer(track["fieldCount"], f"{track_label}.fieldCount", 1)
+        for key in ("kind", "fieldDetail", "cadence"):
+            require_string(track[key], f"{track_label}.{key}")
+        aspect = require_mapping(track["pixelAspectRatio"], f"{track_label}.pixelAspectRatio")
+        require_exact_keys(aspect, {"horizontal", "vertical"}, f"{track_label}.pixelAspectRatio")
+        require_integer(aspect["horizontal"], f"{track_label}.pixelAspectRatio.horizontal", 1)
+        require_integer(aspect["vertical"], f"{track_label}.pixelAspectRatio.vertical", 1)
+        aperture = require_mapping(track["cleanAperture"], f"{track_label}.cleanAperture")
+        require_exact_keys(aperture, {"width", "height", "horizontalOffset", "verticalOffset"}, f"{track_label}.cleanAperture")
+        for key in aperture:
+            media_fraction(aperture[key], f"{track_label}.cleanAperture.{key}")
+        transform = require_list(track["preferredTransform"], f"{track_label}.preferredTransform")
+        if len(transform) != 6:
+            raise QualificationError(f"{track_label}.preferredTransform must contain six rationals")
+        for index, element in enumerate(transform):
+            media_fraction(element, f"{track_label}.preferredTransform[{index}]")
+        for key in ("colorPrimaries", "transferFunction", "yCbCrMatrix", "alphaAssociation"):
+            if track[key] is not None:
+                require_string(track[key], f"{track_label}.{key}")
+        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+            if track[key] is not None:
+                require_hex(track[key], 64, f"{track_label}.{key}")
+        dynamic = require_list(track["dynamicHDRSamples"], f"{track_label}.dynamicHDRSamples")
+        for sample_index, raw_sample in enumerate(dynamic):
+            sample = require_mapping(raw_sample, f"{track_label}.dynamicHDRSamples[{sample_index}]")
+            require_exact_keys(sample, {"sampleOrdinal", "pts", "hdr10PlusSHA256", "postDecodeSHA256"}, f"{track_label}.dynamicHDRSamples[{sample_index}]")
+            require_integer(sample["sampleOrdinal"], f"{track_label}.dynamicHDRSamples[{sample_index}].sampleOrdinal")
+            media_fraction(sample["pts"], f"{track_label}.dynamicHDRSamples[{sample_index}].pts")
+            for key in ("hdr10PlusSHA256", "postDecodeSHA256"):
+                if sample[key] is not None:
+                    require_hex(sample[key], 64, f"{track_label}.dynamicHDRSamples[{sample_index}].{key}")
+    return tracks
+
+
+def validate_media_side_manifest(
+    evidence_root: Path,
+    descriptor_value: Any,
+    sealed_paths: set[Path],
+    fixture_id: str,
+    side: str,
+) -> dict[str, Any]:
+    label = f"preservation {fixture_id}.{side}"
+    manifest_path, _ = validate_sealed_artifact(evidence_root, descriptor_value, sealed_paths, f"{label}.manifest")
+    manifest = require_mapping(load_json(manifest_path), f"{label}.manifest.document")
+    require_exact_keys(
+        manifest,
+        {"schemaVersion", "fixtureID", "side", "enabledTrackCount", "artifacts", "semanticIdentities"},
+        f"{label}.manifest.document",
+    )
+    if manifest["schemaVersion"] != MEDIA_SIDE_MANIFEST_SCHEMA or manifest["fixtureID"] != fixture_id or manifest["side"] != side:
+        raise QualificationError(f"{label} manifest provenance mismatch")
+    artifacts = require_mapping(manifest["artifacts"], f"{label}.manifest.artifacts")
+    canonical_names = {
+        "media": "media.mov",
+        "trackObservation": "track-observation.json",
+        "timingObservation": "timing-observation.json",
+        "pixels": "pixels.bin",
+        "pixelObservation": "pixel-observation.json",
+        "attachmentObservation": "attachment-observation.json",
+    }
+    require_exact_keys(artifacts, set(canonical_names), f"{label}.manifest.artifacts")
+    paths: dict[str, Path] = {}
+    for name, canonical_name in canonical_names.items():
+        path, _ = validate_sealed_artifact(evidence_root, artifacts[name], sealed_paths, f"{label}.manifest.artifacts.{name}")
+        expected_path = (manifest_path.parent / side / canonical_name).resolve()
+        if path != expected_path:
+            raise QualificationError(f"{label} artifact is not at its canonical nested path: {name}")
+        paths[name] = path
+    documents: dict[str, dict[str, Any]] = {}
+    for name in ("trackObservation", "timingObservation", "pixelObservation", "attachmentObservation"):
+        document = require_mapping(load_json(paths[name]), f"{label}.{name}")
+        if document.get("fixtureID") != fixture_id or document.get("side") != side:
+            raise QualificationError(f"{label}.{name} provenance mismatch")
+        documents[name] = document
+    tracks = validate_media_track_observation(documents["trackObservation"], f"{label}.track")
+    timing = validate_media_timing_observation(documents["timingObservation"], f"{label}.timing")
+    pixels = validate_media_pixel_observation(documents["pixelObservation"], paths["pixels"], f"{label}.pixel")
+    attachments = validate_media_attachment_observation(documents["attachmentObservation"], f"{label}.attachment")
+    if set(timing) != set(tracks) or not set(pixels).issubset(tracks) or not set(attachments).issubset(tracks):
+        raise QualificationError(f"{label} observation inventories disagree")
+    if require_integer(manifest["enabledTrackCount"], f"{label}.enabledTrackCount") != documents["trackObservation"]["enabledTrackCount"]:
+        raise QualificationError(f"{label} enabled-track count differs")
+    semantic = require_mapping(manifest["semanticIdentities"], f"{label}.semanticIdentities")
+    require_exact_keys(semantic, {"trackSHA256", "timingSHA256", "pixelSHA256", "attachmentSHA256"}, f"{label}.semanticIdentities")
+    expected_semantic = {
+        "trackSHA256": sha256_bytes(canonical_bytes(documents["trackObservation"])),
+        "timingSHA256": sha256_bytes(canonical_bytes(documents["timingObservation"])),
+        "pixelSHA256": sha256_bytes(canonical_bytes(documents["pixelObservation"])),
+        "attachmentSHA256": sha256_bytes(canonical_bytes(documents["attachmentObservation"])),
+    }
+    if semantic != expected_semantic:
+        raise QualificationError(f"{label} semantic identities differ from raw observations")
+    return {
+        "manifestPath": manifest_path,
+        "manifest": manifest,
+        "paths": paths,
+        "trackObservation": documents["trackObservation"],
+        "tracks": tracks,
+        "timing": timing,
+        "pixels": pixels,
+        "attachments": attachments,
+    }
+
+
+def media_first_video(tracks: Mapping[int, Mapping[str, Any]], label: str) -> tuple[int, Mapping[str, Any]]:
+    videos = [(ordinal, track) for ordinal, track in tracks.items() if track.get("kind") == "video"]
+    if not videos:
+        raise QualificationError(f"{label} has no video track")
+    return videos[0]
+
+
+def recompute_media_fixture(
+    fixture_id: str,
+    policy: str,
+    coverage_values: list[Any],
+    input_side: Mapping[str, Any],
+    output_side: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    coverage = set(coverage_values)
+    input_tracks = input_side["tracks"]
+    output_tracks = output_side["tracks"]
+    input_timing = input_side["timing"]
+    output_timing = output_side["timing"]
+    input_pixels = input_side["pixels"]
+    output_pixels = output_side["pixels"]
+    input_attachments = input_side["attachments"]
+    output_attachments = output_side["attachments"]
+    checks: list[dict[str, Any]] = []
+
+    if policy == "exact_pass_through":
+        normalized_input = {**input_side["trackObservation"], "side": "normalized"}
+        normalized_output = {**output_side["trackObservation"], "side": "normalized"}
+        if canonical_bytes(normalized_input) != canonical_bytes(normalized_output):
+            raise QualificationError(f"preservation {fixture_id} track semantics differ")
+        if set(input_timing) != set(output_timing) or set(input_pixels) != set(output_pixels) or set(input_attachments) != set(output_attachments):
+            raise QualificationError(f"preservation {fixture_id} exact observation inventory differs")
+        for ordinal in input_timing:
+            if input_timing[ordinal]["timingSHA256"] != output_timing[ordinal]["timingSHA256"] or input_timing[ordinal]["encodedPayloadSHA256"] != output_timing[ordinal]["encodedPayloadSHA256"]:
+                raise QualificationError(f"preservation {fixture_id} track {ordinal} timing/payload differs")
+        for ordinal in input_attachments:
+            if canonical_bytes(input_attachments[ordinal]) != canonical_bytes(output_attachments[ordinal]):
+                raise QualificationError(f"preservation {fixture_id} track {ordinal} attachments differ")
+        for ordinal in input_pixels:
+            if input_pixels[ordinal]["visibleSHA256"] != output_pixels[ordinal]["visibleSHA256"]:
+                raise QualificationError(f"preservation {fixture_id} track {ordinal} decoded pixels differ")
+        checks.append({"id": "exact-track-timing-pixel-attachment-pass-through", "pass": True})
+    elif policy in {"p010_field_normalization", "alpha_geometry"}:
+        input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
+        output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
+        if input_ordinal not in input_pixels or output_ordinal not in output_pixels or input_ordinal not in input_attachments or output_ordinal not in output_attachments:
+            raise QualificationError(f"preservation {fixture_id} lacks video evidence")
+        source_pixel = input_pixels[input_ordinal]
+        target_pixel = output_pixels[output_ordinal]
+        source_attachment = input_attachments[input_ordinal]
+        target_attachment = output_attachments[output_ordinal]
+        x_scale = Fraction(target_pixel["width"], source_pixel["width"])
+        y_scale = Fraction(target_pixel["height"], source_pixel["height"])
+        if x_scale <= 0 or y_scale <= 0 or source_attachment["pixelAspectRatio"] != target_attachment["pixelAspectRatio"]:
+            raise QualificationError(f"preservation {fixture_id} pixel geometry differs")
+        for key, scale in (("width", x_scale), ("height", y_scale), ("horizontalOffset", x_scale), ("verticalOffset", y_scale)):
+            if media_fraction(target_attachment["cleanAperture"][key], f"preservation {fixture_id}.output.clean.{key}") != media_fraction(source_attachment["cleanAperture"][key], f"preservation {fixture_id}.input.clean.{key}") * scale:
+                raise QualificationError(f"preservation {fixture_id} clean aperture {key} differs")
+        source_transform = [media_fraction(value, f"preservation {fixture_id}.input.transform") for value in source_attachment["preferredTransform"]]
+        target_transform = [media_fraction(value, f"preservation {fixture_id}.output.transform") for value in target_attachment["preferredTransform"]]
+        if target_transform[:4] != source_transform[:4] or target_transform[4] != source_transform[4] * x_scale or target_transform[5] != source_transform[5] * y_scale:
+            raise QualificationError(f"preservation {fixture_id} transform differs")
+        checks.append({"id": "exact-rational-geometry-transform", "pass": True})
+        if target_pixel["visibleSHA256"] != target_pixel["repeatVisibleSHA256"]:
+            raise QualificationError(f"preservation {fixture_id} repeat output pixels differ")
+        checks.append({"id": "repeat-output-visible-pixel-identity", "pass": True})
+    else:
+        raise QualificationError(f"preservation {fixture_id} policy is unsupported")
+
+    if "p010_hdr_static_dynamic" in coverage:
+        input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
+        output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
+        for side_label, pixel in (("input", input_pixels[input_ordinal]), ("output", output_pixels[output_ordinal])):
+            if pixel["pixelFormat"] not in {"x420", "xf20"} or pixel["bitDepth"] != 10 or pixel["lowPaddingBitViolationCount"] != 0 or pixel["uniqueSignalCodeCount"] <= 256:
+                raise QualificationError(f"preservation {fixture_id} {side_label} does not prove exact P010 precision")
+        source = input_attachments[input_ordinal]
+        target = output_attachments[output_ordinal]
+        if source["colorPrimaries"] != target["colorPrimaries"] or source["colorPrimaries"] != "ITU_R_2020" or source["transferFunction"] != target["transferFunction"] or source["transferFunction"] != "SMPTE_ST_2084_PQ" or source["yCbCrMatrix"] != target["yCbCrMatrix"] or source["yCbCrMatrix"] != "ITU_R_2020":
+            raise QualificationError(f"preservation {fixture_id} HDR signal metadata differs")
+        for key in ("masteringDisplaySHA256", "contentLightSHA256"):
+            if source[key] is None or source[key] != target[key]:
+                raise QualificationError(f"preservation {fixture_id} static HDR metadata differs: {key}")
+        source_dynamic = source["dynamicHDRSamples"]
+        target_dynamic = target["dynamicHDRSamples"]
+        if not source_dynamic or len(target_dynamic) != 2 * len(source_dynamic):
+            raise QualificationError(f"preservation {fixture_id} dynamic HDR replication count differs")
+        for index, sample in enumerate(source_dynamic):
+            for duplicate in target_dynamic[2 * index : 2 * index + 2]:
+                if duplicate["hdr10PlusSHA256"] != sample["hdr10PlusSHA256"] or duplicate["postDecodeSHA256"] != sample["postDecodeSHA256"]:
+                    raise QualificationError(f"preservation {fixture_id} dynamic HDR payload differs")
+        checks.append({"id": "p010-static-and-frame-bound-dynamic-hdr-identity", "pass": True})
+
+    if "interlaced_field_order_cadence" in coverage:
+        input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
+        output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
+        source = input_attachments[input_ordinal]
+        target = output_attachments[output_ordinal]
+        if (source["fieldCount"], source["fieldDetail"], source["cadence"]) != (2, "temporal_top_first", "interlaced_tff_2_fields_per_sample") or (target["fieldCount"], target["fieldDetail"], target["cadence"]) != (1, "progressive", "progressive_double_rate"):
+            raise QualificationError(f"preservation {fixture_id} field order/cadence differs")
+        source_samples = input_timing[input_ordinal]["samples"]
+        target_samples = output_timing[output_ordinal]["samples"]
+        if len(target_samples) != 2 * len(source_samples):
+            raise QualificationError(f"preservation {fixture_id} double-rate sample count differs")
+        for index, source_sample in enumerate(source_samples):
+            duration = media_fraction(source_sample["duration"], f"preservation {fixture_id}.source.duration")
+            pts = media_fraction(source_sample["pts"], f"preservation {fixture_id}.source.pts")
+            first, second = target_samples[2 * index : 2 * index + 2]
+            if media_fraction(first["pts"], f"preservation {fixture_id}.first.pts") != pts or media_fraction(second["pts"], f"preservation {fixture_id}.second.pts") != pts + duration / 2 or media_fraction(first["duration"], f"preservation {fixture_id}.first.duration") != duration / 2 or media_fraction(second["duration"], f"preservation {fixture_id}.second.duration") != duration / 2:
+                raise QualificationError(f"preservation {fixture_id} field timing differs")
+        checks.append({"id": "tff-field-order-and-double-rate-cadence", "pass": True})
+
+    if "straight_alpha" in coverage or "premultiplied_alpha" in coverage:
+        expected = "straight" if "straight_alpha" in coverage else "premultiplied"
+        input_ordinal, _ = media_first_video(input_tracks, f"preservation {fixture_id} input")
+        output_ordinal, _ = media_first_video(output_tracks, f"preservation {fixture_id} output")
+        pixel = output_pixels[output_ordinal]
+        if input_attachments[input_ordinal]["alphaAssociation"] != expected or output_attachments[output_ordinal]["alphaAssociation"] != expected or pixel["preEncodeAlphaSHA256"] is None or pixel["preEncodeAlphaSHA256"] != pixel["decodedAlphaSHA256"] or pixel["preEncodeAlphaSHA256"] != pixel["alphaSHA256"]:
+            raise QualificationError(f"preservation {fixture_id} {expected} alpha bytes/association differ")
+        checks.append({"id": f"exact-prores4444-{expected}-alpha", "pass": True})
+
+    input_kinds = [track["kind"] for track in input_tracks.values()]
+    output_kinds = [track["kind"] for track in output_tracks.values()]
+    for coverage_id, kind in (("subtitles", "subtitle"), ("captions", "caption"), ("chapters", "chapter"), ("timecode_tracks", "timecode"), ("timed_metadata", "timed_metadata"), ("auxiliary_tracks", "auxiliary")):
+        if coverage_id in coverage:
+            if kind not in input_kinds or kind not in output_kinds:
+                raise QualificationError(f"preservation {fixture_id} lacks {kind} track")
+            checks.append({"id": f"{coverage_id}-present-and-accounted", "pass": True})
+    if "multiple_enabled_video_tracks" in coverage:
+        if sum(track["kind"] == "video" and track["enabled"] for track in input_tracks.values()) < 2 or sum(track["kind"] == "video" and track["enabled"] for track in output_tracks.values()) < 2:
+            raise QualificationError(f"preservation {fixture_id} lacks multiple enabled video tracks")
+        checks.append({"id": "multiple-enabled-video-tracks-accounted", "pass": True})
+    if "alternate_audio_tracks" in coverage:
+        audio = {ordinal for ordinal, track in input_tracks.items() if track["kind"] == "audio"}
+        groups = input_side["trackObservation"]["groups"]
+        if len(audio) < 2 or not any(set(group.get("memberOrdinals", [])) <= audio and len(group.get("memberOrdinals", [])) >= 2 for group in groups if isinstance(group, dict)):
+            raise QualificationError(f"preservation {fixture_id} lacks alternate-audio selection group")
+        checks.append({"id": "alternate-audio-selection-group-accounted", "pass": True})
+    return checks
+
+
+def preservation_binding_path(
+    evidence_root: Path,
+    entry: Mapping[str, Any],
+    sealed_paths: set[Path],
+    pointer: str,
+) -> Path:
+    bindings = require_list(entry["identityBindings"], "preservation.identityBindings")
+    matches = [binding for binding in bindings if isinstance(binding, dict) and binding.get("jsonPointer") == pointer]
+    if len(matches) != 1:
+        raise QualificationError(f"preservation binding is absent or repeated: {pointer}")
+    path, _ = validate_artifact(evidence_root, matches[0], f"preservation binding {pointer}", allowed_extra_keys={"jsonPointer"})
+    if path not in sealed_paths:
+        raise QualificationError(f"preservation binding is not sealed: {pointer}")
+    return path
+
+
 def validate_preservation(
     report: Mapping[str, Any],
     candidate: Mapping[str, Any],
@@ -1500,6 +1928,111 @@ def validate_preservation(
 ) -> dict[str, Any]:
     label = "media_preservation"
     validate_common_report(report, candidate, contract["evidenceSchemas"][label], contract_sha, label)
+    require_exact_keys(
+        report,
+        {
+            "schemaVersion", "contractSHA256", "candidate", "releaseEligible", "identities",
+            "fixtures", "accountedEnabledTrackCount", "mediaPreservationGatePass",
+        },
+        "preservation report",
+    )
+    report_identities = require_mapping(report["identities"], "preservation.identities")
+    require_exact_keys(
+        report_identities,
+        {
+            "laneContractSHA256", "captureSourceSHA256", "fixtureSourceSHA256",
+            "evaluatorSHA256", "runnerSHA256", "captureSHA256",
+        },
+        "preservation.identities",
+    )
+    for key, value in report_identities.items():
+        require_hex(value, 64, f"preservation.identities.{key}")
+
+    lane_contract_path = preservation_binding_path(
+        evidence_root, entry, sealed_paths, "/identities/laneContractSHA256"
+    )
+    lane_contract = require_mapping(load_json(lane_contract_path), "preservation lane contract")
+    if lane_contract.get("schemaVersion") != MEDIA_LANE_CONTRACT_SCHEMA:
+        raise QualificationError("preservation lane contract schema mismatch")
+    if sha256(lane_contract_path) != report_identities["laneContractSHA256"]:
+        raise QualificationError("preservation lane contract identity mismatch")
+    lane_capture = require_mapping(lane_contract.get("capture"), "preservation lane contract.capture")
+    for identity_key in (
+        "captureSourceSHA256", "fixtureSourceSHA256", "evaluatorSHA256", "runnerSHA256"
+    ):
+        if require_hex(lane_capture.get(identity_key), 64, f"preservation lane contract.capture.{identity_key}") != report_identities[identity_key]:
+            raise QualificationError(f"preservation lane tool identity mismatch: {identity_key}")
+        tool_path = preservation_binding_path(
+            evidence_root, entry, sealed_paths, f"/identities/{identity_key}"
+        )
+        if sha256(tool_path) != report_identities[identity_key]:
+            raise QualificationError(f"preservation bound tool differs: {identity_key}")
+
+    lane_fixtures = require_list(lane_contract.get("fixtures"), "preservation lane contract.fixtures")
+    expected_fixtures: dict[str, dict[str, Any]] = {}
+    for index, raw_lane_fixture in enumerate(lane_fixtures):
+        lane_fixture = require_mapping(raw_lane_fixture, f"preservation lane contract.fixtures[{index}]")
+        require_exact_keys(lane_fixture, {"id", "coverage", "policy"}, f"preservation lane contract.fixtures[{index}]")
+        identifier = require_string(lane_fixture["id"], f"preservation lane contract.fixtures[{index}].id")
+        if identifier in expected_fixtures:
+            raise QualificationError(f"preservation lane contract repeats fixture: {identifier}")
+        coverage = require_list(lane_fixture["coverage"], f"preservation lane contract {identifier}.coverage")
+        if not coverage or len(coverage) != len(set(coverage)):
+            raise QualificationError(f"preservation lane contract coverage is empty/repeated: {identifier}")
+        policy = require_string(lane_fixture["policy"], f"preservation lane contract {identifier}.policy")
+        if policy not in {"p010_field_normalization", "alpha_geometry", "exact_pass_through"}:
+            raise QualificationError(f"preservation lane contract policy is invalid: {identifier}")
+        expected_fixtures[identifier] = lane_fixture
+
+    capture_path = preservation_binding_path(
+        evidence_root, entry, sealed_paths, "/identities/captureSHA256"
+    )
+    capture = require_mapping(load_json(capture_path), "preservation raw capture")
+    require_exact_keys(
+        capture,
+        {
+            "schemaVersion", "suiteID", "laneContractSHA256", "releaseContractSHA256",
+            "candidate", "identities", "buildConfiguration", "fixtures",
+        },
+        "preservation raw capture",
+    )
+    if capture["schemaVersion"] != "mirmir-ash-v4-media-preservation-capture-v1" or capture["suiteID"] != lane_contract.get("suiteID"):
+        raise QualificationError("preservation raw capture schema/suite mismatch")
+    if capture["laneContractSHA256"] != report_identities["laneContractSHA256"] or capture["releaseContractSHA256"] != contract_sha:
+        raise QualificationError("preservation raw capture contract identities differ")
+    if capture["candidate"] != candidate or capture["buildConfiguration"] != "Release":
+        raise QualificationError("preservation raw capture belongs to another candidate/configuration")
+    expected_capture_identities = {
+        "captureSourceSHA256": report_identities["captureSourceSHA256"],
+        "fixtureSourceSHA256": report_identities["fixtureSourceSHA256"],
+        "evaluatorSHA256": report_identities["evaluatorSHA256"],
+        "runnerSHA256": report_identities["runnerSHA256"],
+        "sourceCommit": candidate["sourceCommit"],
+        "sourceTreeIdentitySHA256": candidate["sourceTreeIdentitySHA256"],
+        "runtimeManifestSHA256": candidate["runtimeManifestSHA256"],
+        "runtimeManifestFileSHA256": candidate["runtimeManifestFileSHA256"],
+        "runtimeArtifactSetSHA256": candidate["runtimeArtifactSetSHA256"],
+        "runtimeSourceRevision": candidate["runtimeSourceRevision"],
+        "releaseConfigurationSHA256": candidate["releaseConfigurationSHA256"],
+    }
+    if capture["identities"] != expected_capture_identities:
+        raise QualificationError("preservation raw capture candidate/tool identities differ")
+    raw_fixtures_list = require_list(capture["fixtures"], "preservation raw capture.fixtures")
+    raw_fixtures: dict[str, dict[str, Any]] = {}
+    for index, raw_value in enumerate(raw_fixtures_list):
+        raw_fixture = require_mapping(raw_value, f"preservation raw capture.fixtures[{index}]")
+        require_exact_keys(
+            raw_fixture,
+            {"id", "coverage", "policy", "enabledInputTrackCount", "accountedOutputTrackCount", "production", "input", "output"},
+            f"preservation raw capture.fixtures[{index}]",
+        )
+        identifier = require_string(raw_fixture["id"], f"preservation raw capture.fixtures[{index}].id")
+        if identifier in raw_fixtures:
+            raise QualificationError(f"preservation raw capture repeats fixture: {identifier}")
+        raw_fixtures[identifier] = raw_fixture
+    if set(raw_fixtures) != set(expected_fixtures):
+        raise QualificationError("preservation raw capture fixture set differs from lane contract")
+
     fixtures = require_list(report.get("fixtures"), "preservation.fixtures")
     required = set(contract["mediaPreservationCoverage"])
     covered: set[str] = set()
@@ -1531,7 +2064,14 @@ def validate_preservation(
         if identifier in identities:
             raise QualificationError(f"preservation repeats fixture: {identifier}")
         identities.add(identifier)
-        coverage = set(require_list(fixture["coverage"], f"preservation {identifier}.coverage"))
+        if identifier not in expected_fixtures:
+            raise QualificationError(f"preservation fixture is not lane-locked: {identifier}")
+        lane_fixture = expected_fixtures[identifier]
+        raw_fixture = raw_fixtures[identifier]
+        coverage_values = require_list(fixture["coverage"], f"preservation {identifier}.coverage")
+        if coverage_values != lane_fixture["coverage"] or raw_fixture["coverage"] != lane_fixture["coverage"] or raw_fixture["policy"] != lane_fixture["policy"]:
+            raise QualificationError(f"preservation fixture changed locked coverage/policy: {identifier}")
+        coverage = set(coverage_values)
         if not coverage or not coverage.issubset(required):
             raise QualificationError(f"preservation fixture has unexpected coverage: {identifier}")
         covered.update(coverage)
@@ -1539,6 +2079,8 @@ def validate_preservation(
         outputs = require_integer(fixture["accountedOutputTrackCount"], f"preservation {identifier}.accounted tracks", 1)
         if inputs != outputs:
             raise QualificationError(f"preservation does not account for every enabled track: {identifier}")
+        if raw_fixture["enabledInputTrackCount"] != inputs or raw_fixture["accountedOutputTrackCount"] != outputs:
+            raise QualificationError(f"preservation raw/report track counts differ: {identifier}")
         accounted_tracks += inputs
         for key in (
             "unconsentedDropCount",
@@ -1551,19 +2093,73 @@ def validate_preservation(
             if require_integer(fixture[key], f"preservation {identifier}.{key}") != 0:
                 raise QualificationError(f"preservation violation {key}: {identifier}")
         require_bool(fixture["exactSemanticVerifierPass"], f"preservation {identifier}.verifier", True)
-        for artifact_key in (
-            "inputManifestArtifact",
-            "outputManifestArtifact",
-            "semanticVerifierArtifact",
-        ):
-            validate_sealed_artifact(
-                evidence_root,
-                fixture[artifact_key],
-                sealed_paths,
-                f"preservation {identifier}.{artifact_key}",
-            )
+
+        production = require_mapping(raw_fixture["production"], f"preservation raw {identifier}.production")
+        require_exact_keys(
+            production,
+            {"releaseQualifiedRuntimeLoaded", "runtimeManifestSHA256", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"},
+            f"preservation raw {identifier}.production",
+        )
+        for key in ("releaseQualifiedRuntimeLoaded", "trustRootConfigured", "requestedRouteExecutedWithoutFallback", "migrationConformant", "repeatedOutputIdentityPass"):
+            require_bool(production[key], f"preservation raw {identifier}.production.{key}", True)
+        if production["runtimeManifestSHA256"] != candidate["runtimeManifestSHA256"]:
+            raise QualificationError(f"preservation raw fixture used another runtime: {identifier}")
+
+        input_side = validate_media_side_manifest(
+            evidence_root, fixture["inputManifestArtifact"], sealed_paths, identifier, "input"
+        )
+        output_side = validate_media_side_manifest(
+            evidence_root, fixture["outputManifestArtifact"], sealed_paths, identifier, "output"
+        )
+        if input_side["manifest"]["enabledTrackCount"] != inputs or output_side["manifest"]["enabledTrackCount"] != outputs:
+            raise QualificationError(f"preservation nested manifest track count differs: {identifier}")
+
+        capture_root = capture_path.parent
+        for side_name, side_value in (("input", input_side), ("output", output_side)):
+            raw_side = require_mapping(raw_fixture[side_name], f"preservation raw {identifier}.{side_name}")
+            require_exact_keys(raw_side, {"media", "trackObservation", "timingObservation", "pixels", "pixelObservation", "attachmentObservation"}, f"preservation raw {identifier}.{side_name}")
+            for artifact_name, raw_descriptor in raw_side.items():
+                raw_path, raw_identity = validate_artifact(capture_root, raw_descriptor, f"preservation raw {identifier}.{side_name}.{artifact_name}")
+                if raw_path not in sealed_paths:
+                    raise QualificationError(f"preservation raw artifact is not sealed: {identifier}.{side_name}.{artifact_name}")
+                copied_descriptor = side_value["manifest"]["artifacts"][artifact_name]
+                if raw_identity != copied_descriptor["sha256"] or raw_path.stat().st_size != copied_descriptor["byteCount"]:
+                    raise QualificationError(f"preservation raw/copied artifact identity differs: {identifier}.{side_name}.{artifact_name}")
+
+        recomputed_checks = recompute_media_fixture(
+            identifier, lane_fixture["policy"], coverage_values, input_side, output_side
+        )
+        verifier_path, _ = validate_sealed_artifact(
+            evidence_root, fixture["semanticVerifierArtifact"], sealed_paths, f"preservation {identifier}.semanticVerifierArtifact"
+        )
+        if verifier_path != (input_side["manifestPath"].parent / "semantic-verifier.json").resolve():
+            raise QualificationError(f"preservation semantic verifier is not at its canonical nested path: {identifier}")
+        verifier = require_mapping(load_json(verifier_path), f"preservation {identifier}.semanticVerifier")
+        require_exact_keys(
+            verifier,
+            {"schemaVersion", "fixtureID", "policy", "coverage", "candidateRuntimeManifestSHA256", "inputManifestSHA256", "outputManifestSHA256", "checks", "violationCounts", "exactSemanticVerifierPass"},
+            f"preservation {identifier}.semanticVerifier",
+        )
+        if verifier["schemaVersion"] != MEDIA_SEMANTIC_VERIFIER_SCHEMA or verifier["fixtureID"] != identifier or verifier["policy"] != lane_fixture["policy"] or verifier["coverage"] != coverage_values:
+            raise QualificationError(f"preservation semantic verifier provenance differs: {identifier}")
+        if verifier["candidateRuntimeManifestSHA256"] != candidate["runtimeManifestSHA256"] or verifier["inputManifestSHA256"] != sha256(input_side["manifestPath"]) or verifier["outputManifestSHA256"] != sha256(output_side["manifestPath"]):
+            raise QualificationError(f"preservation semantic verifier bindings differ: {identifier}")
+        if verifier["checks"] != recomputed_checks:
+            raise QualificationError(f"preservation semantic verifier checks differ from independent recomputation: {identifier}")
+        violations = require_mapping(verifier["violationCounts"], f"preservation {identifier}.violationCounts")
+        violation_keys = {"unconsentedDropCount", "silentToneMapCount", "precisionReductionCount", "alphaLossCount", "geometryMismatchCount", "metadataMismatchCount"}
+        require_exact_keys(violations, violation_keys, f"preservation {identifier}.violationCounts")
+        for key in violation_keys:
+            if require_integer(violations[key], f"preservation {identifier}.violationCounts.{key}") != 0 or fixture[key] != violations[key]:
+                raise QualificationError(f"preservation nested violation differs: {identifier}.{key}")
+        require_bool(verifier["exactSemanticVerifierPass"], f"preservation {identifier}.semanticVerifier.pass", True)
+
+    if identities != set(expected_fixtures):
+        raise QualificationError(f"media preservation fixture mismatch; missing={sorted(set(expected_fixtures)-identities)}")
     if covered != required:
         raise QualificationError(f"media preservation coverage mismatch; missing={sorted(required-covered)}")
+    if require_integer(report["accountedEnabledTrackCount"], "preservation.accountedEnabledTrackCount", 1) != accounted_tracks:
+        raise QualificationError("preservation total accounted-track count differs")
     require_bool(report.get("mediaPreservationGatePass"), "preservation.mediaPreservationGatePass", True)
     return {"fixtureCount": len(fixtures), "accountedTrackCount": accounted_tracks, "coverage": sorted(covered)}
 

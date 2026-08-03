@@ -1,0 +1,88 @@
+{
+  "candidate": {
+    "bundleRepositoryPath": "Mirmir/Resources/ASH-P06.bundle",
+    "requiredRuntimeID": "ash-p06-deterministic-v4",
+    "requiredRuntimeStatus": "release_qualified",
+    "trustRootSourcePath": "Mirmir/Upscaling/Deterministic/DeterministicEngineV4Support.swift"
+  },
+  "capture": {
+    "buildConfiguration": "Release",
+    "captureSourceSHA256": "bca3fe05dcb1d5698b410d8e1c2670b04ee2f5f3d574fb4c53e7f46406e1a1e6",
+    "evaluatorSHA256": "6d260f4e969a3e3f00fe8857b7d6c0ca4ff7abb5fa1f593e292b95ec89a583f2",
+    "fixtureSourceSHA256": "c7ea7b4fc0523a93574147b74cff927373aa0710b7cc2d54ee76582a68346418",
+    "runnerSHA256": "ad3309e49fe6444c0f5ecd01feb5a9e50f742ca874bf52fd26f745c0b4030d8c"
+  },
+  "fixtures": [
+    {
+      "coverage": [
+        "p010_hdr_static_dynamic",
+        "interlaced_field_order_cadence",
+        "non_square_pixel_aspect_ratio",
+        "clean_aperture",
+        "preferred_transform",
+        "combined_p010_hdr_interlaced"
+      ],
+      "id": "combined-p010-hdr-interlaced",
+      "policy": "p010_field_normalization"
+    },
+    {
+      "coverage": [
+        "non_square_pixel_aspect_ratio",
+        "clean_aperture",
+        "preferred_transform",
+        "straight_alpha",
+        "combined_alpha_geometry"
+      ],
+      "id": "combined-alpha-geometry-straight",
+      "policy": "alpha_geometry"
+    },
+    {
+      "coverage": [
+        "non_square_pixel_aspect_ratio",
+        "clean_aperture",
+        "preferred_transform",
+        "premultiplied_alpha",
+        "combined_alpha_geometry"
+      ],
+      "id": "combined-alpha-geometry-premultiplied",
+      "policy": "alpha_geometry"
+    },
+    {
+      "coverage": [
+        "multiple_enabled_video_tracks",
+        "alternate_audio_tracks",
+        "chapters",
+        "timecode_tracks",
+        "timed_metadata"
+      ],
+      "id": "rich-track-graph",
+      "policy": "exact_pass_through"
+    },
+    {
+      "coverage": [
+        "subtitles",
+        "captions"
+      ],
+      "id": "legible-track-graph",
+      "policy": "exact_pass_through"
+    },
+    {
+      "coverage": [
+        "auxiliary_tracks"
+      ],
+      "id": "auxiliary-picture-track",
+      "policy": "exact_pass_through"
+    }
+  ],
+  "releaseQualificationContractPath": "script/v4/release-qualification-contract-v1.json",
+  "requiredCaptureArtifacts": [
+    "track-observation.json",
+    "timing-observation.json",
+    "pixels.bin",
+    "pixel-observation.json",
+    "attachment-observation.json",
+    "media.mov"
+  ],
+  "schemaVersion": "mirmir-ash-v4-media-preservation-contract-v1",
+  "suiteID": "mirmir-ash-v4-media-preservation-v1"
+}

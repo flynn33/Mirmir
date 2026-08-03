@@ -601,6 +601,435 @@ class EvidenceFixture:
             }
         )
 
+    def _build_media_preservation(
+        self,
+        role_dir: Path,
+        report: dict[str, object],
+        contract_sha: str,
+        extra_bindings: list[tuple[str, Path]],
+    ) -> None:
+        capture_source = role_dir / "bindings" / "MediaPreservationCaptureTests.swift"
+        fixture_source = role_dir / "bindings" / "AVFoundationTrackMigrationExecutorV4Tests.swift"
+        evaluator_source = role_dir / "bindings" / "media_preservation_v4.py"
+        runner_source = role_dir / "bindings" / "run_media_preservation_v4.sh"
+        capture_source.parent.mkdir(parents=True, exist_ok=True)
+        capture_source.write_bytes(b"// locked media preservation capture\n")
+        fixture_source.write_bytes(b"// locked AVFoundation fixture factory\n")
+        evaluator_source.write_bytes(b"# locked media preservation evaluator\n")
+        runner_source.write_bytes(b"#!/bin/sh\n# locked media preservation runner\n")
+        tool_identities = {
+            "captureSourceSHA256": qualification.sha256(capture_source),
+            "fixtureSourceSHA256": qualification.sha256(fixture_source),
+            "evaluatorSHA256": qualification.sha256(evaluator_source),
+            "runnerSHA256": qualification.sha256(runner_source),
+        }
+        fixture_specs = [
+            {
+                "id": "combined-p010-hdr-interlaced",
+                "policy": "p010_field_normalization",
+                "coverage": [
+                    "p010_hdr_static_dynamic", "interlaced_field_order_cadence",
+                    "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
+                    "combined_p010_hdr_interlaced",
+                ],
+            },
+            {
+                "id": "combined-alpha-geometry-straight",
+                "policy": "alpha_geometry",
+                "coverage": [
+                    "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
+                    "straight_alpha", "combined_alpha_geometry",
+                ],
+            },
+            {
+                "id": "combined-alpha-geometry-premultiplied",
+                "policy": "alpha_geometry",
+                "coverage": [
+                    "non_square_pixel_aspect_ratio", "clean_aperture", "preferred_transform",
+                    "premultiplied_alpha", "combined_alpha_geometry",
+                ],
+            },
+            {
+                "id": "rich-track-graph",
+                "policy": "exact_pass_through",
+                "coverage": [
+                    "multiple_enabled_video_tracks", "alternate_audio_tracks", "chapters",
+                    "timecode_tracks", "timed_metadata",
+                ],
+            },
+            {
+                "id": "legible-track-graph",
+                "policy": "exact_pass_through",
+                "coverage": ["subtitles", "captions"],
+            },
+            {
+                "id": "auxiliary-picture-track",
+                "policy": "exact_pass_through",
+                "coverage": ["auxiliary_tracks"],
+            },
+        ]
+        lane_contract = {
+            "schemaVersion": qualification.MEDIA_LANE_CONTRACT_SCHEMA,
+            "suiteID": "mirmir-ash-v4-media-preservation-v1",
+            "capture": {"buildConfiguration": "Release", **tool_identities},
+            "fixtures": fixture_specs,
+        }
+        lane_contract_path = role_dir / "bindings" / "media-preservation-contract-v1.json"
+        write_json(lane_contract_path, lane_contract)
+        lane_contract_sha = qualification.sha256(lane_contract_path)
+
+        def track_row(fixture_id: str, ordinal: int, kind: str) -> dict[str, object]:
+            return {
+                "ordinal": ordinal,
+                "kind": kind,
+                "enabled": True,
+                "mediaTypeID": f"test.{kind}",
+                "codecID": f"test.codec.{kind}",
+                "languageCode": "en" if kind in {"audio", "subtitle", "caption"} else None,
+                "extendedLanguageTag": None,
+                "roleIDs": [],
+                "timebase": "1/30",
+                "timeRangeSHA256": identity(f"{fixture_id}-{ordinal}-range"),
+                "editsSHA256": identity(f"{fixture_id}-{ordinal}-edits"),
+                "formatSHA256": identity(f"{fixture_id}-{ordinal}-format"),
+                "metadataSHA256": identity(f"{fixture_id}-{ordinal}-metadata"),
+            }
+
+        def sample(fixture_id: str, ordinal: int, sample_index: int, pts: str, duration: str) -> dict[str, object]:
+            return {
+                "pts": pts,
+                "dts": "invalid",
+                "duration": duration,
+                "byteCount": 1,
+                "payloadSHA256": identity(f"{fixture_id}-{ordinal}-payload-{sample_index}"),
+            }
+
+        def timing_track(ordinal: int, samples: list[dict[str, object]]) -> dict[str, object]:
+            timings = [{key: item[key] for key in ("pts", "dts", "duration")} for item in samples]
+            payloads = [item["payloadSHA256"] for item in samples]
+            return {
+                "ordinal": ordinal,
+                "sampleCount": len(samples),
+                "timingSHA256": qualification.sha256_bytes(qualification.canonical_bytes(timings)),
+                "encodedPayloadSHA256": qualification.sha256_bytes(qualification.canonical_bytes(payloads)),
+                "samples": samples,
+            }
+
+        def attachment_row(
+            ordinal: int,
+            *,
+            field_count: int = 1,
+            detail: str = "progressive",
+            cadence: str = "progressive",
+            aspect: tuple[int, int] = (1, 1),
+            aperture: tuple[str, str, str, str] = ("16", "16", "0", "0"),
+            transform: list[str] | None = None,
+            hdr: bool = False,
+            dynamic: list[dict[str, object]] | None = None,
+            alpha: str | None = None,
+        ) -> dict[str, object]:
+            return {
+                "ordinal": ordinal,
+                "kind": "video",
+                "fieldCount": field_count,
+                "fieldDetail": detail,
+                "cadence": cadence,
+                "pixelAspectRatio": {"horizontal": aspect[0], "vertical": aspect[1]},
+                "cleanAperture": {
+                    "width": aperture[0], "height": aperture[1],
+                    "horizontalOffset": aperture[2], "verticalOffset": aperture[3],
+                },
+                "preferredTransform": transform or ["1", "0", "0", "1", "0", "0"],
+                "colorPrimaries": "ITU_R_2020" if hdr else None,
+                "transferFunction": "SMPTE_ST_2084_PQ" if hdr else None,
+                "yCbCrMatrix": "ITU_R_2020" if hdr else None,
+                "masteringDisplaySHA256": identity("mastering-display") if hdr else None,
+                "contentLightSHA256": identity("content-light") if hdr else None,
+                "dynamicHDRSamples": dynamic or [],
+                "alphaAssociation": alpha,
+            }
+
+        raw_root = role_dir / "raw-capture"
+        raw_root.mkdir(parents=True, exist_ok=True)
+        report_fixtures: list[dict[str, object]] = []
+        capture_fixtures: list[dict[str, object]] = []
+        total_enabled = 0
+        for spec in fixture_specs:
+            fixture_id = spec["id"]
+            policy = spec["policy"]
+            if fixture_id == "rich-track-graph":
+                kinds = ["video", "video", "audio", "audio", "chapter", "timecode", "timed_metadata"]
+            elif fixture_id == "legible-track-graph":
+                kinds = ["subtitle", "caption"]
+            elif fixture_id == "auxiliary-picture-track":
+                kinds = ["auxiliary"]
+            else:
+                kinds = ["video"]
+            track_rows = [track_row(fixture_id, ordinal, kind) for ordinal, kind in enumerate(kinds)]
+            groups = [{"memberOrdinals": [2, 3]}] if fixture_id == "rich-track-graph" else []
+            side_results: dict[str, dict[str, object]] = {}
+            raw_descriptors: dict[str, dict[str, object]] = {}
+            for side in ("input", "output"):
+                side_dir = role_dir / "fixtures" / fixture_id / side
+                raw_side_dir = raw_root / "fixtures" / fixture_id / side
+                side_dir.mkdir(parents=True, exist_ok=True)
+                raw_side_dir.mkdir(parents=True, exist_ok=True)
+                media_path = side_dir / "media.mov"
+                media_path.write_bytes(f"{fixture_id}-{side}-media".encode())
+                pixel_path = side_dir / "pixels.bin"
+                pixel_path.write_bytes(f"{fixture_id}-{side}-pixels".encode())
+                track_observation = {
+                    "schemaVersion": qualification.MEDIA_TRACK_SCHEMA,
+                    "fixtureID": fixture_id,
+                    "side": side,
+                    "enabledTrackCount": len(track_rows),
+                    "tracks": track_rows,
+                    "groups": groups,
+                    "associations": [],
+                    "assetMetadataSHA256": identity(f"{fixture_id}-asset-metadata"),
+                    "chapterMetadataSHA256": identity(f"{fixture_id}-chapter-metadata"),
+                }
+                timing_rows = []
+                for ordinal, _ in enumerate(kinds):
+                    if policy == "p010_field_normalization" and ordinal == 0:
+                        timing_samples = (
+                            [sample(fixture_id, ordinal, 0, "0", "1/30")]
+                            if side == "input"
+                            else [
+                                sample(fixture_id, ordinal, 0, "0", "1/60"),
+                                sample(fixture_id, ordinal, 1, "1/60", "1/60"),
+                            ]
+                        )
+                    else:
+                        timing_samples = [sample(fixture_id, ordinal, 0, "0", "1/30")]
+                    timing_rows.append(timing_track(ordinal, timing_samples))
+                timing_observation = {
+                    "schemaVersion": qualification.MEDIA_TIMING_SCHEMA,
+                    "fixtureID": fixture_id,
+                    "side": side,
+                    "tracks": timing_rows,
+                }
+                pixels: list[dict[str, object]] = []
+                attachments: list[dict[str, object]] = []
+                if policy == "p010_field_normalization":
+                    visible = identity(f"{fixture_id}-{side}-visible")
+                    pixels = [{
+                        "ordinal": 0, "kind": "video", "pixelFormat": "x420", "bitDepth": 10,
+                        "width": 64 if side == "input" else 96,
+                        "height": 48 if side == "input" else 72,
+                        "frameCount": 1 if side == "input" else 2,
+                        "visibleSHA256": visible,
+                        "repeatVisibleSHA256": visible if side == "output" else identity(f"{fixture_id}-input-repeat"),
+                        "alphaSHA256": None, "preEncodeAlphaSHA256": None, "decodedAlphaSHA256": None,
+                        "uniqueSignalCodeCount": 512, "lowPaddingBitViolationCount": 0,
+                    }]
+                    dynamic_hash = identity("hdr10-plus")
+                    post_hash = identity("post-decode")
+                    dynamic = [{"sampleOrdinal": 0, "pts": "0", "hdr10PlusSHA256": dynamic_hash, "postDecodeSHA256": post_hash}]
+                    if side == "output":
+                        dynamic = [
+                            dynamic[0],
+                            {"sampleOrdinal": 1, "pts": "1/60", "hdr10PlusSHA256": dynamic_hash, "postDecodeSHA256": post_hash},
+                        ]
+                    attachments = [attachment_row(
+                        0,
+                        field_count=2 if side == "input" else 1,
+                        detail="temporal_top_first" if side == "input" else "progressive",
+                        cadence="interlaced_tff_2_fields_per_sample" if side == "input" else "progressive_double_rate",
+                        aspect=(4, 3),
+                        aperture=("60", "44", "0", "0") if side == "input" else ("90", "66", "0", "0"),
+                        transform=["0", "1", "-1", "0", "48", "0"] if side == "input" else ["0", "1", "-1", "0", "72", "0"],
+                        hdr=True,
+                        dynamic=dynamic,
+                    )]
+                elif policy == "alpha_geometry":
+                    association = "straight" if "straight_alpha" in spec["coverage"] else "premultiplied"
+                    visible = identity(f"{fixture_id}-{side}-visible")
+                    alpha_hash = identity(f"{fixture_id}-scaled-alpha")
+                    pixels = [{
+                        "ordinal": 0, "kind": "video", "pixelFormat": "BGRA", "bitDepth": 8,
+                        "width": 16 if side == "input" else 24,
+                        "height": 16 if side == "input" else 24,
+                        "frameCount": 1,
+                        "visibleSHA256": visible,
+                        "repeatVisibleSHA256": visible if side == "output" else identity(f"{fixture_id}-input-repeat"),
+                        "alphaSHA256": alpha_hash,
+                        "preEncodeAlphaSHA256": alpha_hash if side == "output" else None,
+                        "decodedAlphaSHA256": alpha_hash,
+                        "uniqueSignalCodeCount": 0, "lowPaddingBitViolationCount": 0,
+                    }]
+                    attachments = [attachment_row(
+                        0,
+                        aspect=(4, 3),
+                        aperture=("14", "14", "1", "1") if side == "input" else ("21", "21", "3/2", "3/2"),
+                        transform=["1", "0", "0", "1", "2", "2"] if side == "input" else ["1", "0", "0", "1", "3", "3"],
+                        alpha=association,
+                    )]
+                pixel_observation = {
+                    "schemaVersion": qualification.MEDIA_PIXEL_SCHEMA,
+                    "fixtureID": fixture_id,
+                    "side": side,
+                    "pixelArtifactSHA256": qualification.sha256(pixel_path),
+                    "pixelArtifactByteCount": pixel_path.stat().st_size,
+                    "tracks": pixels,
+                }
+                attachment_observation = {
+                    "schemaVersion": qualification.MEDIA_ATTACHMENT_SCHEMA,
+                    "fixtureID": fixture_id,
+                    "side": side,
+                    "tracks": attachments,
+                }
+                documents = {
+                    "trackObservation": track_observation,
+                    "timingObservation": timing_observation,
+                    "pixelObservation": pixel_observation,
+                    "attachmentObservation": attachment_observation,
+                }
+                file_paths = {"media": media_path, "pixels": pixel_path}
+                for name, document in documents.items():
+                    path = side_dir / {
+                        "trackObservation": "track-observation.json",
+                        "timingObservation": "timing-observation.json",
+                        "pixelObservation": "pixel-observation.json",
+                        "attachmentObservation": "attachment-observation.json",
+                    }[name]
+                    write_json(path, document)
+                    file_paths[name] = path
+                manifest = {
+                    "schemaVersion": qualification.MEDIA_SIDE_MANIFEST_SCHEMA,
+                    "fixtureID": fixture_id,
+                    "side": side,
+                    "enabledTrackCount": len(track_rows),
+                    "artifacts": {name: descriptor(path, self.root) for name, path in sorted(file_paths.items())},
+                    "semanticIdentities": {
+                        "trackSHA256": qualification.sha256_bytes(qualification.canonical_bytes(track_observation)),
+                        "timingSHA256": qualification.sha256_bytes(qualification.canonical_bytes(timing_observation)),
+                        "pixelSHA256": qualification.sha256_bytes(qualification.canonical_bytes(pixel_observation)),
+                        "attachmentSHA256": qualification.sha256_bytes(qualification.canonical_bytes(attachment_observation)),
+                    },
+                }
+                manifest_path = role_dir / "fixtures" / fixture_id / f"{side}-manifest.json"
+                write_json(manifest_path, manifest)
+                raw_side: dict[str, object] = {}
+                for name, path in file_paths.items():
+                    raw_path = raw_side_dir / path.name
+                    raw_path.write_bytes(path.read_bytes())
+                    raw_side[name] = descriptor(raw_path, raw_root)
+                side_results[side] = {"manifest": manifest, "manifestPath": manifest_path}
+                raw_descriptors[side] = raw_side
+
+            if policy == "p010_field_normalization":
+                checks = [
+                    {"id": "exact-rational-geometry-transform", "pass": True},
+                    {"id": "repeat-output-visible-pixel-identity", "pass": True},
+                    {"id": "p010-static-and-frame-bound-dynamic-hdr-identity", "pass": True},
+                    {"id": "tff-field-order-and-double-rate-cadence", "pass": True},
+                ]
+            elif policy == "alpha_geometry":
+                association = "straight" if "straight_alpha" in spec["coverage"] else "premultiplied"
+                checks = [
+                    {"id": "exact-rational-geometry-transform", "pass": True},
+                    {"id": "repeat-output-visible-pixel-identity", "pass": True},
+                    {"id": f"exact-prores4444-{association}-alpha", "pass": True},
+                ]
+            else:
+                checks = [{"id": "exact-track-timing-pixel-attachment-pass-through", "pass": True}]
+                for coverage_id in ("subtitles", "captions", "chapters", "timecode_tracks", "timed_metadata", "auxiliary_tracks"):
+                    if coverage_id in spec["coverage"]:
+                        checks.append({"id": f"{coverage_id}-present-and-accounted", "pass": True})
+                if "multiple_enabled_video_tracks" in spec["coverage"]:
+                    checks.append({"id": "multiple-enabled-video-tracks-accounted", "pass": True})
+                if "alternate_audio_tracks" in spec["coverage"]:
+                    checks.append({"id": "alternate-audio-selection-group-accounted", "pass": True})
+            violations = {
+                "unconsentedDropCount": 0, "silentToneMapCount": 0,
+                "precisionReductionCount": 0, "alphaLossCount": 0,
+                "geometryMismatchCount": 0, "metadataMismatchCount": 0,
+            }
+            verifier = {
+                "schemaVersion": qualification.MEDIA_SEMANTIC_VERIFIER_SCHEMA,
+                "fixtureID": fixture_id,
+                "policy": policy,
+                "coverage": spec["coverage"],
+                "candidateRuntimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+                "inputManifestSHA256": qualification.sha256(side_results["input"]["manifestPath"]),
+                "outputManifestSHA256": qualification.sha256(side_results["output"]["manifestPath"]),
+                "checks": checks,
+                "violationCounts": violations,
+                "exactSemanticVerifierPass": True,
+            }
+            verifier_path = role_dir / "fixtures" / fixture_id / "semantic-verifier.json"
+            write_json(verifier_path, verifier)
+            report_fixtures.append({
+                "id": fixture_id,
+                "coverage": spec["coverage"],
+                "enabledInputTrackCount": len(track_rows),
+                "accountedOutputTrackCount": len(track_rows),
+                **violations,
+                "exactSemanticVerifierPass": True,
+                "inputManifestArtifact": descriptor(side_results["input"]["manifestPath"], self.root),
+                "outputManifestArtifact": descriptor(side_results["output"]["manifestPath"], self.root),
+                "semanticVerifierArtifact": descriptor(verifier_path, self.root),
+            })
+            capture_fixtures.append({
+                "id": fixture_id,
+                "coverage": spec["coverage"],
+                "policy": policy,
+                "enabledInputTrackCount": len(track_rows),
+                "accountedOutputTrackCount": len(track_rows),
+                "production": {
+                    "releaseQualifiedRuntimeLoaded": True,
+                    "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+                    "trustRootConfigured": True,
+                    "requestedRouteExecutedWithoutFallback": True,
+                    "migrationConformant": True,
+                    "repeatedOutputIdentityPass": True,
+                },
+                "input": raw_descriptors["input"],
+                "output": raw_descriptors["output"],
+            })
+            total_enabled += len(track_rows)
+
+        capture = {
+            "schemaVersion": "mirmir-ash-v4-media-preservation-capture-v1",
+            "suiteID": lane_contract["suiteID"],
+            "laneContractSHA256": lane_contract_sha,
+            "releaseContractSHA256": contract_sha,
+            "candidate": self.candidate,
+            "identities": {
+                **tool_identities,
+                "sourceCommit": self.candidate["sourceCommit"],
+                "sourceTreeIdentitySHA256": self.candidate["sourceTreeIdentitySHA256"],
+                "runtimeManifestSHA256": self.candidate["runtimeManifestSHA256"],
+                "runtimeManifestFileSHA256": self.candidate["runtimeManifestFileSHA256"],
+                "runtimeArtifactSetSHA256": self.candidate["runtimeArtifactSetSHA256"],
+                "runtimeSourceRevision": self.candidate["runtimeSourceRevision"],
+                "releaseConfigurationSHA256": self.candidate["releaseConfigurationSHA256"],
+            },
+            "buildConfiguration": "Release",
+            "fixtures": capture_fixtures,
+        }
+        capture_path = raw_root / "capture.json"
+        write_json(capture_path, capture)
+        report.update({
+            "identities": {
+                "laneContractSHA256": lane_contract_sha,
+                **tool_identities,
+                "captureSHA256": qualification.sha256(capture_path),
+            },
+            "fixtures": report_fixtures,
+            "accountedEnabledTrackCount": total_enabled,
+            "mediaPreservationGatePass": True,
+        })
+        extra_bindings.extend([
+            ("/identities/laneContractSHA256", lane_contract_path),
+            ("/identities/captureSourceSHA256", capture_source),
+            ("/identities/fixtureSourceSHA256", fixture_source),
+            ("/identities/evaluatorSHA256", evaluator_source),
+            ("/identities/runnerSHA256", runner_source),
+            ("/identities/captureSHA256", capture_path),
+        ])
+
     def _build_common_reports(self) -> None:
         for role in self.contract["requiredEvidenceRoles"]:
             if role == "quality":
@@ -609,7 +1038,11 @@ class EvidenceFixture:
                 self._build_performance_actual()
                 continue
             role_dir = self.root / role
-            suite_contract = {"schemaVersion": f"mirmir-{role}-contract-v1", "coverageLocked": True}
+            suite_contract = (
+                {"schemaVersion": qualification.SCHEMA_CONTRACT}
+                if role == "media_preservation"
+                else {"schemaVersion": f"mirmir-{role}-contract-v1", "coverageLocked": True}
+            )
             contract_path, runtime_path, release_path = self._write_bound_files(role_dir, role, suite_contract)
             contract_sha = qualification.sha256(contract_path)
             report = self._base(role, contract_sha)
@@ -739,34 +1172,8 @@ class EvidenceFixture:
                     }
                 )
             elif role == "media_preservation":
-                input_manifest = role_dir / "input-media-manifest.json"
-                output_manifest = role_dir / "output-media-manifest.json"
-                verifier = role_dir / "semantic-verifier.json"
-                write_json(input_manifest, {"tracks": 17, "coverage": self.contract["mediaPreservationCoverage"]})
-                write_json(output_manifest, {"tracks": 17, "coverage": self.contract["mediaPreservationCoverage"]})
-                write_json(verifier, {"pass": True, "mismatchCount": 0})
-                report.update(
-                    {
-                        "fixtures": [
-                            {
-                                "id": "mandatory-delivery-matrix",
-                                "coverage": self.contract["mediaPreservationCoverage"],
-                                "enabledInputTrackCount": 17,
-                                "accountedOutputTrackCount": 17,
-                                "unconsentedDropCount": 0,
-                                "silentToneMapCount": 0,
-                                "precisionReductionCount": 0,
-                                "alphaLossCount": 0,
-                                "geometryMismatchCount": 0,
-                                "metadataMismatchCount": 0,
-                                "exactSemanticVerifierPass": True,
-                                "inputManifestArtifact": descriptor(input_manifest, self.root),
-                                "outputManifestArtifact": descriptor(output_manifest, self.root),
-                                "semanticVerifierArtifact": descriptor(verifier, self.root),
-                            }
-                        ],
-                        "mediaPreservationGatePass": True,
-                    }
+                self._build_media_preservation(
+                    role_dir, report, contract_sha, extra_bindings
                 )
             elif role == "recovery":
                 corrupt = {"corrupt_journal", "corrupt_checkpoint", "unowned_artifact_rejection"}
@@ -999,6 +1406,24 @@ class EvidenceFixture:
         sealed_descriptor.update(descriptor(sealed_path, self.root))
         self.save_index()
 
+    def reseal_role(self, role: str) -> None:
+        entry = self.entry(role)
+        role_dir = self.root / role
+        report_path = self.root / entry["path"]
+        entry.update({key: value for key, value in descriptor(report_path, self.root).items()})
+        sealed_path = self.root / entry["sealedManifest"]["path"]
+        sealed = {
+            "schemaVersion": "mirmir-test-sealed-evidence-v1",
+            "artifacts": [
+                descriptor(path, role_dir)
+                for path in sorted(role_dir.rglob("*"))
+                if path.is_file() and path != sealed_path
+            ],
+        }
+        write_json(sealed_path, sealed)
+        entry["sealedManifest"].update(descriptor(sealed_path, self.root))
+        self.save_index()
+
 
 class ReleaseQualificationV4Tests(unittest.TestCase):
     def setUp(self) -> None:
@@ -1132,6 +1557,30 @@ class ReleaseQualificationV4Tests(unittest.TestCase):
             lambda report: report["fixtures"][0].update({"unconsentedDropCount": 1}),
         )
         with self.assertRaisesRegex(qualification.QualificationError, "unconsentedDropCount"):
+            self.evaluate()
+
+    def testPreservationNestedVerifierIsIndependentlyRecomputed(self) -> None:
+        verifier_path = (
+            self.root
+            / "media_preservation"
+            / "fixtures"
+            / "combined-p010-hdr-interlaced"
+            / "semantic-verifier.json"
+        )
+        verifier = json.loads(verifier_path.read_text())
+        verifier["checks"][0]["id"] = "forged-semantic-check"
+        write_json(verifier_path, verifier)
+        self.fixture.mutate_report(
+            "media_preservation",
+            lambda report: report["fixtures"][0]["semanticVerifierArtifact"].update(
+                descriptor(verifier_path, self.root)
+            ),
+        )
+        self.fixture.reseal_role("media_preservation")
+        with self.assertRaisesRegex(
+            qualification.QualificationError,
+            "checks differ from independent recomputation",
+        ):
             self.evaluate()
 
     def testRecoveryAndP06FailuresCannotBeWaived(self) -> None:
