@@ -160,6 +160,16 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertTrue(result.verificationReport.isConformant)
         XCTAssertEqual(result.outputGraph, source)
         XCTAssertEqual(
+            result.sourceAssetMetadataSHA256,
+            result.outputAssetMetadataSHA256
+        )
+        XCTAssertEqual(
+            result.sourceChapterMetadataSHA256,
+            result.outputChapterMetadataSHA256
+        )
+        let sourceAssetMetadata = try await sourceAsset.load(.metadata)
+        XCTAssertFalse(sourceAssetMetadata.isEmpty)
+        XCTAssertEqual(
             result.trackResults.map(\.trackID),
             source.tracks.map { $0.identity.stableID }
         )
@@ -908,11 +918,62 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
-    func testNontrivialEditFailsBeforeDestinationCreation() async throws {
+    func testNontrivialEditListUsesDeterministicEncodedCompositionRoute()
+        async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
+        let mediaURL = directory.url("edit-media.mov")
         let sourceURL = directory.url("edit-source.mov")
         let destinationURL = directory.url("edit-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
+            at: mediaURL,
+            includeAudioGroup: false
+        )
+        try await TrackMigrationFixtureFactoryV4.makeEditedMovie(
+            source: mediaURL,
+            at: sourceURL
+        )
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        let editedTrack = try XCTUnwrap(source.tracks.first)
+        XCTAssertGreaterThan(editedTrack.edits.count, 1)
+        XCTAssertTrue(editedTrack.edits.contains(where: \.isEmpty))
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+        XCTAssertEqual(blueprint.tracks.first?.outcome, .requiresComposition)
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        XCTAssertEqual(
+            result.trackResults.first?.sourceSampleStreamSHA256,
+            result.trackResults.first?.outputSampleStreamSHA256
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testScaledEditFailsClosedWithTypedProcessingRequirement()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("scaled-edit-source.mov")
+        let destinationURL = directory.url("scaled-edit-output.mov")
         try await TrackMigrationFixtureFactoryV4.makeRichMovie(
             at: sourceURL,
             includeAudioGroup: false
@@ -920,7 +981,9 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         let observed = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: AVURLAsset(url: sourceURL)
         )
-        let source = try graphWithEmptyEdit(observed)
+        let source = try graphWithScaledEdit(observed)
+        let scaledTrackID = try XCTUnwrap(source.tracks.first)
+            .identity.stableID
         let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
             source: source,
@@ -938,11 +1001,13 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
                 )
             )
         ) { error in
-            guard case .unsupportedTrack(_, let reason) =
-                error as? AVFoundationTrackMigrationExecutorV4Error else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-            XCTAssertEqual(reason, "composition_required")
+            XCTAssertEqual(
+                error as? AVFoundationTrackMigrationExecutorV4Error,
+                .unsupportedTrack(
+                    scaledTrackID,
+                    reason: "scaled_edit_requires_processing"
+                )
+            )
         }
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: destinationURL.path
@@ -950,23 +1015,64 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
         XCTAssertFalse(try directory.containsPartialMovie())
     }
 
-    func testAuxiliaryOrMuxedTrackFailsExplicitlyWithoutSilentDrop()
+    func testSubtitleAndClosedCaptionTracksRoundTripEncodedStreams()
+        async throws {
+        let directory = try TrackMigrationFixtureDirectoryV4()
+        defer { directory.remove() }
+        let sourceURL = directory.url("legible-source.mov")
+        let destinationURL = directory.url("legible-output.mov")
+        try await TrackMigrationFixtureFactoryV4.makeLegibleMovie(at: sourceURL)
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
+            asset: AVURLAsset(url: sourceURL)
+        )
+        XCTAssertEqual(source.tracks.map(\.kind), [.subtitle, .caption])
+        let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
+        let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
+            source: source,
+            plan: plan
+        )
+
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
+            )
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        XCTAssertEqual(result.trackResults.count, 2)
+        XCTAssertTrue(result.trackResults.allSatisfy {
+            $0.migratedSampleCount > 0
+                && $0.sourceSampleStreamSHA256
+                    == $0.outputSampleStreamSHA256
+        })
+        XCTAssertTrue(FileManager.default.fileExists(
+            atPath: destinationURL.path
+        ))
+        XCTAssertFalse(try directory.containsPartialMovie())
+    }
+
+    func testAuxiliaryPictureTrackRoundTripsEncodedStreamWithoutSilentDrop()
         async throws {
         let directory = try TrackMigrationFixtureDirectoryV4()
         defer { directory.remove() }
         let sourceURL = directory.url("aux-source.mov")
         let destinationURL = directory.url("aux-output.mov")
-        try await TrackMigrationFixtureFactoryV4.makeRichMovie(
-            at: sourceURL,
-            includeAudioGroup: false
+        try await TrackMigrationFixtureFactoryV4.makeAuxiliaryPictureMovie(
+            at: sourceURL
         )
-        let observed = try await AVFoundationTrackGraphAdapterV4.probe(
+        let source = try await AVFoundationTrackGraphAdapterV4.probe(
             asset: AVURLAsset(url: sourceURL)
         )
-        let source = try graphReplacingFirstTrackKind(
-            observed,
-            kind: .auxiliary,
-            sourceMediaTypeID: AVMediaType.muxed.rawValue
+        XCTAssertEqual(source.tracks.count, 1)
+        XCTAssertEqual(source.tracks.first?.kind, .auxiliary)
+        XCTAssertEqual(
+            source.tracks.first?.sourceMediaTypeID,
+            "auxv"
         )
         let plan = try MediaTrackGraphPlannerV4.makePlan(source: source)
         let blueprint = try AVFoundationTrackMigrationPlannerV4.makeBlueprint(
@@ -974,27 +1080,25 @@ final class AVFoundationTrackMigrationExecutorV4Tests: XCTestCase {
             plan: plan
         )
 
-        await XCTAssertThrowsErrorAsyncV4(
-            try await AVFoundationTrackMigrationExecutorV4().execute(
-                .init(
-                    sourceURL: sourceURL,
-                    destinationURL: destinationURL,
-                    sourceGraph: source,
-                    identifiedPlan: plan,
-                    blueprint: blueprint
-                )
+        let result = try await AVFoundationTrackMigrationExecutorV4().execute(
+            .init(
+                sourceURL: sourceURL,
+                destinationURL: destinationURL,
+                sourceGraph: source,
+                identifiedPlan: plan,
+                blueprint: blueprint
             )
-        ) { error in
-            guard case .unsupportedTrack(_, let reason) =
-                error as? AVFoundationTrackMigrationExecutorV4Error else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-            XCTAssertEqual(
-                reason,
-                "auxiliary_or_muxed_writer_support_unproven"
-            )
-        }
-        XCTAssertFalse(FileManager.default.fileExists(
+        )
+
+        XCTAssertTrue(result.verificationReport.isConformant)
+        XCTAssertEqual(result.outputGraph, source)
+        let trackResult = try XCTUnwrap(result.trackResults.first)
+        XCTAssertGreaterThan(trackResult.migratedSampleCount, 0)
+        XCTAssertEqual(
+            trackResult.sourceSampleStreamSHA256,
+            trackResult.outputSampleStreamSHA256
+        )
+        XCTAssertTrue(FileManager.default.fileExists(
             atPath: destinationURL.path
         ))
         XCTAssertFalse(try directory.containsPartialMovie())
@@ -1087,17 +1191,23 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
         )
     }
 
-    func graphWithEmptyEdit(
+    func graphWithScaledEdit(
         _ source: MediaTrackGraphV4
     ) throws -> MediaTrackGraphV4 {
         guard let first = source.tracks.first else {
             throw TrackMigrationFixtureErrorV4.invalidFixture("No tracks.")
         }
-        let emptyEdit = try MediaTrackEditV4(
+        let sourceDuration = try first.timeRange.duration.divided(
+            by: ExactRationalV4(2)
+        )
+        let scaledEdit = try MediaTrackEditV4(
             ordinal: 0,
-            source: nil,
+            source: MediaExactTimeRangeV4(
+                start: first.timeRange.start,
+                duration: sourceDuration
+            ),
             target: first.timeRange,
-            isEmpty: true
+            isEmpty: false
         )
         let replacement = try MediaTrackNodeV4(
             identity: first.identity,
@@ -1108,38 +1218,7 @@ private extension AVFoundationTrackMigrationExecutorV4Tests {
             roleIDs: first.roleIDs,
             timebase: first.timebase,
             timeRange: first.timeRange,
-            edits: [emptyEdit],
-            formatDescriptors: first.formatDescriptors,
-            metadataFingerprint: first.metadataFingerprint
-        )
-        var tracks = source.tracks
-        tracks[0] = replacement
-        return try MediaTrackGraphV4(
-            tracks: tracks,
-            groups: source.groups,
-            associations: source.associations,
-            diagnostics: source.diagnostics
-        )
-    }
-
-    func graphReplacingFirstTrackKind(
-        _ source: MediaTrackGraphV4,
-        kind: MediaTrackKindV4,
-        sourceMediaTypeID: String
-    ) throws -> MediaTrackGraphV4 {
-        guard let first = source.tracks.first else {
-            throw TrackMigrationFixtureErrorV4.invalidFixture("No tracks.")
-        }
-        let replacement = try MediaTrackNodeV4(
-            identity: first.identity,
-            enabled: first.enabled,
-            kind: kind,
-            sourceMediaTypeID: sourceMediaTypeID,
-            language: first.language,
-            roleIDs: first.roleIDs,
-            timebase: first.timebase,
-            timeRange: first.timeRange,
-            edits: first.edits,
+            edits: [scaledEdit],
             formatDescriptors: first.formatDescriptors,
             metadataFingerprint: first.metadataFingerprint
         )
@@ -1424,12 +1503,227 @@ private enum TrackMigrationFixtureFactoryV4 {
         }
     }
 
+    static func makeEditedMovie(source sourceURL: URL, at outputURL: URL)
+        async throws {
+        let sourceAsset = AVURLAsset(
+            url: sourceURL,
+            options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
+        )
+        let sourceTracks = try await sourceAsset.loadTracks(
+            withMediaType: .video
+        )
+        guard let sourceTrack = sourceTracks.first else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Edit-list source has no video track."
+            )
+        }
+        let composition = AVMutableComposition()
+        guard let target = composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Could not create the edit-list composition track."
+            )
+        }
+        target.preferredTransform = try await sourceTrack.load(
+            .preferredTransform
+        )
+        target.naturalTimeScale = try await sourceTrack.load(
+            .naturalTimeScale
+        )
+
+        let frame = CMTime(value: 1, timescale: frameRate)
+        target.insertEmptyTimeRange(CMTimeRange(
+            start: .zero,
+            duration: frame
+        ))
+        try target.insertTimeRange(
+            CMTimeRange(
+                start: .zero,
+                duration: CMTimeMultiply(frame, multiplier: 3)
+            ),
+            of: sourceTrack,
+            at: frame
+        )
+        let secondEmptyStart = CMTimeMultiply(frame, multiplier: 4)
+        target.insertEmptyTimeRange(CMTimeRange(
+            start: secondEmptyStart,
+            duration: frame
+        ))
+        try target.insertTimeRange(
+            CMTimeRange(
+                start: CMTimeMultiply(frame, multiplier: 3),
+                duration: CMTimeMultiply(frame, multiplier: 3)
+            ),
+            of: sourceTrack,
+            at: CMTimeMultiply(frame, multiplier: 5)
+        )
+
+        guard let exporter = AVAssetExportSession(
+            asset: composition,
+            presetName: AVAssetExportPresetPassthrough
+        ) else {
+            throw TrackMigrationFixtureErrorV4.invalidFixture(
+                "Could not create the edit-list exporter."
+            )
+        }
+        exporter.metadata = assetMetadata()
+        try await exporter.export(to: outputURL, as: .mov)
+    }
+
+    static func makeAuxiliaryPictureMovie(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.metadata = assetMetadata()
+        let lane = makeVideoLane(
+            seed: 211,
+            title: "auxiliary-picture",
+            mediaType: .auxiliaryPicture
+        )
+        lane.input.mediaTimeScale = frameRate
+        guard writer.availableMediaTypes.contains(.auxiliaryPicture),
+              writer.canAdd(lane.input) else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                "Writer rejected an auxiliary-picture track."
+            )
+        }
+        writer.add(lane.input)
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Auxiliary writer did not start."
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        for frameIndex in 0..<frameCount {
+            try await appendFrame(
+                lane: lane,
+                frameIndex: frameIndex,
+                time: CMTime(
+                    value: CMTimeValue(frameIndex),
+                    timescale: frameRate
+                ),
+                writer: writer
+            )
+        }
+        lane.input.markAsFinished()
+        writer.endSession(atSourceTime: CMTime(
+            value: CMTimeValue(frameCount),
+            timescale: frameRate
+        ))
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Auxiliary writer did not finish."
+            )
+        }
+    }
+
+    static func makeLegibleMovie(at url: URL) async throws {
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.metadata = assetMetadata()
+        let subtitleFormat = try makeFormatDescription(
+            mediaType: kCMMediaType_Subtitle,
+            mediaSubtype: kCMTextFormatType_3GText,
+            extensions: subtitleFormatExtensions
+        )
+        let captionFormat = try makeFormatDescription(
+            mediaType: kCMMediaType_ClosedCaption,
+            mediaSubtype: kCMClosedCaptionFormatType_CEA608
+        )
+        let subtitleInput = AVAssetWriterInput(
+            mediaType: .subtitle,
+            outputSettings: nil,
+            sourceFormatHint: subtitleFormat
+        )
+        subtitleInput.mediaTimeScale = 600
+        subtitleInput.languageCode = "eng"
+        subtitleInput.extendedLanguageTag = "en-US"
+        subtitleInput.metadata = trackMetadata(title: "English subtitles")
+        let captionInput = AVAssetWriterInput(
+            mediaType: .closedCaption,
+            outputSettings: nil,
+            sourceFormatHint: captionFormat
+        )
+        captionInput.mediaTimeScale = 600
+        captionInput.languageCode = "eng"
+        captionInput.extendedLanguageTag = "en-US"
+        captionInput.metadata = trackMetadata(title: "CEA-608 captions")
+        for input in [subtitleInput, captionInput] {
+            guard writer.availableMediaTypes.contains(input.mediaType),
+                  writer.canAdd(input) else {
+                throw TrackMigrationFixtureErrorV4.writer(
+                    "Writer rejected \(input.mediaType.rawValue)."
+                )
+            }
+            writer.add(input)
+        }
+
+        guard writer.startWriting() else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Legible writer did not start."
+            )
+        }
+        writer.startSession(atSourceTime: .zero)
+        let duration = CMTime(
+            value: CMTimeValue(frameCount),
+            timescale: frameRate
+        )
+        let subtitleText = Data("ASH subtitle".utf8)
+        let subtitleLength = UInt16(subtitleText.count).bigEndian
+        var subtitleData = withUnsafeBytes(of: subtitleLength) { Data($0) }
+        subtitleData.append(subtitleText)
+        try await append(
+            try makeEncodedSampleBuffer(
+                data: subtitleData,
+                format: subtitleFormat,
+                duration: duration
+            ),
+            to: subtitleInput,
+            writer: writer
+        )
+        // QuickTime wraps CEA-608 pairs in a `cdat` atom. The first eight
+        // bytes are its big-endian size and type; the remaining bytes encode
+        // a resume-caption-loading control followed by HI.
+        let captionData = Data([
+            0x00, 0x00, 0x00, 0x0C,
+            0x63, 0x64, 0x61, 0x74,
+            0x94, 0x20, 0xC8, 0xC9
+        ])
+        try await append(
+            try makeEncodedSampleBuffer(
+                data: captionData,
+                format: captionFormat,
+                duration: duration
+            ),
+            to: captionInput,
+            writer: writer
+        )
+        subtitleInput.markAsFinished()
+        captionInput.markAsFinished()
+        writer.endSession(atSourceTime: duration)
+        await withCheckedContinuation { continuation in
+            writer.finishWriting { continuation.resume() }
+        }
+        guard writer.status == .completed else {
+            throw TrackMigrationFixtureErrorV4.writer(
+                writer.error?.localizedDescription
+                    ?? "Legible writer did not finish."
+            )
+        }
+    }
+
     static func makeRichMovie(
         at url: URL,
         includeAudioGroup: Bool,
         selectDefaultAudio: Bool = true
     ) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
+        writer.metadata = assetMetadata()
         let firstVideo = makeVideoLane(seed: 17, title: "primary-video")
         let secondVideo = makeVideoLane(seed: 113, title: "alternate-video")
         let audioFormat = try makeAudioFormatDescription()
@@ -1631,10 +1925,11 @@ private enum TrackMigrationFixtureFactoryV4 {
 
     private static func makeVideoLane(
         seed: UInt8,
-        title: String
+        title: String,
+        mediaType: AVMediaType = .video
     ) -> VideoLane {
         let input = AVAssetWriterInput(
-            mediaType: .video,
+            mediaType: mediaType,
             outputSettings: videoOutputSettings
         )
         input.mediaTimeScale = 600
@@ -1722,6 +2017,129 @@ private enum TrackMigrationFixtureFactoryV4 {
             throw TrackMigrationFixtureErrorV4.coreMedia(status)
         }
         return format
+    }
+
+    private static func makeFormatDescription(
+        mediaType: CMMediaType,
+        mediaSubtype: FourCharCode,
+        extensions: CFDictionary? = nil
+    ) throws -> CMFormatDescription {
+        var format: CMFormatDescription?
+        let status = CMFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault,
+            mediaType: mediaType,
+            mediaSubType: mediaSubtype,
+            extensions: extensions,
+            formatDescriptionOut: &format
+        )
+        guard status == noErr, let format else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return format
+    }
+
+    private static var subtitleFormatExtensions: CFDictionary {
+        let transparentBlack: [CFString: NSNumber] = [
+            kCMTextFormatDescriptionColor_Red: NSNumber(value: Int8(0)),
+            kCMTextFormatDescriptionColor_Green: NSNumber(value: Int8(0)),
+            kCMTextFormatDescriptionColor_Blue: NSNumber(value: Int8(0)),
+            kCMTextFormatDescriptionColor_Alpha: NSNumber(value: Int8(0))
+        ]
+        let opaqueWhite: [CFString: NSNumber] = [
+            kCMTextFormatDescriptionColor_Red: NSNumber(value: UInt8.max),
+            kCMTextFormatDescriptionColor_Green: NSNumber(value: UInt8.max),
+            kCMTextFormatDescriptionColor_Blue: NSNumber(value: UInt8.max),
+            kCMTextFormatDescriptionColor_Alpha: NSNumber(value: UInt8.max)
+        ]
+        let extensions: [CFString: Any] = [
+            kCMTextFormatDescriptionExtension_DisplayFlags:
+                NSNumber(value: UInt32(0)),
+            kCMTextFormatDescriptionExtension_HorizontalJustification:
+                NSNumber(value: Int8(0)),
+            kCMTextFormatDescriptionExtension_VerticalJustification:
+                NSNumber(value: Int8(-1)),
+            kCMTextFormatDescriptionExtension_BackgroundColor:
+                transparentBlack,
+            kCMTextFormatDescriptionExtension_DefaultTextBox: [
+                kCMTextFormatDescriptionRect_Top: NSNumber(value: Int16(0)),
+                kCMTextFormatDescriptionRect_Left: NSNumber(value: Int16(0)),
+                kCMTextFormatDescriptionRect_Bottom: NSNumber(value: Int16(48)),
+                kCMTextFormatDescriptionRect_Right: NSNumber(value: Int16(64))
+            ],
+            kCMTextFormatDescriptionExtension_DefaultStyle: [
+                kCMTextFormatDescriptionStyle_StartChar:
+                    NSNumber(value: Int16(0)),
+                kCMTextFormatDescriptionStyle_EndChar:
+                    NSNumber(value: Int16(0)),
+                kCMTextFormatDescriptionStyle_Font: NSNumber(value: Int16(1)),
+                kCMTextFormatDescriptionStyle_FontFace: NSNumber(value: Int8(0)),
+                kCMTextFormatDescriptionStyle_FontSize: NSNumber(value: Int8(18)),
+                kCMTextFormatDescriptionStyle_ForegroundColor: opaqueWhite
+            ],
+            kCMTextFormatDescriptionExtension_FontTable: ["1": "Helvetica"]
+        ]
+        return extensions as CFDictionary
+    }
+
+    private static func makeEncodedSampleBuffer(
+        data: Data,
+        format: CMFormatDescription,
+        duration: CMTime
+    ) throws -> CMSampleBuffer {
+        var blockBuffer: CMBlockBuffer?
+        var status = CMBlockBufferCreateWithMemoryBlock(
+            allocator: kCFAllocatorDefault,
+            memoryBlock: nil,
+            blockLength: data.count,
+            blockAllocator: kCFAllocatorDefault,
+            customBlockSource: nil,
+            offsetToData: 0,
+            dataLength: data.count,
+            flags: 0,
+            blockBufferOut: &blockBuffer
+        )
+        guard status == kCMBlockBufferNoErr, let blockBuffer else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        status = data.withUnsafeBytes { bytes in
+            guard let baseAddress = bytes.baseAddress else {
+                return kCMBlockBufferBadLengthParameterErr
+            }
+            return CMBlockBufferReplaceDataBytes(
+                with: baseAddress,
+                blockBuffer: blockBuffer,
+                offsetIntoDestination: 0,
+                dataLength: data.count
+            )
+        }
+        guard status == kCMBlockBufferNoErr else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        var timing = CMSampleTimingInfo(
+            duration: duration,
+            presentationTimeStamp: .zero,
+            decodeTimeStamp: .invalid
+        )
+        var sampleSize = data.count
+        var sampleBuffer: CMSampleBuffer?
+        status = CMSampleBufferCreate(
+            allocator: kCFAllocatorDefault,
+            dataBuffer: blockBuffer,
+            dataReady: true,
+            makeDataReadyCallback: nil,
+            refcon: nil,
+            formatDescription: format,
+            sampleCount: 1,
+            sampleTimingEntryCount: 1,
+            sampleTimingArray: &timing,
+            sampleSizeEntryCount: 1,
+            sampleSizeArray: &sampleSize,
+            sampleBufferOut: &sampleBuffer
+        )
+        guard status == noErr, let sampleBuffer else {
+            throw TrackMigrationFixtureErrorV4.coreMedia(status)
+        }
+        return sampleBuffer
     }
 
     private static func makeAudioSampleBuffer(
@@ -1902,6 +2320,20 @@ private enum TrackMigrationFixtureFactoryV4 {
         item.dataType = kCMMetadataBaseDataType_UTF8 as String
         item.value = title as NSString
         return [item]
+    }
+
+    private static func assetMetadata() -> [AVMetadataItem] {
+        let title = AVMutableMetadataItem()
+        title.identifier = .commonIdentifierTitle
+        title.dataType = kCMMetadataBaseDataType_UTF8 as String
+        title.extendedLanguageTag = "en-US"
+        title.value = "Mirmir deterministic migration fixture" as NSString
+
+        let copyright = AVMutableMetadataItem()
+        copyright.identifier = .commonIdentifierCopyrights
+        copyright.dataType = kCMMetadataBaseDataType_UTF8 as String
+        copyright.value = "Copyright 2026 ASH" as NSString
+        return [title, copyright]
     }
 
     private static func appendFrame(

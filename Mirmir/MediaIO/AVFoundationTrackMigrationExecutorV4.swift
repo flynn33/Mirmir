@@ -69,6 +69,9 @@ enum AVFoundationTrackMigrationExecutorV4Error: Error, Equatable, Sendable {
     case sourceTrackInventoryMismatch
     case readerCreationFailed(AVFoundationTrackMigrationFailureV4)
     case writerCreationFailed(AVFoundationTrackMigrationFailureV4)
+    case assetMetadataReadFailed(AVFoundationTrackMigrationFailureV4)
+    case assetMetadataMismatch(expected: ASHSHA256V4, actual: ASHSHA256V4)
+    case chapterMetadataMismatch(expected: ASHSHA256V4, actual: ASHSHA256V4)
     case readerRejectedTrack(MediaTrackStableIDV4)
     case writerRejectedTrack(MediaTrackStableIDV4)
     case writerRejectedGroup(MediaTrackGroupStableIDV4)
@@ -273,6 +276,10 @@ struct AVFoundationTrackMigrationExecutionResultV4: Equatable, Sendable {
     let sourceGraphSHA256: ASHSHA256V4
     let planSHA256: ASHSHA256V4
     let blueprintSHA256: ASHSHA256V4
+    let sourceAssetMetadataSHA256: ASHSHA256V4
+    let outputAssetMetadataSHA256: ASHSHA256V4
+    let sourceChapterMetadataSHA256: ASHSHA256V4
+    let outputChapterMetadataSHA256: ASHSHA256V4
     let trackResults: [AVFoundationTrackMigrationTrackResultV4]
     let outputGraph: MediaTrackGraphV4
     let verificationReport: MediaTrackSemanticVerificationReportV4
@@ -334,6 +341,16 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .writerCreationFailed(.init(error))
             }
+            let sourceAuxiliaryMetadata: AssetAuxiliaryMetadataIdentityV4
+            do {
+                sourceAuxiliaryMetadata = try await auxiliaryMetadataIdentity(
+                    for: sourceAsset
+                )
+            } catch {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .assetMetadataReadFailed(.init(error))
+            }
+            writer.metadata = sourceAuxiliaryMetadata.assetMetadata
 
             var pipes = try await preparePipes(
                 sourceAsset: sourceAsset,
@@ -419,6 +436,31 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 url: destination.temporaryURL,
                 options: [AVURLAssetPreferPreciseDurationAndTimingKey: true]
             )
+            let outputAuxiliaryMetadata: AssetAuxiliaryMetadataIdentityV4
+            do {
+                outputAuxiliaryMetadata = try await auxiliaryMetadataIdentity(
+                    for: outputAsset
+                )
+            } catch {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .assetMetadataReadFailed(.init(error))
+            }
+            guard outputAuxiliaryMetadata.assetMetadataSHA256
+                    == sourceAuxiliaryMetadata.assetMetadataSHA256 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .assetMetadataMismatch(
+                        expected: sourceAuxiliaryMetadata.assetMetadataSHA256,
+                        actual: outputAuxiliaryMetadata.assetMetadataSHA256
+                    )
+            }
+            guard outputAuxiliaryMetadata.chapterMetadataSHA256
+                    == sourceAuxiliaryMetadata.chapterMetadataSHA256 else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .chapterMetadataMismatch(
+                        expected: sourceAuxiliaryMetadata.chapterMetadataSHA256,
+                        actual: outputAuxiliaryMetadata.chapterMetadataSHA256
+                    )
+            }
             let observedOutputGraph = try await AVFoundationTrackGraphAdapterV4
                 .probe(asset: outputAsset)
             let outputGraph = try reconcileOutputGraph(
@@ -460,6 +502,14 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
                 sourceGraphSHA256: expectedSourceHash,
                 planSHA256: request.identifiedPlan.planSHA256,
                 blueprintSHA256: try request.blueprint.canonicalSHA256,
+                sourceAssetMetadataSHA256:
+                    sourceAuxiliaryMetadata.assetMetadataSHA256,
+                outputAssetMetadataSHA256:
+                    outputAuxiliaryMetadata.assetMetadataSHA256,
+                sourceChapterMetadataSHA256:
+                    sourceAuxiliaryMetadata.chapterMetadataSHA256,
+                outputChapterMetadataSHA256:
+                    outputAuxiliaryMetadata.chapterMetadataSHA256,
                 trackResults: pipes.map {
                     AVFoundationTrackMigrationTrackResultV4(
                         trackID: $0.trackID,
@@ -491,6 +541,74 @@ struct AVFoundationTrackMigrationExecutorV4: Sendable {
 }
 
 private extension AVFoundationTrackMigrationExecutorV4 {
+    struct AssetAuxiliaryMetadataIdentityV4 {
+        let assetMetadata: [AVMetadataItem]
+        let assetMetadataSHA256: ASHSHA256V4
+        let chapterMetadataSHA256: ASHSHA256V4
+    }
+
+    struct AssetMetadataPayloadV4: Codable {
+        let canonicalItems: [Data]
+    }
+
+    struct ChapterMetadataPayloadV4: Codable {
+        let groups: [ChapterMetadataGroupPayloadV4]
+    }
+
+    struct ChapterMetadataGroupPayloadV4: Codable {
+        let localeID: String
+        let ordinal: UInt32
+        let start: ExactRationalV4
+        let duration: ExactRationalV4
+        let canonicalItems: [Data]
+    }
+
+    struct MetadataItemPayloadV4: Codable {
+        let identifier: String?
+        let keySpace: String?
+        let commonKey: String?
+        let key: MetadataValueV4?
+        let extendedLanguageTag: String?
+        let localeID: String?
+        let startDateBitPattern: UInt64?
+        let dataType: String?
+        let time: RawMetadataTimeV4
+        let duration: RawMetadataTimeV4
+        let value: MetadataValueV4?
+        let extraAttributes: MetadataValueV4?
+    }
+
+    struct RawMetadataTimeV4: Codable {
+        let value: Int64
+        let timescale: Int32
+        let flags: UInt32
+        let epoch: Int64
+
+        init(_ time: CMTime) {
+            value = time.value
+            timescale = time.timescale
+            flags = time.flags.rawValue
+            epoch = time.epoch
+        }
+    }
+
+    struct MetadataObjectEntryV4: Codable {
+        let key: MetadataValueV4
+        let value: MetadataValueV4
+    }
+
+    indirect enum MetadataValueV4: Codable {
+        case null
+        case string(String)
+        case data(Data)
+        case date(UInt64)
+        case boolean(Bool)
+        case number(typeID: String, value: String)
+        case array([MetadataValueV4])
+        case object([MetadataObjectEntryV4])
+        case url(String)
+    }
+
     struct TrackPipe {
         let trackID: MediaTrackStableIDV4
         let action: MediaTrackActionV4
@@ -539,11 +657,15 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             case .directReaderWriter, .requiresProcessor, .authorizedDrop:
                 break
             case .requiresComposition:
-                throw AVFoundationTrackMigrationExecutorV4Error
-                    .unsupportedTrack(
-                        migration.trackID,
-                        reason: "composition_required"
-                    )
+                guard migration.action == .passThrough,
+                      migration.readerStrategy == .encodedTrackOutput,
+                      migration.writerStrategy == .sourceFormatHintInput else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            migration.trackID,
+                            reason: "composition_strategy_not_representable"
+                        )
+                }
             case .incompatible:
                 throw AVFoundationTrackMigrationExecutorV4Error
                     .unsupportedTrack(
@@ -578,17 +700,16 @@ private extension AVFoundationTrackMigrationExecutorV4 {
             AVMediaCharacteristic.audible.rawValue,
             AVMediaCharacteristic.legible.rawValue,
             AVMediaCharacteristic.frameBased.rawValue,
-            AVMediaCharacteristic.isMainProgramContent.rawValue
+            AVMediaCharacteristic.isMainProgramContent.rawValue,
+            AVMediaCharacteristic.isAuxiliaryContent.rawValue,
+            AVMediaCharacteristic.containsAlphaChannel.rawValue,
+            AVMediaCharacteristic
+                .transcribesSpokenDialogForAccessibility.rawValue,
+            AVMediaCharacteristic
+                .describesMusicAndSoundForAccessibility.rawValue
         ])
         for planned in request.identifiedPlan.plan.tracks {
             guard let expected = planned.expectedOutput else { continue }
-            if expected.kind == .auxiliary {
-                throw AVFoundationTrackMigrationExecutorV4Error
-                    .unsupportedTrack(
-                        expected.identity.stableID,
-                        reason: "auxiliary_or_muxed_writer_support_unproven"
-                    )
-            }
             if expected.formatDescriptors.contains(where: {
                 $0.completeness != .complete
             }) {
@@ -598,15 +719,39 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                         reason: "partial_or_unknown_format_descriptor"
                     )
             }
-            if expected.edits.count > 1
-                || expected.edits.contains(where: { edit in
-                    edit.isEmpty || edit.source != edit.target
-                }) {
-                throw AVFoundationTrackMigrationExecutorV4Error
-                    .unsupportedTrack(
-                        expected.identity.stableID,
-                        reason: "nontrivial_edit_requires_composition"
-                    )
+            let trackEnd = try expected.timeRange.start.adding(
+                expected.timeRange.duration
+            )
+            var previousEditEnd: ExactRationalV4?
+            for edit in expected.edits {
+                let editEnd = try edit.target.start.adding(
+                    edit.target.duration
+                )
+                guard edit.target.start >= expected.timeRange.start,
+                      editEnd <= trackEnd else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            expected.identity.stableID,
+                            reason: "edit_target_outside_track_time_range"
+                        )
+                }
+                if let previousEditEnd,
+                   previousEditEnd > edit.target.start {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            expected.identity.stableID,
+                            reason: "overlapping_edit_targets"
+                        )
+                }
+                previousEditEnd = editEnd
+                if let source = edit.source,
+                   source.duration != edit.target.duration {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .unsupportedTrack(
+                            expected.identity.stableID,
+                            reason: "scaled_edit_requires_processing"
+                        )
+                }
             }
             if !Set(expected.roleIDs).isSubset(of: intrinsicRoleIDs) {
                 throw AVFoundationTrackMigrationExecutorV4Error
@@ -743,6 +888,134 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         }
     }
 
+    func auxiliaryMetadataIdentity(
+        for asset: AVAsset
+    ) async throws -> AssetAuxiliaryMetadataIdentityV4 {
+        let assetMetadata = try await asset.load(.metadata)
+        let assetItems = try await canonicalMetadataItems(assetMetadata)
+        let assetMetadataSHA256 = try ASHCanonicalJSONV4.hash(
+            AssetMetadataPayloadV4(
+                canonicalItems: assetItems
+            ),
+            domain: "ash-avfoundation-asset-metadata-v4"
+        )
+
+        let locales = try await asset.load(.availableChapterLocales)
+            .sorted { $0.identifier < $1.identifier }
+        var chapterGroups: [ChapterMetadataGroupPayloadV4] = []
+        for locale in locales {
+            let groups = try await asset.loadChapterMetadataGroups(
+                withTitleLocale: locale
+            )
+            for (ordinal, group) in groups.enumerated() {
+                guard ordinal <= Int(UInt32.max),
+                      group.timeRange.start.isNumeric,
+                      group.timeRange.start.timescale > 0,
+                      group.timeRange.duration.isNumeric,
+                      group.timeRange.duration.timescale > 0 else {
+                    throw AVFoundationTrackMigrationExecutorV4Error
+                        .assetMetadataReadFailed(.init(nil))
+                }
+                let canonicalItems = try await canonicalMetadataItems(
+                    group.items
+                )
+                chapterGroups.append(ChapterMetadataGroupPayloadV4(
+                    localeID: locale.identifier,
+                    ordinal: UInt32(ordinal),
+                    start: try ExactRationalV4(
+                        group.timeRange.start.value,
+                        Int64(group.timeRange.start.timescale)
+                    ),
+                    duration: try ExactRationalV4(
+                        group.timeRange.duration.value,
+                        Int64(group.timeRange.duration.timescale)
+                    ),
+                    canonicalItems: canonicalItems
+                ))
+            }
+        }
+        let chapterMetadataSHA256 = try ASHCanonicalJSONV4.hash(
+            ChapterMetadataPayloadV4(groups: chapterGroups),
+            domain: "ash-avfoundation-chapter-metadata-v4"
+        )
+        return AssetAuxiliaryMetadataIdentityV4(
+            assetMetadata: assetMetadata,
+            assetMetadataSHA256: assetMetadataSHA256,
+            chapterMetadataSHA256: chapterMetadataSHA256
+        )
+    }
+
+    func canonicalMetadataItems(
+        _ items: [AVMetadataItem]
+    ) async throws -> [Data] {
+        var canonicalItems: [Data] = []
+        canonicalItems.reserveCapacity(items.count)
+        for item in items {
+            let loadedValue = try await item.load(.value)
+            let loadedExtraAttributes = try await item.load(.extraAttributes)
+            let payload = MetadataItemPayloadV4(
+                identifier: item.identifier?.rawValue,
+                keySpace: item.keySpace?.rawValue,
+                commonKey: item.commonKey?.rawValue,
+                key: try item.key.map(metadataValue),
+                extendedLanguageTag: item.extendedLanguageTag,
+                localeID: item.locale?.identifier,
+                startDateBitPattern: item.startDate.map {
+                    $0.timeIntervalSinceReferenceDate.bitPattern
+                },
+                dataType: item.dataType,
+                time: RawMetadataTimeV4(item.time),
+                duration: RawMetadataTimeV4(item.duration),
+                value: try loadedValue.map(metadataValue),
+                extraAttributes: try loadedExtraAttributes.map(metadataValue)
+            )
+            canonicalItems.append(try ASHCanonicalJSONV4.encode(payload))
+        }
+        return canonicalItems.sorted { lhs, rhs in
+            lhs.lexicographicallyPrecedes(rhs)
+        }
+    }
+
+    func metadataValue(_ value: Any) throws -> MetadataValueV4 {
+        if value is NSNull { return .null }
+        if let string = value as? String { return .string(string) }
+        if let data = value as? Data { return .data(data) }
+        if let date = value as? Date {
+            return .date(date.timeIntervalSinceReferenceDate.bitPattern)
+        }
+        if let number = value as? NSNumber {
+            if CFGetTypeID(number) == CFBooleanGetTypeID() {
+                return .boolean(number.boolValue)
+            }
+            return .number(
+                typeID: String(cString: number.objCType),
+                value: number.stringValue
+            )
+        }
+        if let array = value as? NSArray {
+            return .array(try array.map(metadataValue))
+        }
+        if let dictionary = value as? NSDictionary {
+            var entries = try dictionary.map { key, value in
+                MetadataObjectEntryV4(
+                    key: try metadataValue(key),
+                    value: try metadataValue(value)
+                )
+            }
+            entries.sort { lhs, rhs in
+                let lhsData = try? ASHCanonicalJSONV4.encode(lhs)
+                let rhsData = try? ASHCanonicalJSONV4.encode(rhs)
+                return (lhsData ?? Data()).lexicographicallyPrecedes(
+                    rhsData ?? Data()
+                )
+            }
+            return .object(entries)
+        }
+        if let url = value as? URL { return .url(url.absoluteString) }
+        throw AVFoundationTrackMigrationExecutorV4Error
+            .assetMetadataReadFailed(.init(nil))
+    }
+
     func preparePipes(
         sourceAsset: AVAsset,
         sourceGraph: MediaTrackGraphV4,
@@ -783,12 +1056,23 @@ private extension AVFoundationTrackMigrationExecutorV4 {
 
             let formatDescriptions = try await sourceTrack
                 .load(.formatDescriptions)
+            guard writer.availableMediaTypes.contains(sourceTrack.mediaType)
+            else {
+                throw AVFoundationTrackMigrationExecutorV4Error
+                    .unsupportedTrack(
+                        id,
+                        reason: "output_file_type_rejects_source_media_type"
+                    )
+            }
             let readerOutput: AVAssetReaderTrackOutput
             let writerInput: AVAssetWriterInput
             let hook = hooks[id]
             switch planned.action {
             case .passThrough:
-                guard migration.outcome == .directReaderWriter,
+                guard [
+                    AVFoundationTrackMigrationOutcomeV4.directReaderWriter,
+                    .requiresComposition
+                ].contains(migration.outcome),
                       migration.readerStrategy == .encodedTrackOutput,
                       migration.writerStrategy == .sourceFormatHintInput,
                       formatDescriptions.count == 1,
@@ -804,11 +1088,25 @@ private extension AVFoundationTrackMigrationExecutorV4 {
                     outputSettings: nil
                 )
                 readerOutput.alwaysCopiesSampleData = false
-                writerInput = AVAssetWriterInput(
-                    mediaType: sourceTrack.mediaType,
-                    outputSettings: nil,
-                    sourceFormatHint: formatDescriptions[0]
-                )
+                if sourceTrack.mediaType == .auxiliaryPicture {
+                    // Core Media deliberately reports a video format
+                    // description for an auxiliary-picture track. Passing
+                    // that description as an `auxv` source hint raises an
+                    // Objective-C exception because the media types differ.
+                    // AVAssetWriter's documented auxiliary-picture path
+                    // accepts the encoded buffers without a source hint and
+                    // derives the video sample description from the stream.
+                    writerInput = AVAssetWriterInput(
+                        mediaType: sourceTrack.mediaType,
+                        outputSettings: nil
+                    )
+                } else {
+                    writerInput = AVAssetWriterInput(
+                        mediaType: sourceTrack.mediaType,
+                        outputSettings: nil,
+                        sourceFormatHint: formatDescriptions[0]
+                    )
+                }
             case .process, .transcode:
                 guard migration.outcome == .requiresProcessor,
                       let hook else {
@@ -875,7 +1173,9 @@ private extension AVFoundationTrackMigrationExecutorV4 {
         input.metadata = try await track.load(.metadata)
         input.languageCode = try await track.load(.languageCode)
         input.extendedLanguageTag = try await track.load(.extendedLanguageTag)
-        if track.mediaType == .video || track.mediaType == .muxed {
+        if track.mediaType == .video
+            || track.mediaType == .auxiliaryPicture
+            || track.mediaType == .muxed {
             if let naturalSize = processingHook?.outputNaturalSize {
                 input.naturalSize = naturalSize
             } else {
